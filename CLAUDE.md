@@ -215,6 +215,43 @@ GOOGLE_AI_API_KEY=optional
 VITE_API_URL=http://localhost:5000/api
 ```
 
+## Learning Analytics System
+
+Comprehensive research-grade analytics for tracking all learning activities.
+
+### Analytics Models
+
+| Model | Purpose |
+|-------|---------|
+| `AuthEventLog` | Login, logout, password events |
+| `SystemEventLog` | Admin/teacher CRUD operations |
+| `AssessmentEventLog` | Submissions, grades, feedback |
+| `ContentEventLog` | Video, lectures, downloads |
+| `UserInteractionLog` | Clicks, navigation, page views |
+| `ChatbotInteractionLog` | AI conversations with config |
+
+### Export Endpoints
+
+```
+GET /api/analytics/export/csv/chatbot-logs
+GET /api/analytics/export/csv/user-interactions
+GET /api/analytics/export/csv/auth-logs
+GET /api/analytics/export/csv/system-events
+GET /api/analytics/export/csv/assessment-logs
+GET /api/analytics/export/csv/content-events
+GET /api/analytics/export/excel/all
+GET /api/analytics/export/zip/all
+GET /api/analytics/export/json/course-settings
+```
+
+### Analytics Routes
+
+- `/admin` - Analytics Dashboard with Export tab
+- All exports include both IDs and human-readable names
+- Full course/module/lecture context captured
+
+See `ANALYTICS_IMPLEMENTATION.md` for complete documentation.
+
 ## Notes
 
 1. JWT token stored in localStorage via Zustand persist
