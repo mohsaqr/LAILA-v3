@@ -303,6 +303,11 @@ export class AnalyticsExportService {
         lecture_content_type: lecture?.contentType || '',
         lecture_order_index: lecture?.orderIndex ?? '',
 
+        // === SECTION CONTEXT ===
+        section_id: (log as any).sectionId || '',
+        section_title: (log as any).sectionTitle || '',
+        section_type: (log as any).sectionType || '',
+
         // === PAGE CONTEXT ===
         page_url: log.pageUrl || '',
         page_path: log.pagePath || '',
@@ -515,6 +520,7 @@ export class AnalyticsExportService {
       lecture_title: log.lectureTitle || '',
       section_id: log.sectionId || '',
       section_title: log.sectionTitle || '',
+      section_type: (log as any).sectionType || '',
       event_type: log.eventType,
       video_position: log.videoPosition ?? '',
       video_duration: log.videoDuration ?? '',

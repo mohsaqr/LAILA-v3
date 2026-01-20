@@ -32,6 +32,10 @@ export interface InteractionEventData {
   courseId?: number;
   moduleId?: number;
   lectureId?: number;
+  // Section context
+  sectionId?: number;
+  sectionTitle?: string;
+  sectionType?: string;
 }
 
 export interface BulkInteractionData {
@@ -190,6 +194,11 @@ export class AnalyticsService {
         moduleTitle: moduleContext?.title,
         lectureId: event.lectureId,
         lectureTitle: lectureContext?.title,
+
+        // Section context
+        sectionId: event.sectionId,
+        sectionTitle: event.sectionTitle,
+        sectionType: event.sectionType,
 
         // Event details
         eventType: event.type,
@@ -497,6 +506,11 @@ export class AnalyticsService {
           moduleTitle: i.moduleTitle,
           lectureId: i.lectureId,
           lectureTitle: i.lectureTitle,
+
+          // Section context
+          sectionId: (i as any).sectionId,
+          sectionTitle: (i as any).sectionTitle,
+          sectionType: (i as any).sectionType,
 
           // Element
           elementId: i.elementId,

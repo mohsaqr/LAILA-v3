@@ -32,6 +32,10 @@ export interface InteractionEvent {
   courseId?: number;
   moduleId?: number;
   lectureId?: number;
+  // Section context
+  sectionId?: number;
+  sectionTitle?: string;
+  sectionType?: string;
 }
 
 export interface ChatbotInteractionEvent {
@@ -190,7 +194,23 @@ function getClientInfo(): ClientInfo {
 // COURSE CONTEXT EXTRACTION
 // ============================================================================
 
-function extractCourseContext(): { courseId?: number; moduleId?: number; lectureId?: number } {
+// Helper to safely parse int, returning undefined for NaN
+const safeParseInt = (val: string | null | undefined): number | undefined => {
+  if (!val) return undefined;
+  const num = parseInt(val, 10);
+  return isNaN(num) ? undefined : num;
+};
+
+interface FullContext {
+  courseId?: number;
+  moduleId?: number;
+  lectureId?: number;
+  sectionId?: number;
+  sectionTitle?: string;
+  sectionType?: string;
+}
+
+function extractCourseContext(element?: HTMLElement | null): FullContext {
   const path = window.location.pathname;
 
   // Match patterns like /learn/123, /learn/123/lecture/456, /courses/123, /teach/courses/123
@@ -199,7 +219,7 @@ function extractCourseContext(): { courseId?: number; moduleId?: number; lecture
 
   // Try to get context from data attributes on the page (set by the Learn component)
   const contextEl = document.querySelector('[data-analytics-context]');
-  let dataContext: { courseId?: number; moduleId?: number; lectureId?: number } = {};
+  let dataContext: FullContext = {};
 
   if (contextEl) {
     const contextData = contextEl.getAttribute('data-analytics-context');
@@ -217,17 +237,27 @@ function extractCourseContext(): { courseId?: number; moduleId?: number; lecture
   const moduleEl = document.querySelector('[data-module-id]');
   const lectureEl = document.querySelector('[data-lecture-id]');
 
-  // Helper to safely parse int, returning undefined for NaN
-  const safeParseInt = (val: string | null | undefined): number | undefined => {
-    if (!val) return undefined;
-    const num = parseInt(val, 10);
-    return isNaN(num) ? undefined : num;
-  };
+  // Try to find section context from the clicked element's parents
+  let sectionId: number | undefined;
+  let sectionTitle: string | undefined;
+  let sectionType: string | undefined;
+
+  if (element) {
+    const sectionEl = element.closest('[data-section-id]');
+    if (sectionEl) {
+      sectionId = safeParseInt(sectionEl.getAttribute('data-section-id'));
+      sectionTitle = sectionEl.getAttribute('data-section-title') || undefined;
+      sectionType = sectionEl.getAttribute('data-section-type') || undefined;
+    }
+  }
 
   return {
     courseId: dataContext.courseId || safeParseInt(courseMatch?.[1]) || safeParseInt(courseEl?.getAttribute('data-course-id')),
     moduleId: dataContext.moduleId || safeParseInt(moduleEl?.getAttribute('data-module-id')),
     lectureId: dataContext.lectureId || safeParseInt(lectureMatch?.[1]) || safeParseInt(lectureEl?.getAttribute('data-lecture-id')),
+    sectionId,
+    sectionTitle,
+    sectionType,
   };
 }
 
@@ -328,7 +358,8 @@ class AnalyticsService {
       if (!trackable) return;
 
       const element = trackable as HTMLElement;
-      const courseContext = extractCourseContext();
+      // Pass the element to extract section context from its parent elements
+      const courseContext = extractCourseContext(element);
 
       this.trackClick({
         elementId: element.id || undefined,
@@ -468,6 +499,9 @@ class AnalyticsService {
     courseId?: number;
     moduleId?: number;
     lectureId?: number;
+    sectionId?: number;
+    sectionTitle?: string;
+    sectionType?: string;
     metadata?: Record<string, unknown>;
   }) {
     this.track({

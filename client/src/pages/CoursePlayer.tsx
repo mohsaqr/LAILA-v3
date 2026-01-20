@@ -25,42 +25,55 @@ import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStuden
 import { AssignmentSectionStudent } from '../components/course/AssignmentSectionStudent';
 import { LectureSection } from '../types';
 
-// Section renderer for different section types
+// Section renderer for different section types - with analytics tracking
 const SectionRenderer = ({ section, courseId }: { section: LectureSection; courseId: number }) => {
+  // Common tracking attributes for this section
+  const trackingAttrs = {
+    'data-section-id': section.id,
+    'data-section-title': section.title || '',
+    'data-section-type': section.type,
+    'data-section-order': section.order,
+    'data-track-category': 'section',
+  };
+
   switch (section.type) {
     case 'text':
     case 'ai-generated':
       return (
-        <Card>
-          {section.title && (
-            <div className="px-6 py-3 border-b border-gray-100 bg-gray-50">
-              <div className="flex items-center gap-2">
-                {section.type === 'ai-generated' && <Sparkles className="w-4 h-4 text-purple-500" />}
-                <h3 className="font-medium text-gray-900">{section.title}</h3>
+        <div {...trackingAttrs} data-track={`section-view-${section.type}`}>
+          <Card>
+            {section.title && (
+              <div className="px-6 py-3 border-b border-gray-100 bg-gray-50">
+                <div className="flex items-center gap-2">
+                  {section.type === 'ai-generated' && <Sparkles className="w-4 h-4 text-purple-500" />}
+                  <h3 className="font-medium text-gray-900">{section.title}</h3>
+                </div>
               </div>
-            </div>
-          )}
-          <CardBody>
-            {section.content ? (
-              <div className="prose max-w-none">
-                <ReactMarkdown>{section.content}</ReactMarkdown>
-              </div>
-            ) : (
-              <p className="text-gray-500 italic">No content yet</p>
             )}
-          </CardBody>
-        </Card>
+            <CardBody>
+              {section.content ? (
+                <div className="prose max-w-none">
+                  <ReactMarkdown>{section.content}</ReactMarkdown>
+                </div>
+              ) : (
+                <p className="text-gray-500 italic">No content yet</p>
+              )}
+            </CardBody>
+          </Card>
+        </div>
       );
 
     case 'file':
       if (!section.fileUrl) {
         return (
-          <Card>
-            <CardBody className="text-center py-6">
-              <Upload className="w-8 h-8 mx-auto text-gray-400 mb-2" />
-              <p className="text-gray-500">No file uploaded</p>
-            </CardBody>
-          </Card>
+          <div {...trackingAttrs} data-track="section-file-empty">
+            <Card>
+              <CardBody className="text-center py-6">
+                <Upload className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+                <p className="text-gray-500">No file uploaded</p>
+              </CardBody>
+            </Card>
+          </div>
         );
       }
 
@@ -70,64 +83,84 @@ const SectionRenderer = ({ section, courseId }: { section: LectureSection; cours
       const isPdf = section.fileType === 'application/pdf';
 
       return (
-        <Card>
-          {section.title && (
-            <div className="px-6 py-3 border-b border-gray-100 bg-gray-50">
-              <h3 className="font-medium text-gray-900">{section.title}</h3>
-            </div>
-          )}
-          <CardBody>
-            {isImage ? (
-              <img
-                src={section.fileUrl}
-                alt={section.fileName || 'Section image'}
-                className="max-w-full rounded-lg"
-              />
-            ) : isPdf ? (
-              <div>
-                <iframe
+        <div {...trackingAttrs} data-track={`section-file-${isPdf ? 'pdf' : isImage ? 'image' : 'download'}`} data-file-name={section.fileName} data-file-type={section.fileType}>
+          <Card>
+            {section.title && (
+              <div className="px-6 py-3 border-b border-gray-100 bg-gray-50">
+                <h3 className="font-medium text-gray-900">{section.title}</h3>
+              </div>
+            )}
+            <CardBody>
+              {isImage ? (
+                <img
                   src={section.fileUrl}
-                  className="w-full h-[600px] rounded-lg border"
-                  title={section.fileName || 'PDF document'}
+                  alt={section.fileName || 'Section image'}
+                  className="max-w-full rounded-lg"
+                  data-track="image-view"
+                  data-track-label={section.fileName}
                 />
+              ) : isPdf ? (
+                <div>
+                  <iframe
+                    src={section.fileUrl}
+                    className="w-full h-[600px] rounded-lg border"
+                    title={section.fileName || 'PDF document'}
+                    data-track="pdf-view"
+                    data-track-label={section.fileName}
+                  />
+                  <a
+                    href={section.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-flex items-center gap-2 text-primary-600 hover:underline"
+                    data-track="file-download"
+                    data-track-label={section.fileName}
+                    data-track-category="content"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download {section.fileName}
+                  </a>
+                </div>
+              ) : (
                 <a
                   href={section.fileUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-3 inline-flex items-center gap-2 text-primary-600 hover:underline"
+                  className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  data-track="file-download"
+                  data-track-label={section.fileName}
+                  data-track-category="content"
                 >
-                  <Download className="w-4 h-4" />
-                  Download {section.fileName}
+                  <FileText className="w-8 h-8 text-gray-500" />
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900">{section.fileName}</p>
+                    {section.fileSize && (
+                      <p className="text-sm text-gray-500">
+                        {(section.fileSize / 1024).toFixed(1)} KB
+                      </p>
+                    )}
+                  </div>
+                  <Download className="w-5 h-5 text-gray-400" />
                 </a>
-              </div>
-            ) : (
-              <a
-                href={section.fileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <FileText className="w-8 h-8 text-gray-500" />
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900">{section.fileName}</p>
-                  {section.fileSize && (
-                    <p className="text-sm text-gray-500">
-                      {(section.fileSize / 1024).toFixed(1)} KB
-                    </p>
-                  )}
-                </div>
-                <Download className="w-5 h-5 text-gray-400" />
-              </a>
-            )}
-          </CardBody>
-        </Card>
+              )}
+            </CardBody>
+          </Card>
+        </div>
       );
 
     case 'chatbot':
-      return <ChatbotSectionStudent section={section} />;
+      return (
+        <div {...trackingAttrs} data-track="section-chatbot">
+          <ChatbotSectionStudent section={section} />
+        </div>
+      );
 
     case 'assignment':
-      return <AssignmentSectionStudent section={section} courseId={courseId} />;
+      return (
+        <div {...trackingAttrs} data-track="section-assignment">
+          <AssignmentSectionStudent section={section} courseId={courseId} />
+        </div>
+      );
 
     default:
       return null;
@@ -303,6 +336,11 @@ export const CoursePlayer = () => {
                     className={`w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-gray-50 ${
                       currentLectureId === lec.id ? 'bg-primary-50 border-r-2 border-primary-500' : ''
                     }`}
+                    data-track="sidebar-lecture-select"
+                    data-track-category="navigation"
+                    data-track-label={lec.title}
+                    data-lecture-id={lec.id}
+                    data-module-id={module.id}
                   >
                     {isLectureCompleted(lec.id) ? (
                       <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
@@ -360,7 +398,15 @@ export const CoursePlayer = () => {
 
               {/* Video */}
               {lecture.videoUrl && (
-                <div className="mb-6 aspect-video bg-black rounded-lg overflow-hidden">
+                <div
+                  className="mb-6 aspect-video bg-black rounded-lg overflow-hidden"
+                  data-section-id="video"
+                  data-section-title="Video"
+                  data-section-type="video"
+                  data-track="video-view"
+                  data-track-category="content"
+                  data-track-label={lecture.title}
+                >
                   <iframe
                     src={lecture.videoUrl}
                     className="w-full h-full"
@@ -371,7 +417,12 @@ export const CoursePlayer = () => {
 
               {/* Legacy Content */}
               {lecture.content && (
-                <Card className="mb-6">
+                <Card
+                  className="mb-6"
+                  data-section-id="legacy-content"
+                  data-section-title="Lecture Content"
+                  data-section-type="legacy-text"
+                >
                   <CardBody>
                     <div className="prose max-w-none">
                       <ReactMarkdown>{lecture.content}</ReactMarkdown>
@@ -397,7 +448,12 @@ export const CoursePlayer = () => {
 
               {/* Attachments */}
               {lecture.attachments && lecture.attachments.length > 0 && (
-                <Card className="mb-6">
+                <Card
+                  className="mb-6"
+                  data-section-id="attachments"
+                  data-section-title="Attachments"
+                  data-section-type="attachments"
+                >
                   <CardBody>
                     <h3 className="font-medium text-gray-900 mb-3">Attachments</h3>
                     <div className="space-y-2">
@@ -408,6 +464,9 @@ export const CoursePlayer = () => {
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
+                          data-track="attachment-download"
+                          data-track-category="content"
+                          data-track-label={attachment.fileName}
                         >
                           <FileText className="w-5 h-5 text-gray-500" />
                           <span className="flex-1 text-sm text-gray-700">{attachment.fileName}</span>
@@ -425,6 +484,9 @@ export const CoursePlayer = () => {
                   onClick={() => completeMutation.mutate()}
                   loading={completeMutation.isPending}
                   className="w-full"
+                  data-track="lesson-complete"
+                  data-track-category="progress"
+                  data-track-label={lecture.title}
                 >
                   <CheckCircle className="w-5 h-5" />
                   Mark as Complete
@@ -435,6 +497,9 @@ export const CoursePlayer = () => {
                 <Button
                   onClick={() => setCurrentLectureId(nextLecture.id)}
                   className="w-full"
+                  data-track="lesson-next"
+                  data-track-category="navigation"
+                  data-track-label="Continue to Next Lesson"
                 >
                   Continue to Next Lesson
                   <ChevronRight className="w-5 h-5" />
