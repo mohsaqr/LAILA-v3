@@ -3,49 +3,179 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
-  MousePointer,
+  Activity,
   MessageCircle,
+  MousePointer,
+  Download,
+  Filter,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
   Users,
   Clock,
-  Download,
-  Eye,
   Bot,
   User,
   FileText,
   BarChart3,
-  Activity,
   Monitor,
   BookOpen,
   Layers,
   Hash,
   Zap,
   X,
+  Loader2,
+  CheckCircle,
 } from 'lucide-react';
-import { analyticsApi } from '../../api/admin';
+import { activityLogApi, analyticsApi } from '../../api/admin';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
-import { ExportPanel } from '../../components/admin/ExportPanel';
 
-export const AnalyticsDashboard = () => {
-  const [activeTab, setActiveTab] = useState<'interactions' | 'chatbot' | 'export'>('chatbot');
+// Verb and Object Type constants
+const VERBS = [
+  'enrolled', 'unenrolled', 'viewed', 'started', 'completed', 'progressed',
+  'paused', 'resumed', 'seeked', 'scrolled', 'downloaded', 'submitted',
+  'graded', 'messaged', 'received', 'cleared', 'interacted',
+];
+
+const OBJECT_TYPES = [
+  'course', 'module', 'lecture', 'section', 'video',
+  'assignment', 'chatbot', 'file', 'quiz',
+];
+
+const verbColors: Record<string, string> = {
+  enrolled: 'bg-green-100 text-green-800',
+  unenrolled: 'bg-red-100 text-red-800',
+  viewed: 'bg-blue-100 text-blue-800',
+  started: 'bg-purple-100 text-purple-800',
+  completed: 'bg-green-100 text-green-800',
+  progressed: 'bg-cyan-100 text-cyan-800',
+  paused: 'bg-amber-100 text-amber-800',
+  resumed: 'bg-cyan-100 text-cyan-800',
+  submitted: 'bg-green-100 text-green-800',
+  graded: 'bg-red-100 text-red-800',
+  messaged: 'bg-blue-100 text-blue-800',
+  received: 'bg-cyan-100 text-cyan-800',
+  downloaded: 'bg-purple-100 text-purple-800',
+};
+
+type TabType = 'activity' | 'chatbot' | 'interactions';
+
+export const LogsDashboard = () => {
+  const [activeTab, setActiveTab] = useState<TabType>('activity');
   const [selectedChatbotLog, setSelectedChatbotLog] = useState<any | null>(null);
+  const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
-  // Fetch interaction summary
-  const { data: interactionSummary, isLoading: interactionsLoading } = useQuery({
-    queryKey: ['interactionSummary'],
-    queryFn: () => analyticsApi.getInteractionSummary(),
-    enabled: activeTab === 'interactions',
+  // Activity Log filters
+  const [activityFilters, setActivityFilters] = useState({
+    verb: '',
+    objectType: '',
+    startDate: '',
+    endDate: '',
+    page: 1,
+    limit: 25,
   });
 
-  // Fetch chatbot summary
-  const { data: chatbotSummary, isLoading: chatbotLoading } = useQuery({
+  // Activity Log queries
+  const { data: activityLogsData, isLoading: activityLoading, refetch: refetchActivity } = useQuery({
+    queryKey: ['activityLogs', activityFilters],
+    queryFn: () => activityLogApi.getLogs(activityFilters),
+    enabled: activeTab === 'activity',
+  });
+
+  const { data: activityStats } = useQuery({
+    queryKey: ['activityLogStats', activityFilters.startDate, activityFilters.endDate],
+    queryFn: () => activityLogApi.getStats({
+      startDate: activityFilters.startDate || undefined,
+      endDate: activityFilters.endDate || undefined,
+    }),
+    enabled: activeTab === 'activity',
+  });
+
+  // Chatbot Log queries
+  const { data: chatbotSummary, isLoading: chatbotLoading, refetch: refetchChatbot } = useQuery({
     queryKey: ['chatbotSummary'],
     queryFn: () => analyticsApi.getChatbotSummary(),
     enabled: activeTab === 'chatbot',
   });
 
+  // Interactions queries
+  const { data: interactionSummary, isLoading: interactionsLoading, refetch: refetchInteractions } = useQuery({
+    queryKey: ['interactionSummary'],
+    queryFn: () => analyticsApi.getInteractionSummary(),
+    enabled: activeTab === 'interactions',
+  });
+
+  const handleExportActivity = async () => {
+    setExportStatus('loading');
+    try {
+      await activityLogApi.exportCSV(activityFilters);
+      setExportStatus('success');
+      setTimeout(() => setExportStatus('idle'), 2000);
+    } catch (error: any) {
+      console.error('Export failed:', error);
+      setExportStatus('error');
+      alert(`Export failed: ${error?.message || 'Unknown error'}. Check console for details.`);
+      setTimeout(() => setExportStatus('idle'), 2000);
+    }
+  };
+
+  const handleExportChatbot = async () => {
+    setExportStatus('loading');
+    try {
+      const data = await analyticsApi.exportChatbotLogs();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chatbot-logs-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setExportStatus('success');
+      setTimeout(() => setExportStatus('idle'), 2000);
+    } catch (error: any) {
+      console.error('Export failed:', error);
+      setExportStatus('error');
+      alert(`Export failed: ${error?.message || 'Unknown error'}. Check console for details.`);
+      setTimeout(() => setExportStatus('idle'), 2000);
+    }
+  };
+
+  const handleExportInteractions = async () => {
+    setExportStatus('loading');
+    try {
+      const data = await analyticsApi.exportInteractions();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `interactions-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setExportStatus('success');
+      setTimeout(() => setExportStatus('idle'), 2000);
+    } catch (error: any) {
+      console.error('Export failed:', error);
+      setExportStatus('error');
+      alert(`Export failed: ${error?.message || 'Unknown error'}. Check console for details.`);
+      setTimeout(() => setExportStatus('idle'), 2000);
+    }
+  };
+
   const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const formatFullDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -56,51 +186,11 @@ export const AnalyticsDashboard = () => {
     });
   };
 
-  const formatRelativeTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffSecs = Math.floor(diffMs / 1000);
-    const diffMins = Math.floor(diffSecs / 60);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffSecs < 60) return `${diffSecs}s ago`;
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return formatDate(dateStr);
-  };
-
-  const handleExportInteractions = async () => {
-    try {
-      const data = await analyticsApi.exportInteractions();
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `interactions-${Date.now()}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Export failed:', error);
-    }
-  };
-
-  const handleExportChatbot = async () => {
-    try {
-      const data = await analyticsApi.exportChatbotLogs();
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `chatbot-logs-${Date.now()}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Export failed:', error);
-    }
-  };
+  const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
+    { id: 'activity', label: 'Activity Log', icon: <Activity className="w-4 h-4" /> },
+    { id: 'chatbot', label: 'Chatbot Logs', icon: <MessageCircle className="w-4 h-4" /> },
+    { id: 'interactions', label: 'User Interactions', icon: <MousePointer className="w-4 h-4" /> },
+  ];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -116,60 +206,262 @@ export const AnalyticsDashboard = () => {
       <Card className="mb-6">
         <CardBody className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h1>
-            <p className="text-gray-600">Comprehensive logging for every interaction and chatbot conversation</p>
+            <h1 className="text-2xl font-bold text-gray-900">Logs & Analytics</h1>
+            <p className="text-gray-600">Comprehensive logging for all platform activities</p>
           </div>
-          <div className="flex items-center gap-2">
-            <BarChart3 className="w-8 h-8 text-primary-600" />
-          </div>
+          <BarChart3 className="w-8 h-8 text-primary-600" />
         </CardBody>
       </Card>
 
       {/* Tab Navigation */}
-      <div className="flex gap-2 mb-6">
-        <button
-          onClick={() => setActiveTab('chatbot')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-            activeTab === 'chatbot'
-              ? 'bg-primary-600 text-white'
-              : 'bg-white text-gray-700 hover:bg-gray-100 border'
-          }`}
-        >
-          <MessageCircle className="w-4 h-4" />
-          Chatbot Logs
-        </button>
-        <button
-          onClick={() => setActiveTab('interactions')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-            activeTab === 'interactions'
-              ? 'bg-primary-600 text-white'
-              : 'bg-white text-gray-700 hover:bg-gray-100 border'
-          }`}
-        >
-          <MousePointer className="w-4 h-4" />
-          User Interactions
-        </button>
-        <button
-          onClick={() => setActiveTab('export')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-            activeTab === 'export'
-              ? 'bg-primary-600 text-white'
-              : 'bg-white text-gray-700 hover:bg-gray-100 border'
-          }`}
-        >
-          <Download className="w-4 h-4" />
-          Export Data
-        </button>
+      <div className="flex gap-2 mb-6 border-b border-gray-200 pb-4">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+              activeTab === tab.id
+                ? 'bg-primary-600 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-100 border'
+            }`}
+          >
+            {tab.icon}
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* Chatbot Tab */}
+      {/* Activity Log Tab */}
+      {activeTab === 'activity' && (
+        <>
+          {/* Stats Cards */}
+          {activityStats && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <Card>
+                <CardBody className="p-4">
+                  <div className="text-sm text-gray-500">Total Activities</div>
+                  <div className="text-2xl font-bold">{activityStats.totalActivities?.toLocaleString() || 0}</div>
+                </CardBody>
+              </Card>
+              <Card>
+                <CardBody className="p-4">
+                  <div className="text-sm text-gray-500">Unique Verbs</div>
+                  <div className="text-2xl font-bold">{Object.keys(activityStats.activitiesByVerb || {}).length}</div>
+                </CardBody>
+              </Card>
+              <Card>
+                <CardBody className="p-4">
+                  <div className="text-sm text-gray-500">Object Types</div>
+                  <div className="text-2xl font-bold">{Object.keys(activityStats.activitiesByObjectType || {}).length}</div>
+                </CardBody>
+              </Card>
+              <Card>
+                <CardBody className="p-4">
+                  <div className="text-sm text-gray-500">Most Common</div>
+                  <div className="text-2xl font-bold">
+                    {activityStats.activitiesByVerb ? Object.entries(activityStats.activitiesByVerb).sort((a, b) => (b[1] as number) - (a[1] as number))[0]?.[0] || '-' : '-'}
+                  </div>
+                </CardBody>
+              </Card>
+            </div>
+          )}
+
+          {/* Filters */}
+          <Card className="mb-6">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4" />
+                  Filters
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => refetchActivity()}>
+                    <RefreshCw className="w-4 h-4 mr-1" />
+                    Refresh
+                  </Button>
+                  <Button size="sm" onClick={handleExportActivity} disabled={exportStatus === 'loading'}>
+                    {exportStatus === 'loading' ? (
+                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                    ) : exportStatus === 'success' ? (
+                      <CheckCircle className="w-4 h-4 mr-1 text-green-500" />
+                    ) : (
+                      <Download className="w-4 h-4 mr-1" />
+                    )}
+                    {exportStatus === 'loading' ? 'Exporting...' : exportStatus === 'success' ? 'Done!' : 'Export CSV'}
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardBody>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Verb</label>
+                  <select
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                    value={activityFilters.verb}
+                    onChange={(e) => setActivityFilters({ ...activityFilters, verb: e.target.value, page: 1 })}
+                  >
+                    <option value="">All Verbs</option>
+                    {VERBS.map((v) => (
+                      <option key={v} value={v}>{v}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Object Type</label>
+                  <select
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                    value={activityFilters.objectType}
+                    onChange={(e) => setActivityFilters({ ...activityFilters, objectType: e.target.value, page: 1 })}
+                  >
+                    <option value="">All Types</option>
+                    {OBJECT_TYPES.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                    value={activityFilters.startDate}
+                    onChange={(e) => setActivityFilters({ ...activityFilters, startDate: e.target.value, page: 1 })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                  <input
+                    type="date"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                    value={activityFilters.endDate}
+                    onChange={(e) => setActivityFilters({ ...activityFilters, endDate: e.target.value, page: 1 })}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setActivityFilters({ verb: '', objectType: '', startDate: '', endDate: '', page: 1, limit: 25 })}
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+
+          {/* Logs Table */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <span>Activity Logs</span>
+                {activityLogsData?.pagination && (
+                  <span className="text-sm text-gray-500">
+                    {activityLogsData.pagination.total.toLocaleString()} total records
+                  </span>
+                )}
+              </div>
+            </CardHeader>
+            <CardBody className="p-0">
+              {activityLoading ? (
+                <div className="p-8"><Loading /></div>
+              ) : activityLogsData?.logs?.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">No activity logs found</div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">Timestamp</th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">User</th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">Verb</th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">Object</th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">Course</th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">Context</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {activityLogsData?.logs?.map((log: any) => (
+                          <tr key={log.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 whitespace-nowrap text-gray-600">
+                              {formatDate(log.timestamp)}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="font-medium">{log.userFullname || 'Unknown'}</div>
+                              <div className="text-xs text-gray-500">{log.userEmail}</div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${verbColors[log.verb] || 'bg-gray-100 text-gray-800'}`}>
+                                {log.verb}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="font-medium">{log.objectType}</div>
+                              {log.objectTitle && (
+                                <div className="text-xs text-gray-500 truncate max-w-[200px]">{log.objectTitle}</div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              {log.courseTitle ? (
+                                <div className="text-xs text-gray-600 truncate max-w-[150px]">{log.courseTitle}</div>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-gray-500">
+                              {log.moduleTitle && <div>Module: {log.moduleTitle}</div>}
+                              {log.lectureTitle && <div>Lecture: {log.lectureTitle}</div>}
+                              {log.progress !== null && <div>Progress: {log.progress}%</div>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination */}
+                  {activityLogsData?.pagination && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t">
+                      <div className="text-sm text-gray-600">
+                        Page {activityLogsData.pagination.page} of {activityLogsData.pagination.totalPages}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={activityLogsData.pagination.page <= 1}
+                          onClick={() => setActivityFilters({ ...activityFilters, page: activityFilters.page - 1 })}
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={activityLogsData.pagination.page >= activityLogsData.pagination.totalPages}
+                          onClick={() => setActivityFilters({ ...activityFilters, page: activityFilters.page + 1 })}
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </CardBody>
+          </Card>
+        </>
+      )}
+
+      {/* Chatbot Logs Tab */}
       {activeTab === 'chatbot' && (
         <>
           {chatbotLoading ? (
-            <Loading text="Loading chatbot analytics..." />
+            <Loading text="Loading chatbot logs..." />
           ) : chatbotSummary ? (
             <>
-              {/* Stats Row 1 */}
+              {/* Stats Row */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <Card>
                   <CardBody className="flex items-center gap-4">
@@ -388,85 +680,124 @@ export const AnalyticsDashboard = () => {
               <Card>
                 <CardHeader className="flex items-center justify-between">
                   <h3 className="font-semibold text-gray-900">Recent Chatbot Interactions</h3>
-                  <Button variant="ghost" size="sm" onClick={handleExportChatbot} icon={<Download className="w-4 h-4" />}>
-                    Export All
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => refetchChatbot()}>
+                      <RefreshCw className="w-4 h-4 mr-1" />
+                      Refresh
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={handleExportChatbot} disabled={exportStatus === 'loading'}>
+                      {exportStatus === 'loading' ? (
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4 mr-1" />
+                      )}
+                      Export JSON
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardBody className="p-0">
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 border-b">
                         <tr>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">User</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Course / Module / Lecture</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Timestamp</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">From</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Chatbot</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Event</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Course</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Content</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Model</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Device</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase"></th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {chatbotSummary.recentLogs?.map((item: any) => (
-                          <tr key={item.id} className="hover:bg-gray-50">
-                            <td className="px-3 py-2 text-gray-500 whitespace-nowrap">
-                              <div className="flex flex-col">
-                                <span className="font-medium">{formatRelativeTime(item.timestamp)}</span>
-                                <span className="text-xs text-gray-400">{formatDate(item.timestamp)}</span>
-                              </div>
-                            </td>
-                            <td className="px-3 py-2">
-                              <div className="flex flex-col">
-                                <span className="font-medium text-gray-900">{item.userFullname || 'Anonymous'}</span>
-                                <span className="text-xs text-gray-400">{item.userEmail}</span>
-                              </div>
-                            </td>
-                            <td className="px-3 py-2">
-                              <div className="flex flex-col text-xs">
-                                <span className="text-blue-600">{item.courseTitle || '-'}</span>
-                                <span className="text-gray-500">{item.moduleTitle} &gt; {item.lectureTitle}</span>
-                              </div>
-                            </td>
-                            <td className="px-3 py-2 text-gray-600">
-                              {item.chatbotTitle || 'Unnamed'}
-                            </td>
-                            <td className="px-3 py-2">
-                              <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                item.eventType === 'error' ? 'bg-red-100 text-red-700' :
-                                item.eventType === 'message_received' ? 'bg-green-100 text-green-700' :
-                                item.eventType === 'message_sent' ? 'bg-blue-100 text-blue-700' :
-                                item.eventType === 'conversation_start' ? 'bg-purple-100 text-purple-700' :
-                                'bg-gray-100 text-gray-700'
-                              }`}>
-                                {item.eventType?.replace(/_/g, ' ')}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-gray-500 font-mono text-xs">
-                              {item.aiModel || '-'}
-                            </td>
-                            <td className="px-3 py-2 text-gray-500">
-                              {item.responseTime ? `${item.responseTime.toFixed(2)}s` : '-'}
-                            </td>
-                            <td className="px-3 py-2">
-                              <div className="flex flex-col text-xs text-gray-500">
-                                <span>{item.deviceType || '-'}</span>
-                                <span>{item.browserName}</span>
-                              </div>
-                            </td>
-                            <td className="px-3 py-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setSelectedChatbotLog(item)}
-                                icon={<Eye className="w-4 h-4" />}
-                              >
-                                View
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
+                        {chatbotSummary.recentLogs?.flatMap((item: any) => {
+                          const rows = [];
+                          // User message row
+                          if (item.messageContent) {
+                            rows.push(
+                              <tr key={`${item.id}-user`} className="hover:bg-blue-50 cursor-pointer" onClick={() => setSelectedChatbotLog(item)}>
+                                <td className="px-3 py-2 text-gray-500 whitespace-nowrap text-xs">
+                                  {new Date(item.timestamp).toLocaleString()}
+                                </td>
+                                <td className="px-3 py-2">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                    {item.userFullname || 'User'}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 text-xs text-gray-600">
+                                  <div>{item.chatbotTitle || 'Unnamed'}</div>
+                                  <div className="text-gray-400 text-[10px]">ID: {item.conversationId}</div>
+                                </td>
+                                <td className="px-3 py-2 text-xs">
+                                  <div className="text-blue-600 truncate max-w-[100px]" title={item.courseTitle}>{item.courseTitle || '-'}</div>
+                                </td>
+                                <td className="px-3 py-2">
+                                  <div className="text-xs text-gray-800 max-w-[350px]" title={item.messageContent}>
+                                    {item.messageContent}
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2 text-gray-400 text-xs">-</td>
+                              </tr>
+                            );
+                          }
+                          // Bot response row
+                          if (item.responseContent) {
+                            rows.push(
+                              <tr key={`${item.id}-bot`} className="hover:bg-green-50 cursor-pointer bg-gray-50/50" onClick={() => setSelectedChatbotLog(item)}>
+                                <td className="px-3 py-2 text-gray-500 whitespace-nowrap text-xs">
+                                  {new Date(new Date(item.timestamp).getTime() + (item.responseTime || 1) * 1000).toLocaleString()}
+                                </td>
+                                <td className="px-3 py-2">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                    Bot
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 text-xs text-gray-600">
+                                  <div>{item.chatbotTitle || 'Unnamed'}</div>
+                                  <div className="text-gray-400 text-[10px]">ID: {item.conversationId}</div>
+                                </td>
+                                <td className="px-3 py-2 text-xs">
+                                  <div className="text-blue-600 truncate max-w-[100px]" title={item.courseTitle}>{item.courseTitle || '-'}</div>
+                                </td>
+                                <td className="px-3 py-2">
+                                  <div className="text-xs text-gray-800 max-w-[350px]" title={item.responseContent}>
+                                    {item.responseContent}
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2 text-xs">
+                                  <div className="font-mono text-gray-600">{item.aiModel || '-'}</div>
+                                  <div className="text-gray-400 text-[10px]">{item.responseTime?.toFixed(2)}s</div>
+                                </td>
+                              </tr>
+                            );
+                          }
+                          // Conversation start (no message/response)
+                          if (!item.messageContent && !item.responseContent && item.eventType === 'conversation_start') {
+                            rows.push(
+                              <tr key={`${item.id}-start`} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedChatbotLog(item)}>
+                                <td className="px-3 py-2 text-gray-500 whitespace-nowrap text-xs">
+                                  {new Date(item.timestamp).toLocaleString()}
+                                </td>
+                                <td className="px-3 py-2">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                    System
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 text-xs text-gray-600">
+                                  <div>{item.chatbotTitle || 'Unnamed'}</div>
+                                  <div className="text-gray-400 text-[10px]">ID: {item.conversationId}</div>
+                                </td>
+                                <td className="px-3 py-2 text-xs">
+                                  <div className="text-blue-600 truncate max-w-[100px]" title={item.courseTitle}>{item.courseTitle || '-'}</div>
+                                </td>
+                                <td className="px-3 py-2">
+                                  <span className="text-xs text-gray-500 italic">Conversation started by {item.userFullname || 'User'}</span>
+                                </td>
+                                <td className="px-3 py-2 text-gray-400 text-xs">-</td>
+                              </tr>
+                            );
+                          }
+                          return rows;
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -477,11 +808,11 @@ export const AnalyticsDashboard = () => {
         </>
       )}
 
-      {/* Interactions Tab */}
+      {/* User Interactions Tab */}
       {activeTab === 'interactions' && (
         <>
           {interactionsLoading ? (
-            <Loading text="Loading interaction analytics..." />
+            <Loading text="Loading interaction data..." />
           ) : interactionSummary ? (
             <>
               {/* Stats Cards */}
@@ -599,9 +930,20 @@ export const AnalyticsDashboard = () => {
               <Card>
                 <CardHeader className="flex items-center justify-between">
                   <h3 className="font-semibold text-gray-900">Recent Interactions</h3>
-                  <Button variant="ghost" size="sm" onClick={handleExportInteractions} icon={<Download className="w-4 h-4" />}>
-                    Export
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => refetchInteractions()}>
+                      <RefreshCw className="w-4 h-4 mr-1" />
+                      Refresh
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={handleExportInteractions} disabled={exportStatus === 'loading'}>
+                      {exportStatus === 'loading' ? (
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4 mr-1" />
+                      )}
+                      Export JSON
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardBody className="p-0">
                   <div className="overflow-x-auto">
@@ -622,87 +964,38 @@ export const AnalyticsDashboard = () => {
                             <td className="px-3 py-2 whitespace-nowrap">
                               <div className="text-xs font-medium text-gray-700">{new Date(item.timestamp).toLocaleDateString()}</div>
                               <div className="text-xs text-gray-500">{new Date(item.timestamp).toLocaleTimeString()}</div>
-                              <div className="text-xs text-gray-400">{formatRelativeTime(item.timestamp)}</div>
                             </td>
                             <td className="px-3 py-2">
                               <div className="text-sm font-medium text-gray-900">{item.userFullname || item.user?.fullname || 'Anonymous'}</div>
                               <div className="text-xs text-gray-500">{item.userEmail || item.user?.email || ''}</div>
-                              <div className="text-xs text-gray-400">ID: {item.userId || item.user?.id || '-'}</div>
                             </td>
                             <td className="px-3 py-2">
                               <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs capitalize font-medium">
                                 {item.eventType?.replace('_', ' ')}
                               </span>
-                              {item.eventCategory && (
-                                <div className="text-xs text-gray-500 mt-1">{item.eventCategory}</div>
-                              )}
-                              {item.eventAction && item.eventAction !== item.eventType && (
-                                <div className="text-xs text-gray-400">{item.eventAction}</div>
-                              )}
                             </td>
                             <td className="px-3 py-2 max-w-[280px]">
                               {item.courseTitle ? (
                                 <div className="space-y-0.5">
-                                  <div className="text-xs">
-                                    <span className="font-medium text-gray-900">{item.courseTitle}</span>
-                                    <span className="text-gray-400 ml-1">(#{item.courseId})</span>
-                                  </div>
-                                  {item.moduleTitle && (
-                                    <div className="text-xs text-gray-600">
-                                      Module: {item.moduleTitle}
-                                      <span className="text-gray-400 ml-1">(#{item.moduleId})</span>
-                                    </div>
-                                  )}
-                                  {item.lectureTitle && (
-                                    <div className="text-xs text-gray-500">
-                                      Lecture: {item.lectureTitle}
-                                      <span className="text-gray-400 ml-1">(#{item.lectureId})</span>
-                                    </div>
-                                  )}
-                                  {(item.sectionId || item.sectionTitle) && (
-                                    <div className="text-xs text-gray-400">
-                                      Section: {item.sectionTitle || `#${item.sectionId}`}
-                                      {item.sectionType && <span className="ml-1 px-1 bg-gray-100 rounded">{item.sectionType}</span>}
-                                    </div>
-                                  )}
+                                  <div className="text-xs font-medium text-gray-900">{item.courseTitle}</div>
+                                  {item.moduleTitle && <div className="text-xs text-gray-600">Module: {item.moduleTitle}</div>}
+                                  {item.lectureTitle && <div className="text-xs text-gray-500">Lecture: {item.lectureTitle}</div>}
                                 </div>
                               ) : (
-                                <div className="text-xs">
-                                  <div className="text-gray-700 truncate" title={item.pageTitle}>
-                                    {item.pageTitle || 'Untitled'}
-                                  </div>
-                                  <div className="text-gray-400 truncate" title={item.pagePath}>
-                                    {item.pagePath}
-                                  </div>
-                                </div>
+                                <div className="text-xs text-gray-400">{item.pagePath}</div>
                               )}
                             </td>
                             <td className="px-3 py-2 text-xs">
                               {item.elementType && (
-                                <div className="space-y-0.5">
-                                  <span className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-600">{item.elementType}</span>
-                                  {item.elementText && (
-                                    <div className="text-gray-500 truncate max-w-[140px]" title={item.elementText}>
-                                      "{item.elementText.substring(0, 30)}{item.elementText.length > 30 ? '...' : ''}"
-                                    </div>
-                                  )}
-                                  {item.elementId && (
-                                    <div className="text-gray-300">#{item.elementId}</div>
-                                  )}
-                                </div>
+                                <span className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-600">{item.elementType}</span>
                               )}
                               {item.scrollDepth != null && (
                                 <div className="text-gray-400 mt-1">Scroll: {item.scrollDepth}%</div>
                               )}
-                              {item.timeOnPage != null && (
-                                <div className="text-gray-400">Time: {item.timeOnPage}s</div>
-                              )}
                             </td>
                             <td className="px-3 py-2 text-xs text-gray-500">
                               <div className="font-medium">{item.deviceType}</div>
-                              <div>{item.browserName} {item.browserVersion}</div>
-                              <div className="text-gray-400">{item.osName}</div>
-                              {item.timezone && <div className="text-gray-300 text-[10px]">{item.timezone}</div>}
+                              <div>{item.browserName}</div>
                             </td>
                           </tr>
                         ))}
@@ -715,9 +1008,6 @@ export const AnalyticsDashboard = () => {
           ) : null}
         </>
       )}
-
-      {/* Export Tab */}
-      {activeTab === 'export' && <ExportPanel />}
 
       {/* Chatbot Log Detail Modal */}
       {selectedChatbotLog && (
@@ -746,13 +1036,9 @@ export const AnalyticsDashboard = () => {
                     </h4>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div><span className="text-gray-500">Timestamp:</span></div>
-                      <div className="font-medium">{formatDate(selectedChatbotLog.timestamp)}</div>
+                      <div className="font-medium">{formatFullDate(selectedChatbotLog.timestamp)}</div>
                       <div><span className="text-gray-500">Session ID:</span></div>
                       <div className="font-mono text-xs">{selectedChatbotLog.sessionId}</div>
-                      <div><span className="text-gray-500">Session Duration:</span></div>
-                      <div>{selectedChatbotLog.sessionDuration}s</div>
-                      <div><span className="text-gray-500">Event Sequence:</span></div>
-                      <div>#{selectedChatbotLog.eventSequence}</div>
                     </div>
                   </div>
 
@@ -780,23 +1066,10 @@ export const AnalyticsDashboard = () => {
                       <div className="flex items-center gap-2">
                         <span className="w-16 text-gray-500">Module:</span>
                         <span>{selectedChatbotLog.moduleTitle || '-'}</span>
-                        {selectedChatbotLog.moduleOrderIndex !== null && (
-                          <span className="text-xs text-gray-400">(#{selectedChatbotLog.moduleOrderIndex})</span>
-                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="w-16 text-gray-500">Lecture:</span>
                         <span>{selectedChatbotLog.lectureTitle || '-'}</span>
-                        {selectedChatbotLog.lectureOrderIndex !== null && (
-                          <span className="text-xs text-gray-400">(#{selectedChatbotLog.lectureOrderIndex})</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-16 text-gray-500">Section:</span>
-                        <span>#{selectedChatbotLog.sectionId}</span>
-                        {selectedChatbotLog.sectionOrderIndex !== null && (
-                          <span className="text-xs text-gray-400">(order: {selectedChatbotLog.sectionOrderIndex})</span>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -811,14 +1084,6 @@ export const AnalyticsDashboard = () => {
                       <div>{selectedChatbotLog.deviceType || '-'}</div>
                       <div><span className="text-gray-500">Browser:</span></div>
                       <div>{selectedChatbotLog.browserName} {selectedChatbotLog.browserVersion}</div>
-                      <div><span className="text-gray-500">OS:</span></div>
-                      <div>{selectedChatbotLog.osName} {selectedChatbotLog.osVersion}</div>
-                      <div><span className="text-gray-500">Screen:</span></div>
-                      <div>{selectedChatbotLog.screenWidth}x{selectedChatbotLog.screenHeight}</div>
-                      <div><span className="text-gray-500">Language:</span></div>
-                      <div>{selectedChatbotLog.language}</div>
-                      <div><span className="text-gray-500">Timezone:</span></div>
-                      <div>{selectedChatbotLog.timezone}</div>
                     </div>
                   </div>
                 </div>
@@ -830,28 +1095,20 @@ export const AnalyticsDashboard = () => {
                     <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                       <Activity className="w-4 h-4" /> Event
                     </h4>
-                    <div className="flex items-center gap-2">
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        selectedChatbotLog.eventType === 'error' ? 'bg-red-100 text-red-700' :
-                        selectedChatbotLog.eventType === 'message_received' ? 'bg-green-100 text-green-700' :
-                        selectedChatbotLog.eventType === 'message_sent' ? 'bg-blue-100 text-blue-700' :
-                        'bg-purple-100 text-purple-700'
-                      }`}>
-                        {selectedChatbotLog.eventType?.replace(/_/g, ' ')}
-                      </span>
-                      {selectedChatbotLog.conversationId && (
-                        <span className="text-sm text-gray-500">
-                          Conversation #{selectedChatbotLog.conversationId}
-                          (msg {selectedChatbotLog.messageIndex} of {selectedChatbotLog.conversationMessageCount})
-                        </span>
-                      )}
-                    </div>
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      selectedChatbotLog.eventType === 'error' ? 'bg-red-100 text-red-700' :
+                      selectedChatbotLog.eventType === 'message_received' ? 'bg-green-100 text-green-700' :
+                      selectedChatbotLog.eventType === 'message_sent' ? 'bg-blue-100 text-blue-700' :
+                      'bg-purple-100 text-purple-700'
+                    }`}>
+                      {selectedChatbotLog.eventType?.replace(/_/g, ' ')}
+                    </span>
                   </div>
 
                   {/* Chatbot Config */}
                   <div className="bg-gray-50 rounded-lg p-4">
                     <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                      <Bot className="w-4 h-4" /> Chatbot Config (at interaction time)
+                      <Bot className="w-4 h-4" /> Chatbot Config
                     </h4>
                     <div className="space-y-2 text-sm">
                       <div><span className="text-gray-500">Title:</span> {selectedChatbotLog.chatbotTitle || '-'}</div>
@@ -886,12 +1143,9 @@ export const AnalyticsDashboard = () => {
                         {selectedChatbotLog.responseContent}
                       </p>
                       <div className="flex flex-wrap gap-4 text-xs text-gray-500 mt-2">
-                        <span>{selectedChatbotLog.responseCharCount} chars / {selectedChatbotLog.responseWordCount} words</span>
+                        <span>{selectedChatbotLog.responseCharCount} chars</span>
                         <span>Response: {selectedChatbotLog.responseTime?.toFixed(2)}s</span>
                         <span>Model: {selectedChatbotLog.aiModel}</span>
-                        {selectedChatbotLog.totalTokens && (
-                          <span>Tokens: {selectedChatbotLog.promptTokens} + {selectedChatbotLog.completionTokens} = {selectedChatbotLog.totalTokens}</span>
-                        )}
                       </div>
                     </div>
                   )}
@@ -901,9 +1155,6 @@ export const AnalyticsDashboard = () => {
                     <div className="bg-red-50 rounded-lg p-4">
                       <h4 className="font-semibold text-red-700 mb-2">Error</h4>
                       <p className="text-sm text-red-600">{selectedChatbotLog.errorMessage}</p>
-                      {selectedChatbotLog.errorCode && (
-                        <p className="text-xs text-red-500 mt-1">Code: {selectedChatbotLog.errorCode}</p>
-                      )}
                     </div>
                   )}
                 </div>
@@ -915,3 +1166,5 @@ export const AnalyticsDashboard = () => {
     </div>
   );
 };
+
+export default LogsDashboard;

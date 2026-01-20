@@ -1,6 +1,20 @@
 import apiClient from './client';
 import { AdminStats, ApiResponse, PaginatedResponse } from '../types';
 
+// Helper to get token from Zustand's persisted store
+const getAuthToken = (): string | null => {
+  try {
+    const stored = localStorage.getItem('laila-auth');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return parsed?.state?.token || null;
+    }
+  } catch {
+    // Fall back to direct token if parsing fails
+  }
+  return getAuthToken();
+};
+
 export const adminApi = {
   getStats: async () => {
     const response = await apiClient.get<ApiResponse<{
@@ -167,7 +181,7 @@ export const analyticsExportApi = {
   exportChatbotLogsCSV: async (filters: { startDate?: string; endDate?: string; courseId?: number; userId?: number } = {}) => {
     const queryString = analyticsExportApi._buildQueryString(filters);
     const response = await fetch(`/api/analytics/export/csv/chatbot-logs${queryString ? `?${queryString}` : ''}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
     });
     if (!response.ok) throw new Error('Export failed');
     const filename = `chatbot_logs_${new Date().toISOString().slice(0, 10)}.csv`;
@@ -177,7 +191,7 @@ export const analyticsExportApi = {
   exportUserInteractionsCSV: async (filters: { startDate?: string; endDate?: string; courseId?: number; userId?: number } = {}) => {
     const queryString = analyticsExportApi._buildQueryString(filters);
     const response = await fetch(`/api/analytics/export/csv/user-interactions${queryString ? `?${queryString}` : ''}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
     });
     if (!response.ok) throw new Error('Export failed');
     const filename = `user_interactions_${new Date().toISOString().slice(0, 10)}.csv`;
@@ -187,7 +201,7 @@ export const analyticsExportApi = {
   exportAuthLogsCSV: async (filters: { startDate?: string; endDate?: string; courseId?: number; userId?: number } = {}) => {
     const queryString = analyticsExportApi._buildQueryString(filters);
     const response = await fetch(`/api/analytics/export/csv/auth-logs${queryString ? `?${queryString}` : ''}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
     });
     if (!response.ok) throw new Error('Export failed');
     const filename = `auth_logs_${new Date().toISOString().slice(0, 10)}.csv`;
@@ -197,7 +211,7 @@ export const analyticsExportApi = {
   exportSystemEventsCSV: async (filters: { startDate?: string; endDate?: string; courseId?: number; userId?: number } = {}) => {
     const queryString = analyticsExportApi._buildQueryString(filters);
     const response = await fetch(`/api/analytics/export/csv/system-events${queryString ? `?${queryString}` : ''}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
     });
     if (!response.ok) throw new Error('Export failed');
     const filename = `system_events_${new Date().toISOString().slice(0, 10)}.csv`;
@@ -207,7 +221,7 @@ export const analyticsExportApi = {
   exportAssessmentLogsCSV: async (filters: { startDate?: string; endDate?: string; courseId?: number; userId?: number } = {}) => {
     const queryString = analyticsExportApi._buildQueryString(filters);
     const response = await fetch(`/api/analytics/export/csv/assessment-logs${queryString ? `?${queryString}` : ''}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
     });
     if (!response.ok) throw new Error('Export failed');
     const filename = `assessment_logs_${new Date().toISOString().slice(0, 10)}.csv`;
@@ -217,7 +231,7 @@ export const analyticsExportApi = {
   exportContentEventsCSV: async (filters: { startDate?: string; endDate?: string; courseId?: number; userId?: number } = {}) => {
     const queryString = analyticsExportApi._buildQueryString(filters);
     const response = await fetch(`/api/analytics/export/csv/content-events${queryString ? `?${queryString}` : ''}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
     });
     if (!response.ok) throw new Error('Export failed');
     const filename = `content_events_${new Date().toISOString().slice(0, 10)}.csv`;
@@ -228,7 +242,7 @@ export const analyticsExportApi = {
   exportAllExcel: async (filters: { startDate?: string; endDate?: string; courseId?: number; userId?: number } = {}) => {
     const queryString = analyticsExportApi._buildQueryString(filters);
     const response = await fetch(`/api/analytics/export/excel/all${queryString ? `?${queryString}` : ''}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
     });
     if (!response.ok) throw new Error('Export failed');
     const filename = `analytics_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
@@ -239,7 +253,7 @@ export const analyticsExportApi = {
   exportAllZip: async (filters: { startDate?: string; endDate?: string; courseId?: number; userId?: number } = {}) => {
     const queryString = analyticsExportApi._buildQueryString(filters);
     const response = await fetch(`/api/analytics/export/zip/all${queryString ? `?${queryString}` : ''}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
     });
     if (!response.ok) throw new Error('Export failed');
     const filename = `analytics_export_${new Date().toISOString().slice(0, 10)}.zip`;
@@ -250,7 +264,7 @@ export const analyticsExportApi = {
   exportCourseSettingsJSON: async (courseId?: number) => {
     const queryString = courseId ? `?courseId=${courseId}` : '';
     const response = await fetch(`/api/analytics/export/json/course-settings${queryString}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
     });
     if (!response.ok) throw new Error('Export failed');
     const filename = `course_settings_${new Date().toISOString().slice(0, 10)}.json`;
@@ -299,6 +313,94 @@ export const analyticsExportApi = {
       });
     }
     const response = await apiClient.get(`/analytics/export/summary/auth-events?${params.toString()}`);
+    return response.data.data;
+  },
+};
+
+// Unified Activity Log API
+export const activityLogApi = {
+  getLogs: async (filters: {
+    userId?: number;
+    courseId?: number;
+    verb?: string;
+    objectType?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  } = {}) => {
+    const params = new URLSearchParams();
+    if (filters.userId) params.append('userId', filters.userId.toString());
+    if (filters.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters.verb) params.append('verb', filters.verb);
+    if (filters.objectType) params.append('objectType', filters.objectType);
+    if (filters.startDate) params.append('startDate', filters.startDate);
+    if (filters.endDate) params.append('endDate', filters.endDate);
+    if (filters.page) params.append('page', filters.page.toString());
+    if (filters.limit) params.append('limit', filters.limit.toString());
+
+    const response = await apiClient.get<any>(`/activity-log?${params.toString()}`);
+    return response.data;
+  },
+
+  getStats: async (filters?: { courseId?: number; startDate?: string; endDate?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+
+    const response = await apiClient.get<any>(`/activity-log/stats?${params.toString()}`);
+    return response.data.data;
+  },
+
+  exportCSV: async (filters: {
+    userId?: number;
+    courseId?: number;
+    verb?: string;
+    objectType?: string;
+    startDate?: string;
+    endDate?: string;
+  } = {}) => {
+    const params = new URLSearchParams();
+    if (filters.userId) params.append('userId', filters.userId.toString());
+    if (filters.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters.verb) params.append('verb', filters.verb);
+    if (filters.objectType) params.append('objectType', filters.objectType);
+    if (filters.startDate) params.append('startDate', filters.startDate);
+    if (filters.endDate) params.append('endDate', filters.endDate);
+    params.append('format', 'csv');
+
+    const response = await fetch(`/api/activity-log/export?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
+    });
+    if (!response.ok) throw new Error('Export failed');
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `activity-logs-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+
+  logActivity: async (data: {
+    verb: string;
+    objectType: string;
+    objectId?: number;
+    objectTitle?: string;
+    courseId?: number;
+    lectureId?: number;
+    sectionId?: number;
+    progress?: number;
+    duration?: number;
+    extensions?: Record<string, unknown>;
+    sessionId?: string;
+    deviceType?: string;
+    browserName?: string;
+  }) => {
+    const response = await apiClient.post<any>('/activity-log', data);
     return response.data.data;
   },
 };

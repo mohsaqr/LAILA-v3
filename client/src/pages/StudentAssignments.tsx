@@ -8,6 +8,7 @@ import {
   AlertCircle,
   Calendar,
   Award,
+  Bot,
 } from 'lucide-react';
 import { assignmentsApi } from '../api/assignments';
 import { enrollmentsApi } from '../api/enrollments';
@@ -103,6 +104,7 @@ const AssignmentCard = ({ assignment, courseId }: { assignment: Assignment; cour
     queryFn: () => assignmentsApi.getMySubmission(assignment.id),
   });
 
+  const isAgentAssignment = assignment.submissionType === 'ai_agent';
   const now = new Date();
   const dueDate = assignment.dueDate ? new Date(assignment.dueDate) : null;
   const isPastDue = dueDate && dueDate < now;
@@ -150,21 +152,37 @@ const AssignmentCard = ({ assignment, courseId }: { assignment: Assignment; cour
     );
   };
 
+  // Use different URL for AI agent assignments
+  const assignmentUrl = isAgentAssignment
+    ? `/courses/${courseId}/agent-assignments/${assignment.id}`
+    : `/courses/${courseId}/assignments/${assignment.id}`;
+
   return (
-    <Link to={`/courses/${courseId}/assignments/${assignment.id}`}>
+    <Link to={assignmentUrl}>
       <Card hover>
         <CardBody className="flex items-center gap-4">
           <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-            isGraded ? 'bg-green-100' : isSubmitted ? 'bg-blue-100' : 'bg-gray-100'
+            isAgentAssignment
+              ? 'bg-violet-100'
+              : isGraded ? 'bg-green-100' : isSubmitted ? 'bg-blue-100' : 'bg-gray-100'
           }`}>
-            <FileText className={`w-6 h-6 ${
-              isGraded ? 'text-green-600' : isSubmitted ? 'text-blue-600' : 'text-gray-600'
-            }`} />
+            {isAgentAssignment ? (
+              <Bot className="w-6 h-6 text-violet-600" />
+            ) : (
+              <FileText className={`w-6 h-6 ${
+                isGraded ? 'text-green-600' : isSubmitted ? 'text-blue-600' : 'text-gray-600'
+              }`} />
+            )}
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-semibold text-gray-900 truncate">{assignment.title}</h3>
+              {isAgentAssignment && (
+                <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded">
+                  AI Agent
+                </span>
+              )}
               {getStatusBadge()}
             </div>
             <div className="flex items-center gap-4 text-sm text-gray-500">
@@ -186,7 +204,10 @@ const AssignmentCard = ({ assignment, courseId }: { assignment: Assignment; cour
 
           <div className="flex-shrink-0">
             <span className="text-primary-600 font-medium text-sm">
-              {isGraded ? 'View Grade' : isSubmitted ? 'View Submission' : 'View'}
+              {isAgentAssignment
+                ? (isGraded ? 'View Grade' : isSubmitted ? 'View Agent' : 'Build Agent')
+                : (isGraded ? 'View Grade' : isSubmitted ? 'View Submission' : 'View')
+              }
             </span>
           </div>
         </CardBody>

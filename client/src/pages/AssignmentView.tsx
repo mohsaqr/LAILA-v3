@@ -125,6 +125,12 @@ export const AssignmentView = () => {
     );
   }
 
+  // Redirect AI agent assignments to the agent builder page
+  if (assignment.submissionType === 'ai_agent') {
+    navigate(`/courses/${courseId}/agent-assignments/${assignmentId}`, { replace: true });
+    return <Loading fullScreen text="Redirecting to Agent Builder..." />;
+  }
+
   const course = enrollment.enrollment?.course;
   const now = new Date();
   const dueDate = assignment.dueDate ? new Date(assignment.dueDate) : null;

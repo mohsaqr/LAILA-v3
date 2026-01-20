@@ -257,6 +257,75 @@ Be friendly and provide step-by-step guidance.`,
   });
   console.log('Enrolled student in course');
 
+  // Create 30 fake students
+  const fakeStudents = [
+    { fullname: 'Emma Wilson', email: 'emma.wilson@laila.edu' },
+    { fullname: 'Liam Anderson', email: 'liam.anderson@laila.edu' },
+    { fullname: 'Olivia Martinez', email: 'olivia.martinez@laila.edu' },
+    { fullname: 'Noah Thompson', email: 'noah.thompson@laila.edu' },
+    { fullname: 'Ava Garcia', email: 'ava.garcia@laila.edu' },
+    { fullname: 'Ethan Brown', email: 'ethan.brown@laila.edu' },
+    { fullname: 'Sophia Davis', email: 'sophia.davis@laila.edu' },
+    { fullname: 'Mason Rodriguez', email: 'mason.rodriguez@laila.edu' },
+    { fullname: 'Isabella Lee', email: 'isabella.lee@laila.edu' },
+    { fullname: 'Lucas White', email: 'lucas.white@laila.edu' },
+    { fullname: 'Mia Harris', email: 'mia.harris@laila.edu' },
+    { fullname: 'Alexander Clark', email: 'alexander.clark@laila.edu' },
+    { fullname: 'Charlotte Lewis', email: 'charlotte.lewis@laila.edu' },
+    { fullname: 'Benjamin Walker', email: 'benjamin.walker@laila.edu' },
+    { fullname: 'Amelia Hall', email: 'amelia.hall@laila.edu' },
+    { fullname: 'James Young', email: 'james.young@laila.edu' },
+    { fullname: 'Harper Allen', email: 'harper.allen@laila.edu' },
+    { fullname: 'William King', email: 'william.king@laila.edu' },
+    { fullname: 'Evelyn Wright', email: 'evelyn.wright@laila.edu' },
+    { fullname: 'Michael Scott', email: 'michael.scott@laila.edu' },
+    { fullname: 'Abigail Adams', email: 'abigail.adams@laila.edu' },
+    { fullname: 'Daniel Baker', email: 'daniel.baker@laila.edu' },
+    { fullname: 'Emily Nelson', email: 'emily.nelson@laila.edu' },
+    { fullname: 'Henry Carter', email: 'henry.carter@laila.edu' },
+    { fullname: 'Elizabeth Mitchell', email: 'elizabeth.mitchell@laila.edu' },
+    { fullname: 'Sebastian Perez', email: 'sebastian.perez@laila.edu' },
+    { fullname: 'Sofia Roberts', email: 'sofia.roberts@laila.edu' },
+    { fullname: 'Jack Turner', email: 'jack.turner@laila.edu' },
+    { fullname: 'Aria Phillips', email: 'aria.phillips@laila.edu' },
+    { fullname: 'Owen Campbell', email: 'owen.campbell@laila.edu' },
+  ];
+
+  const defaultStudentPassword = await bcrypt.hash('student123', 10);
+
+  for (const studentData of fakeStudents) {
+    const newStudent = await prisma.user.upsert({
+      where: { email: studentData.email },
+      update: {},
+      create: {
+        fullname: studentData.fullname,
+        email: studentData.email,
+        passwordHash: defaultStudentPassword,
+        isAdmin: false,
+        isInstructor: false,
+        isConfirmed: true,
+        isActive: true,
+      },
+    });
+
+    // Enroll some students in the course (randomly ~60%)
+    if (Math.random() > 0.4) {
+      await prisma.enrollment.upsert({
+        where: {
+          userId_courseId: { userId: newStudent.id, courseId: course.id },
+        },
+        update: {},
+        create: {
+          userId: newStudent.id,
+          courseId: course.id,
+          status: Math.random() > 0.3 ? 'active' : 'completed',
+          progress: Math.floor(Math.random() * 100),
+        },
+      });
+    }
+  }
+  console.log('Created 30 fake students');
+
   console.log('Seeding completed!');
 }
 

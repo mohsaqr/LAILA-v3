@@ -18,8 +18,8 @@ export const Card = ({ children, className = '', onClick, hover = false }: CardP
   );
 };
 
-export const CardHeader = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <div className={`p-6 border-b border-gray-100 ${className}`}>{children}</div>
+export const CardHeader = ({ children, className = '', onClick }: { children: React.ReactNode; className?: string; onClick?: () => void }) => (
+  <div className={`p-6 border-b border-gray-100 ${className}`} onClick={onClick}>{children}</div>
 );
 
 export const CardBody = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (

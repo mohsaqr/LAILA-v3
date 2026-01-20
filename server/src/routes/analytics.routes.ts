@@ -189,8 +189,8 @@ router.get('/chatbot/section/:sectionId', authenticateToken, requireAdmin, async
 // EXPORT ENDPOINTS
 // ============================================================================
 
-// Export interaction logs (admin only)
-router.get('/export/interactions', authenticateToken, requireAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
+// Export interaction logs
+router.get('/export/interactions', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const summary = await analyticsService.getInteractionSummary({});
 
   res.setHeader('Content-Type', 'application/json');
@@ -198,8 +198,8 @@ router.get('/export/interactions', authenticateToken, requireAdmin, asyncHandler
   res.json(summary.recentInteractions);
 }));
 
-// Export chatbot logs (admin only)
-router.get('/export/chatbot', authenticateToken, requireAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
+// Export chatbot logs
+router.get('/export/chatbot', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const summary = await analyticsService.getChatbotInteractionSummary({});
 
   res.setHeader('Content-Type', 'application/json');

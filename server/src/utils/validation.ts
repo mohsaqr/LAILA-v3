@@ -213,3 +213,115 @@ export type CreateSectionInput = z.infer<typeof createSectionSchema>;
 export type UpdateSectionInput = z.infer<typeof updateSectionSchema>;
 export type GenerateAIContentInput = z.infer<typeof generateAIContentSchema>;
 export type ChatbotMessageInput = z.infer<typeof chatbotMessageSchema>;
+
+// =============================================================================
+// AI AGENT ASSIGNMENT VALIDATION SCHEMAS
+// =============================================================================
+
+// Student Agent Config
+export const createAgentConfigSchema = z.object({
+  agentName: z.string().min(1, 'Agent name is required').max(100),
+  personaDescription: z.string().max(500).optional(),
+  systemPrompt: z.string().min(10, 'System prompt must be at least 10 characters'),
+  dosRules: z.array(z.string()).optional(),
+  dontsRules: z.array(z.string()).optional(),
+  welcomeMessage: z.string().max(500).optional(),
+  avatarImageUrl: z.string().url().optional().nullable(),
+});
+
+export const updateAgentConfigSchema = createAgentConfigSchema.partial();
+
+// Agent Test Message
+export const agentTestMessageSchema = z.object({
+  message: z.string().min(1, 'Message is required'),
+});
+
+// Grade Agent Submission
+export const gradeAgentSubmissionSchema = z.object({
+  grade: z.number().min(0).max(100),
+  feedback: z.string().optional(),
+});
+
+// Update Assignment schema to support ai_agent type
+export const createAssignmentSchemaExtended = z.object({
+  title: z.string().min(3, 'Title must be at least 3 characters'),
+  description: z.string().optional(),
+  instructions: z.string().optional(),
+  submissionType: z.enum(['text', 'file', 'mixed', 'ai_agent']).optional(),
+  maxFileSize: z.number().int().min(1).max(50).optional(),
+  allowedFileTypes: z.string().optional(),
+  dueDate: z.string().datetime().optional().nullable(),
+  points: z.number().int().min(0).max(1000).optional(),
+  isPublished: z.boolean().optional(),
+  moduleId: z.number().int().optional().nullable(),
+  aiAssisted: z.boolean().optional(),
+  aiPrompt: z.string().optional(),
+  agentRequirements: z.string().optional(), // JSON string
+});
+
+// Type exports for agent assignments
+export type CreateAgentConfigInput = z.infer<typeof createAgentConfigSchema>;
+export type UpdateAgentConfigInput = z.infer<typeof updateAgentConfigSchema>;
+export type AgentTestMessageInput = z.infer<typeof agentTestMessageSchema>;
+export type GradeAgentSubmissionInput = z.infer<typeof gradeAgentSubmissionSchema>;
+
+// =============================================================================
+// USER MANAGEMENT VALIDATION SCHEMAS
+// =============================================================================
+
+export const adminUpdateUserSchema = z.object({
+  fullname: z.string().min(2).optional(),
+  email: z.string().email().optional(),
+  password: z.string().min(6).optional(),
+  isActive: z.boolean().optional(),
+  isInstructor: z.boolean().optional(),
+  isAdmin: z.boolean().optional(),
+  isConfirmed: z.boolean().optional(),
+});
+
+export const updateUserRolesSchema = z.object({
+  isAdmin: z.boolean().optional(),
+  isInstructor: z.boolean().optional(),
+});
+
+export const createEnrollmentSchema = z.object({
+  userId: z.number().int().positive(),
+  courseId: z.number().int().positive(),
+});
+
+export const addUserToCourseSchema = z.object({
+  email: z.string().email(),
+});
+
+// =============================================================================
+// BATCH ENROLLMENT VALIDATION SCHEMAS
+// =============================================================================
+
+export const batchEnrollmentRowSchema = z.object({
+  email: z.string().email(),
+  fullname: z.string().min(2).optional(),
+});
+
+// =============================================================================
+// COURSE ROLE VALIDATION SCHEMAS
+// =============================================================================
+
+export const courseRoleSchema = z.object({
+  userId: z.number().int().positive(),
+  role: z.enum(['ta', 'co_instructor', 'course_admin']),
+  permissions: z.array(z.enum(['grade', 'edit_content', 'manage_students', 'view_analytics'])).optional(),
+});
+
+export const updateCourseRoleSchema = z.object({
+  role: z.enum(['ta', 'co_instructor', 'course_admin']).optional(),
+  permissions: z.array(z.enum(['grade', 'edit_content', 'manage_students', 'view_analytics'])).optional(),
+});
+
+// Type exports for user management
+export type AdminUpdateUserInput = z.infer<typeof adminUpdateUserSchema>;
+export type UpdateUserRolesInput = z.infer<typeof updateUserRolesSchema>;
+export type CreateEnrollmentInput = z.infer<typeof createEnrollmentSchema>;
+export type AddUserToCourseInput = z.infer<typeof addUserToCourseSchema>;
+export type BatchEnrollmentRowInput = z.infer<typeof batchEnrollmentRowSchema>;
+export type CourseRoleInput = z.infer<typeof courseRoleSchema>;
+export type UpdateCourseRoleInput = z.infer<typeof updateCourseRoleSchema>;

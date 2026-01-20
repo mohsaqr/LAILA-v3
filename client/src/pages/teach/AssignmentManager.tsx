@@ -11,6 +11,7 @@ import {
   Award,
   Users,
   Eye,
+  Bot,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../../api/courses';
@@ -30,7 +31,7 @@ interface AssignmentFormData {
   description: string;
   instructions: string;
   moduleId: number | null;
-  submissionType: 'text' | 'file' | 'mixed';
+  submissionType: 'text' | 'file' | 'mixed' | 'ai_agent';
   dueDate: string;
   points: number;
   isPublished: boolean;
@@ -216,19 +217,34 @@ export const AssignmentManager = () => {
         <CardBody>
           {assignments && assignments.length > 0 ? (
             <div className="space-y-4">
-              {assignments.map(assignment => (
+              {assignments.map(assignment => {
+                const isAgentAssignment = assignment.submissionType === 'ai_agent';
+                const reviewUrl = isAgentAssignment
+                  ? `/teach/courses/${courseId}/agent-assignments/${assignment.id}/submissions`
+                  : `/teach/courses/${courseId}/assignments/${assignment.id}/submissions`;
+
+                return (
                 <div
                   key={assignment.id}
                   className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-white border border-gray-200 flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-blue-500" />
+                  <div className={`w-10 h-10 rounded-lg bg-white border border-gray-200 flex items-center justify-center ${isAgentAssignment ? 'border-violet-200' : ''}`}>
+                    {isAgentAssignment ? (
+                      <Bot className="w-5 h-5 text-violet-500" />
+                    ) : (
+                      <FileText className="w-5 h-5 text-blue-500" />
+                    )}
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-medium text-gray-900 truncate">{assignment.title}</h3>
                       <StatusBadge status={assignment.isPublished ? 'published' : 'draft'} />
+                      {isAgentAssignment && (
+                        <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded">
+                          AI Agent
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-4 text-sm text-gray-500">
                       <span className="flex items-center gap-1">
@@ -247,7 +263,7 @@ export const AssignmentManager = () => {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <Link to={`/teach/courses/${courseId}/assignments/${assignment.id}/submissions`}>
+                    <Link to={reviewUrl}>
                       <Button variant="outline" size="sm" icon={<Eye className="w-4 h-4" />}>
                         Review
                       </Button>
@@ -268,7 +284,8 @@ export const AssignmentManager = () => {
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <EmptyState
@@ -333,12 +350,13 @@ export const AssignmentManager = () => {
               label="Submission Type"
               value={formData.submissionType}
               onChange={e =>
-                handleChange('submissionType', e.target.value as 'text' | 'file' | 'mixed')
+                handleChange('submissionType', e.target.value as 'text' | 'file' | 'mixed' | 'ai_agent')
               }
               options={[
                 { value: 'text', label: 'Text Entry' },
                 { value: 'file', label: 'File Upload' },
                 { value: 'mixed', label: 'Text and File' },
+                { value: 'ai_agent', label: 'AI Agent Builder' },
               ]}
             />
           </div>

@@ -20,6 +20,12 @@ import settingsRoutes from './routes/settings.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import analyticsExportRoutes from './routes/analyticsExport.routes.js';
 import learningAnalyticsRoutes from './routes/learningAnalytics.routes.js';
+import agentAssignmentRoutes from './routes/agentAssignment.routes.js';
+import userManagementRoutes from './routes/userManagement.routes.js';
+import enrollmentManagementRoutes from './routes/enrollmentManagement.routes.js';
+import batchEnrollmentRoutes from './routes/batchEnrollment.routes.js';
+import courseRolesRoutes from './routes/courseRoles.routes.js';
+import activityLogRoutes from './routes/activityLog.routes.js';
 
 // Import middleware
 import { errorHandler } from './middleware/error.middleware.js';
@@ -63,6 +69,12 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/analytics/export', analyticsExportRoutes);
 app.use('/api/analytics', learningAnalyticsRoutes);
+app.use('/api/agent-assignments', agentAssignmentRoutes);
+app.use('/api/user-management', userManagementRoutes);
+app.use('/api/enrollment-management', enrollmentManagementRoutes);
+app.use('/api/batch-enrollment', batchEnrollmentRoutes);
+app.use('/api/course-roles', courseRolesRoutes);
+app.use('/api/activity-log', activityLogRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

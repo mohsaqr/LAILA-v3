@@ -9,7 +9,6 @@ import {
   FileText,
   TrendingUp,
   UserPlus,
-  Settings,
   Download,
   BarChart3,
 } from 'lucide-react';
@@ -60,18 +59,74 @@ export const AdminDashboard = () => {
           <h1 className="text-3xl font-bold text-gray-900">Admin Panel</h1>
           <p className="text-gray-600 mt-1">System overview and management</p>
         </div>
-        <div className="flex gap-2">
-          <Link to="/admin/analytics">
-            <Button variant="outline" icon={<BarChart3 className="w-4 h-4" />}>
-              Analytics
-            </Button>
-          </Link>
-          <Link to="/admin/settings">
-            <Button variant="outline" icon={<Settings className="w-4 h-4" />}>
-              Settings
-            </Button>
-          </Link>
-        </div>
+      </div>
+
+      {/* Quick Actions - Organized Navigation */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        {/* User Management */}
+        <Card className="border-l-4 border-l-blue-500">
+          <CardBody className="p-4">
+            <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <Users className="w-5 h-5 text-blue-500" />
+              User Management
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              <Link to="/admin/users">
+                <Button variant="outline" size="sm">All Users</Button>
+              </Link>
+              <Link to="/admin/enrollments">
+                <Button variant="outline" size="sm">Enrollments</Button>
+              </Link>
+              <Link to="/admin/batch-enrollment">
+                <Button variant="outline" size="sm">Batch Import</Button>
+              </Link>
+            </div>
+          </CardBody>
+        </Card>
+
+        {/* Logs & Analytics */}
+        <Card className="border-l-4 border-l-green-500">
+          <CardBody className="p-4">
+            <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-green-500" />
+              Logs & Analytics
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              <Link to="/admin/logs">
+                <Button variant="primary" size="sm">View Logs</Button>
+              </Link>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">Activity logs, chatbot logs, interactions, and exports</p>
+          </CardBody>
+        </Card>
+
+        {/* Quick Stats */}
+        <Card className="border-l-4 border-l-purple-500">
+          <CardBody className="p-4">
+            <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-purple-500" />
+              Quick Stats
+            </h3>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <span className="text-gray-500">Users:</span>{' '}
+                <span className="font-semibold">{stats?.totalUsers || 0}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Courses:</span>{' '}
+                <span className="font-semibold">{stats?.totalCourses || 0}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Enrollments:</span>{' '}
+                <span className="font-semibold">{stats?.totalEnrollments || 0}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Chats:</span>{' '}
+                <span className="font-semibold">{stats?.totalChatLogs || 0}</span>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
       </div>
 
       {/* Stats Grid */}

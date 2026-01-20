@@ -200,9 +200,10 @@ export interface Assignment {
   title: string;
   description: string | null;
   instructions: string | null;
-  submissionType: 'text' | 'file' | 'mixed';
+  submissionType: 'text' | 'file' | 'mixed' | 'ai_agent';
   maxFileSize: number | null;
   allowedFileTypes: string | null;
+  agentRequirements?: string | null;
   dueDate: string | null;
   points: number;
   isPublished: boolean;
@@ -351,7 +352,7 @@ export interface AssignmentFormData {
   description: string;
   instructions: string;
   moduleId: number | null;
-  submissionType: 'text' | 'file' | 'mixed';
+  submissionType: 'text' | 'file' | 'mixed' | 'ai_agent';
   dueDate: string;
   points: number;
   isPublished: boolean;
@@ -472,4 +473,341 @@ export interface ChatbotConversationDetail {
     updatedAt: string;
   };
   messages: ChatbotConversationMessage[];
+}
+
+// =============================================================================
+// AI AGENT ASSIGNMENT TYPES
+// =============================================================================
+
+export interface StudentAgentConfig {
+  id: number;
+  assignmentId: number;
+  userId: number;
+  agentName: string;
+  personaDescription: string | null;
+  systemPrompt: string;
+  dosRules: string[];
+  dontsRules: string[];
+  welcomeMessage: string | null;
+  avatarImageUrl: string | null;
+  version: number;
+  isDraft: boolean;
+  createdAt: string;
+  updatedAt: string;
+  submittedAt: string | null;
+  submission?: {
+    id: number;
+    status: string;
+    grade: number | null;
+    feedback: string | null;
+    gradedAt: string | null;
+  };
+  _count?: {
+    testConversations: number;
+  };
+  user?: {
+    id: number;
+    fullname: string;
+    email: string;
+  };
+}
+
+export interface AgentAssignmentDetails {
+  id: number;
+  title: string;
+  description: string | null;
+  instructions: string | null;
+  agentRequirements: string | null;
+  dueDate: string | null;
+  points: number;
+  course: {
+    id: number;
+    title: string;
+    instructorId: number;
+  };
+}
+
+export interface AgentConfigFormData {
+  agentName: string;
+  personaDescription?: string;
+  systemPrompt: string;
+  dosRules?: string[];
+  dontsRules?: string[];
+  welcomeMessage?: string;
+  avatarImageUrl?: string | null;
+}
+
+export interface AgentTestConversation {
+  id: number;
+  agentConfigId: number;
+  testerId: number;
+  testerRole: 'student' | 'instructor';
+  testerFullname: string | null;
+  testerEmail: string | null;
+  configVersion: number;
+  configSnapshot: string;
+  startedAt: string;
+  endedAt: string | null;
+  messages: AgentTestMessage[];
+  _count?: {
+    messages: number;
+  };
+}
+
+export interface AgentTestMessage {
+  id: number;
+  conversationId: number;
+  role: 'user' | 'assistant';
+  content: string;
+  messageIndex: number;
+  aiModel?: string | null;
+  aiProvider?: string | null;
+  promptTokens?: number | null;
+  completionTokens?: number | null;
+  totalTokens?: number | null;
+  responseTimeMs?: number | null;
+  createdAt: string;
+}
+
+export interface AgentTestResponse {
+  conversation: AgentTestConversation;
+  welcomeMessage: string | null;
+  agentName: string;
+  avatarImageUrl: string | null;
+}
+
+export interface AgentMessageResponse {
+  userMessage: {
+    role: 'user';
+    content: string;
+    messageIndex: number;
+  };
+  assistantMessage: {
+    id: number;
+    role: 'assistant';
+    content: string;
+    messageIndex: number;
+    createdAt: string;
+  };
+  model: string;
+  responseTime: number;
+}
+
+export interface AgentConfigurationLog {
+  id: number;
+  agentConfigId: number;
+  userId: number;
+  userFullname: string | null;
+  userEmail: string | null;
+  assignmentId: number;
+  assignmentTitle: string | null;
+  courseId: number | null;
+  courseTitle: string | null;
+  changeType: 'create' | 'update' | 'submit' | 'unsubmit';
+  version: number;
+  previousConfigSnapshot: string | null;
+  newConfigSnapshot: string;
+  changedFields: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  sessionId: string | null;
+  timestamp: string;
+}
+
+export interface AgentGradeLog {
+  id: number;
+  agentConfigId: number;
+  graderId: number;
+  graderFullname: string | null;
+  graderEmail: string | null;
+  studentId: number;
+  studentFullname: string | null;
+  studentEmail: string | null;
+  assignmentId: number;
+  assignmentTitle: string | null;
+  courseId: number | null;
+  courseTitle: string | null;
+  maxPoints: number | null;
+  previousGrade: number | null;
+  newGrade: number;
+  previousFeedback: string | null;
+  newFeedback: string | null;
+  configVersion: number;
+  configSnapshot: string;
+  timestamp: string;
+}
+
+export interface AgentSubmissionWithConfig extends AssignmentSubmission {
+  agentConfig: StudentAgentConfig | null;
+}
+
+export interface MyAgentConfigResponse {
+  assignment: AgentAssignmentDetails;
+  config: StudentAgentConfig | null;
+}
+
+// =============================================================================
+// USER MANAGEMENT TYPES
+// =============================================================================
+
+export interface ManagedUser {
+  id: number;
+  fullname: string;
+  email: string;
+  isAdmin: boolean;
+  isInstructor: boolean;
+  isActive: boolean;
+  isConfirmed: boolean;
+  createdAt: string;
+  lastLogin: string | null;
+  _count: {
+    enrollments: number;
+    taughtCourses: number;
+    chatLogs?: number;
+    submissions?: number;
+  };
+}
+
+export interface UserDetail extends ManagedUser {
+  enrollments: ManagedEnrollment[];
+  taughtCourses: {
+    id: number;
+    title: string;
+    slug: string;
+    status: string;
+    _count: {
+      enrollments: number;
+    };
+  }[];
+  courseRoles: CourseRole[];
+}
+
+export interface ManagedEnrollment {
+  id: number;
+  userId: number;
+  courseId: number;
+  status: 'active' | 'completed' | 'dropped';
+  progress: number;
+  enrolledAt: string;
+  completedAt: string | null;
+  lastAccessAt: string | null;
+  user?: {
+    id: number;
+    fullname: string;
+    email: string;
+  };
+  course?: {
+    id: number;
+    title: string;
+    slug: string;
+    status: string;
+    thumbnail?: string | null;
+    instructor?: {
+      id: number;
+      fullname: string;
+    };
+  };
+}
+
+export interface CourseRole {
+  id: number;
+  userId: number;
+  courseId: number;
+  role: 'ta' | 'co_instructor' | 'course_admin';
+  permissions: string | null;
+  assignedBy: number;
+  createdAt: string;
+  user?: {
+    id: number;
+    fullname: string;
+    email: string;
+  };
+  course?: {
+    id: number;
+    title: string;
+    slug: string;
+  };
+  assigner?: {
+    id: number;
+    fullname: string;
+  };
+}
+
+export interface UserManagementStats {
+  totalUsers: number;
+  activeUsers: number;
+  admins: number;
+  instructors: number;
+  students: number;
+}
+
+export interface EnrollmentStats {
+  totalEnrollments: number;
+  activeEnrollments: number;
+  completedEnrollments: number;
+  recentEnrollments: number;
+}
+
+export interface UpdateUserData {
+  fullname?: string;
+  email?: string;
+  password?: string;
+  isActive?: boolean;
+  isInstructor?: boolean;
+  isAdmin?: boolean;
+  isConfirmed?: boolean;
+}
+
+export interface UpdateUserRolesData {
+  isAdmin?: boolean;
+  isInstructor?: boolean;
+}
+
+// Batch Enrollment Types
+export interface BatchEnrollmentJob {
+  id: number;
+  courseId: number;
+  createdBy: number;
+  fileName: string;
+  totalRows: number;
+  processedRows: number;
+  successCount: number;
+  errorCount: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  errorLog: string | null;
+  createdAt: string;
+  completedAt: string | null;
+  course?: {
+    id: number;
+    title: string;
+  };
+  creator?: {
+    id: number;
+    fullname: string;
+  };
+}
+
+export interface BatchEnrollmentResult {
+  id: number;
+  jobId: number;
+  rowNumber: number;
+  email: string;
+  status: 'success' | 'error' | 'skipped';
+  userId: number | null;
+  enrollmentId: number | null;
+  errorMessage: string | null;
+  createdAt: string;
+}
+
+export interface AdminAuditLog {
+  id: number;
+  adminId: number;
+  adminEmail: string | null;
+  action: string;
+  targetType: 'user' | 'enrollment' | 'course_role' | 'batch_enrollment';
+  targetId: number;
+  previousValues: Record<string, unknown> | null;
+  newValues: Record<string, unknown> | null;
+  ipAddress: string | null;
+  timestamp: string;
 }

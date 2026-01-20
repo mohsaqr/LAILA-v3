@@ -1,4 +1,4 @@
-type Status = 'draft' | 'published' | 'archived' | 'submitted' | 'graded' | 'returned' | 'active' | 'completed' | 'pending';
+type Status = 'draft' | 'published' | 'archived' | 'submitted' | 'graded' | 'returned' | 'active' | 'completed' | 'pending' | 'not_started';
 
 interface StatusBadgeProps {
   status: Status;
@@ -41,6 +41,10 @@ const statusConfig: Record<Status, { label: string; className: string }> = {
   pending: {
     label: 'Pending',
     className: 'bg-yellow-100 text-yellow-700',
+  },
+  not_started: {
+    label: 'Not Started',
+    className: 'bg-gray-100 text-gray-500',
   },
 };
 

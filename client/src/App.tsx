@@ -33,8 +33,22 @@ import {
   ChatbotLogs,
 } from './pages/teach';
 
+// Agent Assignment pages
+import {
+  StudentAgentBuilder,
+  AgentSubmissionsList,
+  AgentSubmissionReview,
+} from './pages/agent-assignment';
+
 // Admin pages
-import { AdminDashboard, AnalyticsDashboard } from './pages/admin';
+import {
+  AdminDashboard,
+  LogsDashboard,
+  UsersManagement,
+  UserDetail,
+  EnrollmentsManagement,
+  BatchEnrollment,
+} from './pages/admin';
 
 // User pages
 import { Profile } from './pages/Profile';
@@ -134,6 +148,16 @@ function App() {
           }
         />
 
+        {/* AI Agent Assignment routes (Student) */}
+        <Route
+          path="/courses/:courseId/agent-assignments/:assignmentId"
+          element={
+            <ProtectedRoute>
+              <StudentAgentBuilder />
+            </ProtectedRoute>
+          }
+        />
+
         {/* AI Tools */}
         <Route path="/ai-tools" element={<AITools />} />
         <Route path="/ai-tools/bias-research" element={<BiasResearch />} />
@@ -198,6 +222,24 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* AI Agent Assignment routes (Instructor) */}
+        <Route
+          path="/teach/courses/:id/agent-assignments/:assignmentId/submissions"
+          element={
+            <ProtectedRoute requireInstructor>
+              <AgentSubmissionsList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teach/courses/:id/assignments/:assignmentId/submissions/:submissionId"
+          element={
+            <ProtectedRoute requireInstructor>
+              <AgentSubmissionReview />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/teach/courses/:id/chatbot-logs"
           element={
@@ -217,10 +259,42 @@ function App() {
           }
         />
         <Route
-          path="/admin/analytics"
+          path="/admin/logs"
           element={
             <ProtectedRoute requireAdmin>
-              <AnalyticsDashboard />
+              <LogsDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <ProtectedRoute requireAdmin>
+              <UsersManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/users/:id"
+          element={
+            <ProtectedRoute requireAdmin>
+              <UserDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/enrollments"
+          element={
+            <ProtectedRoute requireAdmin>
+              <EnrollmentsManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/batch-enrollment"
+          element={
+            <ProtectedRoute requireAdmin>
+              <BatchEnrollment />
             </ProtectedRoute>
           }
         />

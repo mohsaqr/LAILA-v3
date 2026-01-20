@@ -761,6 +761,98 @@ export class AnalyticsExportService {
       });
     });
 
+    // 7. Agent Config Logs Sheet
+    const agentConfigLogs = await prisma.agentConfigurationLog.findMany({
+      where: buildWhere(),
+      orderBy: { timestamp: 'desc' },
+    });
+
+    const agentConfigSheet = workbook.addWorksheet('Agent Config Logs');
+    agentConfigSheet.columns = [
+      { header: 'ID', key: 'id', width: 10 },
+      { header: 'Timestamp', key: 'timestamp', width: 20 },
+      { header: 'User ID', key: 'userId', width: 10 },
+      { header: 'User Name', key: 'userFullname', width: 20 },
+      { header: 'User Email', key: 'userEmail', width: 25 },
+      { header: 'Course ID', key: 'courseId', width: 10 },
+      { header: 'Course Title', key: 'courseTitle', width: 25 },
+      { header: 'Assignment ID', key: 'assignmentId', width: 12 },
+      { header: 'Assignment Title', key: 'assignmentTitle', width: 25 },
+      { header: 'Agent Config ID', key: 'agentConfigId', width: 12 },
+      { header: 'Version', key: 'version', width: 10 },
+      { header: 'Change Type', key: 'changeType', width: 12 },
+      { header: 'Session ID', key: 'sessionId', width: 36 },
+    ];
+    agentConfigLogs.forEach(log => {
+      agentConfigSheet.addRow({
+        ...log,
+        timestamp: formatTimestampReadable(log.timestamp),
+      });
+    });
+
+    // 8. Agent Test Logs Sheet
+    const agentTestLogs = await prisma.agentTestInteractionLog.findMany({
+      where: buildWhere(),
+      orderBy: { timestamp: 'desc' },
+    });
+
+    const agentTestSheet = workbook.addWorksheet('Agent Test Logs');
+    agentTestSheet.columns = [
+      { header: 'ID', key: 'id', width: 10 },
+      { header: 'Timestamp', key: 'timestamp', width: 20 },
+      { header: 'Session ID', key: 'sessionId', width: 36 },
+      { header: 'User ID', key: 'userId', width: 10 },
+      { header: 'User Name', key: 'userFullname', width: 20 },
+      { header: 'User Role', key: 'userRole', width: 12 },
+      { header: 'Course ID', key: 'courseId', width: 10 },
+      { header: 'Assignment ID', key: 'assignmentId', width: 12 },
+      { header: 'Agent Name', key: 'agentName', width: 20 },
+      { header: 'Agent Version', key: 'agentVersion', width: 12 },
+      { header: 'Event Type', key: 'eventType', width: 18 },
+      { header: 'Message', key: 'messageContent', width: 50 },
+      { header: 'Response', key: 'responseContent', width: 50 },
+      { header: 'Response Time (s)', key: 'responseTime', width: 15 },
+      { header: 'AI Model', key: 'aiModel', width: 20 },
+      { header: 'Total Tokens', key: 'totalTokens', width: 12 },
+      { header: 'Device Type', key: 'deviceType', width: 12 },
+    ];
+    agentTestLogs.forEach(log => {
+      agentTestSheet.addRow({
+        ...log,
+        timestamp: formatTimestampReadable(log.timestamp),
+      });
+    });
+
+    // 9. Agent Grade Logs Sheet
+    const agentGradeLogs = await prisma.agentGradeLog.findMany({
+      where: buildWhere(false, true),
+      orderBy: { timestamp: 'desc' },
+    });
+
+    const agentGradeSheet = workbook.addWorksheet('Agent Grade Logs');
+    agentGradeSheet.columns = [
+      { header: 'ID', key: 'id', width: 10 },
+      { header: 'Timestamp', key: 'timestamp', width: 20 },
+      { header: 'Grader ID', key: 'graderId', width: 10 },
+      { header: 'Grader Name', key: 'graderFullname', width: 20 },
+      { header: 'Student ID', key: 'studentId', width: 10 },
+      { header: 'Student Name', key: 'studentFullname', width: 20 },
+      { header: 'Course ID', key: 'courseId', width: 10 },
+      { header: 'Course Title', key: 'courseTitle', width: 25 },
+      { header: 'Assignment ID', key: 'assignmentId', width: 12 },
+      { header: 'Assignment Title', key: 'assignmentTitle', width: 25 },
+      { header: 'Max Points', key: 'maxPoints', width: 10 },
+      { header: 'Previous Grade', key: 'previousGrade', width: 14 },
+      { header: 'New Grade', key: 'newGrade', width: 10 },
+      { header: 'Config Version', key: 'configVersion', width: 12 },
+    ];
+    agentGradeLogs.forEach(log => {
+      agentGradeSheet.addRow({
+        ...log,
+        timestamp: formatTimestampReadable(log.timestamp),
+      });
+    });
+
     // Generate buffer
     const buffer = await workbook.xlsx.writeBuffer();
     return Buffer.from(buffer);
@@ -782,6 +874,9 @@ export class AnalyticsExportService {
       systemCsv,
       assessmentCsv,
       contentCsv,
+      agentConfigCsv,
+      agentTestCsv,
+      agentGradeCsv,
     ] = await Promise.all([
       this.exportChatbotLogsCSV(filters),
       this.exportUserInteractionsCSV(filters),
@@ -789,6 +884,9 @@ export class AnalyticsExportService {
       this.exportSystemEventsCSV(filters),
       this.exportAssessmentLogsCSV(filters),
       this.exportContentEventsCSV(filters),
+      this.exportAgentConfigLogsCSV(filters),
+      this.exportAgentTestLogsCSV(filters),
+      this.exportAgentGradeLogsCSV(filters),
     ]);
 
     // Add each CSV to the archive
@@ -798,11 +896,219 @@ export class AnalyticsExportService {
     archive.append(systemCsv, { name: 'system_events.csv' });
     archive.append(assessmentCsv, { name: 'assessment_logs.csv' });
     archive.append(contentCsv, { name: 'content_events.csv' });
+    archive.append(agentConfigCsv, { name: 'agent_config_logs.csv' });
+    archive.append(agentTestCsv, { name: 'agent_test_logs.csv' });
+    archive.append(agentGradeCsv, { name: 'agent_grade_logs.csv' });
 
     // Finalize the archive
     archive.finalize();
 
     return archive;
+  }
+
+  // ============================================================================
+  // AGENT ASSIGNMENT LOGS
+  // ============================================================================
+
+  /**
+   * Export agent configuration logs to CSV
+   */
+  async exportAgentConfigLogsCSV(filters: ExportFilters = {}): Promise<string> {
+    const where: Record<string, unknown> = {};
+    if (filters.startDate || filters.endDate) {
+      where.timestamp = {};
+      if (filters.startDate) (where.timestamp as Record<string, unknown>).gte = filters.startDate;
+      if (filters.endDate) (where.timestamp as Record<string, unknown>).lte = filters.endDate;
+    }
+    if (filters.courseId) where.courseId = filters.courseId;
+    if (filters.userId) where.userId = filters.userId;
+
+    const logs = await prisma.agentConfigurationLog.findMany({
+      where,
+      orderBy: { timestamp: 'desc' },
+    });
+
+    const data = logs.map(log => ({
+      id: log.id,
+      timestamp: formatTimestamp(log.timestamp),
+      timestamp_readable: formatTimestampReadable(log.timestamp),
+
+      // User context
+      user_id: log.userId || '',
+      user_fullname: log.userFullname || '',
+      user_email: log.userEmail || '',
+
+      // Course/Assignment context
+      course_id: log.courseId || '',
+      course_title: log.courseTitle || '',
+      assignment_id: log.assignmentId || '',
+      assignment_title: log.assignmentTitle || '',
+
+      // Config context
+      agent_config_id: log.agentConfigId || '',
+      version: log.version || '',
+      change_type: log.changeType,
+
+      // Snapshots
+      previous_config_snapshot: log.previousConfigSnapshot || '',
+      new_config_snapshot: log.newConfigSnapshot || '',
+      changed_fields: log.changedFields || '',
+
+      // Client context
+      ip_address: log.ipAddress || '',
+      user_agent: log.userAgent || '',
+      session_id: log.sessionId || '',
+    }));
+
+    return stringify(data, { header: true });
+  }
+
+  /**
+   * Export agent test interaction logs to CSV
+   */
+  async exportAgentTestLogsCSV(filters: ExportFilters = {}): Promise<string> {
+    const where: Record<string, unknown> = {};
+    if (filters.startDate || filters.endDate) {
+      where.timestamp = {};
+      if (filters.startDate) (where.timestamp as Record<string, unknown>).gte = filters.startDate;
+      if (filters.endDate) (where.timestamp as Record<string, unknown>).lte = filters.endDate;
+    }
+    if (filters.courseId) where.courseId = filters.courseId;
+    if (filters.userId) where.userId = filters.userId;
+
+    const logs = await prisma.agentTestInteractionLog.findMany({
+      where,
+      orderBy: { timestamp: 'desc' },
+    });
+
+    const data = logs.map(log => ({
+      id: log.id,
+      timestamp: formatTimestamp(log.timestamp),
+      timestamp_readable: formatTimestampReadable(log.timestamp),
+      timestamp_ms: log.timestampMs?.toString() || '',
+      session_id: log.sessionId || '',
+
+      // User context
+      user_id: log.userId || '',
+      user_fullname: log.userFullname || '',
+      user_email: log.userEmail || '',
+      user_role: log.userRole || '',
+
+      // Course/Assignment context
+      course_id: log.courseId || '',
+      course_title: log.courseTitle || '',
+      assignment_id: log.assignmentId || '',
+      assignment_title: log.assignmentTitle || '',
+
+      // Agent config context
+      agent_config_id: log.agentConfigId || '',
+      agent_name: log.agentName || '',
+      agent_version: log.agentVersion || '',
+      agent_config_snapshot: log.agentConfigSnapshot || '',
+
+      // Conversation context
+      conversation_id: log.conversationId || '',
+      message_index: log.messageIndex || '',
+      conversation_message_count: log.conversationMessageCount || '',
+      event_type: log.eventType,
+
+      // Message content
+      message_content: log.messageContent || '',
+      message_char_count: log.messageCharCount || '',
+      message_word_count: log.messageWordCount || '',
+
+      // Response content
+      response_content: log.responseContent || '',
+      response_char_count: log.responseCharCount || '',
+      response_word_count: log.responseWordCount || '',
+
+      // AI metrics
+      response_time_seconds: log.responseTime || '',
+      ai_model: log.aiModel || '',
+      ai_provider: log.aiProvider || '',
+      prompt_tokens: log.promptTokens || '',
+      completion_tokens: log.completionTokens || '',
+      total_tokens: log.totalTokens || '',
+
+      // Error info
+      error_message: log.errorMessage || '',
+      error_code: log.errorCode || '',
+
+      // Client context
+      ip_address: log.ipAddress || '',
+      user_agent: log.userAgent || '',
+      device_type: log.deviceType || '',
+      browser_name: log.browserName || '',
+      browser_version: log.browserVersion || '',
+      os_name: log.osName || '',
+      os_version: log.osVersion || '',
+      screen_width: log.screenWidth || '',
+      screen_height: log.screenHeight || '',
+      language: log.language || '',
+      timezone: log.timezone || '',
+    }));
+
+    return stringify(data, { header: true });
+  }
+
+  /**
+   * Export agent grade logs to CSV
+   */
+  async exportAgentGradeLogsCSV(filters: ExportFilters = {}): Promise<string> {
+    const where: Record<string, unknown> = {};
+    if (filters.startDate || filters.endDate) {
+      where.timestamp = {};
+      if (filters.startDate) (where.timestamp as Record<string, unknown>).gte = filters.startDate;
+      if (filters.endDate) (where.timestamp as Record<string, unknown>).lte = filters.endDate;
+    }
+    if (filters.courseId) where.courseId = filters.courseId;
+    if (filters.userId) where.graderId = filters.userId;
+
+    const logs = await prisma.agentGradeLog.findMany({
+      where,
+      orderBy: { timestamp: 'desc' },
+    });
+
+    const data = logs.map(log => ({
+      id: log.id,
+      timestamp: formatTimestamp(log.timestamp),
+      timestamp_readable: formatTimestampReadable(log.timestamp),
+
+      // Grader context
+      grader_id: log.graderId || '',
+      grader_fullname: log.graderFullname || '',
+      grader_email: log.graderEmail || '',
+
+      // Student context
+      student_id: log.studentId || '',
+      student_fullname: log.studentFullname || '',
+      student_email: log.studentEmail || '',
+
+      // Course/Assignment context
+      course_id: log.courseId || '',
+      course_title: log.courseTitle || '',
+      assignment_id: log.assignmentId || '',
+      assignment_title: log.assignmentTitle || '',
+      max_points: log.maxPoints || '',
+
+      // Config context
+      agent_config_id: log.agentConfigId || '',
+      config_version: log.configVersion || '',
+      config_snapshot: log.configSnapshot || '',
+
+      // Grade details
+      previous_grade: log.previousGrade ?? '',
+      new_grade: log.newGrade ?? '',
+      previous_feedback: log.previousFeedback || '',
+      new_feedback: log.newFeedback || '',
+
+      // Client context
+      ip_address: log.ipAddress || '',
+      user_agent: log.userAgent || '',
+      session_id: log.sessionId || '',
+    }));
+
+    return stringify(data, { header: true });
   }
 
   /**
