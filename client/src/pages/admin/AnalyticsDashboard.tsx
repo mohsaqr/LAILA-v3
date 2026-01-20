@@ -608,67 +608,101 @@ export const AnalyticsDashboard = () => {
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 border-b">
                         <tr>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Timestamp</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">User</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Context</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Element</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Device</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Event</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Course / Module / Lecture</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Page / Element</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
                         {interactionSummary.recentInteractions?.slice(0, 50).map((item: any) => (
                           <tr key={item.id} className="hover:bg-gray-50">
-                            <td className="px-3 py-2 text-gray-500 whitespace-nowrap">
-                              {formatRelativeTime(item.timestamp)}
-                            </td>
-                            <td className="px-3 py-2 text-gray-900">
-                              {item.userFullname || item.user?.fullname || 'Anonymous'}
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <div className="text-xs font-medium text-gray-700">{new Date(item.timestamp).toLocaleDateString()}</div>
+                              <div className="text-xs text-gray-500">{new Date(item.timestamp).toLocaleTimeString()}</div>
+                              <div className="text-xs text-gray-400">{formatRelativeTime(item.timestamp)}</div>
                             </td>
                             <td className="px-3 py-2">
-                              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs capitalize">
+                              <div className="text-sm font-medium text-gray-900">{item.userFullname || item.user?.fullname || 'Anonymous'}</div>
+                              <div className="text-xs text-gray-500">{item.userEmail || item.user?.email || ''}</div>
+                              <div className="text-xs text-gray-400">ID: {item.userId || item.user?.id || '-'}</div>
+                            </td>
+                            <td className="px-3 py-2">
+                              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs capitalize font-medium">
                                 {item.eventType?.replace('_', ' ')}
                               </span>
+                              {item.eventCategory && (
+                                <div className="text-xs text-gray-500 mt-1">{item.eventCategory}</div>
+                              )}
+                              {item.eventAction && item.eventAction !== item.eventType && (
+                                <div className="text-xs text-gray-400">{item.eventAction}</div>
+                              )}
                             </td>
-                            <td className="px-3 py-2 max-w-[250px]">
-                              {/* Show course/module/lecture context if available */}
+                            <td className="px-3 py-2 max-w-[280px]">
                               {item.courseTitle ? (
                                 <div className="space-y-0.5">
-                                  <div className="text-xs font-medium text-gray-900 truncate" title={item.courseTitle}>
-                                    {item.courseTitle}
+                                  <div className="text-xs">
+                                    <span className="font-medium text-gray-900">{item.courseTitle}</span>
+                                    <span className="text-gray-400 ml-1">(#{item.courseId})</span>
                                   </div>
                                   {item.moduleTitle && (
-                                    <div className="text-xs text-gray-500 truncate" title={item.moduleTitle}>
+                                    <div className="text-xs text-gray-600">
                                       Module: {item.moduleTitle}
+                                      <span className="text-gray-400 ml-1">(#{item.moduleId})</span>
                                     </div>
                                   )}
                                   {item.lectureTitle && (
-                                    <div className="text-xs text-gray-400 truncate" title={item.lectureTitle}>
+                                    <div className="text-xs text-gray-500">
                                       Lecture: {item.lectureTitle}
+                                      <span className="text-gray-400 ml-1">(#{item.lectureId})</span>
+                                    </div>
+                                  )}
+                                  {(item.sectionId || item.sectionTitle) && (
+                                    <div className="text-xs text-gray-400">
+                                      Section: {item.sectionTitle || `#${item.sectionId}`}
+                                      {item.sectionType && <span className="ml-1 px-1 bg-gray-100 rounded">{item.sectionType}</span>}
                                     </div>
                                   )}
                                 </div>
                               ) : (
-                                <span className="text-gray-600 text-xs truncate" title={item.pagePath}>
-                                  {item.pageTitle || item.pagePath}
-                                </span>
+                                <div className="text-xs">
+                                  <div className="text-gray-700 truncate" title={item.pageTitle}>
+                                    {item.pageTitle || 'Untitled'}
+                                  </div>
+                                  <div className="text-gray-400 truncate" title={item.pagePath}>
+                                    {item.pagePath}
+                                  </div>
+                                </div>
                               )}
                             </td>
-                            <td className="px-3 py-2 text-gray-500">
+                            <td className="px-3 py-2 text-xs">
                               {item.elementType && (
-                                <span className="text-xs">
+                                <div className="space-y-0.5">
                                   <span className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-600">{item.elementType}</span>
                                   {item.elementText && (
-                                    <div className="text-gray-400 mt-0.5 truncate max-w-[120px]" title={item.elementText}>
-                                      "{item.elementText.substring(0, 25)}{item.elementText.length > 25 ? '...' : ''}"
+                                    <div className="text-gray-500 truncate max-w-[140px]" title={item.elementText}>
+                                      "{item.elementText.substring(0, 30)}{item.elementText.length > 30 ? '...' : ''}"
                                     </div>
                                   )}
-                                </span>
+                                  {item.elementId && (
+                                    <div className="text-gray-300">#{item.elementId}</div>
+                                  )}
+                                </div>
+                              )}
+                              {item.scrollDepth != null && (
+                                <div className="text-gray-400 mt-1">Scroll: {item.scrollDepth}%</div>
+                              )}
+                              {item.timeOnPage != null && (
+                                <div className="text-gray-400">Time: {item.timeOnPage}s</div>
                               )}
                             </td>
                             <td className="px-3 py-2 text-xs text-gray-500">
-                              <div>{item.deviceType}</div>
-                              <div className="text-gray-400">{item.browserName}</div>
+                              <div className="font-medium">{item.deviceType}</div>
+                              <div>{item.browserName} {item.browserVersion}</div>
+                              <div className="text-gray-400">{item.osName}</div>
+                              {item.timezone && <div className="text-gray-300 text-[10px]">{item.timezone}</div>}
                             </td>
                           </tr>
                         ))}
