@@ -15,7 +15,6 @@ import {
   FolderOpen,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import ReactMarkdown from 'react-markdown';
 import { coursesApi } from '../api/courses';
 import { enrollmentsApi } from '../api/enrollments';
 import { Card, CardBody } from '../components/common/Card';

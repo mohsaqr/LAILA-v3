@@ -439,12 +439,13 @@ model AssignmentSubmission {
   // Relations
   assignment  Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   user        User       @relation("StudentSubmissions", fields: [userId], references: [id], onDelete: Cascade)
-  gradedBy    User?      @relation("GradedBy", fields: [gradedById], references: [id])
+  gradedBy    User?      @relation("GradedBy", fields: [gradedById], references: [id], onDelete: SetNull)
   agentConfig StudentAgentConfig? @relation(fields: [agentConfigId], references: [id])
 
   @@unique([assignmentId, userId])
   @@index([assignmentId])
   @@index([userId])
+  @@index([gradedById])
   @@map("assignment_submissions")
 }
 
@@ -1099,11 +1100,12 @@ model CourseRole {
 
   user        User      @relation("CourseRoles", fields: [userId], references: [id], onDelete: Cascade)
   course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  assigner    User      @relation("AssignedCourseRoles", fields: [assignedBy], references: [id])
+  assigner    User      @relation("AssignedCourseRoles", fields: [assignedBy], references: [id], onDelete: Cascade)
 
   @@unique([userId, courseId])
   @@index([courseId])
   @@index([userId])
+  @@index([assignedBy])
   @@map("course_roles")
 }
 
@@ -1146,6 +1148,7 @@ model BatchEnrollmentResult {
   job             BatchEnrollmentJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@index([jobId])
+  @@index([email])
   @@map("batch_enrollment_results")
 }
 

@@ -12,7 +12,6 @@ import {
   ClipboardList,
   Bell,
   ListTodo,
-  Calendar,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../api/courses';
@@ -252,17 +251,8 @@ export const CourseDetails = () => {
                 {expandedModules.includes(module.id) && module.lectures && (
                   <div className="border-t border-gray-100">
                     {module.lectures.map((lecture) => {
-                      const LectureWrapper = isEnrolled ? Link : 'div';
-                      const wrapperProps = isEnrolled
-                        ? { to: `/courses/${course.id}/player/${lecture.id}` }
-                        : {};
-
-                      return (
-                        <LectureWrapper
-                          key={lecture.id}
-                          {...wrapperProps}
-                          className={`px-4 py-3 flex items-center gap-3 hover:bg-gray-50 ${isEnrolled ? 'cursor-pointer' : ''}`}
-                        >
+                      const lectureContent = (
+                        <>
                           <div className={`w-6 h-6 rounded-full flex items-center justify-center ${isEnrolled ? 'bg-primary-100' : 'bg-gray-100'}`}>
                             {lecture.contentType === 'video' ? (
                               <PlayCircle className={`w-4 h-4 ${isEnrolled ? 'text-primary-600' : 'text-gray-500'}`} />
@@ -284,7 +274,24 @@ export const CourseDetails = () => {
                           {isEnrolled && (
                             <ChevronRight className="w-4 h-4 text-gray-400" />
                           )}
-                        </LectureWrapper>
+                        </>
+                      );
+
+                      return isEnrolled ? (
+                        <Link
+                          key={lecture.id}
+                          to={`/courses/${course.id}/player/${lecture.id}`}
+                          className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50 cursor-pointer"
+                        >
+                          {lectureContent}
+                        </Link>
+                      ) : (
+                        <div
+                          key={lecture.id}
+                          className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50"
+                        >
+                          {lectureContent}
+                        </div>
                       );
                     })}
                   </div>

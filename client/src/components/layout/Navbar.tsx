@@ -49,9 +49,7 @@ export const Navbar = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
-            {navItems
-              .filter(item => !item.authRequired || isAuthenticated)
-              .map(item => {
+            {navItems.map(item => {
                 const Icon = item.icon;
                 return (
                   <Link
@@ -152,9 +150,7 @@ export const Navbar = () => {
         {/* Mobile Navigation */}
         {isMobileMenuOpen && (
           <div className="md:hidden py-4 border-t border-gray-100">
-            {navItems
-              .filter(item => !item.authRequired || isAuthenticated)
-              .map(item => {
+            {navItems.map(item => {
                 const Icon = item.icon;
                 return (
                   <Link
