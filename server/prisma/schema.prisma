@@ -197,7 +197,8 @@ model Chatbot {
   // Enhanced customization fields
   welcomeMessage      String?  @map("welcome_message")
   avatarUrl           String?  @map("avatar_url")
-  personality         String?  @default("friendly") // friendly, professional, academic, casual
+  personality         String?  @default("friendly") // friendly, professional, academic, casual, socratic, learning, custom
+  personalityPrompt   String?  @map("personality_prompt") // Editable personality instructions
   temperature         Float?   @default(0.7)
   suggestedQuestions  String?  @map("suggested_questions") // JSON array
   dosRules            String?  @map("dos_rules") // JSON array

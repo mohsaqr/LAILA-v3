@@ -49,6 +49,7 @@ interface AIComponent {
   welcomeMessage: string | null;
   avatarUrl: string | null;
   personality: string | null;
+  personalityPrompt: string | null;
   temperature: number | null;
   suggestedQuestions: string | null;
   dosRules: string | null;
@@ -70,6 +71,7 @@ interface AIComponentFormData {
   welcomeMessage: string;
   avatarUrl: string;
   personality: string;
+  personalityPrompt: string; // Editable personality instructions
   temperature: number;
   suggestedQuestions: string[];
   dosRules: string[];
@@ -90,10 +92,20 @@ const CATEGORIES = [
 ];
 
 const PERSONALITIES = [
-  { value: 'friendly', label: 'Friendly', desc: 'Warm, approachable, encouraging' },
-  { value: 'professional', label: 'Professional', desc: 'Formal, precise, business-like' },
-  { value: 'academic', label: 'Academic', desc: 'Scholarly, thorough, educational' },
-  { value: 'casual', label: 'Casual', desc: 'Relaxed, conversational, informal' },
+  { value: 'friendly', label: 'Friendly', desc: 'Warm, approachable, encouraging',
+    prompt: 'Be warm, supportive, and encouraging. Use positive language and celebrate user progress.' },
+  { value: 'professional', label: 'Professional', desc: 'Formal, precise, business-like',
+    prompt: 'Maintain a formal, business-like tone. Be precise and clear in all communications.' },
+  { value: 'academic', label: 'Academic', desc: 'Scholarly, thorough, educational',
+    prompt: 'Use scholarly language and provide thorough, well-researched explanations with citations when relevant.' },
+  { value: 'casual', label: 'Casual', desc: 'Relaxed, conversational, informal',
+    prompt: 'Be relaxed and conversational. Use everyday language and a friendly, informal tone.' },
+  { value: 'socratic', label: 'Socratic', desc: 'Argumentative, challenges assumptions, promotes critical thinking',
+    prompt: 'Use the Socratic method: Never give direct answers. Instead, respond with thought-provoking questions that challenge assumptions and guide the learner to discover answers themselves. Play devil\'s advocate when appropriate. Question their reasoning and ask "why" and "how do you know that?" to deepen understanding.' },
+  { value: 'learning', label: 'Learning Mode', desc: 'Step-by-step guidance, checks understanding, adapts to learner',
+    prompt: 'Act as a patient tutor using scaffolded learning. Break complex topics into small, digestible steps. After each explanation, check understanding by asking the learner to summarize or apply what they learned. Adapt your pace based on their responses. Provide examples, analogies, and practice problems. Celebrate progress and gently correct misconceptions.' },
+  { value: 'custom', label: 'Custom', desc: 'Define your own personality',
+    prompt: '' },
 ];
 
 const RESPONSE_STYLES = [
@@ -122,6 +134,7 @@ const DEFAULT_FORM: AIComponentFormData = {
   welcomeMessage: '',
   avatarUrl: '',
   personality: 'friendly',
+  personalityPrompt: PERSONALITIES[0].prompt, // Default to friendly prompt
   temperature: 0.7,
   suggestedQuestions: [],
   dosRules: [],
@@ -241,6 +254,8 @@ export const AIBuilder = () => {
   };
 
   const handleEdit = (component: AIComponent) => {
+    const personality = component.personality || 'friendly';
+    const defaultPrompt = PERSONALITIES.find(p => p.value === personality)?.prompt || '';
     setFormData({
       name: component.name,
       displayName: component.displayName,
@@ -250,7 +265,8 @@ export const AIBuilder = () => {
       isActive: component.isActive,
       welcomeMessage: component.welcomeMessage || '',
       avatarUrl: component.avatarUrl || '',
-      personality: component.personality || 'friendly',
+      personality: personality,
+      personalityPrompt: component.personalityPrompt || defaultPrompt,
       temperature: component.temperature || 0.7,
       suggestedQuestions: parseJsonArray(component.suggestedQuestions),
       dosRules: parseJsonArray(component.dosRules),
@@ -266,6 +282,8 @@ export const AIBuilder = () => {
   };
 
   const handleDuplicate = (component: AIComponent) => {
+    const personality = component.personality || 'friendly';
+    const defaultPrompt = PERSONALITIES.find(p => p.value === personality)?.prompt || '';
     setFormData({
       name: `${component.name}-copy`,
       displayName: `${component.displayName} (Copy)`,
@@ -275,7 +293,8 @@ export const AIBuilder = () => {
       isActive: true,
       welcomeMessage: component.welcomeMessage || '',
       avatarUrl: component.avatarUrl || '',
-      personality: component.personality || 'friendly',
+      personality: personality,
+      personalityPrompt: component.personalityPrompt || defaultPrompt,
       temperature: component.temperature || 0.7,
       suggestedQuestions: parseJsonArray(component.suggestedQuestions),
       dosRules: parseJsonArray(component.dosRules),
@@ -726,25 +745,56 @@ export const AIBuilder = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       <Sparkles className="w-4 h-4 inline mr-1" />
-                      Personality
+                      Personality Style
                     </label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
                       {PERSONALITIES.map(p => (
                         <button
                           key={p.value}
                           type="button"
-                          onClick={() => setFormData({ ...formData, personality: p.value })}
+                          onClick={() => setFormData({
+                            ...formData,
+                            personality: p.value,
+                            personalityPrompt: p.value === 'custom' ? formData.personalityPrompt : p.prompt
+                          })}
                           className={`p-3 rounded-lg border text-left transition-colors ${
                             formData.personality === p.value
-                              ? 'border-primary-500 bg-primary-50'
+                              ? p.value === 'socratic'
+                                ? 'border-orange-500 bg-orange-50'
+                                : p.value === 'learning'
+                                  ? 'border-emerald-500 bg-emerald-50'
+                                  : 'border-primary-500 bg-primary-50'
                               : 'hover:bg-gray-50'
                           }`}
                         >
                           <div className="font-medium text-sm">{p.label}</div>
-                          <div className="text-xs text-gray-500">{p.desc}</div>
+                          <div className="text-xs text-gray-500 line-clamp-2">{p.desc}</div>
                         </button>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Personality Prompt - Editable */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <Edit className="w-4 h-4 inline mr-1" />
+                      Personality Instructions
+                      <span className="text-xs font-normal text-gray-500 ml-2">
+                        (Customize how this AI behaves)
+                      </span>
+                    </label>
+                    <textarea
+                      value={formData.personalityPrompt}
+                      onChange={e => setFormData({ ...formData, personalityPrompt: e.target.value })}
+                      className="w-full border rounded-lg px-3 py-2 text-sm"
+                      rows={4}
+                      placeholder="Describe how the AI should behave, respond, and interact with users..."
+                    />
+                    {formData.personality !== 'custom' && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Edit to customize the "{PERSONALITIES.find(p => p.value === formData.personality)?.label}" personality
+                      </p>
+                    )}
                   </div>
 
                   {/* Response Style */}
