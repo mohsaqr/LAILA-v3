@@ -366,9 +366,10 @@ export const CoursePlayer = () => {
                   data-section-type="legacy-text"
                 >
                   <CardBody>
-                    <div className="prose max-w-none">
-                      <ReactMarkdown>{lecture.content}</ReactMarkdown>
-                    </div>
+                    <div
+                      className="prose max-w-none"
+                      dangerouslySetInnerHTML={{ __html: lecture.content }}
+                    />
                   </CardBody>
                 </Card>
               )}
