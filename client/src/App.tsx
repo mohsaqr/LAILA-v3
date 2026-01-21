@@ -55,7 +55,7 @@ import { Profile } from './pages/Profile';
 import { Settings } from './pages/Settings';
 
 // AI Tools pages
-import { Chatbots, PromptHelper, BiasResearch, DataAnalyzer } from './pages/ai-tools';
+import { AIBuilder, Chatbots, PromptHelper, BiasResearch, DataAnalyzer } from './pages/ai-tools';
 
 function App() {
   const { setLoading, token } = useAuthStore();
@@ -160,6 +160,7 @@ function App() {
 
         {/* AI Tools */}
         <Route path="/ai-tools" element={<AITools />} />
+        <Route path="/ai-tools/builder" element={<AIBuilder />} />
         <Route path="/ai-tools/bias-research" element={<BiasResearch />} />
         <Route path="/ai-tools/prompt-helper" element={<PromptHelper />} />
         <Route path="/ai-tools/data-analyzer" element={<DataAnalyzer />} />

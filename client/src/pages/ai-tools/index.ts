@@ -1,3 +1,4 @@
+export { AIBuilder } from './AIBuilder';
 export { Chatbots } from './Chatbots';
 export { PromptHelper } from './PromptHelper';
 export { BiasResearch } from './BiasResearch';

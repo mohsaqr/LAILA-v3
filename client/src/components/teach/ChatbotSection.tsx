@@ -1,8 +1,20 @@
 import { useState, useEffect } from 'react';
-import { MessageCircle, Image, X, Eye, Edit2, ImagePlus } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { MessageCircle, Image, X, Eye, Edit2, ImagePlus, Library, ChevronDown, Sparkles } from 'lucide-react';
 import { LectureSection, UpdateSectionData } from '../../types';
 import { Input, TextArea } from '../common/Input';
 import { Button } from '../common/Button';
+import apiClient from '../../api/client';
+
+interface AIComponent {
+  id: number;
+  name: string;
+  displayName: string;
+  description: string | null;
+  systemPrompt: string;
+  category: string;
+  isActive: boolean;
+}
 
 interface ChatbotSectionProps {
   section: LectureSection;
@@ -182,6 +194,17 @@ export const ChatbotSection = ({ section, onChange, readOnly = false }: ChatbotS
     chatbotSystemPrompt: section.chatbotSystemPrompt || '',
     chatbotWelcome: section.chatbotWelcome || '',
   });
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [selectedLibraryId, setSelectedLibraryId] = useState<number | null>(null);
+
+  // Fetch AI components library
+  const { data: aiComponents } = useQuery({
+    queryKey: ['ai-components-library'],
+    queryFn: async () => {
+      const response = await apiClient.get<{ success: boolean; data: AIComponent[] }>('/chatbots');
+      return response.data.data.filter(c => c.isActive);
+    },
+  });
 
   // Sync with external changes
   useEffect(() => {
@@ -193,6 +216,28 @@ export const ChatbotSection = ({ section, onChange, readOnly = false }: ChatbotS
       chatbotWelcome: section.chatbotWelcome || '',
     });
   }, [section]);
+
+  // Apply library template
+  const applyLibraryTemplate = (component: AIComponent) => {
+    const newData = {
+      chatbotTitle: component.displayName,
+      chatbotIntro: component.description || '',
+      chatbotSystemPrompt: component.systemPrompt,
+      chatbotWelcome: `Hi! I'm ${component.displayName}. How can I help you today?`,
+      chatbotImageUrl: formData.chatbotImageUrl, // Keep existing image
+    };
+    setFormData(prev => ({ ...prev, ...newData }));
+    setSelectedLibraryId(component.id);
+    setShowLibrary(false);
+
+    // Trigger onChange for all fields
+    onChange({
+      chatbotTitle: newData.chatbotTitle,
+      chatbotIntro: newData.chatbotIntro,
+      chatbotSystemPrompt: newData.chatbotSystemPrompt,
+      chatbotWelcome: newData.chatbotWelcome,
+    });
+  };
 
   const handleChange = (field: keyof typeof formData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -252,6 +297,61 @@ export const ChatbotSection = ({ section, onChange, readOnly = false }: ChatbotS
 
   return (
     <div className="space-y-4">
+      {/* AI Library Selector */}
+      <div className="bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg p-4 border border-violet-200">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Library className="w-5 h-5 text-violet-600" />
+            <span className="font-medium text-gray-900">AI Component Library</span>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowLibrary(!showLibrary)}
+            icon={<ChevronDown className={`w-4 h-4 transition-transform ${showLibrary ? 'rotate-180' : ''}`} />}
+          >
+            {selectedLibraryId ? 'Change Template' : 'Choose Template'}
+          </Button>
+        </div>
+        <p className="text-sm text-gray-600">
+          Select a pre-built AI component or configure a custom chatbot below
+        </p>
+
+        {/* Library Dropdown */}
+        {showLibrary && aiComponents && (
+          <div className="mt-3 bg-white rounded-lg border shadow-lg max-h-64 overflow-y-auto">
+            {aiComponents.length === 0 ? (
+              <div className="p-4 text-center text-gray-500 text-sm">
+                No AI components available. Create some in the AI Builder.
+              </div>
+            ) : (
+              <div className="divide-y">
+                {aiComponents.map(component => (
+                  <button
+                    key={component.id}
+                    type="button"
+                    onClick={() => applyLibraryTemplate(component)}
+                    className={`w-full px-4 py-3 text-left hover:bg-violet-50 flex items-start gap-3 ${
+                      selectedLibraryId === component.id ? 'bg-violet-100' : ''
+                    }`}
+                  >
+                    <Sparkles className="w-5 h-5 text-violet-500 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-gray-900">{component.displayName}</div>
+                      <div className="text-sm text-gray-500 truncate">{component.description}</div>
+                      <span className="inline-block mt-1 text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded">
+                        {component.category}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Title */}
       <Input
         label="Chatbot Title"

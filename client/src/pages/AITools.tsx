@@ -10,10 +10,30 @@ import {
   Shield,
   History,
   Settings,
+  Wrench,
 } from 'lucide-react';
 import { Card, CardBody } from '../components/common/Card';
 
 const tools = [
+  {
+    id: 'builder',
+    name: 'AI Builder',
+    description: 'Create and manage reusable AI components. Build chatbots, tutors, and assistants that can be used across all courses.',
+    icon: Wrench,
+    gradient: 'from-violet-500 to-purple-600',
+    features: ['Component Library', 'Custom Chatbots', 'Reusable Templates', 'Course Integration'],
+    path: '/ai-tools/builder',
+    featured: true,
+  },
+  {
+    id: 'chatbots',
+    name: 'AI Assistants',
+    description: 'Interact with specialized AI assistants designed for different research and academic tasks.',
+    icon: Bot,
+    gradient: 'from-blue-500 to-cyan-500',
+    features: ['Research Methods Helper', 'Academic Writing Tutor', 'Platform Guide', 'Specialized AI Support'],
+    path: '/ai-tools/chatbots',
+  },
   {
     id: 'bias-research',
     name: 'Bias Research Platform',
@@ -40,15 +60,6 @@ const tools = [
     gradient: 'from-orange-500 to-red-500',
     features: ['Statistical Analysis', 'Educational Focus', 'Interactive Discussion', 'Multiple Data Formats'],
     path: '/ai-tools/data-analyzer',
-  },
-  {
-    id: 'chatbots',
-    name: 'Custom Chatbots',
-    description: 'Interact with specialized AI assistants designed for different research and academic tasks.',
-    icon: Bot,
-    gradient: 'from-blue-500 to-cyan-500',
-    features: ['Research Methods Helper', 'Academic Writing Tutor', 'Platform Guide', 'Specialized AI Support'],
-    path: '/ai-tools/chatbots',
   },
 ];
 
