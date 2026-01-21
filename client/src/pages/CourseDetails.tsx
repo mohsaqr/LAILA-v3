@@ -158,22 +158,20 @@ export const CourseDetails = () => {
                       </Link>
                     </div>
                   ) : isEnrolled ? (
-                    <>
-                      <div className="text-center">
-                        <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-2" />
-                        <p className="text-green-600 font-medium">You're enrolled!</p>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle className="w-5 h-5" />
+                        <span className="font-medium">Enrolled</span>
                       </div>
-                      <Link to={`/courses/${course.id}/player`} className="btn btn-primary w-full">
-                        Open Course
-                      </Link>
-                      <Link
-                        to={`/courses/${course.id}/assignments`}
-                        className="btn btn-secondary w-full flex items-center justify-center gap-2"
-                      >
-                        <ClipboardList className="w-4 h-4" />
-                        View Assignments
-                      </Link>
-                    </>
+                      <p className="text-sm text-gray-500">
+                        Click on any lesson below to start learning.
+                      </p>
+                      <hr />
+                      {/* Placeholder for future content: assignments, calendar, etc. */}
+                      <div className="text-sm text-gray-400 text-center py-4">
+                        {/* Future: Assignments & Calendar */}
+                      </div>
+                    </div>
                   ) : (
                     <>
                       <p className="text-center text-gray-600">Start your learning journey</p>
@@ -231,31 +229,42 @@ export const CourseDetails = () => {
 
                 {expandedModules.includes(module.id) && module.lectures && (
                   <div className="border-t border-gray-100">
-                    {module.lectures.map((lecture) => (
-                      <div
-                        key={lecture.id}
-                        className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50"
-                      >
-                        <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
-                          {lecture.contentType === 'video' ? (
-                            <PlayCircle className="w-4 h-4 text-gray-500" />
-                          ) : (
-                            <FileText className="w-4 h-4 text-gray-500" />
+                    {module.lectures.map((lecture) => {
+                      const LectureWrapper = isEnrolled ? Link : 'div';
+                      const wrapperProps = isEnrolled
+                        ? { to: `/courses/${course.id}/player/${lecture.id}` }
+                        : {};
+
+                      return (
+                        <LectureWrapper
+                          key={lecture.id}
+                          {...wrapperProps}
+                          className={`px-4 py-3 flex items-center gap-3 hover:bg-gray-50 ${isEnrolled ? 'cursor-pointer' : ''}`}
+                        >
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${isEnrolled ? 'bg-primary-100' : 'bg-gray-100'}`}>
+                            {lecture.contentType === 'video' ? (
+                              <PlayCircle className={`w-4 h-4 ${isEnrolled ? 'text-primary-600' : 'text-gray-500'}`} />
+                            ) : (
+                              <FileText className={`w-4 h-4 ${isEnrolled ? 'text-primary-600' : 'text-gray-500'}`} />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <p className={`text-sm ${isEnrolled ? 'text-primary-700 font-medium' : 'text-gray-900'}`}>{lecture.title}</p>
+                            {lecture.duration && (
+                              <p className="text-xs text-gray-500">{lecture.duration} min</p>
+                            )}
+                          </div>
+                          {lecture.isFree && !isEnrolled && (
+                            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                              Preview
+                            </span>
                           )}
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-900">{lecture.title}</p>
-                          {lecture.duration && (
-                            <p className="text-xs text-gray-500">{lecture.duration} min</p>
+                          {isEnrolled && (
+                            <ChevronRight className="w-4 h-4 text-gray-400" />
                           )}
-                        </div>
-                        {lecture.isFree && (
-                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
-                            Preview
-                          </span>
-                        )}
-                      </div>
-                    ))}
+                        </LectureWrapper>
+                      );
+                    })}
                   </div>
                 )}
               </Card>
