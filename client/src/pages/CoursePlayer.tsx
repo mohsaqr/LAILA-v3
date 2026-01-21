@@ -51,9 +51,10 @@ const SectionRenderer = ({ section, courseId }: { section: LectureSection; cours
             )}
             <CardBody>
               {section.content ? (
-                <div className="prose max-w-none">
-                  <ReactMarkdown>{section.content}</ReactMarkdown>
-                </div>
+                <div
+                  className="prose max-w-none"
+                  dangerouslySetInnerHTML={{ __html: section.content }}
+                />
               ) : (
                 <p className="text-gray-500 italic">No content yet</p>
               )}
