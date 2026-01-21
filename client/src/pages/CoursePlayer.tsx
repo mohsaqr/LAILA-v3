@@ -3,9 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
 import {
   ChevronLeft,
-  ChevronRight,
   CheckCircle,
-  Circle,
   FileText,
   Menu,
   X,
@@ -13,13 +11,14 @@ import {
   ClipboardList,
   Upload,
   Sparkles,
+  BookOpen,
+  FolderOpen,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
 import { coursesApi } from '../api/courses';
 import { enrollmentsApi } from '../api/enrollments';
 import { Card, CardBody } from '../components/common/Card';
-import { Button } from '../components/common/Button';
 import { Loading } from '../components/common/Loading';
 import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStudent';
 import { AssignmentSectionStudent } from '../components/course/AssignmentSectionStudent';
@@ -217,34 +216,6 @@ export const CoursePlayer = () => {
     );
   };
 
-  const getNextLecture = () => {
-    if (!enrollment?.enrollment?.course?.modules || !currentLectureId) return null;
-
-    const allLectures: { id: number; moduleIndex: number }[] = [];
-    enrollment.enrollment.course.modules.forEach((module, moduleIndex) => {
-      module.lectures?.forEach(lecture => {
-        allLectures.push({ id: lecture.id, moduleIndex });
-      });
-    });
-
-    const currentIndex = allLectures.findIndex(l => l.id === currentLectureId);
-    return currentIndex < allLectures.length - 1 ? allLectures[currentIndex + 1] : null;
-  };
-
-  const getPrevLecture = () => {
-    if (!enrollment?.enrollment?.course?.modules || !currentLectureId) return null;
-
-    const allLectures: { id: number; moduleIndex: number }[] = [];
-    enrollment.enrollment.course.modules.forEach((module, moduleIndex) => {
-      module.lectures?.forEach(lecture => {
-        allLectures.push({ id: lecture.id, moduleIndex });
-      });
-    });
-
-    const currentIndex = allLectures.findIndex(l => l.id === currentLectureId);
-    return currentIndex > 0 ? allLectures[currentIndex - 1] : null;
-  };
-
   if (enrollmentLoading) {
     return <Loading fullScreen text="Loading course..." />;
   }
@@ -266,8 +237,6 @@ export const CoursePlayer = () => {
   }
 
   const course = enrollment.enrollment?.course;
-  const nextLecture = getNextLecture();
-  const prevLecture = getPrevLecture();
 
   // Find current module for analytics context
   const currentModule = course?.modules?.find(m =>
@@ -292,25 +261,13 @@ export const CoursePlayer = () => {
       data-module-id={currentModule?.id}
       data-lecture-id={currentLectureId || undefined}
     >
-      {/* Sidebar */}
+      {/* Sidebar - Course Content Menu */}
       <div className={`${sidebarOpen ? 'w-80' : 'w-0'} bg-white border-r border-gray-200 transition-all overflow-hidden flex-shrink-0`}>
         <div className="p-4 border-b border-gray-200">
           <Link to="/learn" className="text-sm text-primary-600 hover:underline flex items-center gap-1">
             <ChevronLeft className="w-4 h-4" /> Back to My Learning
           </Link>
           <h2 className="font-semibold text-gray-900 mt-2 truncate">{course?.title}</h2>
-          <div className="mt-2">
-            <div className="flex items-center justify-between text-sm mb-1">
-              <span className="text-gray-600">Progress</span>
-              <span className="font-medium">{progress?.progress || 0}%</span>
-            </div>
-            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-primary-500 to-secondary-500"
-                style={{ width: `${progress?.progress || 0}%` }}
-              />
-            </div>
-          </div>
           <Link
             to={`/courses/${courseId}/assignments`}
             className="mt-3 flex items-center gap-2 px-3 py-2 text-sm font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors"
@@ -320,20 +277,19 @@ export const CoursePlayer = () => {
           </Link>
         </div>
 
-        <div className="overflow-y-auto h-[calc(100vh-160px)]">
-          {course?.modules?.map((module, moduleIndex) => (
+        <div className="overflow-y-auto h-[calc(100vh-140px)]">
+          {course?.modules?.map((module) => (
             <div key={module.id} className="border-b border-gray-100">
-              <div className="px-4 py-3 bg-gray-50">
-                <h3 className="font-medium text-sm text-gray-900">
-                  {moduleIndex + 1}. {module.title}
-                </h3>
+              <div className="px-4 py-3 bg-gray-50 flex items-center gap-2">
+                <FolderOpen className="w-4 h-4 text-gray-500" />
+                <h3 className="font-medium text-sm text-gray-900">{module.title}</h3>
               </div>
               <div>
                 {module.lectures?.map(lec => (
                   <button
                     key={lec.id}
                     onClick={() => setCurrentLectureId(lec.id)}
-                    className={`w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-gray-50 ${
+                    className={`w-full px-4 py-2.5 flex items-center gap-3 text-left hover:bg-gray-50 ${
                       currentLectureId === lec.id ? 'bg-primary-50 border-r-2 border-primary-500' : ''
                     }`}
                     data-track="sidebar-lecture-select"
@@ -342,14 +298,13 @@ export const CoursePlayer = () => {
                     data-lecture-id={lec.id}
                     data-module-id={module.id}
                   >
-                    {isLectureCompleted(lec.id) ? (
-                      <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    ) : (
-                      <Circle className="w-5 h-5 text-gray-300 flex-shrink-0" />
-                    )}
+                    <BookOpen className={`w-4 h-4 flex-shrink-0 ${currentLectureId === lec.id ? 'text-primary-500' : 'text-gray-400'}`} />
                     <span className={`text-sm ${currentLectureId === lec.id ? 'text-primary-600 font-medium' : 'text-gray-700'}`}>
                       {lec.title}
                     </span>
+                    {isLectureCompleted(lec.id) && (
+                      <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 ml-auto" />
+                    )}
                   </button>
                 ))}
               </div>
@@ -365,26 +320,12 @@ export const CoursePlayer = () => {
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-2 hover:bg-gray-100 rounded-lg"
+            title={sidebarOpen ? 'Hide menu' : 'Show menu'}
           >
             {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={!prevLecture}
-              onClick={() => prevLecture && setCurrentLectureId(prevLecture.id)}
-            >
-              <ChevronLeft className="w-4 h-4" /> Previous
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={!nextLecture}
-              onClick={() => nextLecture && setCurrentLectureId(nextLecture.id)}
-            >
-              Next <ChevronRight className="w-4 h-4" />
-            </Button>
+          <div className="text-sm text-gray-500">
+            {lecture?.title}
           </div>
         </div>
 
@@ -478,33 +419,27 @@ export const CoursePlayer = () => {
                 </Card>
               )}
 
-              {/* Complete Button */}
-              {!isLectureCompleted(lecture.id) && (
-                <Button
-                  onClick={() => completeMutation.mutate()}
-                  loading={completeMutation.isPending}
-                  className="w-full"
-                  data-track="lesson-complete"
-                  data-track-category="progress"
-                  data-track-label={lecture.title}
-                >
-                  <CheckCircle className="w-5 h-5" />
-                  Mark as Complete
-                </Button>
-              )}
-
-              {isLectureCompleted(lecture.id) && nextLecture && (
-                <Button
-                  onClick={() => setCurrentLectureId(nextLecture.id)}
-                  className="w-full"
-                  data-track="lesson-next"
-                  data-track-category="navigation"
-                  data-track-label="Continue to Next Lesson"
-                >
-                  Continue to Next Lesson
-                  <ChevronRight className="w-5 h-5" />
-                </Button>
-              )}
+              {/* Complete Button - Optional progress tracking */}
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                {!isLectureCompleted(lecture.id) ? (
+                  <button
+                    onClick={() => completeMutation.mutate()}
+                    disabled={completeMutation.isPending}
+                    className="flex items-center gap-2 text-sm text-gray-600 hover:text-green-600 transition-colors"
+                    data-track="lesson-complete"
+                    data-track-category="progress"
+                    data-track-label={lecture.title}
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    {completeMutation.isPending ? 'Saving...' : 'Mark as read'}
+                  </button>
+                ) : (
+                  <span className="flex items-center gap-2 text-sm text-green-600">
+                    <CheckCircle className="w-4 h-4" />
+                    Completed
+                  </span>
+                )}
+              </div>
             </div>
           ) : (
             <div className="text-center py-12">
