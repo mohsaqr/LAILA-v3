@@ -13,6 +13,7 @@ import {
   Sparkles,
   BookOpen,
   FolderOpen,
+  FlaskConical,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../api/courses';
@@ -285,6 +286,7 @@ export const CoursePlayer = () => {
                 <h3 className="font-medium text-sm text-gray-900">{module.title}</h3>
               </div>
               <div>
+                {/* Lectures */}
                 {module.lectures?.map(lec => (
                   <button
                     key={lec.id}
@@ -306,6 +308,28 @@ export const CoursePlayer = () => {
                       <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 ml-auto" />
                     )}
                   </button>
+                ))}
+
+                {/* Code Labs */}
+                {module.codeLabs?.filter(lab => lab.isPublished)?.map(lab => (
+                  <Link
+                    key={`codelab-${lab.id}`}
+                    to={`/courses/${courseId}/code-labs/${lab.id}`}
+                    className="w-full px-4 py-2.5 flex items-center gap-3 text-left hover:bg-emerald-50 transition-colors"
+                    data-track="sidebar-codelab-select"
+                    data-track-category="navigation"
+                    data-track-label={lab.title}
+                    data-codelab-id={lab.id}
+                    data-module-id={module.id}
+                  >
+                    <FlaskConical className="w-4 h-4 flex-shrink-0 text-emerald-500" />
+                    <span className="text-sm text-gray-700 hover:text-emerald-600">
+                      {lab.title}
+                    </span>
+                    <span className="ml-auto text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">
+                      Lab
+                    </span>
+                  </Link>
                 ))}
               </div>
             </div>

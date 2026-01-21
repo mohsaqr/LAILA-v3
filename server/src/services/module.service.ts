@@ -36,8 +36,17 @@ export class ModuleService {
             isFree: true,
           },
         },
+        codeLabs: {
+          orderBy: { orderIndex: 'asc' },
+          include: {
+            blocks: {
+              orderBy: { orderIndex: 'asc' },
+              select: { id: true },
+            },
+          },
+        },
         _count: {
-          select: { lectures: true },
+          select: { lectures: true, codeLabs: true },
         },
       },
     });

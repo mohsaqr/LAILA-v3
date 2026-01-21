@@ -3,6 +3,7 @@ export { CourseCreate } from './CourseCreate';
 export { CourseEdit } from './CourseEdit';
 export { CurriculumEditor } from './CurriculumEditor';
 export { LectureEditor } from './LectureEditor';
+export { CodeLabEditor } from './CodeLabEditor';
 export { AssignmentManager } from './AssignmentManager';
 export { SubmissionReview } from './SubmissionReview';
 export { ChatbotLogs } from './ChatbotLogs';

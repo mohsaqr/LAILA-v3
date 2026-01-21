@@ -7,10 +7,12 @@ import {
   Plus,
   ChevronUp,
   GripVertical,
+  FlaskConical,
 } from 'lucide-react';
-import { CourseModule, Lecture } from '../../types';
+import { CourseModule, Lecture, CodeLab } from '../../types';
 import { Button } from '../common/Button';
 import { LectureItem } from './LectureItem';
+import { CodeLabItem } from './CodeLabItem';
 
 interface ModuleItemProps {
   module: CourseModule;
@@ -26,6 +28,12 @@ interface ModuleItemProps {
   onDeleteLecture: (lecture: Lecture) => void;
   onMoveLectureUp: (lecture: Lecture, module: CourseModule) => void;
   onMoveLectureDown: (lecture: Lecture, module: CourseModule) => void;
+  // Code Lab handlers
+  onAddCodeLab: (module: CourseModule) => void;
+  onEditCodeLab: (codeLab: CodeLab) => void;
+  onDeleteCodeLab: (codeLab: CodeLab) => void;
+  onMoveCodeLabUp: (codeLab: CodeLab, module: CourseModule) => void;
+  onMoveCodeLabDown: (codeLab: CodeLab, module: CourseModule) => void;
 }
 
 export const ModuleItem = ({
@@ -42,9 +50,15 @@ export const ModuleItem = ({
   onDeleteLecture,
   onMoveLectureUp,
   onMoveLectureDown,
+  onAddCodeLab,
+  onEditCodeLab,
+  onDeleteCodeLab,
+  onMoveCodeLabUp,
+  onMoveCodeLabDown,
 }: ModuleItemProps) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const lectures = module.lectures || [];
+  const codeLabs = module.codeLabs || [];
 
   return (
     <div className="border border-gray-200 rounded-lg bg-white">
@@ -77,6 +91,7 @@ export const ModuleItem = ({
           )}
           <span className="text-xs text-gray-400">
             {lectures.length} lesson{lectures.length !== 1 ? 's' : ''}
+            {codeLabs.length > 0 && ` • ${codeLabs.length} code lab${codeLabs.length !== 1 ? 's' : ''}`}
           </span>
         </div>
 
@@ -119,9 +134,10 @@ export const ModuleItem = ({
         </div>
       </div>
 
-      {/* Lectures */}
+      {/* Lectures and Code Labs */}
       {isExpanded && (
         <div className="p-4 space-y-2">
+          {/* Lectures */}
           {lectures.length > 0 ? (
             lectures
               .sort((a, b) => a.orderIndex - b.orderIndex)
@@ -144,15 +160,48 @@ export const ModuleItem = ({
             </p>
           )}
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onAddLecture(module)}
-            icon={<Plus className="w-4 h-4" />}
-            className="w-full mt-2"
-          >
-            Add Lesson
-          </Button>
+          {/* Code Labs */}
+          {codeLabs.length > 0 && (
+            <div className="pt-2 border-t border-gray-100 mt-2 space-y-2">
+              {codeLabs
+                .sort((a, b) => a.orderIndex - b.orderIndex)
+                .map((codeLab, index) => (
+                  <CodeLabItem
+                    key={codeLab.id}
+                    codeLab={codeLab}
+                    courseId={courseId}
+                    isFirst={index === 0}
+                    isLast={index === codeLabs.length - 1}
+                    onEdit={onEditCodeLab}
+                    onDelete={onDeleteCodeLab}
+                    onMoveUp={() => onMoveCodeLabUp(codeLab, module)}
+                    onMoveDown={() => onMoveCodeLabDown(codeLab, module)}
+                  />
+                ))}
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex gap-2 mt-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onAddLecture(module)}
+              icon={<Plus className="w-4 h-4" />}
+              className="flex-1"
+            >
+              Add Lesson
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onAddCodeLab(module)}
+              icon={<FlaskConical className="w-4 h-4" />}
+              className="flex-1 text-emerald-600 hover:bg-emerald-50"
+            >
+              Add Code Lab
+            </Button>
+          </div>
         </div>
       )}
     </div>

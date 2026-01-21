@@ -51,9 +51,72 @@ export interface CourseModule {
   orderIndex: number;
   isPublished: boolean;
   lectures?: Lecture[];
+  codeLabs?: CodeLab[];
   _count?: {
     lectures: number;
+    codeLabs?: number;
   };
+}
+
+// Code Lab types
+export interface CodeLab {
+  id: number;
+  moduleId: number;
+  title: string;
+  description: string | null;
+  orderIndex: number;
+  isPublished: boolean;
+  createdAt: string;
+  updatedAt: string;
+  blocks?: CodeBlock[];
+  module?: {
+    id: number;
+    title: string;
+    course: {
+      id: number;
+      title: string;
+      slug: string;
+      instructorId: number;
+    };
+  };
+}
+
+export interface CodeBlock {
+  id: number;
+  codeLabId: number;
+  title: string;
+  instructions: string | null;
+  starterCode: string | null;
+  orderIndex: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCodeLabData {
+  moduleId: number;
+  title: string;
+  description?: string;
+  isPublished?: boolean;
+}
+
+export interface UpdateCodeLabData {
+  title?: string;
+  description?: string;
+  isPublished?: boolean;
+  orderIndex?: number;
+}
+
+export interface CreateCodeBlockData {
+  title: string;
+  instructions?: string;
+  starterCode?: string;
+}
+
+export interface UpdateCodeBlockData {
+  title?: string;
+  instructions?: string;
+  starterCode?: string;
+  orderIndex?: number;
 }
 
 export interface Lecture {

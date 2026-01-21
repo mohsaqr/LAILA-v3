@@ -19,6 +19,7 @@ import { CoursePlayer } from './pages/CoursePlayer';
 import { AITools } from './pages/AITools';
 import { StudentAssignments } from './pages/StudentAssignments';
 import { AssignmentView } from './pages/AssignmentView';
+import { CodeLabPage } from './pages/CodeLabPage';
 
 // Teaching pages
 import {
@@ -27,6 +28,7 @@ import {
   CourseEdit,
   CurriculumEditor,
   LectureEditor,
+  CodeLabEditor,
   AssignmentManager,
   SubmissionReview,
   ChatbotLogs,
@@ -149,6 +151,16 @@ function App() {
           }
         />
 
+        {/* Code Lab routes (Student) */}
+        <Route
+          path="/courses/:courseSlug/code-labs/:codeLabId"
+          element={
+            <ProtectedRoute>
+              <CodeLabPage />
+            </ProtectedRoute>
+          }
+        />
+
         {/* AI Tools */}
         <Route path="/ai-tools" element={<AITools />} />
         <Route path="/ai-tools/builder" element={<AIBuilder />} />
@@ -195,6 +207,14 @@ function App() {
           element={
             <ProtectedRoute requireInstructor>
               <LectureEditor />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teach/courses/:id/code-labs/:codeLabId"
+          element={
+            <ProtectedRoute requireInstructor>
+              <CodeLabEditor />
             </ProtectedRoute>
           }
         />

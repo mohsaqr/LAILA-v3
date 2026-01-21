@@ -272,9 +272,9 @@ npm install webr @monaco-editor/react
 
 ## Implementation Steps
 
-### Phase 1: Database Schema
+### Phase 1: Database Schema ✅
 
-- [ ] **1.1** Add CodeLab and CodeBlock models to `server/prisma/schema.prisma`
+- [x] **1.1** Add CodeLab and CodeBlock models to `server/prisma/schema.prisma`
   ```prisma
   model CodeLab {
     id          Int         @id @default(autoincrement())
@@ -310,7 +310,7 @@ npm install webr @monaco-editor/react
   }
   ```
 
-- [ ] **1.2** Add `codeLabs` relation to `CourseModule` model
+- [x] **1.2** Add `codeLabs` relation to `CourseModule` model
   ```prisma
   model CourseModule {
     // ... existing fields
@@ -318,16 +318,16 @@ npm install webr @monaco-editor/react
   }
   ```
 
-- [ ] **1.3** Run migration
+- [x] **1.3** Run migration (used `prisma db push`)
   ```bash
   cd server && npx prisma migrate dev --name add_code_labs
   ```
 
 ---
 
-### Phase 2: Backend Service
+### Phase 2: Backend Service ✅
 
-- [ ] **2.1** Create `server/src/services/codeLab.service.ts`
+- [x] **2.1** Create `server/src/services/codeLab.service.ts`
   - Implement ownership verification (module → course → instructor)
   - Methods:
     - `getCodeLabsForModule(moduleId: number)`
@@ -343,9 +343,9 @@ npm install webr @monaco-editor/react
 
 ---
 
-### Phase 3: Backend Routes
+### Phase 3: Backend Routes ✅
 
-- [ ] **3.1** Create `server/src/routes/codeLab.routes.ts`
+- [x] **3.1** Create `server/src/routes/codeLab.routes.ts`
   ```typescript
   // Code Labs
   GET    /api/code-labs/module/:moduleId  - Get code labs for module
@@ -362,7 +362,7 @@ npm install webr @monaco-editor/react
   PUT    /api/code-labs/:labId/blocks/reorder   - Reorder blocks { blockIds: number[] }
   ```
 
-- [ ] **3.2** Register routes in `server/src/index.ts`
+- [x] **3.2** Register routes in `server/src/index.ts`
   ```typescript
   import codeLabRoutes from './routes/codeLab.routes';
   app.use('/api/code-labs', codeLabRoutes);
@@ -370,9 +370,9 @@ npm install webr @monaco-editor/react
 
 ---
 
-### Phase 4: Client Types
+### Phase 4: Client Types ✅
 
-- [ ] **4.1** Add types to `client/src/types/index.ts`
+- [x] **4.1** Add types to `client/src/types/index.ts`
   ```typescript
   export interface CodeLab {
     id: number;
@@ -400,9 +400,9 @@ npm install webr @monaco-editor/react
 
 ---
 
-### Phase 5: Client API
+### Phase 5: Client API ✅
 
-- [ ] **5.1** Create `client/src/api/codeLabs.ts`
+- [x] **5.1** Create `client/src/api/codeLabs.ts`
   ```typescript
   export const codeLabsApi = {
     // Code Labs
@@ -477,60 +477,63 @@ npm install webr @monaco-editor/react
 
 ---
 
-### Phase 9: Student UI - Code Lab Player
+### Phase 9: Student UI - Code Lab Player ✅
 
-- [ ] **9.1** Create `client/src/pages/CodeLabPage.tsx`
+- [x] **9.1** Create `client/src/pages/CodeLabPage.tsx`
   - Route: `/courses/:courseSlug/code-labs/:codeLabId`
   - Fetch code lab with blocks
   - Initialize WebR session
   - Render CodeLabPlayer component
 
-- [ ] **9.2** Create `client/src/components/code/CodeLabPlayer.tsx`
+- [x] **9.2** Create `client/src/components/code/CodeLabPlayer.tsx`
   - Display lab title and description
   - Render all blocks in order with visual chaining
-  - "Run All Blocks" button
+  - Reset session button
   - Back to course navigation
 
-- [ ] **9.3** Create `client/src/components/code/CodeBlockRunner.tsx`
+- [x] **9.3** Create `client/src/components/code/CodeBlockRunner.tsx`
   - Display block title and instructions
   - Monaco editor for code (initialized with starterCode)
   - "Run" button to execute code
   - "Ask AI Help" button
   - Show execution status (running, success, error)
 
-- [ ] **9.4** Create `client/src/components/code/CodeOutput.tsx`
+- [x] **9.4** Create `client/src/components/code/CodeOutput.tsx`
   - Display text output
   - Display errors (styled red)
   - Display plots/visualizations (base64 images)
 
-- [ ] **9.5** Add route in `client/src/App.tsx`
+- [x] **9.5** Add route in `client/src/App.tsx`
   ```typescript
   <Route path="/courses/:courseSlug/code-labs/:codeLabId" element={<CodeLabPage />} />
   ```
 
 ---
 
-### Phase 10: AI Debug Integration
+### Phase 10: AI Debug Integration ✅
 
-- [ ] **10.1** Create `client/src/components/code/CodeLabAIHelper.tsx`
+- [x] **10.1** Create `client/src/components/code/CodeLabAIHelper.tsx`
   - Modal with chat interface
   - Pre-populate context with:
     - Lab and block info
     - All previous blocks' code and output
     - Current block code and error
   - Use existing chat API
+  - Added block execution tracking to CodeLabPage
+  - Integrated AI helper modal with context from all executed blocks
 
 ---
 
-### Phase 11: Course Player Integration
+### Phase 11: Course Player Integration ✅
 
-- [ ] **11.1** Modify course player sidebar to show code labs
-  - Add Code Lab items in module content list
-  - Icon differentiation from lectures
+- [x] **11.1** Modify course player sidebar to show code labs
+  - Add Code Lab items in module content list (after lectures)
+  - FlaskConical icon differentiation from lectures (emerald color)
   - Link to CodeLabPage
+  - "Lab" badge to distinguish from regular content
 
-- [ ] **11.2** Add Code Lab card in course content area
-  - Show when navigating to module with code labs
+- [x] **11.2** Update enrollment service to include code labs
+  - Include code labs when fetching course data for enrolled students
 
 ---
 
@@ -538,17 +541,17 @@ npm install webr @monaco-editor/react
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| 1 | Database Schema | ⬜ Not Started |
-| 2 | Backend Service | ⬜ Not Started |
-| 3 | Backend Routes | ⬜ Not Started |
-| 4 | Client Types | ⬜ Not Started |
-| 5 | Client API | ⬜ Not Started |
-| 6 | Curriculum Integration | ⬜ Not Started |
-| 7 | Code Lab Editor | ⬜ Not Started |
-| 8 | WebR Integration | ⬜ Not Started |
-| 9 | Code Lab Player | ⬜ Not Started |
-| 10 | AI Debug Integration | ⬜ Not Started |
-| 11 | Course Player Integration | ⬜ Not Started |
+| 1 | Database Schema | ✅ Complete |
+| 2 | Backend Service | ✅ Complete |
+| 3 | Backend Routes | ✅ Complete |
+| 4 | Client Types | ✅ Complete |
+| 5 | Client API | ✅ Complete |
+| 6 | Curriculum Integration | ✅ Complete |
+| 7 | Code Lab Editor | ✅ Complete |
+| 8 | WebR Integration | ✅ Complete |
+| 9 | Code Lab Player | ✅ Complete |
+| 10 | AI Debug Integration | ✅ Complete |
+| 11 | Course Player Integration | ✅ Complete |
 
 ---
 

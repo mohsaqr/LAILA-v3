@@ -4,6 +4,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Plus, Settings, Eye, EyeOff, Layers, FileEdit, ClipboardList, MessageCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../../api/courses';
+import { codeLabsApi } from '../../api/codeLabs';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
@@ -13,7 +14,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Input, TextArea, Select } from '../../components/common/Input';
 import { ModuleItem } from '../../components/teach/ModuleItem';
-import { CourseModule, Lecture } from '../../types';
+import { CourseModule, Lecture, CodeLab } from '../../types';
 
 interface ModuleFormData {
   title: string;
@@ -26,6 +27,11 @@ interface LectureFormData {
   contentType: 'text' | 'video' | 'mixed';
   duration: number;
   isFree: boolean;
+}
+
+interface CodeLabFormData {
+  title: string;
+  description: string;
 }
 
 export const CurriculumEditor = () => {
@@ -45,6 +51,12 @@ export const CurriculumEditor = () => {
   }>({ isOpen: false });
   const [deleteModuleConfirm, setDeleteModuleConfirm] = useState<CourseModule | null>(null);
   const [deleteLectureConfirm, setDeleteLectureConfirm] = useState<Lecture | null>(null);
+  const [codeLabModal, setCodeLabModal] = useState<{
+    isOpen: boolean;
+    moduleId?: number;
+    codeLab?: CodeLab;
+  }>({ isOpen: false });
+  const [deleteCodeLabConfirm, setDeleteCodeLabConfirm] = useState<CodeLab | null>(null);
 
   // Form states
   const [moduleForm, setModuleForm] = useState<ModuleFormData>({ title: '', description: '', label: '' });
@@ -54,6 +66,7 @@ export const CurriculumEditor = () => {
     duration: 0,
     isFree: false,
   });
+  const [codeLabForm, setCodeLabForm] = useState<CodeLabFormData>({ title: '', description: '' });
 
   // Queries
   const { data: course, isLoading: courseLoading } = useQuery({
@@ -162,6 +175,39 @@ export const CurriculumEditor = () => {
     onError: () => toast.error('Failed to unpublish course'),
   });
 
+  // Code Lab mutations
+  const createCodeLabMutation = useMutation({
+    mutationFn: ({ moduleId, data }: { moduleId: number; data: CodeLabFormData }) =>
+      codeLabsApi.createCodeLab({ moduleId, title: data.title, description: data.description }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
+      toast.success('Code Lab created');
+      closeCodeLabModal();
+    },
+    onError: () => toast.error('Failed to create Code Lab'),
+  });
+
+  const updateCodeLabMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: CodeLabFormData }) =>
+      codeLabsApi.updateCodeLab(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
+      toast.success('Code Lab updated');
+      closeCodeLabModal();
+    },
+    onError: () => toast.error('Failed to update Code Lab'),
+  });
+
+  const deleteCodeLabMutation = useMutation({
+    mutationFn: (id: number) => codeLabsApi.deleteCodeLab(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
+      toast.success('Code Lab deleted');
+      setDeleteCodeLabConfirm(null);
+    },
+    onError: () => toast.error('Failed to delete Code Lab'),
+  });
+
   // Modal handlers
   const openAddModuleModal = () => {
     setModuleForm({ title: '', description: '', label: '' });
@@ -198,6 +244,21 @@ export const CurriculumEditor = () => {
     setLectureForm({ title: '', contentType: 'text', duration: 0, isFree: false });
   };
 
+  const openAddCodeLabModal = (module: CourseModule) => {
+    setCodeLabForm({ title: '', description: '' });
+    setCodeLabModal({ isOpen: true, moduleId: module.id });
+  };
+
+  const openEditCodeLabModal = (codeLab: CodeLab) => {
+    setCodeLabForm({ title: codeLab.title, description: codeLab.description || '' });
+    setCodeLabModal({ isOpen: true, codeLab });
+  };
+
+  const closeCodeLabModal = () => {
+    setCodeLabModal({ isOpen: false });
+    setCodeLabForm({ title: '', description: '' });
+  };
+
   // Form handlers
   const handleModuleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -224,6 +285,20 @@ export const CurriculumEditor = () => {
       updateLectureMutation.mutate({ id: lectureModal.lecture.id, data: lectureForm });
     } else if (lectureModal.moduleId) {
       createLectureMutation.mutate({ moduleId: lectureModal.moduleId, data: lectureForm });
+    }
+  };
+
+  const handleCodeLabSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!codeLabForm.title.trim()) {
+      toast.error('Code Lab title is required');
+      return;
+    }
+
+    if (codeLabModal.codeLab) {
+      updateCodeLabMutation.mutate({ id: codeLabModal.codeLab.id, data: codeLabForm });
+    } else if (codeLabModal.moduleId) {
+      createCodeLabMutation.mutate({ moduleId: codeLabModal.moduleId, data: codeLabForm });
     }
   };
 
@@ -272,6 +347,32 @@ export const CurriculumEditor = () => {
     const newOrder = [...sorted];
     [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
     coursesApi.reorderLectures(module.id, newOrder.map(l => l.id)).then(() => {
+      queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
+    });
+  };
+
+  const handleMoveCodeLabUp = (codeLab: CodeLab, module: CourseModule) => {
+    const codeLabs = module.codeLabs || [];
+    const sorted = [...codeLabs].sort((a, b) => a.orderIndex - b.orderIndex);
+    const index = sorted.findIndex(c => c.id === codeLab.id);
+    if (index <= 0) return;
+
+    const newOrder = [...sorted];
+    [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
+    codeLabsApi.reorderCodeLabs(module.id, newOrder.map(c => c.id)).then(() => {
+      queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
+    });
+  };
+
+  const handleMoveCodeLabDown = (codeLab: CodeLab, module: CourseModule) => {
+    const codeLabs = module.codeLabs || [];
+    const sorted = [...codeLabs].sort((a, b) => a.orderIndex - b.orderIndex);
+    const index = sorted.findIndex(c => c.id === codeLab.id);
+    if (index < 0 || index >= sorted.length - 1) return;
+
+    const newOrder = [...sorted];
+    [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
+    codeLabsApi.reorderCodeLabs(module.id, newOrder.map(c => c.id)).then(() => {
       queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
     });
   };
@@ -387,6 +488,11 @@ export const CurriculumEditor = () => {
                   onDeleteLecture={setDeleteLectureConfirm}
                   onMoveLectureUp={handleMoveLectureUp}
                   onMoveLectureDown={handleMoveLectureDown}
+                  onAddCodeLab={openAddCodeLabModal}
+                  onEditCodeLab={openEditCodeLabModal}
+                  onDeleteCodeLab={setDeleteCodeLabConfirm}
+                  onMoveCodeLabUp={handleMoveCodeLabUp}
+                  onMoveCodeLabDown={handleMoveCodeLabDown}
                 />
               ))}
             </div>
@@ -546,6 +652,72 @@ export const CurriculumEditor = () => {
         message={`Are you sure you want to delete "${deleteLectureConfirm?.title}"?`}
         confirmText="Delete"
         loading={deleteLectureMutation.isPending}
+      />
+
+      {/* Code Lab Modal */}
+      <Modal
+        isOpen={codeLabModal.isOpen}
+        onClose={closeCodeLabModal}
+        title={codeLabModal.codeLab ? 'Edit Code Lab' : 'Add Code Lab'}
+        size="md"
+      >
+        <form onSubmit={handleCodeLabSubmit} className="space-y-4">
+          <Input
+            label="Code Lab Title"
+            value={codeLabForm.title}
+            onChange={e => setCodeLabForm(f => ({ ...f, title: e.target.value }))}
+            placeholder="e.g., Introduction to R Programming"
+            required
+          />
+          <TextArea
+            label="Description (optional)"
+            value={codeLabForm.description}
+            onChange={e => setCodeLabForm(f => ({ ...f, description: e.target.value }))}
+            placeholder="Brief description of what students will learn in this lab"
+            rows={3}
+          />
+
+          {/* Edit Content Button - only for existing code labs */}
+          {codeLabModal.codeLab && (
+            <div className="border-t border-gray-200 pt-4 mt-4">
+              <p className="text-sm text-gray-600 mb-3">
+                Add code blocks and instructions to this lab:
+              </p>
+              <Link
+                to={`/teach/courses/${courseId}/code-labs/${codeLabModal.codeLab.id}`}
+                className="btn btn-secondary w-full flex items-center justify-center gap-2"
+              >
+                <FileEdit className="w-4 h-4" />
+                Edit Code Lab Content
+              </Link>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button type="button" variant="secondary" onClick={closeCodeLabModal}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              loading={createCodeLabMutation.isPending || updateCodeLabMutation.isPending}
+            >
+              {codeLabModal.codeLab ? 'Update' : 'Create'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Code Lab Confirmation */}
+      <ConfirmDialog
+        isOpen={!!deleteCodeLabConfirm}
+        onClose={() => setDeleteCodeLabConfirm(null)}
+        onConfirm={() =>
+          deleteCodeLabConfirm && deleteCodeLabMutation.mutate(deleteCodeLabConfirm.id)
+        }
+        title="Delete Code Lab"
+        message={`Are you sure you want to delete "${deleteCodeLabConfirm?.title}"? All code blocks in this lab will also be deleted.`}
+        confirmText="Delete"
+        loading={deleteCodeLabMutation.isPending}
       />
     </div>
   );

@@ -49,6 +49,10 @@ export class EnrollmentService {
                   where: { isPublished: true },
                   orderBy: { orderIndex: 'asc' },
                 },
+                codeLabs: {
+                  where: { isPublished: true },
+                  orderBy: { orderIndex: 'asc' },
+                },
               },
             },
           },
