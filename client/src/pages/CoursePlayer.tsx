@@ -264,8 +264,8 @@ export const CoursePlayer = () => {
       {/* Sidebar - Course Content Menu */}
       <div className={`${sidebarOpen ? 'w-80' : 'w-0'} bg-white border-r border-gray-200 transition-all overflow-hidden flex-shrink-0`}>
         <div className="p-4 border-b border-gray-200">
-          <Link to="/learn" className="text-sm text-primary-600 hover:underline flex items-center gap-1">
-            <ChevronLeft className="w-4 h-4" /> Back to My Learning
+          <Link to={`/catalog/${courseId}`} className="text-sm text-primary-600 hover:underline flex items-center gap-1">
+            <ChevronLeft className="w-4 h-4" /> Course Details
           </Link>
           <h2 className="font-semibold text-gray-900 mt-2 truncate">{course?.title}</h2>
           <Link

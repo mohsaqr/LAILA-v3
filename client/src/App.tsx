@@ -15,7 +15,6 @@ import { Register } from './pages/auth/Register';
 import { Dashboard } from './pages/Dashboard';
 import { Catalog } from './pages/Catalog';
 import { CourseDetails } from './pages/CourseDetails';
-import { MyLearning } from './pages/MyLearning';
 import { CoursePlayer } from './pages/CoursePlayer';
 import { AITools } from './pages/AITools';
 import { StudentAssignments } from './pages/StudentAssignments';
@@ -103,17 +102,9 @@ function App() {
           }
         />
 
+        {/* Course Player - accessible from course pages */}
         <Route
-          path="/learn"
-          element={
-            <ProtectedRoute>
-              <MyLearning />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/learn/:courseId"
+          path="/courses/:courseId/player"
           element={
             <ProtectedRoute>
               <CoursePlayer />
@@ -122,7 +113,7 @@ function App() {
         />
 
         <Route
-          path="/learn/:courseId/lecture/:lectureId"
+          path="/courses/:courseId/player/:lectureId"
           element={
             <ProtectedRoute>
               <CoursePlayer />

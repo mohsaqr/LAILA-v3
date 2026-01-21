@@ -24,7 +24,6 @@ export const Navbar = () => {
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: BookOpen },
     { path: '/catalog', label: 'Courses', icon: GraduationCap },
-    { path: '/learn', label: 'My Learning', icon: BookOpen, authRequired: true },
     ...(isInstructor || isAdmin ? [{ path: '/teach', label: 'Teaching', icon: Briefcase }] : []),
     { path: '/ai-tools', label: 'AI Tools', icon: BrainCircuit },
     ...(isAdmin ? [{ path: '/admin', label: 'Admin', icon: Shield }] : []),

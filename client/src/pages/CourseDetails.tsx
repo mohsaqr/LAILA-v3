@@ -45,7 +45,7 @@ export const CourseDetails = () => {
       toast.success('Successfully enrolled!');
       queryClient.invalidateQueries({ queryKey: ['enrollment', id] });
       queryClient.invalidateQueries({ queryKey: ['enrollments'] });
-      navigate(`/learn/${id}`);
+      navigate(`/courses/${id}/player`);
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -163,8 +163,8 @@ export const CourseDetails = () => {
                         <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-2" />
                         <p className="text-green-600 font-medium">You're enrolled!</p>
                       </div>
-                      <Link to={`/learn/${course.id}`} className="btn btn-primary w-full">
-                        Continue Learning
+                      <Link to={`/courses/${course.id}/player`} className="btn btn-primary w-full">
+                        Open Course
                       </Link>
                       <Link
                         to={`/courses/${course.id}/assignments`}

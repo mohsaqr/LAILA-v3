@@ -9,14 +9,12 @@ import {
   Users,
   FileText,
   AlertCircle,
-  ArrowRight,
   BrainCircuit,
   Sparkles,
-  Play,
+  Settings,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { usersApi } from '../api/users';
-import { enrollmentsApi } from '../api/enrollments';
 import { coursesApi } from '../api/courses';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
@@ -34,12 +32,6 @@ export const Dashboard = () => {
     queryKey: ['instructorStats', user?.id],
     queryFn: () => usersApi.getInstructorStats(user!.id),
     enabled: !!user && isInstructor,
-  });
-
-  const { data: enrollments, isLoading: enrollmentsLoading } = useQuery({
-    queryKey: ['enrollments'],
-    queryFn: () => enrollmentsApi.getMyEnrollments(),
-    enabled: !!user,
   });
 
   useQuery({
@@ -63,9 +55,7 @@ export const Dashboard = () => {
                 Welcome back, {user?.fullname?.split(' ')[0]}!
               </h1>
               <p className="text-white/80 text-lg mb-6">
-                {enrollments && enrollments.length > 0
-                  ? `You have ${enrollments.length} active course${enrollments.length > 1 ? 's' : ''}. Keep up the great work!`
-                  : 'Start your learning journey today by exploring our courses.'}
+                Explore courses, use AI tools, and enhance your learning experience.
               </p>
               <div className="flex flex-wrap gap-3">
                 <Link
@@ -101,84 +91,6 @@ export const Dashboard = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Continue Learning - Primary Section */}
-        <div className="mb-10">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Continue Learning</h2>
-              <p className="text-gray-500 text-sm mt-1">Pick up where you left off</p>
-            </div>
-            <Link to="/learn" className="text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
-              View all <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-
-          {enrollmentsLoading ? (
-            <Loading />
-          ) : enrollments && enrollments.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {enrollments.slice(0, 3).map(enrollment => (
-                <Link key={enrollment.id} to={`/learn/${enrollment.courseId}`}>
-                  <Card hover className="h-full overflow-hidden group">
-                    {/* Course Image/Gradient */}
-                    <div className="h-32 bg-gradient-to-br from-primary-500 via-primary-600 to-secondary-500 relative">
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <GraduationCap className="w-16 h-16 text-white/30" />
-                      </div>
-                      {/* Play overlay on hover */}
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                        <div className="w-14 h-14 rounded-full bg-white/0 group-hover:bg-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all transform scale-75 group-hover:scale-100">
-                          <Play className="w-6 h-6 text-primary-600 ml-1" />
-                        </div>
-                      </div>
-                      {/* Progress indicator */}
-                      <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/20">
-                        <div
-                          className="h-full bg-white"
-                          style={{ width: `${enrollment.progress}%` }}
-                        />
-                      </div>
-                    </div>
-                    <CardBody className="p-4">
-                      <h3 className="font-semibold text-gray-900 mb-1 line-clamp-1">
-                        {enrollment.course?.title}
-                      </h3>
-                      <p className="text-sm text-gray-500 mb-3">
-                        {enrollment.course?.instructor?.fullname}
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-primary-600">
-                          {enrollment.progress}% complete
-                        </span>
-                        <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-primary-500 transition-colors" />
-                      </div>
-                    </CardBody>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <Card className="bg-gradient-to-br from-gray-50 to-gray-100 border-dashed border-2">
-              <CardBody className="text-center py-12">
-                <div className="w-20 h-20 rounded-full bg-primary-100 flex items-center justify-center mx-auto mb-4">
-                  <GraduationCap className="w-10 h-10 text-primary-500" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Start Your Learning Journey</h3>
-                <p className="text-gray-500 mb-6 max-w-md mx-auto">
-                  Explore our catalog and enroll in courses to begin learning new skills.
-                </p>
-                <Link
-                  to="/catalog"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors"
-                >
-                  <Sparkles className="w-5 h-5" />
-                  Browse Courses
-                </Link>
-              </CardBody>
-            </Card>
-          )}
-        </div>
-
         {/* Quick Actions Grid */}
         <div className="mb-10">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
@@ -231,13 +143,13 @@ export const Dashboard = () => {
               </>
             ) : (
               <>
-                <Link to="/learn">
+                <Link to="/ai-tools/builder">
                   <Card hover className="h-full">
                     <CardBody className="text-center py-6">
-                      <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center mx-auto mb-3">
-                        <BookOpen className="w-6 h-6 text-green-600" />
+                      <div className="w-12 h-12 rounded-xl bg-violet-100 flex items-center justify-center mx-auto mb-3">
+                        <Sparkles className="w-6 h-6 text-violet-600" />
                       </div>
-                      <p className="font-medium text-gray-900">My Learning</p>
+                      <p className="font-medium text-gray-900">AI Builder</p>
                     </CardBody>
                   </Card>
                 </Link>
@@ -245,10 +157,10 @@ export const Dashboard = () => {
                 <Link to="/settings">
                   <Card hover className="h-full">
                     <CardBody className="text-center py-6">
-                      <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center mx-auto mb-3">
-                        <Award className="w-6 h-6 text-orange-600" />
+                      <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                        <Settings className="w-6 h-6 text-gray-600" />
                       </div>
-                      <p className="font-medium text-gray-900">My Progress</p>
+                      <p className="font-medium text-gray-900">Settings</p>
                     </CardBody>
                   </Card>
                 </Link>
