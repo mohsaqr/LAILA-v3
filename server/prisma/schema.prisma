@@ -183,16 +183,29 @@ model DataAnalysisLog {
 // =============================================================================
 
 model Chatbot {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique
-  displayName String   @map("display_name")
-  description String?
-  systemPrompt String  @map("system_prompt")
-  category    String?
-  isActive    Boolean  @default(true) @map("is_active")
-  isSystem    Boolean  @default(false) @map("is_system")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id                  Int      @id @default(autoincrement())
+  name                String   @unique
+  displayName         String   @map("display_name")
+  description         String?
+  systemPrompt        String   @map("system_prompt")
+  category            String?
+  isActive            Boolean  @default(true) @map("is_active")
+  isSystem            Boolean  @default(false) @map("is_system")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  // Enhanced customization fields
+  welcomeMessage      String?  @map("welcome_message")
+  avatarUrl           String?  @map("avatar_url")
+  personality         String?  @default("friendly") // friendly, professional, academic, casual
+  temperature         Float?   @default(0.7)
+  suggestedQuestions  String?  @map("suggested_questions") // JSON array
+  dosRules            String?  @map("dos_rules") // JSON array
+  dontsRules          String?  @map("donts_rules") // JSON array
+  responseStyle       String?  @default("balanced") @map("response_style") // concise, balanced, detailed
+  maxTokens           Int?     @default(1000) @map("max_tokens")
+  modelPreference     String?  @map("model_preference") // gpt-4, gpt-3.5-turbo, claude, etc.
+  knowledgeContext    String?  @map("knowledge_context") // Additional context/knowledge
 
   @@map("chatbots")
 }
