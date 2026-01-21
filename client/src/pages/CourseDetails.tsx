@@ -5,12 +5,14 @@ import {
   BookOpen,
   PlayCircle,
   FileText,
-  CheckCircle,
   ChevronDown,
   ChevronRight,
   Edit,
   Settings,
   ClipboardList,
+  Bell,
+  ListTodo,
+  Calendar,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../api/courses';
@@ -135,12 +137,12 @@ export const CourseDetails = () => {
               </div>
             </div>
 
-            {/* Enrollment Card */}
+            {/* Sidebar Card */}
             <div className="md:col-span-1">
               <Card className="sticky top-24">
-                <CardBody className="space-y-4">
+                <CardBody className="p-0">
                   {isInstructor ? (
-                    <div className="space-y-3">
+                    <div className="p-4 space-y-3">
                       <p className="text-center text-gray-600 font-medium">You are the instructor</p>
                       <Link
                         to={`/teach/courses/${course.id}/curriculum`}
@@ -158,22 +160,42 @@ export const CourseDetails = () => {
                       </Link>
                     </div>
                   ) : isEnrolled ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2 text-green-600">
-                        <CheckCircle className="w-5 h-5" />
-                        <span className="font-medium">Enrolled</span>
+                    <div>
+                      {/* Assignments Section */}
+                      <div className="p-4 border-b border-gray-100">
+                        <div className="flex items-center gap-2 text-gray-700 mb-3">
+                          <ClipboardList className="w-4 h-4" />
+                          <span className="font-medium text-sm">Assignments</span>
+                        </div>
+                        <div className="text-sm text-gray-400 text-center py-2">
+                          No assignments yet
+                        </div>
                       </div>
-                      <p className="text-sm text-gray-500">
-                        Click on any lesson below to start learning.
-                      </p>
-                      <hr />
-                      {/* Placeholder for future content: assignments, calendar, etc. */}
-                      <div className="text-sm text-gray-400 text-center py-4">
-                        {/* Future: Assignments & Calendar */}
+
+                      {/* To-dos Section */}
+                      <div className="p-4 border-b border-gray-100">
+                        <div className="flex items-center gap-2 text-gray-700 mb-3">
+                          <ListTodo className="w-4 h-4" />
+                          <span className="font-medium text-sm">To-dos</span>
+                        </div>
+                        <div className="text-sm text-gray-400 text-center py-2">
+                          No to-dos
+                        </div>
+                      </div>
+
+                      {/* Announcements Section */}
+                      <div className="p-4">
+                        <div className="flex items-center gap-2 text-gray-700 mb-3">
+                          <Bell className="w-4 h-4" />
+                          <span className="font-medium text-sm">Announcements</span>
+                        </div>
+                        <div className="text-sm text-gray-400 text-center py-2">
+                          No announcements
+                        </div>
                       </div>
                     </div>
                   ) : (
-                    <>
+                    <div className="p-4 space-y-4">
                       <p className="text-center text-gray-600">Start your learning journey</p>
                       {isAuthenticated ? (
                         <Button
@@ -188,7 +210,7 @@ export const CourseDetails = () => {
                           Sign in to Enroll
                         </Link>
                       )}
-                    </>
+                    </div>
                   )}
                 </CardBody>
               </Card>
