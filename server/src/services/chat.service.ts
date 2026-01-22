@@ -3,10 +3,12 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import prisma from '../utils/prisma.js';
 import { ChatMessage, ChatRequest, ChatResponse, AIConfig } from '../types/index.js';
 import { AppError } from '../middleware/error.middleware.js';
+import { llmService } from './llm.service.js';
 
 export class ChatService {
   private openai: OpenAI | null = null;
   private gemini: GoogleGenerativeAI | null = null;
+  private useNewLLMService: boolean = true; // Toggle for new LLM service
 
   constructor() {
     this.initializeProviders();
@@ -27,7 +29,25 @@ export class ChatService {
   }
 
   async getAIConfig(): Promise<AIConfig | null> {
-    // Try to get config from database
+    // First, try to use the new LLM service
+    if (this.useNewLLMService) {
+      try {
+        const provider = await llmService.getDefaultProvider();
+        if (provider && provider.isEnabled) {
+          return {
+            provider: provider.name as 'openai' | 'gemini',
+            model: provider.defaultModel || 'gpt-4o-mini',
+            apiKey: provider.apiKey || '',
+            maxTokens: provider.defaultMaxTokens,
+            temperature: provider.defaultTemperature,
+          };
+        }
+      } catch (error) {
+        console.log('New LLM service not available, falling back to legacy config');
+      }
+    }
+
+    // Fallback to legacy ApiConfiguration table
     const configs = await prisma.apiConfiguration.findMany({
       where: { isActive: true },
     });
@@ -73,6 +93,56 @@ export class ChatService {
 
   async chat(request: ChatRequest, userId?: number): Promise<ChatResponse> {
     const startTime = Date.now();
+
+    // Try new LLM service first
+    if (this.useNewLLMService) {
+      try {
+        const provider = await llmService.getDefaultProvider();
+        if (provider && provider.isEnabled) {
+          const systemPrompt = request.systemPrompt || 'You are a helpful AI assistant for an educational platform.';
+          const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+            { role: 'system', content: systemPrompt },
+          ];
+
+          if (request.context) {
+            messages.push({ role: 'system', content: `Context: ${request.context}` });
+          }
+
+          messages.push({ role: 'user', content: request.message });
+
+          const response = await llmService.chat({
+            messages,
+            model: request.model,
+          });
+
+          const messageContent = response.choices[0]?.message?.content;
+          const reply = typeof messageContent === 'string' ? messageContent : 'No response generated';
+          const responseTime = response.responseTime / 1000;
+          const model = response.model;
+
+          // Log the chat
+          await this.logChat({
+            userId,
+            sessionId: request.sessionId,
+            module: request.module,
+            message: request.message,
+            reply,
+            model,
+            responseTime,
+          });
+
+          return {
+            reply,
+            model,
+            responseTime,
+          };
+        }
+      } catch (error: any) {
+        console.log('New LLM service error, falling back to legacy:', error.message);
+      }
+    }
+
+    // Fallback to legacy implementation
     const config = await this.getAIConfig();
 
     if (!config) {

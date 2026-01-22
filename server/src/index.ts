@@ -20,6 +20,7 @@ import settingsRoutes from './routes/settings.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import analyticsExportRoutes from './routes/analyticsExport.routes.js';
 import learningAnalyticsRoutes from './routes/learningAnalytics.routes.js';
+import llmRoutes from './routes/llm.routes.js';
 
 // Import middleware
 import { errorHandler } from './middleware/error.middleware.js';
@@ -63,6 +64,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/analytics/export', analyticsExportRoutes);
 app.use('/api/analytics', learningAnalyticsRoutes);
+app.use('/api/llm', llmRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

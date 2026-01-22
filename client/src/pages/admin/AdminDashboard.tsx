@@ -12,6 +12,7 @@ import {
   Settings,
   Download,
   BarChart3,
+  Bot,
 } from 'lucide-react';
 import { adminApi } from '../../api/admin';
 import { usersApi } from '../../api/users';
@@ -64,6 +65,11 @@ export const AdminDashboard = () => {
           <Link to="/admin/analytics">
             <Button variant="outline" icon={<BarChart3 className="w-4 h-4" />}>
               Analytics
+            </Button>
+          </Link>
+          <Link to="/admin/llm">
+            <Button variant="outline" icon={<Bot className="w-4 h-4" />}>
+              LLM Settings
             </Button>
           </Link>
           <Link to="/admin/settings">

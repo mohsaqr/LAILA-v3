@@ -34,7 +34,7 @@ import {
 } from './pages/teach';
 
 // Admin pages
-import { AdminDashboard, AnalyticsDashboard } from './pages/admin';
+import { AdminDashboard, AnalyticsDashboard, LLMSettings } from './pages/admin';
 
 // User pages
 import { Profile } from './pages/Profile';
@@ -221,6 +221,14 @@ function App() {
           element={
             <ProtectedRoute requireAdmin>
               <AnalyticsDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/llm"
+          element={
+            <ProtectedRoute requireAdmin>
+              <LLMSettings />
             </ProtectedRoute>
           }
         />
