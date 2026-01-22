@@ -45,6 +45,7 @@ const bulkInteractionSchema = z.object({
   sessionId: z.string(),
   sessionStartTime: z.number().optional(),
   events: z.array(interactionEventSchema),
+  testMode: z.string().nullable().optional(), // 'test_instructor', 'test_student' for admin "View As" feature
   // Client info
   userAgent: z.string().optional(),
   browserName: z.string().optional(),
@@ -87,6 +88,7 @@ const chatbotInteractionSchema = z.object({
   errorStack: z.string().optional(),
   metadata: z.record(z.unknown()).optional(),
   timestamp: z.number().optional(),
+  testMode: z.string().nullable().optional(), // 'test_instructor', 'test_student' for admin "View As" feature
   // Client info
   userAgent: z.string().optional(),
   browserName: z.string().optional(),

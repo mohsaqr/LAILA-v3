@@ -1,4 +1,5 @@
 export { AdminDashboard } from './AdminDashboard';
+export { AdminSettings } from './AdminSettings';
 export { LogsDashboard } from './LogsDashboard';
 export { UsersManagement } from './UsersManagement';
 export { UserDetail } from './UserDetail';

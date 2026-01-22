@@ -64,7 +64,7 @@ export const MyLearning = () => {
 
 const EnrollmentCard = ({ enrollment, completed = false }: { enrollment: Enrollment; completed?: boolean }) => {
   return (
-    <Link to={`/learn/${enrollment.courseId}`}>
+    <Link to={`/courses/${enrollment.courseId}/player`}>
       <Card hover className="h-full">
         {/* Thumbnail */}
         <div className={`h-32 ${completed ? 'bg-green-500' : 'bg-gradient-to-br from-primary-500 to-secondary-500'} rounded-t-xl flex items-center justify-center relative`}>

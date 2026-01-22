@@ -461,3 +461,247 @@ export const settingsApi = {
     return response.data;
   },
 };
+
+// =============================================================================
+// LLM PROVIDER API
+// =============================================================================
+
+export interface LLMProvider {
+  id: number;
+  name: string;
+  displayName: string;
+  description?: string;
+  providerType: 'cloud' | 'local' | 'custom';
+  isEnabled: boolean;
+  isDefault: boolean;
+  priority: number;
+  baseUrl?: string;
+  apiKey?: string;
+  apiVersion?: string;
+  organizationId?: string;
+  projectId?: string;
+  defaultModel?: string;
+  defaultTemperature: number;
+  defaultMaxTokens: number;
+  defaultTopP: number;
+  defaultTopK?: number;
+  defaultFrequencyPenalty: number;
+  defaultPresencePenalty: number;
+  defaultRepeatPenalty?: number;
+  maxContextLength?: number;
+  maxOutputTokens?: number;
+  requestTimeout: number;
+  connectTimeout: number;
+  maxRetries: number;
+  retryDelay: number;
+  retryBackoffMultiplier: number;
+  rateLimitRpm?: number;
+  rateLimitTpm?: number;
+  concurrencyLimit: number;
+  supportsStreaming: boolean;
+  defaultStreaming: boolean;
+  supportsVision: boolean;
+  supportsFunctionCalling: boolean;
+  supportsJsonMode: boolean;
+  supportsSystemMessage: boolean;
+  skipTlsVerify: boolean;
+  healthCheckEnabled: boolean;
+  healthCheckInterval: number;
+  lastHealthCheck?: string;
+  healthStatus?: 'healthy' | 'unhealthy' | 'unknown';
+  lastError?: string;
+  consecutiveFailures: number;
+  totalRequests: number;
+  totalTokensUsed: number;
+  totalErrors: number;
+  averageLatency?: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  models?: LLMModel[];
+}
+
+export interface LLMModel {
+  id: number;
+  providerId: number;
+  modelId: string;
+  name: string;
+  description?: string;
+  modelType: 'chat' | 'completion' | 'embedding' | 'vision' | 'multimodal';
+  isEnabled: boolean;
+  isDefault: boolean;
+  contextLength?: number;
+  maxOutputTokens?: number;
+  defaultTemperature?: number;
+  defaultMaxTokens?: number;
+  defaultTopP?: number;
+  defaultTopK?: number;
+  supportsVision: boolean;
+  supportsFunctionCalling: boolean;
+  supportsJsonMode: boolean;
+  supportsStreaming: boolean;
+  inputPricePer1M?: number;
+  outputPricePer1M?: number;
+  totalRequests: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+}
+
+export interface LLMProviderDefaults {
+  displayName: string;
+  providerType: string;
+  baseUrl?: string;
+  defaultModel?: string;
+  defaultTemperature: number;
+  defaultMaxTokens: number;
+  defaultTopP: number;
+  supportsStreaming: boolean;
+  supportsVision: boolean;
+  supportsFunctionCalling: boolean;
+  supportsJsonMode: boolean;
+}
+
+export const llmApi = {
+  // Get active providers (for chat UI)
+  getActiveProviders: async () => {
+    const response = await apiClient.get<ApiResponse<LLMProvider[]>>('/llm/active');
+    return response.data.data!;
+  },
+
+  // Get all providers (admin)
+  getProviders: async (includeDisabled = true) => {
+    const response = await apiClient.get<ApiResponse<LLMProvider[]>>(
+      `/llm/providers?includeDisabled=${includeDisabled}`
+    );
+    return response.data.data!;
+  },
+
+  // Get single provider
+  getProvider: async (nameOrId: string | number) => {
+    const response = await apiClient.get<ApiResponse<LLMProvider>>(`/llm/providers/${nameOrId}`);
+    return response.data.data!;
+  },
+
+  // Create provider
+  createProvider: async (data: Partial<LLMProvider>) => {
+    const response = await apiClient.post<ApiResponse<LLMProvider>>('/llm/providers', data);
+    return response.data.data!;
+  },
+
+  // Update provider
+  updateProvider: async (id: number, data: Partial<LLMProvider>) => {
+    const response = await apiClient.put<ApiResponse<LLMProvider>>(`/llm/providers/${id}`, data);
+    return response.data.data!;
+  },
+
+  // Delete provider
+  deleteProvider: async (id: number) => {
+    const response = await apiClient.delete<ApiResponse<void>>(`/llm/providers/${id}`);
+    return response.data;
+  },
+
+  // Test provider connection
+  testProvider: async (nameOrId: string | number) => {
+    const response = await apiClient.post<ApiResponse<{ success: boolean; message: string; latency?: number }>>(
+      `/llm/providers/${nameOrId}/test`
+    );
+    return response.data.data!;
+  },
+
+  // Set provider as default
+  setDefaultProvider: async (id: number) => {
+    const response = await apiClient.post<ApiResponse<LLMProvider>>(`/llm/providers/${id}/set-default`);
+    return response.data.data!;
+  },
+
+  // Toggle provider enabled/disabled
+  toggleProvider: async (id: number) => {
+    const response = await apiClient.post<ApiResponse<LLMProvider>>(`/llm/providers/${id}/toggle`);
+    return response.data.data!;
+  },
+
+  // Get models
+  getModels: async (providerId?: number) => {
+    const params = providerId ? `?providerId=${providerId}` : '';
+    const response = await apiClient.get<ApiResponse<LLMModel[]>>(`/llm/models${params}`);
+    return response.data.data!;
+  },
+
+  // Create model
+  createModel: async (data: Partial<LLMModel> & { providerId: number; modelId: string; name: string }) => {
+    const response = await apiClient.post<ApiResponse<LLMModel>>('/llm/models', data);
+    return response.data.data!;
+  },
+
+  // Delete model
+  deleteModel: async (id: number) => {
+    const response = await apiClient.delete<ApiResponse<void>>(`/llm/models/${id}`);
+    return response.data;
+  },
+
+  // Seed common models for provider
+  seedModels: async (providerId: number) => {
+    const response = await apiClient.post<ApiResponse<LLMModel[]>>(`/llm/providers/${providerId}/seed-models`);
+    return response.data.data!;
+  },
+
+  // Get provider defaults
+  getDefaults: async () => {
+    const response = await apiClient.get<ApiResponse<Record<string, LLMProviderDefaults>>>('/llm/defaults');
+    return response.data.data!;
+  },
+
+  // Get common models for provider type
+  getCommonModels: async (providerName: string) => {
+    const response = await apiClient.get<ApiResponse<Array<{ modelId: string; name: string; contextLength?: number }>>>(
+      `/llm/defaults/${providerName}/models`
+    );
+    return response.data.data!;
+  },
+
+  // Get Ollama models
+  getOllamaModels: async (baseUrl?: string) => {
+    const params = baseUrl ? `?baseUrl=${encodeURIComponent(baseUrl)}` : '';
+    const response = await apiClient.get<ApiResponse<Array<{ name: string; size: number; modifiedAt: string }>>>(
+      `/llm/ollama/models${params}`
+    );
+    return response.data.data!;
+  },
+
+  // Pull Ollama model
+  pullOllamaModel: async (modelName: string, baseUrl?: string) => {
+    const response = await apiClient.post<ApiResponse<{ message: string }>>('/llm/ollama/pull', {
+      modelName,
+      baseUrl,
+    });
+    return response.data;
+  },
+
+  // Get LM Studio models
+  getLMStudioModels: async (baseUrl?: string) => {
+    const params = baseUrl ? `?baseUrl=${encodeURIComponent(baseUrl)}` : '';
+    const response = await apiClient.get<ApiResponse<Array<{ id: string; object: string }>>>(
+      `/llm/lmstudio/models${params}`
+    );
+    return response.data.data!;
+  },
+
+  // Seed default providers
+  seedProviders: async () => {
+    const response = await apiClient.post<ApiResponse<LLMProvider[]>>('/llm/seed');
+    return response.data.data!;
+  },
+
+  // Test chat
+  testChat: async (message: string, provider?: string, model?: string) => {
+    const response = await apiClient.post<ApiResponse<{
+      id: string;
+      model: string;
+      provider: string;
+      choices: Array<{ message: { content: string } }>;
+      usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+      responseTime: number;
+    }>>('/llm/chat/test', { message, provider, model });
+    return response.data.data!;
+  },
+};

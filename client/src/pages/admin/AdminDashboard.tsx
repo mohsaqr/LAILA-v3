@@ -11,6 +11,8 @@ import {
   UserPlus,
   Download,
   BarChart3,
+  Bot,
+  Settings,
 } from 'lucide-react';
 import { adminApi } from '../../api/admin';
 import { usersApi } from '../../api/users';
@@ -71,10 +73,10 @@ export const AdminDashboard = () => {
               User Management
             </h3>
             <div className="flex flex-wrap gap-2">
-              <Link to="/admin/users">
+              <Link to="/admin/settings?tab=users">
                 <Button variant="outline" size="sm">All Users</Button>
               </Link>
-              <Link to="/admin/enrollments">
+              <Link to="/admin/settings?tab=enrollments">
                 <Button variant="outline" size="sm">Enrollments</Button>
               </Link>
               <Link to="/admin/batch-enrollment">
@@ -100,31 +102,26 @@ export const AdminDashboard = () => {
           </CardBody>
         </Card>
 
-        {/* Quick Stats */}
+        {/* System Settings */}
         <Card className="border-l-4 border-l-purple-500">
           <CardBody className="p-4">
             <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-purple-500" />
-              Quick Stats
+              <Settings className="w-5 h-5 text-purple-500" />
+              System Settings
             </h3>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>
-                <span className="text-gray-500">Users:</span>{' '}
-                <span className="font-semibold">{stats?.totalUsers || 0}</span>
-              </div>
-              <div>
-                <span className="text-gray-500">Courses:</span>{' '}
-                <span className="font-semibold">{stats?.totalCourses || 0}</span>
-              </div>
-              <div>
-                <span className="text-gray-500">Enrollments:</span>{' '}
-                <span className="font-semibold">{stats?.totalEnrollments || 0}</span>
-              </div>
-              <div>
-                <span className="text-gray-500">Chats:</span>{' '}
-                <span className="font-semibold">{stats?.totalChatLogs || 0}</span>
-              </div>
+            <div className="flex flex-wrap gap-2">
+              <Link to="/admin/settings">
+                <Button variant="primary" size="sm" className="flex items-center gap-1">
+                  <Settings className="w-4 h-4" /> All Settings
+                </Button>
+              </Link>
+              <Link to="/admin/settings?tab=llm">
+                <Button variant="outline" size="sm" className="flex items-center gap-1">
+                  <Bot className="w-4 h-4" /> LLM Providers
+                </Button>
+              </Link>
             </div>
+            <p className="text-xs text-gray-500 mt-2">Users, enrollments, LLM providers, and system configuration</p>
           </CardBody>
         </Card>
       </div>

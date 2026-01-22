@@ -5,6 +5,7 @@ export interface User {
   email: string;
   isAdmin: boolean;
   isInstructor: boolean;
+  isActive?: boolean;
   isConfirmed?: boolean;
   createdAt?: string;
   lastLogin?: string;

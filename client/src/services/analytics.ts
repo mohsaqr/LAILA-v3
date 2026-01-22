@@ -275,10 +275,23 @@ class AnalyticsService {
   private clientInfo: ClientInfo | null = null;
   private pageLoadTime: number = Date.now();
   private eventSequence: number = 0;
+  private testMode: string | null = null; // 'test_instructor', 'test_student', etc.
 
   constructor() {
     this.sessionId = this.generateSessionId();
     this.sessionStartTime = Date.now();
+  }
+
+  // Set test mode for "View As" feature (admin testing roles)
+  setTestMode(mode: string | null) {
+    this.testMode = mode;
+    if (this.debugMode) {
+      console.log('[Analytics] Test mode set:', mode || 'disabled');
+    }
+  }
+
+  getTestMode(): string | null {
+    return this.testMode;
   }
 
   private generateSessionId(): string {
@@ -585,6 +598,7 @@ class AnalyticsService {
       sessionId: this.sessionId,
       sessionStartTime: this.sessionStartTime,
       events: eventsToSend,
+      testMode: this.testMode, // Include test mode flag for "View As" feature
       ...this.clientInfo,
     };
 
@@ -620,6 +634,7 @@ class AnalyticsService {
         eventSequence: sequence,
         ...event,
         timestamp: Date.now(),
+        testMode: this.testMode, // Include test mode flag for "View As" feature
         // Include all client info
         ...this.clientInfo,
       });

@@ -9,7 +9,47 @@ export interface EventContext {
 }
 
 export class EnrollmentService {
+  /**
+   * Get enrollments for a user. Admins and instructors get all published courses as virtual enrollments.
+   */
   async getMyEnrollments(userId: number) {
+    // Check if user is admin or instructor
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isAdmin: true, isInstructor: true },
+    });
+
+    if (user?.isAdmin || user?.isInstructor) {
+      // Admins and instructors see all published courses as virtual enrollments
+      const courses = await prisma.course.findMany({
+        where: { status: 'published' },
+        include: {
+          instructor: {
+            select: { id: true, fullname: true },
+          },
+          _count: {
+            select: { modules: true },
+          },
+        },
+        orderBy: { updatedAt: 'desc' },
+      });
+
+      // Return as virtual enrollments (admin/instructor can access all)
+      return courses.map(course => ({
+        id: -course.id, // Negative ID indicates virtual enrollment
+        userId,
+        courseId: course.id,
+        status: 'active' as const,
+        progress: 0,
+        enrolledAt: course.createdAt,
+        completedAt: null,
+        lastAccessAt: new Date(),
+        isVirtualEnrollment: true, // Flag to indicate admin/instructor access
+        course,
+      }));
+    }
+
+    // Regular users get their actual enrollments
     const enrollments = await prisma.enrollment.findMany({
       where: { userId },
       include: {
@@ -30,7 +70,62 @@ export class EnrollmentService {
     return enrollments;
   }
 
+  /**
+   * Get enrollment for a user and course. Admins and instructors get virtual enrollment for any course.
+   */
   async getEnrollment(userId: number, courseId: number) {
+    // Check if user is admin or instructor
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isAdmin: true, isInstructor: true },
+    });
+
+    if (user?.isAdmin || user?.isInstructor) {
+      // Admins and instructors can access any published course without enrollment
+      const course = await prisma.course.findUnique({
+        where: { id: courseId },
+        include: {
+          instructor: {
+            select: { id: true, fullname: true },
+          },
+          modules: {
+            where: { isPublished: true },
+            orderBy: { orderIndex: 'asc' },
+            include: {
+              lectures: {
+                where: { isPublished: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+              codeLabs: {
+                where: { isPublished: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
+          },
+        },
+      });
+
+      if (!course) {
+        return null;
+      }
+
+      // Return virtual enrollment for admin
+      return {
+        id: -course.id,
+        userId,
+        courseId: course.id,
+        status: 'active' as const,
+        progress: 0,
+        enrolledAt: course.createdAt,
+        completedAt: null,
+        lastAccessAt: new Date(),
+        isVirtualEnrollment: true,
+        course,
+        lectureProgress: [], // Admin doesn't have progress tracking
+      };
+    }
+
+    // Regular users need actual enrollment
     const enrollment = await prisma.enrollment.findUnique({
       where: {
         userId_courseId: { userId, courseId },
@@ -65,6 +160,16 @@ export class EnrollmentService {
   }
 
   async enroll(userId: number, courseId: number, context?: EventContext) {
+    // Check if user is admin or instructor - they cannot enroll as students
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isAdmin: true, isInstructor: true },
+    });
+
+    if (user?.isAdmin || user?.isInstructor) {
+      throw new AppError('Admins and instructors cannot enroll as students. Use "View As" mode to test student experience.', 403);
+    }
+
     // Check if course exists and is published
     const course = await prisma.course.findUnique({
       where: { id: courseId },
@@ -167,7 +272,18 @@ export class EnrollmentService {
   }
 
   async markLectureComplete(userId: number, courseId: number, lectureId: number) {
-    // Verify enrollment
+    // Check if user is admin or instructor - they don't track progress
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isAdmin: true, isInstructor: true },
+    });
+
+    if (user?.isAdmin || user?.isInstructor) {
+      // Admins and instructors can view but don't track progress
+      return { message: 'Viewing as admin/instructor - progress not tracked' };
+    }
+
+    // Verify enrollment for regular users
     const enrollment = await prisma.enrollment.findUnique({
       where: {
         userId_courseId: { userId, courseId },
@@ -219,6 +335,17 @@ export class EnrollmentService {
   }
 
   async updateLectureTime(userId: number, courseId: number, lectureId: number, timeSpent: number) {
+    // Check if user is admin or instructor - they don't track time
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isAdmin: true, isInstructor: true },
+    });
+
+    if (user?.isAdmin || user?.isInstructor) {
+      // Admins and instructors can view but don't track time
+      return { message: 'Viewing as admin/instructor - time not tracked' };
+    }
+
     const enrollment = await prisma.enrollment.findUnique({
       where: {
         userId_courseId: { userId, courseId },
@@ -311,6 +438,61 @@ export class EnrollmentService {
   }
 
   async getProgress(userId: number, courseId: number) {
+    // Check if user is admin or instructor
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isAdmin: true, isInstructor: true },
+    });
+
+    if (user?.isAdmin || user?.isInstructor) {
+      // Admins and instructors get virtual progress (no tracking)
+      const course = await prisma.course.findUnique({
+        where: { id: courseId },
+        include: {
+          modules: {
+            where: { isPublished: true },
+            orderBy: { orderIndex: 'asc' },
+            include: {
+              lectures: {
+                where: { isPublished: true },
+                orderBy: { orderIndex: 'asc' },
+                select: { id: true, title: true },
+              },
+            },
+          },
+        },
+      });
+
+      if (!course) {
+        throw new AppError('Course not found', 404);
+      }
+
+      // Return mock progress for admin
+      const moduleProgress = course.modules.map(module => ({
+        moduleId: module.id,
+        title: module.title,
+        lectures: module.lectures.map(lecture => ({
+          lectureId: lecture.id,
+          title: lecture.title,
+          isCompleted: false, // Admin doesn't track completion
+        })),
+        completedCount: 0,
+        totalCount: module.lectures.length,
+      }));
+
+      return {
+        enrollmentId: -courseId, // Virtual enrollment ID
+        courseId,
+        progress: 0,
+        status: 'active' as const,
+        enrolledAt: course.createdAt,
+        completedAt: null,
+        lastAccessAt: new Date(),
+        moduleProgress,
+        isVirtualEnrollment: true,
+      };
+    }
+
     const enrollment = await prisma.enrollment.findUnique({
       where: {
         userId_courseId: { userId, courseId },

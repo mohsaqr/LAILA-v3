@@ -42,6 +42,7 @@ export interface BulkInteractionData {
   sessionId: string;
   sessionStartTime?: number;
   events: InteractionEventData[];
+  testMode?: string | null; // 'test_instructor', 'test_student' for admin "View As" feature
   userAgent?: string;
   // Client info
   browserName?: string;
@@ -84,6 +85,7 @@ export interface ChatbotInteractionData {
   errorStack?: string;
   metadata?: Record<string, unknown>;
   timestamp?: number;
+  testMode?: string | null; // 'test_instructor', 'test_student' for admin "View As" feature
   // Client info
   userAgent?: string;
   browserName?: string;
@@ -244,6 +246,9 @@ export class AnalyticsService {
 
         // Additional data
         metadata: event.metadata ? JSON.stringify(event.metadata) : null,
+
+        // Test mode for admin "View As" feature
+        testMode: data.testMode || null,
       };
     });
 
@@ -373,6 +378,9 @@ export class AnalyticsService {
 
         // ===== ADDITIONAL DATA =====
         metadata: data.metadata ? JSON.stringify(data.metadata) : null,
+
+        // ===== TEST MODE (Admin "View As" feature) =====
+        testMode: data.testMode || null,
       },
     });
 

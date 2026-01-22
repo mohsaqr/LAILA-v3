@@ -27,6 +27,7 @@ import batchEnrollmentRoutes from './routes/batchEnrollment.routes.js';
 import courseRolesRoutes from './routes/courseRoles.routes.js';
 import activityLogRoutes from './routes/activityLog.routes.js';
 import codeLabRoutes from './routes/codeLab.routes.js';
+import llmRoutes from './routes/llm.routes.js';
 
 // Import middleware
 import { errorHandler } from './middleware/error.middleware.js';
@@ -77,6 +78,7 @@ app.use('/api/batch-enrollment', batchEnrollmentRoutes);
 app.use('/api/course-roles', courseRolesRoutes);
 app.use('/api/activity-log', activityLogRoutes);
 app.use('/api/code-labs', codeLabRoutes);
+app.use('/api/llm', llmRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

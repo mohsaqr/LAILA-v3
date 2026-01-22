@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import {
   Users,
   BookOpen,
@@ -9,9 +9,10 @@ import {
   ChevronRight,
   Edit,
   Settings,
-  ClipboardList,
-  Bell,
-  ListTodo,
+  Download,
+  FlaskConical,
+  Sparkles,
+  Upload,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../api/courses';
@@ -20,14 +21,94 @@ import { useAuth } from '../hooks/useAuth';
 import { Card, CardBody } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Loading } from '../components/common/Loading';
-import { useState } from 'react';
+import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStudent';
+import { AssignmentSectionStudent } from '../components/course/AssignmentSectionStudent';
+import { useState, useEffect } from 'react';
+import { LectureSection } from '../types';
+import activityLogger from '../services/activityLogger';
+
+// Section renderer for lecture content
+const SectionRenderer = ({ section, courseId }: { section: LectureSection; courseId: number }) => {
+  switch (section.type) {
+    case 'text':
+    case 'ai-generated':
+      return (
+        <div className="mb-4">
+          {section.title && (
+            <div className="flex items-center gap-2 mb-2">
+              {section.type === 'ai-generated' && <Sparkles className="w-4 h-4 text-purple-500" />}
+              <h4 className="font-medium text-gray-900">{section.title}</h4>
+            </div>
+          )}
+          {section.content ? (
+            <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: section.content }} />
+          ) : (
+            <p className="text-gray-500 italic">No content yet</p>
+          )}
+        </div>
+      );
+
+    case 'file':
+      if (!section.fileUrl) {
+        return (
+          <div className="mb-4 p-4 bg-gray-50 rounded-lg text-center">
+            <Upload className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+            <p className="text-gray-500">No file uploaded</p>
+          </div>
+        );
+      }
+      const isImage = section.fileType?.startsWith('image/');
+      const isPdf = section.fileType === 'application/pdf';
+      return (
+        <div className="mb-4">
+          {section.title && <h4 className="font-medium text-gray-900 mb-2">{section.title}</h4>}
+          {isImage ? (
+            <img src={section.fileUrl} alt={section.fileName || ''} className="max-w-full rounded-lg" />
+          ) : isPdf ? (
+            <div>
+              <iframe src={section.fileUrl} className="w-full h-[500px] rounded-lg border" title={section.fileName || 'PDF'} />
+              <a href={section.fileUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-2 text-primary-600 hover:underline">
+                <Download className="w-4 h-4" /> Download {section.fileName}
+              </a>
+            </div>
+          ) : (
+            <a href={section.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100">
+              <FileText className="w-8 h-8 text-gray-500" />
+              <div className="flex-1">
+                <p className="font-medium text-gray-900">{section.fileName}</p>
+                {section.fileSize && <p className="text-sm text-gray-500">{(section.fileSize / 1024).toFixed(1)} KB</p>}
+              </div>
+              <Download className="w-5 h-5 text-gray-400" />
+            </a>
+          )}
+        </div>
+      );
+
+    case 'chatbot':
+      return (
+        <div className="mb-4">
+          <ChatbotSectionStudent section={section} />
+        </div>
+      );
+
+    case 'assignment':
+      return (
+        <div className="mb-4">
+          <AssignmentSectionStudent section={section} courseId={courseId} />
+        </div>
+      );
+
+    default:
+      return null;
+  }
+};
 
 export const CourseDetails = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, isAdmin, isInstructor: isUserInstructor } = useAuth();
   const [expandedModules, setExpandedModules] = useState<number[]>([]);
+  const [selectedLectureId, setSelectedLectureId] = useState<number | null>(null);
 
   const { data: course, isLoading } = useQuery({
     queryKey: ['course', id],
@@ -40,25 +121,44 @@ export const CourseDetails = () => {
     enabled: isAuthenticated,
   });
 
+  // Fetch selected lecture content
+  const { data: lectureContent, isLoading: lectureLoading } = useQuery({
+    queryKey: ['lecture', selectedLectureId],
+    queryFn: () => coursesApi.getLectureById(selectedLectureId!),
+    enabled: !!selectedLectureId,
+  });
+
   const enrollMutation = useMutation({
-    mutationFn: () => enrollmentsApi.enroll(parseInt(id!)),
+    mutationFn: () => enrollmentsApi.enroll(parseInt(id!), course?.title),
     onSuccess: () => {
       toast.success('Successfully enrolled!');
       queryClient.invalidateQueries({ queryKey: ['enrollment', id] });
       queryClient.invalidateQueries({ queryKey: ['enrollments'] });
-      navigate(`/courses/${id}/player`);
     },
     onError: (error: Error) => {
       toast.error(error.message);
     },
   });
 
+  // Log course view when course loads
+  useEffect(() => {
+    if (course && isAuthenticated) {
+      activityLogger.logCourseViewed(course.id, course.title).catch(() => {});
+    }
+  }, [course?.id, isAuthenticated]);
+
   const toggleModule = (moduleId: number) => {
     setExpandedModules(prev =>
-      prev.includes(moduleId)
-        ? prev.filter(id => id !== moduleId)
-        : [...prev, moduleId]
+      prev.includes(moduleId) ? prev.filter(mid => mid !== moduleId) : [...prev, moduleId]
     );
+  };
+
+  const selectLecture = (lectureId: number, lectureTitle?: string, moduleId?: number) => {
+    if (selectedLectureId !== lectureId) {
+      // Log lecture started when opening a new lecture
+      activityLogger.logLectureStarted(lectureId, lectureTitle, parseInt(id!), moduleId).catch(() => {});
+    }
+    setSelectedLectureId(selectedLectureId === lectureId ? null : lectureId);
   };
 
   if (isLoading) {
@@ -69,161 +169,64 @@ export const CourseDetails = () => {
     return (
       <div className="max-w-7xl mx-auto px-4 py-12 text-center">
         <h2 className="text-2xl font-bold text-gray-900">Course not found</h2>
-        <Link to="/catalog" className="text-primary-600 hover:underline mt-2 inline-block">
-          Back to catalog
-        </Link>
+        <Link to="/catalog" className="text-primary-600 hover:underline mt-2 inline-block">Back to catalog</Link>
       </div>
     );
   }
 
   const isEnrolled = enrollmentData?.enrolled;
-  const isInstructor = user?.id === course.instructorId;
+  const isCourseInstructor = user?.id === course.instructorId;
+  // Admins and instructors have access without enrollment
+  const hasAccess = isEnrolled || isAdmin || isUserInstructor;
   const totalLectures = course.modules?.reduce((sum, m) => sum + (m.lectures?.length || 0), 0) || 0;
-
-  const difficultyColors = {
-    beginner: 'bg-green-100 text-green-700',
-    intermediate: 'bg-yellow-100 text-yellow-700',
-    advanced: 'bg-red-100 text-red-700',
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
-      <div className="gradient-bg text-white py-12">
+      <div className="gradient-bg text-white py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="md:col-span-2">
-              {/* Breadcrumb */}
-              <div className="flex items-center gap-2 text-white/80 text-sm mb-4">
-                <Link to="/catalog" className="hover:text-white">Courses</Link>
-                <ChevronRight className="w-4 h-4" />
-                <span>{course.category || 'General'}</span>
-              </div>
+          <div className="flex items-center gap-2 text-white/80 text-sm mb-3">
+            <Link to="/catalog" className="hover:text-white">Courses</Link>
+            <ChevronRight className="w-4 h-4" />
+            <span>{course.category || 'General'}</span>
+          </div>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">{course.title}</h1>
+          <p className="text-white/90 mb-4">{course.description}</p>
+          <div className="flex flex-wrap items-center gap-4 text-sm">
+            <span className="flex items-center gap-1"><Users className="w-4 h-4" /> {course._count?.enrollments || 0} students</span>
+            <span className="flex items-center gap-1"><BookOpen className="w-4 h-4" /> {course.modules?.length || 0} modules</span>
+            <span className="flex items-center gap-1"><PlayCircle className="w-4 h-4" /> {totalLectures} lessons</span>
+            <span>by {course.instructor?.fullname}</span>
+          </div>
 
-              <h1 className="text-3xl md:text-4xl font-bold mb-4">{course.title}</h1>
-              <p className="text-white/90 text-lg mb-6">{course.description}</p>
-
-              <div className="flex flex-wrap items-center gap-4 mb-6">
-                {course.difficulty && (
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${difficultyColors[course.difficulty]}`}>
-                    {course.difficulty}
-                  </span>
-                )}
-                <div className="flex items-center gap-1">
-                  <Users className="w-5 h-5" />
-                  <span>{course._count?.enrollments || 0} students</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <BookOpen className="w-5 h-5" />
-                  <span>{course.modules?.length || 0} modules</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <PlayCircle className="w-5 h-5" />
-                  <span>{totalLectures} lessons</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                  <span className="font-medium">
-                    {course.instructor?.fullname?.charAt(0)}
-                  </span>
-                </div>
-                <div>
-                  <p className="font-medium">{course.instructor?.fullname}</p>
-                  <p className="text-sm text-white/80">Instructor</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Sidebar Card */}
-            <div className="md:col-span-1">
-              <Card className="sticky top-24">
-                <CardBody className="p-0">
-                  {isInstructor ? (
-                    <div className="p-4 space-y-3">
-                      <p className="text-center text-gray-600 font-medium">You are the instructor</p>
-                      <Link
-                        to={`/teach/courses/${course.id}/curriculum`}
-                        className="btn btn-primary w-full flex items-center justify-center gap-2"
-                      >
-                        <Edit className="w-4 h-4" />
-                        Update Course
-                      </Link>
-                      <Link
-                        to={`/teach/courses/${course.id}/edit`}
-                        className="btn btn-secondary w-full flex items-center justify-center gap-2"
-                      >
-                        <Settings className="w-4 h-4" />
-                        Course Settings
-                      </Link>
-                    </div>
-                  ) : isEnrolled ? (
-                    <div>
-                      {/* Assignments Section */}
-                      <div className="p-4 border-b border-gray-100">
-                        <div className="flex items-center gap-2 text-gray-700 mb-3">
-                          <ClipboardList className="w-4 h-4" />
-                          <span className="font-medium text-sm">Assignments</span>
-                        </div>
-                        <div className="text-sm text-gray-400 text-center py-2">
-                          No assignments yet
-                        </div>
-                      </div>
-
-                      {/* To-dos Section */}
-                      <div className="p-4 border-b border-gray-100">
-                        <div className="flex items-center gap-2 text-gray-700 mb-3">
-                          <ListTodo className="w-4 h-4" />
-                          <span className="font-medium text-sm">To-dos</span>
-                        </div>
-                        <div className="text-sm text-gray-400 text-center py-2">
-                          No to-dos
-                        </div>
-                      </div>
-
-                      {/* Announcements Section */}
-                      <div className="p-4">
-                        <div className="flex items-center gap-2 text-gray-700 mb-3">
-                          <Bell className="w-4 h-4" />
-                          <span className="font-medium text-sm">Announcements</span>
-                        </div>
-                        <div className="text-sm text-gray-400 text-center py-2">
-                          No announcements
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-4 space-y-4">
-                      <p className="text-center text-gray-600">Start your learning journey</p>
-                      {isAuthenticated ? (
-                        <Button
-                          onClick={() => enrollMutation.mutate()}
-                          loading={enrollMutation.isPending}
-                          className="w-full"
-                        >
-                          Enroll Now - Free
-                        </Button>
-                      ) : (
-                        <Link to="/login" className="btn btn-primary w-full">
-                          Sign in to Enroll
-                        </Link>
-                      )}
-                    </div>
-                  )}
-                </CardBody>
-              </Card>
-            </div>
+          {/* Action buttons */}
+          <div className="mt-4 flex flex-wrap gap-3">
+            {isCourseInstructor && (
+              <>
+                <Link to={`/teach/courses/${course.id}/curriculum`} className="btn bg-white/20 hover:bg-white/30 text-white text-sm">
+                  <Edit className="w-4 h-4 mr-1" /> Edit Course
+                </Link>
+                <Link to={`/teach/courses/${course.id}/edit`} className="btn bg-white/20 hover:bg-white/30 text-white text-sm">
+                  <Settings className="w-4 h-4 mr-1" /> Settings
+                </Link>
+              </>
+            )}
+            {!hasAccess && isAuthenticated && (
+              <Button onClick={() => enrollMutation.mutate()} loading={enrollMutation.isPending} className="bg-white text-primary-600 hover:bg-gray-100">
+                Enroll Now - Free
+              </Button>
+            )}
+            {!isAuthenticated && (
+              <Link to="/login" className="btn bg-white text-primary-600 hover:bg-gray-100">Sign in to Enroll</Link>
+            )}
           </div>
         </div>
       </div>
 
       {/* Course Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Course Content</h2>
-
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {course.modules && course.modules.length > 0 ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {course.modules.map((module, moduleIndex) => (
               <Card key={module.id}>
                 <button
@@ -231,69 +234,96 @@ export const CourseDetails = () => {
                   className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center font-medium">
+                    <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center font-medium text-sm">
                       {moduleIndex + 1}
                     </div>
                     <div>
                       <h3 className="font-medium text-gray-900">{module.title}</h3>
-                      <p className="text-sm text-gray-500">
-                        {module.lectures?.length || 0} lessons
-                      </p>
+                      <p className="text-sm text-gray-500">{module.lectures?.length || 0} lessons</p>
                     </div>
                   </div>
-                  {expandedModules.includes(module.id) ? (
-                    <ChevronDown className="w-5 h-5 text-gray-400" />
-                  ) : (
-                    <ChevronRight className="w-5 h-5 text-gray-400" />
-                  )}
+                  {expandedModules.includes(module.id) ? <ChevronDown className="w-5 h-5 text-gray-400" /> : <ChevronRight className="w-5 h-5 text-gray-400" />}
                 </button>
 
-                {expandedModules.includes(module.id) && module.lectures && (
+                {expandedModules.includes(module.id) && (
                   <div className="border-t border-gray-100">
-                    {module.lectures.map((lecture) => {
-                      const lectureContent = (
-                        <>
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${isEnrolled ? 'bg-primary-100' : 'bg-gray-100'}`}>
+                    {/* Lectures */}
+                    {module.lectures?.map((lecture) => (
+                      <div key={lecture.id}>
+                        <button
+                          onClick={() => hasAccess && selectLecture(lecture.id, lecture.title, module.id)}
+                          disabled={!hasAccess}
+                          className={`w-full px-4 py-3 flex items-center gap-3 text-left ${hasAccess ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-60 cursor-not-allowed'} ${selectedLectureId === lecture.id ? 'bg-primary-50' : ''}`}
+                        >
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${hasAccess ? 'bg-primary-100' : 'bg-gray-100'}`}>
                             {lecture.contentType === 'video' ? (
-                              <PlayCircle className={`w-4 h-4 ${isEnrolled ? 'text-primary-600' : 'text-gray-500'}`} />
+                              <PlayCircle className={`w-4 h-4 ${hasAccess ? 'text-primary-600' : 'text-gray-500'}`} />
                             ) : (
-                              <FileText className={`w-4 h-4 ${isEnrolled ? 'text-primary-600' : 'text-gray-500'}`} />
+                              <FileText className={`w-4 h-4 ${hasAccess ? 'text-primary-600' : 'text-gray-500'}`} />
                             )}
                           </div>
-                          <div className="flex-1">
-                            <p className={`text-sm ${isEnrolled ? 'text-primary-700 font-medium' : 'text-gray-900'}`}>{lecture.title}</p>
-                            {lecture.duration && (
-                              <p className="text-xs text-gray-500">{lecture.duration} min</p>
-                            )}
-                          </div>
-                          {lecture.isFree && !isEnrolled && (
-                            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
-                              Preview
-                            </span>
-                          )}
-                          {isEnrolled && (
-                            <ChevronRight className="w-4 h-4 text-gray-400" />
-                          )}
-                        </>
-                      );
+                          <span className={`flex-1 text-sm ${hasAccess ? 'text-gray-900' : 'text-gray-500'}`}>{lecture.title}</span>
+                          {selectedLectureId === lecture.id ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+                        </button>
 
-                      return isEnrolled ? (
-                        <Link
-                          key={lecture.id}
-                          to={`/courses/${course.id}/player/${lecture.id}`}
-                          className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50 cursor-pointer"
-                        >
-                          {lectureContent}
-                        </Link>
-                      ) : (
-                        <div
-                          key={lecture.id}
-                          className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50"
-                        >
-                          {lectureContent}
-                        </div>
-                      );
-                    })}
+                        {/* Inline lecture content */}
+                        {selectedLectureId === lecture.id && hasAccess && (
+                          <div className="px-4 py-4 bg-gray-50 border-t border-gray-100">
+                            {lectureLoading ? (
+                              <div className="text-center py-4"><Loading text="Loading content..." /></div>
+                            ) : lectureContent ? (
+                              <div>
+                                {/* Video */}
+                                {lectureContent.videoUrl && (
+                                  <div className="mb-4 aspect-video bg-black rounded-lg overflow-hidden">
+                                    <iframe src={lectureContent.videoUrl} className="w-full h-full" allowFullScreen />
+                                  </div>
+                                )}
+                                {/* Legacy content */}
+                                {lectureContent.content && (
+                                  <div className="prose max-w-none mb-4" dangerouslySetInnerHTML={{ __html: lectureContent.content }} />
+                                )}
+                                {/* Sections */}
+                                {lectureContent.sections?.sort((a, b) => a.order - b.order).map((section) => (
+                                  <SectionRenderer key={section.id} section={section} courseId={parseInt(id!)} />
+                                ))}
+                                {/* Attachments */}
+                                {lectureContent.attachments && lectureContent.attachments.length > 0 && (
+                                  <div className="mt-4 pt-4 border-t border-gray-200">
+                                    <h4 className="font-medium text-gray-900 mb-2">Attachments</h4>
+                                    <div className="space-y-2">
+                                      {lectureContent.attachments.map(att => (
+                                        <a key={att.id} href={att.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 bg-white rounded hover:bg-gray-100">
+                                          <FileText className="w-4 h-4 text-gray-500" />
+                                          <span className="text-sm text-gray-700">{att.fileName}</span>
+                                          <Download className="w-4 h-4 text-gray-400 ml-auto" />
+                                        </a>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-gray-500">No content available</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* Code Labs */}
+                    {module.codeLabs?.filter(lab => lab.isPublished)?.map(lab => (
+                      <Link
+                        key={`codelab-${lab.id}`}
+                        to={hasAccess ? `/courses/${course.id}/code-labs/${lab.id}` : '#'}
+                        className={`w-full px-4 py-3 flex items-center gap-3 ${hasAccess ? 'hover:bg-emerald-50' : 'opacity-60 cursor-not-allowed'}`}
+                        onClick={(e) => !hasAccess && e.preventDefault()}
+                      >
+                        <FlaskConical className="w-5 h-5 text-emerald-500" />
+                        <span className="flex-1 text-sm text-gray-900">{lab.title}</span>
+                        <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">Lab</span>
+                      </Link>
+                    ))}
                   </div>
                 )}
               </Card>

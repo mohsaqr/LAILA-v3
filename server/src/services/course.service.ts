@@ -97,6 +97,17 @@ export class CourseService {
                 isFree: true,
               },
             },
+            codeLabs: {
+              where: includeUnpublished ? {} : { isPublished: true },
+              orderBy: { orderIndex: 'asc' },
+              select: {
+                id: true,
+                title: true,
+                description: true,
+                orderIndex: true,
+                isPublished: true,
+              },
+            },
           },
         },
         _count: {

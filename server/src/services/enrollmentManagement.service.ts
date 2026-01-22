@@ -95,6 +95,11 @@ export class EnrollmentManagementService {
       throw new AppError('User not found', 404);
     }
 
+    // Prevent enrolling admins or instructors as students
+    if (user.isAdmin || user.isInstructor) {
+      throw new AppError('Admins and instructors cannot be enrolled as students. They have automatic access to all courses.', 400);
+    }
+
     // Verify course exists
     const course = await prisma.course.findUnique({
       where: { id: courseId },
@@ -275,6 +280,11 @@ export class EnrollmentManagementService {
 
     if (!user) {
       throw new AppError('User not found', 404);
+    }
+
+    // Prevent enrolling admins or instructors as students
+    if (user.isAdmin || user.isInstructor) {
+      throw new AppError('Admins and instructors cannot be enrolled as students. They have automatic access to all courses.', 400);
     }
 
     // Check if already enrolled

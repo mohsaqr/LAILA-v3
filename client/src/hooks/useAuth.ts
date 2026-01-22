@@ -4,7 +4,20 @@ import { useAuthStore } from '../store/authStore';
 import { authApi } from '../api/auth';
 
 export const useAuth = () => {
-  const { user, token, isAuthenticated, isLoading, setAuth, setUser, logout, setLoading } = useAuthStore();
+  const {
+    user,
+    token,
+    isAuthenticated,
+    isLoading,
+    viewAsRole,
+    setAuth,
+    setUser,
+    logout,
+    setLoading,
+    setViewAs,
+    isViewingAs,
+    getEffectiveRole,
+  } = useAuthStore();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -45,6 +58,12 @@ export const useAuth = () => {
     navigate('/login');
   };
 
+  // Get effective roles (considers viewAs mode)
+  const effectiveRole = getEffectiveRole();
+
+  // Check if user is actually an admin (ignores viewAs mode)
+  const isActualAdmin = user?.isAdmin || false;
+
   return {
     user,
     token,
@@ -53,7 +72,18 @@ export const useAuth = () => {
     login,
     register,
     logout: signOut,
-    isAdmin: user?.isAdmin || false,
-    isInstructor: user?.isInstructor || false,
+    // Effective roles (affected by viewAs)
+    isAdmin: effectiveRole.isAdmin,
+    isInstructor: effectiveRole.isInstructor,
+    // ViewAs functionality (only for actual admins)
+    isActualAdmin,
+    viewAsRole,
+    setViewAs,
+    isViewingAs: isViewingAs(),
+    // Helper to get test prefix for logging
+    getTestPrefix: (): string => {
+      if (!viewAsRole) return '';
+      return `test_${viewAsRole}`;
+    },
   };
 };

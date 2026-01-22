@@ -326,6 +326,150 @@ Be friendly and provide step-by-step guidance.`,
   }
   console.log('Created 30 fake students');
 
+  // Seed learning activity logs
+  console.log('Seeding activity logs...');
+
+  // Get all students and course details for activity logging
+  const allStudents = await prisma.user.findMany({
+    where: { isAdmin: false, isInstructor: false },
+    take: 15,
+  });
+
+  const courseWithModules = await prisma.course.findFirst({
+    include: {
+      modules: {
+        include: {
+          lectures: true,
+        },
+      },
+    },
+  });
+
+  if (courseWithModules && allStudents.length > 0) {
+    const verbs = ['enrolled', 'viewed', 'started', 'completed', 'progressed'] as const;
+    const objectTypes = ['course', 'module', 'lecture'] as const;
+    const devices = ['desktop', 'tablet', 'mobile'] as const;
+    const browsers = ['Chrome', 'Firefox', 'Safari', 'Edge'] as const;
+
+    const activityLogs = [];
+    const now = Date.now();
+
+    for (const studentUser of allStudents.slice(0, 10)) {
+      // Log course enrollment
+      activityLogs.push({
+        userId: studentUser.id,
+        userEmail: studentUser.email,
+        userFullname: studentUser.fullname,
+        userRole: 'student',
+        sessionId: `seed-${studentUser.id}-${Date.now()}`,
+        verb: 'enrolled',
+        objectType: 'course',
+        objectId: courseWithModules.id,
+        objectTitle: courseWithModules.title,
+        courseId: courseWithModules.id,
+        courseTitle: courseWithModules.title,
+        courseSlug: courseWithModules.slug,
+        success: true,
+        timestamp: new Date(now - Math.random() * 7 * 24 * 60 * 60 * 1000), // Random time in last week
+        deviceType: devices[Math.floor(Math.random() * devices.length)],
+        browserName: browsers[Math.floor(Math.random() * browsers.length)],
+      });
+
+      // Log course views
+      for (let i = 0; i < Math.floor(Math.random() * 5) + 1; i++) {
+        activityLogs.push({
+          userId: studentUser.id,
+          userEmail: studentUser.email,
+          userFullname: studentUser.fullname,
+          userRole: 'student',
+          sessionId: `seed-${studentUser.id}-${Date.now()}-${i}`,
+          verb: 'viewed',
+          objectType: 'course',
+          objectId: courseWithModules.id,
+          objectTitle: courseWithModules.title,
+          courseId: courseWithModules.id,
+          courseTitle: courseWithModules.title,
+          courseSlug: courseWithModules.slug,
+          success: true,
+          timestamp: new Date(now - Math.random() * 3 * 24 * 60 * 60 * 1000), // Random time in last 3 days
+          deviceType: devices[Math.floor(Math.random() * devices.length)],
+          browserName: browsers[Math.floor(Math.random() * browsers.length)],
+        });
+      }
+
+      // Log lecture activities
+      for (const mod of courseWithModules.modules) {
+        for (const lecture of mod.lectures) {
+          // Some students start lectures
+          if (Math.random() > 0.3) {
+            activityLogs.push({
+              userId: studentUser.id,
+              userEmail: studentUser.email,
+              userFullname: studentUser.fullname,
+              userRole: 'student',
+              sessionId: `seed-${studentUser.id}-lecture-${lecture.id}`,
+              verb: 'started',
+              objectType: 'lecture',
+              objectId: lecture.id,
+              objectTitle: lecture.title,
+              courseId: courseWithModules.id,
+              courseTitle: courseWithModules.title,
+              courseSlug: courseWithModules.slug,
+              moduleId: mod.id,
+              moduleTitle: mod.title,
+              moduleOrder: mod.orderIndex,
+              lectureId: lecture.id,
+              lectureTitle: lecture.title,
+              lectureOrder: lecture.orderIndex,
+              success: true,
+              timestamp: new Date(now - Math.random() * 2 * 24 * 60 * 60 * 1000),
+              deviceType: devices[Math.floor(Math.random() * devices.length)],
+              browserName: browsers[Math.floor(Math.random() * browsers.length)],
+            });
+
+            // Some complete lectures
+            if (Math.random() > 0.4) {
+              activityLogs.push({
+                userId: studentUser.id,
+                userEmail: studentUser.email,
+                userFullname: studentUser.fullname,
+                userRole: 'student',
+                sessionId: `seed-${studentUser.id}-lecture-${lecture.id}-complete`,
+                verb: 'completed',
+                objectType: 'lecture',
+                objectId: lecture.id,
+                objectTitle: lecture.title,
+                courseId: courseWithModules.id,
+                courseTitle: courseWithModules.title,
+                courseSlug: courseWithModules.slug,
+                moduleId: mod.id,
+                moduleTitle: mod.title,
+                moduleOrder: mod.orderIndex,
+                lectureId: lecture.id,
+                lectureTitle: lecture.title,
+                lectureOrder: lecture.orderIndex,
+                success: true,
+                progress: 100,
+                timestamp: new Date(now - Math.random() * 24 * 60 * 60 * 1000),
+                deviceType: devices[Math.floor(Math.random() * devices.length)],
+                browserName: browsers[Math.floor(Math.random() * browsers.length)],
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Insert activity logs in batches
+    for (let i = 0; i < activityLogs.length; i += 50) {
+      const batch = activityLogs.slice(i, i + 50);
+      await prisma.learningActivityLog.createMany({
+        data: batch,
+      });
+    }
+    console.log(`Created ${activityLogs.length} activity log entries`);
+  }
+
   console.log('Seeding completed!');
 }
 

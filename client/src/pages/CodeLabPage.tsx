@@ -25,7 +25,7 @@ interface AIHelperState {
 }
 
 export const CodeLabPage = () => {
-  const { courseSlug, codeLabId } = useParams<{ courseSlug: string; codeLabId: string }>();
+  const { courseId, codeLabId } = useParams<{ courseId: string; codeLabId: string }>();
   const labId = parseInt(codeLabId!, 10);
   const navigate = useNavigate();
 
@@ -123,15 +123,14 @@ export const CodeLabPage = () => {
     );
   }
 
-  const courseId = codeLab.module?.course?.id;
   const courseTitle = codeLab.module?.course?.title;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Navigation */}
       <div className="mb-6">
-        {courseSlug ? (
-          <Link to={`/courses/${courseSlug}`}>
+        {courseId ? (
+          <Link to={`/courses/${courseId}/player`}>
             <Button
               variant="ghost"
               size="sm"
@@ -140,15 +139,6 @@ export const CodeLabPage = () => {
               Back to {courseTitle || 'Course'}
             </Button>
           </Link>
-        ) : courseId ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate(`/courses/${courseId}`)}
-            icon={<ArrowLeft className="w-4 h-4" />}
-          >
-            Back to Course
-          </Button>
         ) : (
           <Button
             variant="ghost"

@@ -146,8 +146,20 @@ export class CodeLabService {
       throw new AppError('Code Lab not found', 404);
     }
 
-    // Check if user has access (enrolled or instructor)
+    // Check if user has access (enrolled, instructor, or admin)
     if (userId) {
+      // Check if user is admin or instructor (they have access to all courses)
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { isAdmin: true, isInstructor: true },
+      });
+
+      if (user?.isAdmin || user?.isInstructor) {
+        // Admins and instructors have access to all code labs
+        return codeLab;
+      }
+
+      // For regular users, check enrollment
       const enrollment = await prisma.enrollment.findUnique({
         where: {
           userId_courseId: {
@@ -157,9 +169,7 @@ export class CodeLabService {
         },
       });
 
-      const isInstructor = codeLab.module.course.instructorId === userId;
-
-      if (!enrollment && !isInstructor) {
+      if (!enrollment) {
         throw new AppError('You must be enrolled to access this Code Lab', 403);
       }
     }

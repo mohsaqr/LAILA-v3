@@ -97,6 +97,168 @@ model ApiConfiguration {
 }
 
 // =============================================================================
+// LLM PROVIDER CONFIGURATION (Comprehensive AI/LLM Settings)
+// =============================================================================
+
+model LLMProvider {
+  id                    Int      @id @default(autoincrement())
+
+  // ===== PROVIDER IDENTITY =====
+  name                  String   @unique                    // 'openai', 'gemini', 'ollama', 'lmstudio', 'anthropic', 'azure-openai', 'custom'
+  displayName           String   @map("display_name")       // User-friendly name
+  description           String?                             // Provider description
+  providerType          String   @map("provider_type")      // 'cloud', 'local', 'custom'
+  isEnabled             Boolean  @default(false) @map("is_enabled")
+  isDefault             Boolean  @default(false) @map("is_default")
+  priority              Int      @default(0)               // For fallback ordering (higher = preferred)
+
+  // ===== CONNECTION SETTINGS =====
+  baseUrl               String?  @map("base_url")          // API endpoint (required for local/custom)
+  apiKey                String?  @map("api_key")           // API key (encrypted in practice)
+  apiVersion            String?  @map("api_version")       // API version if applicable
+  organizationId        String?  @map("organization_id")   // For OpenAI org, Azure resource group, etc.
+  projectId             String?  @map("project_id")        // For Google Cloud project, etc.
+
+  // ===== DEFAULT MODEL SETTINGS =====
+  defaultModel          String?  @map("default_model")     // Default model to use
+  defaultModelId        String?  @map("default_model_id")  // Model ID if different from name
+
+  // ===== GENERATION DEFAULTS =====
+  defaultTemperature    Float    @default(0.7) @map("default_temperature")
+  defaultMaxTokens      Int      @default(2048) @map("default_max_tokens")
+  defaultTopP           Float    @default(1.0) @map("default_top_p")
+  defaultTopK           Int?     @map("default_top_k")     // For providers that support it
+  defaultFrequencyPenalty Float  @default(0) @map("default_frequency_penalty")
+  defaultPresencePenalty  Float  @default(0) @map("default_presence_penalty")
+  defaultRepeatPenalty  Float?   @map("default_repeat_penalty")  // For Ollama/local models
+
+  // ===== CONTEXT & LIMITS =====
+  maxContextLength      Int?     @map("max_context_length")     // Max tokens in context window
+  maxOutputTokens       Int?     @map("max_output_tokens")      // Max tokens in response
+  defaultContextLength  Int?     @map("default_context_length") // Default context to use
+
+  // ===== STOP SEQUENCES & FORMAT =====
+  defaultStopSequences  String?  @map("default_stop_sequences") // JSON array of stop sequences
+  defaultResponseFormat String?  @map("default_response_format") // 'text', 'json', 'json_object'
+
+  // ===== TIMEOUT & RETRY SETTINGS =====
+  requestTimeout        Int      @default(120000) @map("request_timeout")    // ms
+  connectTimeout        Int      @default(30000) @map("connect_timeout")     // ms
+  maxRetries            Int      @default(3) @map("max_retries")
+  retryDelay            Int      @default(1000) @map("retry_delay")          // ms
+  retryBackoffMultiplier Float   @default(2.0) @map("retry_backoff_multiplier")
+
+  // ===== RATE LIMITING =====
+  rateLimitRpm          Int?     @map("rate_limit_rpm")    // Requests per minute
+  rateLimitTpm          Int?     @map("rate_limit_tpm")    // Tokens per minute
+  rateLimitRpd          Int?     @map("rate_limit_rpd")    // Requests per day
+  concurrencyLimit      Int      @default(5) @map("concurrency_limit")
+
+  // ===== STREAMING =====
+  supportsStreaming     Boolean  @default(true) @map("supports_streaming")
+  defaultStreaming      Boolean  @default(false) @map("default_streaming")
+
+  // ===== FEATURES & CAPABILITIES =====
+  supportsVision        Boolean  @default(false) @map("supports_vision")
+  supportsFunctionCalling Boolean @default(false) @map("supports_function_calling")
+  supportsJsonMode      Boolean  @default(false) @map("supports_json_mode")
+  supportsSystemMessage Boolean  @default(true) @map("supports_system_message")
+  supportsMultipleSystemMessages Boolean @default(false) @map("supports_multiple_system_messages")
+
+  // ===== PROXY & NETWORK =====
+  proxyUrl              String?  @map("proxy_url")
+  proxyUsername         String?  @map("proxy_username")
+  proxyPassword         String?  @map("proxy_password")
+  customHeaders         String?  @map("custom_headers")    // JSON object of headers
+
+  // ===== TLS/SSL SETTINGS =====
+  skipTlsVerify         Boolean  @default(false) @map("skip_tls_verify")     // For self-signed certs
+  customCaCert          String?  @map("custom_ca_cert")    // Custom CA certificate
+
+  // ===== HEALTH CHECK =====
+  healthCheckEnabled    Boolean  @default(true) @map("health_check_enabled")
+  healthCheckInterval   Int      @default(60000) @map("health_check_interval")  // ms
+  lastHealthCheck       DateTime? @map("last_health_check")
+  healthStatus          String?  @map("health_status")     // 'healthy', 'unhealthy', 'unknown'
+  lastError             String?  @map("last_error")
+  consecutiveFailures   Int      @default(0) @map("consecutive_failures")
+
+  // ===== USAGE TRACKING =====
+  totalRequests         Int      @default(0) @map("total_requests")
+  totalTokensUsed       Int      @default(0) @map("total_tokens_used")
+  totalErrors           Int      @default(0) @map("total_errors")
+  averageLatency        Float?   @map("average_latency")   // ms
+
+  // ===== METADATA =====
+  metadata              String?                            // JSON for additional provider-specific config
+  notes                 String?                            // Admin notes
+
+  // ===== TIMESTAMPS =====
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  models                LLMModel[]
+
+  @@index([isEnabled, isDefault])
+  @@index([providerType])
+  @@map("llm_providers")
+}
+
+model LLMModel {
+  id                    Int      @id @default(autoincrement())
+
+  // ===== MODEL IDENTITY =====
+  providerId            Int      @map("provider_id")
+  provider              LLMProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  modelId               String   @map("model_id")          // The actual model identifier
+  name                  String                             // Display name
+  description           String?                            // Model description
+
+  // ===== MODEL TYPE & CAPABILITIES =====
+  modelType             String   @default("chat") @map("model_type")  // 'chat', 'completion', 'embedding', 'vision', 'multimodal'
+  isEnabled             Boolean  @default(true) @map("is_enabled")
+  isDefault             Boolean  @default(false) @map("is_default")
+
+  // ===== CONTEXT & LIMITS =====
+  contextLength         Int?     @map("context_length")    // Max context window
+  maxOutputTokens       Int?     @map("max_output_tokens") // Max output tokens
+
+  // ===== MODEL-SPECIFIC DEFAULTS =====
+  defaultTemperature    Float?   @map("default_temperature")
+  defaultMaxTokens      Int?     @map("default_max_tokens")
+  defaultTopP           Float?   @map("default_top_p")
+  defaultTopK           Int?     @map("default_top_k")
+
+  // ===== CAPABILITIES =====
+  supportsVision        Boolean  @default(false) @map("supports_vision")
+  supportsFunctionCalling Boolean @default(false) @map("supports_function_calling")
+  supportsJsonMode      Boolean  @default(false) @map("supports_json_mode")
+  supportsStreaming     Boolean  @default(true) @map("supports_streaming")
+
+  // ===== PRICING (per 1M tokens) =====
+  inputPricePer1M       Float?   @map("input_price_per_1m")
+  outputPricePer1M      Float?   @map("output_price_per_1m")
+
+  // ===== USAGE TRACKING =====
+  totalRequests         Int      @default(0) @map("total_requests")
+  totalInputTokens      Int      @default(0) @map("total_input_tokens")
+  totalOutputTokens     Int      @default(0) @map("total_output_tokens")
+
+  // ===== METADATA =====
+  metadata              String?                            // JSON for additional model-specific config
+
+  // ===== TIMESTAMPS =====
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@unique([providerId, modelId])
+  @@index([providerId])
+  @@index([isEnabled, isDefault])
+  @@map("llm_models")
+}
+
+// =============================================================================
 // LOGGING & ANALYTICS
 // =============================================================================
 
@@ -628,6 +790,9 @@ model ChatbotInteractionLog {
   // ===== ADDITIONAL DATA =====
   metadata String? // JSON string for any additional data
 
+  // ===== TEST MODE (Admin "View As" feature) =====
+  testMode String? @map("test_mode") // 'test_instructor', 'test_student' when admin is testing roles
+
   @@index([userId])
   @@index([sectionId])
   @@index([sessionId])
@@ -635,6 +800,7 @@ model ChatbotInteractionLog {
   @@index([eventType])
   @@index([courseId])
   @@index([lectureId])
+  @@index([testMode])
   @@map("chatbot_interaction_logs")
 }
 
@@ -711,12 +877,16 @@ model UserInteractionLog {
   // ===== ADDITIONAL DATA =====
   metadata String?
 
+  // ===== TEST MODE (Admin "View As" feature) =====
+  testMode String? @map("test_mode") // 'test_instructor', 'test_student' when admin is testing roles
+
   @@index([userId])
   @@index([sessionId])
   @@index([timestamp])
   @@index([eventType])
   @@index([pagePath])
   @@index([courseId])
+  @@index([testMode])
   @@map("user_interaction_logs")
 }
 

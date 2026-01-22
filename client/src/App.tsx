@@ -44,12 +44,14 @@ import {
 // Admin pages
 import {
   AdminDashboard,
+  AdminSettings,
   LogsDashboard,
   UsersManagement,
   UserDetail,
   EnrollmentsManagement,
   BatchEnrollment,
 } from './pages/admin';
+import { LLMSettings } from './pages/admin/LLMSettings';
 
 // User pages
 import { Profile } from './pages/Profile';
@@ -153,7 +155,7 @@ function App() {
 
         {/* Code Lab routes (Student) */}
         <Route
-          path="/courses/:courseSlug/code-labs/:codeLabId"
+          path="/courses/:courseId/code-labs/:codeLabId"
           element={
             <ProtectedRoute>
               <CodeLabPage />
@@ -271,6 +273,14 @@ function App() {
           }
         />
         <Route
+          path="/admin/settings"
+          element={
+            <ProtectedRoute requireAdmin>
+              <AdminSettings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/admin/logs"
           element={
             <ProtectedRoute requireAdmin>
@@ -307,6 +317,14 @@ function App() {
           element={
             <ProtectedRoute requireAdmin>
               <BatchEnrollment />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/llm-settings"
+          element={
+            <ProtectedRoute requireAdmin>
+              <LLMSettings />
             </ProtectedRoute>
           }
         />
