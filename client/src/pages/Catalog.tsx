@@ -20,17 +20,20 @@ import { Course } from '../types';
 import { useAuth } from '../hooks/useAuth';
 
 export const Catalog = () => {
-  const { isAuthenticated, isInstructor, isAdmin } = useAuth();
+  const { isAuthenticated, isInstructor, isAdmin, viewAsRole } = useAuth();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [difficulty, setDifficulty] = useState('');
   const [page, setPage] = useState(1);
 
+  const canCreateCourses = isInstructor || isAdmin;
+
   // Fetch instructor's own courses if they are an instructor or admin
+  // Include viewAsRole in query key so cache is separate per view mode
   const { data: myCourses, isLoading: myCoursesLoading } = useQuery({
-    queryKey: ['myCourses'],
+    queryKey: ['myCourses', viewAsRole],
     queryFn: () => coursesApi.getMyCourses(),
-    enabled: isAuthenticated && (isInstructor || isAdmin),
+    enabled: isAuthenticated && canCreateCourses,
   });
 
   // Fetch public course catalog
@@ -45,8 +48,6 @@ export const Catalog = () => {
     { value: 'intermediate', label: 'Intermediate' },
     { value: 'advanced', label: 'Advanced' },
   ];
-
-  const canCreateCourses = isInstructor || isAdmin;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
