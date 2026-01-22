@@ -40,9 +40,9 @@ router.get('/', asyncHandler(async (req: AuthRequest, res: Response) => {
   res.json({ success: true, ...result });
 }));
 
-// Get instructor's courses
+// Get instructor's courses (admins see all courses)
 router.get('/my-courses', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const courses = await courseService.getInstructorCourses(req.user!.id);
+  const courses = await courseService.getInstructorCourses(req.user!.id, req.user!.isAdmin);
   res.json({ success: true, data: courses });
 }));
 

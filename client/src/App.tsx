@@ -93,7 +93,10 @@ function App() {
       <Route element={<Layout />}>
         {/* Public routes */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/catalog" element={<Catalog />} />
+        <Route path="/courses" element={<Catalog />} />
+        <Route path="/courses/:id" element={<CourseDetails />} />
+        {/* Legacy catalog routes - redirect to /courses */}
+        <Route path="/catalog" element={<Navigate to="/courses" replace />} />
         <Route path="/catalog/:id" element={<CourseDetails />} />
 
         {/* Protected routes */}

@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   BookOpen,
   GraduationCap,
-  Briefcase,
   BrainCircuit,
   Settings,
   Shield,
@@ -12,29 +11,18 @@ import {
   LogOut,
   User,
   ChevronDown,
-  Eye,
-  EyeOff,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-import { ViewAsRole } from '../../store/authStore';
 
 export const Navbar = () => {
-  const { user, isAuthenticated, isAdmin, isInstructor, isActualAdmin, viewAsRole, setViewAs, isViewingAs, logout } = useAuth();
+  const { user, isAuthenticated, isAdmin, logout } = useAuth();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isViewAsMenuOpen, setIsViewAsMenuOpen] = useState(false);
-
-  const viewAsOptions: { role: ViewAsRole; label: string; description: string }[] = [
-    { role: null, label: 'View as Admin', description: 'Full admin access' },
-    { role: 'instructor', label: 'View as Instructor', description: 'Test instructor view' },
-    { role: 'student', label: 'View as Student', description: 'Test student view' },
-  ];
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: BookOpen },
-    { path: '/catalog', label: 'Courses', icon: GraduationCap },
-    ...(isInstructor || isAdmin ? [{ path: '/teach', label: 'Teaching', icon: Briefcase }] : []),
+    { path: '/courses', label: 'Courses', icon: GraduationCap },
     { path: '/ai-tools', label: 'AI Tools', icon: BrainCircuit },
     ...(isAdmin ? [{ path: '/admin', label: 'Admin', icon: Shield }] : []),
   ];
@@ -80,72 +68,6 @@ export const Navbar = () => {
 
           {/* User Menu */}
           <div className="flex items-center gap-4">
-            {/* View As Button - Only for actual admins */}
-            {isAuthenticated && isActualAdmin && (
-              <div className="relative">
-                <button
-                  onClick={() => setIsViewAsMenuOpen(!isViewAsMenuOpen)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                    isViewingAs
-                      ? 'bg-amber-100 text-amber-700 border border-amber-300'
-                      : 'hover:bg-gray-50 text-gray-600'
-                  }`}
-                >
-                  {isViewingAs ? (
-                    <Eye className="w-4 h-4" />
-                  ) : (
-                    <EyeOff className="w-4 h-4" />
-                  )}
-                  <span className="hidden sm:block text-sm font-medium">
-                    {isViewingAs
-                      ? `Viewing as ${viewAsRole === 'instructor' ? 'Instructor' : 'Student'}`
-                      : 'View As'}
-                  </span>
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-
-                {isViewAsMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50">
-                    <div className="px-4 py-2 border-b border-gray-100">
-                      <p className="text-xs font-medium text-gray-500 uppercase">Test Role Views</p>
-                    </div>
-                    {viewAsOptions.map((option) => (
-                      <button
-                        key={option.role || 'admin'}
-                        onClick={() => {
-                          setViewAs(option.role);
-                          setIsViewAsMenuOpen(false);
-                        }}
-                        className={`flex flex-col items-start w-full px-4 py-2 text-sm hover:bg-gray-50 ${
-                          (option.role === null && !viewAsRole) || option.role === viewAsRole
-                            ? 'bg-primary-50 text-primary-700'
-                            : 'text-gray-700'
-                        }`}
-                      >
-                        <span className="font-medium">{option.label}</span>
-                        <span className="text-xs text-gray-500">{option.description}</span>
-                      </button>
-                    ))}
-                    {isViewingAs && (
-                      <>
-                        <hr className="my-1" />
-                        <button
-                          onClick={() => {
-                            setViewAs(null);
-                            setIsViewAsMenuOpen(false);
-                          }}
-                          className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                        >
-                          <EyeOff className="w-4 h-4" />
-                          Exit Test Mode
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
             {isAuthenticated ? (
               <div className="relative">
                 <button

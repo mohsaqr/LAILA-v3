@@ -379,10 +379,16 @@ export class CourseService {
     return updated;
   }
 
-  async getInstructorCourses(instructorId: number) {
+  async getInstructorCourses(instructorId: number, isAdmin = false) {
+    // Admins see all courses, instructors see only their own
+    const where = isAdmin ? {} : { instructorId };
+
     const courses = await prisma.course.findMany({
-      where: { instructorId },
+      where,
       include: {
+        instructor: {
+          select: { id: true, fullname: true },
+        },
         _count: {
           select: { enrollments: true, modules: true },
         },
