@@ -12,7 +12,7 @@ const getAuthToken = (): string | null => {
   } catch {
     // Fall back to direct token if parsing fails
   }
-  return getAuthToken();
+  return null;
 };
 
 export const adminApi = {
@@ -313,6 +313,96 @@ export const analyticsExportApi = {
       });
     }
     const response = await apiClient.get(`/analytics/export/summary/auth-events?${params.toString()}`);
+    return response.data.data;
+  },
+};
+
+// Learning Analytics API (Content & Assessment Events)
+export const learningAnalyticsApi = {
+  // Log a content event from the frontend
+  logContentEvent: async (data: {
+    sessionId?: string;
+    courseId?: number;
+    moduleId?: number;
+    lectureId?: number;
+    sectionId?: number;
+    eventType: 'lecture_view' | 'video_play' | 'video_pause' | 'video_complete' | 'video_seek' | 'document_download' | 'scroll_depth_update' | 'lecture_complete';
+    videoPosition?: number;
+    videoDuration?: number;
+    videoPercentWatched?: number;
+    scrollDepthPercent?: number;
+    timeOnPageSeconds?: number;
+    documentFileName?: string;
+    documentFileType?: string;
+    timestamp?: number;
+    deviceType?: string;
+    browserName?: string;
+    timezone?: string;
+  }) => {
+    const response = await apiClient.post<any>('/analytics/content-event', data);
+    return response.data.data;
+  },
+
+  // Log an assessment event from the frontend
+  logAssessmentEvent: async (data: {
+    sessionId?: string;
+    courseId?: number;
+    assignmentId?: number;
+    submissionId?: number;
+    eventType: 'assignment_view' | 'assignment_submit' | 'grade_received' | 'feedback_view' | 'assignment_start';
+    grade?: number;
+    maxPoints?: number;
+    previousGrade?: number;
+    attemptNumber?: number;
+    timeSpentSeconds?: number;
+    feedbackLength?: number;
+    timestamp?: number;
+    deviceType?: string;
+    browserName?: string;
+  }) => {
+    const response = await apiClient.post<any>('/analytics/assessment-event', data);
+    return response.data.data;
+  },
+
+  // Get content events summary (admin)
+  getContentEventSummary: async (filters?: {
+    startDate?: string;
+    endDate?: string;
+    userId?: number;
+    courseId?: number;
+    lectureId?: number;
+    eventType?: string;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    if (filters?.userId) params.append('userId', filters.userId.toString());
+    if (filters?.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters?.lectureId) params.append('lectureId', filters.lectureId.toString());
+    if (filters?.eventType) params.append('eventType', filters.eventType);
+
+    const response = await apiClient.get<any>(`/analytics/export/summary/content-events?${params.toString()}`);
+    return response.data.data;
+  },
+
+  // Get assessment events summary (admin)
+  getAssessmentEventSummary: async (filters?: {
+    startDate?: string;
+    endDate?: string;
+    userId?: number;
+    courseId?: number;
+    assignmentId?: number;
+    eventType?: string;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    if (filters?.userId) params.append('userId', filters.userId.toString());
+    if (filters?.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters?.assignmentId) params.append('assignmentId', filters.assignmentId.toString());
+    if (filters?.eventType) params.append('eventType', filters.eventType);
+
+    const response = await apiClient.get<any>(`/analytics/export/summary/assessment-events?${params.toString()}`);
     return response.data.data;
   },
 };
