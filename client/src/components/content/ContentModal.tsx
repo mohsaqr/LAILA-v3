@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { X, ExternalLink } from 'lucide-react';
+import { sanitizeHtml } from '../../utils/sanitize';
 
 interface ContentModalProps {
   isOpen: boolean;
@@ -90,7 +91,7 @@ export const ContentModal = ({ isOpen, onClose, title, content, onOpenInNewPage 
         <div className="flex-1 overflow-y-auto px-6 py-4">
           <div
             className="prose max-w-none"
-            dangerouslySetInnerHTML={{ __html: content }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }}
           />
         </div>
       </div>

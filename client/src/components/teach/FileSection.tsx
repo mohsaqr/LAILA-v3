@@ -2,20 +2,7 @@ import { useState, useRef } from 'react';
 import { Upload, File, FileText, Image, Film, Music, Archive, Download, X, Loader2 } from 'lucide-react';
 import { LectureSection, UpdateSectionData } from '../../types';
 import { Button } from '../common/Button';
-
-// Helper to get token from Zustand's persisted store
-const getAuthToken = (): string | null => {
-  try {
-    const stored = localStorage.getItem('laila-auth');
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return parsed?.state?.token || null;
-    }
-  } catch {
-    // Fall back if parsing fails
-  }
-  return null;
-};
+import { getAuthToken } from '../../utils/auth';
 
 interface FileSectionProps {
   section: LectureSection;

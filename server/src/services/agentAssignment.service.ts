@@ -10,6 +10,7 @@ interface AIConfig {
   provider: 'openai' | 'gemini';
   model: string;
   apiKey: string;
+  baseUrl?: string; // For LM Studio or other OpenAI-compatible endpoints
 }
 
 // Event context for logging
@@ -56,6 +57,7 @@ export class AgentAssignmentService {
         provider: 'openai',
         model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
         apiKey: process.env.OPENAI_API_KEY,
+        baseUrl: process.env.OPENAI_BASE_URL, // For LM Studio: http://localhost:1234/v1
       };
     }
 
@@ -73,6 +75,19 @@ export class AgentAssignmentService {
   // =============================================================================
   // STUDENT AGENT CONFIG CRUD
   // =============================================================================
+
+  // Helper to parse JSON fields in config
+  private formatConfig(config: any) {
+    if (!config) return null;
+    return {
+      ...config,
+      dosRules: config.dosRules ? JSON.parse(config.dosRules) : [],
+      dontsRules: config.dontsRules ? JSON.parse(config.dontsRules) : [],
+      suggestedQuestions: config.suggestedQuestions ? JSON.parse(config.suggestedQuestions) : [],
+      selectedPromptBlocks: config.selectedPromptBlocks ? JSON.parse(config.selectedPromptBlocks) : [],
+      reflectionResponses: config.reflectionResponses ? JSON.parse(config.reflectionResponses) : {},
+    };
+  }
 
   // Get student's agent config for an assignment
   async getMyAgentConfig(assignmentId: number, userId: number) {
@@ -109,7 +124,7 @@ export class AgentAssignmentService {
         points: assignment.points,
         course: assignment.course,
       },
-      config,
+      config: this.formatConfig(config),
     };
   }
 
@@ -142,12 +157,25 @@ export class AgentAssignmentService {
         assignmentId,
         userId,
         agentName: data.agentName,
+        agentTitle: data.agentTitle,
         personaDescription: data.personaDescription,
         systemPrompt: data.systemPrompt,
         dosRules: data.dosRules ? JSON.stringify(data.dosRules) : null,
         dontsRules: data.dontsRules ? JSON.stringify(data.dontsRules) : null,
         welcomeMessage: data.welcomeMessage,
         avatarImageUrl: data.avatarImageUrl,
+        // Enhanced builder fields
+        pedagogicalRole: data.pedagogicalRole,
+        personality: data.personality,
+        personalityPrompt: data.personalityPrompt,
+        responseStyle: data.responseStyle,
+        temperature: data.temperature ?? 0.7,
+        suggestedQuestions: data.suggestedQuestions ? JSON.stringify(data.suggestedQuestions) : null,
+        knowledgeContext: data.knowledgeContext,
+        // Prompt building blocks
+        selectedPromptBlocks: data.selectedPromptBlocks ? JSON.stringify(data.selectedPromptBlocks) : null,
+        // Reflection tracking
+        reflectionResponses: data.reflectionResponses ? JSON.stringify(data.reflectionResponses) : null,
         version: 1,
         isDraft: true,
       },
@@ -178,7 +206,7 @@ export class AgentAssignmentService {
       },
     });
 
-    return config;
+    return this.formatConfig(config);
   }
 
   // Update agent config
@@ -211,12 +239,23 @@ export class AgentAssignmentService {
     // Determine changed fields
     const changedFields: string[] = [];
     if (data.agentName !== undefined && data.agentName !== existing.agentName) changedFields.push('agentName');
+    if (data.agentTitle !== undefined && data.agentTitle !== existing.agentTitle) changedFields.push('agentTitle');
     if (data.personaDescription !== undefined && data.personaDescription !== existing.personaDescription) changedFields.push('personaDescription');
     if (data.systemPrompt !== undefined && data.systemPrompt !== existing.systemPrompt) changedFields.push('systemPrompt');
     if (data.dosRules !== undefined) changedFields.push('dosRules');
     if (data.dontsRules !== undefined) changedFields.push('dontsRules');
     if (data.welcomeMessage !== undefined && data.welcomeMessage !== existing.welcomeMessage) changedFields.push('welcomeMessage');
     if (data.avatarImageUrl !== undefined && data.avatarImageUrl !== existing.avatarImageUrl) changedFields.push('avatarImageUrl');
+    // Enhanced fields change tracking
+    if (data.pedagogicalRole !== undefined && data.pedagogicalRole !== existing.pedagogicalRole) changedFields.push('pedagogicalRole');
+    if (data.personality !== undefined && data.personality !== existing.personality) changedFields.push('personality');
+    if (data.personalityPrompt !== undefined && data.personalityPrompt !== existing.personalityPrompt) changedFields.push('personalityPrompt');
+    if (data.responseStyle !== undefined && data.responseStyle !== existing.responseStyle) changedFields.push('responseStyle');
+    if (data.temperature !== undefined && data.temperature !== existing.temperature) changedFields.push('temperature');
+    if (data.suggestedQuestions !== undefined) changedFields.push('suggestedQuestions');
+    if (data.knowledgeContext !== undefined && data.knowledgeContext !== existing.knowledgeContext) changedFields.push('knowledgeContext');
+    if (data.selectedPromptBlocks !== undefined) changedFields.push('selectedPromptBlocks');
+    if (data.reflectionResponses !== undefined) changedFields.push('reflectionResponses');
 
     const newVersion = existing.version + 1;
 
@@ -224,12 +263,25 @@ export class AgentAssignmentService {
       where: { id: existing.id },
       data: {
         agentName: data.agentName,
+        agentTitle: data.agentTitle,
         personaDescription: data.personaDescription,
         systemPrompt: data.systemPrompt,
         dosRules: data.dosRules ? JSON.stringify(data.dosRules) : undefined,
         dontsRules: data.dontsRules ? JSON.stringify(data.dontsRules) : undefined,
         welcomeMessage: data.welcomeMessage,
         avatarImageUrl: data.avatarImageUrl,
+        // Enhanced builder fields
+        pedagogicalRole: data.pedagogicalRole,
+        personality: data.personality,
+        personalityPrompt: data.personalityPrompt,
+        responseStyle: data.responseStyle,
+        temperature: data.temperature,
+        suggestedQuestions: data.suggestedQuestions ? JSON.stringify(data.suggestedQuestions) : undefined,
+        knowledgeContext: data.knowledgeContext,
+        // Prompt building blocks
+        selectedPromptBlocks: data.selectedPromptBlocks ? JSON.stringify(data.selectedPromptBlocks) : undefined,
+        // Reflection tracking
+        reflectionResponses: data.reflectionResponses ? JSON.stringify(data.reflectionResponses) : undefined,
         version: newVersion,
       },
     });
@@ -261,7 +313,7 @@ export class AgentAssignmentService {
       },
     });
 
-    return updated;
+    return this.formatConfig(updated);
   }
 
   // =============================================================================
@@ -568,15 +620,18 @@ export class AgentAssignmentService {
     let completionTokens: number | undefined;
     let totalTokens: number | undefined;
 
+    // Get temperature from config (default to 0.7)
+    const temperature = config.temperature ?? 0.7;
+
     try {
       if (aiConfig.provider === 'openai') {
-        const result = await this.chatWithOpenAI(chatMessages, aiConfig.model, aiConfig.apiKey);
+        const result = await this.chatWithOpenAI(chatMessages, aiConfig.model, aiConfig.apiKey, temperature, aiConfig.baseUrl);
         aiResponse = result.content;
         promptTokens = result.promptTokens;
         completionTokens = result.completionTokens;
         totalTokens = result.totalTokens;
       } else {
-        aiResponse = await this.chatWithGemini(chatMessages, aiConfig.model, aiConfig.apiKey);
+        aiResponse = await this.chatWithGemini(chatMessages, aiConfig.model, aiConfig.apiKey, temperature);
       }
     } catch (error: any) {
       // Log error
@@ -1013,25 +1068,57 @@ export class AgentAssignmentService {
     dosRules?: string | null;
     dontsRules?: string | null;
     agentName: string;
+    personalityPrompt?: string | null;
+    responseStyle?: string | null;
+    knowledgeContext?: string | null;
   }): string {
-    let prompt = config.systemPrompt;
+    let prompt = '';
 
+    // Add persona description at the start
     if (config.personaDescription) {
-      prompt = `${config.personaDescription}\n\n${prompt}`;
+      prompt += `You are ${config.agentName}. ${config.personaDescription}\n\n`;
+    } else {
+      prompt += `You are ${config.agentName}.\n\n`;
     }
 
+    // Add personality instructions
+    if (config.personalityPrompt) {
+      prompt += `## Personality & Communication Style\n${config.personalityPrompt}\n\n`;
+    }
+
+    // Add response style guidance
+    if (config.responseStyle) {
+      const styleGuides: Record<string, string> = {
+        concise: 'Keep your responses brief and to the point. Focus on the essential information.',
+        balanced: 'Provide well-rounded responses with appropriate detail. Balance thoroughness with brevity.',
+        detailed: 'Provide comprehensive, in-depth responses. Include examples, explanations, and relevant context.',
+      };
+      if (styleGuides[config.responseStyle]) {
+        prompt += `## Response Style\n${styleGuides[config.responseStyle]}\n\n`;
+      }
+    }
+
+    // Add the main system prompt
+    prompt += `## Core Instructions\n${config.systemPrompt}\n`;
+
+    // Add knowledge context
+    if (config.knowledgeContext) {
+      prompt += `\n## Domain Knowledge & Expertise\n${config.knowledgeContext}\n`;
+    }
+
+    // Add behavioral rules
     const dos = config.dosRules ? JSON.parse(config.dosRules) : [];
     const donts = config.dontsRules ? JSON.parse(config.dontsRules) : [];
 
     if (dos.length > 0) {
-      prompt += '\n\n## Things you SHOULD do:\n';
+      prompt += '\n## Things you SHOULD do:\n';
       dos.forEach((rule: string, i: number) => {
         prompt += `${i + 1}. ${rule}\n`;
       });
     }
 
     if (donts.length > 0) {
-      prompt += '\n\n## Things you should NOT do:\n';
+      prompt += '\n## Things you should NOT do:\n';
       donts.forEach((rule: string, i: number) => {
         prompt += `${i + 1}. ${rule}\n`;
       });
@@ -1043,15 +1130,20 @@ export class AgentAssignmentService {
   private async chatWithOpenAI(
     messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
     model: string,
-    apiKey: string
+    apiKey: string,
+    temperature = 0.7,
+    baseUrl?: string
   ): Promise<{ content: string; promptTokens?: number; completionTokens?: number; totalTokens?: number }> {
-    const client = new OpenAI({ apiKey });
+    const client = new OpenAI({
+      apiKey,
+      baseURL: baseUrl, // For LM Studio or other OpenAI-compatible endpoints
+    });
 
     const response = await client.chat.completions.create({
       model,
       messages,
       max_tokens: 2000,
-      temperature: 0.7,
+      temperature,
     });
 
     return {
@@ -1065,10 +1157,14 @@ export class AgentAssignmentService {
   private async chatWithGemini(
     messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
     model: string,
-    apiKey: string
+    apiKey: string,
+    temperature = 0.7
   ): Promise<string> {
     const client = new GoogleGenerativeAI(apiKey);
-    const genModel = client.getGenerativeModel({ model });
+    const genModel = client.getGenerativeModel({
+      model,
+      generationConfig: { temperature },
+    });
 
     const systemMessage = messages.find(m => m.role === 'system');
     const conversation = messages.filter(m => m.role !== 'system');

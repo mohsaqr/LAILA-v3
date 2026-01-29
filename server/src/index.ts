@@ -29,9 +29,12 @@ import activityLogRoutes from './routes/activityLog.routes.js';
 import codeLabRoutes from './routes/codeLab.routes.js';
 import llmRoutes from './routes/llm.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
+import agentDesignLogRoutes from './routes/agentDesignLog.routes.js';
+import promptBlockRoutes from './routes/promptBlock.routes.js';
 
 // Import middleware
 import { errorHandler } from './middleware/error.middleware.js';
+import { authLimiter, uploadLimiter, apiLimiter } from './middleware/rateLimit.middleware.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -44,9 +47,14 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Validate required environment variables
+if (!process.env.SESSION_SECRET) {
+  throw new Error('SESSION_SECRET environment variable is required');
+}
+
 // Session configuration
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'laila-secret-key-change-in-production',
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -56,11 +64,22 @@ app.use(session({
   },
 }));
 
-// Static files for uploads
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+// Static files for uploads with security headers
+app.use('/uploads', (req, res, next) => {
+  // Add Content-Security-Policy to prevent script execution in uploaded files
+  res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'");
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  next();
+}, express.static(path.join(process.cwd(), 'uploads')));
 
-// API Routes
-app.use('/api/auth', authRoutes);
+// Apply general rate limiting to all API routes
+app.use('/api', apiLimiter);
+
+// API Routes with specific rate limiting
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/uploads', uploadLimiter, uploadRoutes);
+
+// Standard API routes
 app.use('/api/users', userRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/chatbots', chatbotRoutes);
@@ -80,7 +99,8 @@ app.use('/api/course-roles', courseRolesRoutes);
 app.use('/api/activity-log', activityLogRoutes);
 app.use('/api/code-labs', codeLabRoutes);
 app.use('/api/llm', llmRoutes);
-app.use('/api/uploads', uploadRoutes);
+app.use('/api/agent-design-logs', agentDesignLogRoutes);
+app.use('/api/prompt-blocks', promptBlockRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

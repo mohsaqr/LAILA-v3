@@ -1,5 +1,5 @@
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuthStore } from '../../store/authStore';
+import { useAuth } from '../../hooks/useAuth';
 import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
@@ -13,7 +13,8 @@ export const ProtectedRoute = ({
   requireAdmin = false,
   requireInstructor = false,
 }: ProtectedRouteProps) => {
-  const { isAuthenticated, isLoading, user } = useAuthStore();
+  // Use useAuth hook to get effective roles (respects viewAs mode)
+  const { isAuthenticated, isLoading, isAdmin, isInstructor } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -28,11 +29,12 @@ export const ProtectedRoute = ({
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (requireAdmin && !user?.isAdmin) {
+  // Use effective roles from useAuth (considers viewAs mode)
+  if (requireAdmin && !isAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  if (requireInstructor && !user?.isInstructor && !user?.isAdmin) {
+  if (requireInstructor && !isInstructor && !isAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
 

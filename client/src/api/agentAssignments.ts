@@ -190,4 +190,91 @@ export const agentAssignmentsApi = {
     );
     return response.data.data!;
   },
+
+  // =============================================================================
+  // DESIGN LOG ENDPOINTS (Instructor)
+  // =============================================================================
+
+  // Get design events and analytics for a student's agent config
+  getDesignEvents: async (
+    agentConfigId: number
+  ): Promise<{
+    events: Array<Record<string, unknown>>;
+    analytics: Record<string, unknown>;
+  }> => {
+    const response = await apiClient.get<
+      ApiResponse<{
+        events: Array<Record<string, unknown>>;
+        analytics: Record<string, unknown>;
+      }>
+    >(`/agent-design-logs/config/${agentConfigId}`);
+    return response.data.data!;
+  },
+
+  // Get design timeline for a student's agent config
+  getDesignTimeline: async (
+    agentConfigId: number,
+    options?: { category?: string; limit?: number; offset?: number }
+  ): Promise<{
+    timeline: Array<Record<string, unknown>>;
+    total: number;
+  }> => {
+    const params = new URLSearchParams();
+    if (options?.category) params.append('category', options.category);
+    if (options?.limit) params.append('limit', options.limit.toString());
+    if (options?.offset) params.append('offset', options.offset.toString());
+
+    const response = await apiClient.get<
+      ApiResponse<{
+        timeline: Array<Record<string, unknown>>;
+        total: number;
+      }>
+    >(`/agent-design-logs/config/${agentConfigId}/timeline?${params.toString()}`);
+    return response.data.data!;
+  },
+
+  // Get config snapshot at a specific time
+  getConfigAtTime: async (
+    agentConfigId: number,
+    timestamp: string
+  ): Promise<Record<string, unknown> | null> => {
+    const response = await apiClient.get<ApiResponse<Record<string, unknown> | null>>(
+      `/agent-design-logs/config/${agentConfigId}/snapshot?timestamp=${encodeURIComponent(timestamp)}`
+    );
+    return response.data.data!;
+  },
+
+  // Get reflection responses for a student's config
+  getReflectionResponses: async (
+    agentConfigId: number
+  ): Promise<Array<{ promptId: string; promptText: string; response: string; timestamp: string }>> => {
+    const response = await apiClient.get<
+      ApiResponse<Array<{ promptId: string; promptText: string; response: string; timestamp: string }>>
+    >(`/agent-design-logs/config/${agentConfigId}/reflections`);
+    return response.data.data!;
+  },
+
+  // Get assignment-level design analytics
+  getAssignmentDesignAnalytics: async (
+    assignmentId: number
+  ): Promise<{
+    totalStudents: number;
+    averageDesignTime: number;
+    averageIterations: number;
+    averageTestConversations: number;
+    roleUsageStats: Record<string, number>;
+    personalityUsageStats: Record<string, number>;
+  }> => {
+    const response = await apiClient.get<
+      ApiResponse<{
+        totalStudents: number;
+        averageDesignTime: number;
+        averageIterations: number;
+        averageTestConversations: number;
+        roleUsageStats: Record<string, number>;
+        personalityUsageStats: Record<string, number>;
+      }>
+    >(`/agent-design-logs/assignment/${assignmentId}/analytics`);
+    return response.data.data!;
+  },
 };

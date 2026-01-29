@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { Plus, Settings, Eye, EyeOff, Layers, FileEdit, ClipboardList, MessageCircle } from 'lucide-react';
+import { Plus, Settings, Eye, EyeOff, Layers, FileEdit, MessageCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../../api/courses';
 import { codeLabsApi } from '../../api/codeLabs';
+import { assignmentsApi } from '../../api/assignments';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
@@ -15,7 +16,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Input, TextArea, Select } from '../../components/common/Input';
 import { ModuleItem } from '../../components/teach/ModuleItem';
-import { CourseModule, Lecture, CodeLab } from '../../types';
+import { CourseModule, Lecture, CodeLab, Assignment } from '../../types';
 
 interface ModuleFormData {
   title: string;
@@ -33,6 +34,15 @@ interface LectureFormData {
 interface CodeLabFormData {
   title: string;
   description: string;
+}
+
+interface AssignmentFormData {
+  title: string;
+  description: string;
+  submissionType: 'text' | 'file' | 'mixed' | 'ai_agent';
+  points: number;
+  dueDate: string;
+  isPublished: boolean;
 }
 
 export const CurriculumEditor = () => {
@@ -58,6 +68,12 @@ export const CurriculumEditor = () => {
     codeLab?: CodeLab;
   }>({ isOpen: false });
   const [deleteCodeLabConfirm, setDeleteCodeLabConfirm] = useState<CodeLab | null>(null);
+  const [assignmentModal, setAssignmentModal] = useState<{
+    isOpen: boolean;
+    moduleId?: number;
+    assignment?: Assignment;
+  }>({ isOpen: false });
+  const [deleteAssignmentConfirm, setDeleteAssignmentConfirm] = useState<Assignment | null>(null);
 
   // Form states
   const [moduleForm, setModuleForm] = useState<ModuleFormData>({ title: '', description: '', label: '' });
@@ -68,6 +84,14 @@ export const CurriculumEditor = () => {
     isFree: false,
   });
   const [codeLabForm, setCodeLabForm] = useState<CodeLabFormData>({ title: '', description: '' });
+  const [assignmentForm, setAssignmentForm] = useState<AssignmentFormData>({
+    title: '',
+    description: '',
+    submissionType: 'text',
+    points: 100,
+    dueDate: '',
+    isPublished: false,
+  });
 
   // Queries
   const { data: course, isLoading: courseLoading } = useQuery({
@@ -79,6 +103,12 @@ export const CurriculumEditor = () => {
   const { data: modules, isLoading: modulesLoading } = useQuery({
     queryKey: ['courseModules', courseId],
     queryFn: () => coursesApi.getModules(courseId),
+    enabled: !!courseId,
+  });
+
+  const { data: assignments, isLoading: assignmentsLoading } = useQuery({
+    queryKey: ['courseAssignments', courseId],
+    queryFn: () => assignmentsApi.getAssignments(courseId),
     enabled: !!courseId,
   });
 
@@ -209,6 +239,53 @@ export const CurriculumEditor = () => {
     onError: () => toast.error('Failed to delete Code Lab'),
   });
 
+  // Assignment mutations
+  const createAssignmentMutation = useMutation({
+    mutationFn: (data: AssignmentFormData & { moduleId: number }) =>
+      assignmentsApi.createAssignment(courseId, {
+        ...data,
+        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
+      toast.success('Assignment created');
+      closeAssignmentModal();
+    },
+    onError: (error: any) => {
+      console.error('Failed to create assignment:', error);
+      const message = error?.response?.data?.message || error?.message || 'Unknown error';
+      toast.error(`Failed to create assignment: ${message}`);
+    },
+  });
+
+  const updateAssignmentMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: AssignmentFormData & { moduleId?: number } }) =>
+      assignmentsApi.updateAssignment(id, {
+        ...data,
+        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
+      toast.success('Assignment updated');
+      closeAssignmentModal();
+    },
+    onError: (error: any) => {
+      console.error('Failed to update assignment:', error);
+      const message = error?.response?.data?.message || error?.message || 'Unknown error';
+      toast.error(`Failed to update assignment: ${message}`);
+    },
+  });
+
+  const deleteAssignmentMutation = useMutation({
+    mutationFn: (id: number) => assignmentsApi.deleteAssignment(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
+      toast.success('Assignment deleted');
+      setDeleteAssignmentConfirm(null);
+    },
+    onError: () => toast.error('Failed to delete assignment'),
+  });
+
   // Modal handlers
   const openAddModuleModal = () => {
     setModuleForm({ title: '', description: '', label: '' });
@@ -260,6 +337,42 @@ export const CurriculumEditor = () => {
     setCodeLabForm({ title: '', description: '' });
   };
 
+  const openAddAssignmentModal = (module: CourseModule) => {
+    setAssignmentForm({
+      title: '',
+      description: '',
+      submissionType: 'text',
+      points: 100,
+      dueDate: '',
+      isPublished: false,
+    });
+    setAssignmentModal({ isOpen: true, moduleId: module.id });
+  };
+
+  const openEditAssignmentModal = (assignment: Assignment) => {
+    setAssignmentForm({
+      title: assignment.title,
+      description: assignment.description || '',
+      submissionType: assignment.submissionType,
+      points: assignment.points,
+      dueDate: assignment.dueDate ? assignment.dueDate.split('T')[0] : '',
+      isPublished: assignment.isPublished,
+    });
+    setAssignmentModal({ isOpen: true, assignment });
+  };
+
+  const closeAssignmentModal = () => {
+    setAssignmentModal({ isOpen: false });
+    setAssignmentForm({
+      title: '',
+      description: '',
+      submissionType: 'text',
+      points: 100,
+      dueDate: '',
+      isPublished: false,
+    });
+  };
+
   // Form handlers
   const handleModuleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -300,6 +413,29 @@ export const CurriculumEditor = () => {
       updateCodeLabMutation.mutate({ id: codeLabModal.codeLab.id, data: codeLabForm });
     } else if (codeLabModal.moduleId) {
       createCodeLabMutation.mutate({ moduleId: codeLabModal.moduleId, data: codeLabForm });
+    }
+  };
+
+  const handleAssignmentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignmentForm.title.trim()) {
+      toast.error('Assignment title is required');
+      return;
+    }
+
+    if (assignmentModal.assignment) {
+      updateAssignmentMutation.mutate({
+        id: assignmentModal.assignment.id,
+        data: {
+          ...assignmentForm,
+          moduleId: assignmentModal.assignment.moduleId || undefined,
+        },
+      });
+    } else if (assignmentModal.moduleId) {
+      createAssignmentMutation.mutate({
+        ...assignmentForm,
+        moduleId: assignmentModal.moduleId,
+      });
     }
   };
 
@@ -378,7 +514,32 @@ export const CurriculumEditor = () => {
     });
   };
 
-  if (courseLoading || modulesLoading) {
+  // Assignment reordering is not supported at this time - they are sorted by creation order
+  const handleMoveAssignmentUp = (_assignment: Assignment, _module: CourseModule) => {
+    // Not implemented - would require orderIndex field on assignments
+    toast('Assignment reordering not yet supported');
+  };
+
+  const handleMoveAssignmentDown = (_assignment: Assignment, _module: CourseModule) => {
+    // Not implemented - would require orderIndex field on assignments
+    toast('Assignment reordering not yet supported');
+  };
+
+  // Group assignments by moduleId
+  const assignmentsByModule = useMemo(() => {
+    const map: Record<number, Assignment[]> = {};
+    (assignments || []).forEach(assignment => {
+      if (assignment.moduleId) {
+        if (!map[assignment.moduleId]) {
+          map[assignment.moduleId] = [];
+        }
+        map[assignment.moduleId].push(assignment);
+      }
+    });
+    return map;
+  }, [assignments]);
+
+  if (courseLoading || modulesLoading || assignmentsLoading) {
     return <Loading fullScreen text="Loading curriculum..." />;
   }
 
@@ -391,7 +552,13 @@ export const CurriculumEditor = () => {
     );
   }
 
-  const sortedModules = [...(modules || [])].sort((a, b) => a.orderIndex - b.orderIndex);
+  // Merge assignments into modules
+  const sortedModules = [...(modules || [])]
+    .sort((a, b) => a.orderIndex - b.orderIndex)
+    .map(module => ({
+      ...module,
+      assignments: assignmentsByModule[module.id] || [],
+    }));
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -417,11 +584,6 @@ export const CurriculumEditor = () => {
             <p className="text-gray-600">{course.description || 'No description'}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Link to={`/teach/courses/${courseId}/assignments`}>
-              <Button variant="ghost" size="sm" icon={<ClipboardList className="w-4 h-4" />}>
-                Assignments
-              </Button>
-            </Link>
             <Link to={`/teach/courses/${courseId}/chatbot-logs`}>
               <Button variant="ghost" size="sm" icon={<MessageCircle className="w-4 h-4" />}>
                 Chatbot Logs
@@ -493,6 +655,11 @@ export const CurriculumEditor = () => {
                   onDeleteCodeLab={setDeleteCodeLabConfirm}
                   onMoveCodeLabUp={handleMoveCodeLabUp}
                   onMoveCodeLabDown={handleMoveCodeLabDown}
+                  onAddAssignment={openAddAssignmentModal}
+                  onEditAssignment={openEditAssignmentModal}
+                  onDeleteAssignment={setDeleteAssignmentConfirm}
+                  onMoveAssignmentUp={handleMoveAssignmentUp}
+                  onMoveAssignmentDown={handleMoveAssignmentDown}
                 />
               ))}
             </div>
@@ -718,6 +885,120 @@ export const CurriculumEditor = () => {
         message={`Are you sure you want to delete "${deleteCodeLabConfirm?.title}"? All code blocks in this lab will also be deleted.`}
         confirmText="Delete"
         loading={deleteCodeLabMutation.isPending}
+      />
+
+      {/* Assignment Modal */}
+      <Modal
+        isOpen={assignmentModal.isOpen}
+        onClose={closeAssignmentModal}
+        title={assignmentModal.assignment ? 'Edit Assignment' : 'Add Assignment'}
+        size="md"
+      >
+        <form onSubmit={handleAssignmentSubmit} className="space-y-4">
+          <Input
+            label="Assignment Title"
+            value={assignmentForm.title}
+            onChange={e => setAssignmentForm(f => ({ ...f, title: e.target.value }))}
+            placeholder="e.g., Week 1 Assignment"
+            required
+          />
+          <TextArea
+            label="Description (optional)"
+            value={assignmentForm.description}
+            onChange={e => setAssignmentForm(f => ({ ...f, description: e.target.value }))}
+            placeholder="Brief description of the assignment"
+            rows={3}
+          />
+          <Select
+            label="Submission Type"
+            value={assignmentForm.submissionType}
+            onChange={e =>
+              setAssignmentForm(f => ({
+                ...f,
+                submissionType: e.target.value as 'text' | 'file' | 'mixed' | 'ai_agent',
+              }))
+            }
+            options={[
+              { value: 'text', label: 'Text Submission' },
+              { value: 'file', label: 'File Upload' },
+              { value: 'mixed', label: 'Text + File' },
+              { value: 'ai_agent', label: 'AI Agent Builder' },
+            ]}
+          />
+          {assignmentForm.submissionType === 'ai_agent' && (
+            <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700">
+              Students will build and configure an AI agent as their submission.
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Points"
+              type="number"
+              value={assignmentForm.points}
+              onChange={e => setAssignmentForm(f => ({ ...f, points: parseInt(e.target.value) || 0 }))}
+              min={0}
+            />
+            <Input
+              label="Due Date (optional)"
+              type="date"
+              value={assignmentForm.dueDate}
+              onChange={e => setAssignmentForm(f => ({ ...f, dueDate: e.target.value }))}
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="isPublished"
+              checked={assignmentForm.isPublished}
+              onChange={e => setAssignmentForm(f => ({ ...f, isPublished: e.target.checked }))}
+              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            />
+            <label htmlFor="isPublished" className="text-sm text-gray-700">
+              Publish assignment (visible to students)
+            </label>
+          </div>
+
+          {/* View Submissions Button - only for existing assignments */}
+          {assignmentModal.assignment && (
+            <div className="border-t border-gray-200 pt-4 mt-4">
+              <p className="text-sm text-gray-600 mb-3">
+                View and grade student submissions:
+              </p>
+              <Link
+                to={`/teach/courses/${courseId}/assignments/${assignmentModal.assignment.id}/submissions`}
+                className="btn btn-secondary w-full flex items-center justify-center gap-2"
+              >
+                <FileEdit className="w-4 h-4" />
+                View Submissions
+              </Link>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button type="button" variant="secondary" onClick={closeAssignmentModal}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              loading={createAssignmentMutation.isPending || updateAssignmentMutation.isPending}
+            >
+              {assignmentModal.assignment ? 'Update' : 'Create'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Assignment Confirmation */}
+      <ConfirmDialog
+        isOpen={!!deleteAssignmentConfirm}
+        onClose={() => setDeleteAssignmentConfirm(null)}
+        onConfirm={() =>
+          deleteAssignmentConfirm && deleteAssignmentMutation.mutate(deleteAssignmentConfirm.id)
+        }
+        title="Delete Assignment"
+        message={`Are you sure you want to delete "${deleteAssignmentConfirm?.title}"? All student submissions will also be deleted.`}
+        confirmText="Delete"
+        loading={deleteAssignmentMutation.isPending}
       />
     </div>
   );

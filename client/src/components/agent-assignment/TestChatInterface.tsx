@@ -4,22 +4,26 @@ import { AgentTestMessage } from '../../types';
 
 interface TestChatInterfaceProps {
   agentName: string;
+  agentTitle?: string | null;
   avatarImageUrl: string | null;
   welcomeMessage: string | null;
   messages: AgentTestMessage[];
   onSendMessage: (message: string) => void;
   isSending: boolean;
   error?: string | null;
+  suggestedQuestions?: string[];
 }
 
 export const TestChatInterface = ({
   agentName,
+  agentTitle,
   avatarImageUrl,
   welcomeMessage,
   messages,
   onSendMessage,
   isSending,
   error,
+  suggestedQuestions = [],
 }: TestChatInterfaceProps) => {
   const [message, setMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -72,7 +76,12 @@ export const TestChatInterface = ({
             </div>
           )}
           <div>
-            <h3 className="font-semibold text-gray-900">{agentName}</h3>
+            <div className="flex items-baseline gap-2">
+              <h3 className="font-semibold text-gray-900">{agentName}</h3>
+              {agentTitle && (
+                <span className="text-xs text-violet-600 font-medium">{agentTitle}</span>
+              )}
+            </div>
             <p className="text-xs text-gray-500">Testing mode</p>
           </div>
         </div>
@@ -135,6 +144,26 @@ export const TestChatInterface = ({
       {error && (
         <div className="px-4 py-2 bg-red-50 border-t border-red-100">
           <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
+
+      {/* Suggested Questions */}
+      {suggestedQuestions.length > 0 && messages.length === 0 && (
+        <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
+          <p className="text-xs text-gray-500 mb-2">Suggested questions:</p>
+          <div className="flex flex-wrap gap-2">
+            {suggestedQuestions.slice(0, 4).map((question, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() => onSendMessage(question)}
+                disabled={isSending}
+                className="text-xs px-3 py-1.5 bg-white border border-gray-200 rounded-full hover:border-violet-300 hover:bg-violet-50 transition-colors disabled:opacity-50"
+              >
+                {question.length > 50 ? question.substring(0, 50) + '...' : question}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

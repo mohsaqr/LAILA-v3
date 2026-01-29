@@ -11,6 +11,7 @@ import {
   MessageSquare,
   PlayCircle,
   FileEdit,
+  Activity,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { agentAssignmentsApi } from '../../api/agentAssignments';
@@ -20,12 +21,13 @@ import { ConfigHistoryTimeline } from '../../components/agent-assignment/instruc
 import { TestConversationViewer } from '../../components/agent-assignment/instructor/TestConversationViewer';
 import { InstructorTestPanel } from '../../components/agent-assignment/instructor/InstructorTestPanel';
 import { GradeAgentForm } from '../../components/agent-assignment/instructor/GradeAgentForm';
+import { DesignProcessTab } from '../../components/agent-assignment/instructor/DesignProcessTab';
 import { Card, CardBody } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { StatusBadge } from '../../components/common/StatusBadge';
 
-type TabType = 'config' | 'history' | 'conversations' | 'test' | 'grade';
+type TabType = 'config' | 'design' | 'history' | 'conversations' | 'test' | 'grade';
 
 export const AgentSubmissionReview = () => {
   const { id, assignmentId, submissionId } = useParams<{
@@ -121,6 +123,7 @@ export const AgentSubmissionReview = () => {
 
   const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
     { id: 'config', label: 'Configuration', icon: <FileEdit className="w-4 h-4" /> },
+    { id: 'design', label: 'Design Process', icon: <Activity className="w-4 h-4" /> },
     { id: 'history', label: 'Change History', icon: <History className="w-4 h-4" /> },
     {
       id: 'conversations',
@@ -225,6 +228,8 @@ export const AgentSubmissionReview = () => {
 
       {/* Tab Content */}
       {activeTab === 'config' && <AgentConfigViewer config={config} />}
+
+      {activeTab === 'design' && <DesignProcessTab agentConfigId={config.id} />}
 
       {activeTab === 'history' && <ConfigHistoryTimeline logs={configHistory} />}
 

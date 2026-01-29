@@ -6,6 +6,7 @@ import { coursesApi } from '../api/courses';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
+import { sanitizeHtml } from '../utils/sanitize';
 
 interface LocationState {
   title?: string;
@@ -124,7 +125,7 @@ export const ContentView = () => {
           <CardBody className="py-6">
             <div
               className="prose max-w-none"
-              dangerouslySetInnerHTML={{ __html: content }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }}
             />
           </CardBody>
         </Card>

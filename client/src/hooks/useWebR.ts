@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { WebR } from 'webr';
+import { debug } from '../utils/debug';
 
 interface WebROutput {
   type: 'stdout' | 'stderr' | 'plot' | 'message';
@@ -38,13 +39,13 @@ export const useWebR = (): UseWebRReturn => {
     setIsLoading(true);
     setError(null);
 
-    console.log('[WebR] Starting initialization...');
+    debug.webr('[WebR] Starting initialization...');
 
     try {
       const webR = new WebR();
-      console.log('[WebR] WebR instance created, calling init()...');
+      debug.webr('[WebR] WebR instance created, calling init()...');
       await webR.init();
-      console.log('[WebR] WebR initialized successfully');
+      debug.webr('[WebR] WebR initialized successfully');
 
       // Set up default options for better output handling
       await webR.evalRVoid(`
@@ -54,15 +55,15 @@ export const useWebR = (): UseWebRReturn => {
           digits = 7
         )
       `);
-      console.log('[WebR] Default options set');
+      debug.webr('[WebR] Default options set');
 
       webRRef.current = webR;
       setIsReady(true);
-      console.log('[WebR] Ready to execute R code');
+      debug.webr('[WebR] Ready to execute R code');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to initialize WebR';
       setError(errorMessage);
-      console.error('[WebR] Initialization error:', err);
+      debug.error('[WebR] Initialization error:', err);
     } finally {
       setIsLoading(false);
       initializingRef.current = false;
@@ -84,10 +85,10 @@ export const useWebR = (): UseWebRReturn => {
 
   // Execute R code
   const executeCode = useCallback(async (code: string): Promise<ExecutionResult> => {
-    console.log('[WebR] executeCode called, isReady:', isReady, 'hasWebR:', !!webRRef.current);
+    debug.webr('[WebR] executeCode called, isReady:', isReady, 'hasWebR:', !!webRRef.current);
 
     if (!webRRef.current || !isReady) {
-      console.log('[WebR] Not ready, returning error');
+      debug.webr('[WebR] Not ready, returning error');
       return {
         success: false,
         outputs: [],
@@ -100,7 +101,7 @@ export const useWebR = (): UseWebRReturn => {
 
     try {
       const webR = webRRef.current;
-      console.log('[WebR] Executing code:', code.substring(0, 100) + '...');
+      debug.webr('[WebR] Executing code:', code.substring(0, 100) + '...');
 
       // Use captureR for cleaner output handling
       const result = await webR.evalRString(`
@@ -113,7 +114,7 @@ export const useWebR = (): UseWebRReturn => {
         }), collapse = "\\n")
       `);
 
-      console.log('[WebR] Execution result:', result);
+      debug.webr('[WebR] Execution result:', result);
 
       if (result && result.trim()) {
         outputs.push({ type: 'stdout', content: result });
@@ -129,7 +130,7 @@ export const useWebR = (): UseWebRReturn => {
       };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Execution failed';
-      console.error('[WebR] Execution error:', err);
+      debug.error('[WebR] Execution error:', err);
       outputs.push({ type: 'stderr', content: errorMessage });
 
       return {

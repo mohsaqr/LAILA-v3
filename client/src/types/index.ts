@@ -53,9 +53,11 @@ export interface CourseModule {
   isPublished: boolean;
   lectures?: Lecture[];
   codeLabs?: CodeLab[];
+  assignments?: Assignment[];
   _count?: {
     lectures: number;
     codeLabs?: number;
+    assignments?: number;
   };
 }
 
@@ -273,6 +275,8 @@ export interface Assignment {
   isPublished: boolean;
   aiAssisted: boolean;
   aiPrompt: string | null;
+  // AI Agent assignment settings
+  reflectionRequirement?: 'required' | 'optional' | 'disabled' | null;
   module?: {
     id: number;
     title: string;
@@ -548,12 +552,30 @@ export interface StudentAgentConfig {
   assignmentId: number;
   userId: number;
   agentName: string;
+  agentTitle: string | null;
   personaDescription: string | null;
   systemPrompt: string;
   dosRules: string[];
   dontsRules: string[];
   welcomeMessage: string | null;
   avatarImageUrl: string | null;
+  // Enhanced builder fields
+  pedagogicalRole: string | null;
+  personality: string | null;
+  personalityPrompt: string | null;
+  responseStyle: 'concise' | 'balanced' | 'detailed' | null;
+  temperature: number | null;
+  suggestedQuestions: string[] | null;
+  knowledgeContext: string | null;
+  // Prompt building blocks
+  selectedPromptBlocks: string[] | null;
+  // Reflection tracking
+  reflectionResponses: Record<string, string> | null;
+  // Design metrics
+  totalDesignTime: number | null;
+  testConversationCount: number | null;
+  iterationCount: number | null;
+  // Version tracking
   version: number;
   isDraft: boolean;
   createdAt: string;
@@ -584,6 +606,7 @@ export interface AgentAssignmentDetails {
   agentRequirements: string | null;
   dueDate: string | null;
   points: number;
+  reflectionRequirement?: 'required' | 'optional' | 'disabled' | null;
   course: {
     id: number;
     title: string;
@@ -593,12 +616,25 @@ export interface AgentAssignmentDetails {
 
 export interface AgentConfigFormData {
   agentName: string;
+  agentTitle?: string | null;
   personaDescription?: string;
   systemPrompt: string;
   dosRules?: string[];
   dontsRules?: string[];
   welcomeMessage?: string;
   avatarImageUrl?: string | null;
+  // Enhanced builder fields
+  pedagogicalRole?: string | null;
+  personality?: string | null;
+  personalityPrompt?: string | null;
+  responseStyle?: 'concise' | 'balanced' | 'detailed' | null;
+  temperature?: number | null;
+  suggestedQuestions?: string[];
+  knowledgeContext?: string | null;
+  // Prompt building blocks
+  selectedPromptBlocks?: string[];
+  // Reflection tracking
+  reflectionResponses?: Record<string, string>;
 }
 
 export interface AgentTestConversation {
@@ -703,6 +739,271 @@ export interface AgentGradeLog {
 
 export interface AgentSubmissionWithConfig extends AssignmentSubmission {
   agentConfig: StudentAgentConfig | null;
+}
+
+// =============================================================================
+// ENHANCED AGENT BUILDER TYPES
+// =============================================================================
+
+// Pedagogical roles for student agents
+export type PedagogicalRole =
+  | 'peer_tutor'
+  | 'study_buddy'
+  | 'socratic_guide'
+  | 'writing_coach'
+  | 'research_assistant'
+  | 'debate_partner'
+  | 'concept_explainer'
+  | 'practice_interviewer'
+  | 'language_partner'
+  | 'problem_solving_coach';
+
+export interface PedagogicalRoleConfig {
+  id: PedagogicalRole;
+  name: string;
+  description: string;
+  icon: string;
+  defaultSystemPrompt: string;
+  defaultDos: string[];
+  defaultDonts: string[];
+  recommendedPersonality: string;
+  exampleWelcome: string;
+}
+
+// Personality presets
+export type PersonalityType =
+  | 'friendly'
+  | 'professional'
+  | 'socratic'
+  | 'encouraging'
+  | 'academic'
+  | 'casual'
+  | 'custom';
+
+export interface PersonalityConfig {
+  id: PersonalityType;
+  name: string;
+  description: string;
+  prompt: string;
+}
+
+// Response styles
+export type ResponseStyleType = 'concise' | 'balanced' | 'detailed';
+
+export interface ResponseStyleConfig {
+  id: ResponseStyleType;
+  name: string;
+  description: string;
+}
+
+// Design event types
+export type AgentDesignEventType =
+  // Session events
+  | 'design_session_start'
+  | 'design_session_end'
+  | 'design_session_pause'
+  | 'design_session_resume'
+  // Tab navigation
+  | 'tab_switch'
+  | 'tab_time_recorded'
+  // Field interactions
+  | 'field_focus'
+  | 'field_blur'
+  | 'field_change'
+  | 'field_paste'
+  | 'field_clear'
+  // Template/suggestion events
+  | 'role_selected'
+  | 'template_viewed'
+  | 'template_applied'
+  | 'template_modified'
+  | 'personality_selected'
+  | 'suggestion_viewed'
+  | 'suggestion_applied'
+  // Prompt block events
+  | 'prompt_block_selected'
+  | 'prompt_block_removed'
+  | 'prompt_blocks_reordered'
+  | 'prompt_block_custom_added'
+  // Rule events
+  | 'rule_added'
+  | 'rule_removed'
+  | 'rule_edited'
+  | 'rule_reordered'
+  // Testing events
+  | 'test_conversation_started'
+  | 'test_message_sent'
+  | 'test_response_received'
+  | 'test_conversation_reset'
+  | 'post_test_edit'
+  // Reflection events
+  | 'reflection_prompt_shown'
+  | 'reflection_dismissed'
+  | 'reflection_submitted'
+  // Save/submit events
+  | 'draft_saved'
+  | 'submission_attempted'
+  | 'submission_completed'
+  | 'unsubmit_requested';
+
+export type AgentDesignEventCategory =
+  | 'session'
+  | 'navigation'
+  | 'field'
+  | 'template'
+  | 'rule'
+  | 'test'
+  | 'reflection'
+  | 'save';
+
+export interface AgentDesignEvent {
+  // Core identifiers
+  userId: number;
+  assignmentId: number;
+  agentConfigId?: number;
+  sessionId: string;
+  designSessionId: string;
+
+  // Event details
+  eventType: AgentDesignEventType;
+  eventCategory: AgentDesignEventCategory;
+  timestamp: Date;
+  version?: number;
+
+  // Change tracking
+  fieldName?: string;
+  previousValue?: string;
+  newValue?: string;
+  changeType?: 'type' | 'paste' | 'select' | 'toggle' | 'click' | 'delete';
+
+  // Metrics
+  characterCount?: number;
+  wordCount?: number;
+  timeOnTab?: number;
+  totalDesignTime?: number;
+
+  // Tab context
+  activeTab?: 'identity' | 'behavior' | 'advanced' | 'test';
+
+  // Template/suggestion tracking
+  usedTemplate?: boolean;
+  templateName?: string;
+  usedSuggestion?: boolean;
+  suggestionSource?: string;
+  roleSelected?: string;
+  personalitySelected?: string;
+
+  // Prompt block tracking
+  promptBlockId?: string;
+  promptBlockCategory?: string;
+  selectedBlockIds?: string[];
+
+  // Reflection tracking
+  reflectionPromptId?: string;
+  reflectionPromptText?: string;
+  reflectionResponse?: string;
+  reflectionDismissed?: boolean;
+
+  // Test context
+  testConversationId?: number;
+  testMessageCount?: number;
+
+  // Client context
+  ipAddress?: string;
+  deviceType?: string;
+  browserName?: string;
+  userAgent?: string;
+
+  // Snapshots
+  agentConfigSnapshot?: Record<string, unknown>;
+}
+
+// Reflection prompt types
+export type ReflectionPromptTrigger =
+  | 'role_selected'
+  | 'system_prompt_written'
+  | 'first_test_completed'
+  | 'post_test_edit'
+  | 'before_submission';
+
+export interface ReflectionPrompt {
+  id: string;
+  trigger: ReflectionPromptTrigger;
+  prompt: string;
+  required?: boolean;
+}
+
+// =============================================================================
+// PROMPT BUILDING BLOCKS
+// =============================================================================
+
+export type PromptBlockCategory =
+  | 'persona'
+  | 'tone'
+  | 'behavior'
+  | 'constraint'
+  | 'format'
+  | 'knowledge';
+
+export interface PromptBlock {
+  id: string;
+  category: PromptBlockCategory;
+  label: string;
+  promptText: string;
+  description: string;
+  popular?: boolean;
+}
+
+// Design event log for instructor view
+export interface AgentDesignEventLog {
+  id: number;
+  userId: number;
+  assignmentId: number;
+  agentConfigId: number | null;
+  sessionId: string;
+  designSessionId: string;
+  eventType: AgentDesignEventType;
+  eventCategory: AgentDesignEventCategory;
+  timestamp: string;
+  version: number | null;
+  fieldName: string | null;
+  previousValue: string | null;
+  newValue: string | null;
+  changeType: string | null;
+  characterCount: number | null;
+  wordCount: number | null;
+  timeOnTab: number | null;
+  totalDesignTime: number | null;
+  activeTab: string | null;
+  usedTemplate: boolean;
+  templateName: string | null;
+  usedSuggestion: boolean;
+  suggestionSource: string | null;
+  roleSelected: string | null;
+  personalitySelected: string | null;
+  reflectionPromptId: string | null;
+  reflectionPromptText: string | null;
+  reflectionResponse: string | null;
+  reflectionDismissed: boolean;
+  testConversationId: number | null;
+  testMessageCount: number | null;
+  deviceType: string | null;
+  browserName: string | null;
+  agentConfigSnapshot: Record<string, unknown> | null;
+}
+
+// Design analytics for instructor view
+export interface AgentDesignAnalytics {
+  totalDesignTime: number;
+  iterationCount: number;
+  testConversationCount: number;
+  templateUsage: {
+    roleUsed: string | null;
+    personalityUsed: string | null;
+    templatesApplied: number;
+  };
+  reflectionResponses: Record<string, string>;
+  timelineEvents: AgentDesignEventLog[];
 }
 
 export interface MyAgentConfigResponse {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
 import {
@@ -14,10 +14,12 @@ import {
   BookOpen,
   FolderOpen,
   FlaskConical,
+  Bot,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../api/courses';
 import { enrollmentsApi } from '../api/enrollments';
+import { assignmentsApi } from '../api/assignments';
 import { learningAnalyticsApi } from '../api/admin';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
@@ -28,6 +30,8 @@ import { ContentModal } from '../components/content/ContentModal';
 import { LectureSection } from '../types';
 import { getSessionId, getClientInfo } from '../utils/analytics';
 import activityLogger from '../services/activityLogger';
+import { debug } from '../utils/debug';
+import { useAuth } from '../hooks/useAuth';
 
 // Helper to strip HTML and truncate for preview
 const getPreviewText = (html: string, maxLength = 200): string => {
@@ -208,6 +212,7 @@ const SectionRenderer = ({ section, courseId, onOpenTextContent }: SectionRender
 export const CoursePlayer = () => {
   const { courseId, lectureId } = useParams<{ courseId: string; lectureId?: string }>();
   const queryClient = useQueryClient();
+  const { isActualAdmin, isActualInstructor } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentLectureId, setCurrentLectureId] = useState<number | null>(null);
   const [modalContent, setModalContent] = useState<LectureSection | null>(null);
@@ -216,6 +221,45 @@ export const CoursePlayer = () => {
     queryKey: ['enrollment', courseId],
     queryFn: () => enrollmentsApi.getEnrollment(parseInt(courseId!)),
   });
+
+  // Fetch course directly for instructors/admins who may not be enrolled
+  const { data: courseData, isLoading: courseLoading } = useQuery({
+    queryKey: ['course', courseId],
+    queryFn: () => coursesApi.getCourseById(parseInt(courseId!)),
+    enabled: !enrollment?.enrolled && (isActualAdmin || isActualInstructor),
+  });
+
+  // Allow access if enrolled OR if actual admin/instructor (for testing View As mode)
+  const hasAccess = enrollment?.enrolled || isActualAdmin || isActualInstructor;
+
+  // Use enrollment course data if enrolled, otherwise use direct course data
+  const course = enrollment?.enrollment?.course || courseData;
+
+  // Fetch assignments for the course
+  const { data: assignments } = useQuery({
+    queryKey: ['courseAssignments', courseId],
+    queryFn: () => assignmentsApi.getAssignments(parseInt(courseId!)),
+    enabled: hasAccess,
+  });
+
+  // Group assignments by moduleId
+  const assignmentsByModule = useMemo(() => {
+    const map: Record<number, typeof assignments> = {};
+    (assignments || []).filter(a => a.isPublished).forEach(assignment => {
+      if (assignment.moduleId) {
+        if (!map[assignment.moduleId]) {
+          map[assignment.moduleId] = [];
+        }
+        map[assignment.moduleId]!.push(assignment);
+      }
+    });
+    return map;
+  }, [assignments]);
+
+  // Get assignments without a module (unassigned)
+  const unassignedAssignments = useMemo(() => {
+    return (assignments || []).filter(a => a.isPublished && !a.moduleId);
+  }, [assignments]);
 
   const { data: progress } = useQuery({
     queryKey: ['progress', courseId],
@@ -253,7 +297,7 @@ export const CoursePlayer = () => {
         eventType: 'lecture_complete',
         timestamp: Date.now(),
         ...clientInfo,
-      }).catch(err => console.error('Failed to log lecture_complete event:', err));
+      }).catch(err => debug.error('Failed to log lecture_complete event:', err));
     },
   });
 
@@ -271,18 +315,14 @@ export const CoursePlayer = () => {
 
   // Log lecture_view event when lecture changes
   useEffect(() => {
-    console.log('[Analytics] useEffect triggered:', { currentLectureId, hasLecture: !!lecture, lectureTitle: lecture?.title });
-
     // Only require currentLectureId and lecture data - don't require enrollment
     // This allows logging for "View As" mode and ensures events are tracked
     if (!currentLectureId || !lecture) {
-      console.log('[Analytics] Skipping - missing data:', { currentLectureId, hasLecture: !!lecture });
       return;
     }
 
     // Only log if we haven't logged this lecture in this session
     if (loggedLecturesRef.current.has(currentLectureId)) {
-      console.log('[Analytics] Skipping - already logged this lecture:', currentLectureId);
       return;
     }
     loggedLecturesRef.current.add(currentLectureId);
@@ -293,8 +333,6 @@ export const CoursePlayer = () => {
     );
     const clientInfo = getClientInfo();
 
-    console.log('[Analytics] Logging lecture_view event:', { courseId: course?.id || parseInt(courseId!), lectureId: currentLectureId });
-
     learningAnalyticsApi.logContentEvent({
       sessionId: getSessionId(),
       courseId: course?.id || parseInt(courseId!),
@@ -303,9 +341,7 @@ export const CoursePlayer = () => {
       eventType: 'lecture_view',
       timestamp: Date.now(),
       ...clientInfo,
-    }).then(() => {
-      console.log('[Analytics] lecture_view event logged successfully');
-    }).catch(err => console.error('[Analytics] Failed to log lecture_view event:', err));
+    }).catch(err => debug.error('Failed to log lecture_view event:', err));
   }, [currentLectureId, lecture, enrollment, courseId]);
 
   const isLectureCompleted = (lectureIdToCheck: number) => {
@@ -345,11 +381,11 @@ export const CoursePlayer = () => {
     }
   };
 
-  if (enrollmentLoading) {
+  if (enrollmentLoading || courseLoading) {
     return <Loading fullScreen text="Loading course..." />;
   }
 
-  if (!enrollment?.enrolled) {
+  if (!hasAccess) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card>
@@ -364,8 +400,6 @@ export const CoursePlayer = () => {
       </div>
     );
   }
-
-  const course = enrollment.enrollment?.course;
 
   // Find current module for analytics context
   const currentModule = course?.modules?.find(m =>
@@ -459,9 +493,98 @@ export const CoursePlayer = () => {
                     </span>
                   </Link>
                 ))}
+
+                {/* Assignments */}
+                {assignmentsByModule[module.id]?.map(assignment => (
+                  <Link
+                    key={`assignment-${assignment.id}`}
+                    to={assignment.submissionType === 'ai_agent'
+                      ? `/courses/${courseId}/agent-assignments/${assignment.id}`
+                      : `/courses/${courseId}/assignments/${assignment.id}`}
+                    className={`w-full px-4 py-2.5 flex items-center gap-3 text-left transition-colors ${
+                      assignment.submissionType === 'ai_agent'
+                        ? 'hover:bg-purple-50'
+                        : 'hover:bg-amber-50'
+                    }`}
+                    data-track="sidebar-assignment-select"
+                    data-track-category="navigation"
+                    data-track-label={assignment.title}
+                    data-assignment-id={assignment.id}
+                    data-module-id={module.id}
+                  >
+                    {assignment.submissionType === 'ai_agent' ? (
+                      <Bot className="w-4 h-4 flex-shrink-0 text-purple-500" />
+                    ) : (
+                      <ClipboardList className="w-4 h-4 flex-shrink-0 text-amber-500" />
+                    )}
+                    <span className={`text-sm text-gray-700 ${
+                      assignment.submissionType === 'ai_agent'
+                        ? 'hover:text-purple-600'
+                        : 'hover:text-amber-600'
+                    }`}>
+                      {assignment.title}
+                    </span>
+                    <span className={`ml-auto text-xs px-1.5 py-0.5 rounded ${
+                      assignment.submissionType === 'ai_agent'
+                        ? 'bg-purple-100 text-purple-700'
+                        : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {assignment.submissionType === 'ai_agent' ? 'AI' : 'Due'}
+                    </span>
+                  </Link>
+                ))}
               </div>
             </div>
           ))}
+
+          {/* Unassigned Assignments (not linked to any module) */}
+          {unassignedAssignments.length > 0 && (
+            <div className="border-b border-gray-100">
+              <div className="px-4 py-3 bg-amber-50 flex items-center gap-2">
+                <ClipboardList className="w-4 h-4 text-amber-500" />
+                <h3 className="font-medium text-sm text-gray-900">Assignments</h3>
+              </div>
+              <div>
+                {unassignedAssignments.map(assignment => (
+                  <Link
+                    key={`assignment-${assignment.id}`}
+                    to={assignment.submissionType === 'ai_agent'
+                      ? `/courses/${courseId}/agent-assignments/${assignment.id}`
+                      : `/courses/${courseId}/assignments/${assignment.id}`}
+                    className={`w-full px-4 py-2.5 flex items-center gap-3 text-left transition-colors ${
+                      assignment.submissionType === 'ai_agent'
+                        ? 'hover:bg-purple-50'
+                        : 'hover:bg-amber-50'
+                    }`}
+                    data-track="sidebar-assignment-select"
+                    data-track-category="navigation"
+                    data-track-label={assignment.title}
+                    data-assignment-id={assignment.id}
+                  >
+                    {assignment.submissionType === 'ai_agent' ? (
+                      <Bot className="w-4 h-4 flex-shrink-0 text-purple-500" />
+                    ) : (
+                      <ClipboardList className="w-4 h-4 flex-shrink-0 text-amber-500" />
+                    )}
+                    <span className={`text-sm text-gray-700 ${
+                      assignment.submissionType === 'ai_agent'
+                        ? 'hover:text-purple-600'
+                        : 'hover:text-amber-600'
+                    }`}>
+                      {assignment.title}
+                    </span>
+                    <span className={`ml-auto text-xs px-1.5 py-0.5 rounded ${
+                      assignment.submissionType === 'ai_agent'
+                        ? 'bg-purple-100 text-purple-700'
+                        : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {assignment.submissionType === 'ai_agent' ? 'AI' : 'Due'}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

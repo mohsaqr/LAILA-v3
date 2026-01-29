@@ -6,6 +6,7 @@ interface DosDoNtsEditorProps {
   dontsRules: string[];
   onDosChange: (rules: string[]) => void;
   onDontsChange: (rules: string[]) => void;
+  disabled?: boolean;
 }
 
 export const DosDoNtsEditor = ({
@@ -13,6 +14,7 @@ export const DosDoNtsEditor = ({
   dontsRules,
   onDosChange,
   onDontsChange,
+  disabled = false,
 }: DosDoNtsEditorProps) => {
   const [newDo, setNewDo] = useState('');
   const [newDont, setNewDont] = useState('');
@@ -75,35 +77,39 @@ export const DosDoNtsEditor = ({
             >
               <span className="text-green-600 font-bold text-sm mt-0.5">+</span>
               <span className="flex-1 text-sm text-green-800">{rule}</span>
-              <button
-                type="button"
-                onClick={() => removeDo(index)}
-                className="text-green-600 hover:text-green-700 p-0.5"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              {!disabled && (
+                <button
+                  type="button"
+                  onClick={() => removeDo(index)}
+                  className="text-green-600 hover:text-green-700 p-0.5"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
           ))}
         </div>
 
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={newDo}
-            onChange={(e) => setNewDo(e.target.value)}
-            onKeyDown={handleDoKeyDown}
-            placeholder="E.g., Ask clarifying questions..."
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
-          />
-          <button
-            type="button"
-            onClick={addDo}
-            disabled={!newDo.trim()}
-            className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-        </div>
+        {!disabled && (
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newDo}
+              onChange={(e) => setNewDo(e.target.value)}
+              onKeyDown={handleDoKeyDown}
+              placeholder="E.g., Ask clarifying questions..."
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+            />
+            <button
+              type="button"
+              onClick={addDo}
+              disabled={!newDo.trim()}
+              className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Don'ts */}
@@ -126,35 +132,39 @@ export const DosDoNtsEditor = ({
             >
               <span className="text-red-600 font-bold text-sm mt-0.5">-</span>
               <span className="flex-1 text-sm text-red-800">{rule}</span>
-              <button
-                type="button"
-                onClick={() => removeDont(index)}
-                className="text-red-600 hover:text-red-700 p-0.5"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              {!disabled && (
+                <button
+                  type="button"
+                  onClick={() => removeDont(index)}
+                  className="text-red-600 hover:text-red-700 p-0.5"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
           ))}
         </div>
 
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={newDont}
-            onChange={(e) => setNewDont(e.target.value)}
-            onKeyDown={handleDontKeyDown}
-            placeholder="E.g., Give medical advice..."
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
-          />
-          <button
-            type="button"
-            onClick={addDont}
-            disabled={!newDont.trim()}
-            className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-        </div>
+        {!disabled && (
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newDont}
+              onChange={(e) => setNewDont(e.target.value)}
+              onKeyDown={handleDontKeyDown}
+              placeholder="E.g., Give medical advice..."
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
+            />
+            <button
+              type="button"
+              onClick={addDont}
+              disabled={!newDont.trim()}
+              className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

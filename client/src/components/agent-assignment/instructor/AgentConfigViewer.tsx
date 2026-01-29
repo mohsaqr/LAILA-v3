@@ -34,7 +34,12 @@ export const AgentConfigViewer = ({ config }: AgentConfigViewerProps) => {
               </div>
             )}
             <div className="flex-1">
-              <h4 className="text-lg font-semibold text-gray-900">{config.agentName}</h4>
+              <div className="flex items-baseline gap-2">
+                <h4 className="text-lg font-semibold text-gray-900">{config.agentName}</h4>
+                {config.agentTitle && (
+                  <span className="text-sm text-violet-600 font-medium">{config.agentTitle}</span>
+                )}
+              </div>
               {config.personaDescription && (
                 <p className="text-gray-600 mt-1">{config.personaDescription}</p>
               )}

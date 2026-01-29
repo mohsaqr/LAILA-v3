@@ -5,6 +5,7 @@ import { LectureSection, UpdateSectionData } from '../../types';
 import { Input, TextArea } from '../common/Input';
 import { Button } from '../common/Button';
 import apiClient from '../../api/client';
+import { sanitizeHtml } from '../../utils/sanitize';
 
 interface AIComponent {
   id: number;
@@ -112,7 +113,7 @@ const RichIntroEditor = ({
       {showPreview ? (
         <div
           className="prose prose-sm max-w-none p-4 border border-gray-200 rounded-lg min-h-[150px] bg-gray-50"
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(value || 'No content yet...') }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMarkdown(value || 'No content yet...')) }}
         />
       ) : (
         <div>
@@ -282,7 +283,7 @@ export const ChatbotSection = ({ section, onChange, readOnly = false }: ChatbotS
         {formData.chatbotIntro && (
           <div
             className="text-gray-600 text-center"
-            dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(formData.chatbotIntro) }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMarkdownPreview(formData.chatbotIntro)) }}
           />
         )}
         <div className="bg-gray-50 rounded-lg p-4 flex items-center gap-3">
@@ -456,7 +457,7 @@ export const ChatbotSection = ({ section, onChange, readOnly = false }: ChatbotS
           {formData.chatbotIntro ? (
             <div
               className="text-center text-sm text-gray-600 mb-3"
-              dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(formData.chatbotIntro) }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMarkdownPreview(formData.chatbotIntro)) }}
             />
           ) : (
             <p className="text-center text-sm text-gray-600 mb-3">

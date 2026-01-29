@@ -2,7 +2,10 @@ import { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AuthRequest, UserPayload } from '../types/index.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'laila-jwt-secret-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
 
 export const authenticateToken = (
   req: AuthRequest,

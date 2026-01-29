@@ -25,6 +25,7 @@ import { Button } from '../components/common/Button';
 import { TextArea } from '../components/common/Input';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { getSessionId, getClientInfo } from '../utils/analytics';
+import { debug } from '../utils/debug';
 
 export const AssignmentView = () => {
   const { courseId, assignmentId } = useParams<{ courseId: string; assignmentId: string }>();
@@ -71,7 +72,6 @@ export const AssignmentView = () => {
     hasLoggedViewRef.current = true;
 
     const clientInfo = getClientInfo();
-    console.log('Logging assignment_view event:', { courseId: parsedCourseId, assignmentId: parsedAssignmentId });
 
     learningAnalyticsApi.logAssessmentEvent({
       sessionId: getSessionId(),
@@ -81,9 +81,7 @@ export const AssignmentView = () => {
       maxPoints: assignment.points,
       timestamp: Date.now(),
       ...clientInfo,
-    }).then(() => {
-      console.log('assignment_view event logged successfully');
-    }).catch(err => console.error('Failed to log assignment_view event:', err));
+    }).catch(err => debug.error('Failed to log assignment_view event:', err));
   }, [assignment, parsedCourseId, parsedAssignmentId]);
 
   const saveDraftMutation = useMutation({
@@ -122,7 +120,7 @@ export const AssignmentView = () => {
         maxPoints: assignment?.points,
         timestamp: Date.now(),
         ...clientInfo,
-      }).catch(err => console.error('Failed to log assignment_submit event:', err));
+      }).catch(err => debug.error('Failed to log assignment_submit event:', err));
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Failed to submit assignment');

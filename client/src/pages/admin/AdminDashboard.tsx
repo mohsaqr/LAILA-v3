@@ -13,6 +13,7 @@ import {
   BarChart3,
   Bot,
   Settings,
+  Blocks,
 } from 'lucide-react';
 import { adminApi } from '../../api/admin';
 import { usersApi } from '../../api/users';
@@ -120,8 +121,13 @@ export const AdminDashboard = () => {
                   <Bot className="w-4 h-4" /> LLM Providers
                 </Button>
               </Link>
+              <Link to="/admin/prompt-blocks">
+                <Button variant="outline" size="sm" className="flex items-center gap-1">
+                  <Blocks className="w-4 h-4" /> Prompt Blocks
+                </Button>
+              </Link>
             </div>
-            <p className="text-xs text-gray-500 mt-2">Users, enrollments, LLM providers, and system configuration</p>
+            <p className="text-xs text-gray-500 mt-2">Users, enrollments, LLM providers, prompt blocks, and system configuration</p>
           </CardBody>
         </Card>
       </div>

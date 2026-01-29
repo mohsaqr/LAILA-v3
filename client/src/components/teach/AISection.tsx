@@ -6,6 +6,7 @@ import { LectureSection } from '../../types';
 import { coursesApi } from '../../api/courses';
 import { Button } from '../common/Button';
 import { Modal } from '../common/Modal';
+import { sanitizeHtml } from '../../utils/sanitize';
 
 interface AISectionProps {
   section: LectureSection;
@@ -105,7 +106,7 @@ export const AISection = ({
         </div>
         <div
           className="prose prose-sm max-w-none p-4 bg-purple-50 rounded-lg border border-purple-100"
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMarkdown(content)) }}
         />
       </div>
     );
@@ -222,7 +223,7 @@ export const AISection = ({
       {showPreview ? (
         <div
           className="prose prose-sm max-w-none p-4 border border-purple-200 rounded-lg min-h-[200px] bg-purple-50"
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMarkdown(content)) }}
         />
       ) : (
         <div>

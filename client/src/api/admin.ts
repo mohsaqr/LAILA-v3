@@ -1,19 +1,6 @@
 import apiClient from './client';
 import { AdminStats, ApiResponse, PaginatedResponse } from '../types';
-
-// Helper to get token from Zustand's persisted store
-const getAuthToken = (): string | null => {
-  try {
-    const stored = localStorage.getItem('laila-auth');
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return parsed?.state?.token || null;
-    }
-  } catch {
-    // Fall back to direct token if parsing fails
-  }
-  return null;
-};
+import { getAuthToken } from '../utils/auth';
 
 export const adminApi = {
   getStats: async () => {

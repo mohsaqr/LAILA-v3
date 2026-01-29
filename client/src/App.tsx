@@ -40,6 +40,7 @@ import {
   StudentAgentBuilder,
   AgentSubmissionsList,
   AgentSubmissionReview,
+  UseMyAgent,
 } from './pages/agent-assignment';
 
 // Admin pages
@@ -53,6 +54,7 @@ import {
   BatchEnrollment,
 } from './pages/admin';
 import { LLMSettings } from './pages/admin/LLMSettings';
+import { PromptBlocksManagement } from './pages/admin/PromptBlocksManagement';
 
 // User pages
 import { Profile } from './pages/Profile';
@@ -163,6 +165,14 @@ function App() {
           element={
             <ProtectedRoute>
               <StudentAgentBuilder />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/courses/:courseId/agent-assignments/:assignmentId/use"
+          element={
+            <ProtectedRoute>
+              <UseMyAgent />
             </ProtectedRoute>
           }
         />
@@ -339,6 +349,14 @@ function App() {
           element={
             <ProtectedRoute requireAdmin>
               <LLMSettings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/prompt-blocks"
+          element={
+            <ProtectedRoute requireAdmin>
+              <PromptBlocksManagement />
             </ProtectedRoute>
           }
         />

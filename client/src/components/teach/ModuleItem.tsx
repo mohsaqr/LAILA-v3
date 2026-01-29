@@ -8,11 +8,13 @@ import {
   ChevronUp,
   GripVertical,
   FlaskConical,
+  ClipboardList,
 } from 'lucide-react';
-import { CourseModule, Lecture, CodeLab } from '../../types';
+import { CourseModule, Lecture, CodeLab, Assignment } from '../../types';
 import { Button } from '../common/Button';
 import { LectureItem } from './LectureItem';
 import { CodeLabItem } from './CodeLabItem';
+import { AssignmentItem } from './AssignmentItem';
 
 interface ModuleItemProps {
   module: CourseModule;
@@ -34,6 +36,12 @@ interface ModuleItemProps {
   onDeleteCodeLab: (codeLab: CodeLab) => void;
   onMoveCodeLabUp: (codeLab: CodeLab, module: CourseModule) => void;
   onMoveCodeLabDown: (codeLab: CodeLab, module: CourseModule) => void;
+  // Assignment handlers
+  onAddAssignment: (module: CourseModule) => void;
+  onEditAssignment: (assignment: Assignment) => void;
+  onDeleteAssignment: (assignment: Assignment) => void;
+  onMoveAssignmentUp: (assignment: Assignment, module: CourseModule) => void;
+  onMoveAssignmentDown: (assignment: Assignment, module: CourseModule) => void;
 }
 
 export const ModuleItem = ({
@@ -55,10 +63,16 @@ export const ModuleItem = ({
   onDeleteCodeLab,
   onMoveCodeLabUp,
   onMoveCodeLabDown,
+  onAddAssignment,
+  onEditAssignment,
+  onDeleteAssignment,
+  onMoveAssignmentUp,
+  onMoveAssignmentDown,
 }: ModuleItemProps) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const lectures = module.lectures || [];
   const codeLabs = module.codeLabs || [];
+  const assignments = module.assignments || [];
 
   return (
     <div className="border border-gray-200 rounded-lg bg-white">
@@ -92,6 +106,7 @@ export const ModuleItem = ({
           <span className="text-xs text-gray-400">
             {lectures.length} lesson{lectures.length !== 1 ? 's' : ''}
             {codeLabs.length > 0 && ` • ${codeLabs.length} code lab${codeLabs.length !== 1 ? 's' : ''}`}
+            {assignments.length > 0 && ` • ${assignments.length} assignment${assignments.length !== 1 ? 's' : ''}`}
           </span>
         </div>
 
@@ -181,14 +196,35 @@ export const ModuleItem = ({
             </div>
           )}
 
+          {/* Assignments */}
+          {assignments.length > 0 && (
+            <div className="pt-2 border-t border-gray-100 mt-2 space-y-2">
+              {assignments
+                .sort((a, b) => (a.id || 0) - (b.id || 0))
+                .map((assignment, index) => (
+                  <AssignmentItem
+                    key={assignment.id}
+                    assignment={assignment}
+                    courseId={courseId}
+                    isFirst={index === 0}
+                    isLast={index === assignments.length - 1}
+                    onEdit={onEditAssignment}
+                    onDelete={onDeleteAssignment}
+                    onMoveUp={() => onMoveAssignmentUp(assignment, module)}
+                    onMoveDown={() => onMoveAssignmentDown(assignment, module)}
+                  />
+                ))}
+            </div>
+          )}
+
           {/* Action buttons */}
-          <div className="flex gap-2 mt-2">
+          <div className="flex gap-2 mt-2 flex-wrap">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onAddLecture(module)}
               icon={<Plus className="w-4 h-4" />}
-              className="flex-1"
+              className="flex-1 min-w-[120px]"
             >
               Add Lesson
             </Button>
@@ -197,9 +233,18 @@ export const ModuleItem = ({
               size="sm"
               onClick={() => onAddCodeLab(module)}
               icon={<FlaskConical className="w-4 h-4" />}
-              className="flex-1 text-emerald-600 hover:bg-emerald-50"
+              className="flex-1 min-w-[120px] text-emerald-600 hover:bg-emerald-50"
             >
               Add Code Lab
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onAddAssignment(module)}
+              icon={<ClipboardList className="w-4 h-4" />}
+              className="flex-1 min-w-[120px] text-amber-600 hover:bg-amber-50"
+            >
+              Add Assignment
             </Button>
           </div>
         </div>

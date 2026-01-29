@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { FileText, Eye, Edit2 } from 'lucide-react';
 import { LectureSection } from '../../types';
 import { Button } from '../common/Button';
+import { sanitizeHtml } from '../../utils/sanitize';
 
 interface TextSectionProps {
   section: LectureSection;
@@ -55,7 +56,7 @@ export const TextSection = ({ section, onChange, readOnly = false }: TextSection
     return (
       <div
         className="prose prose-sm max-w-none p-4 bg-gray-50 rounded-lg"
-        dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+        dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMarkdown(content)) }}
       />
     );
   }
@@ -80,7 +81,7 @@ export const TextSection = ({ section, onChange, readOnly = false }: TextSection
       {showPreview ? (
         <div
           className="prose prose-sm max-w-none p-4 border border-gray-200 rounded-lg min-h-[200px] bg-gray-50"
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMarkdown(content)) }}
         />
       ) : (
         <div>

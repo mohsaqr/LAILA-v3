@@ -6,6 +6,7 @@ interface SystemPromptFieldProps {
   value: string;
   onChange: (value: string) => void;
   error?: string;
+  disabled?: boolean;
 }
 
 const PROMPT_TIPS = [
@@ -64,7 +65,7 @@ Remember to:
   },
 ];
 
-export const SystemPromptField = ({ value, onChange, error }: SystemPromptFieldProps) => {
+export const SystemPromptField = ({ value, onChange, error, disabled = false }: SystemPromptFieldProps) => {
   const [showTips, setShowTips] = useState(false);
   const [showExamples, setShowExamples] = useState(false);
 
@@ -111,6 +112,7 @@ export const SystemPromptField = ({ value, onChange, error }: SystemPromptFieldP
         placeholder="Describe your agent's personality, knowledge, and how it should behave..."
         rows={8}
         error={error}
+        disabled={disabled}
         helpText="This is the core instruction that defines how your agent behaves."
       />
 

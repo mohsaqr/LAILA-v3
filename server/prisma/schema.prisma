@@ -610,12 +610,16 @@ model Assignment {
   // AI Agent Assignment specific fields
   agentRequirements String? @map("agent_requirements") // JSON: requirements for the agent
 
+  // Reflection settings for AI Agent assignments
+  reflectionRequirement String? @map("reflection_requirement") // 'required' | 'optional' | 'disabled'
+
   // Relations
   course              Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
   module              CourseModule?          @relation(fields: [moduleId], references: [id], onDelete: SetNull)
   submissions         AssignmentSubmission[]
   lectureSections     LectureSection[]
   studentAgentConfigs StudentAgentConfig[]
+  designEvents        AgentDesignEventLog[]
 
   @@index([courseId])
   @@map("assignments")
@@ -1019,12 +1023,33 @@ model StudentAgentConfig {
 
   // Agent Configuration
   agentName          String  @map("agent_name")
+  agentTitle         String? @map("agent_title") // Role title, e.g., "Writing Coach", "Study Buddy"
   personaDescription String? @map("persona_description")
   systemPrompt       String  @map("system_prompt")
   dosRules           String? @map("dos_rules") // JSON array of do's
   dontsRules         String? @map("donts_rules") // JSON array of don'ts
   welcomeMessage     String? @map("welcome_message")
   avatarImageUrl     String? @map("avatar_image_url")
+
+  // Enhanced builder fields
+  pedagogicalRole    String? @map("pedagogical_role") // peer_tutor, study_buddy, socratic_guide, etc.
+  personality        String? @map("personality") // friendly, professional, socratic, encouraging, etc.
+  personalityPrompt  String? @map("personality_prompt") // Editable personality instructions
+  responseStyle      String? @map("response_style") // concise, balanced, detailed
+  temperature        Float?  @default(0.7) @map("temperature")
+  suggestedQuestions String? @map("suggested_questions") // JSON array of conversation starters
+  knowledgeContext   String? @map("knowledge_context") // Domain expertise/knowledge field
+
+  // Prompt building blocks
+  selectedPromptBlocks String? @map("selected_prompt_blocks") // JSON array of block IDs
+
+  // Reflection tracking
+  reflectionResponses String? @map("reflection_responses") // JSON object of reflection prompt responses
+
+  // Design metrics
+  totalDesignTime       Int? @map("total_design_time") // Total seconds spent designing
+  testConversationCount Int? @map("test_conversation_count") // Number of test conversations
+  iterationCount        Int? @map("iteration_count") // Times saved after testing
 
   // Version tracking - increments on each save
   version Int @default(1)
@@ -1043,6 +1068,7 @@ model StudentAgentConfig {
   testConversations AgentTestConversation[]
   configLogs        AgentConfigurationLog[]
   gradeLogs         AgentGradeLog[]
+  designEvents      AgentDesignEventLog[]
 
   @@unique([assignmentId, userId])
   @@index([assignmentId])
@@ -1167,6 +1193,7 @@ model AgentTestInteractionLog {
   // ===== AGENT CONFIG CONTEXT =====
   agentConfigId Int     @map("agent_config_id")
   agentName     String? @map("agent_name")
+  agentTitle    String? @map("agent_title")
   agentVersion  Int?    @map("agent_version")
 
   // ===== ASSIGNMENT CONTEXT =====
@@ -1446,4 +1473,129 @@ model LearningActivityLog {
   @@index([timestamp])
   @@index([userId, courseId, timestamp])
   @@map("learning_activity_logs")
+}
+
+// =============================================================================
+// AGENT DESIGN EVENT LOG (Comprehensive design process tracking)
+// =============================================================================
+
+model AgentDesignEventLog {
+  id Int @id @default(autoincrement())
+
+  // References
+  userId       Int                 @map("user_id")
+  assignmentId Int                 @map("assignment_id")
+  agentConfigId Int?               @map("agent_config_id")
+  assignment   Assignment          @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  agentConfig  StudentAgentConfig? @relation(fields: [agentConfigId], references: [id], onDelete: SetNull)
+
+  // Session tracking
+  sessionId       String  @map("session_id")
+  designSessionId String  @map("design_session_id") // Groups events in same design session
+
+  // Event details
+  eventType     String @map("event_type") // design_session_start, field_change, role_selected, template_applied, etc.
+  eventCategory String @map("event_category") // session, navigation, field, template, rule, test, reflection, save
+  timestamp     DateTime @default(now())
+  version       Int? // Agent version at time of event
+
+  // Change tracking
+  fieldName     String? @map("field_name")
+  previousValue String? @map("previous_value")
+  newValue      String? @map("new_value")
+  changeType    String? @map("change_type") // type, paste, select, toggle, click, delete
+
+  // Metrics
+  characterCount  Int? @map("character_count")
+  wordCount       Int? @map("word_count")
+  timeOnTab       Int? @map("time_on_tab") // seconds
+  totalDesignTime Int? @map("total_design_time") // cumulative seconds
+
+  // Tab context
+  activeTab String? @map("active_tab") // identity, behavior, advanced, test
+
+  // Template/suggestion tracking
+  usedTemplate        Boolean @default(false) @map("used_template")
+  templateName        String? @map("template_name")
+  usedSuggestion      Boolean @default(false) @map("used_suggestion")
+  suggestionSource    String? @map("suggestion_source")
+  roleSelected        String? @map("role_selected")
+  personalitySelected String? @map("personality_selected")
+
+  // Prompt block tracking
+  promptBlockId       String? @map("prompt_block_id") // Which block was selected/removed
+  promptBlockCategory String? @map("prompt_block_category") // Block category
+  selectedBlockIds    String? @map("selected_block_ids") // Current selection state (JSON array)
+
+  // Reflection tracking
+  reflectionPromptId   String? @map("reflection_prompt_id")
+  reflectionPromptText String? @map("reflection_prompt_text")
+  reflectionResponse   String? @map("reflection_response")
+  reflectionDismissed  Boolean @default(false) @map("reflection_dismissed")
+
+  // Test context
+  testConversationId Int? @map("test_conversation_id")
+  testMessageCount   Int? @map("test_message_count")
+
+  // Client context
+  ipAddress   String? @map("ip_address")
+  deviceType  String? @map("device_type")
+  browserName String? @map("browser_name")
+  userAgent   String? @map("user_agent")
+
+  // Snapshots
+  agentConfigSnapshot String? @map("agent_config_snapshot") // Full config at time of event (JSON)
+
+  @@index([userId])
+  @@index([assignmentId])
+  @@index([agentConfigId])
+  @@index([sessionId])
+  @@index([designSessionId])
+  @@index([eventType])
+  @@index([timestamp])
+  @@map("agent_design_event_logs")
+}
+
+// =============================================================================
+// PROMPT BUILDING BLOCKS (Admin-configurable)
+// =============================================================================
+
+// PromptBlock - Customizable prompt building blocks for AI agent builder
+model PromptBlock {
+  id          Int     @id @default(autoincrement())
+  category    String  // persona, tone, behavior, constraint, format, knowledge
+  label       String  // Display text, e.g., "Patient Tutor"
+  promptText  String  @map("prompt_text") // The actual prompt text to insert
+  description String? // Help text explaining the block
+  popular     Boolean @default(false) // Show in popular section
+  isActive    Boolean @default(true) @map("is_active") // Soft delete
+  orderIndex  Int     @default(0) @map("order_index") // For ordering within category
+
+  // Audit fields
+  createdById Int?      @map("created_by_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@index([isActive])
+  @@index([orderIndex])
+  @@map("prompt_blocks")
+}
+
+// PromptBlockCategory - Customizable categories for prompt blocks
+model PromptBlockCategory {
+  id          Int     @id @default(autoincrement())
+  slug        String  @unique // persona, tone, behavior, etc.
+  name        String  // Display name
+  description String? // Help text
+  icon        String? // Icon name
+  orderIndex  Int     @default(0) @map("order_index")
+  isActive    Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive])
+  @@index([orderIndex])
+  @@map("prompt_block_categories")
 }

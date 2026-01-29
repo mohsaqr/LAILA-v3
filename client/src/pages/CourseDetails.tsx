@@ -13,10 +13,13 @@ import {
   FlaskConical,
   Sparkles,
   Upload,
+  ClipboardList,
+  Bot,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../api/courses';
 import { enrollmentsApi } from '../api/enrollments';
+import { assignmentsApi } from '../api/assignments';
 import { useAuth } from '../hooks/useAuth';
 import { Card, CardBody } from '../components/common/Card';
 import { Button } from '../components/common/Button';
@@ -144,7 +147,7 @@ const SectionRenderer = ({ section, courseId, lectureId, moduleId, onOpenContent
 export const CourseDetails = () => {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
-  const { isAuthenticated, user, isAdmin, isInstructor: isUserInstructor } = useAuth();
+  const { isAuthenticated, user, isInstructor: isUserInstructor, isActualAdmin, isActualInstructor } = useAuth();
   const [expandedModules, setExpandedModules] = useState<number[]>([]);
   const [selectedLectureId, setSelectedLectureId] = useState<number | null>(null);
   const [modalContent, setModalContent] = useState<{ title?: string; content: string } | null>(null);
@@ -159,6 +162,16 @@ export const CourseDetails = () => {
     queryFn: () => enrollmentsApi.getEnrollment(parseInt(id!)),
     enabled: isAuthenticated,
   });
+
+  // Fetch assignments for the course (for enrolled users or instructors/admins)
+  const { data: assignments } = useQuery({
+    queryKey: ['courseAssignments', id],
+    queryFn: () => assignmentsApi.getAssignments(parseInt(id!)),
+    enabled: isAuthenticated && (enrollmentData?.enrolled || isActualAdmin || isActualInstructor),
+  });
+
+  // Filter to only published assignments
+  const publishedAssignments = (assignments || []).filter(a => a.isPublished);
 
   // Fetch selected lecture content
   const { data: lectureContent, isLoading: lectureLoading } = useQuery({
@@ -239,8 +252,11 @@ export const CourseDetails = () => {
 
   const isEnrolled = enrollmentData?.enrolled;
   const isCourseInstructor = user?.id === course.instructorId;
-  // Admins and instructors have access without enrollment
-  const hasAccess = isEnrolled || isAdmin || isUserInstructor;
+  // Only show instructor controls if user is actual course instructor AND not viewing as student
+  const showInstructorControls = isCourseInstructor && isUserInstructor;
+  // For ACCESS: use actual roles (so instructors can test student view)
+  // For UI CONTROLS: use effective roles (isUserInstructor, isAdmin)
+  const hasAccess = isEnrolled || isActualAdmin || isActualInstructor;
   const totalLectures = course.modules?.reduce((sum, m) => sum + (m.lectures?.length || 0), 0) || 0;
 
   return (
@@ -272,7 +288,7 @@ export const CourseDetails = () => {
 
           {/* Action buttons */}
           <div className="mt-4 flex flex-wrap gap-3">
-            {isCourseInstructor && (
+            {showInstructorControls && (
               <>
                 <Link to={`/teach/courses/${course.id}/curriculum`} className="btn bg-white/20 hover:bg-white/30 text-white text-sm">
                   <Edit className="w-4 h-4 mr-1" /> Edit Course
@@ -437,6 +453,59 @@ export const CourseDetails = () => {
               <p className="text-gray-500">No content available yet</p>
             </CardBody>
           </Card>
+        )}
+
+        {/* Assignments Section */}
+        {hasAccess && publishedAssignments.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <ClipboardList className="w-6 h-6 text-amber-500" />
+              Assignments
+            </h2>
+            <div className="space-y-3">
+              {publishedAssignments.map((assignment) => (
+                <Card key={assignment.id} hover>
+                  <Link
+                    to={assignment.submissionType === 'ai_agent'
+                      ? `/courses/${course.id}/agent-assignments/${assignment.id}`
+                      : `/courses/${course.id}/assignments/${assignment.id}`}
+                    className="block"
+                  >
+                    <CardBody className="flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                        assignment.submissionType === 'ai_agent'
+                          ? 'bg-purple-100'
+                          : 'bg-amber-100'
+                      }`}>
+                        {assignment.submissionType === 'ai_agent' ? (
+                          <Bot className="w-6 h-6 text-purple-600" />
+                        ) : (
+                          <ClipboardList className="w-6 h-6 text-amber-600" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-medium text-gray-900">{assignment.title}</h3>
+                        <div className="flex items-center gap-3 text-sm text-gray-500">
+                          {assignment.dueDate && (
+                            <span>Due: {new Date(assignment.dueDate).toLocaleDateString()}</span>
+                          )}
+                          <span>{assignment.points} points</span>
+                          <span className={`px-2 py-0.5 rounded text-xs ${
+                            assignment.submissionType === 'ai_agent'
+                              ? 'bg-purple-100 text-purple-700'
+                              : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {assignment.submissionType === 'ai_agent' ? 'AI Agent' : 'Standard'}
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-gray-400" />
+                    </CardBody>
+                  </Link>
+                </Card>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 

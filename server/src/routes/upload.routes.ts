@@ -26,44 +26,61 @@ const storage = multer.diskStorage({
   },
 });
 
-// File filter for allowed types
-const fileFilter = (req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  // Allow common file types for educational content
-  const allowedMimes = [
-    // Documents
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-powerpoint',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'text/plain',
-    // Images
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'image/webp',
-    'image/svg+xml',
-    // Video
-    'video/mp4',
-    'video/quicktime',
-    'video/webm',
-    // Audio
-    'audio/mpeg',
-    'audio/wav',
-    'audio/ogg',
-    // Archives
-    'application/zip',
-    'application/x-rar-compressed',
-    'application/x-7z-compressed',
-  ];
+// Map of allowed extensions to their expected MIME types
+const allowedExtensions: Record<string, string[]> = {
+  // Documents
+  '.pdf': ['application/pdf'],
+  '.doc': ['application/msword'],
+  '.docx': ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  '.ppt': ['application/vnd.ms-powerpoint'],
+  '.pptx': ['application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+  '.xls': ['application/vnd.ms-excel'],
+  '.xlsx': ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+  '.txt': ['text/plain'],
+  // Images (SVG excluded due to XSS risk)
+  '.jpg': ['image/jpeg'],
+  '.jpeg': ['image/jpeg'],
+  '.png': ['image/png'],
+  '.gif': ['image/gif'],
+  '.webp': ['image/webp'],
+  // Video
+  '.mp4': ['video/mp4'],
+  '.mov': ['video/quicktime'],
+  '.webm': ['video/webm'],
+  // Audio
+  '.mp3': ['audio/mpeg'],
+  '.wav': ['audio/wav', 'audio/wave', 'audio/x-wav'],
+  '.ogg': ['audio/ogg'],
+  // Archives
+  '.zip': ['application/zip', 'application/x-zip-compressed'],
+  '.rar': ['application/x-rar-compressed', 'application/vnd.rar'],
+  '.7z': ['application/x-7z-compressed'],
+};
 
-  if (allowedMimes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error(`File type ${file.mimetype} is not allowed`));
+// File filter with extension and MIME type validation
+const fileFilter = (req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+
+  // Block SVG files explicitly (XSS risk)
+  if (ext === '.svg' || file.mimetype === 'image/svg+xml') {
+    cb(new Error('SVG files are not allowed for security reasons'));
+    return;
   }
+
+  // Check if extension is allowed
+  const allowedMimes = allowedExtensions[ext];
+  if (!allowedMimes) {
+    cb(new Error(`File extension ${ext} is not allowed`));
+    return;
+  }
+
+  // Validate that MIME type matches the extension
+  if (!allowedMimes.includes(file.mimetype)) {
+    cb(new Error(`File type mismatch: ${ext} file with ${file.mimetype} MIME type is not allowed`));
+    return;
+  }
+
+  cb(null, true);
 };
 
 // Configure upload with 50MB limit

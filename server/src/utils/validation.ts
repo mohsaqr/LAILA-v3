@@ -126,7 +126,7 @@ export const createAssignmentSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
   description: z.string().optional(),
   instructions: z.string().optional(),
-  submissionType: z.enum(['text', 'file', 'mixed']).optional(),
+  submissionType: z.enum(['text', 'file', 'mixed', 'ai_agent']).optional(),
   maxFileSize: z.number().int().min(1).max(50).optional(),
   allowedFileTypes: z.string().optional(),
   dueDate: z.string().datetime().optional().nullable(),
@@ -135,6 +135,7 @@ export const createAssignmentSchema = z.object({
   moduleId: z.number().int().optional().nullable(),
   aiAssisted: z.boolean().optional(),
   aiPrompt: z.string().optional(),
+  agentRequirements: z.string().optional(),
 });
 
 export const updateAssignmentSchema = createAssignmentSchema.partial();
@@ -221,12 +222,25 @@ export type ChatbotMessageInput = z.infer<typeof chatbotMessageSchema>;
 // Student Agent Config
 export const createAgentConfigSchema = z.object({
   agentName: z.string().min(1, 'Agent name is required').max(100),
+  agentTitle: z.string().max(100).optional().nullable(),
   personaDescription: z.string().max(500).optional(),
   systemPrompt: z.string().min(10, 'System prompt must be at least 10 characters'),
   dosRules: z.array(z.string()).optional(),
   dontsRules: z.array(z.string()).optional(),
   welcomeMessage: z.string().max(500).optional(),
   avatarImageUrl: z.string().url().optional().nullable(),
+  // Enhanced builder fields
+  pedagogicalRole: z.string().max(50).optional().nullable(),
+  personality: z.string().max(50).optional().nullable(),
+  personalityPrompt: z.string().max(2000).optional().nullable(),
+  responseStyle: z.enum(['concise', 'balanced', 'detailed']).optional().nullable(),
+  temperature: z.number().min(0).max(1).optional().nullable(),
+  suggestedQuestions: z.array(z.string()).optional(),
+  knowledgeContext: z.string().max(2000).optional().nullable(),
+  // Prompt building blocks
+  selectedPromptBlocks: z.array(z.string()).optional(),
+  // Reflection tracking
+  reflectionResponses: z.record(z.string()).optional(),
 });
 
 export const updateAgentConfigSchema = createAgentConfigSchema.partial();
