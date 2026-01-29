@@ -13,6 +13,7 @@ import {
   ChevronDown,
   Eye,
   EyeOff,
+  Bot,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { ViewAsRole } from '../../store/authStore';
@@ -39,6 +40,7 @@ export const Navbar = () => {
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: BookOpen },
     { path: '/courses', label: 'Courses', icon: GraduationCap },
+    { path: '/ai-tutors', label: 'AI Tutors', icon: Bot },
     { path: '/ai-tools', label: 'AI Tools', icon: BrainCircuit },
     ...(isAdmin ? [{ path: '/admin', label: 'Admin', icon: Shield }] : []),
   ];

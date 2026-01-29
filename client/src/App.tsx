@@ -18,6 +18,8 @@ import { CourseDetails } from './pages/CourseDetails';
 import { CoursePlayer } from './pages/CoursePlayer';
 import { ContentView } from './pages/ContentView';
 import { AITools } from './pages/AITools';
+import { AITutors } from './pages/AITutors';
+import { TestCorner } from './pages/TestCorner';
 import { StudentAssignments } from './pages/StudentAssignments';
 import { AssignmentView } from './pages/AssignmentView';
 import { CodeLabPage } from './pages/CodeLabPage';
@@ -194,6 +196,26 @@ function App() {
         <Route path="/ai-tools/prompt-helper" element={<PromptHelper />} />
         <Route path="/ai-tools/data-analyzer" element={<DataAnalyzer />} />
         <Route path="/ai-tools/chatbots" element={<Chatbots />} />
+
+        {/* AI Tutors */}
+        <Route
+          path="/ai-tutors"
+          element={
+            <ProtectedRoute>
+              <AITutors />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Test Corner */}
+        <Route
+          path="/test-corner"
+          element={
+            <ProtectedRoute>
+              <TestCorner />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Teaching routes (instructor) */}
         <Route

@@ -48,6 +48,9 @@ model User {
   // Unified Activity Logs
   activityLogs LearningActivityLog[] @relation("ActivityLogs")
 
+  // AI Tutors
+  tutorSession TutorSession?
+
   @@map("users")
 }
 
@@ -369,6 +372,9 @@ model Chatbot {
   maxTokens          Int?    @default(1000) @map("max_tokens")
   modelPreference    String? @map("model_preference") // gpt-4, gpt-3.5-turbo, claude, etc.
   knowledgeContext   String? @map("knowledge_context") // Additional context/knowledge
+
+  // AI Tutors
+  tutorConversations TutorConversation[]
 
   @@map("chatbots")
 }
@@ -1598,4 +1604,154 @@ model PromptBlockCategory {
   @@index([isActive])
   @@index([orderIndex])
   @@map("prompt_block_categories")
+}
+
+// =============================================================================
+// MULTI-AGENT TUTORING SYSTEM
+// =============================================================================
+
+// User's tutor session - one per user, stores preferences
+model TutorSession {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @unique @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Mode preference
+  mode          String   @default("manual") // manual | router | collaborative
+
+  // Current active agent (for manual mode)
+  activeAgentId Int?     @map("active_agent_id")
+
+  // Timestamps
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  conversations TutorConversation[]
+
+  @@map("tutor_sessions")
+}
+
+// Separate conversation per agent (like Discord DMs)
+model TutorConversation {
+  id            Int          @id @default(autoincrement())
+  sessionId     Int          @map("session_id")
+  session       TutorSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  // Which chatbot this conversation is with
+  chatbotId     Int          @map("chatbot_id")
+  chatbot       Chatbot      @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+
+  // Conversation metadata
+  lastMessageAt DateTime?    @map("last_message_at")
+  messageCount  Int          @default(0) @map("message_count")
+
+  // Timestamps
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  // Relations
+  messages      TutorMessage[]
+
+  @@unique([sessionId, chatbotId])
+  @@index([sessionId])
+  @@index([chatbotId])
+  @@map("tutor_conversations")
+}
+
+// Individual messages with comprehensive metadata
+model TutorMessage {
+  id                Int               @id @default(autoincrement())
+  conversationId    Int               @map("conversation_id")
+  conversation      TutorConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  // Message content
+  role              String            // 'user' | 'assistant'
+  content           String
+
+  // AI Response metadata (null for user messages)
+  aiModel           String?           @map("ai_model")
+  aiProvider        String?           @map("ai_provider")
+  promptTokens      Int?              @map("prompt_tokens")
+  completionTokens  Int?              @map("completion_tokens")
+  totalTokens       Int?              @map("total_tokens")
+  responseTimeMs    Int?              @map("response_time_ms")
+  temperature       Float?
+
+  // Router mode metadata
+  routingReason     String?           @map("routing_reason")
+  routingConfidence Float?            @map("routing_confidence")
+
+  // Collaborative mode metadata
+  synthesizedFrom   String?           @map("synthesized_from") // JSON: agent contributions
+
+  // Timestamp
+  createdAt         DateTime          @default(now()) @map("created_at")
+
+  @@index([conversationId])
+  @@index([createdAt])
+  @@map("tutor_messages")
+}
+
+// Comprehensive interaction log (mirrors ChatbotInteractionLog pattern)
+model TutorInteractionLog {
+  id                 Int      @id @default(autoincrement())
+
+  // User context
+  userId             Int      @map("user_id")
+  sessionId          Int?     @map("session_id")
+  conversationId     Int?     @map("conversation_id")
+  messageId          Int?     @map("message_id")
+
+  // Agent context
+  chatbotId          Int?     @map("chatbot_id")
+  chatbotName        String?  @map("chatbot_name")
+  chatbotDisplayName String?  @map("chatbot_display_name")
+
+  // Event tracking
+  eventType          String   @map("event_type")
+  // Events: session_start, session_end, mode_change, agent_switch,
+  //         message_sent, message_received, conversation_clear, error
+
+  // Message details (for message events)
+  userMessage        String?  @map("user_message")
+  assistantMessage   String?  @map("assistant_message")
+  messageCharCount   Int?     @map("message_char_count")
+  responseCharCount  Int?     @map("response_char_count")
+
+  // AI metrics
+  mode               String?  // manual | router | collaborative
+  aiModel            String?  @map("ai_model")
+  aiProvider         String?  @map("ai_provider")
+  promptTokens       Int?     @map("prompt_tokens")
+  completionTokens   Int?     @map("completion_tokens")
+  totalTokens        Int?     @map("total_tokens")
+  responseTimeMs     Int?     @map("response_time_ms")
+
+  // Router mode details
+  routingReason      String?  @map("routing_reason")
+  routingConfidence  Float?   @map("routing_confidence")
+  routingAlternatives String? @map("routing_alternatives") // JSON
+
+  // Collaborative mode details
+  agentContributions String?  @map("agent_contributions") // JSON
+
+  // Error tracking
+  errorMessage       String?  @map("error_message")
+  errorCode          String?  @map("error_code")
+  errorStack         String?  @map("error_stack")
+
+  // Client context
+  ipAddress          String?  @map("ip_address")
+  userAgent          String?  @map("user_agent")
+  deviceType         String?  @map("device_type")
+
+  // Timestamp
+  timestamp          DateTime @default(now())
+
+  @@index([userId])
+  @@index([sessionId])
+  @@index([chatbotId])
+  @@index([eventType])
+  @@index([timestamp])
+  @@map("tutor_interaction_logs")
 }

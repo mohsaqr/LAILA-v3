@@ -81,6 +81,7 @@ export class ChatService {
 
     let reply: string;
     let model = request.model || config.model;
+    const temperature = request.temperature ?? 0.7;
 
     const systemPrompt = request.systemPrompt || 'You are a helpful AI assistant for an educational platform.';
     const messages: ChatMessage[] = [
@@ -91,11 +92,20 @@ export class ChatService {
       messages.push({ role: 'system', content: `Context: ${request.context}` });
     }
 
+    // Add conversation history if provided (for multi-turn conversations)
+    if (request.conversationHistory && request.conversationHistory.length > 0) {
+      for (const msg of request.conversationHistory) {
+        if (msg.role === 'user' || msg.role === 'assistant') {
+          messages.push(msg);
+        }
+      }
+    }
+
     messages.push({ role: 'user', content: request.message });
 
     try {
       if (config.provider === 'openai') {
-        reply = await this.chatWithOpenAI(messages, model, config.apiKey);
+        reply = await this.chatWithOpenAI(messages, model, config.apiKey, temperature);
       } else {
         reply = await this.chatWithGemini(messages, model, config.apiKey);
       }
@@ -124,7 +134,7 @@ export class ChatService {
     };
   }
 
-  private async chatWithOpenAI(messages: ChatMessage[], model: string, apiKey: string): Promise<string> {
+  private async chatWithOpenAI(messages: ChatMessage[], model: string, apiKey: string, temperature = 0.7): Promise<string> {
     const client = new OpenAI({ apiKey });
 
     const response = await client.chat.completions.create({
@@ -134,7 +144,7 @@ export class ChatService {
         content: m.content,
       })),
       max_tokens: 2000,
-      temperature: 0.7,
+      temperature,
     });
 
     return response.choices[0]?.message?.content || 'No response generated';

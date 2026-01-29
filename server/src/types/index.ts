@@ -109,6 +109,8 @@ export interface ChatRequest {
   context?: string;
   model?: string;
   systemPrompt?: string;
+  conversationHistory?: ChatMessage[]; // Previous messages for context
+  temperature?: number;
 }
 
 export interface ChatResponse {
