@@ -18,17 +18,23 @@ import { useAuth } from '../../hooks/useAuth';
 import { ViewAsRole } from '../../store/authStore';
 
 export const Navbar = () => {
-  const { user, isAuthenticated, isAdmin, isActualAdmin, viewAsRole, setViewAs, isViewingAs, logout } = useAuth();
+  const { user, isAuthenticated, isAdmin, isActualAdmin, isActualInstructor, viewAsRole, setViewAs, isViewingAs, logout } = useAuth();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isViewAsMenuOpen, setIsViewAsMenuOpen] = useState(false);
 
-  const viewAsOptions: { role: ViewAsRole; label: string; description: string }[] = [
-    { role: null, label: 'View as Admin', description: 'Full admin access' },
-    { role: 'instructor', label: 'View as Instructor', description: 'Test instructor view' },
-    { role: 'student', label: 'View as Student', description: 'Test student view' },
-  ];
+  // View As options depend on actual user role
+  const viewAsOptions: { role: ViewAsRole; label: string; description: string }[] = isActualAdmin
+    ? [
+        { role: null, label: 'View as Admin', description: 'Full admin access' },
+        { role: 'instructor', label: 'View as Instructor', description: 'Test instructor view' },
+        { role: 'student', label: 'View as Student', description: 'Test student view' },
+      ]
+    : [
+        { role: null, label: 'View as Instructor', description: 'Full instructor access' },
+        { role: 'student', label: 'View as Student', description: 'Test student view' },
+      ];
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: BookOpen },
@@ -78,8 +84,8 @@ export const Navbar = () => {
 
           {/* User Menu */}
           <div className="flex items-center gap-4">
-            {/* View As Button - Only for actual admins */}
-            {isAuthenticated && isActualAdmin && (
+            {/* View As Button - For admins and instructors */}
+            {isAuthenticated && (isActualAdmin || isActualInstructor) && (
               <div className="relative">
                 <button
                   onClick={() => setIsViewAsMenuOpen(!isViewAsMenuOpen)}

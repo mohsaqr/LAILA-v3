@@ -63,6 +63,8 @@ export const useAuth = () => {
 
   // Check if user is actually an admin (ignores viewAs mode)
   const isActualAdmin = user?.isAdmin || false;
+  // Check if user is actually an instructor (ignores viewAs mode)
+  const isActualInstructor = user?.isInstructor || false;
 
   return {
     user,
@@ -75,8 +77,9 @@ export const useAuth = () => {
     // Effective roles (affected by viewAs)
     isAdmin: effectiveRole.isAdmin,
     isInstructor: effectiveRole.isInstructor,
-    // ViewAs functionality (only for actual admins)
+    // ViewAs functionality (for admins and instructors)
     isActualAdmin,
+    isActualInstructor,
     viewAsRole,
     setViewAs,
     isViewingAs: isViewingAs(),

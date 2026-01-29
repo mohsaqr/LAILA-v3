@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, Layers } from 'lucide-react';
+import { Save, Layers } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../../api/courses';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
+import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { Input, Select } from '../../components/common/Input';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
@@ -171,16 +172,16 @@ export const LectureEditor = () => {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
+      {/* Header with Breadcrumb */}
       <div className="flex items-center justify-between mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(`/teach/courses/${courseId}/curriculum`)}
-          icon={<ArrowLeft className="w-4 h-4" />}
-        >
-          Back to Curriculum
-        </Button>
+        <Breadcrumb
+          items={[
+            { label: 'Teaching', href: '/teach' },
+            { label: course?.title || 'Course', href: `/courses/${courseId}` },
+            { label: 'Curriculum', href: `/teach/courses/${courseId}/curriculum` },
+            { label: lecture.title || 'Lesson' },
+          ]}
+        />
         <Button
           size="sm"
           onClick={handleSave}

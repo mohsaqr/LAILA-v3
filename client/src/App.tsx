@@ -16,6 +16,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Catalog } from './pages/Catalog';
 import { CourseDetails } from './pages/CourseDetails';
 import { CoursePlayer } from './pages/CoursePlayer';
+import { ContentView } from './pages/ContentView';
 import { AITools } from './pages/AITools';
 import { StudentAssignments } from './pages/StudentAssignments';
 import { AssignmentView } from './pages/AssignmentView';
@@ -124,6 +125,16 @@ function App() {
           element={
             <ProtectedRoute>
               <CoursePlayer />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Content View - Full page view for text content */}
+        <Route
+          path="/content/:type/:id"
+          element={
+            <ProtectedRoute>
+              <ContentView />
             </ProtectedRoute>
           }
         />

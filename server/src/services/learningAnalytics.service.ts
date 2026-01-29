@@ -353,29 +353,22 @@ export class LearningAnalyticsService {
       prisma.contentEventLog.groupBy({
         by: ['eventType'],
         where,
-        _count: true,
-        orderBy: { _count: { eventType: 'desc' } },
+        _count: { _all: true },
       }),
       prisma.contentEventLog.groupBy({
         by: ['courseId', 'courseTitle'],
         where: { ...where, courseId: { not: null } },
-        _count: true,
-        orderBy: { _count: { courseId: 'desc' } },
-        take: 10,
+        _count: { _all: true },
       }),
       prisma.contentEventLog.groupBy({
         by: ['lectureId', 'lectureTitle'],
         where: { ...where, lectureId: { not: null } },
-        _count: true,
-        orderBy: { _count: { lectureId: 'desc' } },
-        take: 10,
+        _count: { _all: true },
       }),
       prisma.contentEventLog.groupBy({
         by: ['userId', 'userFullname'],
         where: { ...where, userId: { not: null } },
-        _count: true,
-        orderBy: { _count: { userId: 'desc' } },
-        take: 10,
+        _count: { _all: true },
       }),
       prisma.contentEventLog.findMany({
         where,
@@ -386,10 +379,10 @@ export class LearningAnalyticsService {
 
     return {
       totalEvents,
-      byEventType: byEventType.map(e => ({ eventType: e.eventType, count: e._count })),
-      byCourse: byCourse.map(c => ({ courseId: c.courseId, courseTitle: c.courseTitle, count: c._count })),
-      byLecture: byLecture.map(l => ({ lectureId: l.lectureId, lectureTitle: l.lectureTitle, count: l._count })),
-      byUser: byUser.map(u => ({ userId: u.userId, userName: u.userFullname, count: u._count })),
+      byEventType: byEventType.map(e => ({ eventType: e.eventType, count: e._count._all })),
+      byCourse: byCourse.map(c => ({ courseId: c.courseId, courseTitle: c.courseTitle, count: c._count._all })).slice(0, 10),
+      byLecture: byLecture.map(l => ({ lectureId: l.lectureId, lectureTitle: l.lectureTitle, count: l._count._all })).slice(0, 10),
+      byUser: byUser.map(u => ({ userId: u.userId, userName: u.userFullname, count: u._count._all })).slice(0, 10),
       recentEvents,
     };
   }
@@ -422,29 +415,22 @@ export class LearningAnalyticsService {
       prisma.assessmentEventLog.groupBy({
         by: ['eventType'],
         where,
-        _count: true,
-        orderBy: { _count: { eventType: 'desc' } },
+        _count: { _all: true },
       }),
       prisma.assessmentEventLog.groupBy({
         by: ['courseId', 'courseTitle'],
         where: { ...where, courseId: { not: null } },
-        _count: true,
-        orderBy: { _count: { courseId: 'desc' } },
-        take: 10,
+        _count: { _all: true },
       }),
       prisma.assessmentEventLog.groupBy({
         by: ['assignmentId', 'assignmentTitle'],
         where: { ...where, assignmentId: { not: null } },
-        _count: true,
-        orderBy: { _count: { assignmentId: 'desc' } },
-        take: 10,
+        _count: { _all: true },
       }),
       prisma.assessmentEventLog.groupBy({
         by: ['userId', 'userFullname'],
         where: { ...where, userId: { not: null } },
-        _count: true,
-        orderBy: { _count: { userId: 'desc' } },
-        take: 10,
+        _count: { _all: true },
       }),
       prisma.assessmentEventLog.aggregate({
         where: { ...where, eventType: 'grade_received', grade: { not: null } },
@@ -461,10 +447,10 @@ export class LearningAnalyticsService {
 
     return {
       totalEvents,
-      byEventType: byEventType.map(e => ({ eventType: e.eventType, count: e._count })),
-      byCourse: byCourse.map(c => ({ courseId: c.courseId, courseTitle: c.courseTitle, count: c._count })),
-      byAssignment: byAssignment.map(a => ({ assignmentId: a.assignmentId, assignmentTitle: a.assignmentTitle, count: a._count })),
-      byUser: byUser.map(u => ({ userId: u.userId, userName: u.userFullname, count: u._count })),
+      byEventType: byEventType.map(e => ({ eventType: e.eventType, count: e._count._all })),
+      byCourse: byCourse.map(c => ({ courseId: c.courseId, courseTitle: c.courseTitle, count: c._count._all })).slice(0, 10),
+      byAssignment: byAssignment.map(a => ({ assignmentId: a.assignmentId, assignmentTitle: a.assignmentTitle, count: a._count._all })).slice(0, 10),
+      byUser: byUser.map(u => ({ userId: u.userId, userName: u.userFullname, count: u._count._all })).slice(0, 10),
       gradeStats: {
         avg: gradeStats._avg.grade || 0,
         min: gradeStats._min.grade || 0,

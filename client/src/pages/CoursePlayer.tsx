@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
 import {
@@ -18,14 +18,34 @@ import {
 import toast from 'react-hot-toast';
 import { coursesApi } from '../api/courses';
 import { enrollmentsApi } from '../api/enrollments';
+import { learningAnalyticsApi } from '../api/admin';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
+import { Breadcrumb } from '../components/common/Breadcrumb';
 import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStudent';
 import { AssignmentSectionStudent } from '../components/course/AssignmentSectionStudent';
+import { ContentModal } from '../components/content/ContentModal';
 import { LectureSection } from '../types';
+import { getSessionId, getClientInfo } from '../utils/analytics';
+import activityLogger from '../services/activityLogger';
+
+// Helper to strip HTML and truncate for preview
+const getPreviewText = (html: string, maxLength = 200): string => {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  const text = div.textContent || div.innerText || '';
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength).trim() + '...';
+};
 
 // Section renderer for different section types - with analytics tracking
-const SectionRenderer = ({ section, courseId }: { section: LectureSection; courseId: number }) => {
+interface SectionRendererProps {
+  section: LectureSection;
+  courseId: number;
+  onOpenTextContent?: (section: LectureSection) => void;
+}
+
+const SectionRenderer = ({ section, courseId, onOpenTextContent }: SectionRendererProps) => {
   // Common tracking attributes for this section
   const trackingAttrs = {
     'data-section-id': section.id,
@@ -37,31 +57,49 @@ const SectionRenderer = ({ section, courseId }: { section: LectureSection; cours
 
   switch (section.type) {
     case 'text':
-    case 'ai-generated':
+    case 'ai-generated': {
+      const previewText = section.content ? getPreviewText(section.content, 250) : '';
+
       return (
         <div {...trackingAttrs} data-track={`section-view-${section.type}`}>
-          <Card>
-            {section.title && (
-              <div className="px-6 py-3 border-b border-gray-100 bg-gray-50">
-                <div className="flex items-center gap-2">
-                  {section.type === 'ai-generated' && <Sparkles className="w-4 h-4 text-purple-500" />}
-                  <h3 className="font-medium text-gray-900">{section.title}</h3>
+          <Card className="hover:shadow-md transition-shadow">
+            <CardBody>
+              <div className="flex items-start gap-4">
+                {/* Icon */}
+                <div className={`flex-shrink-0 p-3 rounded-lg ${section.type === 'ai-generated' ? 'bg-purple-100' : 'bg-blue-100'}`}>
+                  {section.type === 'ai-generated' ? (
+                    <Sparkles className="w-6 h-6 text-purple-600" />
+                  ) : (
+                    <FileText className="w-6 h-6 text-blue-600" />
+                  )}
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-gray-900 mb-1">
+                    {section.title || 'Text Content'}
+                  </h3>
+                  {section.content ? (
+                    <p className="text-gray-600 text-sm line-clamp-3 mb-3">{previewText}</p>
+                  ) : (
+                    <p className="text-gray-400 text-sm italic mb-3">No content yet</p>
+                  )}
+                  {section.content && (
+                    <button
+                      onClick={() => onOpenTextContent?.(section)}
+                      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors"
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      Read Article
+                    </button>
+                  )}
                 </div>
               </div>
-            )}
-            <CardBody>
-              {section.content ? (
-                <div
-                  className="prose max-w-none"
-                  dangerouslySetInnerHTML={{ __html: section.content }}
-                />
-              ) : (
-                <p className="text-gray-500 italic">No content yet</p>
-              )}
             </CardBody>
           </Card>
         </div>
       );
+    }
 
     case 'file':
       if (!section.fileUrl) {
@@ -172,6 +210,7 @@ export const CoursePlayer = () => {
   const queryClient = useQueryClient();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentLectureId, setCurrentLectureId] = useState<number | null>(null);
+  const [modalContent, setModalContent] = useState<LectureSection | null>(null);
 
   const { data: enrollment, isLoading: enrollmentLoading } = useQuery({
     queryKey: ['enrollment', courseId],
@@ -190,12 +229,31 @@ export const CoursePlayer = () => {
     enabled: !!currentLectureId,
   });
 
+  // Track which lectures have been logged to avoid duplicate events
+  const loggedLecturesRef = useRef<Set<number>>(new Set());
+
   const completeMutation = useMutation({
     mutationFn: () => enrollmentsApi.markLectureComplete(parseInt(courseId!), currentLectureId!),
     onSuccess: () => {
       toast.success('Lesson completed!');
       queryClient.invalidateQueries({ queryKey: ['progress', courseId] });
       queryClient.invalidateQueries({ queryKey: ['enrollment', courseId] });
+
+      // Log lecture_complete event
+      const course = enrollment?.enrollment?.course;
+      const currentModule = course?.modules?.find(m =>
+        m.lectures?.some(l => l.id === currentLectureId)
+      );
+      const clientInfo = getClientInfo();
+      learningAnalyticsApi.logContentEvent({
+        sessionId: getSessionId(),
+        courseId: course?.id,
+        moduleId: currentModule?.id,
+        lectureId: currentLectureId!,
+        eventType: 'lecture_complete',
+        timestamp: Date.now(),
+        ...clientInfo,
+      }).catch(err => console.error('Failed to log lecture_complete event:', err));
     },
   });
 
@@ -211,10 +269,80 @@ export const CoursePlayer = () => {
     }
   }, [lectureId, enrollment]);
 
+  // Log lecture_view event when lecture changes
+  useEffect(() => {
+    console.log('[Analytics] useEffect triggered:', { currentLectureId, hasLecture: !!lecture, lectureTitle: lecture?.title });
+
+    // Only require currentLectureId and lecture data - don't require enrollment
+    // This allows logging for "View As" mode and ensures events are tracked
+    if (!currentLectureId || !lecture) {
+      console.log('[Analytics] Skipping - missing data:', { currentLectureId, hasLecture: !!lecture });
+      return;
+    }
+
+    // Only log if we haven't logged this lecture in this session
+    if (loggedLecturesRef.current.has(currentLectureId)) {
+      console.log('[Analytics] Skipping - already logged this lecture:', currentLectureId);
+      return;
+    }
+    loggedLecturesRef.current.add(currentLectureId);
+
+    const course = enrollment?.enrollment?.course;
+    const currentModule = course?.modules?.find(m =>
+      m.lectures?.some(l => l.id === currentLectureId)
+    );
+    const clientInfo = getClientInfo();
+
+    console.log('[Analytics] Logging lecture_view event:', { courseId: course?.id || parseInt(courseId!), lectureId: currentLectureId });
+
+    learningAnalyticsApi.logContentEvent({
+      sessionId: getSessionId(),
+      courseId: course?.id || parseInt(courseId!),
+      moduleId: currentModule?.id,
+      lectureId: currentLectureId,
+      eventType: 'lecture_view',
+      timestamp: Date.now(),
+      ...clientInfo,
+    }).then(() => {
+      console.log('[Analytics] lecture_view event logged successfully');
+    }).catch(err => console.error('[Analytics] Failed to log lecture_view event:', err));
+  }, [currentLectureId, lecture, enrollment, courseId]);
+
   const isLectureCompleted = (lectureIdToCheck: number) => {
     return progress?.moduleProgress?.some(m =>
       m.lectures.some(l => l.lectureId === lectureIdToCheck && l.isCompleted)
     );
+  };
+
+  // Handler for opening text content in modal
+  const handleOpenTextContent = (section: LectureSection) => {
+    setModalContent(section);
+    // Log section viewed
+    activityLogger.logSectionViewed(
+      section.id,
+      section.title || undefined,
+      section.type,
+      currentLectureId || undefined,
+      parseInt(courseId!),
+      currentModule?.id
+    ).catch(() => {});
+  };
+
+  // Handler for opening text content in new browser tab
+  const handleOpenInNewPage = () => {
+    if (modalContent) {
+      // Store content in sessionStorage for the new tab to retrieve
+      const contentData = {
+        title: modalContent.title,
+        content: modalContent.content,
+        type: modalContent.type,
+      };
+      sessionStorage.setItem(`content-${modalContent.id}`, JSON.stringify(contentData));
+      // Open in new browser tab
+      window.open(`/content/section/${modalContent.id}`, '_blank');
+      // Close the modal
+      setModalContent(null);
+    }
   };
 
   if (enrollmentLoading) {
@@ -339,17 +467,24 @@ export const CoursePlayer = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        {/* Top Bar */}
-        <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 hover:bg-gray-100 rounded-lg"
-            title={sidebarOpen ? 'Hide menu' : 'Show menu'}
-          >
-            {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
-          <div className="text-sm text-gray-500">
-            {lecture?.title}
+        {/* Top Bar with Breadcrumb */}
+        <div className="bg-white border-b border-gray-200 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 hover:bg-gray-100 rounded-lg flex-shrink-0"
+              title={sidebarOpen ? 'Hide menu' : 'Show menu'}
+            >
+              {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+            <Breadcrumb
+              items={[
+                { label: 'Courses', href: '/courses' },
+                { label: course?.title || 'Course', href: `/courses/${courseId}` },
+                ...(currentModule ? [{ label: currentModule.title, href: `/courses/${courseId}/player` }] : []),
+                ...(lecture ? [{ label: lecture.title }] : []),
+              ]}
+            />
           </div>
         </div>
 
@@ -380,19 +515,55 @@ export const CoursePlayer = () => {
                 </div>
               )}
 
-              {/* Legacy Content */}
+              {/* Legacy Content - Show as card with Read Article button */}
               {lecture.content && (
                 <Card
-                  className="mb-6"
+                  className="mb-6 hover:shadow-md transition-shadow"
                   data-section-id="legacy-content"
                   data-section-title="Lecture Content"
                   data-section-type="legacy-text"
                 >
                   <CardBody>
-                    <div
-                      className="prose max-w-none"
-                      dangerouslySetInnerHTML={{ __html: lecture.content }}
-                    />
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0 p-3 rounded-lg bg-blue-100">
+                        <FileText className="w-6 h-6 text-blue-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-gray-900 mb-1">
+                          {lecture.title || 'Lecture Content'}
+                        </h3>
+                        <p className="text-gray-600 text-sm line-clamp-3 mb-3">
+                          {getPreviewText(lecture.content, 250)}
+                        </p>
+                        <button
+                          onClick={() => {
+                            setModalContent({
+                              id: -1,
+                              lectureId: lecture.id,
+                              type: 'text',
+                              order: 0,
+                              title: lecture.title,
+                              content: lecture.content,
+                              createdAt: '',
+                              updatedAt: '',
+                            } as LectureSection);
+                            // Log legacy content viewed
+                            activityLogger.logSectionViewed(
+                              -1,
+                              lecture.title,
+                              'legacy-text',
+                              lecture.id,
+                              parseInt(courseId!),
+                              currentModule?.id
+                            ).catch(() => {});
+                          }}
+                          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors"
+                        >
+                          <BookOpen className="w-4 h-4" />
+                          Read Article
+                        </button>
+                      </div>
+                    </div>
                   </CardBody>
                 </Card>
               )}
@@ -407,6 +578,7 @@ export const CoursePlayer = () => {
                         key={section.id}
                         section={section}
                         courseId={parseInt(courseId!)}
+                        onOpenTextContent={handleOpenTextContent}
                       />
                     ))}
                 </div>
@@ -473,6 +645,15 @@ export const CoursePlayer = () => {
           )}
         </div>
       </div>
+
+      {/* Content Modal for text sections */}
+      <ContentModal
+        isOpen={!!modalContent}
+        onClose={() => setModalContent(null)}
+        title={modalContent?.title || undefined}
+        content={modalContent?.content || ''}
+        onOpenInNewPage={handleOpenInNewPage}
+      />
     </div>
   );
 };

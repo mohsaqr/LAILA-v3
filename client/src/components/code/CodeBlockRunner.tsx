@@ -84,8 +84,8 @@ export const CodeBlockRunner = ({
   };
 
   const handleAskHelp = () => {
-    if (onAskHelp && lastError) {
-      onAskHelp(block, code, lastError);
+    if (onAskHelp) {
+      onAskHelp(block, code, lastError || '');
     }
   };
 
@@ -173,7 +173,7 @@ export const CodeBlockRunner = ({
               Reset
             </Button>
 
-            {lastError && onAskHelp && (
+            {onAskHelp && (
               <Button
                 variant="ghost"
                 onClick={handleAskHelp}

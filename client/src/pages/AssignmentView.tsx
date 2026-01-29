@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
   FileText,
   Clock,
   CheckCircle,
@@ -19,10 +18,13 @@ import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
 import { assignmentsApi } from '../api/assignments';
 import { enrollmentsApi } from '../api/enrollments';
+import { learningAnalyticsApi } from '../api/admin';
 import { Card, CardBody, CardHeader } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { Button } from '../components/common/Button';
 import { TextArea } from '../components/common/Input';
+import { Breadcrumb } from '../components/common/Breadcrumb';
+import { getSessionId, getClientInfo } from '../utils/analytics';
 
 export const AssignmentView = () => {
   const { courseId, assignmentId } = useParams<{ courseId: string; assignmentId: string }>();
@@ -51,6 +53,9 @@ export const AssignmentView = () => {
     enabled: !!enrollment?.enrolled,
   });
 
+  // Track if we've logged the assignment_view event
+  const hasLoggedViewRef = useRef(false);
+
   // Initialize form with existing submission data
   useEffect(() => {
     if (mySubmission) {
@@ -58,6 +63,28 @@ export const AssignmentView = () => {
       setFileUrls(mySubmission.fileUrls ? JSON.parse(mySubmission.fileUrls) : []);
     }
   }, [mySubmission]);
+
+  // Log assignment_view event when assignment loads
+  useEffect(() => {
+    // Don't require enrollment - allows logging for "View As" mode
+    if (!assignment || hasLoggedViewRef.current) return;
+    hasLoggedViewRef.current = true;
+
+    const clientInfo = getClientInfo();
+    console.log('Logging assignment_view event:', { courseId: parsedCourseId, assignmentId: parsedAssignmentId });
+
+    learningAnalyticsApi.logAssessmentEvent({
+      sessionId: getSessionId(),
+      courseId: parsedCourseId,
+      assignmentId: parsedAssignmentId,
+      eventType: 'assignment_view',
+      maxPoints: assignment.points,
+      timestamp: Date.now(),
+      ...clientInfo,
+    }).then(() => {
+      console.log('assignment_view event logged successfully');
+    }).catch(err => console.error('Failed to log assignment_view event:', err));
+  }, [assignment, parsedCourseId, parsedAssignmentId]);
 
   const saveDraftMutation = useMutation({
     mutationFn: () =>
@@ -84,6 +111,18 @@ export const AssignmentView = () => {
       queryClient.invalidateQueries({ queryKey: ['mySubmission', assignmentId] });
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
       toast.success('Assignment submitted successfully!');
+
+      // Log assignment_submit event
+      const clientInfo = getClientInfo();
+      learningAnalyticsApi.logAssessmentEvent({
+        sessionId: getSessionId(),
+        courseId: parsedCourseId,
+        assignmentId: parsedAssignmentId,
+        eventType: 'assignment_submit',
+        maxPoints: assignment?.points,
+        timestamp: Date.now(),
+        ...clientInfo,
+      }).catch(err => console.error('Failed to log assignment_submit event:', err));
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Failed to submit assignment');
@@ -149,13 +188,16 @@ export const AssignmentView = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
+      {/* Breadcrumb */}
       <div className="mb-6">
-        <Link to={`/courses/${courseId}/assignments`}>
-          <Button variant="ghost" size="sm" icon={<ArrowLeft className="w-4 h-4" />}>
-            Back to Assignments
-          </Button>
-        </Link>
+        <Breadcrumb
+          items={[
+            { label: 'Courses', href: '/courses' },
+            { label: course?.title || 'Course', href: `/courses/${courseId}` },
+            { label: 'Assignments', href: `/courses/${courseId}/assignments` },
+            { label: assignment.title },
+          ]}
+        />
       </div>
 
       {/* Assignment Header */}

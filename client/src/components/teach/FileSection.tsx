@@ -3,6 +3,20 @@ import { Upload, File, FileText, Image, Film, Music, Archive, Download, X, Loade
 import { LectureSection, UpdateSectionData } from '../../types';
 import { Button } from '../common/Button';
 
+// Helper to get token from Zustand's persisted store
+const getAuthToken = (): string | null => {
+  try {
+    const stored = localStorage.getItem('laila-auth');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return parsed?.state?.token || null;
+    }
+  } catch {
+    // Fall back if parsing fails
+  }
+  return null;
+};
+
 interface FileSectionProps {
   section: LectureSection;
   onFileChange: (data: UpdateSectionData) => void;
@@ -90,12 +104,11 @@ export const FileSection = ({ section, onFileChange, onRemoveFile, readOnly = fa
       formData.append('file', file);
 
       // Upload file to server
+      const token = getAuthToken();
       const response = await fetch('/api/uploads/file', {
         method: 'POST',
         body: formData,
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 
       if (!response.ok) {
@@ -104,10 +117,11 @@ export const FileSection = ({ section, onFileChange, onRemoveFile, readOnly = fa
 
       const data = await response.json();
 
-      // Update section with file info
+      // Update section with file info - handle both direct and wrapped response formats
+      const fileData = data.data || data;
       onFileChange({
         fileName: file.name,
-        fileUrl: data.url || data.path,
+        fileUrl: fileData.url || fileData.path,
         fileType: file.name.split('.').pop() || '',
         fileSize: file.size,
       });

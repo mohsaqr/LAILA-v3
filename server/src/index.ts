@@ -28,6 +28,7 @@ import courseRolesRoutes from './routes/courseRoles.routes.js';
 import activityLogRoutes from './routes/activityLog.routes.js';
 import codeLabRoutes from './routes/codeLab.routes.js';
 import llmRoutes from './routes/llm.routes.js';
+import uploadRoutes from './routes/upload.routes.js';
 
 // Import middleware
 import { errorHandler } from './middleware/error.middleware.js';
@@ -79,6 +80,7 @@ app.use('/api/course-roles', courseRolesRoutes);
 app.use('/api/activity-log', activityLogRoutes);
 app.use('/api/code-labs', codeLabRoutes);
 app.use('/api/llm', llmRoutes);
+app.use('/api/uploads', uploadRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

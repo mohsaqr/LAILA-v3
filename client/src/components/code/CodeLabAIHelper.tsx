@@ -42,6 +42,9 @@ export const CodeLabAIHelper = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Determine if we're in debug mode (has error) or explain mode (no error)
+  const hasError = currentError && currentError.trim().length > 0;
+
   // Build context string for the AI
   const buildContext = () => {
     let context = `# Code Lab: ${codeLab.title}\n`;
@@ -70,19 +73,22 @@ export const CodeLabAIHelper = ({
     }
 
     // Add current block context
-    context += '## Current Block (Needs Help)\n\n';
+    context += `## Current Block (${hasError ? 'Has Error' : 'Seeking Help'})\n\n`;
     context += `### Block: ${currentBlock.title}\n`;
     if (currentBlock.instructions) {
       context += `Instructions: ${currentBlock.instructions}\n`;
     }
     context += '```r\n' + currentCode + '\n```\n';
-    context += `\n**Error:**\n\`\`\`\n${currentError}\n\`\`\`\n`;
+    if (hasError) {
+      context += `\n**Error:**\n\`\`\`\n${currentError}\n\`\`\`\n`;
+    }
 
     return context;
   };
 
-  // System prompt for R debugging
-  const systemPrompt = `You are a helpful R programming tutor assisting a student with a Code Lab exercise.
+  // System prompt adapts based on whether there's an error
+  const systemPrompt = hasError
+    ? `You are a helpful R programming tutor assisting a student with a Code Lab exercise.
 
 Your role is to:
 1. Help debug R code errors
@@ -97,7 +103,23 @@ When suggesting fixes:
 - Explain what went wrong
 - Suggest small, specific changes
 - If the error relates to previous blocks, reference them
-- Encourage the student to try the fix themselves`;
+- Encourage the student to try the fix themselves`
+    : `You are a helpful R programming tutor assisting a student with a Code Lab exercise.
+
+Your role is to:
+1. Explain what the code does and how it works
+2. Clarify R concepts and syntax used in the code
+3. Help the student understand the purpose of each part
+4. Guide the student's learning without giving away complete answers
+5. Be encouraging and supportive
+
+The student is working in a WebR environment (R running in the browser). Keep your explanations clear and educational.
+
+When explaining code:
+- Break down complex operations into simple steps
+- Explain the purpose of functions and syntax
+- Connect the code to the block's instructions/goals
+- Encourage experimentation and questions`;
 
   // Send message mutation
   const sendMessageMutation = useMutation({
@@ -133,17 +155,20 @@ When suggesting fixes:
     }
   }, [isOpen]);
 
-  // Initialize with a helpful starter message
+  // Initialize with a helpful starter message based on mode
   useEffect(() => {
     if (isOpen && messages.length === 0) {
+      const starterMessage = hasError
+        ? `I can see you're having trouble with the "${currentBlock.title}" block. I've reviewed your code and the error message. What would you like help with? You can:\n\n• Ask me to explain the error\n• Ask for hints on how to fix it\n• Ask about R concepts related to the problem`
+        : `I'm here to help you with the "${currentBlock.title}" block! I've reviewed your code. What would you like help with? You can:\n\n• Ask me to explain what the code does\n• Ask about R concepts or syntax\n• Ask for guidance on the exercise\n• Ask questions before running your code`;
       setMessages([
         {
           role: 'assistant',
-          content: `I can see you're having trouble with the "${currentBlock.title}" block. I've reviewed your code and the error message. What would you like help with? You can:\n\n• Ask me to explain the error\n• Ask for hints on how to fix it\n• Ask about R concepts related to the problem`,
+          content: starterMessage,
         },
       ]);
     }
-  }, [isOpen, currentBlock.title, messages.length]);
+  }, [isOpen, currentBlock.title, messages.length, hasError]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -161,12 +186,20 @@ When suggesting fixes:
       {/* Modal */}
       <div className="relative w-full max-w-2xl max-h-[80vh] bg-white rounded-xl shadow-2xl flex flex-col mx-4">
         {/* Header */}
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-amber-50 to-orange-50 rounded-t-xl">
-          <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
-            <HelpCircle className="w-5 h-5 text-amber-600" />
+        <div className={`flex items-center gap-3 px-6 py-4 border-b border-gray-200 rounded-t-xl ${
+          hasError
+            ? 'bg-gradient-to-r from-amber-50 to-orange-50'
+            : 'bg-gradient-to-r from-blue-50 to-indigo-50'
+        }`}>
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+            hasError ? 'bg-amber-100' : 'bg-blue-100'
+          }`}>
+            <HelpCircle className={`w-5 h-5 ${hasError ? 'text-amber-600' : 'text-blue-600'}`} />
           </div>
           <div className="flex-1">
-            <h2 className="font-semibold text-gray-900">AI Debugging Assistant</h2>
+            <h2 className="font-semibold text-gray-900">
+              {hasError ? 'AI Debugging Assistant' : 'AI Code Helper'}
+            </h2>
             <p className="text-sm text-gray-600">Help with: {currentBlock.title}</p>
           </div>
           <button
@@ -177,18 +210,20 @@ When suggesting fixes:
           </button>
         </div>
 
-        {/* Error Context Summary */}
-        <div className="px-6 py-3 bg-red-50 border-b border-red-100">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-red-700">Error in your code:</p>
-              <pre className="text-xs text-red-600 mt-1 whitespace-pre-wrap break-words font-mono">
-                {currentError.length > 200 ? currentError.substring(0, 200) + '...' : currentError}
-              </pre>
+        {/* Error Context Summary - only shown when there's an error */}
+        {hasError && (
+          <div className="px-6 py-3 bg-red-50 border-b border-red-100">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-red-700">Error in your code:</p>
+                <pre className="text-xs text-red-600 mt-1 whitespace-pre-wrap break-words font-mono">
+                  {currentError.length > 200 ? currentError.substring(0, 200) + '...' : currentError}
+                </pre>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Code Preview */}
         <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
@@ -253,9 +288,11 @@ When suggesting fixes:
               type="text"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Ask about the error or request hints..."
+              placeholder={hasError ? "Ask about the error or request hints..." : "Ask about the code or request explanations..."}
               disabled={sendMessageMutation.isPending}
-              className="flex-1 px-4 py-2.5 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`flex-1 px-4 py-2.5 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed ${
+                hasError ? 'focus:ring-amber-500' : 'focus:ring-blue-500'
+              }`}
             />
             <Button
               type="submit"

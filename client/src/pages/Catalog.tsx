@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Search,
   GraduationCap,
@@ -10,23 +10,35 @@ import {
   BookOpen,
   Edit,
   BarChart3,
+  CheckCircle,
+  PlayCircle,
 } from 'lucide-react';
 import { coursesApi } from '../api/courses';
+import { enrollmentsApi } from '../api/enrollments';
 import { Card, CardBody } from '../components/common/Card';
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
 import { Loading } from '../components/common/Loading';
-import { Course } from '../types';
+import { Course, Enrollment } from '../types';
 import { useAuth } from '../hooks/useAuth';
 
 export const Catalog = () => {
   const { isAuthenticated, isInstructor, isAdmin, viewAsRole } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filter = searchParams.get('filter'); // 'enrolled' | 'completed' | null
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [difficulty, setDifficulty] = useState('');
   const [page, setPage] = useState(1);
 
   const canCreateCourses = isInstructor || isAdmin;
+
+  // Fetch user's enrollments when filter is active
+  const { data: enrollments, isLoading: enrollmentsLoading } = useQuery({
+    queryKey: ['myEnrollments'],
+    queryFn: () => enrollmentsApi.getMyEnrollments(),
+    enabled: isAuthenticated && (filter === 'enrolled' || filter === 'completed'),
+  });
 
   // Fetch instructor's own courses if they are an instructor or admin
   // Include viewAsRole in query key so cache is separate per view mode
@@ -68,8 +80,99 @@ export const Catalog = () => {
         )}
       </div>
 
+      {/* Filter Tabs */}
+      {isAuthenticated && (
+        <div className="mb-6 flex gap-2 border-b border-gray-200">
+          <button
+            onClick={() => setSearchParams({})}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              !filter
+                ? 'border-primary-500 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <GraduationCap className="w-4 h-4 inline mr-1.5" />
+            All Courses
+          </button>
+          <button
+            onClick={() => setSearchParams({ filter: 'enrolled' })}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              filter === 'enrolled'
+                ? 'border-primary-500 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <PlayCircle className="w-4 h-4 inline mr-1.5" />
+            My Enrolled
+          </button>
+          <button
+            onClick={() => setSearchParams({ filter: 'completed' })}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              filter === 'completed'
+                ? 'border-primary-500 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <CheckCircle className="w-4 h-4 inline mr-1.5" />
+            Completed
+          </button>
+        </div>
+      )}
+
+      {/* Filtered Courses (Enrolled/Completed) */}
+      {filter && isAuthenticated && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            {filter === 'enrolled' ? (
+              <>
+                <PlayCircle className="w-5 h-5 text-primary-500" />
+                My Enrolled Courses
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-5 h-5 text-green-500" />
+                Completed Courses
+              </>
+            )}
+          </h2>
+          {enrollmentsLoading ? (
+            <Loading text="Loading your courses..." />
+          ) : enrollments && enrollments.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {enrollments
+                .filter((enrollment: Enrollment) =>
+                  filter === 'completed' ? enrollment.progress === 100 : true
+                )
+                .map((enrollment: Enrollment) => (
+                  <EnrolledCourseCard key={enrollment.id} enrollment={enrollment} />
+                ))}
+            </div>
+          ) : (
+            <Card>
+              <CardBody className="text-center py-8">
+                <GraduationCap className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <h3 className="font-medium text-gray-900 mb-2">
+                  {filter === 'completed' ? 'No completed courses yet' : 'No enrolled courses yet'}
+                </h3>
+                <p className="text-gray-500 text-sm mb-4">
+                  {filter === 'completed'
+                    ? 'Complete a course to see it here'
+                    : 'Browse the catalog and enroll in a course to get started'}
+                </p>
+                <button
+                  onClick={() => setSearchParams({})}
+                  className="text-primary-600 hover:text-primary-700 font-medium text-sm"
+                >
+                  Browse Catalog
+                </button>
+              </CardBody>
+            </Card>
+          )}
+        </div>
+      )}
+
       {/* My Courses Section - For instructors and admins */}
-      {canCreateCourses && (
+      {canCreateCourses && !filter && (
         <div className="mb-12">
           <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-primary-500" />
@@ -100,7 +203,8 @@ export const Catalog = () => {
         </div>
       )}
 
-      {/* Course Catalog Section */}
+      {/* Course Catalog Section - Hide when filter is active */}
+      {!filter && (
       <div>
         <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <GraduationCap className="w-5 h-5 text-primary-500" />
@@ -196,7 +300,69 @@ export const Catalog = () => {
           </Card>
         )}
       </div>
+      )}
     </div>
+  );
+};
+
+// Card for enrolled courses
+const EnrolledCourseCard = ({ enrollment }: { enrollment: Enrollment }) => {
+  const course = enrollment.course;
+  if (!course) return null;
+
+  const progress = enrollment.progress || 0;
+  const isCompleted = progress === 100;
+
+  return (
+    <Link to={`/courses/${course.id}/player`}>
+      <Card hover className="h-full">
+        {/* Thumbnail */}
+        <div className="h-32 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-t-xl flex items-center justify-center relative">
+          {course.thumbnail ? (
+            <img
+              src={course.thumbnail}
+              alt={course.title}
+              className="w-full h-full object-cover rounded-t-xl"
+            />
+          ) : (
+            <GraduationCap className="w-12 h-12 text-white/80" />
+          )}
+          {/* Progress badge */}
+          <span
+            className={`absolute top-2 right-2 px-2 py-1 text-xs font-medium rounded ${
+              isCompleted
+                ? 'bg-green-100 text-green-700'
+                : 'bg-blue-100 text-blue-700'
+            }`}
+          >
+            {isCompleted ? 'Completed' : `${Math.round(progress)}% Complete`}
+          </span>
+        </div>
+
+        <CardBody>
+          {/* Title */}
+          <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">{course.title}</h3>
+
+          {/* Progress bar */}
+          <div className="mb-3">
+            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${isCompleted ? 'bg-green-500' : 'bg-primary-500'}`}
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Continue button */}
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-500">{course.instructor?.fullname}</span>
+            <span className="text-primary-600 font-medium">
+              {isCompleted ? 'Review' : 'Continue'} →
+            </span>
+          </div>
+        </CardBody>
+      </Card>
+    </Link>
   );
 };
 

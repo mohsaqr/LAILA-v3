@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Plus, Settings, Eye, EyeOff, Layers, FileEdit, ClipboardList, MessageCircle } from 'lucide-react';
+import { Plus, Settings, Eye, EyeOff, Layers, FileEdit, ClipboardList, MessageCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../../api/courses';
 import { codeLabsApi } from '../../api/codeLabs';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
+import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { Modal } from '../../components/common/Modal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -394,16 +395,15 @@ export const CurriculumEditor = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
+      {/* Breadcrumb */}
       <div className="mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate('/teach')}
-          icon={<ArrowLeft className="w-4 h-4" />}
-        >
-          Back to Dashboard
-        </Button>
+        <Breadcrumb
+          items={[
+            { label: 'Teaching', href: '/teach' },
+            { label: course.title, href: `/courses/${courseId}` },
+            { label: 'Curriculum' },
+          ]}
+        />
       </div>
 
       {/* Course Header Card */}

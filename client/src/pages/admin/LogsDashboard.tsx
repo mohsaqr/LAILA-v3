@@ -9,8 +9,6 @@ import {
   Download,
   Filter,
   RefreshCw,
-  ChevronLeft,
-  ChevronRight,
   Users,
   Clock,
   Bot,
@@ -26,37 +24,53 @@ import {
   Loader2,
   CheckCircle,
 } from 'lucide-react';
-import { activityLogApi, analyticsApi } from '../../api/admin';
+import { analyticsApi, learningAnalyticsApi, activityLogApi } from '../../api/admin';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 
-// Verb and Object Type constants
-const VERBS = [
-  'enrolled', 'unenrolled', 'viewed', 'started', 'completed', 'progressed',
-  'paused', 'resumed', 'seeked', 'scrolled', 'downloaded', 'submitted',
-  'graded', 'messaged', 'received', 'cleared', 'interacted',
+// Event Type constants for Content and Assessment events
+const CONTENT_EVENT_TYPES = [
+  'lecture_view', 'video_play', 'video_pause', 'video_complete',
+  'video_seek', 'document_download', 'scroll_depth_update', 'lecture_complete',
 ];
 
-const OBJECT_TYPES = [
-  'course', 'module', 'lecture', 'section', 'video',
-  'assignment', 'chatbot', 'file', 'quiz',
+const ASSESSMENT_EVENT_TYPES = [
+  'assignment_view', 'assignment_submit', 'grade_received',
+  'feedback_view', 'assignment_start',
 ];
 
-const verbColors: Record<string, string> = {
-  enrolled: 'bg-green-100 text-green-800',
-  unenrolled: 'bg-red-100 text-red-800',
-  viewed: 'bg-blue-100 text-blue-800',
-  started: 'bg-purple-100 text-purple-800',
-  completed: 'bg-green-100 text-green-800',
-  progressed: 'bg-cyan-100 text-cyan-800',
-  paused: 'bg-amber-100 text-amber-800',
-  resumed: 'bg-cyan-100 text-cyan-800',
-  submitted: 'bg-green-100 text-green-800',
-  graded: 'bg-red-100 text-red-800',
-  messaged: 'bg-blue-100 text-blue-800',
-  received: 'bg-cyan-100 text-cyan-800',
-  downloaded: 'bg-purple-100 text-purple-800',
+const eventTypeColors: Record<string, string> = {
+  // Content events
+  lecture_view: 'bg-blue-100 text-blue-800',
+  video_play: 'bg-green-100 text-green-800',
+  video_pause: 'bg-amber-100 text-amber-800',
+  video_complete: 'bg-green-100 text-green-800',
+  video_seek: 'bg-cyan-100 text-cyan-800',
+  document_download: 'bg-purple-100 text-purple-800',
+  scroll_depth_update: 'bg-gray-100 text-gray-800',
+  lecture_complete: 'bg-green-100 text-green-800',
+  // Assessment events
+  assignment_view: 'bg-blue-100 text-blue-800',
+  assignment_start: 'bg-purple-100 text-purple-800',
+  assignment_submit: 'bg-green-100 text-green-800',
+  grade_received: 'bg-amber-100 text-amber-800',
+  feedback_view: 'bg-cyan-100 text-cyan-800',
+  // Activity log verbs (from learning_activity_logs)
+  viewed_course: 'bg-blue-100 text-blue-800',
+  started_lecture: 'bg-purple-100 text-purple-800',
+  completed_lecture: 'bg-green-100 text-green-800',
+  progressed_lecture: 'bg-cyan-100 text-cyan-800',
+  enrolled_course: 'bg-green-100 text-green-800',
+  viewed_lecture: 'bg-blue-100 text-blue-800',
+  viewed_section: 'bg-blue-100 text-blue-800',
+  started_video: 'bg-purple-100 text-purple-800',
+  paused_video: 'bg-amber-100 text-amber-800',
+  completed_video: 'bg-green-100 text-green-800',
+  submitted_assignment: 'bg-green-100 text-green-800',
+  interacted_chatbot: 'bg-indigo-100 text-indigo-800',
+  messaged_chatbot: 'bg-indigo-100 text-indigo-800',
+  downloaded_file: 'bg-purple-100 text-purple-800',
 };
 
 type TabType = 'activity' | 'chatbot' | 'interactions';
@@ -68,29 +82,66 @@ export const LogsDashboard = () => {
 
   // Activity Log filters
   const [activityFilters, setActivityFilters] = useState({
-    verb: '',
-    objectType: '',
+    eventType: '',
     startDate: '',
     endDate: '',
-    page: 1,
-    limit: 25,
   });
 
-  // Activity Log queries
-  const { data: activityLogsData, isLoading: activityLoading, refetch: refetchActivity } = useQuery({
+  // Fetch from learning_activity_logs table (the working one)
+  const { data: activityLogsData, isLoading: activityLogsLoading, refetch: refetchActivityLogs } = useQuery({
     queryKey: ['activityLogs', activityFilters],
-    queryFn: () => activityLogApi.getLogs(activityFilters),
-    enabled: activeTab === 'activity',
-  });
-
-  const { data: activityStats } = useQuery({
-    queryKey: ['activityLogStats', activityFilters.startDate, activityFilters.endDate],
-    queryFn: () => activityLogApi.getStats({
+    queryFn: () => activityLogApi.getLogs({
       startDate: activityFilters.startDate || undefined,
       endDate: activityFilters.endDate || undefined,
+      page: 1,
+      limit: 100,
     }),
     enabled: activeTab === 'activity',
   });
+
+  // Also fetch from new content/assessment event tables
+  const { data: contentEventSummary, isLoading: contentLoading, refetch: refetchContent } = useQuery({
+    queryKey: ['contentEventSummary', activityFilters],
+    queryFn: () => learningAnalyticsApi.getContentEventSummary({
+      startDate: activityFilters.startDate || undefined,
+      endDate: activityFilters.endDate || undefined,
+      eventType: activityFilters.eventType && CONTENT_EVENT_TYPES.includes(activityFilters.eventType) ? activityFilters.eventType : undefined,
+    }),
+    enabled: activeTab === 'activity',
+  });
+
+  const { data: assessmentEventSummary, isLoading: assessmentLoading, refetch: refetchAssessment } = useQuery({
+    queryKey: ['assessmentEventSummary', activityFilters],
+    queryFn: () => learningAnalyticsApi.getAssessmentEventSummary({
+      startDate: activityFilters.startDate || undefined,
+      endDate: activityFilters.endDate || undefined,
+      eventType: activityFilters.eventType && ASSESSMENT_EVENT_TYPES.includes(activityFilters.eventType) ? activityFilters.eventType : undefined,
+    }),
+    enabled: activeTab === 'activity',
+  });
+
+  const activityLoading = activityLogsLoading || contentLoading || assessmentLoading;
+  const refetchActivity = () => {
+    refetchActivityLogs();
+    refetchContent();
+    refetchAssessment();
+  };
+
+  // Combine recent events from all sources
+  const combinedRecentEvents = [
+    // From learning_activity_logs (activityLogger)
+    ...(activityLogsData?.logs || []).map((e: any) => ({
+      ...e,
+      source: 'activity',
+      eventType: `${e.verb}_${e.objectType}`,
+    })),
+    // From content_event_logs
+    ...(contentEventSummary?.recentEvents || []).map((e: any) => ({ ...e, source: 'content' })),
+    // From assessment_event_logs
+    ...(assessmentEventSummary?.recentEvents || []).map((e: any) => ({ ...e, source: 'assessment' })),
+  ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 100);
+
+  const totalActivities = (activityLogsData?.pagination?.total || 0) + (contentEventSummary?.totalEvents || 0) + (assessmentEventSummary?.totalEvents || 0);
 
   // Chatbot Log queries
   const { data: chatbotSummary, isLoading: chatbotLoading, refetch: refetchChatbot } = useQuery({
@@ -109,7 +160,21 @@ export const LogsDashboard = () => {
   const handleExportActivity = async () => {
     setExportStatus('loading');
     try {
-      await activityLogApi.exportCSV(activityFilters);
+      // Export combined data as JSON
+      const data = {
+        contentEvents: contentEventSummary?.recentEvents || [],
+        assessmentEvents: assessmentEventSummary?.recentEvents || [],
+        exportedAt: new Date().toISOString(),
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `activity-logs-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
       setExportStatus('success');
       setTimeout(() => setExportStatus('idle'), 2000);
     } catch (error: any) {
@@ -235,36 +300,34 @@ export const LogsDashboard = () => {
       {activeTab === 'activity' && (
         <>
           {/* Stats Cards */}
-          {activityStats && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <Card>
-                <CardBody className="p-4">
-                  <div className="text-sm text-gray-500">Total Activities</div>
-                  <div className="text-2xl font-bold">{activityStats.totalActivities?.toLocaleString() || 0}</div>
-                </CardBody>
-              </Card>
-              <Card>
-                <CardBody className="p-4">
-                  <div className="text-sm text-gray-500">Unique Verbs</div>
-                  <div className="text-2xl font-bold">{Object.keys(activityStats.activitiesByVerb || {}).length}</div>
-                </CardBody>
-              </Card>
-              <Card>
-                <CardBody className="p-4">
-                  <div className="text-sm text-gray-500">Object Types</div>
-                  <div className="text-2xl font-bold">{Object.keys(activityStats.activitiesByObjectType || {}).length}</div>
-                </CardBody>
-              </Card>
-              <Card>
-                <CardBody className="p-4">
-                  <div className="text-sm text-gray-500">Most Common</div>
-                  <div className="text-2xl font-bold">
-                    {activityStats.activitiesByVerb ? Object.entries(activityStats.activitiesByVerb).sort((a, b) => (b[1] as number) - (a[1] as number))[0]?.[0] || '-' : '-'}
-                  </div>
-                </CardBody>
-              </Card>
-            </div>
-          )}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <Card>
+              <CardBody className="p-4">
+                <div className="text-sm text-gray-500">Total Activities</div>
+                <div className="text-2xl font-bold">{totalActivities.toLocaleString()}</div>
+              </CardBody>
+            </Card>
+            <Card>
+              <CardBody className="p-4">
+                <div className="text-sm text-gray-500">Content Events</div>
+                <div className="text-2xl font-bold">{(contentEventSummary?.totalEvents || 0).toLocaleString()}</div>
+              </CardBody>
+            </Card>
+            <Card>
+              <CardBody className="p-4">
+                <div className="text-sm text-gray-500">Assessment Events</div>
+                <div className="text-2xl font-bold">{(assessmentEventSummary?.totalEvents || 0).toLocaleString()}</div>
+              </CardBody>
+            </Card>
+            <Card>
+              <CardBody className="p-4">
+                <div className="text-sm text-gray-500">Event Types</div>
+                <div className="text-2xl font-bold">
+                  {(contentEventSummary?.byEventType?.length || 0) + (assessmentEventSummary?.byEventType?.length || 0)}
+                </div>
+              </CardBody>
+            </Card>
+          </div>
 
           {/* Filters */}
           <Card className="mb-6">
@@ -287,37 +350,31 @@ export const LogsDashboard = () => {
                     ) : (
                       <Download className="w-4 h-4 mr-1" />
                     )}
-                    {exportStatus === 'loading' ? 'Exporting...' : exportStatus === 'success' ? 'Done!' : 'Export CSV'}
+                    {exportStatus === 'loading' ? 'Exporting...' : exportStatus === 'success' ? 'Done!' : 'Export JSON'}
                   </Button>
                 </div>
               </div>
             </CardHeader>
             <CardBody>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Verb</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Event Type</label>
                   <select
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                    value={activityFilters.verb}
-                    onChange={(e) => setActivityFilters({ ...activityFilters, verb: e.target.value, page: 1 })}
+                    value={activityFilters.eventType}
+                    onChange={(e) => setActivityFilters({ ...activityFilters, eventType: e.target.value })}
                   >
-                    <option value="">All Verbs</option>
-                    {VERBS.map((v) => (
-                      <option key={v} value={v}>{v}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Object Type</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                    value={activityFilters.objectType}
-                    onChange={(e) => setActivityFilters({ ...activityFilters, objectType: e.target.value, page: 1 })}
-                  >
-                    <option value="">All Types</option>
-                    {OBJECT_TYPES.map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
+                    <option value="">All Events</option>
+                    <optgroup label="Content Events">
+                      {CONTENT_EVENT_TYPES.map((t) => (
+                        <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Assessment Events">
+                      {ASSESSMENT_EVENT_TYPES.map((t) => (
+                        <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
+                      ))}
+                    </optgroup>
                   </select>
                 </div>
                 <div>
@@ -326,7 +383,7 @@ export const LogsDashboard = () => {
                     type="date"
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                     value={activityFilters.startDate}
-                    onChange={(e) => setActivityFilters({ ...activityFilters, startDate: e.target.value, page: 1 })}
+                    onChange={(e) => setActivityFilters({ ...activityFilters, startDate: e.target.value })}
                   />
                 </div>
                 <div>
@@ -335,14 +392,14 @@ export const LogsDashboard = () => {
                     type="date"
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                     value={activityFilters.endDate}
-                    onChange={(e) => setActivityFilters({ ...activityFilters, endDate: e.target.value, page: 1 })}
+                    onChange={(e) => setActivityFilters({ ...activityFilters, endDate: e.target.value })}
                   />
                 </div>
                 <div className="flex items-end">
                   <Button
                     variant="outline"
                     className="w-full"
-                    onClick={() => setActivityFilters({ verb: '', objectType: '', startDate: '', endDate: '', page: 1, limit: 25 })}
+                    onClick={() => setActivityFilters({ eventType: '', startDate: '', endDate: '' })}
                   >
                     Clear Filters
                   </Button>
@@ -356,98 +413,87 @@ export const LogsDashboard = () => {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <span>Activity Logs</span>
-                {activityLogsData?.pagination && (
-                  <span className="text-sm text-gray-500">
-                    {activityLogsData.pagination.total.toLocaleString()} total records
-                  </span>
-                )}
+                <span className="text-sm text-gray-500">
+                  {combinedRecentEvents.length} recent events (showing up to 100)
+                </span>
               </div>
             </CardHeader>
             <CardBody className="p-0">
               {activityLoading ? (
                 <div className="p-8"><Loading /></div>
-              ) : activityLogsData?.logs?.length === 0 ? (
+              ) : combinedRecentEvents.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">No activity logs found</div>
               ) : (
-                <>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50 border-b">
-                        <tr>
-                          <th className="px-4 py-3 text-left font-medium text-gray-600">Timestamp</th>
-                          <th className="px-4 py-3 text-left font-medium text-gray-600">User</th>
-                          <th className="px-4 py-3 text-left font-medium text-gray-600">Verb</th>
-                          <th className="px-4 py-3 text-left font-medium text-gray-600">Object</th>
-                          <th className="px-4 py-3 text-left font-medium text-gray-600">Course</th>
-                          <th className="px-4 py-3 text-left font-medium text-gray-600">Context</th>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-b">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-medium text-gray-600">Timestamp</th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-600">User</th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-600">Event Type</th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-600">Course</th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-600">Details</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {combinedRecentEvents.map((log: any, index: number) => (
+                        <tr key={`${log.source}-${log.id}-${index}`} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 whitespace-nowrap text-gray-600">
+                            {formatDate(log.timestamp)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="font-medium">{log.userFullname || 'Unknown'}</div>
+                            <div className="text-xs text-gray-500">{log.userEmail}</div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${eventTypeColors[log.eventType] || 'bg-gray-100 text-gray-800'}`}>
+                              {log.source === 'activity' ? `${log.verb} ${log.objectType}` : log.eventType?.replace(/_/g, ' ')}
+                            </span>
+                            <div className="text-xs text-gray-400 mt-0.5">
+                              {log.source === 'activity' ? 'Activity' : log.source === 'content' ? 'Content' : 'Assessment'}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            {log.courseTitle ? (
+                              <div className="text-sm text-gray-700 truncate max-w-[150px]">{log.courseTitle}</div>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-gray-500">
+                            {/* Activity log details (from learning_activity_logs) */}
+                            {log.source === 'activity' && (
+                              <>
+                                {log.objectTitle && <div>{log.objectType}: {log.objectTitle}</div>}
+                                {log.lectureTitle && <div>Lecture: {log.lectureTitle}</div>}
+                                {log.moduleTitle && <div>Module: {log.moduleTitle}</div>}
+                                {log.progress != null && <div>Progress: {log.progress}%</div>}
+                              </>
+                            )}
+                            {/* Content event details */}
+                            {log.source === 'content' && (
+                              <>
+                                {log.lectureTitle && <div>Lecture: {log.lectureTitle}</div>}
+                                {log.moduleTitle && <div>Module: {log.moduleTitle}</div>}
+                                {log.videoPercentWatched != null && <div>Video: {log.videoPercentWatched}%</div>}
+                                {log.scrollDepthPercent != null && <div>Scroll: {log.scrollDepthPercent}%</div>}
+                                {log.documentFileName && <div>File: {log.documentFileName}</div>}
+                              </>
+                            )}
+                            {/* Assessment event details */}
+                            {log.source === 'assessment' && (
+                              <>
+                                {log.assignmentTitle && <div>Assignment: {log.assignmentTitle}</div>}
+                                {log.grade != null && <div>Grade: {log.grade}/{log.maxPoints || '?'}</div>}
+                                {log.attemptNumber && <div>Attempt: #{log.attemptNumber}</div>}
+                              </>
+                            )}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {activityLogsData?.logs?.map((log: any) => (
-                          <tr key={log.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 whitespace-nowrap text-gray-600">
-                              {formatDate(log.timestamp)}
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="font-medium">{log.userFullname || 'Unknown'}</div>
-                              <div className="text-xs text-gray-500">{log.userEmail}</div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${verbColors[log.verb] || 'bg-gray-100 text-gray-800'}`}>
-                                {log.verb}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="font-medium">{log.objectType}</div>
-                              {log.objectTitle && (
-                                <div className="text-xs text-gray-500 truncate max-w-[200px]">{log.objectTitle}</div>
-                              )}
-                            </td>
-                            <td className="px-4 py-3">
-                              {log.courseTitle ? (
-                                <div className="text-xs text-gray-600 truncate max-w-[150px]">{log.courseTitle}</div>
-                              ) : (
-                                <span className="text-gray-400">-</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-xs text-gray-500">
-                              {log.moduleTitle && <div>Module: {log.moduleTitle}</div>}
-                              {log.lectureTitle && <div>Lecture: {log.lectureTitle}</div>}
-                              {log.progress !== null && <div>Progress: {log.progress}%</div>}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Pagination */}
-                  {activityLogsData?.pagination && (
-                    <div className="flex items-center justify-between px-4 py-3 border-t">
-                      <div className="text-sm text-gray-600">
-                        Page {activityLogsData.pagination.page} of {activityLogsData.pagination.totalPages}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={activityLogsData.pagination.page <= 1}
-                          onClick={() => setActivityFilters({ ...activityFilters, page: activityFilters.page - 1 })}
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={activityLogsData.pagination.page >= activityLogsData.pagination.totalPages}
-                          onClick={() => setActivityFilters({ ...activityFilters, page: activityFilters.page + 1 })}
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </CardBody>
           </Card>

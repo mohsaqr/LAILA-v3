@@ -38,9 +38,13 @@ export const useWebR = (): UseWebRReturn => {
     setIsLoading(true);
     setError(null);
 
+    console.log('[WebR] Starting initialization...');
+
     try {
       const webR = new WebR();
+      console.log('[WebR] WebR instance created, calling init()...');
       await webR.init();
+      console.log('[WebR] WebR initialized successfully');
 
       // Set up default options for better output handling
       await webR.evalRVoid(`
@@ -50,13 +54,15 @@ export const useWebR = (): UseWebRReturn => {
           digits = 7
         )
       `);
+      console.log('[WebR] Default options set');
 
       webRRef.current = webR;
       setIsReady(true);
+      console.log('[WebR] Ready to execute R code');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to initialize WebR';
       setError(errorMessage);
-      console.error('WebR initialization error:', err);
+      console.error('[WebR] Initialization error:', err);
     } finally {
       setIsLoading(false);
       initializingRef.current = false;
@@ -78,7 +84,10 @@ export const useWebR = (): UseWebRReturn => {
 
   // Execute R code
   const executeCode = useCallback(async (code: string): Promise<ExecutionResult> => {
+    console.log('[WebR] executeCode called, isReady:', isReady, 'hasWebR:', !!webRRef.current);
+
     if (!webRRef.current || !isReady) {
+      console.log('[WebR] Not ready, returning error');
       return {
         success: false,
         outputs: [],
@@ -91,48 +100,36 @@ export const useWebR = (): UseWebRReturn => {
 
     try {
       const webR = webRRef.current;
+      console.log('[WebR] Executing code:', code.substring(0, 100) + '...');
 
-      // Use evalRCode with output capture
-      // First, capture stdout/stderr by wrapping the code
-      const wrappedCode = `
-        .webr_output <- capture.output({
-          .webr_result <- tryCatch({
-            ${code}
-          }, error = function(e) {
-            cat("Error:", conditionMessage(e), "\\n", file = stderr())
-            NULL
-          }, warning = function(w) {
-            cat("Warning:", conditionMessage(w), "\\n", file = stderr())
-            invokeRestart("muffleWarning")
-          })
-        }, type = "output")
-        if (length(.webr_output) > 0) cat(.webr_output, sep = "\\n")
-        .webr_result
-      `;
+      // Use captureR for cleaner output handling
+      const result = await webR.evalRString(`
+        paste(capture.output({
+          tryCatch(
+            { ${code} },
+            error = function(e) cat("Error:", conditionMessage(e), "\\n"),
+            warning = function(w) { cat("Warning:", conditionMessage(w), "\\n"); invokeRestart("muffleWarning") }
+          )
+        }), collapse = "\\n")
+      `);
 
-      // Execute and get result
-      const result = await webR.evalR(wrappedCode);
+      console.log('[WebR] Execution result:', result);
 
-      // Get the printed output
-      const outputLines = await webR.evalRString(`
-        paste(capture.output(print(.webr_result)), collapse = "\\n")
-      `).catch(() => '');
-
-      if (outputLines && outputLines.trim()) {
-        outputs.push({ type: 'stdout', content: outputLines });
+      if (result && result.trim()) {
+        outputs.push({ type: 'stdout', content: result });
       }
 
-      // Destroy the result to free memory
-      if (result && typeof result === 'object' && 'destroy' in result) {
-        await (result as { destroy: () => Promise<void> }).destroy();
-      }
+      // Check if there was an error in the output
+      const hasError = result.includes('Error:');
 
       return {
-        success: true,
+        success: !hasError,
         outputs,
+        error: hasError ? result : undefined,
       };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Execution failed';
+      console.error('[WebR] Execution error:', err);
       outputs.push({ type: 'stderr', content: errorMessage });
 
       return {

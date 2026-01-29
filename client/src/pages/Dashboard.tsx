@@ -174,17 +174,19 @@ export const Dashboard = () => {
           <div className="mb-10">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Teaching Overview</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200">
-                <CardBody className="flex items-center gap-4 py-5">
-                  <div className="w-12 h-12 rounded-full bg-indigo-500 flex items-center justify-center">
-                    <Briefcase className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-indigo-900">{instructorStats.totalCourses}</p>
-                    <p className="text-sm text-indigo-600">Your Courses</p>
-                  </div>
-                </CardBody>
-              </Card>
+              <Link to="/teach">
+                <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 hover:shadow-md transition-shadow cursor-pointer">
+                  <CardBody className="flex items-center gap-4 py-5">
+                    <div className="w-12 h-12 rounded-full bg-indigo-500 flex items-center justify-center">
+                      <Briefcase className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-indigo-900">{instructorStats.totalCourses}</p>
+                      <p className="text-sm text-indigo-600">Your Courses</p>
+                    </div>
+                  </CardBody>
+                </Card>
+              </Link>
 
               <Card className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-cyan-200">
                 <CardBody className="flex items-center gap-4 py-5">
@@ -229,25 +231,29 @@ export const Dashboard = () => {
         <div>
           <h2 className="text-xl font-bold text-gray-900 mb-4">Your Progress</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card>
-              <CardBody className="text-center py-5">
-                <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-3">
-                  <BookOpen className="w-7 h-7 text-blue-600" />
-                </div>
-                <p className="text-3xl font-bold text-gray-900">{stats?.enrolledCourses || 0}</p>
-                <p className="text-sm text-gray-500">Enrolled Courses</p>
-              </CardBody>
-            </Card>
+            <Link to="/courses?filter=enrolled">
+              <Card hover>
+                <CardBody className="text-center py-5">
+                  <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-3">
+                    <BookOpen className="w-7 h-7 text-blue-600" />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900">{stats?.enrolledCourses || 0}</p>
+                  <p className="text-sm text-gray-500">Enrolled Courses</p>
+                </CardBody>
+              </Card>
+            </Link>
 
-            <Card>
-              <CardBody className="text-center py-5">
-                <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
-                  <Award className="w-7 h-7 text-green-600" />
-                </div>
-                <p className="text-3xl font-bold text-gray-900">{stats?.completedCourses || 0}</p>
-                <p className="text-sm text-gray-500">Completed</p>
-              </CardBody>
-            </Card>
+            <Link to="/courses?filter=completed">
+              <Card hover>
+                <CardBody className="text-center py-5">
+                  <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
+                    <Award className="w-7 h-7 text-green-600" />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900">{stats?.completedCourses || 0}</p>
+                  <p className="text-sm text-gray-500">Completed</p>
+                </CardBody>
+              </Card>
+            </Link>
 
             <Card>
               <CardBody className="text-center py-5">

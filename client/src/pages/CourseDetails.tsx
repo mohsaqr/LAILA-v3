@@ -21,32 +21,70 @@ import { useAuth } from '../hooks/useAuth';
 import { Card, CardBody } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Loading } from '../components/common/Loading';
+import { Breadcrumb } from '../components/common/Breadcrumb';
 import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStudent';
 import { AssignmentSectionStudent } from '../components/course/AssignmentSectionStudent';
+import { ContentModal } from '../components/content/ContentModal';
 import { useState, useEffect } from 'react';
 import { LectureSection } from '../types';
 import activityLogger from '../services/activityLogger';
 
+// Helper to strip HTML and truncate for preview
+const getPreviewText = (html: string, maxLength = 250): string => {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  const text = div.textContent || div.innerText || '';
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength).trim() + '...';
+};
+
 // Section renderer for lecture content
-const SectionRenderer = ({ section, courseId }: { section: LectureSection; courseId: number }) => {
+interface SectionRendererProps {
+  section: LectureSection;
+  courseId: number;
+  lectureId?: number;
+  moduleId?: number;
+  onOpenContent?: (section: LectureSection, lectureId?: number, moduleId?: number) => void;
+}
+
+const SectionRenderer = ({ section, courseId, lectureId, moduleId, onOpenContent }: SectionRendererProps) => {
   switch (section.type) {
     case 'text':
-    case 'ai-generated':
+    case 'ai-generated': {
+      const previewText = section.content ? getPreviewText(section.content, 250) : '';
       return (
-        <div className="mb-4">
-          {section.title && (
-            <div className="flex items-center gap-2 mb-2">
-              {section.type === 'ai-generated' && <Sparkles className="w-4 h-4 text-purple-500" />}
-              <h4 className="font-medium text-gray-900">{section.title}</h4>
+        <div className="mb-4 p-3 bg-white rounded-lg border border-gray-200 hover:shadow-sm transition-shadow">
+          <div className="flex items-start gap-3">
+            <div className={`flex-shrink-0 p-2 rounded-lg ${section.type === 'ai-generated' ? 'bg-purple-100' : 'bg-blue-100'}`}>
+              {section.type === 'ai-generated' ? (
+                <Sparkles className="w-5 h-5 text-purple-600" />
+              ) : (
+                <FileText className="w-5 h-5 text-blue-600" />
+              )}
             </div>
-          )}
-          {section.content ? (
-            <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: section.content }} />
-          ) : (
-            <p className="text-gray-500 italic">No content yet</p>
-          )}
+            <div className="flex-1 min-w-0">
+              <h4 className="font-medium text-gray-900 mb-1">
+                {section.title || 'Text Content'}
+              </h4>
+              {section.content ? (
+                <>
+                  <p className="text-gray-600 text-sm line-clamp-3 mb-2">{previewText}</p>
+                  <button
+                    onClick={() => onOpenContent?.(section, lectureId, moduleId)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-md transition-colors"
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    Read Article
+                  </button>
+                </>
+              ) : (
+                <p className="text-gray-400 text-sm italic">No content yet</p>
+              )}
+            </div>
+          </div>
         </div>
       );
+    }
 
     case 'file':
       if (!section.fileUrl) {
@@ -109,6 +147,7 @@ export const CourseDetails = () => {
   const { isAuthenticated, user, isAdmin, isInstructor: isUserInstructor } = useAuth();
   const [expandedModules, setExpandedModules] = useState<number[]>([]);
   const [selectedLectureId, setSelectedLectureId] = useState<number | null>(null);
+  const [modalContent, setModalContent] = useState<{ title?: string; content: string } | null>(null);
 
   const { data: course, isLoading } = useQuery({
     queryKey: ['course', id],
@@ -161,6 +200,30 @@ export const CourseDetails = () => {
     setSelectedLectureId(selectedLectureId === lectureId ? null : lectureId);
   };
 
+  // Handler for opening content in modal
+  const handleOpenContent = (section: LectureSection, lectureId?: number, moduleId?: number) => {
+    setModalContent({ title: section.title || undefined, content: section.content || '' });
+    // Log section viewed
+    activityLogger.logSectionViewed(
+      section.id,
+      section.title || undefined,
+      section.type,
+      lectureId,
+      parseInt(id!),
+      moduleId
+    ).catch(() => {});
+  };
+
+  // Handler for opening content in new tab
+  const handleOpenInNewPage = () => {
+    if (modalContent) {
+      const contentId = Date.now();
+      sessionStorage.setItem(`content-${contentId}`, JSON.stringify(modalContent));
+      window.open(`/content/section/${contentId}`, '_blank');
+      setModalContent(null);
+    }
+  };
+
   if (isLoading) {
     return <Loading fullScreen text="Loading course..." />;
   }
@@ -182,14 +245,22 @@ export const CourseDetails = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Breadcrumb */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <Breadcrumb
+            items={[
+              { label: 'Courses', href: '/courses' },
+              { label: course.category || 'General', href: `/courses?category=${encodeURIComponent(course.category || '')}` },
+              { label: course.title },
+            ]}
+          />
+        </div>
+      </div>
+
       {/* Hero Section */}
       <div className="gradient-bg text-white py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2 text-white/80 text-sm mb-3">
-            <Link to="/catalog" className="hover:text-white">Courses</Link>
-            <ChevronRight className="w-4 h-4" />
-            <span>{course.category || 'General'}</span>
-          </div>
           <h1 className="text-2xl md:text-3xl font-bold mb-2">{course.title}</h1>
           <p className="text-white/90 mb-4">{course.description}</p>
           <div className="flex flex-wrap items-center gap-4 text-sm">
@@ -279,13 +350,43 @@ export const CourseDetails = () => {
                                     <iframe src={lectureContent.videoUrl} className="w-full h-full" allowFullScreen />
                                   </div>
                                 )}
-                                {/* Legacy content */}
+                                {/* Legacy content - as card */}
                                 {lectureContent.content && (
-                                  <div className="prose max-w-none mb-4" dangerouslySetInnerHTML={{ __html: lectureContent.content }} />
+                                  <div className="mb-4 p-3 bg-white rounded-lg border border-gray-200 hover:shadow-sm transition-shadow">
+                                    <div className="flex items-start gap-3">
+                                      <div className="flex-shrink-0 p-2 rounded-lg bg-blue-100">
+                                        <FileText className="w-5 h-5 text-blue-600" />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <h4 className="font-medium text-gray-900 mb-1">{lectureContent.title}</h4>
+                                        <p className="text-gray-600 text-sm line-clamp-3 mb-2">
+                                          {getPreviewText(lectureContent.content, 250)}
+                                        </p>
+                                        <button
+                                          onClick={() => {
+                                            setModalContent({ title: lectureContent.title, content: lectureContent.content! });
+                                            // Log legacy content viewed
+                                            activityLogger.logSectionViewed(
+                                              -1,
+                                              lectureContent.title,
+                                              'legacy-text',
+                                              lecture.id,
+                                              parseInt(id!),
+                                              module.id
+                                            ).catch(() => {});
+                                          }}
+                                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-md transition-colors"
+                                        >
+                                          <BookOpen className="w-4 h-4" />
+                                          Read Article
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
                                 )}
                                 {/* Sections */}
                                 {lectureContent.sections?.sort((a, b) => a.order - b.order).map((section) => (
-                                  <SectionRenderer key={section.id} section={section} courseId={parseInt(id!)} />
+                                  <SectionRenderer key={section.id} section={section} courseId={parseInt(id!)} lectureId={lecture.id} moduleId={module.id} onOpenContent={handleOpenContent} />
                                 ))}
                                 {/* Attachments */}
                                 {lectureContent.attachments && lectureContent.attachments.length > 0 && (
@@ -338,6 +439,15 @@ export const CourseDetails = () => {
           </Card>
         )}
       </div>
+
+      {/* Content Modal */}
+      <ContentModal
+        isOpen={!!modalContent}
+        onClose={() => setModalContent(null)}
+        title={modalContent?.title}
+        content={modalContent?.content || ''}
+        onOpenInNewPage={handleOpenInNewPage}
+      />
     </div>
   );
 };
