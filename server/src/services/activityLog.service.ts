@@ -1,16 +1,18 @@
 import prisma from '../utils/prisma.js';
 import { Prisma } from '@prisma/client';
+import ExcelJS from 'exceljs';
 
 // Standardized verb types
 export type ActivityVerb =
   | 'enrolled' | 'unenrolled' | 'viewed' | 'started' | 'completed'
   | 'progressed' | 'paused' | 'resumed' | 'seeked' | 'scrolled'
   | 'downloaded' | 'submitted' | 'graded' | 'messaged' | 'received'
-  | 'cleared' | 'interacted';
+  | 'cleared' | 'interacted' | 'expressed' | 'selected' | 'switched';
 
 export type ObjectType =
   | 'course' | 'module' | 'lecture' | 'section' | 'video'
-  | 'assignment' | 'chatbot' | 'file' | 'quiz';
+  | 'assignment' | 'chatbot' | 'file' | 'quiz' | 'emotional_pulse'
+  | 'tutor_agent' | 'tutor_session' | 'tutor_conversation';
 
 export interface LogActivityInput {
   userId: number;
@@ -43,6 +45,9 @@ export interface LogQueryFilters {
   endDate?: Date;
   page?: number;
   limit?: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 class ActivityLogService {
@@ -50,6 +55,15 @@ class ActivityLogService {
    * Log an activity with automatic context enrichment
    */
   async logActivity(input: LogActivityInput) {
+    console.log('[ActivityLogService] logActivity called:', {
+      userId: input.userId,
+      verb: input.verb,
+      objectType: input.objectType,
+      objectId: input.objectId,
+      courseId: input.courseId,
+      hasExtensions: !!input.extensions,
+    });
+
     // Fetch user data
     const user = await prisma.user.findUnique({
       where: { id: input.userId },
@@ -57,6 +71,7 @@ class ActivityLogService {
     });
 
     if (!user) {
+      console.error('[ActivityLogService] User not found:', input.userId);
       throw new Error(`User with id ${input.userId} not found`);
     }
 
@@ -184,14 +199,24 @@ class ActivityLogService {
       }
     }
 
-    return prisma.learningActivityLog.create({ data: logData });
+    console.log('[ActivityLogService] Creating log entry with data:', {
+      verb: logData.verb,
+      objectType: logData.objectType,
+      objectId: logData.objectId,
+      courseId: logData.course ? 'connected' : 'none',
+      hasExtensions: !!logData.extensions,
+    });
+
+    const result = await prisma.learningActivityLog.create({ data: logData });
+    console.log('[ActivityLogService] Log entry created successfully, id:', result.id);
+    return result;
   }
 
   /**
-   * Query logs with filters and pagination
+   * Query logs with filters, pagination, search and sorting
    */
   async queryLogs(filters: LogQueryFilters) {
-    const { userId, courseId, verb, objectType, startDate, endDate, page = 1, limit = 50 } = filters;
+    const { userId, courseId, verb, objectType, startDate, endDate, page = 1, limit = 50, search, sortBy = 'timestamp', sortOrder = 'desc' } = filters;
 
     const where: Prisma.LearningActivityLogWhereInput = {};
     if (userId) where.userId = userId;
@@ -204,17 +229,41 @@ class ActivityLogService {
       if (endDate) where.timestamp.lte = endDate;
     }
 
+    // Search across multiple fields
+    if (search) {
+      where.OR = [
+        { userEmail: { contains: search } },
+        { userFullname: { contains: search } },
+        { objectTitle: { contains: search } },
+        { courseTitle: { contains: search } },
+        { lectureTitle: { contains: search } },
+        { moduleTitle: { contains: search } },
+        { sectionTitle: { contains: search } },
+      ];
+    }
+
+    // Build orderBy based on sortBy field
+    const validSortFields = ['timestamp', 'userFullname', 'userEmail', 'verb', 'objectType', 'objectTitle', 'courseTitle', 'progress', 'duration'];
+    const orderByField = validSortFields.includes(sortBy) ? sortBy : 'timestamp';
+    const orderBy: Prisma.LearningActivityLogOrderByWithRelationInput = { [orderByField]: sortOrder };
+
     const [logs, total] = await Promise.all([
       prisma.learningActivityLog.findMany({
         where,
-        orderBy: { timestamp: 'desc' },
+        orderBy,
         skip: (page - 1) * limit,
         take: limit,
       }),
       prisma.learningActivityLog.count({ where }),
     ]);
 
-    return { logs, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    // Parse extensions JSON string for each log
+    const parsedLogs = logs.map(log => ({
+      ...log,
+      extensions: log.extensions ? JSON.parse(log.extensions) : null,
+    }));
+
+    return { logs: parsedLogs, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   /**
@@ -245,7 +294,7 @@ class ActivityLogService {
   }
 
   /**
-   * Export logs to CSV
+   * Export logs to CSV with all 28+ fields
    */
   async exportToCsv(filters: LogQueryFilters): Promise<string> {
     const where: Prisma.LearningActivityLogWhereInput = {};
@@ -259,6 +308,18 @@ class ActivityLogService {
       if (filters.endDate) where.timestamp.lte = filters.endDate;
     }
 
+    // Search support for CSV export
+    if (filters.search) {
+      where.OR = [
+        { userEmail: { contains: filters.search } },
+        { userFullname: { contains: filters.search } },
+        { objectTitle: { contains: filters.search } },
+        { courseTitle: { contains: filters.search } },
+        { lectureTitle: { contains: filters.search } },
+        { moduleTitle: { contains: filters.search } },
+      ];
+    }
+
     const logs = await prisma.learningActivityLog.findMany({
       where,
       orderBy: { timestamp: 'desc' },
@@ -268,10 +329,14 @@ class ActivityLogService {
     if (logs.length === 0) return 'No data to export';
 
     const headers = [
-      'id', 'timestamp', 'userId', 'userEmail', 'userFullname', 'userRole', 'verb',
-      'objectType', 'objectId', 'objectTitle', 'objectSubtype', 'courseId', 'courseTitle',
-      'moduleId', 'moduleTitle', 'lectureId', 'lectureTitle', 'sectionId', 'sectionTitle',
-      'success', 'score', 'maxScore', 'progress', 'duration', 'deviceType', 'browserName',
+      'id', 'timestamp', 'userId', 'userEmail', 'userFullname', 'userRole', 'sessionId',
+      'verb', 'objectType', 'objectId', 'objectTitle', 'objectSubtype',
+      'courseId', 'courseTitle', 'courseSlug',
+      'moduleId', 'moduleTitle', 'moduleOrder',
+      'lectureId', 'lectureTitle', 'lectureOrder',
+      'sectionId', 'sectionTitle', 'sectionOrder',
+      'success', 'score', 'maxScore', 'progress', 'duration',
+      'deviceType', 'browserName', 'extensions',
     ];
 
     const escapeCSV = (value: unknown): string => {
@@ -288,6 +353,172 @@ class ActivityLogService {
     );
 
     return [headers.join(','), ...rows].join('\n');
+  }
+
+  /**
+   * Get filter options for dropdowns (users, courses, verbs, objectTypes)
+   */
+  async getFilterOptions() {
+    const [users, courses, verbs, objectTypes] = await Promise.all([
+      prisma.learningActivityLog.findMany({
+        select: { userId: true, userFullname: true, userEmail: true },
+        distinct: ['userId'],
+        orderBy: { userFullname: 'asc' },
+      }),
+      prisma.learningActivityLog.findMany({
+        select: { courseId: true, courseTitle: true },
+        distinct: ['courseId'],
+        where: { courseId: { not: null } },
+        orderBy: { courseTitle: 'asc' },
+      }),
+      prisma.learningActivityLog.groupBy({
+        by: ['verb'],
+        _count: { id: true },
+        orderBy: { verb: 'asc' },
+      }),
+      prisma.learningActivityLog.groupBy({
+        by: ['objectType'],
+        _count: { id: true },
+        orderBy: { objectType: 'asc' },
+      }),
+    ]);
+
+    return {
+      users: users.map(u => ({ id: u.userId, fullname: u.userFullname, email: u.userEmail })),
+      courses: courses.filter(c => c.courseId !== null).map(c => ({ id: c.courseId, title: c.courseTitle })),
+      verbs: verbs.map(v => ({ verb: v.verb, count: v._count.id })),
+      objectTypes: objectTypes.map(o => ({ objectType: o.objectType, count: o._count.id })),
+    };
+  }
+
+  /**
+   * Export logs to Excel with multiple sheets
+   */
+  async exportToExcel(filters: LogQueryFilters): Promise<Buffer> {
+    const where: Prisma.LearningActivityLogWhereInput = {};
+    if (filters.userId) where.userId = filters.userId;
+    if (filters.courseId) where.courseId = filters.courseId;
+    if (filters.verb) where.verb = filters.verb;
+    if (filters.objectType) where.objectType = filters.objectType;
+    if (filters.startDate || filters.endDate) {
+      where.timestamp = {};
+      if (filters.startDate) where.timestamp.gte = filters.startDate;
+      if (filters.endDate) where.timestamp.lte = filters.endDate;
+    }
+
+    // Search support
+    if (filters.search) {
+      where.OR = [
+        { userEmail: { contains: filters.search } },
+        { userFullname: { contains: filters.search } },
+        { objectTitle: { contains: filters.search } },
+        { courseTitle: { contains: filters.search } },
+        { lectureTitle: { contains: filters.search } },
+        { moduleTitle: { contains: filters.search } },
+      ];
+    }
+
+    const logs = await prisma.learningActivityLog.findMany({
+      where,
+      orderBy: { timestamp: 'desc' },
+      take: 10000,
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'LAILA Learning Analytics';
+    workbook.created = new Date();
+
+    // Sheet 1: All Activity Logs (28+ columns)
+    const mainSheet = workbook.addWorksheet('Activity Logs');
+    mainSheet.columns = [
+      { header: 'ID', key: 'id', width: 10 },
+      { header: 'Timestamp', key: 'timestamp', width: 20 },
+      { header: 'User ID', key: 'userId', width: 10 },
+      { header: 'User Email', key: 'userEmail', width: 25 },
+      { header: 'User Name', key: 'userFullname', width: 20 },
+      { header: 'User Role', key: 'userRole', width: 12 },
+      { header: 'Session ID', key: 'sessionId', width: 20 },
+      { header: 'Verb', key: 'verb', width: 12 },
+      { header: 'Object Type', key: 'objectType', width: 15 },
+      { header: 'Object ID', key: 'objectId', width: 10 },
+      { header: 'Object Title', key: 'objectTitle', width: 30 },
+      { header: 'Object Subtype', key: 'objectSubtype', width: 15 },
+      { header: 'Course ID', key: 'courseId', width: 10 },
+      { header: 'Course Title', key: 'courseTitle', width: 25 },
+      { header: 'Course Slug', key: 'courseSlug', width: 20 },
+      { header: 'Module ID', key: 'moduleId', width: 10 },
+      { header: 'Module Title', key: 'moduleTitle', width: 20 },
+      { header: 'Module Order', key: 'moduleOrder', width: 12 },
+      { header: 'Lecture ID', key: 'lectureId', width: 10 },
+      { header: 'Lecture Title', key: 'lectureTitle', width: 20 },
+      { header: 'Lecture Order', key: 'lectureOrder', width: 12 },
+      { header: 'Section ID', key: 'sectionId', width: 10 },
+      { header: 'Section Title', key: 'sectionTitle', width: 20 },
+      { header: 'Section Order', key: 'sectionOrder', width: 12 },
+      { header: 'Success', key: 'success', width: 10 },
+      { header: 'Score', key: 'score', width: 10 },
+      { header: 'Max Score', key: 'maxScore', width: 10 },
+      { header: 'Progress (%)', key: 'progress', width: 12 },
+      { header: 'Duration (s)', key: 'duration', width: 12 },
+      { header: 'Device Type', key: 'deviceType', width: 12 },
+      { header: 'Browser', key: 'browserName', width: 15 },
+      { header: 'Extensions', key: 'extensions', width: 50 },
+    ];
+
+    // Style header row
+    mainSheet.getRow(1).font = { bold: true };
+    mainSheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE0E0E0' },
+    };
+
+    // Add data rows
+    logs.forEach(log => {
+      mainSheet.addRow({
+        ...log,
+        timestamp: log.timestamp.toISOString(),
+        extensions: log.extensions || '',
+      });
+    });
+
+    // Sheet 2: Summary Statistics
+    const summarySheet = workbook.addWorksheet('Summary');
+    summarySheet.columns = [
+      { header: 'Metric', key: 'metric', width: 25 },
+      { header: 'Value', key: 'value', width: 20 },
+    ];
+    summarySheet.getRow(1).font = { bold: true };
+
+    // Calculate summary stats
+    const verbCounts: Record<string, number> = {};
+    const objectTypeCounts: Record<string, number> = {};
+    const userCounts: Record<string, number> = {};
+    const courseCounts: Record<string, number> = {};
+
+    logs.forEach(log => {
+      verbCounts[log.verb] = (verbCounts[log.verb] || 0) + 1;
+      objectTypeCounts[log.objectType] = (objectTypeCounts[log.objectType] || 0) + 1;
+      if (log.userEmail) userCounts[log.userEmail] = (userCounts[log.userEmail] || 0) + 1;
+      if (log.courseTitle) courseCounts[log.courseTitle] = (courseCounts[log.courseTitle] || 0) + 1;
+    });
+
+    summarySheet.addRow({ metric: 'Total Activities', value: logs.length });
+    summarySheet.addRow({ metric: 'Unique Users', value: Object.keys(userCounts).length });
+    summarySheet.addRow({ metric: 'Unique Courses', value: Object.keys(courseCounts).length });
+    summarySheet.addRow({ metric: '', value: '' });
+    summarySheet.addRow({ metric: 'Activities by Verb', value: '' });
+    Object.entries(verbCounts).forEach(([verb, count]) => {
+      summarySheet.addRow({ metric: `  ${verb}`, value: count });
+    });
+    summarySheet.addRow({ metric: '', value: '' });
+    summarySheet.addRow({ metric: 'Activities by Object Type', value: '' });
+    Object.entries(objectTypeCounts).forEach(([type, count]) => {
+      summarySheet.addRow({ metric: `  ${type}`, value: count });
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
   }
 }
 

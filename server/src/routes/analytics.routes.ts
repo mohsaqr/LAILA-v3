@@ -163,6 +163,49 @@ router.get('/interactions/summary', authenticateToken, requireAdmin, asyncHandle
   res.json({ success: true, data: summary });
 }));
 
+// Query interactions with filters, pagination, search, and sorting (admin only)
+router.get('/interactions/query', authenticateToken, requireAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const filters = {
+    userId: req.query.userId ? parseInt(req.query.userId as string) : undefined,
+    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    eventType: req.query.eventType as string | undefined,
+    pagePath: req.query.pagePath as string | undefined,
+    startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+    endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+    search: req.query.search as string | undefined,
+    page: req.query.page ? parseInt(req.query.page as string) : 1,
+    limit: req.query.limit ? Math.min(parseInt(req.query.limit as string), 100) : 50,
+    sortBy: req.query.sortBy as string | undefined,
+    sortOrder: (req.query.sortOrder as 'asc' | 'desc') || 'desc',
+  };
+
+  const result = await analyticsService.queryInteractions(filters);
+  res.json({ success: true, ...result });
+}));
+
+// Get filter options for interactions dropdowns (admin only)
+router.get('/interactions/filter-options', authenticateToken, requireAdmin, asyncHandler(async (_req: AuthRequest, res: Response) => {
+  const options = await analyticsService.getInteractionFilterOptions();
+  res.json({ success: true, data: options });
+}));
+
+// Export interactions as CSV (admin only)
+router.get('/interactions/export/csv', authenticateToken, requireAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const filters = {
+    userId: req.query.userId ? parseInt(req.query.userId as string) : undefined,
+    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    eventType: req.query.eventType as string | undefined,
+    startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+    endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+    search: req.query.search as string | undefined,
+  };
+
+  const csv = await analyticsService.exportInteractionsToCsv(filters);
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename="interactions-${new Date().toISOString().split('T')[0]}.csv"`);
+  res.send(csv);
+}));
+
 // Get chatbot interaction summary (admin only)
 router.get('/chatbot/summary', authenticateToken, requireAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
   const filters: Record<string, unknown> = {};

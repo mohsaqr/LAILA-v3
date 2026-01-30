@@ -17,6 +17,7 @@ const validVerbs = [
 const validObjectTypes = [
   'course', 'module', 'lecture', 'section', 'video',
   'assignment', 'chatbot', 'file', 'quiz',
+  'emotional_pulse', 'tutor_agent', 'tutor_session', 'tutor_conversation',
 ] as const;
 
 // Validation schemas
@@ -90,7 +91,7 @@ router.post('/batch', authenticateToken, asyncHandler(async (req: AuthRequest, r
 
 /**
  * GET /api/activity-log
- * Query logs with filters
+ * Query logs with filters, search, and sorting
  */
 router.get('/', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const filters = {
@@ -102,6 +103,9 @@ router.get('/', authenticateToken, asyncHandler(async (req: AuthRequest, res: Re
     endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
     page: req.query.page ? parseInt(req.query.page as string) : 1,
     limit: req.query.limit ? Math.min(parseInt(req.query.limit as string), 100) : 50,
+    search: req.query.search as string | undefined,
+    sortBy: req.query.sortBy as string | undefined,
+    sortOrder: (req.query.sortOrder as 'asc' | 'desc') || 'desc',
   };
 
   const result = await activityLogService.queryLogs(filters);
@@ -124,6 +128,15 @@ router.get('/stats', authenticateToken, asyncHandler(async (req: AuthRequest, re
 }));
 
 /**
+ * GET /api/activity-log/filter-options
+ * Get available filter options for dropdowns (users, courses, verbs, objectTypes)
+ */
+router.get('/filter-options', authenticateToken, asyncHandler(async (_req: AuthRequest, res: Response) => {
+  const options = await activityLogService.getFilterOptions();
+  res.json({ success: true, data: options });
+}));
+
+/**
  * GET /api/activity-log/export
  * Export logs as CSV or JSON
  */
@@ -135,6 +148,7 @@ router.get('/export', authenticateToken, asyncHandler(async (req: AuthRequest, r
     objectType: req.query.objectType as string | undefined,
     startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
     endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+    search: req.query.search as string | undefined,
   };
 
   const format = (req.query.format as string) || 'csv';
@@ -150,6 +164,29 @@ router.get('/export', authenticateToken, asyncHandler(async (req: AuthRequest, r
     res.setHeader('Content-Disposition', `attachment; filename="activity-logs-${new Date().toISOString().split('T')[0]}.csv"`);
     res.send(csv);
   }
+}));
+
+/**
+ * GET /api/activity-log/export/excel
+ * Export logs as Excel file with multiple sheets
+ */
+router.get('/export/excel', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const filters = {
+    userId: req.query.userId ? parseInt(req.query.userId as string) : undefined,
+    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    verb: req.query.verb as string | undefined,
+    objectType: req.query.objectType as string | undefined,
+    startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+    endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+    search: req.query.search as string | undefined,
+  };
+
+  const buffer = await activityLogService.exportToExcel(filters);
+  const filename = `activity-logs-${new Date().toISOString().split('T')[0]}.xlsx`;
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send(buffer);
 }));
 
 export default router;

@@ -5,11 +5,12 @@ export type ActivityVerb =
   | 'enrolled' | 'unenrolled' | 'viewed' | 'started' | 'completed'
   | 'progressed' | 'paused' | 'resumed' | 'seeked' | 'scrolled'
   | 'downloaded' | 'submitted' | 'graded' | 'messaged' | 'received'
-  | 'cleared' | 'interacted';
+  | 'cleared' | 'interacted' | 'expressed' | 'selected' | 'switched';
 
 export type ObjectType =
   | 'course' | 'module' | 'lecture' | 'section' | 'video'
-  | 'assignment' | 'chatbot' | 'file' | 'quiz';
+  | 'assignment' | 'chatbot' | 'file' | 'quiz' | 'emotional_pulse'
+  | 'tutor_agent' | 'tutor_session' | 'tutor_conversation';
 
 export interface LogActivityInput {
   verb: ActivityVerb;
@@ -72,6 +73,13 @@ class ActivityLogger {
   async log(activity: LogActivityInput): Promise<void> {
     if (!this.isEnabled) return;
 
+    // Always log activity events for debugging
+    console.log('[ActivityLogger] Sending activity:', activity.verb, activity.objectType, {
+      objectId: activity.objectId,
+      courseId: activity.courseId,
+      hasExtensions: !!activity.extensions,
+    });
+
     try {
       await apiClient.post('/activity-log', {
         ...activity,
@@ -79,6 +87,7 @@ class ActivityLogger {
         deviceType: detectDeviceType(),
         browserName: detectBrowserName(),
       });
+      console.log('[ActivityLogger] Activity logged successfully:', activity.verb, activity.objectType);
     } catch (error) {
       console.error('[ActivityLogger] Failed to log activity:', error);
       // Queue for batch send
@@ -250,7 +259,20 @@ class ActivityLogger {
     });
   }
 
-  async logChatbotMessage(sectionId: number, lectureId?: number, courseId?: number) {
+  async logChatbotMessage(
+    sectionId: number,
+    lectureId?: number,
+    courseId?: number,
+    messageContent?: { userMessage?: string; assistantMessage?: string; aiModel?: string }
+  ) {
+    console.log('[ActivityLogger] logChatbotMessage called:', {
+      sectionId,
+      lectureId,
+      courseId,
+      hasUserMessage: !!messageContent?.userMessage,
+      hasAssistantMessage: !!messageContent?.assistantMessage,
+    });
+
     return this.log({
       verb: 'messaged',
       objectType: 'chatbot',
@@ -258,6 +280,13 @@ class ActivityLogger {
       courseId,
       lectureId,
       sectionId,
+      extensions: messageContent ? {
+        userMessage: messageContent.userMessage,
+        assistantMessage: messageContent.assistantMessage,
+        messageLength: messageContent.userMessage?.length,
+        responseLength: messageContent.assistantMessage?.length,
+        aiModel: messageContent.aiModel,
+      } : undefined,
     });
   }
 

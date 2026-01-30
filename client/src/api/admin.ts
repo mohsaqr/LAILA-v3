@@ -83,12 +83,35 @@ export const adminApi = {
   },
 };
 
+// Interaction Filter Types
+export interface InteractionFilters {
+  userId?: number;
+  courseId?: number;
+  eventType?: string;
+  pagePath?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface InteractionFilterOptions {
+  users: Array<{ id: number; fullname: string | null; email: string | null }>;
+  courses: Array<{ id: number; title: string | null }>;
+  eventTypes: Array<{ eventType: string; count: number }>;
+  pages: Array<{ path: string; count: number }>;
+}
+
 // Analytics API
 export const analyticsApi = {
   getInteractionSummary: async (filters?: {
     startDate?: string;
     endDate?: string;
     userId?: number;
+    courseId?: number;
     page?: string;
     interactionType?: string;
   }) => {
@@ -96,11 +119,87 @@ export const analyticsApi = {
     if (filters?.startDate) params.append('startDate', filters.startDate);
     if (filters?.endDate) params.append('endDate', filters.endDate);
     if (filters?.userId) params.append('userId', filters.userId.toString());
+    if (filters?.courseId) params.append('courseId', filters.courseId.toString());
     if (filters?.page) params.append('page', filters.page);
     if (filters?.interactionType) params.append('interactionType', filters.interactionType);
 
     const response = await apiClient.get<ApiResponse<any>>(`/analytics/interactions/summary?${params.toString()}`);
     return response.data.data!;
+  },
+
+  // Query interactions with filters, pagination, search, sorting
+  queryInteractions: async (filters: InteractionFilters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.userId) params.append('userId', filters.userId.toString());
+    if (filters.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters.eventType) params.append('eventType', filters.eventType);
+    if (filters.pagePath) params.append('pagePath', filters.pagePath);
+    if (filters.startDate) params.append('startDate', filters.startDate);
+    if (filters.endDate) params.append('endDate', filters.endDate);
+    if (filters.search) params.append('search', filters.search);
+    if (filters.page) params.append('page', filters.page.toString());
+    if (filters.limit) params.append('limit', filters.limit.toString());
+    if (filters.sortBy) params.append('sortBy', filters.sortBy);
+    if (filters.sortOrder) params.append('sortOrder', filters.sortOrder);
+
+    const response = await apiClient.get<any>(`/analytics/interactions/query?${params.toString()}`);
+    return response.data;
+  },
+
+  // Get filter options for interactions dropdowns
+  getInteractionFilterOptions: async (): Promise<InteractionFilterOptions> => {
+    const response = await apiClient.get<any>('/analytics/interactions/filter-options');
+    return response.data.data;
+  },
+
+  // Export interactions as CSV
+  exportInteractionsCSV: async (filters: InteractionFilters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.userId) params.append('userId', filters.userId.toString());
+    if (filters.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters.eventType) params.append('eventType', filters.eventType);
+    if (filters.startDate) params.append('startDate', filters.startDate);
+    if (filters.endDate) params.append('endDate', filters.endDate);
+    if (filters.search) params.append('search', filters.search);
+
+    const response = await fetch(`/api/analytics/interactions/export/csv?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
+    });
+    if (!response.ok) throw new Error('Export failed');
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `interactions-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+
+  // Export interactions as JSON
+  exportInteractionsJSON: async (filters: InteractionFilters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.userId) params.append('userId', filters.userId.toString());
+    if (filters.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters.eventType) params.append('eventType', filters.eventType);
+    if (filters.startDate) params.append('startDate', filters.startDate);
+    if (filters.endDate) params.append('endDate', filters.endDate);
+    if (filters.search) params.append('search', filters.search);
+
+    // Get all data via query endpoint with high limit
+    const response = await apiClient.get<any>(`/analytics/interactions/query?${params.toString()}&limit=10000`);
+    const logs = response.data.logs;
+
+    const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `interactions-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   },
 
   getChatbotSummary: async (filters?: {
@@ -394,18 +493,31 @@ export const learningAnalyticsApi = {
   },
 };
 
+// Activity Log Filter Types
+export interface ActivityLogFilters {
+  userId?: number;
+  courseId?: number;
+  verb?: string;
+  objectType?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface ActivityLogFilterOptions {
+  users: Array<{ id: number; fullname: string | null; email: string | null }>;
+  courses: Array<{ id: number | null; title: string | null }>;
+  verbs: Array<{ verb: string; count: number }>;
+  objectTypes: Array<{ objectType: string; count: number }>;
+}
+
 // Unified Activity Log API
 export const activityLogApi = {
-  getLogs: async (filters: {
-    userId?: number;
-    courseId?: number;
-    verb?: string;
-    objectType?: string;
-    startDate?: string;
-    endDate?: string;
-    page?: number;
-    limit?: number;
-  } = {}) => {
+  getLogs: async (filters: ActivityLogFilters = {}) => {
     const params = new URLSearchParams();
     if (filters.userId) params.append('userId', filters.userId.toString());
     if (filters.courseId) params.append('courseId', filters.courseId.toString());
@@ -415,6 +527,9 @@ export const activityLogApi = {
     if (filters.endDate) params.append('endDate', filters.endDate);
     if (filters.page) params.append('page', filters.page.toString());
     if (filters.limit) params.append('limit', filters.limit.toString());
+    if (filters.search) params.append('search', filters.search);
+    if (filters.sortBy) params.append('sortBy', filters.sortBy);
+    if (filters.sortOrder) params.append('sortOrder', filters.sortOrder);
 
     const response = await apiClient.get<any>(`/activity-log?${params.toString()}`);
     return response.data;
@@ -430,14 +545,13 @@ export const activityLogApi = {
     return response.data.data;
   },
 
-  exportCSV: async (filters: {
-    userId?: number;
-    courseId?: number;
-    verb?: string;
-    objectType?: string;
-    startDate?: string;
-    endDate?: string;
-  } = {}) => {
+  getFilterOptions: async (): Promise<ActivityLogFilterOptions> => {
+    const response = await apiClient.get<any>('/activity-log/filter-options');
+    return response.data.data;
+  },
+
+  // Helper to build query string from filters
+  _buildQueryString: (filters: ActivityLogFilters) => {
     const params = new URLSearchParams();
     if (filters.userId) params.append('userId', filters.userId.toString());
     if (filters.courseId) params.append('courseId', filters.courseId.toString());
@@ -445,6 +559,19 @@ export const activityLogApi = {
     if (filters.objectType) params.append('objectType', filters.objectType);
     if (filters.startDate) params.append('startDate', filters.startDate);
     if (filters.endDate) params.append('endDate', filters.endDate);
+    if (filters.search) params.append('search', filters.search);
+    return params.toString();
+  },
+
+  exportCSV: async (filters: ActivityLogFilters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.userId) params.append('userId', filters.userId.toString());
+    if (filters.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters.verb) params.append('verb', filters.verb);
+    if (filters.objectType) params.append('objectType', filters.objectType);
+    if (filters.startDate) params.append('startDate', filters.startDate);
+    if (filters.endDate) params.append('endDate', filters.endDate);
+    if (filters.search) params.append('search', filters.search);
     params.append('format', 'csv');
 
     const response = await fetch(`/api/activity-log/export?${params.toString()}`, {
@@ -456,6 +583,49 @@ export const activityLogApi = {
     const a = document.createElement('a');
     a.href = url;
     a.download = `activity-logs-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+
+  exportExcel: async (filters: ActivityLogFilters = {}) => {
+    const queryString = activityLogApi._buildQueryString(filters);
+    const response = await fetch(`/api/activity-log/export/excel${queryString ? `?${queryString}` : ''}`, {
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
+    });
+    if (!response.ok) throw new Error('Export failed');
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `activity-logs-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+
+  exportJSON: async (filters: ActivityLogFilters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.userId) params.append('userId', filters.userId.toString());
+    if (filters.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters.verb) params.append('verb', filters.verb);
+    if (filters.objectType) params.append('objectType', filters.objectType);
+    if (filters.startDate) params.append('startDate', filters.startDate);
+    if (filters.endDate) params.append('endDate', filters.endDate);
+    if (filters.search) params.append('search', filters.search);
+    params.append('format', 'json');
+
+    const response = await fetch(`/api/activity-log/export?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
+    });
+    if (!response.ok) throw new Error('Export failed');
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `activity-logs-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -637,6 +807,146 @@ export interface LLMProviderDefaults {
   supportsFunctionCalling: boolean;
   supportsJsonMode: boolean;
 }
+
+// =============================================================================
+// UNIFIED MESSAGES API (All Chat Systems)
+// =============================================================================
+
+export interface UnifiedMessage {
+  id: string;
+  timestamp: string;
+  systemType: 'chatbot' | 'tutor' | 'agent';
+  sessionId: string | null;
+  userId: number | null;
+  userEmail: string | null;
+  userFullname: string | null;
+  role: string;
+  content: string;
+  courseId: number | null;
+  courseTitle: string | null;
+  moduleId: number | null;
+  moduleTitle: string | null;
+  lectureId: number | null;
+  lectureTitle: string | null;
+  sectionId: number | null;
+  contextName: string | null;
+  aiModel: string | null;
+  aiProvider: string | null;
+  temperature: number | null;
+  maxTokens: number | null;
+  promptTokens: number | null;
+  completionTokens: number | null;
+  totalTokens: number | null;
+  responseTimeMs: number | null;
+  systemPrompt: string | null;
+  conversationId: number | null;
+  messageIndex: number | null;
+  routingReason: string | null;
+  routingConfidence: number | null;
+  synthesizedFrom: string | null;
+  agentName: string | null;
+  agentVersion: number | null;
+  // Client context
+  deviceType: string | null;
+  browserName: string | null;
+  ipAddress: string | null;
+}
+
+export interface MessageStats {
+  total: number;
+  chatbot: number;
+  tutor: number;
+  agent: number;
+  uniqueUsers: number;
+  avgResponseTimeMs: number | null;
+  totalTokens: number;
+  byModel: Array<{ model: string; count: number }>;
+  byCourse: Array<{ courseId: number; courseTitle: string; count: number }>;
+}
+
+export interface MessageFilters {
+  startDate?: string;
+  endDate?: string;
+  systemType?: 'chatbot' | 'tutor' | 'agent';
+  courseId?: number;
+  userId?: number;
+  page?: number;
+  limit?: number;
+}
+
+export const messagesApi = {
+  // Build query string from filters
+  _buildQueryString: (filters: MessageFilters) => {
+    const params = new URLSearchParams();
+    if (filters.startDate) params.append('startDate', filters.startDate);
+    if (filters.endDate) params.append('endDate', filters.endDate);
+    if (filters.systemType) params.append('systemType', filters.systemType);
+    if (filters.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters.userId) params.append('userId', filters.userId.toString());
+    if (filters.page) params.append('page', filters.page.toString());
+    if (filters.limit) params.append('limit', filters.limit.toString());
+    return params.toString();
+  },
+
+  // Get messages with pagination
+  getMessages: async (filters: MessageFilters = {}) => {
+    const queryString = messagesApi._buildQueryString(filters);
+    const response = await apiClient.get<{
+      success: boolean;
+      data: UnifiedMessage[];
+      pagination: { page: number; limit: number; total: number; totalPages: number };
+    }>(`/admin/messages${queryString ? `?${queryString}` : ''}`);
+    return {
+      messages: response.data.data,
+      pagination: response.data.pagination,
+    };
+  },
+
+  // Get message statistics
+  getStats: async (filters: MessageFilters = {}) => {
+    const queryString = messagesApi._buildQueryString(filters);
+    const response = await apiClient.get<{ success: boolean; data: MessageStats }>(
+      `/admin/messages/stats${queryString ? `?${queryString}` : ''}`
+    );
+    return response.data.data;
+  },
+
+  // Export to CSV
+  exportCSV: async (filters: MessageFilters = {}) => {
+    const queryString = messagesApi._buildQueryString(filters);
+    const response = await fetch(`/api/admin/messages/export/csv${queryString ? `?${queryString}` : ''}`, {
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
+    });
+    if (!response.ok) throw new Error('Export failed');
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `unified_messages_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+
+  // Export to Excel
+  exportExcel: async (filters: MessageFilters = {}) => {
+    const queryString = messagesApi._buildQueryString(filters);
+    const response = await fetch(`/api/admin/messages/export/excel${queryString ? `?${queryString}` : ''}`, {
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
+    });
+    if (!response.ok) throw new Error('Export failed');
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `unified_messages_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+};
 
 export const llmApi = {
   // Get active providers (for chat UI)

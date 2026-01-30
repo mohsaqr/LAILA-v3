@@ -6,15 +6,15 @@
 import { useState } from 'react';
 import {
   Activity,
-  MessageCircle,
   MousePointer,
+  MessagesSquare,
 } from 'lucide-react';
 import { AdminLayout } from '../../components/admin';
 import { useTheme } from '../../hooks/useTheme';
 import { TabType } from './logs/constants';
 import { ActivityLogsTab } from './logs/ActivityLogsTab';
-import { ChatbotLogsTab } from './logs/ChatbotLogsTab';
 import { InteractionsTab } from './logs/InteractionsTab';
+import { MessagesTab } from './logs/MessagesTab';
 
 export const LogsDashboard = () => {
   const [activeTab, setActiveTab] = useState<TabType>('activity');
@@ -30,7 +30,7 @@ export const LogsDashboard = () => {
 
   const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
     { id: 'activity', label: 'Activity Log', icon: <Activity className="w-4 h-4" /> },
-    { id: 'chatbot', label: 'Chatbot Logs', icon: <MessageCircle className="w-4 h-4" /> },
+    { id: 'messages', label: 'Messages', icon: <MessagesSquare className="w-4 h-4" /> },
     { id: 'interactions', label: 'User Interactions', icon: <MousePointer className="w-4 h-4" /> },
   ];
 
@@ -70,8 +70,8 @@ export const LogsDashboard = () => {
         />
       )}
 
-      {activeTab === 'chatbot' && (
-        <ChatbotLogsTab
+      {activeTab === 'messages' && (
+        <MessagesTab
           exportStatus={exportStatus}
           setExportStatus={setExportStatus}
         />
