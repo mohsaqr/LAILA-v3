@@ -2,6 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Light/Dark mode CSS variables */
+:root {
+  --color-surface: 249 250 251; /* gray-50 */
+  --color-surface-elevated: 255 255 255; /* white */
+  --color-surface-secondary: 243 244 246; /* gray-100 */
+  --color-text-primary: 17 24 39; /* gray-900 */
+  --color-text-secondary: 75 85 99; /* gray-600 */
+  --color-text-muted: 156 163 175; /* gray-400 */
+  --color-border: 229 231 235; /* gray-200 */
+  --color-border-light: 243 244 246; /* gray-100 */
+}
+
+.dark {
+  --color-surface: 17 24 39; /* gray-900 */
+  --color-surface-elevated: 31 41 55; /* gray-800 */
+  --color-surface-secondary: 55 65 81; /* gray-700 */
+  --color-text-primary: 243 244 246; /* gray-100 */
+  --color-text-secondary: 156 163 175; /* gray-400 */
+  --color-text-muted: 107 114 128; /* gray-500 */
+  --color-border: 55 65 81; /* gray-700 */
+  --color-border-light: 31 41 55; /* gray-800 */
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -12,6 +35,20 @@ body {
   font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: rgb(249 250 251); /* gray-50 */
+  color: rgb(17 24 39); /* gray-900 */
+}
+
+/* Dark mode body styles - html.dark is the parent */
+html.dark body {
+  background-color: rgb(17 24 39); /* gray-900 */
+  color: rgb(243 244 246); /* gray-100 */
+}
+
+/* Ensure html element also gets dark background to prevent flash */
+html.dark {
+  background-color: rgb(17 24 39); /* gray-900 */
+  color-scheme: dark;
 }
 
 /* Custom scrollbar */
@@ -25,13 +62,25 @@ body {
   border-radius: 4px;
 }
 
+.dark ::-webkit-scrollbar-track {
+  background: #374151;
+}
+
 ::-webkit-scrollbar-thumb {
   background: #c1c1c1;
   border-radius: 4px;
 }
 
+.dark ::-webkit-scrollbar-thumb {
+  background: #6b7280;
+}
+
 ::-webkit-scrollbar-thumb:hover {
   background: #a1a1a1;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
 
 /* Custom utilities */
@@ -45,11 +94,11 @@ body {
   }
 
   .btn-secondary {
-    @apply bg-gray-100 text-gray-700 hover:bg-gray-200;
+    @apply bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600;
   }
 
   .btn-outline {
-    @apply border-2 border-primary-500 text-primary-600 hover:bg-primary-50;
+    @apply border-2 border-primary-500 text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-900/30;
   }
 
   .btn-danger {
@@ -57,29 +106,29 @@ body {
   }
 
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6 dark:bg-gray-800 dark:border-gray-700;
   }
 
   .input {
-    @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all;
+    @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400;
   }
 
   .label {
-    @apply block text-sm font-medium text-gray-700 mb-1.5;
+    @apply block text-sm font-medium text-gray-700 mb-1.5 dark:text-gray-300;
   }
 
   .page-header {
-    @apply text-3xl font-bold text-gray-900 mb-6;
+    @apply text-3xl font-bold text-gray-900 mb-6 dark:text-gray-100;
   }
 
   .section-header {
-    @apply text-xl font-semibold text-gray-800 mb-4;
+    @apply text-xl font-semibold text-gray-800 mb-4 dark:text-gray-200;
   }
 }
 
 /* Gradient backgrounds */
 .gradient-bg {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #088F8F 0%, #0d9488 100%);
 }
 
 .gradient-bg-light {
@@ -119,19 +168,19 @@ body {
 
 /* Markdown content styling */
 .prose {
-  @apply text-gray-700 leading-relaxed;
+  @apply text-gray-700 leading-relaxed dark:text-gray-300;
 }
 
 .prose h1 {
-  @apply text-2xl font-bold text-gray-900 mt-6 mb-4;
+  @apply text-2xl font-bold text-gray-900 mt-6 mb-4 dark:text-gray-100;
 }
 
 .prose h2 {
-  @apply text-xl font-semibold text-gray-900 mt-5 mb-3;
+  @apply text-xl font-semibold text-gray-900 mt-5 mb-3 dark:text-gray-100;
 }
 
 .prose h3 {
-  @apply text-lg font-medium text-gray-900 mt-4 mb-2;
+  @apply text-lg font-medium text-gray-900 mt-4 mb-2 dark:text-gray-100;
 }
 
 .prose p {
@@ -147,11 +196,11 @@ body {
 }
 
 .prose code {
-  @apply bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono text-primary-600;
+  @apply bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono text-primary-600 dark:bg-gray-700 dark:text-primary-400;
 }
 
 .prose pre {
-  @apply bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto mb-4;
+  @apply bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto mb-4 dark:bg-gray-950;
 }
 
 .prose pre code {
@@ -159,9 +208,9 @@ body {
 }
 
 .prose a {
-  @apply text-primary-600 hover:text-primary-700 underline;
+  @apply text-primary-600 hover:text-primary-700 underline dark:text-primary-400 dark:hover:text-primary-300;
 }
 
 .prose blockquote {
-  @apply border-l-4 border-primary-500 pl-4 italic text-gray-600 my-4;
+  @apply border-l-4 border-primary-500 pl-4 italic text-gray-600 my-4 dark:text-gray-400;
 }

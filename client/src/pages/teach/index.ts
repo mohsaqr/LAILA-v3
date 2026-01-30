@@ -7,3 +7,4 @@ export { CodeLabEditor } from './CodeLabEditor';
 export { AssignmentManager } from './AssignmentManager';
 export { SubmissionReview } from './SubmissionReview';
 export { ChatbotLogs } from './ChatbotLogs';
+export { TeacherGradebook } from './TeacherGradebook';

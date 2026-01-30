@@ -5,9 +5,10 @@ interface CardProps {
   className?: string;
   onClick?: () => void;
   hover?: boolean;
+  style?: React.CSSProperties;
 }
 
-export const Card = ({ children, className = '', onClick, hover = false }: CardProps) => {
+export const Card = ({ children, className = '', onClick, hover = false, style }: CardProps) => {
   const { isDark } = useTheme();
 
   return (
@@ -18,6 +19,7 @@ export const Card = ({ children, className = '', onClick, hover = false }: CardP
       style={{
         backgroundColor: isDark ? '#1f2937' : '#ffffff',
         borderColor: isDark ? '#374151' : '#f3f4f6',
+        ...style,
       }}
       onClick={onClick}
     >

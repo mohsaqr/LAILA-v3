@@ -12,8 +12,9 @@ describe('TutorAgentCard', () => {
     avatarUrl: '/avatars/socratic.svg',
     welcomeMessage: 'Hello! What would you like to explore?',
     personality: 'socratic',
+    temperature: 0.7,
+    systemPrompt: 'You are a Socratic tutor.',
     isActive: true,
-    category: 'tutor',
   };
 
   const mockConversation: TutorConversation = {
@@ -23,6 +24,15 @@ describe('TutorAgentCard', () => {
     lastMessageAt: new Date().toISOString(),
     messageCount: 5,
     createdAt: new Date().toISOString(),
+    chatbot: {
+      id: 1,
+      name: 'socratic-tutor',
+      displayName: 'Socratic Guide',
+      description: 'Guides learning through thoughtful questions',
+      avatarUrl: '/avatars/socratic.svg',
+      welcomeMessage: 'Hello! What would you like to explore?',
+      personality: 'socratic',
+    },
     lastMessage: {
       role: 'assistant',
       content: 'That is a great question! What do you think?',

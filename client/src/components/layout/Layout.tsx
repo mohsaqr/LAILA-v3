@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Navbar } from './Navbar';
+import { DashboardSidebar } from './DashboardSidebar';
 import { SkipLinks } from '../common/SkipLinks';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
@@ -8,8 +9,16 @@ import { Eye } from 'lucide-react';
 import analytics from '../../services/analytics';
 
 export const Layout = () => {
-  const { isViewingAs, viewAsRole, setViewAs, isActualAdmin } = useAuth();
+  const { isViewingAs, viewAsRole, setViewAs, isActualAdmin, isAuthenticated } = useAuth();
   const { isDark } = useTheme();
+  const location = useLocation();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Pages where sidebar should be shown (authenticated main dashboard pages)
+  const sidebarPages = ['/dashboard', '/courses', '/ai-tools', '/ai-tutors', '/settings', '/profile', '/teach'];
+  const showSidebar = isAuthenticated && sidebarPages.some(path =>
+    location.pathname === path || location.pathname.startsWith(path + '/')
+  ) && !location.pathname.startsWith('/admin');
 
   // Sync viewAsRole with analytics service for test mode logging
   useEffect(() => {
@@ -19,6 +28,19 @@ export const Layout = () => {
       analytics.setTestMode(null);
     }
   }, [viewAsRole]);
+
+  // Listen for sidebar collapse state changes
+  useEffect(() => {
+    const handleStorage = () => {
+      const collapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+      setSidebarCollapsed(collapsed);
+    };
+    window.addEventListener('storage', handleStorage);
+    handleStorage();
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  const sidebarWidth = showSidebar ? (sidebarCollapsed ? 64 : 200) : 0;
 
   return (
     <div
@@ -43,7 +65,12 @@ export const Layout = () => {
         </div>
       )}
       <Navbar />
-      <main id="main-content" className="flex-1">
+      {showSidebar && <DashboardSidebar />}
+      <main
+        id="main-content"
+        className="flex-1 transition-all duration-300"
+        style={{ marginLeft: sidebarWidth }}
+      >
         <Outlet />
       </main>
     </div>

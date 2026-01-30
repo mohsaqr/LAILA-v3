@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 import { coursesApi } from '../api/courses';
+import { useTheme } from '../hooks/useTheme';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
@@ -19,6 +20,18 @@ export const ContentView = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as LocationState | null;
+  const { isDark } = useTheme();
+
+  // Theme colors
+  const colors = {
+    bg: isDark ? '#111827' : '#f9fafb',
+    bgCard: isDark ? '#1f2937' : '#ffffff',
+    bgHeader: isDark ? '#374151' : '#f9fafb',
+    textPrimary: isDark ? '#f3f4f6' : '#111827',
+    textSecondary: isDark ? '#9ca3af' : '#6b7280',
+    border: isDark ? '#374151' : '#e5e7eb',
+    borderLight: isDark ? '#374151' : '#f3f4f6',
+  };
 
   // Try to get content from sessionStorage (for new tab opens)
   const [storedContent, setStoredContent] = useState<LocationState | null>(null);
@@ -76,11 +89,11 @@ export const ContentView = () => {
 
   if (!content) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: colors.bg }}>
         <Card>
           <CardBody className="text-center py-8 px-12">
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Content Not Found</h2>
-            <p className="text-gray-600 mb-4">The requested content could not be found.</p>
+            <h2 className="text-xl font-bold mb-2" style={{ color: colors.textPrimary }}>Content Not Found</h2>
+            <p className="mb-4" style={{ color: colors.textSecondary }}>The requested content could not be found.</p>
             <button onClick={handleBack} className="btn btn-primary">
               Go Back
             </button>
@@ -91,16 +104,17 @@ export const ContentView = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ backgroundColor: colors.bg }}>
       {/* Header with Breadcrumb */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <div className="sticky top-0 z-10" style={{ backgroundColor: colors.bgCard, borderBottom: `1px solid ${colors.border}` }}>
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-4">
           <button
             onClick={handleBack}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+            className="p-2 rounded-lg transition-colors flex-shrink-0"
             title="Go back"
+            style={{ color: colors.textSecondary }}
           >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
+            <ArrowLeft className="w-5 h-5" />
           </button>
           <Breadcrumb
             items={[
@@ -115,16 +129,17 @@ export const ContentView = () => {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <Card>
           {title && (
-            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
+            <div className="px-6 py-4" style={{ borderBottom: `1px solid ${colors.borderLight}`, backgroundColor: colors.bgHeader }}>
               <div className="flex items-center gap-2">
                 {contentType === 'ai-generated' && <Sparkles className="w-5 h-5 text-purple-500" />}
-                <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+                <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{title}</h1>
               </div>
             </div>
           )}
           <CardBody className="py-6">
             <div
               className="prose max-w-none"
+              style={{ color: colors.textPrimary }}
               dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }}
             />
           </CardBody>

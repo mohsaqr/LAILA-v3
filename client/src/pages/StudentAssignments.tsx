@@ -9,9 +9,11 @@ import {
   Calendar,
   Award,
   Bot,
+  TrendingUp,
 } from 'lucide-react';
 import { assignmentsApi } from '../api/assignments';
 import { enrollmentsApi } from '../api/enrollments';
+import { useTheme } from '../hooks/useTheme';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { Button } from '../components/common/Button';
@@ -20,6 +22,28 @@ import { Assignment } from '../types';
 export const StudentAssignments = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const parsedCourseId = parseInt(courseId!, 10);
+  const { isDark } = useTheme();
+
+  // Theme colors
+  const colors = {
+    bg: isDark ? '#111827' : '#f9fafb',
+    textPrimary: isDark ? '#f3f4f6' : '#111827',
+    textSecondary: isDark ? '#9ca3af' : '#6b7280',
+    textMuted: isDark ? '#6b7280' : '#9ca3af',
+    // Status badge colors
+    bgGreen: isDark ? 'rgba(34, 197, 94, 0.2)' : '#dcfce7',
+    textGreen: isDark ? '#86efac' : '#15803d',
+    bgBlue: isDark ? 'rgba(59, 130, 246, 0.2)' : '#dbeafe',
+    textBlue: isDark ? '#93c5fd' : '#1d4ed8',
+    bgRed: isDark ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2',
+    textRed: isDark ? '#fca5a5' : '#dc2626',
+    bgYellow: isDark ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7',
+    textYellow: isDark ? '#fcd34d' : '#d97706',
+    bgGray: isDark ? '#374151' : '#f3f4f6',
+    textGray: isDark ? '#9ca3af' : '#6b7280',
+    bgTeal: isDark ? 'rgba(8, 143, 143, 0.2)' : '#f0fdfd',
+    textTeal: isDark ? '#5eecec' : '#088F8F',
+  };
 
   const { data: enrollment, isLoading: enrollmentLoading } = useQuery({
     queryKey: ['enrollment', courseId],
@@ -41,8 +65,8 @@ export const StudentAssignments = () => {
       <div className="min-h-screen flex items-center justify-center">
         <Card>
           <CardBody className="text-center py-8 px-12">
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Not Enrolled</h2>
-            <p className="text-gray-600 mb-4">You need to enroll in this course to view assignments</p>
+            <h2 className="text-xl font-bold mb-2" style={{ color: colors.textPrimary }}>Not Enrolled</h2>
+            <p className="mb-4" style={{ color: colors.textSecondary }}>You need to enroll in this course to view assignments</p>
             <Link to={`/catalog/${courseId}`} className="btn btn-primary">
               View Course
             </Link>
@@ -64,7 +88,7 @@ export const StudentAssignments = () => {
   });
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ minHeight: '100vh' }}>
       {/* Header */}
       <div className="mb-6">
         <Link to={`/learn/${courseId}`}>
@@ -74,23 +98,30 @@ export const StudentAssignments = () => {
         </Link>
       </div>
 
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Assignments</h1>
-        <p className="text-gray-600">{course?.title}</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-3xl font-bold mb-2" style={{ color: colors.textPrimary }}>Assignments</h1>
+          <p style={{ color: colors.textSecondary }}>{course?.title}</p>
+        </div>
+        <Link to={`/courses/${parsedCourseId}/grades`}>
+          <Button variant="secondary" icon={<TrendingUp className="w-4 h-4" />}>
+            My Grades
+          </Button>
+        </Link>
       </div>
 
       {sortedAssignments.length > 0 ? (
         <div className="space-y-4">
           {sortedAssignments.map(assignment => (
-            <AssignmentCard key={assignment.id} assignment={assignment} courseId={parsedCourseId} />
+            <AssignmentCard key={assignment.id} assignment={assignment} courseId={parsedCourseId} colors={colors} />
           ))}
         </div>
       ) : (
         <Card>
           <CardBody className="text-center py-12">
-            <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No assignments yet</h3>
-            <p className="text-gray-500">Check back later for new assignments</p>
+            <FileText className="w-16 h-16 mx-auto mb-4" style={{ color: colors.textMuted }} />
+            <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>No assignments yet</h3>
+            <p style={{ color: colors.textSecondary }}>Check back later for new assignments</p>
           </CardBody>
         </Card>
       )}
@@ -98,7 +129,13 @@ export const StudentAssignments = () => {
   );
 };
 
-const AssignmentCard = ({ assignment, courseId }: { assignment: Assignment; courseId: number }) => {
+interface AssignmentCardProps {
+  assignment: Assignment;
+  courseId: number;
+  colors: Record<string, string>;
+}
+
+const AssignmentCard = ({ assignment, courseId, colors }: AssignmentCardProps) => {
   const { data: mySubmission } = useQuery({
     queryKey: ['mySubmission', assignment.id],
     queryFn: () => assignmentsApi.getMySubmission(assignment.id),
@@ -114,7 +151,10 @@ const AssignmentCard = ({ assignment, courseId }: { assignment: Assignment; cour
   const getStatusBadge = () => {
     if (isGraded) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+        <span
+          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium"
+          style={{ backgroundColor: colors.bgGreen, color: colors.textGreen }}
+        >
           <Award className="w-3 h-3" />
           Graded: {mySubmission?.grade}/{assignment.points}
         </span>
@@ -122,7 +162,10 @@ const AssignmentCard = ({ assignment, courseId }: { assignment: Assignment; cour
     }
     if (isSubmitted) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+        <span
+          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium"
+          style={{ backgroundColor: colors.bgBlue, color: colors.textBlue }}
+        >
           <CheckCircle className="w-3 h-3" />
           Submitted
         </span>
@@ -130,7 +173,10 @@ const AssignmentCard = ({ assignment, courseId }: { assignment: Assignment; cour
     }
     if (isPastDue) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+        <span
+          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium"
+          style={{ backgroundColor: colors.bgRed, color: colors.textRed }}
+        >
           <AlertCircle className="w-3 h-3" />
           Past Due
         </span>
@@ -138,14 +184,20 @@ const AssignmentCard = ({ assignment, courseId }: { assignment: Assignment; cour
     }
     if (mySubmission?.status === 'draft') {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+        <span
+          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium"
+          style={{ backgroundColor: colors.bgYellow, color: colors.textYellow }}
+        >
           <Clock className="w-3 h-3" />
           Draft Saved
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+      <span
+        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium"
+        style={{ backgroundColor: colors.bgGray, color: colors.textGray }}
+      >
         <FileText className="w-3 h-3" />
         Not Started
       </span>
@@ -161,37 +213,47 @@ const AssignmentCard = ({ assignment, courseId }: { assignment: Assignment; cour
     <Link to={assignmentUrl}>
       <Card hover>
         <CardBody className="flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-            isAgentAssignment
-              ? 'bg-violet-100'
-              : isGraded ? 'bg-green-100' : isSubmitted ? 'bg-blue-100' : 'bg-gray-100'
-          }`}>
+          <div
+            className="w-12 h-12 rounded-lg flex items-center justify-center"
+            style={{
+              backgroundColor: isAgentAssignment
+                ? colors.bgTeal
+                : isGraded ? colors.bgGreen : isSubmitted ? colors.bgBlue : colors.bgGray
+            }}
+          >
             {isAgentAssignment ? (
-              <Bot className="w-6 h-6 text-violet-600" />
+              <Bot className="w-6 h-6" style={{ color: colors.textTeal }} />
             ) : (
-              <FileText className={`w-6 h-6 ${
-                isGraded ? 'text-green-600' : isSubmitted ? 'text-blue-600' : 'text-gray-600'
-              }`} />
+              <FileText
+                className="w-6 h-6"
+                style={{ color: isGraded ? colors.textGreen : isSubmitted ? colors.textBlue : colors.textGray }}
+              />
             )}
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-semibold text-gray-900 truncate">{assignment.title}</h3>
+              <h3 className="font-semibold truncate" style={{ color: colors.textPrimary }}>{assignment.title}</h3>
               {isAgentAssignment && (
-                <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded">
+                <span
+                  className="text-xs px-2 py-0.5 rounded"
+                  style={{ backgroundColor: colors.bgTeal, color: colors.textTeal }}
+                >
                   AI Agent
                 </span>
               )}
               {getStatusBadge()}
             </div>
-            <div className="flex items-center gap-4 text-sm text-gray-500">
+            <div className="flex items-center gap-4 text-sm" style={{ color: colors.textSecondary }}>
               <span className="flex items-center gap-1">
                 <Award className="w-4 h-4" />
                 {assignment.points} points
               </span>
               {dueDate && (
-                <span className={`flex items-center gap-1 ${isPastDue && !isSubmitted ? 'text-red-600' : ''}`}>
+                <span
+                  className="flex items-center gap-1"
+                  style={{ color: isPastDue && !isSubmitted ? colors.textRed : colors.textSecondary }}
+                >
                   <Calendar className="w-4 h-4" />
                   Due {dueDate.toLocaleDateString()} at {dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
@@ -203,7 +265,7 @@ const AssignmentCard = ({ assignment, courseId }: { assignment: Assignment; cour
           </div>
 
           <div className="flex-shrink-0">
-            <span className="text-primary-600 font-medium text-sm">
+            <span className="font-medium text-sm text-primary-600">
               {isAgentAssignment
                 ? (isGraded ? 'View Grade' : isSubmitted ? 'View Agent' : 'Build Agent')
                 : (isGraded ? 'View Grade' : isSubmitted ? 'View Submission' : 'View')

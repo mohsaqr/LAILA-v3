@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { BrainCircuit, Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
+import { useTheme } from '../../hooks/useTheme';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 
@@ -14,7 +15,17 @@ export const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { register } = useAuth();
+  const { isDark } = useTheme();
   const navigate = useNavigate();
+
+  // Theme colors
+  const colors = {
+    bgCard: isDark ? '#1f2937' : '#ffffff',
+    textPrimary: isDark ? '#f3f4f6' : '#111827',
+    textSecondary: isDark ? '#9ca3af' : '#6b7280',
+    textMuted: isDark ? '#6b7280' : '#9ca3af',
+    linkColor: isDark ? '#5eecec' : '#088F8F',
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +56,7 @@ export const Register = () => {
   return (
     <div className="min-h-screen gradient-bg flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="rounded-2xl shadow-xl p-8" style={{ backgroundColor: colors.bgCard }}>
           {/* Header */}
           <div className="text-center mb-8">
             <Link to="/" className="inline-flex items-center gap-2 mb-4">
@@ -53,14 +64,14 @@ export const Register = () => {
                 <BrainCircuit className="w-7 h-7 text-white" />
               </div>
             </Link>
-            <h1 className="text-2xl font-bold text-gray-900">Create an account</h1>
-            <p className="text-gray-600 mt-1">Start your AI-powered learning journey</p>
+            <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Create an account</h1>
+            <p className="mt-1" style={{ color: colors.textSecondary }}>Start your AI-powered learning journey</p>
           </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: colors.textMuted }} />
               <Input
                 type="text"
                 placeholder="Full name"
@@ -72,7 +83,7 @@ export const Register = () => {
             </div>
 
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: colors.textMuted }} />
               <Input
                 type="email"
                 placeholder="Email address"
@@ -84,7 +95,7 @@ export const Register = () => {
             </div>
 
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: colors.textMuted }} />
               <Input
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Password"
@@ -96,14 +107,15 @@ export const Register = () => {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
+                style={{ color: colors.textMuted }}
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
 
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: colors.textMuted }} />
               <Input
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Confirm password"
@@ -121,9 +133,9 @@ export const Register = () => {
 
           {/* Footer */}
           <div className="mt-6 text-center">
-            <p className="text-gray-600">
+            <p style={{ color: colors.textSecondary }}>
               Already have an account?{' '}
-              <Link to="/login" className="text-primary-600 hover:text-primary-700 font-medium">
+              <Link to="/login" className="font-medium hover:underline" style={{ color: colors.linkColor }}>
                 Sign in
               </Link>
             </p>

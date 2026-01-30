@@ -355,12 +355,12 @@ export const PromptBlocksManagement = () => {
               </Button>
             </div>
             <div className="flex items-center gap-2">
-              <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+              <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={showInactive}
                   onChange={(e) => setShowInactive(e.target.checked)}
-                  className="rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                  className="rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500"
                 />
                 Show inactive
               </label>
@@ -374,9 +374,9 @@ export const PromptBlocksManagement = () => {
         {displayCategories.length === 0 ? (
           <Card>
             <CardBody className="text-center py-12">
-              <Blocks className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No blocks yet</h3>
-              <p className="text-gray-500 mb-4">
+              <Blocks className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No blocks yet</h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-4">
                 Click "Seed Defaults" to add the default prompt blocks, or create your own.
               </p>
             </CardBody>
@@ -397,25 +397,25 @@ export const PromptBlocksManagement = () => {
                         onClick={() => toggleCategory(category.slug)}
                         className="flex items-center gap-3 text-left flex-1"
                       >
-                        <Icon className="w-5 h-5 text-violet-600" />
+                        <Icon className="w-5 h-5 text-violet-600 dark:text-violet-400" />
                         <div>
-                          <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                          <h3 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                             {category.name}
                             {!category.isActive && (
-                              <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded">
+                              <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded">
                                 Inactive
                               </span>
                             )}
                           </h3>
-                          <p className="text-sm text-gray-500">{category.description}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{category.description}</p>
                         </div>
-                        <span className="text-sm text-gray-400 ml-auto mr-2">
+                        <span className="text-sm text-gray-400 dark:text-gray-500 ml-auto mr-2">
                           {blocks.length} blocks
                         </span>
                         {isExpanded ? (
-                          <ChevronDown className="w-5 h-5 text-gray-400" />
+                          <ChevronDown className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                         ) : (
-                          <ChevronRight className="w-5 h-5 text-gray-400" />
+                          <ChevronRight className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                         )}
                       </button>
                       <Button
@@ -436,14 +436,14 @@ export const PromptBlocksManagement = () => {
                     <CardBody className="pt-0">
                       <div className="space-y-2">
                         {blocks.length === 0 ? (
-                          <p className="text-sm text-gray-500 py-4 text-center">
+                          <p className="text-sm text-gray-500 dark:text-gray-400 py-4 text-center">
                             No blocks in this category.{' '}
                             <button
                               onClick={() => {
                                 setBlockForm({ ...initialBlockForm, category: category.slug });
                                 setShowBlockModal(true);
                               }}
-                              className="text-violet-600 hover:underline"
+                              className="text-violet-600 dark:text-violet-400 hover:underline"
                             >
                               Add one
                             </button>
@@ -454,29 +454,29 @@ export const PromptBlocksManagement = () => {
                               key={block.id}
                               className={`flex items-start gap-3 p-3 rounded-lg border ${
                                 block.isActive
-                                  ? 'bg-white border-gray-200'
-                                  : 'bg-gray-50 border-gray-100 opacity-60'
+                                  ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                                  : 'bg-gray-50 dark:bg-gray-900/50 border-gray-100 dark:border-gray-700 opacity-60'
                               }`}
                             >
-                              <GripVertical className="w-4 h-4 text-gray-300 mt-1 cursor-move flex-shrink-0" />
+                              <GripVertical className="w-4 h-4 text-gray-300 dark:text-gray-600 mt-1 cursor-move flex-shrink-0" />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <span className="font-medium text-gray-900">
+                                  <span className="font-medium text-gray-900 dark:text-gray-100">
                                     {block.label}
                                   </span>
                                   {block.popular && (
                                     <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
                                   )}
                                   {!block.isActive && (
-                                    <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded">
+                                    <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded">
                                       Inactive
                                     </span>
                                   )}
                                 </div>
-                                <p className="text-sm text-gray-500 mt-0.5 line-clamp-1">
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">
                                   {block.description}
                                 </p>
-                                <p className="text-xs text-gray-400 mt-1 font-mono line-clamp-1">
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 font-mono line-clamp-1">
                                   {block.promptText}
                                 </p>
                               </div>
@@ -488,7 +488,7 @@ export const PromptBlocksManagement = () => {
                                       popular: !block.popular,
                                     })
                                   }
-                                  className="p-1.5 text-gray-400 hover:text-amber-500 rounded"
+                                  className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-amber-500 dark:hover:text-amber-400 rounded"
                                   title={block.popular ? 'Remove from popular' : 'Mark as popular'}
                                 >
                                   {block.popular ? (
@@ -504,7 +504,7 @@ export const PromptBlocksManagement = () => {
                                       isActive: !block.isActive,
                                     })
                                   }
-                                  className="p-1.5 text-gray-400 hover:text-gray-600 rounded"
+                                  className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 rounded"
                                   title={block.isActive ? 'Deactivate' : 'Activate'}
                                 >
                                   {block.isActive ? (
@@ -515,7 +515,7 @@ export const PromptBlocksManagement = () => {
                                 </button>
                                 <button
                                   onClick={() => openBlockModal(block)}
-                                  className="p-1.5 text-gray-400 hover:text-violet-600 rounded"
+                                  className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-violet-600 dark:hover:text-violet-400 rounded"
                                   title="Edit"
                                 >
                                   <Edit2 className="w-4 h-4" />
@@ -526,7 +526,7 @@ export const PromptBlocksManagement = () => {
                                       deleteBlockMutation.mutate(block.id);
                                     }
                                   }}
-                                  className="p-1.5 text-gray-400 hover:text-red-600 rounded"
+                                  className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 rounded"
                                   title="Delete"
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -556,13 +556,13 @@ export const PromptBlocksManagement = () => {
       >
         <form onSubmit={handleBlockSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Category
             </label>
             <select
               value={blockForm.category}
               onChange={(e) => setBlockForm({ ...blockForm, category: e.target.value })}
-              className="w-full rounded-lg border-gray-300 shadow-sm focus:border-violet-500 focus:ring-violet-500"
+              className="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-violet-500 focus:ring-violet-500"
               required
             >
               {categories.map((cat) => (
@@ -574,7 +574,7 @@ export const PromptBlocksManagement = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Label
             </label>
             <Input
@@ -586,7 +586,7 @@ export const PromptBlocksManagement = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Prompt Text
             </label>
             <TextArea
@@ -599,7 +599,7 @@ export const PromptBlocksManagement = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Description
             </label>
             <Input
@@ -615,9 +615,9 @@ export const PromptBlocksManagement = () => {
               id="popular"
               checked={blockForm.popular}
               onChange={(e) => setBlockForm({ ...blockForm, popular: e.target.checked })}
-              className="rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+              className="rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500"
             />
-            <label htmlFor="popular" className="text-sm text-gray-700">
+            <label htmlFor="popular" className="text-sm text-gray-700 dark:text-gray-300">
               Show in Popular section
             </label>
           </div>
@@ -657,7 +657,7 @@ export const PromptBlocksManagement = () => {
         <form onSubmit={handleCategorySubmit} className="space-y-4">
           {!editingCategory && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Slug
               </label>
               <Input
@@ -671,14 +671,14 @@ export const PromptBlocksManagement = () => {
                 placeholder="e.g., custom_category"
                 required
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Lowercase letters, numbers, and underscores only
               </p>
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Name
             </label>
             <Input
@@ -690,7 +690,7 @@ export const PromptBlocksManagement = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Description
             </label>
             <Input
@@ -701,13 +701,13 @@ export const PromptBlocksManagement = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Icon
             </label>
             <select
               value={categoryForm.icon}
               onChange={(e) => setCategoryForm({ ...categoryForm, icon: e.target.value })}
-              className="w-full rounded-lg border-gray-300 shadow-sm focus:border-violet-500 focus:ring-violet-500"
+              className="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-violet-500 focus:ring-violet-500"
             >
               <option value="User">User (Persona)</option>
               <option value="MessageCircle">MessageCircle (Tone)</option>

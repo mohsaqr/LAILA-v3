@@ -418,22 +418,47 @@ export const CoursePlayer = () => {
 
   return (
     <div
-      className="min-h-screen bg-gray-100 flex"
+      className="min-h-screen bg-gray-100 dark:bg-gray-900 flex"
       data-analytics-context={JSON.stringify(analyticsContext)}
       data-course-id={course?.id}
       data-module-id={currentModule?.id}
       data-lecture-id={currentLectureId || undefined}
     >
+      {/* Mobile sidebar backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Sidebar - Course Content Menu */}
-      <div className={`${sidebarOpen ? 'w-80' : 'w-0'} bg-white border-r border-gray-200 transition-all overflow-hidden flex-shrink-0`}>
-        <div className="p-4 border-b border-gray-200">
-          <Link to={`/catalog/${courseId}`} className="text-sm text-primary-600 hover:underline flex items-center gap-1">
-            <ChevronLeft className="w-4 h-4" /> Course Details
-          </Link>
-          <h2 className="font-semibold text-gray-900 mt-2 truncate">{course?.title}</h2>
+      <div
+        className={`
+          fixed inset-y-0 left-0 z-40 w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-transform duration-300 ease-in-out flex-shrink-0
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          lg:relative lg:translate-x-0 ${!sidebarOpen && 'lg:w-0 lg:overflow-hidden'}
+        `}
+      >
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <Link to={`/catalog/${courseId}`} className="text-sm text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1">
+              <ChevronLeft className="w-4 h-4" /> Course Details
+            </Link>
+            {/* Close button - mobile only */}
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-300 dark:hover:bg-gray-700"
+              aria-label="Close sidebar"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <h2 className="font-semibold text-gray-900 dark:text-gray-100 mt-2 truncate">{course?.title}</h2>
           <Link
             to={`/courses/${courseId}/assignments`}
-            className="mt-3 flex items-center gap-2 px-3 py-2 text-sm font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors"
+            className="mt-3 flex items-center gap-2 px-3 py-2 text-sm font-medium text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/30 hover:bg-primary-100 dark:hover:bg-primary-900/50 rounded-lg transition-colors"
           >
             <ClipboardList className="w-4 h-4" />
             View Assignments
@@ -442,19 +467,22 @@ export const CoursePlayer = () => {
 
         <div className="overflow-y-auto h-[calc(100vh-140px)]">
           {course?.modules?.map((module) => (
-            <div key={module.id} className="border-b border-gray-100">
-              <div className="px-4 py-3 bg-gray-50 flex items-center gap-2">
-                <FolderOpen className="w-4 h-4 text-gray-500" />
-                <h3 className="font-medium text-sm text-gray-900">{module.title}</h3>
+            <div key={module.id} className="border-b border-gray-100 dark:border-gray-700">
+              <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 flex items-center gap-2">
+                <FolderOpen className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                <h3 className="font-medium text-sm text-gray-900 dark:text-gray-100">{module.title}</h3>
               </div>
               <div>
                 {/* Lectures */}
                 {module.lectures?.map(lec => (
                   <button
                     key={lec.id}
-                    onClick={() => setCurrentLectureId(lec.id)}
-                    className={`w-full px-4 py-2.5 flex items-center gap-3 text-left hover:bg-gray-50 ${
-                      currentLectureId === lec.id ? 'bg-primary-50 border-r-2 border-primary-500' : ''
+                    onClick={() => {
+                      setCurrentLectureId(lec.id);
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full px-4 py-2.5 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                      currentLectureId === lec.id ? 'bg-primary-50 dark:bg-primary-900/30 border-r-2 border-primary-500' : ''
                     }`}
                     data-track="sidebar-lecture-select"
                     data-track-category="navigation"
@@ -462,8 +490,8 @@ export const CoursePlayer = () => {
                     data-lecture-id={lec.id}
                     data-module-id={module.id}
                   >
-                    <BookOpen className={`w-4 h-4 flex-shrink-0 ${currentLectureId === lec.id ? 'text-primary-500' : 'text-gray-400'}`} />
-                    <span className={`text-sm ${currentLectureId === lec.id ? 'text-primary-600 font-medium' : 'text-gray-700'}`}>
+                    <BookOpen className={`w-4 h-4 flex-shrink-0 ${currentLectureId === lec.id ? 'text-primary-500 dark:text-primary-400' : 'text-gray-400'}`} />
+                    <span className={`text-sm ${currentLectureId === lec.id ? 'text-primary-600 dark:text-primary-400 font-medium' : 'text-gray-700 dark:text-gray-300'}`}>
                       {lec.title}
                     </span>
                     {isLectureCompleted(lec.id) && (
@@ -477,18 +505,19 @@ export const CoursePlayer = () => {
                   <Link
                     key={`codelab-${lab.id}`}
                     to={`/courses/${courseId}/code-labs/${lab.id}`}
-                    className="w-full px-4 py-2.5 flex items-center gap-3 text-left hover:bg-emerald-50 transition-colors"
+                    className="w-full px-4 py-2.5 flex items-center gap-3 text-left hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
                     data-track="sidebar-codelab-select"
                     data-track-category="navigation"
                     data-track-label={lab.title}
                     data-codelab-id={lab.id}
                     data-module-id={module.id}
+                    onClick={() => setSidebarOpen(false)}
                   >
                     <FlaskConical className="w-4 h-4 flex-shrink-0 text-emerald-500" />
-                    <span className="text-sm text-gray-700 hover:text-emerald-600">
+                    <span className="text-sm text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">
                       {lab.title}
                     </span>
-                    <span className="ml-auto text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">
+                    <span className="ml-auto text-xs bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded">
                       Lab
                     </span>
                   </Link>
@@ -589,16 +618,18 @@ export const CoursePlayer = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Top Bar with Breadcrumb */}
-        <div className="bg-white border-b border-gray-200 px-4 py-3">
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 hover:bg-gray-100 rounded-lg flex-shrink-0"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg flex-shrink-0 text-gray-600 dark:text-gray-300"
               title={sidebarOpen ? 'Hide menu' : 'Show menu'}
+              aria-label={sidebarOpen ? 'Hide course menu' : 'Show course menu'}
             >
-              {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {sidebarOpen ? <X className="w-5 h-5 hidden lg:block" /> : <Menu className="w-5 h-5" />}
+              <Menu className="w-5 h-5 lg:hidden" />
             </button>
             <Breadcrumb
               items={[
@@ -617,7 +648,7 @@ export const CoursePlayer = () => {
             <Loading text="Loading lesson..." />
           ) : lecture ? (
             <div className="max-w-4xl mx-auto">
-              <h1 className="text-2xl font-bold text-gray-900 mb-6">{lecture.title}</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">{lecture.title}</h1>
 
               {/* Video */}
               {lecture.videoUrl && (
@@ -648,14 +679,14 @@ export const CoursePlayer = () => {
                 >
                   <CardBody>
                     <div className="flex items-start gap-4">
-                      <div className="flex-shrink-0 p-3 rounded-lg bg-blue-100">
-                        <FileText className="w-6 h-6 text-blue-600" />
+                      <div className="flex-shrink-0 p-3 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                        <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-gray-900 mb-1">
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
                           {lecture.title || 'Lecture Content'}
                         </h3>
-                        <p className="text-gray-600 text-sm line-clamp-3 mb-3">
+                        <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-3 mb-3">
                           {getPreviewText(lecture.content, 250)}
                         </p>
                         <button

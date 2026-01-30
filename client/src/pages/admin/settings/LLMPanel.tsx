@@ -263,7 +263,7 @@ export const LLMPanel = () => {
     switch (status) {
       case 'healthy': return <Check className="w-4 h-4 text-green-500" />;
       case 'unhealthy': return <X className="w-4 h-4 text-red-500" />;
-      default: return <AlertCircle className="w-4 h-4 text-gray-400" />;
+      default: return <AlertCircle className="w-4 h-4 text-gray-400 dark:text-gray-500" />;
     }
   };
 
@@ -276,8 +276,8 @@ export const LLMPanel = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">LLM Providers</h2>
-          <p className="text-sm text-gray-500">{providers?.length || 0} configured providers</p>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">LLM Providers</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{providers?.length || 0} configured providers</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => seedMutation.mutate()} loading={seedMutation.isPending}>
@@ -292,10 +292,10 @@ export const LLMPanel = () => {
       {/* Providers List */}
       <div className="space-y-3">
         {providers?.length === 0 ? (
-          <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-            <Bot className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-            <h3 className="text-sm font-medium text-gray-900 mb-1">No providers configured</h3>
-            <p className="text-sm text-gray-500 mb-4">Add an LLM provider or seed the defaults to get started.</p>
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-8 text-center">
+            <Bot className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">No providers configured</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Add an LLM provider or seed the defaults to get started.</p>
             <div className="flex gap-2 justify-center">
               <Button variant="outline" size="sm" onClick={() => seedMutation.mutate()}>Seed Defaults</Button>
               <Button size="sm" onClick={() => setShowAddModal(true)}>Add Provider</Button>
@@ -303,91 +303,91 @@ export const LLMPanel = () => {
           </div>
         ) : (
           providers?.map((provider) => (
-            <div key={provider.id} className={`bg-white border border-gray-200 rounded-lg overflow-hidden ${!provider.isEnabled ? 'opacity-60' : ''}`}>
+            <div key={provider.id} className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden ${!provider.isEnabled ? 'opacity-60' : ''}`}>
               {/* Provider Header */}
               <div
-                className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
+                className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50"
                 onClick={() => setExpandedProvider(expandedProvider === provider.id ? null : provider.id)}
               >
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${provider.providerType === 'local' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
+                  <div className={`p-2 rounded-lg ${provider.providerType === 'local' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'}`}>
                     {getProviderIcon(provider.providerType)}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-medium text-gray-900">{provider.displayName}</h3>
+                      <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">{provider.displayName}</h3>
                       {provider.isDefault && (
-                        <span className="px-1.5 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded flex items-center gap-1">
+                        <span className="px-1.5 py-0.5 text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded flex items-center gap-1">
                           <Star className="w-3 h-3" /> Default
                         </span>
                       )}
                       {!provider.isEnabled && (
-                        <span className="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-500 rounded">Disabled</span>
+                        <span className="px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded">Disabled</span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500">{provider.defaultModel || 'No default model'}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{provider.defaultModel || 'No default model'}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
                     {getHealthIcon(provider.healthStatus)}
                     <span>{provider.totalRequests} req</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button onClick={(e) => { e.stopPropagation(); testMutation.mutate(provider.id); }} className="p-1.5 hover:bg-gray-100 rounded" title="Test">
-                      <Play className="w-4 h-4 text-gray-400" />
+                    <button onClick={(e) => { e.stopPropagation(); testMutation.mutate(provider.id); }} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Test">
+                      <Play className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); toggleMutation.mutate(provider.id); }} className="p-1.5 hover:bg-gray-100 rounded" title={provider.isEnabled ? 'Disable' : 'Enable'}>
-                      {provider.isEnabled ? <Power className="w-4 h-4 text-green-500" /> : <PowerOff className="w-4 h-4 text-gray-400" />}
+                    <button onClick={(e) => { e.stopPropagation(); toggleMutation.mutate(provider.id); }} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title={provider.isEnabled ? 'Disable' : 'Enable'}>
+                      {provider.isEnabled ? <Power className="w-4 h-4 text-green-500" /> : <PowerOff className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); if (!provider.isDefault) setDefaultMutation.mutate(provider.id); }} className="p-1.5 hover:bg-gray-100 rounded" title={provider.isDefault ? 'Default' : 'Set as default'} disabled={provider.isDefault}>
-                      {provider.isDefault ? <Star className="w-4 h-4 text-yellow-500" /> : <StarOff className="w-4 h-4 text-gray-400" />}
+                    <button onClick={(e) => { e.stopPropagation(); if (!provider.isDefault) setDefaultMutation.mutate(provider.id); }} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title={provider.isDefault ? 'Default' : 'Set as default'} disabled={provider.isDefault}>
+                      {provider.isDefault ? <Star className="w-4 h-4 text-yellow-500" /> : <StarOff className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
                     </button>
-                    {expandedProvider === provider.id ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                    {expandedProvider === provider.id ? <ChevronUp className="w-4 h-4 text-gray-400 dark:text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
                   </div>
                 </div>
               </div>
 
               {/* Expanded Details */}
               {expandedProvider === provider.id && (
-                <div className="border-t border-gray-100 p-4 bg-gray-50">
+                <div className="border-t border-gray-100 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900/50">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     <div>
-                      <h4 className="text-xs font-medium text-gray-500 uppercase mb-2">Connection</h4>
+                      <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2">Connection</h4>
                       <dl className="space-y-1">
-                        <div className="flex justify-between"><dt className="text-gray-500">URL</dt><dd className="text-gray-900 font-mono text-xs truncate max-w-[150px]">{provider.baseUrl || '-'}</dd></div>
-                        <div className="flex justify-between"><dt className="text-gray-500">API Key</dt><dd className="text-gray-900">{provider.apiKey ? '••••••' : 'Not set'}</dd></div>
+                        <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">URL</dt><dd className="text-gray-900 dark:text-gray-100 font-mono text-xs truncate max-w-[150px]">{provider.baseUrl || '-'}</dd></div>
+                        <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">API Key</dt><dd className="text-gray-900 dark:text-gray-100">{provider.apiKey ? '••••••' : 'Not set'}</dd></div>
                       </dl>
                     </div>
                     <div>
-                      <h4 className="text-xs font-medium text-gray-500 uppercase mb-2">Defaults</h4>
+                      <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2">Defaults</h4>
                       <dl className="space-y-1">
-                        <div className="flex justify-between"><dt className="text-gray-500">Temperature</dt><dd className="text-gray-900">{provider.defaultTemperature}</dd></div>
-                        <div className="flex justify-between"><dt className="text-gray-500">Max Tokens</dt><dd className="text-gray-900">{provider.defaultMaxTokens}</dd></div>
+                        <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">Temperature</dt><dd className="text-gray-900 dark:text-gray-100">{provider.defaultTemperature}</dd></div>
+                        <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">Max Tokens</dt><dd className="text-gray-900 dark:text-gray-100">{provider.defaultMaxTokens}</dd></div>
                       </dl>
                     </div>
                     <div>
-                      <h4 className="text-xs font-medium text-gray-500 uppercase mb-2">Capabilities</h4>
+                      <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2">Capabilities</h4>
                       <div className="flex flex-wrap gap-1">
-                        {provider.supportsStreaming && <span className="px-1.5 py-0.5 text-xs bg-green-100 text-green-700 rounded">Streaming</span>}
-                        {provider.supportsVision && <span className="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-700 rounded">Vision</span>}
-                        {provider.supportsFunctionCalling && <span className="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded">Functions</span>}
+                        {provider.supportsStreaming && <span className="px-1.5 py-0.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded">Streaming</span>}
+                        {provider.supportsVision && <span className="px-1.5 py-0.5 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded">Vision</span>}
+                        {provider.supportsFunctionCalling && <span className="px-1.5 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">Functions</span>}
                       </div>
                     </div>
                   </div>
 
                   {/* Models */}
                   {provider.models && provider.models.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-xs font-medium text-gray-500 uppercase">Models</h4>
-                        <button onClick={() => seedModelsMutation.mutate(provider.id)} className="text-xs text-gray-500 hover:text-gray-700">
+                        <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Models</h4>
+                        <button onClick={() => seedModelsMutation.mutate(provider.id)} className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
                           Seed Models
                         </button>
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {provider.models.map((model) => (
-                          <span key={model.id} className={`px-2 py-0.5 text-xs rounded ${model.isDefault ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700'}`}>
+                          <span key={model.id} className={`px-2 py-0.5 text-xs rounded ${model.isDefault ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
                             {model.name}
                           </span>
                         ))}
@@ -396,14 +396,14 @@ export const LLMPanel = () => {
                   )}
 
                   {/* Actions */}
-                  <div className="mt-4 pt-4 border-t border-gray-200 flex gap-2">
+                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => handleEdit(provider)}>
                       <Settings className="w-3 h-3 mr-1" /> Edit
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => seedModelsMutation.mutate(provider.id)} loading={seedModelsMutation.isPending}>
                       <RefreshCw className="w-3 h-3 mr-1" /> Seed Models
                     </Button>
-                    <Button variant="outline" size="sm" className="text-red-600 hover:bg-red-50" onClick={() => { if (confirm('Delete this provider?')) deleteMutation.mutate(provider.id); }}>
+                    <Button variant="outline" size="sm" className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30" onClick={() => { if (confirm('Delete this provider?')) deleteMutation.mutate(provider.id); }}>
                       <Trash2 className="w-3 h-3 mr-1" /> Delete
                     </Button>
                   </div>
@@ -423,16 +423,16 @@ export const LLMPanel = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           {!editingProvider && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Provider Type</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Provider Type</label>
               <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
                 {PROVIDER_OPTIONS.map((option) => (
                   <button
                     key={option.value}
                     type="button"
                     onClick={() => handleProviderSelect(option.value)}
-                    className={`p-2 text-left border rounded-lg text-sm ${formData.name === option.value ? 'border-gray-900 bg-gray-50' : 'border-gray-200 hover:border-gray-300'}`}
+                    className={`p-2 text-left border rounded-lg text-sm ${formData.name === option.value ? 'border-gray-900 dark:border-gray-100 bg-gray-50 dark:bg-gray-700' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'}`}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
                       {getProviderIcon(option.type)}
                       <span className="font-medium">{option.label}</span>
                     </div>
@@ -450,16 +450,16 @@ export const LLMPanel = () => {
           <Input label="Base URL" value={formData.baseUrl} onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })} placeholder="https://api.openai.com/v1" />
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API Key</label>
             <div className="relative">
               <input
                 type={showApiKey ? 'text' : 'password'}
                 value={formData.apiKey}
                 onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
                 placeholder={editingProvider ? 'Leave empty to keep existing' : 'sk-...'}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 pr-10"
+                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 pr-10"
               />
-              <button type="button" onClick={() => setShowApiKey(!showApiKey)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
+              <button type="button" onClick={() => setShowApiKey(!showApiKey)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500">
                 {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
@@ -467,23 +467,23 @@ export const LLMPanel = () => {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Temperature</label>
-              <input type="number" step="0.1" min="0" max="2" value={formData.defaultTemperature} onChange={(e) => setFormData({ ...formData, defaultTemperature: parseFloat(e.target.value) || 0.7 })} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900" />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
+              <input type="number" step="0.1" min="0" max="2" value={formData.defaultTemperature} onChange={(e) => setFormData({ ...formData, defaultTemperature: parseFloat(e.target.value) || 0.7 })} className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Max Tokens</label>
-              <input type="number" min="1" value={formData.defaultMaxTokens} onChange={(e) => setFormData({ ...formData, defaultMaxTokens: parseInt(e.target.value) || 2048 })} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900" />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max Tokens</label>
+              <input type="number" min="1" value={formData.defaultMaxTokens} onChange={(e) => setFormData({ ...formData, defaultMaxTokens: parseInt(e.target.value) || 2048 })} className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100" />
             </div>
           </div>
 
           {(formData.name === 'ollama' || formData.name === 'lmstudio') && (
-            <label className="flex items-center gap-2 p-2 bg-orange-50 rounded-lg text-sm">
-              <input type="checkbox" checked={formData.skipTlsVerify} onChange={(e) => setFormData({ ...formData, skipTlsVerify: e.target.checked })} className="rounded border-gray-300" />
+            <label className="flex items-center gap-2 p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg text-sm text-gray-900 dark:text-gray-100">
+              <input type="checkbox" checked={formData.skipTlsVerify} onChange={(e) => setFormData({ ...formData, skipTlsVerify: e.target.checked })} className="rounded border-gray-300 dark:border-gray-600" />
               Skip TLS verification (for local providers)
             </label>
           )}
 
-          <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
+          <div className="flex justify-end gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
             <Button type="button" variant="outline" onClick={() => { setShowAddModal(false); setEditingProvider(null); setFormData(initialFormData); }}>Cancel</Button>
             <Button type="submit" loading={createMutation.isPending || updateMutation.isPending} disabled={!formData.name}>
               {editingProvider ? 'Update' : 'Create'}

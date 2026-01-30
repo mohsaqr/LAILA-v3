@@ -28,6 +28,23 @@ export const Navbar = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isViewAsMenuOpen, setIsViewAsMenuOpen] = useState(false);
 
+  const colors = {
+    bg: isDark ? '#1f2937' : '#ffffff',
+    border: isDark ? '#374151' : '#f3f4f6',
+    textPrimary: isDark ? '#f3f4f6' : '#111827',
+    textSecondary: isDark ? '#d1d5db' : '#4b5563',
+    textMuted: isDark ? '#9ca3af' : '#6b7280',
+    hover: isDark ? '#374151' : '#f9fafb',
+    activeText: isDark ? '#5eecec' : '#088F8F',
+    activeBg: isDark ? 'rgba(139, 92, 246, 0.2)' : '#f5f3ff',
+    dropdownBg: isDark ? '#1f2937' : '#ffffff',
+    dropdownBorder: isDark ? '#374151' : '#f3f4f6',
+    dropdownHover: isDark ? '#374151' : '#f9fafb',
+    viewAsActiveBg: isDark ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7',
+    viewAsActiveText: isDark ? '#fbbf24' : '#b45309',
+    viewAsActiveBorder: isDark ? '#92400e' : '#fcd34d',
+  };
+
   // View As options depend on actual user role
   const viewAsOptions: { role: ViewAsRole; label: string; description: string }[] = isActualAdmin
     ? [
@@ -77,15 +94,16 @@ export const Navbar = () => {
           <div className="hidden md:flex items-center gap-1">
             {navItems.map(item => {
                 const Icon = item.icon;
+                const active = isActive(item.path);
                 return (
                   <Link
                     key={item.path}
                     to={item.path}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isActive(item.path)
-                        ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-gray-100'
-                    }`}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                    style={{
+                      backgroundColor: active ? colors.activeBg : 'transparent',
+                      color: active ? colors.activeText : colors.textSecondary,
+                    }}
                   >
                     <Icon className="w-4 h-4" />
                     {item.label}
@@ -104,11 +122,12 @@ export const Navbar = () => {
               <div className="relative">
                 <button
                   onClick={() => setIsViewAsMenuOpen(!isViewAsMenuOpen)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                    isViewingAs
-                      ? 'bg-amber-100 text-amber-700 border border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700'
-                      : 'hover:bg-gray-50 text-gray-600 dark:hover:bg-gray-700 dark:text-gray-300'
-                  }`}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+                  style={{
+                    backgroundColor: isViewingAs ? colors.viewAsActiveBg : 'transparent',
+                    color: isViewingAs ? colors.viewAsActiveText : colors.textSecondary,
+                    border: isViewingAs ? `1px solid ${colors.viewAsActiveBorder}` : '1px solid transparent',
+                  }}
                 >
                   {isViewingAs ? (
                     <Eye className="w-4 h-4" />
@@ -124,36 +143,46 @@ export const Navbar = () => {
                 </button>
 
                 {isViewAsMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-100 dark:border-gray-700 py-1 z-50">
-                    <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700">
-                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Test Role Views</p>
+                  <div
+                    className="absolute right-0 mt-2 w-56 rounded-lg shadow-lg py-1 z-50"
+                    style={{
+                      backgroundColor: colors.dropdownBg,
+                      border: `1px solid ${colors.dropdownBorder}`,
+                    }}
+                  >
+                    <div className="px-4 py-2" style={{ borderBottom: `1px solid ${colors.dropdownBorder}` }}>
+                      <p className="text-xs font-medium uppercase" style={{ color: colors.textMuted }}>Test Role Views</p>
                     </div>
-                    {viewAsOptions.map((option) => (
-                      <button
-                        key={option.role || 'admin'}
-                        onClick={() => {
-                          setViewAs(option.role);
-                          setIsViewAsMenuOpen(false);
-                        }}
-                        className={`flex flex-col items-start w-full px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                          (option.role === null && !viewAsRole) || option.role === viewAsRole
-                            ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
-                            : 'text-gray-700 dark:text-gray-300'
-                        }`}
-                      >
-                        <span className="font-medium">{option.label}</span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">{option.description}</span>
-                      </button>
-                    ))}
+                    {viewAsOptions.map((option) => {
+                      const isSelected = (option.role === null && !viewAsRole) || option.role === viewAsRole;
+                      return (
+                        <button
+                          key={option.role || 'admin'}
+                          onClick={() => {
+                            setViewAs(option.role);
+                            setIsViewAsMenuOpen(false);
+                          }}
+                          className="flex flex-col items-start w-full px-4 py-2 text-sm"
+                          style={{
+                            backgroundColor: isSelected ? colors.activeBg : 'transparent',
+                            color: isSelected ? colors.activeText : colors.textSecondary,
+                          }}
+                        >
+                          <span className="font-medium">{option.label}</span>
+                          <span className="text-xs" style={{ color: colors.textMuted }}>{option.description}</span>
+                        </button>
+                      );
+                    })}
                     {isViewingAs && (
                       <>
-                        <hr className="my-1 border-gray-100 dark:border-gray-700" />
+                        <hr style={{ borderColor: colors.dropdownBorder }} className="my-1" />
                         <button
                           onClick={() => {
                             setViewAs(null);
                             setIsViewAsMenuOpen(false);
                           }}
-                          className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                          className="flex items-center gap-2 w-full px-4 py-2 text-sm"
+                          style={{ color: isDark ? '#f87171' : '#dc2626' }}
                         >
                           <EyeOff className="w-4 h-4" />
                           Exit Test Mode
@@ -169,24 +198,32 @@ export const Navbar = () => {
               <div className="relative">
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+                  style={{ backgroundColor: 'transparent' }}
                 >
                   <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center">
                     <span className="text-white text-sm font-medium">
                       {user?.fullname?.charAt(0).toUpperCase()}
                     </span>
                   </div>
-                  <span className="hidden sm:block text-sm font-medium text-gray-700 dark:text-gray-200">
+                  <span className="hidden sm:block text-sm font-medium" style={{ color: colors.textSecondary }}>
                     {user?.fullname}
                   </span>
-                  <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                  <ChevronDown className="w-4 h-4" style={{ color: colors.textMuted }} />
                 </button>
 
                 {isUserMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-100 dark:border-gray-700 py-1">
+                  <div
+                    className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg py-1"
+                    style={{
+                      backgroundColor: colors.dropdownBg,
+                      border: `1px solid ${colors.dropdownBorder}`,
+                    }}
+                  >
                     <Link
                       to="/settings"
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                      className="flex items-center gap-2 px-4 py-2 text-sm"
+                      style={{ color: colors.textSecondary }}
                       onClick={() => setIsUserMenuOpen(false)}
                     >
                       <Settings className="w-4 h-4" />
@@ -194,19 +231,21 @@ export const Navbar = () => {
                     </Link>
                     <Link
                       to="/profile"
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                      className="flex items-center gap-2 px-4 py-2 text-sm"
+                      style={{ color: colors.textSecondary }}
                       onClick={() => setIsUserMenuOpen(false)}
                     >
                       <User className="w-4 h-4" />
                       Profile
                     </Link>
-                    <hr className="my-1 border-gray-100 dark:border-gray-700" />
+                    <hr style={{ borderColor: colors.dropdownBorder }} className="my-1" />
                     <button
                       onClick={() => {
                         setIsUserMenuOpen(false);
                         logout();
                       }}
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 w-full"
+                      className="flex items-center gap-2 px-4 py-2 text-sm w-full"
+                      style={{ color: isDark ? '#f87171' : '#dc2626' }}
                     >
                       <LogOut className="w-4 h-4" />
                       Sign Out
@@ -218,7 +257,8 @@ export const Navbar = () => {
               <div className="flex items-center gap-2">
                 <Link
                   to="/login"
-                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
+                  className="px-4 py-2 text-sm font-medium"
+                  style={{ color: colors.textSecondary }}
                 >
                   Sign In
                 </Link>
@@ -231,12 +271,12 @@ export const Navbar = () => {
             {/* Mobile menu button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+              className="md:hidden p-2 rounded-lg"
             >
               {isMobileMenuOpen ? (
-                <X className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+                <X className="w-6 h-6" style={{ color: colors.textSecondary }} />
               ) : (
-                <Menu className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+                <Menu className="w-6 h-6" style={{ color: colors.textSecondary }} />
               )}
             </button>
           </div>
@@ -244,18 +284,19 @@ export const Navbar = () => {
 
         {/* Mobile Navigation */}
         {isMobileMenuOpen && (
-          <div className="md:hidden py-4 border-t border-gray-100 dark:border-gray-700">
+          <div className="md:hidden py-4" style={{ borderTop: `1px solid ${colors.border}` }}>
             {navItems.map(item => {
                 const Icon = item.icon;
+                const active = isActive(item.path);
                 return (
                   <Link
                     key={item.path}
                     to={item.path}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg ${
-                      isActive(item.path)
-                        ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400'
-                        : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700'
-                    }`}
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg"
+                    style={{
+                      backgroundColor: active ? colors.activeBg : 'transparent',
+                      color: active ? colors.activeText : colors.textSecondary,
+                    }}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     <Icon className="w-5 h-5" />

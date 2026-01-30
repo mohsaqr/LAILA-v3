@@ -1,4 +1,5 @@
 import { Bot, User, Info, Users } from 'lucide-react';
+import { useTheme } from '../../hooks/useTheme';
 import type { TutorMessage as TutorMessageType, RoutingInfo, CollaborativeInfo } from '../../types/tutor';
 
 interface TutorMessageProps {
@@ -16,7 +17,22 @@ export const TutorMessage = ({
   collaborativeInfo,
   showMetadata = false,
 }: TutorMessageProps) => {
+  const { isDark } = useTheme();
   const isUser = message.role === 'user';
+
+  // Theme colors
+  const colors = {
+    textPrimary: isDark ? '#f3f4f6' : '#111827',
+    textSecondary: isDark ? '#9ca3af' : '#6b7280',
+    textMuted: isDark ? '#6b7280' : '#9ca3af',
+    avatarBg: isDark ? '#374151' : '#e5e7eb',
+    avatarIcon: isDark ? '#9ca3af' : '#6b7280',
+    messageBubble: isDark ? '#374151' : '#f3f4f6',
+    contributionBg: isDark ? '#1f2937' : '#f9fafb',
+    contributionBorder: isDark ? '#374151' : '#f3f4f6',
+    contributionTitle: isDark ? '#d1d5db' : '#374151',
+    contributionText: isDark ? '#9ca3af' : '#6b7280',
+  };
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -27,9 +43,11 @@ export const TutorMessage = ({
     <div className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
       {/* Avatar */}
       <div
-        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-          isUser ? 'bg-primary-500 text-white' : 'bg-gray-200 text-gray-600'
-        }`}
+        className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+        style={{
+          backgroundColor: isUser ? '#3b82f6' : colors.avatarBg,
+          color: isUser ? '#ffffff' : colors.avatarIcon,
+        }}
       >
         {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
       </div>
@@ -38,10 +56,10 @@ export const TutorMessage = ({
       <div className={`max-w-[80%] ${isUser ? 'text-right' : 'text-left'}`}>
         {/* Routing info badge */}
         {routingInfo && !isUser && (
-          <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
+          <div className="flex items-center gap-1 text-xs mb-1" style={{ color: colors.textSecondary }}>
             <Info className="w-3 h-3" />
             <span>Routed to {routingInfo.selectedAgent.displayName}</span>
-            <span className="text-gray-400">
+            <span style={{ color: colors.textMuted }}>
               ({Math.round(routingInfo.confidence * 100)}% confidence)
             </span>
           </div>
@@ -49,7 +67,7 @@ export const TutorMessage = ({
 
         {/* Collaborative info badge */}
         {collaborativeInfo && !isUser && (
-          <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
+          <div className="flex items-center gap-1 text-xs mb-1" style={{ color: colors.textSecondary }}>
             <Users className="w-3 h-3" />
             <span>
               Team response from {collaborativeInfo.agentContributions.length} tutors
@@ -59,20 +77,21 @@ export const TutorMessage = ({
 
         {/* Message bubble */}
         <div
-          className={`px-4 py-2 rounded-2xl ${
-            isUser
-              ? 'bg-primary-500 text-white rounded-br-md'
-              : 'bg-gray-100 text-gray-900 rounded-bl-md'
-          }`}
+          className={`px-4 py-2 rounded-2xl ${isUser ? 'rounded-br-md' : 'rounded-bl-md'}`}
+          style={{
+            backgroundColor: isUser ? '#3b82f6' : colors.messageBubble,
+            color: isUser ? '#ffffff' : colors.textPrimary,
+          }}
         >
           <p className="text-sm whitespace-pre-wrap">{message.content}</p>
         </div>
 
         {/* Metadata */}
         <div
-          className={`flex items-center gap-2 mt-1 text-xs text-gray-400 ${
+          className={`flex items-center gap-2 mt-1 text-xs ${
             isUser ? 'justify-end' : 'justify-start'
           }`}
+          style={{ color: colors.textMuted }}
         >
           <span>{formatTime(message.createdAt)}</span>
           {showMetadata && message.responseTimeMs && (
@@ -84,16 +103,23 @@ export const TutorMessage = ({
         {/* Collaborative contributions (expandable) */}
         {collaborativeInfo && !isUser && (
           <details className="mt-2">
-            <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-700">
+            <summary className="text-xs cursor-pointer" style={{ color: colors.textSecondary }}>
               View individual contributions
             </summary>
             <div className="mt-2 space-y-2 text-sm">
               {collaborativeInfo.agentContributions.map((contrib, idx) => (
-                <div key={idx} className="p-2 bg-gray-50 rounded-lg border border-gray-100">
-                  <p className="text-xs font-medium text-gray-700 mb-1">
+                <div
+                  key={idx}
+                  className="p-2 rounded-lg border"
+                  style={{
+                    backgroundColor: colors.contributionBg,
+                    borderColor: colors.contributionBorder,
+                  }}
+                >
+                  <p className="text-xs font-medium mb-1" style={{ color: colors.contributionTitle }}>
                     {contrib.agentDisplayName}
                   </p>
-                  <p className="text-gray-600 text-xs">{contrib.contribution}</p>
+                  <p className="text-xs" style={{ color: colors.contributionText }}>{contrib.contribution}</p>
                 </div>
               ))}
             </div>

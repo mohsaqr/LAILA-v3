@@ -64,11 +64,11 @@ export const AdminSidebar = ({ className = '', onNavigate }: AdminSidebarProps) 
                 onClick={handleClick}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors ${
                   active
-                    ? 'bg-gray-900 text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
+                    ? 'bg-primary-600 text-white'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`}
               >
-                <Icon className={`w-5 h-5 ${active ? 'text-white' : 'text-gray-400'}`} />
+                <Icon className={`w-5 h-5 ${active ? 'text-white' : 'text-gray-400 dark:text-gray-500'}`} />
                 <span className="font-medium">{item.label}</span>
               </Link>
             </li>

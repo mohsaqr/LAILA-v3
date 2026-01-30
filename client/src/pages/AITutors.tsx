@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Menu } from 'lucide-react';
 import { tutorsApi } from '../api/tutors';
 import { TutorSidebar, TutorChat } from '../components/tutors';
 import { Loading } from '../components/common/Loading';
+import { useTheme } from '../hooks/useTheme';
 import type {
   TutorAgent,
   TutorMessage,
@@ -17,12 +19,17 @@ interface MessageWithMeta extends TutorMessage {
 }
 
 export const AITutors = () => {
+  const { isDark } = useTheme();
   const queryClient = useQueryClient();
+
+  // Theme colors
+  const bgColor = isDark ? '#111827' : '#f9fafb';
 
   // Local state
   const [selectedAgent, setSelectedAgent] = useState<TutorAgent | null>(null);
   const [messages, setMessages] = useState<MessageWithMeta[]>([]);
   const [mode, setMode] = useState<TutorMode>('manual');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Fetch session data (includes agents and conversations)
   const { data: sessionData, isLoading: sessionLoading } = useQuery({
@@ -181,7 +188,16 @@ export const AITutors = () => {
   const conversations = sessionData?.conversations || [];
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex">
+    <div className="h-[calc(100vh-4rem)] flex relative" style={{ backgroundColor: bgColor }}>
+      {/* Mobile FAB to open sidebar */}
+      <button
+        onClick={() => setSidebarOpen(true)}
+        className="md:hidden fixed bottom-6 left-6 z-20 w-14 h-14 bg-gradient-to-br from-primary-500 to-secondary-500 text-white rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-shadow"
+        aria-label="Open tutor list"
+      >
+        <Menu className="w-6 h-6" />
+      </button>
+
       {/* Sidebar */}
       <TutorSidebar
         agents={agents}
@@ -191,6 +207,8 @@ export const AITutors = () => {
         mode={mode}
         onModeChange={handleModeChange}
         isLoading={sendMessageMutation.isPending}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
       />
 
       {/* Chat Area */}

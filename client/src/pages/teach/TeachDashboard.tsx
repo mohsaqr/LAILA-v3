@@ -12,10 +12,12 @@ import {
   EyeOff,
   MoreVertical,
   GraduationCap,
+  ClipboardList,
 } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
+import { useTheme } from '../../hooks/useTheme';
 import { usersApi } from '../../api/users';
 import { coursesApi } from '../../api/courses';
 import { Card, CardBody } from '../../components/common/Card';
@@ -30,8 +32,30 @@ export const TeachDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isDark } = useTheme();
   const [deleteConfirm, setDeleteConfirm] = useState<Course | null>(null);
   const [activeMenu, setActiveMenu] = useState<number | null>(null);
+
+  // Theme colors
+  const colors = {
+    bg: isDark ? '#111827' : '#f9fafb',
+    bgCard: isDark ? '#1f2937' : '#ffffff',
+    textPrimary: isDark ? '#f3f4f6' : '#111827',
+    textSecondary: isDark ? '#9ca3af' : '#6b7280',
+    textMuted: isDark ? '#6b7280' : '#9ca3af',
+    bgMenu: isDark ? '#1f2937' : '#ffffff',
+    bgMenuHover: isDark ? '#374151' : '#f9fafb',
+    borderMenu: isDark ? '#374151' : '#f3f4f6',
+    // Icon backgrounds
+    bgIndigo: isDark ? 'rgba(99, 102, 241, 0.2)' : '#e0e7ff',
+    textIndigo: isDark ? '#a5b4fc' : '#4f46e5',
+    bgCyan: isDark ? 'rgba(6, 182, 212, 0.2)' : '#cffafe',
+    textCyan: isDark ? '#67e8f9' : '#0891b2',
+    bgPink: isDark ? 'rgba(236, 72, 153, 0.2)' : '#fce7f3',
+    textPink: isDark ? '#f9a8d4' : '#db2777',
+    bgYellow: isDark ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7',
+    textYellow: isDark ? '#fcd34d' : '#d97706',
+  };
 
   const { data: instructorStats, isLoading: statsLoading } = useQuery({
     queryKey: ['instructorStats', user?.id],
@@ -90,12 +114,12 @@ export const TeachDashboard = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ minHeight: '100vh' }}>
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Teaching Dashboard</h1>
-          <p className="text-gray-600 mt-1">Manage your courses and track student progress</p>
+          <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>Teaching Dashboard</h1>
+          <p className="mt-1" style={{ color: colors.textSecondary }}>Manage your courses and track student progress</p>
         </div>
         <Button onClick={() => navigate('/teach/create')} icon={<Plus className="w-4 h-4" />}>
           Create Course
@@ -106,48 +130,60 @@ export const TeachDashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card>
           <CardBody className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
-              <BookOpen className="w-6 h-6 text-indigo-600" />
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: colors.bgIndigo }}
+            >
+              <BookOpen className="w-6 h-6" style={{ color: colors.textIndigo }} />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{instructorStats?.totalCourses || 0}</p>
-              <p className="text-sm text-gray-500">Your Courses</p>
+              <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{instructorStats?.totalCourses || 0}</p>
+              <p className="text-sm" style={{ color: colors.textSecondary }}>Your Courses</p>
             </div>
           </CardBody>
         </Card>
 
         <Card>
           <CardBody className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-cyan-100 flex items-center justify-center">
-              <Users className="w-6 h-6 text-cyan-600" />
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: colors.bgCyan }}
+            >
+              <Users className="w-6 h-6" style={{ color: colors.textCyan }} />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{instructorStats?.totalStudents || 0}</p>
-              <p className="text-sm text-gray-500">Total Students</p>
+              <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{instructorStats?.totalStudents || 0}</p>
+              <p className="text-sm" style={{ color: colors.textSecondary }}>Total Students</p>
             </div>
           </CardBody>
         </Card>
 
         <Card>
           <CardBody className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-pink-100 flex items-center justify-center">
-              <FileText className="w-6 h-6 text-pink-600" />
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: colors.bgPink }}
+            >
+              <FileText className="w-6 h-6" style={{ color: colors.textPink }} />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{instructorStats?.totalAssignments || 0}</p>
-              <p className="text-sm text-gray-500">Assignments</p>
+              <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{instructorStats?.totalAssignments || 0}</p>
+              <p className="text-sm" style={{ color: colors.textSecondary }}>Assignments</p>
             </div>
           </CardBody>
         </Card>
 
         <Card>
           <CardBody className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
-              <AlertCircle className="w-6 h-6 text-yellow-600" />
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: colors.bgYellow }}
+            >
+              <AlertCircle className="w-6 h-6" style={{ color: colors.textYellow }} />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{instructorStats?.pendingGrading || 0}</p>
-              <p className="text-sm text-gray-500">Pending Grading</p>
+              <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{instructorStats?.pendingGrading || 0}</p>
+              <p className="text-sm" style={{ color: colors.textSecondary }}>Pending Grading</p>
             </div>
           </CardBody>
         </Card>
@@ -155,7 +191,7 @@ export const TeachDashboard = () => {
 
       {/* Courses List */}
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Your Courses</h2>
+        <h2 className="text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>Your Courses</h2>
 
         {coursesLoading ? (
           <Loading text="Loading courses..." />
@@ -176,13 +212,13 @@ export const TeachDashboard = () => {
                   {/* Course Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-gray-900 truncate">{course.title}</h3>
+                      <h3 className="font-semibold truncate" style={{ color: colors.textPrimary }}>{course.title}</h3>
                       <StatusBadge status={course.status} />
                     </div>
-                    <p className="text-sm text-gray-500 truncate mb-2">
+                    <p className="text-sm truncate mb-2" style={{ color: colors.textSecondary }}>
                       {course.description || 'No description'}
                     </p>
-                    <div className="flex items-center gap-4 text-xs text-gray-400">
+                    <div className="flex items-center gap-4 text-xs" style={{ color: colors.textMuted }}>
                       <span>{course._count?.modules || 0} modules</span>
                       <span>{course._count?.enrollments || 0} students</span>
                       {course.category && <span className="capitalize">{course.category}</span>}
@@ -201,12 +237,18 @@ export const TeachDashboard = () => {
                         Assignments
                       </Button>
                     </Link>
+                    <Link to={`/teach/courses/${course.id}/gradebook`}>
+                      <Button variant="ghost" size="sm" icon={<ClipboardList className="w-4 h-4" />}>
+                        Gradebook
+                      </Button>
+                    </Link>
 
                     {/* More Menu */}
                     <div className="relative">
                       <button
                         onClick={() => setActiveMenu(activeMenu === course.id ? null : course.id)}
-                        className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                        className="p-2 rounded-lg transition-colors"
+                        style={{ color: colors.textMuted }}
                       >
                         <MoreVertical className="w-5 h-5" />
                       </button>
@@ -217,10 +259,14 @@ export const TeachDashboard = () => {
                             className="fixed inset-0 z-10"
                             onClick={() => setActiveMenu(null)}
                           />
-                          <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20">
+                          <div
+                            className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg py-1 z-20"
+                            style={{ backgroundColor: colors.bgMenu, border: `1px solid ${colors.borderMenu}` }}
+                          >
                             <Link
                               to={`/teach/courses/${course.id}/edit`}
-                              className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                              className="flex items-center gap-2 px-4 py-2 text-sm transition-colors"
+                              style={{ color: colors.textSecondary }}
                               onClick={() => setActiveMenu(null)}
                             >
                               <Edit className="w-4 h-4" />
@@ -228,7 +274,8 @@ export const TeachDashboard = () => {
                             </Link>
                             <button
                               onClick={() => handleTogglePublish(course)}
-                              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                              className="w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors"
+                              style={{ color: colors.textSecondary }}
                             >
                               {course.status === 'published' ? (
                                 <>
@@ -247,7 +294,7 @@ export const TeachDashboard = () => {
                                 setActiveMenu(null);
                                 setDeleteConfirm(course);
                               }}
-                              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600"
                             >
                               <Trash2 className="w-4 h-4" />
                               Delete

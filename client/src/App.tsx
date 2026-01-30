@@ -22,6 +22,9 @@ import { AITutors } from './pages/AITutors';
 import { TestCorner } from './pages/TestCorner';
 import { StudentAssignments } from './pages/StudentAssignments';
 import { AssignmentView } from './pages/AssignmentView';
+import { StudentGradebook } from './pages/StudentGradebook';
+import { DashboardGradebook } from './pages/DashboardGradebook';
+import { DashboardCalendar } from './pages/DashboardCalendar';
 import { CodeLabPage } from './pages/CodeLabPage';
 
 // Teaching pages
@@ -35,6 +38,7 @@ import {
   AssignmentManager,
   SubmissionReview,
   ChatbotLogs,
+  TeacherGradebook,
 } from './pages/teach';
 
 // Agent Assignment pages
@@ -113,6 +117,22 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/dashboard/gradebook"
+          element={
+            <ProtectedRoute>
+              <DashboardGradebook />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/calendar"
+          element={
+            <ProtectedRoute>
+              <DashboardCalendar />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Course Player - accessible from course pages */}
         <Route
@@ -157,6 +177,14 @@ function App() {
           element={
             <ProtectedRoute>
               <AssignmentView />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/courses/:courseId/grades"
+          element={
+            <ProtectedRoute>
+              <StudentGradebook />
             </ProtectedRoute>
           }
         />
@@ -279,6 +307,14 @@ function App() {
           element={
             <ProtectedRoute requireInstructor>
               <SubmissionReview />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teach/courses/:id/gradebook"
+          element={
+            <ProtectedRoute requireInstructor>
+              <TeacherGradebook />
             </ProtectedRoute>
           }
         />

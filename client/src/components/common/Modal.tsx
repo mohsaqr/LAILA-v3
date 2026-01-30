@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
 import { X } from 'lucide-react';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface ModalProps {
   isOpen: boolean;
@@ -10,6 +11,9 @@ interface ModalProps {
 }
 
 export const Modal = ({ isOpen, onClose, title, children, size = 'md' }: ModalProps) => {
+  const titleId = useId();
+  const focusTrapRef = useFocusTrap(isOpen);
+
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -41,22 +45,30 @@ export const Modal = ({ isOpen, onClose, title, children, size = 'md' }: ModalPr
         <div
           className="fixed inset-0 bg-black/50 transition-opacity"
           onClick={onClose}
+          aria-hidden="true"
         />
         <div
-          className={`relative w-full ${sizeClasses[size]} bg-white rounded-xl shadow-xl transform transition-all`}
+          ref={focusTrapRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={title ? titleId : undefined}
+          className={`relative w-full ${sizeClasses[size]} bg-white dark:bg-gray-800 rounded-xl shadow-xl transform transition-all`}
         >
           {title && (
-            <div className="flex items-center justify-between p-4 border-b border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+            <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700">
+              <h3 id={titleId} className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                {title}
+              </h3>
               <button
                 onClick={onClose}
-                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                aria-label="Close"
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-300 dark:hover:bg-gray-700 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
           )}
-          <div className="p-4">{children}</div>
+          <div className="p-4 text-gray-900 dark:text-gray-100">{children}</div>
         </div>
       </div>
     </div>

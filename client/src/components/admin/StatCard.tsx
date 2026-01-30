@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { useTheme } from '../../hooks/useTheme';
 
 type StatCardSize = 'sm' | 'md' | 'lg';
 
@@ -34,25 +35,41 @@ const sizeStyles = {
 
 export const StatCard = ({
   icon,
-  iconBgColor = 'bg-gray-100',
+  iconBgColor,
   value,
   label,
   size = 'md',
   className = '',
 }: StatCardProps) => {
+  const { isDark } = useTheme();
   const styles = sizeStyles[size];
 
+  const colors = {
+    bg: isDark ? '#1f2937' : '#ffffff',
+    border: isDark ? '#374151' : '#e5e7eb',
+    textPrimary: isDark ? '#f3f4f6' : '#111827',
+    textSecondary: isDark ? '#9ca3af' : '#6b7280',
+    iconBg: isDark ? '#374151' : '#f3f4f6',
+  };
+
   return (
-    <div className={`bg-white rounded-xl border border-gray-200 ${styles.container} ${className}`}>
+    <div
+      className={`rounded-xl ${styles.container} ${className}`}
+      style={{
+        backgroundColor: colors.bg,
+        border: `1px solid ${colors.border}`,
+      }}
+    >
       <div className="flex items-center gap-3">
         <div
-          className={`${styles.iconWrapper} rounded-lg flex items-center justify-center ${iconBgColor}`}
+          className={`${styles.iconWrapper} rounded-lg flex items-center justify-center`}
+          style={{ backgroundColor: iconBgColor || colors.iconBg }}
         >
           {icon}
         </div>
         <div>
-          <p className={`${styles.value} text-gray-900`}>{value}</p>
-          <p className={`${styles.label} text-gray-500`}>{label}</p>
+          <p className={styles.value} style={{ color: colors.textPrimary }}>{value}</p>
+          <p className={styles.label} style={{ color: colors.textSecondary }}>{label}</p>
         </div>
       </div>
     </div>

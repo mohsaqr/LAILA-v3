@@ -2,15 +2,26 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { BookOpen, GraduationCap, Clock, ArrowRight, CheckCircle } from 'lucide-react';
 import { enrollmentsApi } from '../api/enrollments';
+import { useTheme } from '../hooks/useTheme';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { Enrollment } from '../types';
 
 export const MyLearning = () => {
+  const { isDark } = useTheme();
   const { data: enrollments, isLoading } = useQuery({
     queryKey: ['enrollments'],
     queryFn: () => enrollmentsApi.getMyEnrollments(),
   });
+
+  // Theme colors
+  const colors = {
+    bg: isDark ? '#111827' : '#f9fafb',
+    textPrimary: isDark ? '#f3f4f6' : '#111827',
+    textSecondary: isDark ? '#9ca3af' : '#6b7280',
+    textMuted: isDark ? '#6b7280' : '#9ca3af',
+    bgProgress: isDark ? '#374151' : '#e5e7eb',
+  };
 
   const activeEnrollments = enrollments?.filter(e => e.status === 'active') || [];
   const completedEnrollments = enrollments?.filter(e => e.status === 'completed') || [];
@@ -20,12 +31,12 @@ export const MyLearning = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">My Learning</h1>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ backgroundColor: colors.bg, minHeight: '100vh' }}>
+      <h1 className="text-3xl font-bold mb-8" style={{ color: colors.textPrimary }}>My Learning</h1>
 
       {/* Active Courses */}
       <section className="mb-12">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">In Progress</h2>
+        <h2 className="text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>In Progress</h2>
 
         {activeEnrollments.length > 0 ? (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -36,9 +47,9 @@ export const MyLearning = () => {
         ) : (
           <Card>
             <CardBody className="text-center py-12">
-              <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No active courses</h3>
-              <p className="text-gray-500 mb-4">Start learning by enrolling in a course</p>
+              <BookOpen className="w-16 h-16 mx-auto mb-4" style={{ color: colors.textMuted }} />
+              <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>No active courses</h3>
+              <p className="mb-4" style={{ color: colors.textSecondary }}>Start learning by enrolling in a course</p>
               <Link to="/catalog" className="btn btn-primary">
                 Browse Courses
               </Link>
@@ -50,7 +61,7 @@ export const MyLearning = () => {
       {/* Completed Courses */}
       {completedEnrollments.length > 0 && (
         <section>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Completed</h2>
+          <h2 className="text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>Completed</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {completedEnrollments.map(enrollment => (
               <EnrollmentCard key={enrollment.id} enrollment={enrollment} completed />
@@ -63,6 +74,15 @@ export const MyLearning = () => {
 };
 
 const EnrollmentCard = ({ enrollment, completed = false }: { enrollment: Enrollment; completed?: boolean }) => {
+  const { isDark } = useTheme();
+
+  const colors = {
+    textPrimary: isDark ? '#f3f4f6' : '#111827',
+    textSecondary: isDark ? '#9ca3af' : '#6b7280',
+    textMuted: isDark ? '#6b7280' : '#9ca3af',
+    bgProgress: isDark ? '#374151' : '#e5e7eb',
+  };
+
   return (
     <Link to={`/courses/${enrollment.courseId}/player`}>
       <Card hover className="h-full">
@@ -77,16 +97,16 @@ const EnrollmentCard = ({ enrollment, completed = false }: { enrollment: Enrollm
         </div>
 
         <CardBody>
-          <h3 className="font-semibold text-gray-900 mb-2">{enrollment.course?.title}</h3>
-          <p className="text-sm text-gray-500 mb-4">{enrollment.course?.instructor?.fullname}</p>
+          <h3 className="font-semibold mb-2" style={{ color: colors.textPrimary }}>{enrollment.course?.title}</h3>
+          <p className="text-sm mb-4" style={{ color: colors.textSecondary }}>{enrollment.course?.instructor?.fullname}</p>
 
           {/* Progress */}
           <div className="mb-4">
             <div className="flex items-center justify-between text-sm mb-1">
-              <span className="text-gray-600">Progress</span>
-              <span className="font-medium text-gray-900">{enrollment.progress}%</span>
+              <span style={{ color: colors.textSecondary }}>Progress</span>
+              <span className="font-medium" style={{ color: colors.textPrimary }}>{enrollment.progress}%</span>
             </div>
-            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: colors.bgProgress }}>
               <div
                 className={`h-full ${completed ? 'bg-green-500' : 'bg-gradient-to-r from-primary-500 to-secondary-500'}`}
                 style={{ width: `${enrollment.progress}%` }}
@@ -94,7 +114,7 @@ const EnrollmentCard = ({ enrollment, completed = false }: { enrollment: Enrollm
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-sm text-gray-500">
+          <div className="flex items-center justify-between text-sm" style={{ color: colors.textSecondary }}>
             {enrollment.lastAccessAt ? (
               <span className="flex items-center gap-1">
                 <Clock className="w-4 h-4" />

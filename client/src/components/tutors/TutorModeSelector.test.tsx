@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { TutorModeSelector } from './TutorModeSelector';
-import type { TutorMode } from '../../types/tutor';
 
 describe('TutorModeSelector', () => {
   it('should render all three mode options', () => {
