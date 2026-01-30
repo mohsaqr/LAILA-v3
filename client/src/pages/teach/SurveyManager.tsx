@@ -428,7 +428,7 @@ export const SurveyManager = () => {
                         <Link2 className="w-4 h-4" />
                       </Button>
                       <Link
-                        to={`/teach/courses/${courseId}/surveys/${survey.id}/responses`}
+                        to={courseId ? `/teach/courses/${courseId}/surveys/${survey.id}/responses` : `/teach/surveys/${survey.id}/responses`}
                         onClick={e => e.stopPropagation()}
                       >
                         <Button variant="ghost" size="sm" title="View responses">

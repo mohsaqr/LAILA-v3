@@ -3,12 +3,14 @@ import {
   LayoutDashboard,
   GraduationCap,
   ClipboardList,
+  ClipboardCheck,
   Calendar,
   BrainCircuit,
   Settings,
   ChevronLeft,
   ChevronRight,
   Briefcase,
+  Activity,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
@@ -63,6 +65,8 @@ export const DashboardSidebar = () => {
     { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
     { label: 'Teaching', icon: Briefcase, path: '/teach' },
     { label: 'My Courses', icon: GraduationCap, path: '/courses' },
+    { label: 'Surveys', icon: ClipboardCheck, path: '/teach/surveys' },
+    { label: 'Logs', icon: Activity, path: '/admin/logs' },
     { label: 'Gradebook', icon: ClipboardList, path: '/dashboard/gradebook' },
     { label: 'Calendar', icon: Calendar, path: '/dashboard/calendar' },
     { label: 'AI Tools', icon: BrainCircuit, path: '/ai-tools' },

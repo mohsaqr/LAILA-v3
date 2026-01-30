@@ -7,6 +7,7 @@ import {
   Settings,
   Bot,
   Blocks,
+  MessageSquare,
 } from 'lucide-react';
 
 interface AdminSidebarProps {
@@ -19,6 +20,7 @@ const sidebarItems = [
   { path: '/admin/settings?tab=users', label: 'Users', icon: Users },
   { path: '/admin/settings?tab=enrollments', label: 'Enrollments', icon: GraduationCap },
   { path: '/admin/logs', label: 'Logs', icon: BarChart3 },
+  { path: '/admin/chatbot-registry', label: 'Chatbots', icon: MessageSquare },
   { path: '/admin/settings?tab=llm', label: 'LLM', icon: Bot },
   { path: '/admin/settings?tab=system', label: 'System', icon: Settings },
   { path: '/admin/prompt-blocks', label: 'Prompts', icon: Blocks },

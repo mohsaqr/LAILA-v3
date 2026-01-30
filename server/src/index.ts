@@ -33,6 +33,9 @@ import agentDesignLogRoutes from './routes/agentDesignLog.routes.js';
 import promptBlockRoutes from './routes/promptBlock.routes.js';
 import tutorRoutes from './routes/tutor.routes.js';
 import surveyRoutes from './routes/survey.routes.js';
+import emotionalPulseRoutes from './routes/emotionalPulse.routes.js';
+import messageExportRoutes from './routes/messageExport.routes.js';
+import courseTutorRoutes from './routes/courseTutor.routes.js';
 
 // Import middleware
 import { errorHandler } from './middleware/error.middleware.js';
@@ -105,6 +108,9 @@ app.use('/api/agent-design-logs', agentDesignLogRoutes);
 app.use('/api/prompt-blocks', promptBlockRoutes);
 app.use('/api/tutors', tutorRoutes);
 app.use('/api/surveys', surveyRoutes);
+app.use('/api/emotional-pulse', emotionalPulseRoutes);
+app.use('/api/admin/messages', messageExportRoutes);
+app.use('/api/courses', courseTutorRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

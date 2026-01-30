@@ -4,3 +4,4 @@ export { TutorAgentCard } from './TutorAgentCard';
 export { TutorMessage } from './TutorMessage';
 export { TutorModeSelector } from './TutorModeSelector';
 export { TutorTypingIndicator } from './TutorTypingIndicator';
+export { EmotionalPulseHistory } from './EmotionalPulseHistory';

@@ -15,7 +15,6 @@ import { Register } from './pages/auth/Register';
 import { Dashboard } from './pages/Dashboard';
 import { Catalog } from './pages/Catalog';
 import { CourseDetails } from './pages/CourseDetails';
-import { CoursePlayer } from './pages/CoursePlayer';
 import { ContentView } from './pages/ContentView';
 import { AITools } from './pages/AITools';
 import { AITutors } from './pages/AITutors';
@@ -41,6 +40,7 @@ import {
   TeacherGradebook,
   SurveyManager,
   SurveyResponses,
+  CourseTutorManager,
 } from './pages/teach';
 
 // Survey pages
@@ -63,6 +63,7 @@ import {
   UserDetail,
   EnrollmentsManagement,
   BatchEnrollment,
+  ChatbotRegistry,
 } from './pages/admin';
 import { LLMSettings } from './pages/admin/LLMSettings';
 import { PromptBlocksManagement } from './pages/admin/PromptBlocksManagement';
@@ -135,25 +136,6 @@ function App() {
           element={
             <ProtectedRoute>
               <DashboardCalendar />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Course Player - accessible from course pages */}
-        <Route
-          path="/courses/:courseId/player"
-          element={
-            <ProtectedRoute>
-              <CoursePlayer />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/courses/:courseId/player/:lectureId"
-          element={
-            <ProtectedRoute>
-              <CoursePlayer />
             </ProtectedRoute>
           }
         />
@@ -352,8 +334,32 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/teach/courses/:id/tutors"
+          element={
+            <ProtectedRoute requireInstructor>
+              <CourseTutorManager />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Survey Management routes (Instructor) */}
+        <Route
+          path="/teach/surveys"
+          element={
+            <ProtectedRoute requireInstructor>
+              <SurveyManager />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teach/surveys/:surveyId/responses"
+          element={
+            <ProtectedRoute requireInstructor>
+              <SurveyResponses />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/teach/courses/:id/surveys"
           element={
@@ -441,6 +447,14 @@ function App() {
           element={
             <ProtectedRoute requireAdmin>
               <PromptBlocksManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/chatbot-registry"
+          element={
+            <ProtectedRoute requireAdmin>
+              <ChatbotRegistry />
             </ProtectedRoute>
           }
         />

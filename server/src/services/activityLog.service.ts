@@ -7,12 +7,14 @@ export type ActivityVerb =
   | 'enrolled' | 'unenrolled' | 'viewed' | 'started' | 'completed'
   | 'progressed' | 'paused' | 'resumed' | 'seeked' | 'scrolled'
   | 'downloaded' | 'submitted' | 'graded' | 'messaged' | 'received'
-  | 'cleared' | 'interacted' | 'expressed' | 'selected' | 'switched';
+  | 'cleared' | 'interacted' | 'expressed' | 'selected' | 'switched'
+  | 'created' | 'updated' | 'deleted';
 
 export type ObjectType =
   | 'course' | 'module' | 'lecture' | 'section' | 'video'
   | 'assignment' | 'chatbot' | 'file' | 'quiz' | 'emotional_pulse'
-  | 'tutor_agent' | 'tutor_session' | 'tutor_conversation';
+  | 'tutor_agent' | 'tutor_session' | 'tutor_conversation'
+  | 'course_tutor' | 'course_tutor_conversation';
 
 export interface LogActivityInput {
   userId: number;

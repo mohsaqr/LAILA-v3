@@ -103,6 +103,7 @@ export class AgentAnalyticsService {
     user: UserContext;
     agentConfigId: number;
     agentName?: string;
+    agentTitle?: string | null;
     agentVersion?: number;
     assignment: AssignmentContext;
     conversationId?: number;
@@ -140,6 +141,7 @@ export class AgentAnalyticsService {
           sessionId: params.clientContext?.sessionId,
           agentConfigId: params.agentConfigId,
           agentName: params.agentName,
+          agentTitle: params.agentTitle,
           agentVersion: params.agentVersion,
           assignmentId: params.assignment.assignmentId,
           assignmentTitle: params.assignment.assignmentTitle,

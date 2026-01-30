@@ -10,3 +10,4 @@ export { ChatbotLogs } from './ChatbotLogs';
 export { TeacherGradebook } from './TeacherGradebook';
 export { SurveyManager } from './SurveyManager';
 export { SurveyResponses } from './SurveyResponses';
+export { CourseTutorManager } from './CourseTutorManager';

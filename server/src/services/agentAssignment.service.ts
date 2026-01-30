@@ -4,6 +4,7 @@ import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { CreateAgentConfigInput, UpdateAgentConfigInput, GradeAgentSubmissionInput } from '../utils/validation.js';
 import { agentAnalyticsService, ClientContext, UserContext, AssignmentContext } from './agentAnalytics.service.js';
+import { activityLogService } from './activityLog.service.js';
 
 // AI Config type
 interface AIConfig {
@@ -523,6 +524,7 @@ export class AgentAssignmentService {
       },
       agentConfigId: config.id,
       agentName: config.agentName,
+      agentTitle: config.agentTitle,
       agentVersion: config.version,
       assignment: {
         assignmentId: config.assignmentId,
@@ -644,6 +646,7 @@ export class AgentAssignmentService {
         },
         agentConfigId: config.id,
         agentName: config.agentName,
+        agentTitle: config.agentTitle,
         agentVersion: config.version,
         assignment: {
           assignmentId: config.assignmentId,
@@ -685,7 +688,7 @@ export class AgentAssignmentService {
       },
     });
 
-    // Log interaction
+    // Log interaction to agent analytics
     await agentAnalyticsService.logTestInteraction({
       user: {
         userId: testerInfo.userId,
@@ -695,6 +698,7 @@ export class AgentAssignmentService {
       },
       agentConfigId: config.id,
       agentName: config.agentName,
+      agentTitle: config.agentTitle,
       agentVersion: config.version,
       assignment: {
         assignmentId: config.assignmentId,
@@ -720,6 +724,32 @@ export class AgentAssignmentService {
         sessionId: context.sessionId,
       },
     });
+
+    // Log to unified activity log for comprehensive tracking
+    activityLogService.logActivity({
+      userId: testerInfo.userId,
+      verb: 'messaged',
+      objectType: 'tutor_agent',
+      objectId: config.id,
+      objectTitle: config.agentName || 'Student Agent',
+      objectSubtype: 'agent_assignment',
+      courseId: config.assignment.courseId,
+      duration: responseTimeMs,
+      extensions: {
+        conversationId,
+        assignmentId: config.assignmentId,
+        assignmentTitle: config.assignment.title,
+        userMessage: message,
+        assistantMessage: aiResponse,
+        messageLength: message.length,
+        responseLength: aiResponse.length,
+        aiModel: aiConfig.model,
+        aiProvider: aiConfig.provider,
+        responseTimeMs,
+      },
+      sessionId: context.sessionId,
+      deviceType: context.userAgent?.includes('Mobile') ? 'mobile' : 'desktop',
+    }).catch(err => console.error('[AgentAssignment] Failed to log activity:', err));
 
     return {
       userMessage: { role: 'user', content: message, messageIndex },

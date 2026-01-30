@@ -13,6 +13,8 @@ import {
   MoreVertical,
   GraduationCap,
   ClipboardList,
+  ClipboardCheck,
+  Bot,
 } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
@@ -240,6 +242,16 @@ export const TeachDashboard = () => {
                     <Link to={`/teach/courses/${course.id}/gradebook`}>
                       <Button variant="ghost" size="sm" icon={<ClipboardList className="w-4 h-4" />}>
                         Gradebook
+                      </Button>
+                    </Link>
+                    <Link to={`/teach/courses/${course.id}/surveys`}>
+                      <Button variant="ghost" size="sm" icon={<ClipboardCheck className="w-4 h-4" />}>
+                        Surveys
+                      </Button>
+                    </Link>
+                    <Link to={`/teach/courses/${course.id}/tutors`}>
+                      <Button variant="ghost" size="sm" icon={<Bot className="w-4 h-4" />}>
+                        Tutors
                       </Button>
                     </Link>
 

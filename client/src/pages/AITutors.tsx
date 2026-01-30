@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Menu } from 'lucide-react';
+import { Menu, Heart } from 'lucide-react';
 import { tutorsApi } from '../api/tutors';
-import { TutorSidebar, TutorChat } from '../components/tutors';
+import { TutorSidebar, TutorChat, EmotionalPulseHistory } from '../components/tutors';
 import { Loading } from '../components/common/Loading';
 import { useTheme } from '../hooks/useTheme';
 import type {
@@ -12,6 +12,7 @@ import type {
   RoutingInfo,
   CollaborativeInfo,
 } from '../types/tutor';
+import type { EmotionType } from '../types';
 
 interface MessageWithMeta extends TutorMessage {
   routingInfo?: RoutingInfo;
@@ -30,6 +31,9 @@ export const AITutors = () => {
   const [messages, setMessages] = useState<MessageWithMeta[]>([]);
   const [mode, setMode] = useState<TutorMode>('manual');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(true);
+  const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
+  const [pulseRefreshTrigger, setPulseRefreshTrigger] = useState(0);
 
   // Fetch session data (includes agents and conversations)
   const { data: sessionData, isLoading: sessionLoading } = useQuery({
@@ -179,6 +183,12 @@ export const AITutors = () => {
     clearConversationMutation.mutate(selectedAgent.id);
   }, [selectedAgent, clearConversationMutation]);
 
+  // Handle emotional pulse
+  const handleEmotionalPulse = useCallback((_emotion: EmotionType) => {
+    // Trigger refresh of history sidebar
+    setPulseRefreshTrigger(prev => prev + 1);
+  }, []);
+
   // Loading state
   if (sessionLoading) {
     return <Loading fullScreen text="Loading AI Tutors..." />;
@@ -189,16 +199,27 @@ export const AITutors = () => {
 
   return (
     <div className="h-[calc(100vh-4rem)] flex relative" style={{ backgroundColor: bgColor }}>
-      {/* Mobile FAB to open sidebar */}
+      {/* Mobile FAB to open sidebar (left) */}
       <button
         onClick={() => setSidebarOpen(true)}
-        className="md:hidden fixed bottom-6 left-6 z-20 w-14 h-14 bg-gradient-to-br from-primary-500 to-secondary-500 text-white rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-shadow"
+        className="lg:hidden fixed bottom-6 left-6 z-20 w-14 h-14 bg-gradient-to-br from-primary-500 to-secondary-500 text-white rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-shadow"
         aria-label="Open tutor list"
       >
         <Menu className="w-6 h-6" />
       </button>
 
-      {/* Sidebar */}
+      {/* Mobile FAB to open history (right) */}
+      {selectedAgent && (
+        <button
+          onClick={() => setMobileHistoryOpen(true)}
+          className="lg:hidden fixed bottom-6 right-6 z-20 w-14 h-14 bg-gradient-to-br from-pink-500 to-rose-500 text-white rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-shadow"
+          aria-label="Open emotional journey"
+        >
+          <Heart className="w-6 h-6" />
+        </button>
+      )}
+
+      {/* Sidebar (left) */}
       <TutorSidebar
         agents={agents}
         conversations={conversations}
@@ -211,7 +232,7 @@ export const AITutors = () => {
         onClose={() => setSidebarOpen(false)}
       />
 
-      {/* Chat Area */}
+      {/* Chat Area (center) */}
       <TutorChat
         agent={selectedAgent}
         messages={messages}
@@ -219,7 +240,32 @@ export const AITutors = () => {
         onClearConversation={handleClearConversation}
         isLoading={sendMessageMutation.isPending || conversationLoading}
         mode={mode}
+        conversationId={conversationData?.id}
+        onEmotionalPulse={handleEmotionalPulse}
       />
+
+      {/* Emotional Pulse History (right) - Desktop */}
+      {selectedAgent && (
+        <EmotionalPulseHistory
+          agentId={selectedAgent.id}
+          agentName={selectedAgent.displayName}
+          isOpen={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          refreshTrigger={pulseRefreshTrigger}
+        />
+      )}
+
+      {/* Emotional Pulse History - Mobile overlay */}
+      {selectedAgent && (
+        <EmotionalPulseHistory
+          agentId={selectedAgent.id}
+          agentName={selectedAgent.displayName}
+          isOpen={mobileHistoryOpen}
+          onClose={() => setMobileHistoryOpen(false)}
+          isMobile={true}
+          refreshTrigger={pulseRefreshTrigger}
+        />
+      )}
     </div>
   );
 };

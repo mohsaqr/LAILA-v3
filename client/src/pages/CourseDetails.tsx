@@ -29,6 +29,7 @@ import { Breadcrumb } from '../components/common/Breadcrumb';
 import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStudent';
 import { AssignmentSectionStudent } from '../components/course/AssignmentSectionStudent';
 import { ContentModal } from '../components/content/ContentModal';
+import { CollaborativeModule } from '../components/course/CollaborativeModule';
 import { useState, useEffect } from 'react';
 import { LectureSection } from '../types';
 import activityLogger from '../services/activityLogger';
@@ -109,6 +110,9 @@ const SectionRenderer = ({ section, courseId, lectureId, moduleId, onOpenContent
       }
       const isImage = section.fileType?.startsWith('image/');
       const isPdf = section.fileType === 'application/pdf';
+      const handleFileDownload = () => {
+        activityLogger.logFileDownloaded(section.id, section.fileName || undefined, lectureId, courseId).catch(() => {});
+      };
       return (
         <div className="mb-4">
           {section.title && <h4 className="font-medium mb-2" style={{ color: colors.textPrimary }}>{section.title}</h4>}
@@ -117,7 +121,7 @@ const SectionRenderer = ({ section, courseId, lectureId, moduleId, onOpenContent
           ) : isPdf ? (
             <div>
               <iframe src={section.fileUrl} className="w-full h-[500px] rounded-lg border" title={section.fileName || 'PDF'} style={{ borderColor: colors.border }} />
-              <a href={section.fileUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-2 text-primary-600 hover:underline">
+              <a href={section.fileUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-2 text-primary-600 hover:underline" onClick={handleFileDownload}>
                 <Download className="w-4 h-4" /> Download {section.fileName}
               </a>
             </div>
@@ -128,6 +132,7 @@ const SectionRenderer = ({ section, courseId, lectureId, moduleId, onOpenContent
               rel="noopener noreferrer"
               className="flex items-center gap-3 p-4 rounded-lg transition-colors"
               style={{ backgroundColor: colors.bgHover }}
+              onClick={handleFileDownload}
             >
               <FileText className="w-8 h-8" style={{ color: colors.textMuted }} />
               <div className="flex-1">
@@ -143,7 +148,7 @@ const SectionRenderer = ({ section, courseId, lectureId, moduleId, onOpenContent
     case 'chatbot':
       return (
         <div className="mb-4">
-          <ChatbotSectionStudent section={section} />
+          <ChatbotSectionStudent section={section} courseId={courseId} />
         </div>
       );
 
@@ -489,6 +494,7 @@ export const CourseDetails = () => {
                                           rel="noopener noreferrer"
                                           className="flex items-center gap-2 p-2 rounded transition-colors"
                                           style={{ backgroundColor: colors.bgCard }}
+                                          onClick={() => activityLogger.logFileDownloaded(att.id, att.fileName, lecture.id, parseInt(id!)).catch(() => {})}
                                         >
                                           <FileText className="w-4 h-4" style={{ color: colors.textMuted }} />
                                           <span className="text-sm" style={{ color: colors.textSecondary }}>{att.fileName}</span>
@@ -592,6 +598,13 @@ export const CourseDetails = () => {
                 </Card>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Collaborative Module Section */}
+        {hasAccess && (
+          <div className="mt-8">
+            <CollaborativeModule courseId={parseInt(id!)} courseTitle={course.title} />
           </div>
         )}
       </div>

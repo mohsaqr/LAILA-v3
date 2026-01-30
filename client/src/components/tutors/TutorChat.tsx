@@ -3,6 +3,7 @@ import { Send, Trash2, Bot, MessageSquare, Sparkles, Users } from 'lucide-react'
 import { TutorMessage } from './TutorMessage';
 import { TutorTypingIndicator } from './TutorTypingIndicator';
 import { Button } from '../common/Button';
+import { EmotionalPulseWidget } from '../common/EmotionalPulseWidget';
 import { useTheme } from '../../hooks/useTheme';
 import type {
   TutorAgent,
@@ -11,6 +12,7 @@ import type {
   RoutingInfo,
   CollaborativeInfo,
 } from '../../types/tutor';
+import type { EmotionType } from '../../types';
 
 interface MessageWithMeta extends TutorMessageType {
   routingInfo?: RoutingInfo;
@@ -24,6 +26,8 @@ interface TutorChatProps {
   onClearConversation: () => void;
   isLoading: boolean;
   mode: TutorMode;
+  conversationId?: number;
+  onEmotionalPulse?: (emotion: EmotionType) => void;
 }
 
 export const TutorChat = ({
@@ -33,6 +37,8 @@ export const TutorChat = ({
   onClearConversation,
   isLoading,
   mode,
+  conversationId,
+  onEmotionalPulse,
 }: TutorChatProps) => {
   const { isDark } = useTheme();
   const [input, setInput] = useState('');
@@ -237,6 +243,16 @@ export const TutorChat = ({
 
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Emotional Pulse Widget */}
+      <EmotionalPulseWidget
+        context="chatbot"
+        contextId={conversationId}
+        agentId={agent.id}
+        cooldownMs={10000}
+        compact
+        onPulse={onEmotionalPulse}
+      />
 
       {/* Input Area */}
       <div className="p-4 border-t" style={{ borderColor: colors.borderLight }}>

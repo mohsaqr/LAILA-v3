@@ -948,6 +948,190 @@ export const messagesApi = {
   },
 };
 
+// =============================================================================
+// CHATBOT REGISTRY API
+// =============================================================================
+
+export interface ChatbotRegistryFilters {
+  type?: 'global' | 'section';
+  courseId?: number;
+  creatorId?: number;
+  isActive?: boolean;
+  category?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface UnifiedChatbot {
+  id: string;
+  type: 'global' | 'section';
+  name: string;
+  displayName: string;
+  description: string | null;
+  category: string | null;
+  isActive: boolean;
+  systemPrompt: string | null;
+  welcomeMessage: string | null;
+  dosRules: string[] | null;
+  dontsRules: string[] | null;
+  personality: string | null;
+  personalityPrompt: string | null;
+  temperature: number | null;
+  maxTokens: number | null;
+  responseStyle: string | null;
+  modelPreference: string | null;
+  suggestedQuestions: string[] | null;
+  knowledgeContext: string | null;
+  avatarUrl: string | null;
+  courseId: number | null;
+  courseTitle: string | null;
+  moduleId: number | null;
+  moduleTitle: string | null;
+  lectureId: number | null;
+  lectureTitle: string | null;
+  sectionId: number | null;
+  creatorId: number | null;
+  creatorName: string | null;
+  creatorEmail: string | null;
+  conversationCount: number;
+  messageCount: number;
+  uniqueUsers: number;
+  lastActivity: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChatbotRegistryStats {
+  totalChatbots: number;
+  globalChatbots: number;
+  sectionChatbots: number;
+  totalConversations: number;
+  totalMessages: number;
+  uniqueUsers: number;
+  byCategory: Array<{ category: string; count: number }>;
+  byCourse: Array<{ courseId: number; courseTitle: string; count: number }>;
+}
+
+export interface ChatbotFilterOptions {
+  courses: Array<{ id: number; title: string }>;
+  creators: Array<{ id: number; fullname: string | null; email: string }>;
+  categories: Array<{ category: string; count: number }>;
+}
+
+export const chatbotRegistryApi = {
+  // Build query string from filters
+  _buildQueryString: (filters: ChatbotRegistryFilters) => {
+    const params = new URLSearchParams();
+    if (filters.type) params.append('type', filters.type);
+    if (filters.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters.creatorId) params.append('creatorId', filters.creatorId.toString());
+    if (filters.isActive !== undefined) params.append('isActive', filters.isActive.toString());
+    if (filters.category) params.append('category', filters.category);
+    if (filters.search) params.append('search', filters.search);
+    if (filters.startDate) params.append('startDate', filters.startDate);
+    if (filters.endDate) params.append('endDate', filters.endDate);
+    if (filters.page) params.append('page', filters.page.toString());
+    if (filters.limit) params.append('limit', filters.limit.toString());
+    if (filters.sortBy) params.append('sortBy', filters.sortBy);
+    if (filters.sortOrder) params.append('sortOrder', filters.sortOrder);
+    return params.toString();
+  },
+
+  // Get chatbots with filters and pagination
+  getChatbots: async (filters: ChatbotRegistryFilters = {}) => {
+    const queryString = chatbotRegistryApi._buildQueryString(filters);
+    const response = await apiClient.get<{
+      success: boolean;
+      data: UnifiedChatbot[];
+      pagination: { page: number; limit: number; total: number; totalPages: number };
+    }>(`/admin/chatbot-registry${queryString ? `?${queryString}` : ''}`);
+    return {
+      chatbots: response.data.data,
+      pagination: response.data.pagination,
+    };
+  },
+
+  // Get filter options for dropdowns
+  getFilterOptions: async (): Promise<ChatbotFilterOptions> => {
+    const response = await apiClient.get<{ success: boolean; data: ChatbotFilterOptions }>(
+      '/admin/chatbot-registry/filter-options'
+    );
+    return response.data.data;
+  },
+
+  // Get summary statistics
+  getStats: async (filters?: { startDate?: string; endDate?: string }): Promise<ChatbotRegistryStats> => {
+    const params = new URLSearchParams();
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    const queryString = params.toString();
+
+    const response = await apiClient.get<{ success: boolean; data: ChatbotRegistryStats }>(
+      `/admin/chatbot-registry/stats${queryString ? `?${queryString}` : ''}`
+    );
+    return response.data.data;
+  },
+
+  // Export to CSV
+  exportCSV: async (filters: ChatbotRegistryFilters = {}) => {
+    const queryString = chatbotRegistryApi._buildQueryString(filters);
+    const response = await fetch(`/api/admin/chatbot-registry/export/csv${queryString ? `?${queryString}` : ''}`, {
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
+    });
+    if (!response.ok) throw new Error('Export failed');
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chatbot-registry-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+
+  // Export to Excel
+  exportExcel: async (filters: ChatbotRegistryFilters = {}) => {
+    const queryString = chatbotRegistryApi._buildQueryString(filters);
+    const response = await fetch(`/api/admin/chatbot-registry/export/excel${queryString ? `?${queryString}` : ''}`, {
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
+    });
+    if (!response.ok) throw new Error('Export failed');
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chatbot-registry-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+
+  // Export to JSON
+  exportJSON: async (filters: ChatbotRegistryFilters = {}) => {
+    const queryString = chatbotRegistryApi._buildQueryString(filters);
+    const response = await fetch(`/api/admin/chatbot-registry/export/json${queryString ? `?${queryString}` : ''}`, {
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
+    });
+    if (!response.ok) throw new Error('Export failed');
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chatbot-registry-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+};
+
 export const llmApi = {
   // Get active providers (for chat UI)
   getActiveProviders: async () => {

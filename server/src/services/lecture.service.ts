@@ -1,6 +1,7 @@
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { CreateLectureInput, UpdateLectureInput } from '../utils/validation.js';
+import { activityLogService } from './activityLog.service.js';
 
 export class LectureService {
   private async verifyModuleOwnership(moduleId: number, instructorId: number, isAdmin = false) {
@@ -73,6 +74,20 @@ export class LectureService {
       if (!enrollment && !isInstructor) {
         throw new AppError('You must be enrolled to access this lecture', 403);
       }
+    }
+
+    // Log lecture view activity (only for authenticated users)
+    if (userId) {
+      activityLogService.logActivity({
+        userId,
+        verb: 'viewed',
+        objectType: 'lecture',
+        objectId: lectureId,
+        objectTitle: lecture.title,
+        lectureId,
+        moduleId: lecture.module.id,
+        courseId: lecture.module.course.id,
+      }).catch(() => {}); // Non-blocking
     }
 
     return lecture;

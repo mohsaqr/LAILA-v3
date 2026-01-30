@@ -6,12 +6,14 @@ import { coursesApi } from '../../api/courses';
 import { Button } from '../common/Button';
 import { Card, CardBody } from '../common/Card';
 import analytics from '../../services/analytics';
+import activityLogger from '../../services/activityLogger';
 
 interface ChatbotSectionStudentProps {
   section: LectureSection;
+  courseId?: number;
 }
 
-export const ChatbotSectionStudent = ({ section }: ChatbotSectionStudentProps) => {
+export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStudentProps) => {
   const [message, setMessage] = useState('');
   const [hasTrackedStart, setHasTrackedStart] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -87,6 +89,13 @@ export const ChatbotSectionStudent = ({ section }: ChatbotSectionStudentProps) =
           },
         });
 
+        // Log to unified activity logger with message content
+        activityLogger.logChatbotMessage(section.id, section.lectureId, courseId, {
+          userMessage: msg,
+          assistantMessage: result.assistantMessage.content,
+          aiModel: result.model,
+        }).catch(() => {});
+
         return result;
       } catch (error) {
         // Track error
@@ -131,6 +140,16 @@ export const ChatbotSectionStudent = ({ section }: ChatbotSectionStudentProps) =
           clearedMessageCount: history.length,
         },
       });
+
+      // Log to unified activity logger
+      activityLogger.log({
+        verb: 'cleared',
+        objectType: 'chatbot',
+        objectId: section.id,
+        sectionId: section.id,
+        lectureId: section.lectureId,
+        courseId,
+      }).catch(() => {});
 
       return coursesApi.clearChatbotHistory(section.id);
     },

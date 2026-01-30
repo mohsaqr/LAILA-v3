@@ -55,6 +55,12 @@ model User {
   createdSurveys  Survey[]         @relation("SurveyCreator")
   surveyResponses SurveyResponse[] @relation("SurveyResponses")
 
+  // Emotional Pulse
+  emotionalPulses EmotionalPulse[]
+
+  // Course Tutors (Collaborative Module)
+  courseTutorConversations CourseTutorConversation[]
+
   @@map("users")
 }
 
@@ -380,6 +386,9 @@ model Chatbot {
   // AI Tutors
   tutorConversations TutorConversation[]
 
+  // Course Tutors (Collaborative Module)
+  courseTutors CourseTutor[]
+
   @@map("chatbots")
 }
 
@@ -416,6 +425,9 @@ model Course {
 
   // Unified Activity Logs
   activityLogs LearningActivityLog[] @relation("CourseActivityLogs")
+
+  // Course Tutors (Collaborative Module)
+  courseTutors CourseTutor[]
 
   @@index([instructorId])
   @@index([status])
@@ -1839,4 +1851,90 @@ model SurveyAnswer {
   @@index([responseId])
   @@index([questionId])
   @@map("survey_answers")
+}
+
+// =============================================================================
+// EMOTIONAL PULSE (Real-time emotional feedback)
+// =============================================================================
+
+model EmotionalPulse {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  emotion   String   // 'productive' | 'stimulated' | 'frustrated' | 'learning' | 'enjoying' | 'bored' | 'quitting'
+  context   String   @default("chatbot") // 'chatbot' | 'lesson' | 'assignment'
+  contextId Int?     @map("context_id") // e.g., conversationId, lectureId
+  agentId   Int?     @map("agent_id") // which tutor agent (if applicable)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([context, contextId])
+  @@index([createdAt])
+  @@map("emotional_pulses")
+}
+
+// =============================================================================
+// COURSE TUTORS (Collaborative Module)
+// =============================================================================
+
+model CourseTutor {
+  id                   Int      @id @default(autoincrement())
+  courseId             Int      @map("course_id")
+  chatbotId            Int      @map("chatbot_id")
+
+  // Customization overrides (null = use global default)
+  customName           String?  @map("custom_name")
+  customDescription    String?  @map("custom_description")
+  customSystemPrompt   String?  @map("custom_system_prompt")
+  customWelcomeMessage String?  @map("custom_welcome_message")
+  customPersonality    String?  @map("custom_personality")
+  customTemperature    Float?   @map("custom_temperature")
+
+  isActive             Boolean  @default(true) @map("is_active")
+  displayOrder         Int      @default(0) @map("display_order")
+
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  course               Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  chatbot              Chatbot  @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+  conversations        CourseTutorConversation[]
+
+  @@unique([courseId, chatbotId])
+  @@index([courseId])
+  @@index([chatbotId])
+  @@map("course_tutors")
+}
+
+model CourseTutorConversation {
+  id            Int      @id @default(autoincrement())
+  courseTutorId Int      @map("course_tutor_id")
+  userId        Int      @map("user_id")
+  title         String?
+
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  courseTutor   CourseTutor @relation(fields: [courseTutorId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages      CourseTutorMessage[]
+
+  @@index([courseTutorId])
+  @@index([userId])
+  @@map("course_tutor_conversations")
+}
+
+model CourseTutorMessage {
+  id             Int      @id @default(autoincrement())
+  conversationId Int      @map("conversation_id")
+  role           String   // 'user' | 'assistant'
+  content        String
+
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation   CourseTutorConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@map("course_tutor_messages")
 }

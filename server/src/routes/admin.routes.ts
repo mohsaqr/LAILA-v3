@@ -3,6 +3,7 @@ import prisma from '../utils/prisma.js';
 import { authenticateToken, requireAdmin } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import { AuthRequest } from '../types/index.js';
+import { chatbotRegistryService, ChatbotRegistryFilters } from '../services/chatbotRegistry.service.js';
 
 const router = Router();
 
@@ -233,6 +234,124 @@ router.get('/analysis-logs', asyncHandler(async (req: AuthRequest, res: Response
       total,
       totalPages: Math.ceil(total / limit),
     },
+  });
+}));
+
+// =============================================================================
+// CHATBOT REGISTRY
+// =============================================================================
+
+// Get chatbots with filters and pagination
+router.get('/chatbot-registry', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const filters: ChatbotRegistryFilters = {
+    type: req.query.type as 'global' | 'section' | undefined,
+    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    creatorId: req.query.creatorId ? parseInt(req.query.creatorId as string) : undefined,
+    isActive: req.query.isActive !== undefined ? req.query.isActive === 'true' : undefined,
+    category: req.query.category as string | undefined,
+    search: req.query.search as string | undefined,
+    startDate: req.query.startDate as string | undefined,
+    endDate: req.query.endDate as string | undefined,
+    page: req.query.page ? parseInt(req.query.page as string) : 1,
+    limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
+    sortBy: req.query.sortBy as string | undefined,
+    sortOrder: req.query.sortOrder as 'asc' | 'desc' | undefined,
+  };
+
+  const result = await chatbotRegistryService.getChatbots(filters);
+
+  res.json({
+    success: true,
+    data: result.chatbots,
+    pagination: result.pagination,
+  });
+}));
+
+// Get filter options for dropdowns
+router.get('/chatbot-registry/filter-options', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const options = await chatbotRegistryService.getFilterOptions();
+
+  res.json({
+    success: true,
+    data: options,
+  });
+}));
+
+// Get summary statistics
+router.get('/chatbot-registry/stats', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const filters = {
+    startDate: req.query.startDate as string | undefined,
+    endDate: req.query.endDate as string | undefined,
+  };
+
+  const stats = await chatbotRegistryService.getStats(filters);
+
+  res.json({
+    success: true,
+    data: stats,
+  });
+}));
+
+// Export chatbots as CSV
+router.get('/chatbot-registry/export/csv', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const filters: ChatbotRegistryFilters = {
+    type: req.query.type as 'global' | 'section' | undefined,
+    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    creatorId: req.query.creatorId ? parseInt(req.query.creatorId as string) : undefined,
+    category: req.query.category as string | undefined,
+    search: req.query.search as string | undefined,
+    startDate: req.query.startDate as string | undefined,
+    endDate: req.query.endDate as string | undefined,
+  };
+
+  const csv = await chatbotRegistryService.generateCSV(filters);
+
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename=chatbot-registry-${new Date().toISOString().slice(0, 10)}.csv`);
+  res.send(csv);
+}));
+
+// Export chatbots as Excel
+router.get('/chatbot-registry/export/excel', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const filters: ChatbotRegistryFilters = {
+    type: req.query.type as 'global' | 'section' | undefined,
+    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    creatorId: req.query.creatorId ? parseInt(req.query.creatorId as string) : undefined,
+    category: req.query.category as string | undefined,
+    search: req.query.search as string | undefined,
+    startDate: req.query.startDate as string | undefined,
+    endDate: req.query.endDate as string | undefined,
+  };
+
+  const workbook = await chatbotRegistryService.generateExcelWorkbook(filters);
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename=chatbot-registry-${new Date().toISOString().slice(0, 10)}.xlsx`);
+
+  await workbook.xlsx.write(res);
+  res.end();
+}));
+
+// Export chatbots as JSON
+router.get('/chatbot-registry/export/json', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const filters: ChatbotRegistryFilters = {
+    type: req.query.type as 'global' | 'section' | undefined,
+    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    creatorId: req.query.creatorId ? parseInt(req.query.creatorId as string) : undefined,
+    category: req.query.category as string | undefined,
+    search: req.query.search as string | undefined,
+    startDate: req.query.startDate as string | undefined,
+    endDate: req.query.endDate as string | undefined,
+  };
+
+  const chatbots = await chatbotRegistryService.exportChatbots(filters);
+
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', `attachment; filename=chatbot-registry-${new Date().toISOString().slice(0, 10)}.json`);
+  res.json({
+    exportedAt: new Date().toISOString(),
+    totalCount: chatbots.length,
+    chatbots,
   });
 }));
 

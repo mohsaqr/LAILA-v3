@@ -1297,3 +1297,63 @@ export interface SurveyQuestionStats {
   optionCounts?: Record<string, number>;
   responses?: string[];
 }
+
+// =============================================================================
+// EMOTIONAL PULSE SYSTEM
+// =============================================================================
+
+export type EmotionType =
+  | 'productive'
+  | 'stimulated'
+  | 'frustrated'
+  | 'learning'
+  | 'enjoying'
+  | 'bored'
+  | 'quitting';
+
+export type EmotionalPulseContext = 'chatbot' | 'lesson' | 'assignment';
+
+export interface EmotionalPulse {
+  id: number;
+  userId: number;
+  emotion: EmotionType;
+  context: EmotionalPulseContext;
+  contextId: number | null;
+  agentId: number | null;
+  createdAt: string;
+}
+
+export interface LogEmotionalPulseInput {
+  emotion: EmotionType;
+  context?: EmotionalPulseContext;
+  contextId?: number;
+  agentId?: number;
+}
+
+export interface EmotionalPulseHistory {
+  pulses: EmotionalPulse[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface EmotionalPulseStats {
+  total: number;
+  uniqueUsers: number;
+  emotionCounts: Record<EmotionType, number>;
+  sentimentScore: number;
+  recentPulses: Array<EmotionalPulse & {
+    user: { id: number; fullname: string };
+  }>;
+}
+
+export interface EmotionalPulseTimeline {
+  date: string;
+  productive: number;
+  stimulated: number;
+  frustrated: number;
+  learning: number;
+  enjoying: number;
+  bored: number;
+  quitting: number;
+}

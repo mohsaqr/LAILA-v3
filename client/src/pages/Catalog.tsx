@@ -329,7 +329,7 @@ const EnrolledCourseCard = ({ enrollment }: { enrollment: Enrollment }) => {
   const isCompleted = progress === 100;
 
   return (
-    <Link to={`/courses/${course.id}/player`}>
+    <Link to={`/courses/${course.id}`}>
       <Card hover className="h-full">
         {/* Thumbnail */}
         <div className="h-32 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-t-xl flex items-center justify-center relative">

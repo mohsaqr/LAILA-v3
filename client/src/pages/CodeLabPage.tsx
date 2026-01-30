@@ -130,7 +130,7 @@ export const CodeLabPage = () => {
       {/* Navigation */}
       <div className="mb-6">
         {courseId ? (
-          <Link to={`/courses/${courseId}/player`}>
+          <Link to={`/courses/${courseId}`}>
             <Button
               variant="ghost"
               size="sm"

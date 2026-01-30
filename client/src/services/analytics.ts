@@ -627,8 +627,15 @@ class AnalyticsService {
   async trackChatbotInteraction(event: ChatbotInteractionEvent) {
     const sequence = this.getNextEventSequence();
 
+    // Always log chatbot events for debugging
+    console.log('[Analytics] Sending chatbot event:', event.eventType, {
+      sectionId: event.sectionId,
+      hasMessageContent: !!event.messageContent,
+      hasResponseContent: !!event.responseContent,
+    });
+
     try {
-      await apiClient.post('/analytics/chatbot-interaction', {
+      const response = await apiClient.post('/analytics/chatbot-interaction', {
         sessionId: this.sessionId,
         sessionStartTime: this.sessionStartTime,
         eventSequence: sequence,
@@ -639,6 +646,11 @@ class AnalyticsService {
         ...this.clientInfo,
       });
 
+      console.log('[Analytics] Chatbot event saved successfully:', {
+        eventType: event.eventType,
+        responseId: response?.data?.id,
+      });
+
       if (this.debugMode) {
         console.log('[Analytics] Chatbot interaction tracked:', {
           sequence,
@@ -647,9 +659,8 @@ class AnalyticsService {
         });
       }
     } catch (error) {
-      if (this.debugMode) {
-        console.error('[Analytics] Failed to track chatbot interaction:', error);
-      }
+      // Always log errors for chatbot interactions
+      console.error('[Analytics] Failed to track chatbot interaction:', error);
     }
   }
 

@@ -1,6 +1,7 @@
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { chatService } from './chat.service.js';
+import { activityLogService } from './activityLog.service.js';
 import {
   TutorMode,
   TutorSessionData,
@@ -86,6 +87,17 @@ export class TutorService {
         eventType: 'session_start',
         mode: 'manual',
       });
+
+      // Log to unified activity log
+      activityLogService.logActivity({
+        userId,
+        verb: 'started',
+        objectType: 'tutor_session',
+        objectId: session.id,
+        objectTitle: 'AI Tutor Session',
+        objectSubtype: 'manual',
+        extensions: { mode: 'manual' },
+      }).catch(err => console.error('[Tutor] Failed to log session start activity:', err));
     }
 
     // Get available agents
@@ -140,6 +152,17 @@ export class TutorService {
       mode,
     });
 
+    // Log to unified activity log
+    activityLogService.logActivity({
+      userId,
+      verb: 'switched',
+      objectType: 'tutor_session',
+      objectId: session.id,
+      objectTitle: `Mode: ${mode}`,
+      objectSubtype: mode,
+      extensions: { mode, previousMode: session.mode },
+    }).catch(err => console.error('[Tutor] Failed to log mode change activity:', err));
+
     return {
       id: session.id,
       userId: session.userId,
@@ -178,6 +201,22 @@ export class TutorService {
       chatbotDisplayName: chatbot.displayName,
       mode: session.mode as TutorMode,
     });
+
+    // Log to unified activity log
+    activityLogService.logActivity({
+      userId,
+      verb: 'selected',
+      objectType: 'tutor_agent',
+      objectId: chatbotId,
+      objectTitle: chatbot.displayName,
+      objectSubtype: chatbot.personality || 'tutor',
+      extensions: {
+        agentName: chatbot.name,
+        agentDisplayName: chatbot.displayName,
+        sessionId: session.id,
+        mode: session.mode,
+      },
+    }).catch(err => console.error('[Tutor] Failed to log agent switch activity:', err));
 
     return {
       id: session.id,
@@ -397,6 +436,22 @@ export class TutorService {
       eventType: 'conversation_clear',
       mode: session.mode as TutorMode,
     });
+
+    // Log to unified activity log
+    activityLogService.logActivity({
+      userId,
+      verb: 'cleared',
+      objectType: 'tutor_conversation',
+      objectId: conversation.id,
+      objectTitle: `Conversation with ${conversation.chatbot.displayName}`,
+      objectSubtype: conversation.chatbot.name,
+      extensions: {
+        agentId: chatbotId,
+        agentName: conversation.chatbot.name,
+        agentDisplayName: conversation.chatbot.displayName,
+        sessionId: session.id,
+      },
+    }).catch(err => console.error('[Tutor] Failed to log conversation clear activity:', err));
   }
 
   // ==========================================================================
@@ -487,6 +542,24 @@ export class TutorService {
       mode: session.mode as TutorMode,
       ...clientInfo,
     });
+
+    // Log to unified activity log
+    activityLogService.logActivity({
+      userId: session.userId,
+      verb: 'messaged',
+      objectType: 'tutor_agent',
+      objectId: chatbot.id,
+      objectTitle: chatbot.displayName,
+      objectSubtype: 'user_message',
+      extensions: {
+        agentName: chatbot.name,
+        conversationId: conversation.id,
+        messageId: userMsg.id,
+        messageLength: message.length,
+        mode: session.mode,
+      },
+      deviceType: clientInfo?.deviceType,
+    }).catch(err => console.error('[Tutor] Failed to log message sent activity:', err));
 
     // Build conversation history for multi-turn context (last 10 messages)
     const conversationHistory = conversation.messages.slice(-10).map((m) => ({
@@ -597,6 +670,28 @@ export class TutorService {
       responseTimeMs,
       ...clientInfo,
     });
+
+    // Log to unified activity log
+    activityLogService.logActivity({
+      userId: session.userId,
+      verb: 'received',
+      objectType: 'tutor_agent',
+      objectId: chatbot.id,
+      objectTitle: chatbot.displayName,
+      objectSubtype: 'assistant_message',
+      duration: responseTimeMs,
+      extensions: {
+        agentName: chatbot.name,
+        conversationId: conversation.id,
+        messageId: assistantMsg.id,
+        responseLength: aiResponse.length,
+        mode: session.mode,
+        aiModel,
+        aiProvider,
+        responseTimeMs,
+      },
+      deviceType: clientInfo?.deviceType,
+    }).catch(err => console.error('[Tutor] Failed to log message received activity:', err));
 
     return {
       userMessage: {
@@ -1083,6 +1178,30 @@ Synthesized response:`;
       agentContributions: JSON.stringify(agentResponses),
       ...clientInfo,
     });
+
+    // Log to unified activity log
+    activityLogService.logActivity({
+      userId: session.userId,
+      verb: 'received',
+      objectType: 'tutor_agent',
+      objectId: primaryAgent.id,
+      objectTitle: 'Collaborative Response',
+      objectSubtype: 'collaborative',
+      duration: responseTimeMs,
+      extensions: {
+        mode: 'collaborative',
+        conversationId: conversationData.id,
+        messageId: assistantMsg.id,
+        responseLength: synthesizedResponse.length,
+        agentCount: agents.length,
+        agentContributions: agentResponses.map(r => ({
+          agentId: r.agentId,
+          agentName: r.agentName,
+          responseTimeMs: r.responseTimeMs,
+        })),
+      },
+      deviceType: clientInfo?.deviceType,
+    }).catch(err => console.error('[Tutor] Failed to log collaborative activity:', err));
 
     return {
       userMessage: {

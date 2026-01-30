@@ -25,10 +25,18 @@ export const enrollmentsApi = {
     return response.data.data!;
   },
 
-  unenroll: async (courseId: number) => {
+  unenroll: async (courseId: number, courseTitle?: string) => {
     const response = await apiClient.delete<ApiResponse<{ message: string }>>(
       `/enrollments/course/${courseId}`
     );
+    // Log unenrollment activity
+    activityLogger.log({
+      verb: 'unenrolled',
+      objectType: 'course',
+      objectId: courseId,
+      objectTitle: courseTitle,
+      courseId,
+    }).catch(() => {});
     return response.data;
   },
 
