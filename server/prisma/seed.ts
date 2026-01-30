@@ -137,7 +137,7 @@ Be friendly and provide step-by-step guidance.`,
       isActive: true,
       personality: 'socratic',
       temperature: 0.7,
-      avatarUrl: '/avatars/socratic.png',
+      avatarUrl: '/avatars/socratic.svg',
       systemPrompt: `You are a Socratic tutor. Your approach:
 - Ask probing questions instead of giving direct answers
 - Guide students to discover insights themselves
@@ -171,7 +171,7 @@ Be friendly and provide step-by-step guidance.`,
       isActive: true,
       personality: 'friendly',
       temperature: 0.6,
-      avatarUrl: '/avatars/helper.png',
+      avatarUrl: '/avatars/helper.svg',
       systemPrompt: `You are a helpful and patient tutor. Your approach:
 - Give clear, structured explanations
 - Use examples and analogies
@@ -205,7 +205,7 @@ Be friendly and provide step-by-step guidance.`,
       isActive: true,
       personality: 'casual',
       temperature: 0.8,
-      avatarUrl: '/avatars/peer.png',
+      avatarUrl: '/avatars/peer.svg',
       systemPrompt: `You are a friendly study buddy, not a teacher. Your style:
 - Talk like a fellow student, casual and relatable
 - Say "I think..." and "Let's figure this out together"
@@ -239,7 +239,7 @@ Be friendly and provide step-by-step guidance.`,
       isActive: true,
       personality: 'professional',
       temperature: 0.5,
-      avatarUrl: '/avatars/project.png',
+      avatarUrl: '/avatars/project.svg',
       systemPrompt: `You are a project coach who helps with practical work. Your approach:
 - Help plan and structure projects
 - Break large tasks into manageable pieces
@@ -275,7 +275,7 @@ Be friendly and provide step-by-step guidance.`,
       isActive: true,
       personality: 'casual',
       temperature: 0.8,
-      avatarUrl: '/avatars/carmen.png',
+      avatarUrl: '/avatars/carmen.svg',
       systemPrompt: `You are Carmen, a fellow student who took this course last semester. You're NOT a tutor or teacher - you're just a classmate who's been through this before.
 
 Your personality:
@@ -322,7 +322,7 @@ What you DON'T do:
       isActive: true,
       personality: 'thoughtful',
       temperature: 0.7,
-      avatarUrl: '/avatars/laila.png',
+      avatarUrl: '/avatars/laila.svg',
       systemPrompt: `You are Laila, a very smart fellow student who loves a good intellectual discussion. You understand concepts deeply and you're not afraid to respectfully disagree or push back on ideas - but always in a supportive, constructive way.
 
 Your personality:
@@ -380,7 +380,7 @@ What you DON'T do:
       isActive: true,
       personality: 'supportive',
       temperature: 0.75,
-      avatarUrl: '/avatars/beatrice.png',
+      avatarUrl: '/avatars/beatrice.svg',
       systemPrompt: `You are Beatrice, an incredibly kind and supportive fellow student. You genuinely care about helping others succeed and believe everyone can learn.
 
 Your personality:

@@ -701,21 +701,154 @@ export class TutorService {
   }
 
   /**
-   * Analyze message and route to best agent
+   * Analyze message and route to best agent using AI
    */
   private async analyzeAndRoute(
     message: string,
     agents: TutorAgent[]
   ): Promise<RoutingInfo> {
+    // Try AI-based routing first, fall back to keyword-based if it fails
+    try {
+      return await this.analyzeWithAI(message, agents);
+    } catch (error) {
+      console.error('AI routing failed, falling back to keyword-based:', error);
+      return this.analyzeWithKeywords(message, agents);
+    }
+  }
+
+  /**
+   * AI-based intent analysis and routing
+   */
+  private async analyzeWithAI(
+    message: string,
+    agents: TutorAgent[]
+  ): Promise<RoutingInfo> {
+    const agentDescriptions = agents.map(a =>
+      `- ${a.name} (${a.displayName}): ${a.description}`
+    ).join('\n');
+
+    const routingPrompt = `You are a routing assistant. Analyze the student's message and determine which tutor agent would be best suited to help them.
+
+Available agents:
+${agentDescriptions}
+
+Student's message: "${message}"
+
+Respond in this exact JSON format (no markdown, just JSON):
+{
+  "selectedAgent": "agent-name-here",
+  "reason": "Brief explanation of why this agent is best",
+  "confidence": 0.85,
+  "scores": {
+    "agent-name-1": 0.85,
+    "agent-name-2": 0.60,
+    "agent-name-3": 0.40
+  }
+}
+
+Consider:
+- Emotional tone (frustrated, curious, casual, urgent)
+- Type of help needed (conceptual understanding, step-by-step guidance, project work, emotional support)
+- Complexity of the question
+- Whether they need encouragement or direct answers`;
+
+    const response = await chatService.chat({
+      message: routingPrompt,
+      module: 'tutor-router',
+      systemPrompt: 'You are a routing assistant. Always respond with valid JSON only, no markdown formatting.',
+      temperature: 0.3, // Low temperature for consistent routing
+    });
+
+    // Parse AI response
+    let parsed;
+    try {
+      // Extract JSON from response (handle potential markdown wrapping)
+      const jsonMatch = response.reply.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('No JSON found in response');
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch (parseError) {
+      console.error('Failed to parse AI routing response:', response.reply);
+      throw new Error('Invalid AI response format');
+    }
+
+    // Find the selected agent
+    const selectedAgent = agents.find(a => a.name === parsed.selectedAgent);
+    if (!selectedAgent) {
+      // Fallback to first agent if AI selected an invalid one
+      console.warn(`AI selected unknown agent: ${parsed.selectedAgent}`);
+      return this.analyzeWithKeywords(message, agents);
+    }
+
+    // Build alternatives from scores
+    const alternatives = agents
+      .filter(a => a.id !== selectedAgent.id)
+      .map(a => ({
+        agentId: a.id,
+        agentName: a.name,
+        score: parsed.scores?.[a.name] || 0.5,
+      }))
+      .sort((a, b) => b.score - a.score);
+
+    return {
+      selectedAgent: {
+        id: selectedAgent.id,
+        name: selectedAgent.name,
+        displayName: selectedAgent.displayName,
+      },
+      reason: parsed.reason || 'AI-based routing',
+      confidence: parsed.confidence || 0.8,
+      alternatives,
+    };
+  }
+
+  /**
+   * Keyword-based routing (fallback)
+   */
+  private analyzeWithKeywords(
+    message: string,
+    agents: TutorAgent[]
+  ): RoutingInfo {
     const messageLower = message.toLowerCase();
 
-    // Simple keyword-based routing (can be enhanced with AI later)
     let selectedAgent = agents[0];
     let reason = 'Default selection';
     let confidence = 0.5;
 
-    // Socratic tutor - conceptual questions, "why", "what if"
+    // Emotional support needed - Beatrice
     if (
+      messageLower.includes('frustrated') ||
+      messageLower.includes('stressed') ||
+      messageLower.includes('overwhelmed') ||
+      messageLower.includes('dumb') ||
+      messageLower.includes('stupid') ||
+      messageLower.includes('give up') ||
+      messageLower.includes('cant do this')
+    ) {
+      const beatriceAgent = agents.find((a) => a.name === 'beatrice-peer');
+      if (beatriceAgent) {
+        selectedAgent = beatriceAgent;
+        reason = 'Emotional support needed - Beatrice provides encouragement';
+        confidence = 0.9;
+      }
+    }
+    // Wants to discuss/debate - Laila
+    else if (
+      messageLower.includes('disagree') ||
+      messageLower.includes('think about') ||
+      messageLower.includes('opinion') ||
+      messageLower.includes('what do you think') ||
+      messageLower.includes('argue') ||
+      messageLower.includes('debate')
+    ) {
+      const lailaAgent = agents.find((a) => a.name === 'laila-peer');
+      if (lailaAgent) {
+        selectedAgent = lailaAgent;
+        reason = 'Discussion/debate detected - Laila loves intellectual discourse';
+        confidence = 0.85;
+      }
+    }
+    // Socratic tutor - conceptual questions, "why", "what if"
+    else if (
       messageLower.includes('why') ||
       messageLower.includes('what if') ||
       messageLower.includes('explain') ||
@@ -725,11 +858,11 @@ export class TutorService {
       const socraticAgent = agents.find((a) => a.name === 'socratic-tutor');
       if (socraticAgent) {
         selectedAgent = socraticAgent;
-        reason = 'Question suggests conceptual exploration - Socratic method is ideal';
+        reason = 'Conceptual exploration - Socratic method guides discovery';
         confidence = 0.8;
       }
     }
-    // Helper tutor - "how do I", "show me", "steps", direct questions
+    // Helper tutor - "how do I", "show me", "steps"
     else if (
       messageLower.includes('how do') ||
       messageLower.includes('how to') ||
@@ -741,11 +874,11 @@ export class TutorService {
       const helperAgent = agents.find((a) => a.name === 'helper-tutor');
       if (helperAgent) {
         selectedAgent = helperAgent;
-        reason = 'Question seeks direct guidance - Helpful Guide is best suited';
+        reason = 'Direct guidance needed - Helpful Guide provides clear steps';
         confidence = 0.85;
       }
     }
-    // Project tutor - "project", "build", "code", "implement", "debug"
+    // Project tutor - "project", "build", "code", "debug"
     else if (
       messageLower.includes('project') ||
       messageLower.includes('build') ||
@@ -758,11 +891,11 @@ export class TutorService {
       const projectAgent = agents.find((a) => a.name === 'project-tutor');
       if (projectAgent) {
         selectedAgent = projectAgent;
-        reason = 'Question relates to practical work - Project Coach can help best';
+        reason = 'Practical work detected - Project Coach helps with hands-on tasks';
         confidence = 0.82;
       }
     }
-    // Peer tutor - casual tone, "hey", "help me", informal
+    // Casual peer support - Carmen or Study Buddy
     else if (
       messageLower.includes('hey') ||
       messageLower.includes('hi ') ||
@@ -770,10 +903,10 @@ export class TutorService {
       messageLower.includes('confused') ||
       messageLower.includes('lost')
     ) {
-      const peerAgent = agents.find((a) => a.name === 'peer-tutor');
-      if (peerAgent) {
-        selectedAgent = peerAgent;
-        reason = 'Casual tone detected - Study Buddy provides friendly support';
+      const carmenAgent = agents.find((a) => a.name === 'carmen-peer');
+      if (carmenAgent) {
+        selectedAgent = carmenAgent;
+        reason = 'Casual tone - Carmen offers peer-to-peer support';
         confidence = 0.75;
       }
     }
@@ -784,7 +917,7 @@ export class TutorService {
       .map((a) => ({
         agentId: a.id,
         agentName: a.name,
-        score: Math.random() * 0.5 + 0.3, // Placeholder scores
+        score: Math.random() * 0.5 + 0.3,
       }))
       .sort((a, b) => b.score - a.score);
 
