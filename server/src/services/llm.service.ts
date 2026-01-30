@@ -931,7 +931,7 @@ export class LLMService {
   // ===========================================================================
 
   async seedDefaultProviders(): Promise<void> {
-    const providerNames: LLMProviderName[] = ['openai', 'gemini', 'ollama', 'lmstudio', 'anthropic', 'groq'];
+    const providerNames: LLMProviderName[] = ['openai', 'gemini', 'ollama', 'lmstudio', 'anthropic', 'groq', 'openrouter'];
 
     for (const name of providerNames) {
       const existing = await prisma.lLMProvider.findUnique({ where: { name } });

@@ -13,7 +13,7 @@ import {
   ChevronDown,
   Eye,
   EyeOff,
-  Bot,
+  MessagesSquare,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { ViewAsRole } from '../../store/authStore';
@@ -40,8 +40,8 @@ export const Navbar = () => {
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: BookOpen },
     { path: '/courses', label: 'Courses', icon: GraduationCap },
-    { path: '/ai-tutors', label: 'AI Tutors', icon: Bot },
     { path: '/ai-tools', label: 'AI Tools', icon: BrainCircuit },
+    { path: '/ai-tutors', label: 'Chat Tutors', icon: MessagesSquare },
     ...(isAdmin ? [{ path: '/admin', label: 'Admin', icon: Shield }] : []),
   ];
 

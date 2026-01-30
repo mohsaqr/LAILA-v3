@@ -37,6 +37,7 @@ import {
   CreateCategoryInput,
   UpdateCategoryInput,
 } from '../../api/promptBlocks';
+import { AdminLayout } from '../../components/admin';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Input, TextArea } from '../../components/common/Input';
@@ -310,40 +311,30 @@ export const PromptBlocksManagement = () => {
     : categories.filter((c) => c.isActive);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <Blocks className="w-7 h-7 text-violet-600" />
-              Prompt Building Blocks
-            </h1>
-            <p className="text-gray-600 mt-1">
-              Manage the prompt blocks that students can use to build their AI agents
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => refetch()}
-              icon={<RefreshCw className="w-4 h-4" />}
-            >
-              Refresh
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => seedDefaultsMutation.mutate()}
-              loading={seedDefaultsMutation.isPending}
-            >
-              Seed Defaults
-            </Button>
-          </div>
-        </div>
-      </div>
-
+    <AdminLayout
+      title="Prompt Building Blocks"
+      description="Manage the prompt blocks that students can use to build their AI agents"
+      headerActions={
+        <>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => refetch()}
+            icon={<RefreshCw className="w-4 h-4" />}
+          >
+            Refresh
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => seedDefaultsMutation.mutate()}
+            loading={seedDefaultsMutation.isPending}
+          >
+            Seed Defaults
+          </Button>
+        </>
+      }
+    >
       {/* Actions Bar */}
       <Card className="mb-6">
         <CardBody>
@@ -748,6 +739,6 @@ export const PromptBlocksManagement = () => {
           </div>
         </form>
       </Modal>
-    </div>
+    </AdminLayout>
   );
 };

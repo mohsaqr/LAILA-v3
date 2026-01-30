@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import {
   Upload,
   Download,
@@ -13,6 +12,7 @@ import {
 } from 'lucide-react';
 import { batchEnrollmentApi } from '../../api/batchEnrollment';
 import { coursesApi } from '../../api/courses';
+import { AdminLayout } from '../../components/admin';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
@@ -124,24 +124,16 @@ export const BatchEnrollment = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Batch Enrollment</h1>
-          <p className="text-gray-600 mt-1">Upload CSV to enroll multiple users at once</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => batchEnrollmentApi.downloadTemplate()}>
-            <Download className="w-4 h-4 mr-2" />
-            Download Template
-          </Button>
-          <Link to="/admin">
-            <Button variant="outline">Back to Admin</Button>
-          </Link>
-        </div>
-      </div>
-
+    <AdminLayout
+      title="Batch Enrollment"
+      description="Upload CSV to enroll multiple users at once"
+      headerActions={
+        <Button variant="outline" onClick={() => batchEnrollmentApi.downloadTemplate()}>
+          <Download className="w-4 h-4 mr-2" />
+          Download Template
+        </Button>
+      }
+    >
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Upload Section */}
         <Card>
@@ -382,6 +374,6 @@ export const BatchEnrollment = () => {
           </div>
         )}
       </Modal>
-    </div>
+    </AdminLayout>
   );
 };
