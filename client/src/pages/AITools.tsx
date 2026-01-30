@@ -13,6 +13,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { Card, CardBody } from '../components/common/Card';
+import { useTheme } from '../hooks/useTheme';
 
 const tools = [
   {
@@ -87,6 +88,16 @@ const infoCards = [
 ];
 
 export const AITools = () => {
+  const { isDark } = useTheme();
+
+  // Theme colors
+  const colors = {
+    textPrimary: isDark ? '#f3f4f6' : '#111827',
+    textSecondary: isDark ? '#9ca3af' : '#4b5563',
+    checkBg: isDark ? 'rgba(34, 197, 94, 0.2)' : '#dcfce7',
+    checkIcon: isDark ? '#4ade80' : '#16a34a',
+  };
+
   return (
     <div className="min-h-screen gradient-bg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -114,14 +125,14 @@ export const AITools = () => {
                       <Icon className="w-8 h-8 text-white" />
                     </div>
 
-                    <h2 className="text-xl font-bold text-gray-900 mb-3">{tool.name}</h2>
-                    <p className="text-gray-600 mb-6">{tool.description}</p>
+                    <h2 className="text-xl font-bold mb-3" style={{ color: colors.textPrimary }}>{tool.name}</h2>
+                    <p className="mb-6" style={{ color: colors.textSecondary }}>{tool.description}</p>
 
                     <ul className="space-y-2 mb-6">
                       {tool.features.map((feature, idx) => (
-                        <li key={idx} className="flex items-center gap-2 text-sm text-gray-600">
-                          <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center">
-                            <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                        <li key={idx} className="flex items-center gap-2 text-sm" style={{ color: colors.textSecondary }}>
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: colors.checkBg }}>
+                            <svg className="w-3 h-3" style={{ color: colors.checkIcon }} fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                             </svg>
                           </div>

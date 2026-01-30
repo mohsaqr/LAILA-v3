@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { User, Mail, Shield, Calendar, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../hooks/useTheme';
 import { usersApi } from '../api/users';
 import { Card, CardBody, CardHeader } from '../components/common/Card';
 import { Button } from '../components/common/Button';
@@ -10,12 +11,20 @@ import { Input } from '../components/common/Input';
 
 export const Profile = () => {
   const { user } = useAuth();
+  const { isDark } = useTheme();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     fullname: user?.fullname || '',
     email: user?.email || '',
   });
+
+  // Theme colors
+  const colors = {
+    textPrimary: isDark ? '#f3f4f6' : '#111827',
+    textSecondary: isDark ? '#9ca3af' : '#6b7280',
+    iconColor: isDark ? '#9ca3af' : '#9ca3af',
+  };
 
   const updateMutation = useMutation({
     mutationFn: (data: { fullname: string }) => usersApi.updateUser(user!.id, data),
@@ -45,13 +54,13 @@ export const Profile = () => {
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Profile</h1>
+      <h1 className="text-3xl font-bold mb-8" style={{ color: colors.textPrimary }}>Profile</h1>
 
       <div className="space-y-6">
         {/* Profile Card */}
         <Card>
           <CardHeader className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Personal Information</h2>
+            <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>Personal Information</h2>
             {!isEditing ? (
               <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
                 Edit
@@ -79,7 +88,7 @@ export const Profile = () => {
                 <User className="w-10 h-10 text-white" />
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-gray-900">{user?.fullname}</h3>
+                <h3 className="text-xl font-semibold" style={{ color: colors.textPrimary }}>{user?.fullname}</h3>
                 <div className="flex gap-2 mt-1">
                   {getRoleBadges().map(badge => (
                     <span
@@ -96,7 +105,7 @@ export const Profile = () => {
             {/* Fields */}
             <div className="grid gap-4">
               <div className="flex items-center gap-3">
-                <User className="w-5 h-5 text-gray-400" />
+                <User className="w-5 h-5" style={{ color: colors.iconColor }} />
                 {isEditing ? (
                   <Input
                     value={formData.fullname}
@@ -106,35 +115,35 @@ export const Profile = () => {
                   />
                 ) : (
                   <div>
-                    <p className="text-sm text-gray-500">Full Name</p>
-                    <p className="text-gray-900">{user?.fullname}</p>
+                    <p className="text-sm" style={{ color: colors.textSecondary }}>Full Name</p>
+                    <p style={{ color: colors.textPrimary }}>{user?.fullname}</p>
                   </div>
                 )}
               </div>
 
               <div className="flex items-center gap-3">
-                <Mail className="w-5 h-5 text-gray-400" />
+                <Mail className="w-5 h-5" style={{ color: colors.iconColor }} />
                 <div>
-                  <p className="text-sm text-gray-500">Email</p>
-                  <p className="text-gray-900">{user?.email}</p>
+                  <p className="text-sm" style={{ color: colors.textSecondary }}>Email</p>
+                  <p style={{ color: colors.textPrimary }}>{user?.email}</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
-                <Shield className="w-5 h-5 text-gray-400" />
+                <Shield className="w-5 h-5" style={{ color: colors.iconColor }} />
                 <div>
-                  <p className="text-sm text-gray-500">Account Status</p>
-                  <p className="text-gray-900">
+                  <p className="text-sm" style={{ color: colors.textSecondary }}>Account Status</p>
+                  <p style={{ color: colors.textPrimary }}>
                     {user?.isConfirmed ? 'Verified' : 'Pending Verification'}
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
-                <Calendar className="w-5 h-5 text-gray-400" />
+                <Calendar className="w-5 h-5" style={{ color: colors.iconColor }} />
                 <div>
-                  <p className="text-sm text-gray-500">Member Since</p>
-                  <p className="text-gray-900">
+                  <p className="text-sm" style={{ color: colors.textSecondary }}>Member Since</p>
+                  <p style={{ color: colors.textPrimary }}>
                     {user?.createdAt
                       ? new Date(user.createdAt).toLocaleDateString('en-US', {
                           year: 'numeric',
@@ -152,13 +161,13 @@ export const Profile = () => {
         {/* Security Card */}
         <Card>
           <CardHeader>
-            <h2 className="text-lg font-semibold text-gray-900">Security</h2>
+            <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>Security</h2>
           </CardHeader>
           <CardBody>
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium text-gray-900">Password</p>
-                <p className="text-sm text-gray-500">Last changed: Never</p>
+                <p className="font-medium" style={{ color: colors.textPrimary }}>Password</p>
+                <p className="text-sm" style={{ color: colors.textSecondary }}>Last changed: Never</p>
               </div>
               <Button variant="outline" size="sm">
                 Change Password

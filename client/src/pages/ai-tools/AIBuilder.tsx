@@ -32,6 +32,7 @@ import toast from 'react-hot-toast';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
+import { useTheme } from '../../hooks/useTheme';
 import apiClient from '../../api/client';
 
 interface AIComponent {
@@ -83,12 +84,12 @@ interface AIComponentFormData {
 }
 
 const CATEGORIES = [
-  { value: 'tutor', label: 'Tutor', icon: GraduationCap, color: 'bg-blue-100 text-blue-700' },
-  { value: 'assistant', label: 'Assistant', icon: Bot, color: 'bg-green-100 text-green-700' },
-  { value: 'chatbot', label: 'Chatbot', icon: MessageSquare, color: 'bg-purple-100 text-purple-700' },
-  { value: 'academic', label: 'Academic', icon: BookOpen, color: 'bg-amber-100 text-amber-700' },
-  { value: 'support', label: 'Support', icon: HelpCircle, color: 'bg-cyan-100 text-cyan-700' },
-  { value: 'creative', label: 'Creative', icon: Sparkles, color: 'bg-pink-100 text-pink-700' },
+  { value: 'tutor', label: 'Tutor', icon: GraduationCap, color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' },
+  { value: 'assistant', label: 'Assistant', icon: Bot, color: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' },
+  { value: 'chatbot', label: 'Chatbot', icon: MessageSquare, color: 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300' },
+  { value: 'academic', label: 'Academic', icon: BookOpen, color: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' },
+  { value: 'support', label: 'Support', icon: HelpCircle, color: 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300' },
+  { value: 'creative', label: 'Creative', icon: Sparkles, color: 'bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300' },
 ];
 
 const PERSONALITIES = [
@@ -192,7 +193,17 @@ const parseJsonArray = (str: string | null): string[] => {
 
 export const AIBuilder = () => {
   const queryClient = useQueryClient();
+  const { isDark } = useTheme();
   const [showForm, setShowForm] = useState(false);
+
+  // Theme colors
+  const colors = {
+    textPrimary: isDark ? '#f3f4f6' : '#111827',
+    textSecondary: isDark ? '#9ca3af' : '#4b5563',
+    textMuted: isDark ? '#6b7280' : '#9ca3af',
+    bgSecondary: isDark ? '#374151' : '#f3f4f6',
+    border: isDark ? '#4b5563' : '#e5e7eb',
+  };
   const [activeTab, setActiveTab] = useState<'basic' | 'behavior' | 'advanced' | 'test'>('basic');
   const [editingComponent, setEditingComponent] = useState<AIComponent | null>(null);
   const [formData, setFormData] = useState<AIComponentFormData>(DEFAULT_FORM);
@@ -402,11 +413,11 @@ export const AIBuilder = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+          <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: colors.textPrimary }}>
             <Bot className="w-8 h-8 text-primary-600" />
             AI Builder
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="mt-1" style={{ color: colors.textSecondary }}>
             Create and customize reusable AI components for your courses
           </p>
         </div>
@@ -419,11 +430,12 @@ export const AIBuilder = () => {
       <div className="flex gap-2 mb-6 flex-wrap">
         <button
           onClick={() => setFilterCategory('all')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            filterCategory === 'all'
-              ? 'bg-gray-900 text-white'
-              : 'bg-white text-gray-700 border hover:bg-gray-50'
-          }`}
+          className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          style={{
+            backgroundColor: filterCategory === 'all' ? (isDark ? '#f3f4f6' : '#111827') : (isDark ? '#374151' : '#ffffff'),
+            color: filterCategory === 'all' ? (isDark ? '#111827' : '#ffffff') : colors.textSecondary,
+            border: filterCategory === 'all' ? 'none' : `1px solid ${colors.border}`,
+          }}
         >
           All ({components?.length || 0})
         </button>
@@ -434,11 +446,12 @@ export const AIBuilder = () => {
             <button
               key={cat.value}
               onClick={() => setFilterCategory(cat.value)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
-                filterCategory === cat.value
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-white text-gray-700 border hover:bg-gray-50'
-              }`}
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+              style={{
+                backgroundColor: filterCategory === cat.value ? (isDark ? '#f3f4f6' : '#111827') : (isDark ? '#374151' : '#ffffff'),
+                color: filterCategory === cat.value ? (isDark ? '#111827' : '#ffffff') : colors.textSecondary,
+                border: filterCategory === cat.value ? 'none' : `1px solid ${colors.border}`,
+              }}
             >
               <Icon className="w-4 h-4" />
               {cat.label} ({count})
@@ -465,36 +478,36 @@ export const AIBuilder = () => {
                       </div>
                     )}
                     <div>
-                      <h3 className="font-semibold text-gray-900">{component.displayName}</h3>
+                      <h3 className="font-semibold" style={{ color: colors.textPrimary }}>{component.displayName}</h3>
                       <span className={`text-xs px-2 py-0.5 rounded ${catInfo.color}`}>
                         {catInfo.label}
                       </span>
                     </div>
                   </div>
                   {component.isSystem && (
-                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                    <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-1 rounded">
                       System
                     </span>
                   )}
                 </div>
               </CardHeader>
               <CardBody className="pt-2">
-                <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                <p className="text-sm mb-3 line-clamp-2" style={{ color: colors.textSecondary }}>
                   {component.description || 'No description'}
                 </p>
                 <div className="flex flex-wrap gap-1 mb-3">
                   {component.personality && (
-                    <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded">
+                    <span className="text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded">
                       {component.personality}
                     </span>
                   )}
                   {component.responseStyle && (
-                    <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded">
+                    <span className="text-xs bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-2 py-0.5 rounded">
                       {component.responseStyle}
                     </span>
                   )}
                   {component.temperature && (
-                    <span className="text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded">
+                    <span className="text-xs bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded">
                       temp: {component.temperature}
                     </span>
                   )}
@@ -547,8 +560,8 @@ export const AIBuilder = () => {
         {/* Empty State */}
         {filteredComponents?.length === 0 && (
           <div className="col-span-full text-center py-12">
-            <Bot className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">No AI components found</p>
+            <Bot className="w-12 h-12 mx-auto mb-4" style={{ color: colors.textMuted }} />
+            <p style={{ color: colors.textSecondary }}>No AI components found</p>
             <Button onClick={() => setShowForm(true)} variant="outline" className="mt-4">
               Create your first component
             </Button>

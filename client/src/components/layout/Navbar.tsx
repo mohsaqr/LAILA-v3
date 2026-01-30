@@ -16,10 +16,13 @@ import {
   MessagesSquare,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { useTheme } from '../../hooks/useTheme';
 import { ViewAsRole } from '../../store/authStore';
+import { ThemeToggle } from '../common/ThemeToggle';
 
 export const Navbar = () => {
   const { user, isAuthenticated, isAdmin, isActualAdmin, isActualInstructor, viewAsRole, setViewAs, isViewingAs, logout } = useAuth();
+  const { isDark } = useTheme();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -48,7 +51,14 @@ export const Navbar = () => {
   const isActive = (path: string) => location.pathname.startsWith(path);
 
   return (
-    <nav className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-50">
+    <nav
+      id="main-navigation"
+      className="shadow-sm border-b sticky top-0 z-50"
+      style={{
+        backgroundColor: isDark ? '#1f2937' : '#ffffff',
+        borderColor: isDark ? '#374151' : '#f3f4f6',
+      }}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo */}
@@ -73,8 +83,8 @@ export const Navbar = () => {
                     to={item.path}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       isActive(item.path)
-                        ? 'bg-primary-50 text-primary-600'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                        ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-gray-100'
                     }`}
                   >
                     <Icon className="w-4 h-4" />
@@ -85,7 +95,10 @@ export const Navbar = () => {
           </div>
 
           {/* User Menu */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            {/* Theme Toggle */}
+            <ThemeToggle />
+
             {/* View As Button - For admins and instructors */}
             {isAuthenticated && (isActualAdmin || isActualInstructor) && (
               <div className="relative">
@@ -93,8 +106,8 @@ export const Navbar = () => {
                   onClick={() => setIsViewAsMenuOpen(!isViewAsMenuOpen)}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
                     isViewingAs
-                      ? 'bg-amber-100 text-amber-700 border border-amber-300'
-                      : 'hover:bg-gray-50 text-gray-600'
+                      ? 'bg-amber-100 text-amber-700 border border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700'
+                      : 'hover:bg-gray-50 text-gray-600 dark:hover:bg-gray-700 dark:text-gray-300'
                   }`}
                 >
                   {isViewingAs ? (
@@ -111,9 +124,9 @@ export const Navbar = () => {
                 </button>
 
                 {isViewAsMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50">
-                    <div className="px-4 py-2 border-b border-gray-100">
-                      <p className="text-xs font-medium text-gray-500 uppercase">Test Role Views</p>
+                  <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-100 dark:border-gray-700 py-1 z-50">
+                    <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Test Role Views</p>
                     </div>
                     {viewAsOptions.map((option) => (
                       <button
@@ -122,25 +135,25 @@ export const Navbar = () => {
                           setViewAs(option.role);
                           setIsViewAsMenuOpen(false);
                         }}
-                        className={`flex flex-col items-start w-full px-4 py-2 text-sm hover:bg-gray-50 ${
+                        className={`flex flex-col items-start w-full px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
                           (option.role === null && !viewAsRole) || option.role === viewAsRole
-                            ? 'bg-primary-50 text-primary-700'
-                            : 'text-gray-700'
+                            ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
+                            : 'text-gray-700 dark:text-gray-300'
                         }`}
                       >
                         <span className="font-medium">{option.label}</span>
-                        <span className="text-xs text-gray-500">{option.description}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{option.description}</span>
                       </button>
                     ))}
                     {isViewingAs && (
                       <>
-                        <hr className="my-1" />
+                        <hr className="my-1 border-gray-100 dark:border-gray-700" />
                         <button
                           onClick={() => {
                             setViewAs(null);
                             setIsViewAsMenuOpen(false);
                           }}
-                          className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                          className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
                         >
                           <EyeOff className="w-4 h-4" />
                           Exit Test Mode
@@ -156,24 +169,24 @@ export const Navbar = () => {
               <div className="relative">
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center">
                     <span className="text-white text-sm font-medium">
                       {user?.fullname?.charAt(0).toUpperCase()}
                     </span>
                   </div>
-                  <span className="hidden sm:block text-sm font-medium text-gray-700">
+                  <span className="hidden sm:block text-sm font-medium text-gray-700 dark:text-gray-200">
                     {user?.fullname}
                   </span>
-                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                  <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                 </button>
 
                 {isUserMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1">
+                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-100 dark:border-gray-700 py-1">
                     <Link
                       to="/settings"
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                       onClick={() => setIsUserMenuOpen(false)}
                     >
                       <Settings className="w-4 h-4" />
@@ -181,19 +194,19 @@ export const Navbar = () => {
                     </Link>
                     <Link
                       to="/profile"
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                       onClick={() => setIsUserMenuOpen(false)}
                     >
                       <User className="w-4 h-4" />
                       Profile
                     </Link>
-                    <hr className="my-1" />
+                    <hr className="my-1 border-gray-100 dark:border-gray-700" />
                     <button
                       onClick={() => {
                         setIsUserMenuOpen(false);
                         logout();
                       }}
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full"
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 w-full"
                     >
                       <LogOut className="w-4 h-4" />
                       Sign Out
@@ -205,7 +218,7 @@ export const Navbar = () => {
               <div className="flex items-center gap-2">
                 <Link
                   to="/login"
-                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
                 >
                   Sign In
                 </Link>
@@ -218,12 +231,12 @@ export const Navbar = () => {
             {/* Mobile menu button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg hover:bg-gray-50"
+              className="md:hidden p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               {isMobileMenuOpen ? (
-                <X className="w-6 h-6 text-gray-600" />
+                <X className="w-6 h-6 text-gray-600 dark:text-gray-300" />
               ) : (
-                <Menu className="w-6 h-6 text-gray-600" />
+                <Menu className="w-6 h-6 text-gray-600 dark:text-gray-300" />
               )}
             </button>
           </div>
@@ -231,7 +244,7 @@ export const Navbar = () => {
 
         {/* Mobile Navigation */}
         {isMobileMenuOpen && (
-          <div className="md:hidden py-4 border-t border-gray-100">
+          <div className="md:hidden py-4 border-t border-gray-100 dark:border-gray-700">
             {navItems.map(item => {
                 const Icon = item.icon;
                 return (
@@ -240,8 +253,8 @@ export const Navbar = () => {
                     to={item.path}
                     className={`flex items-center gap-3 px-4 py-3 rounded-lg ${
                       isActive(item.path)
-                        ? 'bg-primary-50 text-primary-600'
-                        : 'text-gray-600 hover:bg-gray-50'
+                        ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400'
+                        : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700'
                     }`}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
