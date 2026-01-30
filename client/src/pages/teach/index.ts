@@ -8,3 +8,5 @@ export { AssignmentManager } from './AssignmentManager';
 export { SubmissionReview } from './SubmissionReview';
 export { ChatbotLogs } from './ChatbotLogs';
 export { TeacherGradebook } from './TeacherGradebook';
+export { SurveyManager } from './SurveyManager';
+export { SurveyResponses } from './SurveyResponses';

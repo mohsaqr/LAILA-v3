@@ -277,6 +277,9 @@ export interface Assignment {
   aiPrompt: string | null;
   // AI Agent assignment settings
   reflectionRequirement?: 'required' | 'optional' | 'disabled' | null;
+  // Post-submission survey
+  postSurveyId?: number | null;
+  postSurveyRequired?: boolean;
   module?: {
     id: number;
     title: string;
@@ -1175,4 +1178,122 @@ export interface AdminAuditLog {
   newValues: Record<string, unknown> | null;
   ipAddress: string | null;
   timestamp: string;
+}
+
+// =============================================================================
+// SURVEY SYSTEM
+// =============================================================================
+
+export type SurveyQuestionType = 'single_choice' | 'multiple_choice' | 'free_text';
+export type SurveyContext = 'standalone' | 'lecture' | 'post_assignment';
+
+export interface Survey {
+  id: number;
+  title: string;
+  description: string | null;
+  courseId: number | null;
+  createdById: number;
+  isPublished: boolean;
+  isAnonymous: boolean;
+  createdAt: string;
+  updatedAt: string;
+  questions?: SurveyQuestion[];
+  course?: {
+    id: number;
+    title: string;
+    instructorId?: number;
+  } | null;
+  createdBy?: {
+    id: number;
+    fullname: string;
+  };
+  _count?: {
+    questions?: number;
+    responses?: number;
+  };
+}
+
+export interface SurveyQuestion {
+  id: number;
+  surveyId: number;
+  questionText: string;
+  questionType: SurveyQuestionType;
+  options: string[] | null;
+  isRequired: boolean;
+  orderIndex: number;
+  createdAt: string;
+}
+
+export interface SurveyResponse {
+  id: number;
+  surveyId: number;
+  userId: number | null;
+  context: SurveyContext;
+  contextId: number | null;
+  completedAt: string;
+  answers: SurveyAnswer[];
+  user?: {
+    id: number;
+    fullname: string;
+    email: string;
+  } | null;
+}
+
+export interface SurveyAnswer {
+  id: number;
+  responseId: number;
+  questionId: number;
+  answerValue: string | string[];
+  question?: {
+    id: number;
+    questionText: string;
+    questionType: SurveyQuestionType;
+  };
+}
+
+export interface CreateSurveyData {
+  title: string;
+  description?: string;
+  courseId?: number | null;
+  isPublished?: boolean;
+  isAnonymous?: boolean;
+}
+
+export interface CreateSurveyQuestionData {
+  questionText: string;
+  questionType: SurveyQuestionType;
+  options?: string[];
+  isRequired?: boolean;
+  orderIndex?: number;
+}
+
+export interface SubmitSurveyAnswerData {
+  questionId: number;
+  answerValue: string | string[];
+}
+
+export interface SubmitSurveyResponseData {
+  context?: SurveyContext;
+  contextId?: number | null;
+  answers: SubmitSurveyAnswerData[];
+}
+
+export interface SurveyResponsesData {
+  survey: {
+    id: number;
+    title: string;
+    isAnonymous: boolean;
+  };
+  totalResponses: number;
+  questionStats: SurveyQuestionStats[];
+  responses: SurveyResponse[];
+}
+
+export interface SurveyQuestionStats {
+  questionId: number;
+  questionText: string;
+  questionType: SurveyQuestionType;
+  totalResponses: number;
+  optionCounts?: Record<string, number>;
+  responses?: string[];
 }

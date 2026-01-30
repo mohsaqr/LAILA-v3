@@ -339,3 +339,47 @@ export type AddUserToCourseInput = z.infer<typeof addUserToCourseSchema>;
 export type BatchEnrollmentRowInput = z.infer<typeof batchEnrollmentRowSchema>;
 export type CourseRoleInput = z.infer<typeof courseRoleSchema>;
 export type UpdateCourseRoleInput = z.infer<typeof updateCourseRoleSchema>;
+
+// =============================================================================
+// SURVEY VALIDATION SCHEMAS
+// =============================================================================
+
+export const createSurveySchema = z.object({
+  title: z.string().min(3, 'Title must be at least 3 characters'),
+  description: z.string().optional(),
+  courseId: z.number().int().positive().optional().nullable(),
+  isPublished: z.boolean().optional(),
+  isAnonymous: z.boolean().optional(),
+});
+
+export const updateSurveySchema = createSurveySchema.partial();
+
+export const createSurveyQuestionSchema = z.object({
+  questionText: z.string().min(3, 'Question must be at least 3 characters'),
+  questionType: z.enum(['single_choice', 'multiple_choice', 'free_text']),
+  options: z.array(z.string()).optional(), // Array of options for choice questions
+  isRequired: z.boolean().optional(),
+  orderIndex: z.number().int().min(0).optional(),
+});
+
+export const updateSurveyQuestionSchema = createSurveyQuestionSchema.partial();
+
+export const reorderQuestionsSchema = z.object({
+  questionIds: z.array(z.number().int()),
+});
+
+export const submitSurveyResponseSchema = z.object({
+  context: z.enum(['standalone', 'lecture', 'post_assignment']).optional(),
+  contextId: z.number().int().positive().optional().nullable(),
+  answers: z.array(z.object({
+    questionId: z.number().int().positive(),
+    answerValue: z.union([z.string(), z.array(z.string())]), // string for single/free_text, array for multiple_choice
+  })),
+});
+
+// Type exports for surveys
+export type CreateSurveyInput = z.infer<typeof createSurveySchema>;
+export type UpdateSurveyInput = z.infer<typeof updateSurveySchema>;
+export type CreateSurveyQuestionInput = z.infer<typeof createSurveyQuestionSchema>;
+export type UpdateSurveyQuestionInput = z.infer<typeof updateSurveyQuestionSchema>;
+export type SubmitSurveyResponseInput = z.infer<typeof submitSurveyResponseSchema>;

@@ -39,7 +39,12 @@ import {
   SubmissionReview,
   ChatbotLogs,
   TeacherGradebook,
+  SurveyManager,
+  SurveyResponses,
 } from './pages/teach';
+
+// Survey pages
+import { SurveyStandalone } from './pages/SurveyStandalone';
 
 // Agent Assignment pages
 import {
@@ -217,6 +222,9 @@ function App() {
           }
         />
 
+        {/* Standalone Survey route */}
+        <Route path="/surveys/:id" element={<SurveyStandalone />} />
+
         {/* AI Tools */}
         <Route path="/ai-tools" element={<AITools />} />
         <Route path="/ai-tools/builder" element={<AIBuilder />} />
@@ -341,6 +349,24 @@ function App() {
           element={
             <ProtectedRoute requireInstructor>
               <ChatbotLogs />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Survey Management routes (Instructor) */}
+        <Route
+          path="/teach/courses/:id/surveys"
+          element={
+            <ProtectedRoute requireInstructor>
+              <SurveyManager />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teach/courses/:id/surveys/:surveyId/responses"
+          element={
+            <ProtectedRoute requireInstructor>
+              <SurveyResponses />
             </ProtectedRoute>
           }
         />

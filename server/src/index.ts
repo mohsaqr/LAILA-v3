@@ -32,6 +32,7 @@ import uploadRoutes from './routes/upload.routes.js';
 import agentDesignLogRoutes from './routes/agentDesignLog.routes.js';
 import promptBlockRoutes from './routes/promptBlock.routes.js';
 import tutorRoutes from './routes/tutor.routes.js';
+import surveyRoutes from './routes/survey.routes.js';
 
 // Import middleware
 import { errorHandler } from './middleware/error.middleware.js';
@@ -103,6 +104,7 @@ app.use('/api/llm', llmRoutes);
 app.use('/api/agent-design-logs', agentDesignLogRoutes);
 app.use('/api/prompt-blocks', promptBlockRoutes);
 app.use('/api/tutors', tutorRoutes);
+app.use('/api/surveys', surveyRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

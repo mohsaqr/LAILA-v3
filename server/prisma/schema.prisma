@@ -51,6 +51,10 @@ model User {
   // AI Tutors
   tutorSession TutorSession?
 
+  // Surveys
+  createdSurveys  Survey[]         @relation("SurveyCreator")
+  surveyResponses SurveyResponse[] @relation("SurveyResponses")
+
   @@map("users")
 }
 
@@ -404,6 +408,7 @@ model Course {
   enrollments   Enrollment[]
   assignments   Assignment[]
   announcements CourseAnnouncement[]
+  surveys       Survey[]
 
   // Course Roles Relations
   courseRoles         CourseRole[]
@@ -619,6 +624,10 @@ model Assignment {
   // Reflection settings for AI Agent assignments
   reflectionRequirement String? @map("reflection_requirement") // 'required' | 'optional' | 'disabled'
 
+  // Post-submission survey
+  postSurveyId       Int?     @map("post_survey_id")
+  postSurveyRequired Boolean  @default(false) @map("post_survey_required")
+
   // Relations
   course              Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
   module              CourseModule?          @relation(fields: [moduleId], references: [id], onDelete: SetNull)
@@ -626,8 +635,10 @@ model Assignment {
   lectureSections     LectureSection[]
   studentAgentConfigs StudentAgentConfig[]
   designEvents        AgentDesignEventLog[]
+  postSurvey          Survey?                @relation("PostAssignmentSurvey", fields: [postSurveyId], references: [id], onDelete: SetNull)
 
   @@index([courseId])
+  @@index([postSurveyId])
   @@map("assignments")
 }
 
@@ -1754,4 +1765,78 @@ model TutorInteractionLog {
   @@index([eventType])
   @@index([timestamp])
   @@map("tutor_interaction_logs")
+}
+
+// =============================================================================
+// SURVEY SYSTEM
+// =============================================================================
+
+model Survey {
+  id           Int       @id @default(autoincrement())
+  title        String
+  description  String?
+  courseId     Int?      @map("course_id")  // null = global survey
+  createdById  Int       @map("created_by_id")
+  isPublished  Boolean   @default(false) @map("is_published")
+  isAnonymous  Boolean   @default(false) @map("is_anonymous")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  course       Course?   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdBy    User      @relation("SurveyCreator", fields: [createdById], references: [id])
+  questions    SurveyQuestion[]
+  responses    SurveyResponse[]
+  assignments  Assignment[] @relation("PostAssignmentSurvey")
+
+  @@index([courseId])
+  @@index([createdById])
+  @@map("surveys")
+}
+
+model SurveyQuestion {
+  id           Int      @id @default(autoincrement())
+  surveyId     Int      @map("survey_id")
+  questionText String   @map("question_text")
+  questionType String   @map("question_type")  // 'single_choice' | 'multiple_choice' | 'free_text'
+  options      String?  // JSON array for choice questions
+  isRequired   Boolean  @default(true) @map("is_required")
+  orderIndex   Int      @default(0) @map("order_index")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  survey       Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  answers      SurveyAnswer[]
+
+  @@index([surveyId])
+  @@map("survey_questions")
+}
+
+model SurveyResponse {
+  id           Int       @id @default(autoincrement())
+  surveyId     Int       @map("survey_id")
+  userId       Int?      @map("user_id")  // null if anonymous
+  context      String    @default("standalone")  // 'standalone' | 'lecture' | 'post_assignment'
+  contextId    Int?      @map("context_id")  // e.g., assignmentId, lectureId
+  completedAt  DateTime  @default(now()) @map("completed_at")
+
+  survey       Survey    @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  user         User?     @relation("SurveyResponses", fields: [userId], references: [id], onDelete: SetNull)
+  answers      SurveyAnswer[]
+
+  @@index([surveyId])
+  @@index([userId])
+  @@map("survey_responses")
+}
+
+model SurveyAnswer {
+  id           Int             @id @default(autoincrement())
+  responseId   Int             @map("response_id")
+  questionId   Int             @map("question_id")
+  answerValue  String          @map("answer_value")  // text or JSON array for multi-choice
+
+  response     SurveyResponse  @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question     SurveyQuestion  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([responseId])
+  @@index([questionId])
+  @@map("survey_answers")
 }

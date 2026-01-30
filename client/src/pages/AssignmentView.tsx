@@ -25,6 +25,7 @@ import { Loading } from '../components/common/Loading';
 import { Button } from '../components/common/Button';
 import { TextArea } from '../components/common/Input';
 import { Breadcrumb } from '../components/common/Breadcrumb';
+import { PostAssignmentSurveyModal } from '../components/survey';
 import { getSessionId, getClientInfo } from '../utils/analytics';
 import { debug } from '../utils/debug';
 
@@ -38,6 +39,7 @@ export const AssignmentView = () => {
 
   const [content, setContent] = useState('');
   const [fileUrls, setFileUrls] = useState<string[]>([]);
+  const [showSurveyModal, setShowSurveyModal] = useState(false);
 
   // Theme colors
   const colors = {
@@ -149,6 +151,11 @@ export const AssignmentView = () => {
         timestamp: Date.now(),
         ...clientInfo,
       }).catch(err => debug.error('Failed to log assignment_submit event:', err));
+
+      // Show post-assignment survey modal if configured
+      if (assignment?.postSurveyId) {
+        setShowSurveyModal(true);
+      }
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Failed to submit assignment');
@@ -494,6 +501,20 @@ export const AssignmentView = () => {
           </Card>
         </div>
       </div>
+
+      {/* Post-Assignment Survey Modal */}
+      {assignment?.postSurveyId && (
+        <PostAssignmentSurveyModal
+          surveyId={assignment.postSurveyId}
+          assignmentId={parsedAssignmentId}
+          isRequired={assignment.postSurveyRequired ?? false}
+          isOpen={showSurveyModal}
+          onClose={() => setShowSurveyModal(false)}
+          onComplete={() => {
+            toast.success('Thank you for your feedback!');
+          }}
+        />
+      )}
     </div>
   );
 };
