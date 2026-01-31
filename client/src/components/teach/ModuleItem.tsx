@@ -178,7 +178,7 @@ export const ModuleItem = ({
                     <span className="text-xs text-gray-400 mr-1">Add:</span>
                     {/* Section types - add directly to this lesson */}
                     <Link
-                      to={`/teach/courses/${courseId}/lectures/${lecture.id}/edit?addSection=text`}
+                      to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=text`}
                       className="text-xs px-2 py-1 rounded-md border border-blue-200 hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1"
                       title="Add Text Section"
                     >
@@ -186,7 +186,7 @@ export const ModuleItem = ({
                       Text
                     </Link>
                     <Link
-                      to={`/teach/courses/${courseId}/lectures/${lecture.id}/edit?addSection=file`}
+                      to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=file`}
                       className="text-xs px-2 py-1 rounded-md border border-green-200 hover:bg-green-50 text-green-600 hover:text-green-700 transition-colors flex items-center gap-1"
                       title="Add File Section"
                     >
@@ -194,7 +194,7 @@ export const ModuleItem = ({
                       File
                     </Link>
                     <Link
-                      to={`/teach/courses/${courseId}/lectures/${lecture.id}/edit?addSection=ai-generated`}
+                      to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=ai-generated`}
                       className="text-xs px-2 py-1 rounded-md border border-purple-200 hover:bg-purple-50 text-purple-600 hover:text-purple-700 transition-colors flex items-center gap-1"
                       title="Add AI Section"
                     >
@@ -202,7 +202,7 @@ export const ModuleItem = ({
                       AI
                     </Link>
                     <Link
-                      to={`/teach/courses/${courseId}/lectures/${lecture.id}/edit?addSection=chatbot`}
+                      to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=chatbot`}
                       className="text-xs px-2 py-1 rounded-md border border-orange-200 hover:bg-orange-50 text-orange-600 hover:text-orange-700 transition-colors flex items-center gap-1"
                       title="Add Chatbot Section"
                     >
