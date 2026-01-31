@@ -152,22 +152,51 @@ export const ModuleItem = ({
       {/* Lectures and Code Labs */}
       {isExpanded && (
         <div className="p-4 space-y-2">
-          {/* Lectures */}
+          {/* Lectures with inline add options */}
           {lectures.length > 0 ? (
             lectures
               .sort((a, b) => a.orderIndex - b.orderIndex)
               .map((lecture, index) => (
-                <LectureItem
-                  key={lecture.id}
-                  lecture={lecture}
-                  courseId={courseId}
-                  isFirst={index === 0}
-                  isLast={index === lectures.length - 1}
-                  onEdit={onEditLecture}
-                  onDelete={onDeleteLecture}
-                  onMoveUp={() => onMoveLectureUp(lecture, module)}
-                  onMoveDown={() => onMoveLectureDown(lecture, module)}
-                />
+                <div key={lecture.id}>
+                  <LectureItem
+                    lecture={lecture}
+                    courseId={courseId}
+                    isFirst={index === 0}
+                    isLast={index === lectures.length - 1}
+                    onEdit={onEditLecture}
+                    onDelete={onDeleteLecture}
+                    onMoveUp={() => onMoveLectureUp(lecture, module)}
+                    onMoveDown={() => onMoveLectureDown(lecture, module)}
+                  />
+                  {/* Inline add options after each lesson */}
+                  <div className="flex items-center gap-2 py-2 px-3 ml-6 border-l-2 border-dashed border-gray-200">
+                    <span className="text-xs text-gray-400">Add:</span>
+                    <button
+                      onClick={() => onAddLecture(module)}
+                      className="text-xs px-2 py-1 rounded-md border border-gray-200 hover:bg-gray-100 text-gray-600 hover:text-gray-800 transition-colors flex items-center gap-1"
+                      title="Add Lesson"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Lesson
+                    </button>
+                    <button
+                      onClick={() => onAddCodeLab(module)}
+                      className="text-xs px-2 py-1 rounded-md border border-emerald-200 hover:bg-emerald-50 text-emerald-600 hover:text-emerald-700 transition-colors flex items-center gap-1"
+                      title="Add Code Lab"
+                    >
+                      <FlaskConical className="w-3 h-3" />
+                      Code Lab
+                    </button>
+                    <button
+                      onClick={() => onAddAssignment(module)}
+                      className="text-xs px-2 py-1 rounded-md border border-amber-200 hover:bg-amber-50 text-amber-600 hover:text-amber-700 transition-colors flex items-center gap-1"
+                      title="Add Assignment"
+                    >
+                      <ClipboardList className="w-3 h-3" />
+                      Assignment
+                    </button>
+                  </div>
+                </div>
               ))
           ) : (
             <p className="text-sm text-gray-400 text-center py-4">
@@ -217,36 +246,38 @@ export const ModuleItem = ({
             </div>
           )}
 
-          {/* Action buttons */}
-          <div className="flex gap-2 mt-2 flex-wrap">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onAddLecture(module)}
-              icon={<Plus className="w-4 h-4" />}
-              className="flex-1 min-w-[120px]"
-            >
-              Add Lesson
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onAddCodeLab(module)}
-              icon={<FlaskConical className="w-4 h-4" />}
-              className="flex-1 min-w-[120px] text-emerald-600 hover:bg-emerald-50"
-            >
-              Add Code Lab
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onAddAssignment(module)}
-              icon={<ClipboardList className="w-4 h-4" />}
-              className="flex-1 min-w-[120px] text-amber-600 hover:bg-amber-50"
-            >
-              Add Assignment
-            </Button>
-          </div>
+          {/* Action buttons - shown when no lessons exist */}
+          {lectures.length === 0 && (
+            <div className="flex gap-2 mt-2 flex-wrap">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onAddLecture(module)}
+                icon={<Plus className="w-4 h-4" />}
+                className="flex-1 min-w-[120px]"
+              >
+                Add Lesson
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onAddCodeLab(module)}
+                icon={<FlaskConical className="w-4 h-4" />}
+                className="flex-1 min-w-[120px] text-emerald-600 hover:bg-emerald-50"
+              >
+                Add Code Lab
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onAddAssignment(module)}
+                icon={<ClipboardList className="w-4 h-4" />}
+                className="flex-1 min-w-[120px] text-amber-600 hover:bg-amber-50"
+              >
+                Add Assignment
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>
