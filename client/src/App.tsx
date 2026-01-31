@@ -25,6 +25,9 @@ import { StudentGradebook } from './pages/StudentGradebook';
 import { DashboardGradebook } from './pages/DashboardGradebook';
 import { DashboardCalendar } from './pages/DashboardCalendar';
 import { CodeLabPage } from './pages/CodeLabPage';
+import { Labs } from './pages/Labs';
+import { LabRunner } from './pages/LabRunner';
+import { LabManager } from './pages/teach/LabManager';
 
 // Teaching pages
 import {
@@ -225,6 +228,24 @@ function App() {
           }
         />
 
+        {/* Custom Labs */}
+        <Route
+          path="/labs"
+          element={
+            <ProtectedRoute>
+              <Labs />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/labs/:id"
+          element={
+            <ProtectedRoute>
+              <LabRunner />
+            </ProtectedRoute>
+          }
+        />
+
         {/* Test Corner */}
         <Route
           path="/test-corner"
@@ -339,6 +360,16 @@ function App() {
           element={
             <ProtectedRoute requireInstructor>
               <CourseTutorManager />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Lab Management (Instructor) */}
+        <Route
+          path="/teach/labs"
+          element={
+            <ProtectedRoute requireInstructor>
+              <LabManager />
             </ProtectedRoute>
           }
         />

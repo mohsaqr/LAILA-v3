@@ -122,6 +122,98 @@ export interface UpdateCodeBlockData {
   orderIndex?: number;
 }
 
+// Custom Lab types
+export interface LabType {
+  id: string;
+  name: string;
+  description: string;
+  disabled?: boolean;
+}
+
+export interface LabTemplate {
+  id: number;
+  labId: number;
+  title: string;
+  description: string | null;
+  code: string;
+  orderIndex: number;
+}
+
+export interface LabAssignment {
+  id: number;
+  labId: number;
+  courseId: number;
+  moduleId: number | null;
+  lab?: CustomLab;
+  course?: {
+    id: number;
+    title: string;
+    slug: string;
+  };
+  module?: {
+    id: number;
+    title: string;
+  } | null;
+}
+
+export interface CustomLab {
+  id: number;
+  name: string;
+  description: string | null;
+  labType: string;
+  config: string | null;
+  createdBy: number;
+  isPublic: boolean;
+  createdAt: string;
+  updatedAt: string;
+  creator?: {
+    id: number;
+    fullname: string;
+  };
+  templates?: LabTemplate[];
+  assignments?: LabAssignment[];
+  _count?: {
+    templates: number;
+    assignments: number;
+  };
+}
+
+export interface CreateCustomLabData {
+  name: string;
+  description?: string;
+  labType: string;
+  config?: string;
+  isPublic?: boolean;
+  addDefaultTemplates?: boolean;
+}
+
+export interface UpdateCustomLabData {
+  name?: string;
+  description?: string;
+  labType?: string;
+  config?: string;
+  isPublic?: boolean;
+}
+
+export interface CreateLabTemplateData {
+  title: string;
+  description?: string;
+  code: string;
+  orderIndex?: number;
+}
+
+export interface UpdateLabTemplateData {
+  title?: string;
+  description?: string;
+  code?: string;
+  orderIndex?: number;
+}
+
+export interface AssignLabData {
+  courseId: number;
+  moduleId?: number | null;
+}
+
 export interface Lecture {
   id: number;
   moduleId: number;

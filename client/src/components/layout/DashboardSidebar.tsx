@@ -12,6 +12,7 @@ import {
   Briefcase,
   Activity,
   Bot,
+  FlaskConical,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
@@ -62,6 +63,7 @@ export const DashboardSidebar = () => {
   const studentNavItems: NavItem[] = [
     { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
     { label: 'My Courses', icon: GraduationCap, path: '/courses' },
+    { label: 'Labs', icon: FlaskConical, path: '/labs' },
     { label: 'Gradebook', icon: ClipboardList, path: '/dashboard/gradebook' },
     { label: 'Calendar', icon: Calendar, path: '/dashboard/calendar' },
     { label: 'AI Tools', icon: BrainCircuit, path: '/ai-tools' },
@@ -72,6 +74,7 @@ export const DashboardSidebar = () => {
     { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
     { label: 'Teaching', icon: Briefcase, path: '/teach' },
     { label: 'My Courses', icon: GraduationCap, path: '/courses' },
+    { label: 'Labs', icon: FlaskConical, path: '/labs' },
     {
       label: 'AI Tutors',
       icon: Bot,

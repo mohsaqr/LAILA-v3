@@ -36,6 +36,8 @@ import surveyRoutes from './routes/survey.routes.js';
 import emotionalPulseRoutes from './routes/emotionalPulse.routes.js';
 import messageExportRoutes from './routes/messageExport.routes.js';
 import courseTutorRoutes from './routes/courseTutor.routes.js';
+import customLabRoutes from './routes/customLab.routes.js';
+import aiRoutes from './routes/ai.routes.js';
 
 // Import middleware
 import { errorHandler } from './middleware/error.middleware.js';
@@ -117,6 +119,8 @@ app.use('/api/surveys', surveyRoutes);
 app.use('/api/emotional-pulse', emotionalPulseRoutes);
 app.use('/api/admin/messages', messageExportRoutes);
 app.use('/api/courses', courseTutorRoutes);
+app.use('/api/labs', customLabRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
