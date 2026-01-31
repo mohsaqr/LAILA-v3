@@ -14,15 +14,17 @@ import {
   Upload,
   Sparkles,
   MessageCircle,
+  Beaker,
+  ExternalLink,
 } from 'lucide-react';
-import { CourseModule, Lecture, CodeLab, Assignment } from '../../types';
+import { CourseModule, Lecture, CodeLab, Assignment, LabAssignment } from '../../types';
 import { Button } from '../common/Button';
 import { LectureItem } from './LectureItem';
 import { CodeLabItem } from './CodeLabItem';
 import { AssignmentItem } from './AssignmentItem';
 
 interface ModuleItemProps {
-  module: CourseModule;
+  module: CourseModule & { labAssignments?: LabAssignment[] };
   courseId: number;
   isFirst: boolean;
   isLast: boolean;
@@ -47,6 +49,8 @@ interface ModuleItemProps {
   onDeleteAssignment: (assignment: Assignment) => void;
   onMoveAssignmentUp: (assignment: Assignment, module: CourseModule) => void;
   onMoveAssignmentDown: (assignment: Assignment, module: CourseModule) => void;
+  // Lab Template handlers
+  onRemoveLabAssignment?: (labId: number) => void;
 }
 
 export const ModuleItem = ({
@@ -73,11 +77,13 @@ export const ModuleItem = ({
   onDeleteAssignment,
   onMoveAssignmentUp,
   onMoveAssignmentDown,
+  onRemoveLabAssignment,
 }: ModuleItemProps) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const lectures = module.lectures || [];
   const codeLabs = module.codeLabs || [];
   const assignments = module.assignments || [];
+  const labAssignments = module.labAssignments || [];
 
   return (
     <div className="border border-gray-200 rounded-lg bg-white">
@@ -111,6 +117,7 @@ export const ModuleItem = ({
           <span className="text-xs text-gray-400">
             {lectures.length} lesson{lectures.length !== 1 ? 's' : ''}
             {codeLabs.length > 0 && ` • ${codeLabs.length} code lab${codeLabs.length !== 1 ? 's' : ''}`}
+            {labAssignments.length > 0 && ` • ${labAssignments.length} lab template${labAssignments.length !== 1 ? 's' : ''}`}
             {assignments.length > 0 && ` • ${assignments.length} assignment${assignments.length !== 1 ? 's' : ''}`}
           </span>
         </div>
@@ -262,6 +269,56 @@ export const ModuleItem = ({
                     onMoveDown={() => onMoveCodeLabDown(codeLab, module)}
                   />
                 ))}
+            </div>
+          )}
+
+          {/* Lab Templates (Custom Labs) */}
+          {labAssignments.length > 0 && (
+            <div className="pt-2 border-t border-gray-100 mt-2 space-y-2">
+              {labAssignments.map(labAssignment => (
+                <div
+                  key={labAssignment.id}
+                  className="flex items-center gap-3 p-3 rounded-lg bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800"
+                >
+                  <Beaker className="w-5 h-5 text-teal-600 dark:text-teal-400 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900 dark:text-white truncate">
+                        {labAssignment.lab?.name || 'Lab Template'}
+                      </span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-800 text-teal-700 dark:text-teal-300">
+                        {labAssignment.lab?.labType}
+                      </span>
+                    </div>
+                    {labAssignment.lab?.description && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                        {labAssignment.lab.description}
+                      </p>
+                    )}
+                    <span className="text-xs text-gray-400">
+                      {labAssignment.lab?._count?.templates || labAssignment.lab?.templates?.length || 0} template{(labAssignment.lab?._count?.templates || labAssignment.lab?.templates?.length || 0) !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Link
+                      to={`/labs/${labAssignment.labId}`}
+                      className="p-1.5 rounded hover:bg-teal-100 dark:hover:bg-teal-800 transition-colors"
+                      title="View Lab"
+                    >
+                      <ExternalLink className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                    </Link>
+                    {onRemoveLabAssignment && (
+                      <button
+                        onClick={() => onRemoveLabAssignment(labAssignment.labId)}
+                        className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                        title="Remove from module"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 

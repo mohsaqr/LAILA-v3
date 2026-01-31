@@ -458,6 +458,9 @@ export class CustomLabService {
         creator: {
           select: { id: true, fullname: true },
         },
+        templates: {
+          orderBy: { orderIndex: 'asc' },
+        },
         _count: {
           select: { templates: true, assignments: true },
         },

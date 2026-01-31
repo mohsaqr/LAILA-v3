@@ -70,7 +70,7 @@ export const DashboardSidebar = () => {
   const instructorNavItems: NavItem[] = [
     { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
     { label: 'My Courses', icon: GraduationCap, path: '/courses' },
-    { label: 'Labs', icon: FlaskConical, path: '/labs' },
+    { label: 'Lab Templates', icon: FlaskConical, path: '/teach/labs' },
     {
       label: 'AI Tutors',
       icon: Bot,

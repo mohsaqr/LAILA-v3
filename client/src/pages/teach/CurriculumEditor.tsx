@@ -1,12 +1,13 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { Plus, Settings, Eye, EyeOff, Layers, FileEdit, MessageCircle, Bot, Sparkles, ChevronDown, Heart } from 'lucide-react';
+import { Plus, Settings, Eye, EyeOff, Layers, FileEdit, MessageCircle, Bot, Sparkles, ChevronDown, Heart, Beaker, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../../api/courses';
 import { codeLabsApi } from '../../api/codeLabs';
 import { assignmentsApi } from '../../api/assignments';
 import { courseTutorApi } from '../../api/courseTutor';
+import { customLabsApi } from '../../api/customLabs';
 import { useTheme } from '../../hooks/useTheme';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
@@ -18,7 +19,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Input, TextArea, Select } from '../../components/common/Input';
 import { ModuleItem } from '../../components/teach/ModuleItem';
-import { CourseModule, Lecture, CodeLab, Assignment } from '../../types';
+import { CourseModule, Lecture, CodeLab, Assignment, CustomLab, LabTemplate, LabAssignment } from '../../types';
 
 interface ModuleFormData {
   title: string;
@@ -37,6 +38,8 @@ interface CodeLabFormData {
   title: string;
   description: string;
 }
+
+type CodeLabModalTab = 'create' | 'templates';
 
 interface AssignmentFormData {
   title: string;
@@ -73,6 +76,8 @@ export const CurriculumEditor = () => {
     moduleId?: number;
     codeLab?: CodeLab;
   }>({ isOpen: false });
+  const [codeLabModalTab, setCodeLabModalTab] = useState<CodeLabModalTab>('create');
+  const [selectedLabTemplate, setSelectedLabTemplate] = useState<{ lab: CustomLab; templates: LabTemplate[] } | null>(null);
   const [deleteCodeLabConfirm, setDeleteCodeLabConfirm] = useState<CodeLab | null>(null);
   const [assignmentModal, setAssignmentModal] = useState<{
     isOpen: boolean;
@@ -121,6 +126,19 @@ export const CurriculumEditor = () => {
   const { data: courseTutors } = useQuery({
     queryKey: ['courseTutors', courseId],
     queryFn: () => courseTutorApi.getCourseTutors(courseId),
+    enabled: !!courseId,
+  });
+
+  // Fetch all accessible labs (public + created by instructor)
+  const { data: availableLabs } = useQuery({
+    queryKey: ['availableLabs'],
+    queryFn: () => customLabsApi.getLabs(),
+  });
+
+  // Fetch labs already assigned to this course
+  const { data: courseLabAssignments } = useQuery({
+    queryKey: ['courseLabAssignments', courseId],
+    queryFn: () => customLabsApi.getLabsForCourse(courseId),
     enabled: !!courseId,
   });
 
@@ -251,6 +269,29 @@ export const CurriculumEditor = () => {
     onError: () => toast.error('Failed to delete Code Lab'),
   });
 
+  // Assign lab template to course
+  const assignLabMutation = useMutation({
+    mutationFn: ({ labId, moduleId }: { labId: number; moduleId?: number }) =>
+      customLabsApi.assignToCourse(labId, { courseId, moduleId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseLabAssignments', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
+      toast.success('Lab template added to course');
+      closeCodeLabModal();
+    },
+    onError: () => toast.error('Failed to add lab template'),
+  });
+
+  // Unassign lab template from course
+  const unassignLabMutation = useMutation({
+    mutationFn: (labId: number) => customLabsApi.unassignFromCourse(labId, courseId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseLabAssignments', courseId] });
+      toast.success('Lab template removed from course');
+    },
+    onError: () => toast.error('Failed to remove lab template'),
+  });
+
   // Assignment mutations
   const createAssignmentMutation = useMutation({
     mutationFn: (data: AssignmentFormData & { moduleId: number }) =>
@@ -347,6 +388,8 @@ export const CurriculumEditor = () => {
   const closeCodeLabModal = () => {
     setCodeLabModal({ isOpen: false });
     setCodeLabForm({ title: '', description: '' });
+    setCodeLabModalTab('create');
+    setSelectedLabTemplate(null);
   };
 
   const openAddAssignmentModal = (module: CourseModule) => {
@@ -565,6 +608,20 @@ export const CurriculumEditor = () => {
     return map;
   }, [assignments]);
 
+  // Group lab assignments by moduleId
+  const labAssignmentsByModule = useMemo(() => {
+    const map: Record<number, LabAssignment[]> = {};
+    (courseLabAssignments || []).forEach(labAssignment => {
+      if (labAssignment.moduleId) {
+        if (!map[labAssignment.moduleId]) {
+          map[labAssignment.moduleId] = [];
+        }
+        map[labAssignment.moduleId].push(labAssignment);
+      }
+    });
+    return map;
+  }, [courseLabAssignments]);
+
   if (courseLoading || modulesLoading || assignmentsLoading) {
     return <Loading fullScreen text="Loading curriculum..." />;
   }
@@ -578,12 +635,13 @@ export const CurriculumEditor = () => {
     );
   }
 
-  // Merge assignments into modules
+  // Merge assignments and lab assignments into modules
   const sortedModules = [...(modules || [])]
     .sort((a, b) => a.orderIndex - b.orderIndex)
     .map(module => ({
       ...module,
       assignments: assignmentsByModule[module.id] || [],
+      labAssignments: labAssignmentsByModule[module.id] || [],
     }));
 
   return (
@@ -783,6 +841,7 @@ export const CurriculumEditor = () => {
                   onDeleteAssignment={setDeleteAssignmentConfirm}
                   onMoveAssignmentUp={handleMoveAssignmentUp}
                   onMoveAssignmentDown={handleMoveAssignmentDown}
+                  onRemoveLabAssignment={(labId) => unassignLabMutation.mutate(labId)}
                 />
               ))}
             </div>
@@ -1033,52 +1092,197 @@ export const CurriculumEditor = () => {
         isOpen={codeLabModal.isOpen}
         onClose={closeCodeLabModal}
         title={codeLabModal.codeLab ? 'Edit Code Lab' : 'Add Code Lab'}
-        size="md"
+        size="lg"
       >
-        <form onSubmit={handleCodeLabSubmit} className="space-y-4">
-          <Input
-            label="Code Lab Title"
-            value={codeLabForm.title}
-            onChange={e => setCodeLabForm(f => ({ ...f, title: e.target.value }))}
-            placeholder="e.g., Introduction to R Programming"
-            required
-          />
-          <TextArea
-            label="Description (optional)"
-            value={codeLabForm.description}
-            onChange={e => setCodeLabForm(f => ({ ...f, description: e.target.value }))}
-            placeholder="Brief description of what students will learn in this lab"
-            rows={3}
-          />
-
-          {/* Edit Content Button - only for existing code labs */}
-          {codeLabModal.codeLab && (
-            <div className="border-t border-gray-200 pt-4 mt-4">
-              <p className="text-sm text-gray-600 mb-3">
-                Add code blocks and instructions to this lab:
-              </p>
-              <Link
-                to={`/teach/courses/${courseId}/code-labs/${codeLabModal.codeLab.id}`}
-                className="btn btn-secondary w-full flex items-center justify-center gap-2"
-              >
-                <FileEdit className="w-4 h-4" />
-                Edit Code Lab Content
-              </Link>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="secondary" onClick={closeCodeLabModal}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              loading={createCodeLabMutation.isPending || updateCodeLabMutation.isPending}
+        {/* Tabs - only show for new code labs */}
+        {!codeLabModal.codeLab && (
+          <div className="flex gap-1 mb-4 border-b" style={{ borderColor: isDark ? '#374151' : '#e5e7eb' }}>
+            <button
+              type="button"
+              onClick={() => setCodeLabModalTab('create')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                codeLabModalTab === 'create'
+                  ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
             >
-              {codeLabModal.codeLab ? 'Update' : 'Create'}
-            </Button>
+              Create New
+            </button>
+            <button
+              type="button"
+              onClick={() => setCodeLabModalTab('templates')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-2 ${
+                codeLabModalTab === 'templates'
+                  ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+            >
+              <Beaker className="w-4 h-4" />
+              From Templates
+              {availableLabs && availableLabs.length > 0 && (
+                <span className="px-1.5 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                  {availableLabs.length}
+                </span>
+              )}
+            </button>
           </div>
-        </form>
+        )}
+
+        {/* Create New Tab */}
+        {(codeLabModalTab === 'create' || codeLabModal.codeLab) && (
+          <form onSubmit={handleCodeLabSubmit} className="space-y-4">
+            <Input
+              label="Code Lab Title"
+              value={codeLabForm.title}
+              onChange={e => setCodeLabForm(f => ({ ...f, title: e.target.value }))}
+              placeholder="e.g., Introduction to R Programming"
+              required
+            />
+            <TextArea
+              label="Description (optional)"
+              value={codeLabForm.description}
+              onChange={e => setCodeLabForm(f => ({ ...f, description: e.target.value }))}
+              placeholder="Brief description of what students will learn in this lab"
+              rows={3}
+            />
+
+            {/* Edit Content Button - only for existing code labs */}
+            {codeLabModal.codeLab && (
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                <p className="text-sm text-gray-600 mb-3">
+                  Add code blocks and instructions to this lab:
+                </p>
+                <Link
+                  to={`/teach/courses/${courseId}/code-labs/${codeLabModal.codeLab.id}`}
+                  className="btn btn-secondary w-full flex items-center justify-center gap-2"
+                >
+                  <FileEdit className="w-4 h-4" />
+                  Edit Code Lab Content
+                </Link>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button type="button" variant="secondary" onClick={closeCodeLabModal}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                loading={createCodeLabMutation.isPending || updateCodeLabMutation.isPending}
+              >
+                {codeLabModal.codeLab ? 'Update' : 'Create'}
+              </Button>
+            </div>
+          </form>
+        )}
+
+        {/* From Templates Tab */}
+        {codeLabModalTab === 'templates' && !codeLabModal.codeLab && (
+          <div className="space-y-4">
+            {availableLabs && availableLabs.length > 0 ? (
+              <>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Select a lab template to add to this module. Students will be able to access the lab and its code templates.
+                </p>
+                <div className="space-y-2 max-h-80 overflow-y-auto">
+                  {availableLabs.map(lab => {
+                    const isAlreadyAssigned = courseLabAssignments?.some(
+                      a => a.labId === lab.id && a.moduleId === codeLabModal.moduleId
+                    );
+                    const isSelected = selectedLabTemplate?.lab.id === lab.id;
+
+                    return (
+                      <div
+                        key={lab.id}
+                        onClick={() => !isAlreadyAssigned && setSelectedLabTemplate({ lab, templates: lab.templates || [] })}
+                        className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                          isAlreadyAssigned
+                            ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700'
+                            : isSelected
+                            ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <Beaker className={`w-4 h-4 ${isSelected ? 'text-primary-500' : 'text-gray-400'}`} />
+                              <span className={`font-medium ${isSelected ? 'text-primary-700 dark:text-primary-300' : 'text-gray-900 dark:text-white'}`}>
+                                {lab.name}
+                              </span>
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                                {lab.labType}
+                              </span>
+                            </div>
+                            {lab.description && (
+                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 ml-6">
+                                {lab.description}
+                              </p>
+                            )}
+                            <div className="text-xs text-gray-400 dark:text-gray-500 mt-1 ml-6">
+                              {lab._count?.templates || lab.templates?.length || 0} template{(lab._count?.templates || lab.templates?.length || 0) !== 1 ? 's' : ''}
+                            </div>
+                          </div>
+                          {isAlreadyAssigned ? (
+                            <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                              <Check className="w-3 h-3" />
+                              Added
+                            </span>
+                          ) : isSelected ? (
+                            <div className="w-5 h-5 rounded-full bg-primary-500 flex items-center justify-center">
+                              <Check className="w-3 h-3 text-white" />
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex justify-between items-center pt-4 border-t" style={{ borderColor: isDark ? '#374151' : '#e5e7eb' }}>
+                  <Link
+                    to="/teach/labs"
+                    className="text-sm text-primary-600 dark:text-primary-400 hover:underline"
+                  >
+                    Manage Lab Templates →
+                  </Link>
+                  <div className="flex gap-3">
+                    <Button type="button" variant="secondary" onClick={closeCodeLabModal}>
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        if (selectedLabTemplate) {
+                          assignLabMutation.mutate({
+                            labId: selectedLabTemplate.lab.id,
+                            moduleId: codeLabModal.moduleId,
+                          });
+                        }
+                      }}
+                      disabled={!selectedLabTemplate}
+                      loading={assignLabMutation.isPending}
+                    >
+                      Add to Module
+                    </Button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-8">
+                <Beaker className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                <h3 className="font-medium text-gray-900 dark:text-white mb-2">No Lab Templates</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  Create lab templates to reuse across courses
+                </p>
+                <Link to="/teach/labs">
+                  <Button size="sm" icon={<Plus className="w-4 h-4" />}>
+                    Create Lab Template
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
 
       {/* Delete Code Lab Confirmation */}
