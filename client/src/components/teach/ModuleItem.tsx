@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ChevronDown,
   ChevronRight,
@@ -9,6 +10,10 @@ import {
   GripVertical,
   FlaskConical,
   ClipboardList,
+  FileText,
+  Upload,
+  Sparkles,
+  MessageCircle,
 } from 'lucide-react';
 import { CourseModule, Lecture, CodeLab, Assignment } from '../../types';
 import { Button } from '../common/Button';
@@ -169,12 +174,47 @@ export const ModuleItem = ({
                     onMoveDown={() => onMoveLectureDown(lecture, module)}
                   />
                   {/* Inline add options after each lesson */}
-                  <div className="flex items-center gap-2 py-2 px-3 ml-6 border-l-2 border-dashed border-gray-200">
-                    <span className="text-xs text-gray-400">Add:</span>
+                  <div className="flex items-center gap-1.5 py-2 px-3 ml-6 border-l-2 border-dashed border-gray-200 flex-wrap">
+                    <span className="text-xs text-gray-400 mr-1">Add:</span>
+                    {/* Section types - add directly to this lesson */}
+                    <Link
+                      to={`/teach/courses/${courseId}/lectures/${lecture.id}/edit?addSection=text`}
+                      className="text-xs px-2 py-1 rounded-md border border-blue-200 hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1"
+                      title="Add Text Section"
+                    >
+                      <FileText className="w-3 h-3" />
+                      Text
+                    </Link>
+                    <Link
+                      to={`/teach/courses/${courseId}/lectures/${lecture.id}/edit?addSection=file`}
+                      className="text-xs px-2 py-1 rounded-md border border-green-200 hover:bg-green-50 text-green-600 hover:text-green-700 transition-colors flex items-center gap-1"
+                      title="Add File Section"
+                    >
+                      <Upload className="w-3 h-3" />
+                      File
+                    </Link>
+                    <Link
+                      to={`/teach/courses/${courseId}/lectures/${lecture.id}/edit?addSection=ai-generated`}
+                      className="text-xs px-2 py-1 rounded-md border border-purple-200 hover:bg-purple-50 text-purple-600 hover:text-purple-700 transition-colors flex items-center gap-1"
+                      title="Add AI Section"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      AI
+                    </Link>
+                    <Link
+                      to={`/teach/courses/${courseId}/lectures/${lecture.id}/edit?addSection=chatbot`}
+                      className="text-xs px-2 py-1 rounded-md border border-orange-200 hover:bg-orange-50 text-orange-600 hover:text-orange-700 transition-colors flex items-center gap-1"
+                      title="Add Chatbot Section"
+                    >
+                      <MessageCircle className="w-3 h-3" />
+                      Chatbot
+                    </Link>
+                    <span className="text-gray-300 mx-1">|</span>
+                    {/* Module-level items */}
                     <button
                       onClick={() => onAddLecture(module)}
                       className="text-xs px-2 py-1 rounded-md border border-gray-200 hover:bg-gray-100 text-gray-600 hover:text-gray-800 transition-colors flex items-center gap-1"
-                      title="Add Lesson"
+                      title="Add New Lesson"
                     >
                       <Plus className="w-3 h-3" />
                       Lesson
@@ -189,7 +229,7 @@ export const ModuleItem = ({
                     </button>
                     <button
                       onClick={() => onAddAssignment(module)}
-                      className="text-xs px-2 py-1 rounded-md border border-amber-200 hover:bg-amber-50 text-amber-600 hover:text-amber-700 transition-colors flex items-center gap-1"
+                      className="text-xs px-2 py-1 rounded-md border border-rose-200 hover:bg-rose-50 text-rose-600 hover:text-rose-700 transition-colors flex items-center gap-1"
                       title="Add Assignment"
                     >
                       <ClipboardList className="w-3 h-3" />

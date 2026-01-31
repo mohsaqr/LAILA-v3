@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Save, Layers } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../../api/courses';
@@ -20,6 +20,10 @@ export const LectureEditor = () => {
   const lecId = parseInt(lectureId!, 10);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Track if we've already processed the addSection param
+  const addSectionProcessed = useRef(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -119,6 +123,20 @@ export const LectureEditor = () => {
   const handleAddSection = (type: 'text' | 'file' | 'ai-generated' | 'chatbot' | 'assignment') => {
     createSectionMutation.mutate(type);
   };
+
+  // Auto-add section from URL param (e.g., ?addSection=text)
+  useEffect(() => {
+    const addSectionType = searchParams.get('addSection') as 'text' | 'file' | 'ai-generated' | 'chatbot' | 'assignment' | null;
+
+    if (addSectionType && lecture && !addSectionProcessed.current && !createSectionMutation.isPending) {
+      addSectionProcessed.current = true;
+      // Clear the param from URL
+      searchParams.delete('addSection');
+      setSearchParams(searchParams, { replace: true });
+      // Add the section
+      createSectionMutation.mutate(addSectionType);
+    }
+  }, [searchParams, lecture, createSectionMutation.isPending, setSearchParams]);
 
   const handleUpdateSection = (sectionId: number, data: UpdateSectionData) => {
     updateSectionMutation.mutate({ sectionId, data });
