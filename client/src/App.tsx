@@ -31,7 +31,6 @@ import { LabManager } from './pages/teach/LabManager';
 
 // Teaching pages
 import {
-  TeachDashboard,
   CourseCreate,
   CourseEdit,
   CurriculumEditor,
@@ -257,14 +256,7 @@ function App() {
         />
 
         {/* Teaching routes (instructor) */}
-        <Route
-          path="/teach"
-          element={
-            <ProtectedRoute requireInstructor>
-              <TeachDashboard />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/teach" element={<Navigate to="/courses" replace />} />
         <Route
           path="/teach/create"
           element={

@@ -227,7 +227,7 @@ export const Navbar = () => {
                       onClick={() => setIsUserMenuOpen(false)}
                     >
                       <Settings className="w-4 h-4" />
-                      Settings
+                      Preferences
                     </Link>
                     <Link
                       to="/profile"

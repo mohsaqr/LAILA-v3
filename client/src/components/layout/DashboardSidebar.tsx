@@ -6,10 +6,8 @@ import {
   ClipboardCheck,
   Calendar,
   BrainCircuit,
-  Settings,
   ChevronLeft,
   ChevronRight,
-  Briefcase,
   Activity,
   Bot,
   FlaskConical,
@@ -67,12 +65,10 @@ export const DashboardSidebar = () => {
     { label: 'Gradebook', icon: ClipboardList, path: '/dashboard/gradebook' },
     { label: 'Calendar', icon: Calendar, path: '/dashboard/calendar' },
     { label: 'AI Tools', icon: BrainCircuit, path: '/ai-tools' },
-    { label: 'Settings', icon: Settings, path: '/settings' },
   ];
 
   const instructorNavItems: NavItem[] = [
     { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-    { label: 'Teaching', icon: Briefcase, path: '/teach' },
     { label: 'My Courses', icon: GraduationCap, path: '/courses' },
     { label: 'Labs', icon: FlaskConical, path: '/labs' },
     {
@@ -86,7 +82,6 @@ export const DashboardSidebar = () => {
     { label: 'Gradebook', icon: ClipboardList, path: '/dashboard/gradebook' },
     { label: 'Calendar', icon: Calendar, path: '/dashboard/calendar' },
     { label: 'AI Tools', icon: BrainCircuit, path: '/ai-tools' },
-    { label: 'Settings', icon: Settings, path: '/settings' },
   ];
 
   const navItems = isInstructor ? instructorNavItems : studentNavItems;
