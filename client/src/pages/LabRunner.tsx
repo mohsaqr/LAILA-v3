@@ -257,7 +257,7 @@ const LabRunnerContent = ({ lab }: { lab: any }) => {
             />
 
             {/* Output */}
-            <LabOutput outputs={outputs} onClear={handleClearOutputs} />
+            <LabOutput outputs={outputs} onClear={handleClearOutputs} labId={lab.id} />
           </div>
         </div>
       </div>

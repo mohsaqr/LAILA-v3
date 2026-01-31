@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WebR TNA Centralities Test</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #111; color: #0f0; }
+    #output { background: #1e1e1e; padding: 20px; white-space: pre-wrap; margin-bottom: 20px; }
+    #plot-container { background: #fff; padding: 10px; display: inline-block; }
+  </style>
+  <script type="module">
+    import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
+
+    const output = document.getElementById('output');
+    const plotContainer = document.getElementById('plot-container');
+    const log = (msg) => {
+      output.textContent += msg + '\n';
+      console.log(msg);
+    };
+
+    async function testWebR() {
+      log('Initializing WebR...');
+      const webR = new WebR();
+      await webR.init();
+      log('WebR initialized!\n');
+
+      log('Installing packages...');
+      await webR.installPackages(['tna', 'ggplot2', 'base64enc']);
+      log('✓ Packages installed\n');
+
+      log('Creating TNA model and centralities...\n');
+
+      const result = await webR.evalRString(`
+        paste(capture.output({
+          library(tna)
+          library(ggplot2)
+          data(group_regulation)
+          Model <- tna(group_regulation)
+          cent <- centralities(Model)
+          print(cent)
+        }), collapse = "\\n")
+      `);
+      log(result);
+
+      log('\n\nPlotting centralities...');
+
+      const base64 = await webR.evalRString(`
+        library(tna)
+        library(ggplot2)
+        library(base64enc)
+
+        data(group_regulation)
+        Model <- tna(group_regulation)
+        cent <- centralities(Model)
+
+        tmp <- tempfile(fileext = ".png")
+        png(tmp, width = 800, height = 600, bg = "white")
+        print(plot(cent))
+        dev.off()
+
+        paste(base64encode(tmp), collapse = "")
+      `);
+
+      log('Plot created, rendering...');
+
+      const img = document.createElement('img');
+      img.src = 'data:image/png;base64,' + base64;
+      img.onload = () => log('✓ Centralities plot rendered!');
+      img.onerror = () => log('Image load error');
+      plotContainer.innerHTML = '';
+      plotContainer.appendChild(img);
+
+      log('\n✓ Complete!');
+    }
+
+    testWebR().catch(e => {
+      log('Error: ' + e.message);
+      console.error(e);
+    });
+  </script>
+</head>
+<body>
+  <h1>TNA Centralities Test</h1>
+  <pre id="output">Starting...
+</pre>
+  <div id="plot-container"></div>
+</body>
+</html>

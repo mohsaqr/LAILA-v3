@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Terminal, Image, AlertCircle, Trash2, Brain, Loader2, FileText, Lightbulb, PenTool, List, AlertTriangle, ArrowRight, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Button } from '../common/Button';
@@ -13,7 +13,34 @@ interface OutputItem {
 interface LabOutputProps {
   outputs: OutputItem[];
   onClear: () => void;
+  labId?: number; // Optional lab ID for persisting interpretations
 }
+
+// Storage key for interpretations
+const getStorageKey = (labId?: number) => `lab_interpretation_${labId || 'default'}`;
+
+interface StoredInterpretation {
+  interpretation: string;
+  action: string;
+  style: string;
+  outputHash: string;
+  timestamp: number;
+}
+
+// Simple hash function for output content
+const hashOutput = (outputs: OutputItem[]): string => {
+  const text = outputs
+    .filter(o => o.type === 'stdout' || o.type === 'stderr')
+    .map(o => o.content)
+    .join('');
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    const char = text.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return hash.toString();
+};
 
 // AI Interpretation Prompts
 const ACTION_PROMPTS = {
@@ -75,13 +102,57 @@ const STYLE_PROMPTS = {
 type ActionType = keyof typeof ACTION_PROMPTS;
 type StyleType = keyof typeof STYLE_PROMPTS;
 
-export const LabOutput = ({ outputs, onClear }: LabOutputProps) => {
+export const LabOutput = ({ outputs, onClear, labId }: LabOutputProps) => {
   const { isDark } = useTheme();
   const [selectedAction, setSelectedAction] = useState<ActionType | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<StyleType>('scientific');
   const [isInterpreting, setIsInterpreting] = useState(false);
   const [interpretation, setInterpretation] = useState<string | null>(null);
   const [showInterpretPanel, setShowInterpretPanel] = useState(false);
+
+  // Load stored interpretation on mount or when outputs change
+  useEffect(() => {
+    if (outputs.length === 0) return;
+
+    const storageKey = getStorageKey(labId);
+    const stored = localStorage.getItem(storageKey);
+
+    if (stored) {
+      try {
+        const data: StoredInterpretation = JSON.parse(stored);
+        const currentHash = hashOutput(outputs);
+
+        // Only restore if the output hasn't changed
+        if (data.outputHash === currentHash) {
+          setInterpretation(data.interpretation);
+          setSelectedAction(data.action as ActionType);
+          setSelectedStyle(data.style as StyleType);
+          setShowInterpretPanel(true);
+        }
+      } catch (e) {
+        // Invalid stored data, ignore
+      }
+    }
+  }, [outputs, labId]);
+
+  // Save interpretation to localStorage
+  const saveInterpretation = useCallback((text: string, action: ActionType, style: StyleType) => {
+    const storageKey = getStorageKey(labId);
+    const data: StoredInterpretation = {
+      interpretation: text,
+      action,
+      style,
+      outputHash: hashOutput(outputs),
+      timestamp: Date.now(),
+    };
+    localStorage.setItem(storageKey, JSON.stringify(data));
+  }, [labId, outputs]);
+
+  // Clear stored interpretation
+  const clearStoredInterpretation = useCallback(() => {
+    const storageKey = getStorageKey(labId);
+    localStorage.removeItem(storageKey);
+  }, [labId]);
 
   const colors = {
     bg: isDark ? '#111827' : '#f9fafb',
@@ -133,7 +204,10 @@ Provide your response:`;
         prompt: fullPrompt,
         context: 'statistics_lab',
       });
-      setInterpretation(response.data.data?.response || response.data.response || 'No interpretation available.');
+      const result = response.data.data?.response || response.data.response || 'No interpretation available.';
+      setInterpretation(result);
+      // Save to localStorage for persistence
+      saveInterpretation(result, action, selectedStyle);
     } catch (error: any) {
       console.error('Interpretation error:', error);
       setInterpretation(`Error: ${error.response?.data?.message || error.message || 'Failed to get interpretation. Please try again.'}`);
@@ -320,8 +394,10 @@ Provide your response:`;
                   onClick={() => {
                     setShowInterpretPanel(false);
                     setInterpretation(null);
+                    clearStoredInterpretation();
                   }}
                   className="absolute top-2 right-2 p-1 rounded hover:bg-black/10"
+                  title="Close and clear saved interpretation"
                 >
                   <X className="w-4 h-4" style={{ color: colors.textMuted }} />
                 </button>
