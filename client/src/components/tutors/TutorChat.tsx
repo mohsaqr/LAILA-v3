@@ -122,7 +122,7 @@ export const TutorChat = ({
   // No agent selected
   if (!agent) {
     return (
-      <div className="flex-1 flex items-center justify-center" style={{ backgroundColor: colors.bgAlt }}>
+      <div className="flex-1 flex items-center justify-center min-h-0 min-w-0" style={{ backgroundColor: colors.bgAlt }}>
         <div className="text-center">
           <div
             className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
@@ -157,7 +157,7 @@ export const TutorChat = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full" style={{ backgroundColor: colors.bg }}>
+    <div className="flex-1 flex flex-col min-h-0 min-w-0" style={{ backgroundColor: colors.bg }}>
       {/* Chat Header */}
       <div
         className="flex items-center justify-between px-4 py-3 border-b"

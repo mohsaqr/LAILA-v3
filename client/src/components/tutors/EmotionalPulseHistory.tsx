@@ -211,7 +211,7 @@ export const EmotionalPulseHistory = ({
 
   return (
     <div
-      className="hidden lg:flex flex-col h-full border-l"
+      className="hidden lg:flex flex-col h-full border-l flex-shrink-0"
       style={{ borderColor: colors.border, backgroundColor: colors.bg }}
     >
       {sidebarContent}

@@ -134,6 +134,99 @@ router.post(
 );
 
 /**
+ * POST /api/courses/:courseId/tutors/batch
+ * Add multiple tutors to the course at once
+ */
+router.post(
+  '/:courseId/tutors/batch',
+  authenticateToken,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const courseId = parseInt(req.params.courseId);
+    const userId = req.user!.id;
+
+    if (isNaN(courseId)) {
+      res.status(400).json({ success: false, error: 'Invalid course ID' });
+      return;
+    }
+
+    const hasAccess = await checkInstructorAccess(req, courseId);
+    if (!hasAccess) {
+      res.status(403).json({ success: false, error: 'Access denied' });
+      return;
+    }
+
+    const { chatbotIds } = req.body;
+
+    if (!Array.isArray(chatbotIds) || chatbotIds.length === 0) {
+      res.status(400).json({ success: false, error: 'chatbotIds must be a non-empty array' });
+      return;
+    }
+
+    // Validate all IDs are numbers
+    if (!chatbotIds.every(id => typeof id === 'number')) {
+      res.status(400).json({ success: false, error: 'All chatbotIds must be numbers' });
+      return;
+    }
+
+    const tutors = await courseTutorService.addTutorsToCourse(courseId, chatbotIds, userId);
+    res.status(201).json({ success: true, data: tutors });
+  })
+);
+
+/**
+ * POST /api/courses/:courseId/tutors/build
+ * Build a new tutor (create chatbot) and add to course
+ */
+router.post(
+  '/:courseId/tutors/build',
+  authenticateToken,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const courseId = parseInt(req.params.courseId);
+    const userId = req.user!.id;
+
+    if (isNaN(courseId)) {
+      res.status(400).json({ success: false, error: 'Invalid course ID' });
+      return;
+    }
+
+    const hasAccess = await checkInstructorAccess(req, courseId);
+    if (!hasAccess) {
+      res.status(403).json({ success: false, error: 'Access denied' });
+      return;
+    }
+
+    const { name, displayName, description, systemPrompt, welcomeMessage, personality, temperature } = req.body;
+
+    if (!name || typeof name !== 'string') {
+      res.status(400).json({ success: false, error: 'name is required' });
+      return;
+    }
+
+    if (!displayName || typeof displayName !== 'string') {
+      res.status(400).json({ success: false, error: 'displayName is required' });
+      return;
+    }
+
+    if (!systemPrompt || typeof systemPrompt !== 'string') {
+      res.status(400).json({ success: false, error: 'systemPrompt is required' });
+      return;
+    }
+
+    const tutor = await courseTutorService.buildAndAddTutor(courseId, {
+      name,
+      displayName,
+      description,
+      systemPrompt,
+      welcomeMessage,
+      personality,
+      temperature,
+    }, userId);
+
+    res.status(201).json({ success: true, data: tutor });
+  })
+);
+
+/**
  * PUT /api/courses/:courseId/tutors/:id
  * Update tutor customization
  */

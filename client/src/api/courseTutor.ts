@@ -107,6 +107,16 @@ export interface UpdateTutorInput {
   isActive?: boolean;
 }
 
+export interface BuildTutorInput {
+  name: string;
+  displayName: string;
+  description?: string;
+  systemPrompt: string;
+  welcomeMessage?: string;
+  personality?: string;
+  temperature?: number;
+}
+
 // =============================================================================
 // INSTRUCTOR API
 // =============================================================================
@@ -135,6 +145,28 @@ export const addTutorToCourse = async (
   input: CreateTutorInput
 ): Promise<CourseTutor> => {
   const response = await api.post(`/courses/${courseId}/tutors`, input);
+  return response.data.data;
+};
+
+/**
+ * Add multiple tutors to the course at once (batch)
+ */
+export const addTutorsToCourse = async (
+  courseId: number,
+  chatbotIds: number[]
+): Promise<CourseTutor[]> => {
+  const response = await api.post(`/courses/${courseId}/tutors/batch`, { chatbotIds });
+  return response.data.data;
+};
+
+/**
+ * Build a new tutor (create chatbot) and add to course
+ */
+export const buildAndAddTutor = async (
+  courseId: number,
+  input: BuildTutorInput
+): Promise<CourseTutor> => {
+  const response = await api.post(`/courses/${courseId}/tutors/build`, input);
   return response.data.data;
 };
 
@@ -254,6 +286,8 @@ export const courseTutorApi = {
   getCourseTutors,
   getAvailableTutors,
   addTutorToCourse,
+  addTutorsToCourse,
+  buildAndAddTutor,
   updateCourseTutor,
   removeCourseTutor,
   reorderCourseTutors,

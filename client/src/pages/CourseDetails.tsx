@@ -15,6 +15,7 @@ import {
   Upload,
   ClipboardList,
   Bot,
+  PenSquare,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../api/courses';
@@ -321,6 +322,34 @@ export const CourseDetails = () => {
         </div>
       </div>
 
+      {/* Instructor Toolbar - Prominent Edit Banner */}
+      {(showInstructorControls || isActualAdmin) && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+              <PenSquare className="w-5 h-5" />
+              <span className="font-medium">Instructor View</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <Link
+                to={`/teach/courses/${course.id}/curriculum`}
+                className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
+              >
+                <Edit className="w-4 h-4" />
+                Edit Course
+              </Link>
+              <Link
+                to={`/teach/courses/${course.id}/edit`}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+                Settings
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Hero Section */}
       <div className="gradient-bg text-white py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -333,18 +362,8 @@ export const CourseDetails = () => {
             <span>by {course.instructor?.fullname}</span>
           </div>
 
-          {/* Action buttons */}
+          {/* Action buttons for non-enrolled users */}
           <div className="mt-4 flex flex-wrap gap-3">
-            {showInstructorControls && (
-              <>
-                <Link to={`/teach/courses/${course.id}/curriculum`} className="btn bg-white/20 hover:bg-white/30 text-white text-sm">
-                  <Edit className="w-4 h-4 mr-1" /> Edit Course
-                </Link>
-                <Link to={`/teach/courses/${course.id}/edit`} className="btn bg-white/20 hover:bg-white/30 text-white text-sm">
-                  <Settings className="w-4 h-4 mr-1" /> Settings
-                </Link>
-              </>
-            )}
             {!hasAccess && isAuthenticated && (
               <Button onClick={() => enrollMutation.mutate()} loading={enrollMutation.isPending} className="bg-white text-primary-600 hover:bg-gray-100">
                 Enroll Now - Free
@@ -357,11 +376,14 @@ export const CourseDetails = () => {
         </div>
       </div>
 
-      {/* Course Content */}
+      {/* Course Content - Two Column Layout */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {course.modules && course.modules.length > 0 ? (
-          <div className="space-y-3">
-            {course.modules.map((module, moduleIndex) => (
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Main Content Column */}
+          <div className="flex-1 min-w-0">
+            {course.modules && course.modules.length > 0 ? (
+              <div className="space-y-3">
+                {course.modules.map((module, moduleIndex) => (
               <Card key={module.id}>
                 <button
                   onClick={() => toggleModule(module.id)}
@@ -545,68 +567,72 @@ export const CourseDetails = () => {
           </Card>
         )}
 
-        {/* Assignments Section */}
-        {hasAccess && publishedAssignments.length > 0 && (
-          <div className="mt-8">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
-              <ClipboardList className="w-6 h-6" style={{ color: colors.textAmber }} />
-              Assignments
-            </h2>
-            <div className="space-y-3">
-              {publishedAssignments.map((assignment) => (
-                <Card key={assignment.id} hover>
-                  <Link
-                    to={assignment.submissionType === 'ai_agent'
-                      ? `/courses/${course.id}/agent-assignments/${assignment.id}`
-                      : `/courses/${course.id}/assignments/${assignment.id}`}
-                    className="block"
-                  >
-                    <CardBody className="flex items-center gap-4">
-                      <div
-                        className="w-12 h-12 rounded-lg flex items-center justify-center"
-                        style={{
-                          backgroundColor: assignment.submissionType === 'ai_agent' ? colors.bgTeal : colors.bgAmber
-                        }}
+            {/* Assignments Section */}
+            {hasAccess && publishedAssignments.length > 0 && (
+              <div className="mt-8">
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
+                  <ClipboardList className="w-6 h-6" style={{ color: colors.textAmber }} />
+                  Assignments
+                </h2>
+                <div className="space-y-3">
+                  {publishedAssignments.map((assignment) => (
+                    <Card key={assignment.id} hover>
+                      <Link
+                        to={assignment.submissionType === 'ai_agent'
+                          ? `/courses/${course.id}/agent-assignments/${assignment.id}`
+                          : `/courses/${course.id}/assignments/${assignment.id}`}
+                        className="block"
                       >
-                        {assignment.submissionType === 'ai_agent' ? (
-                          <Bot className="w-6 h-6" style={{ color: colors.textTeal }} />
-                        ) : (
-                          <ClipboardList className="w-6 h-6" style={{ color: colors.textAmber }} />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-medium" style={{ color: colors.textPrimary }}>{assignment.title}</h3>
-                        <div className="flex items-center gap-3 text-sm" style={{ color: colors.textSecondary }}>
-                          {assignment.dueDate && (
-                            <span>Due: {new Date(assignment.dueDate).toLocaleDateString()}</span>
-                          )}
-                          <span>{assignment.points} points</span>
-                          <span
-                            className="px-2 py-0.5 rounded text-xs"
+                        <CardBody className="flex items-center gap-4">
+                          <div
+                            className="w-12 h-12 rounded-lg flex items-center justify-center"
                             style={{
-                              backgroundColor: assignment.submissionType === 'ai_agent' ? colors.bgTeal : colors.bgAmber,
-                              color: assignment.submissionType === 'ai_agent' ? colors.textTeal : colors.textAmber,
+                              backgroundColor: assignment.submissionType === 'ai_agent' ? colors.bgTeal : colors.bgAmber
                             }}
                           >
-                            {assignment.submissionType === 'ai_agent' ? 'AI Agent' : 'Standard'}
-                          </span>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-5 h-5" style={{ color: colors.textMuted }} />
-                    </CardBody>
-                  </Link>
-                </Card>
-              ))}
-            </div>
+                            {assignment.submissionType === 'ai_agent' ? (
+                              <Bot className="w-6 h-6" style={{ color: colors.textTeal }} />
+                            ) : (
+                              <ClipboardList className="w-6 h-6" style={{ color: colors.textAmber }} />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="font-medium" style={{ color: colors.textPrimary }}>{assignment.title}</h3>
+                            <div className="flex items-center gap-3 text-sm" style={{ color: colors.textSecondary }}>
+                              {assignment.dueDate && (
+                                <span>Due: {new Date(assignment.dueDate).toLocaleDateString()}</span>
+                              )}
+                              <span>{assignment.points} points</span>
+                              <span
+                                className="px-2 py-0.5 rounded text-xs"
+                                style={{
+                                  backgroundColor: assignment.submissionType === 'ai_agent' ? colors.bgTeal : colors.bgAmber,
+                                  color: assignment.submissionType === 'ai_agent' ? colors.textTeal : colors.textAmber,
+                                }}
+                              >
+                                {assignment.submissionType === 'ai_agent' ? 'AI Agent' : 'Standard'}
+                              </span>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-5 h-5" style={{ color: colors.textMuted }} />
+                        </CardBody>
+                      </Link>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        )}
 
-        {/* Collaborative Module Section */}
-        {hasAccess && (
-          <div className="mt-8">
-            <CollaborativeModule courseId={parseInt(id!)} courseTitle={course.title} />
-          </div>
-        )}
+          {/* Sidebar - Collaborative Modules */}
+          {hasAccess && (
+            <div className="lg:w-80 flex-shrink-0">
+              <div className="lg:sticky lg:top-4">
+                <CollaborativeModule courseId={parseInt(id!)} moduleName={(course as any).collaborativeModuleName} isInstructor={showInstructorControls || isActualAdmin} />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Content Modal */}
@@ -617,6 +643,7 @@ export const CourseDetails = () => {
         content={modalContent?.content || ''}
         onOpenInNewPage={handleOpenInNewPage}
       />
+
     </div>
   );
 };

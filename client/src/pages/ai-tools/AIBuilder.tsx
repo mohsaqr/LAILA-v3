@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Bot,
@@ -27,6 +28,7 @@ import {
   Play,
   Send,
   RefreshCw,
+  ChevronLeft,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
@@ -34,6 +36,7 @@ import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { useTheme } from '../../hooks/useTheme';
 import apiClient from '../../api/client';
+import { courseTutorApi } from '../../api/courseTutor';
 
 interface AIComponent {
   id: number;
@@ -193,8 +196,16 @@ const parseJsonArray = (str: string | null): string[] => {
 
 export const AIBuilder = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { isDark } = useTheme();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showForm, setShowForm] = useState(false);
+
+  // Course context from URL params
+  const courseId = searchParams.get('courseId');
+  const addToCourse = searchParams.get('addToCourse') === 'true';
+  const duplicateId = searchParams.get('duplicate');
+  const courseContext = courseId ? { courseId: parseInt(courseId), addToCourse } : null;
 
   // Theme colors
   const colors = {
@@ -220,6 +231,38 @@ export const AIBuilder = () => {
     queryFn: aiComponentsApi.getAll,
   });
 
+  // Handle URL parameter to auto-open edit mode for a specific chatbot
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (editId && components) {
+      const component = components.find(c => c.id === parseInt(editId));
+      if (component) {
+        handleEdit(component);
+        // Clear the edit param but keep course context if present
+        const newParams = new URLSearchParams();
+        if (courseId) newParams.set('courseId', courseId);
+        if (addToCourse) newParams.set('addToCourse', 'true');
+        setSearchParams(newParams, { replace: true });
+      }
+    }
+  }, [searchParams, components, courseId, addToCourse]);
+
+  // Handle URL parameter to duplicate an existing chatbot
+  useEffect(() => {
+    if (duplicateId && components) {
+      const component = components.find(c => c.id === parseInt(duplicateId));
+      if (component) {
+        handleDuplicate(component);
+        // Clear the duplicate param but keep course context if present
+        const newParams = new URLSearchParams();
+        if (courseId) newParams.set('courseId', courseId);
+        if (addToCourse) newParams.set('addToCourse', 'true');
+        setSearchParams(newParams, { replace: true });
+      }
+    }
+  }, [duplicateId, components, courseId, addToCourse]);
+
+  // Mutation for creating chatbot via admin API (when not in course context)
   const createMutation = useMutation({
     mutationFn: aiComponentsApi.create,
     onSuccess: () => {
@@ -229,6 +272,33 @@ export const AIBuilder = () => {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error || 'Failed to create component');
+    },
+  });
+
+  // Mutation for creating chatbot via course tutor API (when in course context)
+  // This uses the buildAndAddTutor endpoint which only requires instructor access
+  const createForCourseMutation = useMutation({
+    mutationFn: (data: Partial<AIComponentFormData>) =>
+      courseTutorApi.buildAndAddTutor(courseContext!.courseId, {
+        name: data.name!,
+        displayName: data.displayName!,
+        description: data.description,
+        systemPrompt: data.systemPrompt!,
+        welcomeMessage: data.welcomeMessage,
+        personality: data.personality,
+        temperature: data.temperature,
+      }),
+    onSuccess: () => {
+      toast.success('AI Tutor created and added to course');
+      queryClient.invalidateQueries({ queryKey: ['ai-components'] });
+      queryClient.invalidateQueries({ queryKey: ['courseTutors', String(courseContext!.courseId)] });
+      queryClient.invalidateQueries({ queryKey: ['availableTutors', String(courseContext!.courseId)] });
+      resetForm();
+      // Navigate back to the course tutor manager
+      navigate(`/teach/courses/${courseContext!.courseId}/tutors`);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to create tutor');
     },
   });
 
@@ -323,6 +393,9 @@ export const AIBuilder = () => {
     e.preventDefault();
     if (editingComponent) {
       updateMutation.mutate({ id: editingComponent.id, data: formData });
+    } else if (courseContext?.addToCourse) {
+      // Use course-specific API that only requires instructor access
+      createForCourseMutation.mutate(formData);
     } else {
       createMutation.mutate(formData);
     }
@@ -410,6 +483,18 @@ export const AIBuilder = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Course Context Breadcrumb */}
+      {courseContext && (
+        <Link
+          to={`/teach/courses/${courseContext.courseId}/tutors`}
+          className="inline-flex items-center gap-1 text-sm mb-4 hover:underline"
+          style={{ color: colors.textSecondary }}
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Back to Course Tutors
+        </Link>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -418,7 +503,9 @@ export const AIBuilder = () => {
             AI Builder
           </h1>
           <p className="mt-1" style={{ color: colors.textSecondary }}>
-            Create and customize reusable AI components for your courses
+            {courseContext
+              ? 'Create a custom AI tutor for your course'
+              : 'Create and customize reusable AI components for your courses'}
           </p>
         </div>
         <Button onClick={() => setShowForm(true)} icon={<Plus className="w-4 h-4" />}>
@@ -575,7 +662,7 @@ export const AIBuilder = () => {
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b flex items-center justify-between bg-gray-50">
               <h2 className="text-lg font-semibold">
-                {editingComponent ? 'Edit AI Component' : 'Create AI Component'}
+                {editingComponent ? 'Customize AI Agent' : 'Build Custom AI Agent'}
               </h2>
               <button onClick={resetForm} className="p-1 hover:bg-gray-200 rounded">
                 <X className="w-5 h-5" />
@@ -1073,10 +1160,14 @@ export const AIBuilder = () => {
                   <Button
                     type="submit"
                     className="flex-1"
-                    loading={createMutation.isPending || updateMutation.isPending}
-                    icon={<Check className="w-4 h-4" />}
+                    loading={createMutation.isPending || updateMutation.isPending || createForCourseMutation.isPending}
+                    icon={courseContext && !editingComponent ? <Sparkles className="w-4 h-4" /> : <Check className="w-4 h-4" />}
                   >
-                    {editingComponent ? 'Save Changes' : 'Create Component'}
+                    {editingComponent
+                      ? 'Save Changes'
+                      : courseContext
+                        ? 'Create & Add to Course'
+                        : 'Create Component'}
                   </Button>
                 </div>
               )}

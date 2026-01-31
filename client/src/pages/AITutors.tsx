@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Menu, Heart } from 'lucide-react';
+import { Menu, Heart, ArrowLeft } from 'lucide-react';
 import { tutorsApi } from '../api/tutors';
 import { TutorSidebar, TutorChat, EmotionalPulseHistory } from '../components/tutors';
 import { Loading } from '../components/common/Loading';
@@ -22,6 +23,11 @@ interface MessageWithMeta extends TutorMessage {
 export const AITutors = () => {
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+
+  // URL params for deep linking
+  const agentIdFromUrl = searchParams.get('agent');
+  const courseIdFromUrl = searchParams.get('courseId');
 
   // Theme colors
   const bgColor = isDark ? '#111827' : '#f9fafb';
@@ -47,7 +53,18 @@ export const AITutors = () => {
     if (sessionData) {
       setMode(sessionData.session.mode);
 
-      // If there's an active agent, select it
+      // Priority: URL agent param > active session agent
+      if (agentIdFromUrl) {
+        const agentFromUrl = sessionData.agents.find(
+          (a) => a.id === parseInt(agentIdFromUrl)
+        );
+        if (agentFromUrl) {
+          setSelectedAgent(agentFromUrl);
+          return;
+        }
+      }
+
+      // If there's an active agent in session, select it
       if (sessionData.session.activeAgentId) {
         const activeAgent = sessionData.agents.find(
           (a) => a.id === sessionData.session.activeAgentId
@@ -57,7 +74,7 @@ export const AITutors = () => {
         }
       }
     }
-  }, [sessionData]);
+  }, [sessionData, agentIdFromUrl]);
 
   // Fetch conversation when agent is selected
   const { data: conversationData, isLoading: conversationLoading } = useQuery({
@@ -198,7 +215,21 @@ export const AITutors = () => {
   const conversations = sessionData?.conversations || [];
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex relative" style={{ backgroundColor: bgColor }}>
+    <div className="h-[calc(100vh-4rem)] flex flex-col relative" style={{ backgroundColor: bgColor }}>
+      {/* Course context breadcrumb */}
+      {courseIdFromUrl && (
+        <div className="flex-shrink-0 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <Link
+            to={`/courses/${courseIdFromUrl}`}
+            className="inline-flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Course
+          </Link>
+        </div>
+      )}
+
+      <div className="flex-1 flex relative min-h-0 overflow-hidden">
       {/* Mobile FAB to open sidebar (left) */}
       <button
         onClick={() => setSidebarOpen(true)}
@@ -266,6 +297,7 @@ export const AITutors = () => {
           refreshTrigger={pulseRefreshTrigger}
         />
       )}
+      </div>
     </div>
   );
 };

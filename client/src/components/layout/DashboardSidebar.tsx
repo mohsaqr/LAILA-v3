@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Briefcase,
   Activity,
+  Bot,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
@@ -21,6 +22,7 @@ interface NavItem {
   icon: React.ElementType;
   path: string;
   badge?: number;
+  disabled?: boolean;
 }
 
 export const DashboardSidebar = () => {
@@ -36,6 +38,10 @@ export const DashboardSidebar = () => {
     window.dispatchEvent(new Event('storage'));
   }, [isCollapsed]);
 
+  // Extract courseId from URL for course-context aware navigation
+  const courseIdMatch = location.pathname.match(/\/(?:teach\/)?courses\/(\d+)/);
+  const currentCourseId = courseIdMatch ? courseIdMatch[1] : null;
+
   // Theme colors
   const colors = {
     bg: isDark ? '#1f2937' : '#ffffff',
@@ -44,6 +50,7 @@ export const DashboardSidebar = () => {
     textPrimary: isDark ? '#f3f4f6' : '#111827',
     textSecondary: isDark ? '#9ca3af' : '#6b7280',
     textActive: isDark ? '#a5b4fc' : '#4f46e5',
+    textDisabled: isDark ? '#4b5563' : '#d1d5db',
     border: isDark ? '#374151' : '#e5e7eb',
   };
 
@@ -65,6 +72,12 @@ export const DashboardSidebar = () => {
     { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
     { label: 'Teaching', icon: Briefcase, path: '/teach' },
     { label: 'My Courses', icon: GraduationCap, path: '/courses' },
+    {
+      label: 'AI Tutors',
+      icon: Bot,
+      path: currentCourseId ? `/teach/courses/${currentCourseId}/tutors` : '#',
+      disabled: !currentCourseId,
+    },
     { label: 'Surveys', icon: ClipboardCheck, path: '/teach/surveys' },
     { label: 'Logs', icon: Activity, path: '/admin/logs' },
     { label: 'Gradebook', icon: ClipboardList, path: '/dashboard/gradebook' },
@@ -97,6 +110,25 @@ export const DashboardSidebar = () => {
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
+
+            // Render disabled items as non-clickable divs
+            if (item.disabled) {
+              return (
+                <div
+                  key={item.label}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-not-allowed opacity-50"
+                  style={{
+                    color: colors.textDisabled,
+                  }}
+                  title={isCollapsed ? `${item.label} (Select a course first)` : 'Select a course first'}
+                >
+                  <Icon className="w-5 h-5 flex-shrink-0" />
+                  {!isCollapsed && (
+                    <span className="font-medium text-sm truncate">{item.label}</span>
+                  )}
+                </div>
+              );
+            }
 
             return (
               <Link

@@ -80,6 +80,16 @@ export interface CreateTutorInput {
   customTemperature?: number;
 }
 
+export interface BuildTutorInput {
+  name: string;
+  displayName: string;
+  description?: string;
+  systemPrompt: string;
+  welcomeMessage?: string;
+  personality?: string;
+  temperature?: number;
+}
+
 export interface UpdateTutorInput {
   customName?: string | null;
   customDescription?: string | null;
@@ -360,6 +370,194 @@ class CourseTutorService {
         })
       )
     );
+  }
+
+  /**
+   * Batch add multiple tutors to a course
+   */
+  async addTutorsToCourse(
+    courseId: number,
+    chatbotIds: number[],
+    userId: number
+  ): Promise<CourseTutorData[]> {
+    // Verify course exists
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+    });
+
+    if (!course) {
+      throw new AppError('Course not found', 404);
+    }
+
+    // Get current max display order
+    const maxOrder = await prisma.courseTutor.findFirst({
+      where: { courseId },
+      orderBy: { displayOrder: 'desc' },
+      select: { displayOrder: true },
+    });
+
+    let currentOrder = (maxOrder?.displayOrder ?? -1) + 1;
+    const addedTutors: CourseTutorData[] = [];
+
+    for (const chatbotId of chatbotIds) {
+      // Verify chatbot exists
+      const chatbot = await prisma.chatbot.findUnique({
+        where: { id: chatbotId },
+      });
+
+      if (!chatbot || !chatbot.isActive) {
+        continue; // Skip inactive or non-existent chatbots
+      }
+
+      // Check if already added
+      const existing = await prisma.courseTutor.findUnique({
+        where: {
+          courseId_chatbotId: {
+            courseId,
+            chatbotId,
+          },
+        },
+      });
+
+      if (existing) {
+        continue; // Skip already added
+      }
+
+      const courseTutor = await prisma.courseTutor.create({
+        data: {
+          courseId,
+          chatbotId,
+          displayOrder: currentOrder++,
+        },
+        include: {
+          chatbot: {
+            select: {
+              id: true,
+              name: true,
+              displayName: true,
+              description: true,
+              systemPrompt: true,
+              welcomeMessage: true,
+              avatarUrl: true,
+              personality: true,
+              temperature: true,
+            },
+          },
+        },
+      });
+
+      addedTutors.push(courseTutor);
+
+      // Log activity
+      activityLogService.logActivity({
+        userId,
+        verb: 'created',
+        objectType: 'course_tutor',
+        objectId: courseTutor.id,
+        objectTitle: chatbot.displayName,
+        courseId,
+        extensions: {
+          courseTitle: course.title,
+          chatbotId,
+          chatbotName: chatbot.displayName,
+          batchAdd: true,
+        },
+      }).catch(err => console.error('[CourseTutor] Failed to log activity:', err));
+    }
+
+    return addedTutors;
+  }
+
+  /**
+   * Build a new tutor (create chatbot) and add to course
+   */
+  async buildAndAddTutor(
+    courseId: number,
+    input: BuildTutorInput,
+    userId: number
+  ): Promise<CourseTutorData> {
+    // Verify course exists
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+    });
+
+    if (!course) {
+      throw new AppError('Course not found', 404);
+    }
+
+    // Check if chatbot name already exists
+    const existingChatbot = await prisma.chatbot.findUnique({
+      where: { name: input.name },
+    });
+
+    if (existingChatbot) {
+      throw new AppError('A chatbot with this name already exists', 409);
+    }
+
+    // Create the chatbot
+    const chatbot = await prisma.chatbot.create({
+      data: {
+        name: input.name,
+        displayName: input.displayName,
+        description: input.description || null,
+        systemPrompt: input.systemPrompt,
+        welcomeMessage: input.welcomeMessage || null,
+        personality: input.personality || 'friendly',
+        temperature: input.temperature ?? 0.7,
+        category: 'tutor',
+        isActive: true,
+        isSystem: false,
+      },
+    });
+
+    // Get current max display order
+    const maxOrder = await prisma.courseTutor.findFirst({
+      where: { courseId },
+      orderBy: { displayOrder: 'desc' },
+      select: { displayOrder: true },
+    });
+
+    // Add to course
+    const courseTutor = await prisma.courseTutor.create({
+      data: {
+        courseId,
+        chatbotId: chatbot.id,
+        displayOrder: (maxOrder?.displayOrder ?? -1) + 1,
+      },
+      include: {
+        chatbot: {
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
+            description: true,
+            systemPrompt: true,
+            welcomeMessage: true,
+            avatarUrl: true,
+            personality: true,
+            temperature: true,
+          },
+        },
+      },
+    });
+
+    // Log activity
+    activityLogService.logActivity({
+      userId,
+      verb: 'created',
+      objectType: 'course_tutor',
+      objectId: courseTutor.id,
+      objectTitle: input.displayName,
+      courseId,
+      extensions: {
+        courseTitle: course.title,
+        chatbotId: chatbot.id,
+        chatbotName: chatbot.displayName,
+        builtNew: true,
+      },
+    }).catch(err => console.error('[CourseTutor] Failed to log activity:', err));
+
+    return courseTutor;
   }
 
   /**

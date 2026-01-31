@@ -424,6 +424,84 @@ export class CourseService {
 
     return enrollments;
   }
+
+  async updateAISettings(
+    courseId: number,
+    instructorId: number,
+    settings: {
+      collaborativeModuleName?: string;
+      collaborativeModuleEnabled?: boolean;
+      emotionalPulseEnabled?: boolean;
+      tutorRoutingMode?: 'free' | 'all' | 'single' | 'smart';
+      defaultTutorId?: number | null;
+    },
+    isAdmin = false,
+    context?: SystemEventContext
+  ) {
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+    });
+
+    if (!course) {
+      throw new AppError('Course not found', 404);
+    }
+
+    if (course.instructorId !== instructorId && !isAdmin) {
+      throw new AppError('Not authorized to update this course', 403);
+    }
+
+    // Store previous values for logging
+    const previousValues = {
+      collaborativeModuleName: (course as any).collaborativeModuleName,
+      collaborativeModuleEnabled: (course as any).collaborativeModuleEnabled,
+      emotionalPulseEnabled: (course as any).emotionalPulseEnabled,
+      tutorRoutingMode: (course as any).tutorRoutingMode,
+      defaultTutorId: (course as any).defaultTutorId,
+    };
+
+    // Build update data only with defined values
+    const updateData: Record<string, any> = {};
+    if (settings.collaborativeModuleName !== undefined) {
+      updateData.collaborativeModuleName = settings.collaborativeModuleName || null;
+    }
+    if (settings.collaborativeModuleEnabled !== undefined) {
+      updateData.collaborativeModuleEnabled = settings.collaborativeModuleEnabled;
+    }
+    if (settings.emotionalPulseEnabled !== undefined) {
+      updateData.emotionalPulseEnabled = settings.emotionalPulseEnabled;
+    }
+    if (settings.tutorRoutingMode !== undefined) {
+      updateData.tutorRoutingMode = settings.tutorRoutingMode;
+    }
+    if (settings.defaultTutorId !== undefined) {
+      updateData.defaultTutorId = settings.defaultTutorId;
+    }
+
+    const updated = await prisma.course.update({
+      where: { id: courseId },
+      data: updateData,
+    });
+
+    // Log AI settings update event
+    try {
+      await learningAnalyticsService.logSystemEvent({
+        actorId: context?.actorId || instructorId,
+        eventType: 'course_ai_settings_update',
+        eventCategory: 'content_mgmt',
+        changeType: 'update',
+        targetType: 'course',
+        targetId: course.id,
+        targetTitle: course.title,
+        courseId: course.id,
+        previousValues,
+        newValues: settings,
+      }, context?.ipAddress);
+    } catch (error) {
+      console.error('Failed to log AI settings update event:', error);
+    }
+
+    return updated;
+  }
 }
 
 export const courseService = new CourseService();

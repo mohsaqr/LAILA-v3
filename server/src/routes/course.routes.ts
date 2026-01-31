@@ -103,6 +103,14 @@ router.get('/:id/students', authenticateToken, requireInstructor, asyncHandler(a
   res.json({ success: true, data: students });
 }));
 
+// Update course AI settings (Collaborative Module)
+router.put('/:id/ai-settings', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const id = parseInt(req.params.id);
+  const settings = req.body;
+  const course = await courseService.updateAISettings(id, req.user!.id, settings, req.user!.isAdmin);
+  res.json({ success: true, data: course });
+}));
+
 // ============= MODULES =============
 
 // Get course modules

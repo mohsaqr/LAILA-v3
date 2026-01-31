@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { Plus, Settings, Eye, EyeOff, Layers, FileEdit, MessageCircle } from 'lucide-react';
+import { Plus, Settings, Eye, EyeOff, Layers, FileEdit, MessageCircle, Bot, Sparkles, ChevronDown, Heart } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../../api/courses';
 import { codeLabsApi } from '../../api/codeLabs';
 import { assignmentsApi } from '../../api/assignments';
+import { courseTutorApi } from '../../api/courseTutor';
+import { useTheme } from '../../hooks/useTheme';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
@@ -50,6 +52,10 @@ export const CurriculumEditor = () => {
   const courseId = parseInt(id!, 10);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isDark } = useTheme();
+
+  // Dropdown state
+  const [addContentOpen, setAddContentOpen] = useState(false);
 
   // Modal states
   const [moduleModal, setModuleModal] = useState<{ isOpen: boolean; module?: CourseModule }>({
@@ -109,6 +115,12 @@ export const CurriculumEditor = () => {
   const { data: assignments, isLoading: assignmentsLoading } = useQuery({
     queryKey: ['courseAssignments', courseId],
     queryFn: () => assignmentsApi.getAssignments(courseId),
+    enabled: !!courseId,
+  });
+
+  const { data: courseTutors } = useQuery({
+    queryKey: ['courseTutors', courseId],
+    queryFn: () => courseTutorApi.getCourseTutors(courseId),
     enabled: !!courseId,
   });
 
@@ -373,6 +385,20 @@ export const CurriculumEditor = () => {
     });
   };
 
+  const openAddLessonWithChatbot = () => {
+    // First need a module - show module selector or create flow
+    const sorted = [...(modules || [])].sort((a, b) => a.orderIndex - b.orderIndex);
+    if (sorted.length === 0) {
+      toast.error('Create a module first to add an AI lesson');
+      openAddModuleModal();
+      return;
+    }
+    // Open lesson modal with first module pre-selected
+    setLectureForm({ title: '', contentType: 'mixed', duration: 0, isFree: false });
+    setLectureModal({ isOpen: true, moduleId: sorted[0].id });
+    toast('Create the lesson, then add a Chatbot section in the content editor');
+  };
+
   // Form handlers
   const handleModuleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -573,63 +599,160 @@ export const CurriculumEditor = () => {
         />
       </div>
 
-      {/* Course Header Card */}
-      <Card className="mb-6">
-        <CardBody className="flex items-center justify-between">
-          <div>
+      {/* Course Header Card - Split Design */}
+      <Card className="mb-6 overflow-hidden">
+        <div className="flex flex-col lg:flex-row">
+          {/* Left Panel - Course Info */}
+          <div className="flex-1 p-6">
             <div className="flex items-center gap-2 mb-1">
-              <h1 className="text-2xl font-bold text-gray-900">{course.title}</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{course.title}</h1>
               <StatusBadge status={course.status} />
             </div>
-            <p className="text-gray-600">{course.description || 'No description'}</p>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">{course.description || 'No description'}</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Link to={`/teach/courses/${courseId}/chatbot-logs`}>
+                <Button variant="ghost" size="sm" icon={<MessageCircle className="w-4 h-4" />}>
+                  Chatbot Logs
+                </Button>
+              </Link>
+              <Link to={`/teach/courses/${courseId}/edit`}>
+                <Button variant="ghost" size="sm" icon={<Settings className="w-4 h-4" />}>
+                  Settings
+                </Button>
+              </Link>
+              {course.status === 'published' ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => unpublishMutation.mutate()}
+                  loading={unpublishMutation.isPending}
+                  icon={<EyeOff className="w-4 h-4" />}
+                >
+                  Unpublish
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={() => publishMutation.mutate()}
+                  loading={publishMutation.isPending}
+                  icon={<Eye className="w-4 h-4" />}
+                >
+                  Publish
+                </Button>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Link to={`/teach/courses/${courseId}/chatbot-logs`}>
-              <Button variant="ghost" size="sm" icon={<MessageCircle className="w-4 h-4" />}>
-                Chatbot Logs
-              </Button>
-            </Link>
-            <Link to={`/teach/courses/${courseId}/edit`}>
-              <Button variant="ghost" size="sm" icon={<Settings className="w-4 h-4" />}>
-                Settings
-              </Button>
-            </Link>
-            {course.status === 'published' ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => unpublishMutation.mutate()}
-                loading={unpublishMutation.isPending}
-                icon={<EyeOff className="w-4 h-4" />}
-              >
-                Unpublish
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                onClick={() => publishMutation.mutate()}
-                loading={publishMutation.isPending}
-                icon={<Eye className="w-4 h-4" />}
-              >
-                Publish
-              </Button>
-            )}
+
+          {/* Right Panel - AI Features */}
+          <div
+            className="w-full lg:w-80 p-6 lg:rounded-r-xl"
+            style={{ backgroundColor: isDark ? '#0f172a' : '#1e293b' }}
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="w-5 h-5 text-amber-400" />
+              <h3 className="font-semibold text-white">AI Features</h3>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              {/* Collaborative Tutors Card */}
+              <Link to={`/teach/courses/${courseId}/tutors`}>
+                <div className="p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors cursor-pointer text-center">
+                  <Bot className="w-8 h-8 text-violet-400 mx-auto mb-2" />
+                  <span className="text-white text-sm font-medium block">Collaborative Tutors</span>
+                  <span className="text-slate-400 text-xs">{courseTutors?.length || 0} active</span>
+                </div>
+              </Link>
+
+              {/* Lesson Chatbots Card */}
+              <div className="p-3 rounded-lg bg-slate-700/50 text-center">
+                <MessageCircle className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+                <span className="text-white text-sm font-medium block">Lesson Chatbots</span>
+                <span className="text-slate-400 text-xs">In lessons</span>
+              </div>
+            </div>
           </div>
-        </CardBody>
+        </div>
       </Card>
 
       {/* Curriculum Section */}
       <Card>
         <CardHeader className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Course Curriculum</h2>
-            <p className="text-sm text-gray-500">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Course Curriculum</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Organize your content into modules and lessons
             </p>
           </div>
-          <Button onClick={openAddModuleModal} size="sm" icon={<Plus className="w-4 h-4" />}>
-            Add Module
-          </Button>
+
+          {/* Add Content Dropdown */}
+          <div className="relative">
+            <Button
+              onClick={() => setAddContentOpen(!addContentOpen)}
+              size="sm"
+              icon={<Plus className="w-4 h-4" />}
+            >
+              Add Content
+              <ChevronDown className={`w-4 h-4 ml-1 transition-transform ${addContentOpen ? 'rotate-180' : ''}`} />
+            </Button>
+
+            {addContentOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setAddContentOpen(false)} />
+                <div
+                  className="absolute right-0 mt-2 w-72 rounded-lg shadow-lg py-2 z-20"
+                  style={{
+                    backgroundColor: isDark ? '#1f2937' : '#ffffff',
+                    border: `1px solid ${isDark ? '#374151' : '#e5e7eb'}`
+                  }}
+                >
+                  <div className="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Modules</div>
+
+                  <button
+                    onClick={() => { openAddModuleModal(); setAddContentOpen(false); }}
+                    className="w-full px-3 py-2 flex items-start gap-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                      <Layers className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="text-left">
+                      <span className="font-medium block text-gray-900 dark:text-white">Standard Module</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Lessons, code labs, assignments</span>
+                    </div>
+                  </button>
+
+                  <Link
+                    to={`/teach/courses/${courseId}/tutors`}
+                    onClick={() => setAddContentOpen(false)}
+                    className="w-full px-3 py-2 flex items-start gap-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center flex-shrink-0">
+                      <Bot className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+                    </div>
+                    <div className="text-left">
+                      <span className="font-medium block text-gray-900 dark:text-white">AI Collaborative Module</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Course-level AI tutors</span>
+                    </div>
+                  </Link>
+
+                  <div className="border-t my-2" style={{ borderColor: isDark ? '#374151' : '#e5e7eb' }} />
+                  <div className="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">AI Elements</div>
+
+                  <button
+                    onClick={() => { openAddLessonWithChatbot(); setAddContentOpen(false); }}
+                    className="w-full px-3 py-2 flex items-start gap-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                      <MessageCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div className="text-left">
+                      <span className="font-medium block text-gray-900 dark:text-white">Lesson AI Agent</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Lesson with embedded chatbot</span>
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </CardHeader>
         <CardBody>
           {sortedModules.length > 0 ? (
@@ -670,6 +793,90 @@ export const CurriculumEditor = () => {
               description="Start building your course by adding the first module"
               action={{ label: 'Add Module', onClick: openAddModuleModal }}
             />
+          )}
+
+          {/* Collaborative Module Section */}
+          {courseTutors && courseTutors.length > 0 && (
+            <div
+              className="mt-6 p-4 rounded-lg border-2 border-dashed"
+              style={{
+                borderColor: isDark ? 'rgba(139, 92, 246, 0.4)' : 'rgba(139, 92, 246, 0.5)',
+                backgroundColor: isDark ? 'rgba(139, 92, 246, 0.1)' : 'rgba(139, 92, 246, 0.05)',
+              }}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-3">
+                  <div
+                    className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: isDark ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.15)' }}
+                  >
+                    <Bot className="w-5 h-5 text-violet-500" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                      {(course as any).collaborativeModuleName || 'Collaborative AI Module'}
+                      <span
+                        className="text-xs px-2 py-0.5 rounded-full"
+                        style={{
+                          backgroundColor: isDark ? 'rgba(139, 92, 246, 0.3)' : 'rgba(139, 92, 246, 0.2)',
+                          color: isDark ? '#a78bfa' : '#7c3aed',
+                        }}
+                      >
+                        AI
+                      </span>
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
+                      {courseTutors.length} tutor{courseTutors.length !== 1 ? 's' : ''} configured
+                      {(course as any).emotionalPulseEnabled !== false && (
+                        <span className="inline-flex items-center gap-1 ml-2">
+                          <Heart className="w-3 h-3 text-pink-500" />
+                          <span className="text-xs text-pink-500">Pulse enabled</span>
+                        </span>
+                      )}
+                    </p>
+                    <div className="flex items-center gap-2 mt-2 text-xs text-gray-500 dark:text-gray-400">
+                      <span>
+                        Mode: {(course as any).tutorRoutingMode === 'single' ? 'Single Tutor' :
+                              (course as any).tutorRoutingMode === 'smart' ? 'Smart Routing' : 'All Tutors'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <Link to={`/teach/courses/${courseId}/tutors`}>
+                  <Button size="sm" variant="secondary" icon={<Settings className="w-4 h-4" />}>
+                    Manage
+                  </Button>
+                </Link>
+              </div>
+
+              {/* Tutor previews */}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {courseTutors.slice(0, 5).map((tutor: any) => (
+                  <div
+                    key={tutor.id}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs"
+                    style={{
+                      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                      color: isDark ? '#e5e7eb' : '#374151',
+                    }}
+                  >
+                    <Bot className="w-3 h-3" />
+                    {tutor.customName || tutor.chatbot?.displayName}
+                  </div>
+                ))}
+                {courseTutors.length > 5 && (
+                  <span
+                    className="px-2 py-1 rounded-full text-xs"
+                    style={{
+                      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                      color: isDark ? '#9ca3af' : '#6b7280',
+                    }}
+                  >
+                    +{courseTutors.length - 5} more
+                  </span>
+                )}
+              </div>
+            </div>
           )}
         </CardBody>
       </Card>

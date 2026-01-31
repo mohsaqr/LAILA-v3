@@ -411,6 +411,13 @@ model Course {
   updatedAt    DateTime  @updatedAt @map("updated_at")
   publishedAt  DateTime? @map("published_at")
 
+  // AI Module Settings (Collaborative Module)
+  collaborativeModuleName    String?  @map("collaborative_module_name")
+  collaborativeModuleEnabled Boolean  @default(true) @map("collaborative_module_enabled")
+  emotionalPulseEnabled      Boolean  @default(true) @map("emotional_pulse_enabled")
+  tutorRoutingMode           String   @default("all") @map("tutor_routing_mode") // "all" | "single" | "smart"
+  defaultTutorId             Int?     @map("default_tutor_id")
+
   // Relations
   instructor    User                 @relation("InstructorCourses", fields: [instructorId], references: [id])
   modules       CourseModule[]
