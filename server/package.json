@@ -35,6 +35,9 @@
     "uuid": "^9.0.1",
     "zod": "^3.22.4"
   },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "devDependencies": {
     "@types/archiver": "^7.0.0",
     "@types/bcryptjs": "^2.4.6",
