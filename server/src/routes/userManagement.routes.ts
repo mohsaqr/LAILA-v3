@@ -6,6 +6,7 @@ import {
   adminUpdateUserSchema,
   updateUserRolesSchema,
   createEnrollmentSchema,
+  parsePaginationLimit,
 } from '../utils/validation.js';
 import { AuthRequest } from '../types/index.js';
 
@@ -17,7 +18,7 @@ router.use(authenticateToken, requireAdmin);
 // Get all users (paginated, searchable)
 router.get('/users', asyncHandler(async (req: AuthRequest, res: Response) => {
   const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 20;
+  const limit = parsePaginationLimit(req.query.limit as string, 20);
   const search = req.query.search as string;
   const role = req.query.role as 'admin' | 'instructor' | 'student' | undefined;
   const isActive = req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined;
@@ -105,7 +106,7 @@ router.put('/users/:id/roles', asyncHandler(async (req: AuthRequest, res: Respon
 router.get('/users/:id/enrollments', asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = parseInt(req.params.id);
   const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 20;
+  const limit = parsePaginationLimit(req.query.limit as string, 20);
 
   const result = await userManagementService.getUserEnrollments(id, page, limit);
   res.json({ success: true, ...result });

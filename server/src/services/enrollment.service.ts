@@ -10,7 +10,10 @@ export interface EventContext {
 
 export class EnrollmentService {
   /**
-   * Get enrollments for a user. Admins and instructors get all published courses as virtual enrollments.
+   * Get enrollments for a user.
+   * - Admins see all published courses as virtual enrollments
+   * - Instructors see only courses they own as virtual enrollments
+   * - Students see their actual enrollments
    */
   async getMyEnrollments(userId: number) {
     // Check if user is admin or instructor
@@ -19,8 +22,8 @@ export class EnrollmentService {
       select: { isAdmin: true, isInstructor: true },
     });
 
-    if (user?.isAdmin || user?.isInstructor) {
-      // Admins and instructors see all published courses as virtual enrollments
+    if (user?.isAdmin) {
+      // Admins see all published courses as virtual enrollments
       const courses = await prisma.course.findMany({
         where: { status: 'published' },
         include: {
@@ -34,7 +37,6 @@ export class EnrollmentService {
         orderBy: { updatedAt: 'desc' },
       });
 
-      // Return as virtual enrollments (admin/instructor can access all)
       return courses.map(course => ({
         id: -course.id, // Negative ID indicates virtual enrollment
         userId,
@@ -44,7 +46,39 @@ export class EnrollmentService {
         enrolledAt: course.createdAt,
         completedAt: null,
         lastAccessAt: new Date(),
-        isVirtualEnrollment: true, // Flag to indicate admin/instructor access
+        isVirtualEnrollment: true, // Flag to indicate admin access
+        course,
+      }));
+    }
+
+    if (user?.isInstructor) {
+      // Instructors only see courses they own as virtual enrollments
+      const courses = await prisma.course.findMany({
+        where: {
+          instructorId: userId,
+          // Include both published and draft courses for the instructor
+        },
+        include: {
+          instructor: {
+            select: { id: true, fullname: true },
+          },
+          _count: {
+            select: { modules: true },
+          },
+        },
+        orderBy: { updatedAt: 'desc' },
+      });
+
+      return courses.map(course => ({
+        id: -course.id, // Negative ID indicates virtual enrollment
+        userId,
+        courseId: course.id,
+        status: 'active' as const,
+        progress: 0,
+        enrolledAt: course.createdAt,
+        completedAt: null,
+        lastAccessAt: new Date(),
+        isVirtualEnrollment: true, // Flag to indicate instructor access
         course,
       }));
     }
@@ -71,7 +105,10 @@ export class EnrollmentService {
   }
 
   /**
-   * Get enrollment for a user and course. Admins and instructors get virtual enrollment for any course.
+   * Get enrollment for a user and course.
+   * - Admins get virtual enrollment for any course
+   * - Instructors get virtual enrollment only for courses they own
+   * - Students need actual enrollment
    */
   async getEnrollment(userId: number, courseId: number) {
     // Check if user is admin or instructor
@@ -80,36 +117,36 @@ export class EnrollmentService {
       select: { isAdmin: true, isInstructor: true },
     });
 
-    if (user?.isAdmin || user?.isInstructor) {
-      // Admins and instructors can access any published course without enrollment
-      const course = await prisma.course.findUnique({
-        where: { id: courseId },
-        include: {
-          instructor: {
-            select: { id: true, fullname: true },
-          },
-          modules: {
-            where: { isPublished: true },
-            orderBy: { orderIndex: 'asc' },
-            include: {
-              lectures: {
-                where: { isPublished: true },
-                orderBy: { orderIndex: 'asc' },
-              },
-              codeLabs: {
-                where: { isPublished: true },
-                orderBy: { orderIndex: 'asc' },
-              },
+    // Get the course first to check ownership
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+      include: {
+        instructor: {
+          select: { id: true, fullname: true },
+        },
+        modules: {
+          where: { isPublished: true },
+          orderBy: { orderIndex: 'asc' },
+          include: {
+            lectures: {
+              where: { isPublished: true },
+              orderBy: { orderIndex: 'asc' },
+            },
+            codeLabs: {
+              where: { isPublished: true },
+              orderBy: { orderIndex: 'asc' },
             },
           },
         },
-      });
+      },
+    });
 
-      if (!course) {
-        return null;
-      }
+    if (!course) {
+      return null;
+    }
 
-      // Return virtual enrollment for admin
+    // Admins can access any course
+    if (user?.isAdmin) {
       return {
         id: -course.id,
         userId,
@@ -121,7 +158,24 @@ export class EnrollmentService {
         lastAccessAt: new Date(),
         isVirtualEnrollment: true,
         course,
-        lectureProgress: [], // Admin doesn't have progress tracking
+        lectureProgress: [],
+      };
+    }
+
+    // Instructors can only access courses they own
+    if (user?.isInstructor && course.instructorId === userId) {
+      return {
+        id: -course.id,
+        userId,
+        courseId: course.id,
+        status: 'active' as const,
+        progress: 0,
+        enrolledAt: course.createdAt,
+        completedAt: null,
+        lastAccessAt: new Date(),
+        isVirtualEnrollment: true,
+        course,
+        lectureProgress: [],
       };
     }
 

@@ -121,6 +121,25 @@ export class EmotionalPulseService {
   }
 
   // =============================================================================
+  // COURSE OWNERSHIP VERIFICATION
+  // =============================================================================
+
+  private async verifyCourseOwnership(courseId: number, userId: number, isAdmin = false) {
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+      select: { instructorId: true },
+    });
+
+    if (!course) {
+      throw new AppError('Course not found', 404);
+    }
+
+    if (!isAdmin && course.instructorId !== userId) {
+      throw new AppError('Not authorized to view emotional pulse stats for this course', 403);
+    }
+  }
+
+  // =============================================================================
   // GET STATS (Instructor/Admin)
   // =============================================================================
 
@@ -131,7 +150,11 @@ export class EmotionalPulseService {
     agentId?: number;
     startDate?: Date;
     endDate?: Date;
-  }) {
+  }, userId?: number, isAdmin = false) {
+    // If courseId is provided, verify ownership
+    if (options?.courseId && userId) {
+      await this.verifyCourseOwnership(options.courseId, userId, isAdmin);
+    }
     const where: any = {};
 
     if (options?.context) {
@@ -227,8 +250,13 @@ export class EmotionalPulseService {
     context?: string;
     contextId?: number;
     agentId?: number;
+    courseId?: number;
     days?: number;
-  }) {
+  }, userId?: number, isAdmin = false) {
+    // If courseId is provided, verify ownership
+    if (options?.courseId && userId) {
+      await this.verifyCourseOwnership(options.courseId, userId, isAdmin);
+    }
     const days = options?.days || 7;
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);

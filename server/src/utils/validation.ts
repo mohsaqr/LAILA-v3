@@ -1,10 +1,44 @@
 import { z } from 'zod';
 
+// =============================================================================
+// PAGINATION UTILITIES
+// =============================================================================
+
+/**
+ * Maximum allowed limit for pagination to prevent data exfiltration and DoS.
+ */
+export const MAX_PAGINATION_LIMIT = 100;
+
+/**
+ * Parse and enforce pagination limit from query parameter.
+ * Ensures limit is between 1 and MAX_PAGINATION_LIMIT.
+ */
+export function parsePaginationLimit(limitParam: string | undefined, defaultLimit = 20): number {
+  if (!limitParam) return defaultLimit;
+  const parsed = parseInt(limitParam, 10);
+  if (isNaN(parsed) || parsed < 1) return defaultLimit;
+  return Math.min(parsed, MAX_PAGINATION_LIMIT);
+}
+
+// Strong password validation
+const strongPasswordSchema = z.string()
+  .min(8, 'Password must be at least 8 characters')
+  .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+  .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+  .regex(/[0-9]/, 'Password must contain at least one number')
+  .regex(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain at least one special character');
+
 // Auth validation schemas
 export const registerSchema = z.object({
   fullname: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: strongPasswordSchema,
+});
+
+// Password update validation schema
+export const updatePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: strongPasswordSchema,
 });
 
 export const loginSchema = z.object({
@@ -15,7 +49,7 @@ export const loginSchema = z.object({
 export const updateUserSchema = z.object({
   fullname: z.string().min(2).optional(),
   email: z.string().email().optional(),
-  password: z.string().min(6).optional(),
+  password: strongPasswordSchema.optional(),
   isActive: z.boolean().optional(),
   isInstructor: z.boolean().optional(),
   isAdmin: z.boolean().optional(),
@@ -286,7 +320,7 @@ export type GradeAgentSubmissionInput = z.infer<typeof gradeAgentSubmissionSchem
 export const adminUpdateUserSchema = z.object({
   fullname: z.string().min(2).optional(),
   email: z.string().email().optional(),
-  password: z.string().min(6).optional(),
+  password: strongPasswordSchema.optional(),
   isActive: z.boolean().optional(),
   isInstructor: z.boolean().optional(),
   isAdmin: z.boolean().optional(),

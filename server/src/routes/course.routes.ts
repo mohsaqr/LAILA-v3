@@ -19,6 +19,7 @@ import {
   reorderSectionsSchema,
   generateAIContentSchema,
   chatbotMessageSchema,
+  parsePaginationLimit,
 } from '../utils/validation.js';
 import { AuthRequest } from '../types/index.js';
 
@@ -29,7 +30,7 @@ const router = Router();
 // Get all published courses (catalog)
 router.get('/', asyncHandler(async (req: AuthRequest, res: Response) => {
   const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 10;
+  const limit = parsePaginationLimit(req.query.limit as string, 10);
   const filters = {
     category: req.query.category as string,
     difficulty: req.query.difficulty as string,
@@ -49,8 +50,14 @@ router.get('/my-courses', authenticateToken, requireInstructor, asyncHandler(asy
 // Get course by ID
 router.get('/:id', optionalAuth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = parseInt(req.params.id);
-  const includeUnpublished = req.user?.isAdmin || req.user?.isInstructor;
-  const course = await courseService.getCourseById(id, includeUnpublished);
+  // Only admins can see ALL unpublished courses
+  // Instructors can only see their own unpublished courses
+  const course = await courseService.getCourseByIdWithOwnerCheck(
+    id,
+    req.user?.id,
+    req.user?.isAdmin || false,
+    req.user?.isInstructor || false
+  );
   res.json({ success: true, data: course });
 }));
 
@@ -113,10 +120,10 @@ router.put('/:id/ai-settings', authenticateToken, requireInstructor, asyncHandle
 
 // ============= MODULES =============
 
-// Get course modules
-router.get('/:courseId/modules', asyncHandler(async (req: AuthRequest, res: Response) => {
+// Get course modules (requires authentication)
+router.get('/:courseId/modules', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const courseId = parseInt(req.params.courseId);
-  const modules = await moduleService.getModules(courseId);
+  const modules = await moduleService.getModules(courseId, req.user!.id, req.user!.isInstructor, req.user!.isAdmin);
   res.json({ success: true, data: modules });
 }));
 
@@ -311,7 +318,7 @@ router.get('/:courseId/chatbot-analytics', authenticateToken, requireInstructor,
 router.get('/sections/:sectionId/conversations', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
   const sectionId = parseInt(req.params.sectionId);
   const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 20;
+  const limit = parsePaginationLimit(req.query.limit as string, 20);
   const result = await chatbotConversationService.getConversationsForSection(sectionId, req.user!.id, req.user!.isAdmin, page, limit);
   res.json({ success: true, data: result });
 }));

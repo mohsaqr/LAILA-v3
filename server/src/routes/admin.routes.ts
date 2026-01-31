@@ -4,6 +4,7 @@ import { authenticateToken, requireAdmin } from '../middleware/auth.middleware.j
 import { asyncHandler } from '../middleware/error.middleware.js';
 import { AuthRequest } from '../types/index.js';
 import { chatbotRegistryService, ChatbotRegistryFilters } from '../services/chatbotRegistry.service.js';
+import { parsePaginationLimit } from '../utils/validation.js';
 
 const router = Router();
 
@@ -67,7 +68,7 @@ router.get('/stats', asyncHandler(async (req: AuthRequest, res: Response) => {
 // Course management
 router.get('/courses', asyncHandler(async (req: AuthRequest, res: Response) => {
   const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 20;
+  const limit = parsePaginationLimit(req.query.limit as string, 20);
   const status = req.query.status as string;
 
   const where: any = {};
@@ -104,7 +105,7 @@ router.get('/courses', asyncHandler(async (req: AuthRequest, res: Response) => {
 // Enrollment management
 router.get('/enrollments', asyncHandler(async (req: AuthRequest, res: Response) => {
   const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 20;
+  const limit = parsePaginationLimit(req.query.limit as string, 20);
   const courseId = req.query.courseId ? parseInt(req.query.courseId as string) : undefined;
 
   const where: any = {};
@@ -141,7 +142,7 @@ router.get('/enrollments', asyncHandler(async (req: AuthRequest, res: Response) 
 // Chat logs
 router.get('/chat-logs', asyncHandler(async (req: AuthRequest, res: Response) => {
   const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 50;
+  const limit = parsePaginationLimit(req.query.limit as string, 50);
   const module = req.query.module as string;
   const userId = req.query.userId ? parseInt(req.query.userId as string) : undefined;
 
@@ -177,7 +178,7 @@ router.get('/chat-logs', asyncHandler(async (req: AuthRequest, res: Response) =>
 // User interactions
 router.get('/interactions', asyncHandler(async (req: AuthRequest, res: Response) => {
   const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 50;
+  const limit = parsePaginationLimit(req.query.limit as string, 50);
   const userId = req.query.userId ? parseInt(req.query.userId as string) : undefined;
 
   const where: any = {};
@@ -211,7 +212,7 @@ router.get('/interactions', asyncHandler(async (req: AuthRequest, res: Response)
 // Data analysis logs
 router.get('/analysis-logs', asyncHandler(async (req: AuthRequest, res: Response) => {
   const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 50;
+  const limit = parsePaginationLimit(req.query.limit as string, 50);
 
   const [logs, total] = await Promise.all([
     prisma.dataAnalysisLog.findMany({
@@ -253,7 +254,7 @@ router.get('/chatbot-registry', asyncHandler(async (req: AuthRequest, res: Respo
     startDate: req.query.startDate as string | undefined,
     endDate: req.query.endDate as string | undefined,
     page: req.query.page ? parseInt(req.query.page as string) : 1,
-    limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
+    limit: parsePaginationLimit(req.query.limit as string, 50),
     sortBy: req.query.sortBy as string | undefined,
     sortOrder: req.query.sortOrder as 'asc' | 'desc' | undefined,
   };

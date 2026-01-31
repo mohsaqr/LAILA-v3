@@ -68,7 +68,7 @@ router.get(
 // STATS (Instructor/Admin)
 // =============================================================================
 
-// GET /api/emotional-pulse/stats - Get aggregated stats
+// GET /api/emotional-pulse/stats - Get aggregated stats (with course ownership check)
 router.get(
   '/stats',
   authenticateToken,
@@ -81,6 +81,9 @@ router.get(
     const agentId = req.query.agentId
       ? parseInt(req.query.agentId as string)
       : undefined;
+    const courseId = req.query.courseId
+      ? parseInt(req.query.courseId as string)
+      : undefined;
     const startDate = req.query.startDate
       ? new Date(req.query.startDate as string)
       : undefined;
@@ -92,14 +95,15 @@ router.get(
       context,
       contextId,
       agentId,
+      courseId,
       startDate,
       endDate,
-    });
+    }, req.user!.id, req.user!.isAdmin);
     res.json({ success: true, data: stats });
   })
 );
 
-// GET /api/emotional-pulse/timeline - Get timeline data for charts
+// GET /api/emotional-pulse/timeline - Get timeline data for charts (with course ownership check)
 router.get(
   '/timeline',
   authenticateToken,
@@ -112,14 +116,18 @@ router.get(
     const agentId = req.query.agentId
       ? parseInt(req.query.agentId as string)
       : undefined;
+    const courseId = req.query.courseId
+      ? parseInt(req.query.courseId as string)
+      : undefined;
     const days = req.query.days ? parseInt(req.query.days as string) : undefined;
 
     const timeline = await emotionalPulseService.getTimeline({
       context,
       contextId,
       agentId,
+      courseId,
       days,
-    });
+    }, req.user!.id, req.user!.isAdmin);
     res.json({ success: true, data: timeline });
   })
 );

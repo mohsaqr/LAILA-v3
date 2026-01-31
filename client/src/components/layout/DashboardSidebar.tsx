@@ -15,6 +15,7 @@ import {
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../hooks/useAuth';
+import { useAuthStore } from '../../store/authStore';
 
 interface NavItem {
   label: string;
@@ -28,6 +29,9 @@ export const DashboardSidebar = () => {
   const location = useLocation();
   const { isDark } = useTheme();
   const { isInstructor, isAuthenticated } = useAuth();
+  // Use actual user role (not viewAsRole) to determine sidebar items
+  const user = useAuthStore((state) => state.user);
+  const isActualAdmin = user?.isAdmin || false;
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return localStorage.getItem('sidebarCollapsed') === 'true';
   });
@@ -67,6 +71,7 @@ export const DashboardSidebar = () => {
     { label: 'AI Tools', icon: BrainCircuit, path: '/ai-tools' },
   ];
 
+  // Build instructor nav items - only show admin logs to actual admins
   const instructorNavItems: NavItem[] = [
     { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
     { label: 'My Courses', icon: GraduationCap, path: '/courses' },
@@ -78,7 +83,8 @@ export const DashboardSidebar = () => {
       disabled: !currentCourseId,
     },
     { label: 'Surveys', icon: ClipboardCheck, path: '/teach/surveys' },
-    { label: 'Logs', icon: Activity, path: '/admin/logs' },
+    // Only show admin logs link to actual admins (not just instructors)
+    ...(isActualAdmin ? [{ label: 'Logs', icon: Activity, path: '/admin/logs' }] : []),
     { label: 'Gradebook', icon: ClipboardList, path: '/dashboard/gradebook' },
     { label: 'Calendar', icon: Calendar, path: '/dashboard/calendar' },
     { label: 'AI Tools', icon: BrainCircuit, path: '/ai-tools' },

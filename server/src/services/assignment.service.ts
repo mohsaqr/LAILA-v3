@@ -13,10 +13,23 @@ export interface EventContext {
 }
 
 export class AssignmentService {
-  async getAssignments(courseId: number, userId?: number, isInstructor = false) {
+  async getAssignments(courseId: number, userId?: number, isInstructor = false, isAdmin = false) {
+    // Verify authorization: instructors/admins can access any course, students need enrollment
+    if (userId && !isInstructor && !isAdmin) {
+      const enrollment = await prisma.enrollment.findUnique({
+        where: {
+          userId_courseId: { userId, courseId },
+        },
+      });
+
+      if (!enrollment) {
+        throw new AppError('You must be enrolled in this course to view assignments', 403);
+      }
+    }
+
     const where: any = { courseId };
 
-    if (!isInstructor) {
+    if (!isInstructor && !isAdmin) {
       where.isPublished = true;
     }
 
@@ -34,7 +47,7 @@ export class AssignmentService {
     });
 
     // If student, include their submission status
-    if (userId && !isInstructor) {
+    if (userId && !isInstructor && !isAdmin) {
       const submissions = await prisma.assignmentSubmission.findMany({
         where: {
           userId,

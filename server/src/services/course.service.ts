@@ -123,6 +123,40 @@ export class CourseService {
     return course;
   }
 
+  /**
+   * Get course by ID with ownership check for unpublished content.
+   * Admins can see all unpublished courses.
+   * Instructors can only see their own unpublished courses.
+   */
+  async getCourseByIdWithOwnerCheck(id: number, userId?: number, isAdmin = false, isInstructor = false) {
+    // First, get the course without status filter to check ownership
+    const course = await prisma.course.findUnique({
+      where: { id },
+      select: { id: true, instructorId: true, status: true },
+    });
+
+    if (!course) {
+      throw new AppError('Course not found', 404);
+    }
+
+    // Determine if we should include unpublished content
+    let includeUnpublished = false;
+    if (isAdmin) {
+      // Admins can see all unpublished content
+      includeUnpublished = true;
+    } else if (isInstructor && course.instructorId === userId) {
+      // Instructors can only see unpublished content for their own courses
+      includeUnpublished = true;
+    }
+
+    // If course is unpublished and user doesn't have access, throw 404
+    if (course.status !== 'published' && !includeUnpublished) {
+      throw new AppError('Course not found', 404);
+    }
+
+    return this.getCourseById(id, includeUnpublished);
+  }
+
   async getCourseBySlug(slug: string) {
     const course = await prisma.course.findUnique({
       where: { slug, status: 'published' },

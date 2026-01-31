@@ -88,11 +88,12 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'laila-auth',
+      // Note: viewAsRole is intentionally NOT persisted to prevent client-side role spoofing
+      // Students could otherwise manually edit localStorage to gain instructor/admin access in UI
       partialize: (state) => ({
         user: state.user,
         token: state.token,
         isAuthenticated: state.isAuthenticated,
-        viewAsRole: state.viewAsRole,
       }),
     }
   )

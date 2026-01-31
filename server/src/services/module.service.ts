@@ -19,7 +19,20 @@ export class ModuleService {
     return course;
   }
 
-  async getModules(courseId: number) {
+  async getModules(courseId: number, userId?: number, isInstructor = false, isAdmin = false) {
+    // Verify authorization: instructors/admins can access any course, students need enrollment
+    if (userId && !isInstructor && !isAdmin) {
+      const enrollment = await prisma.enrollment.findUnique({
+        where: {
+          userId_courseId: { userId, courseId },
+        },
+      });
+
+      if (!enrollment) {
+        throw new AppError('You must be enrolled in this course to view modules', 403);
+      }
+    }
+
     const modules = await prisma.courseModule.findMany({
       where: { courseId },
       orderBy: { orderIndex: 'asc' },

@@ -106,9 +106,32 @@ export class CodeLabService {
   // ==========================================================================
 
   /**
-   * Get all code labs for a module
+   * Get all code labs for a module (with enrollment check)
    */
-  async getCodeLabsForModule(moduleId: number) {
+  async getCodeLabsForModule(moduleId: number, userId?: number, isInstructor = false, isAdmin = false) {
+    // Get the module to find the course
+    const module = await prisma.courseModule.findUnique({
+      where: { id: moduleId },
+      include: { course: { select: { id: true, instructorId: true } } },
+    });
+
+    if (!module) {
+      throw new AppError('Module not found', 404);
+    }
+
+    // Check authorization: admins and instructors have access, students need enrollment
+    if (userId && !isAdmin && !isInstructor) {
+      const enrollment = await prisma.enrollment.findUnique({
+        where: {
+          userId_courseId: { userId, courseId: module.course.id },
+        },
+      });
+
+      if (!enrollment) {
+        throw new AppError('You must be enrolled in this course to view code labs', 403);
+      }
+    }
+
     const codeLabs = await prisma.codeLab.findMany({
       where: { moduleId },
       orderBy: { orderIndex: 'asc' },

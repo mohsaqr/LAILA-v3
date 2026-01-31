@@ -103,11 +103,11 @@ router.post('/:surveyId/questions/reorder', authenticateToken, requireInstructor
 // RESPONSES (Student)
 // =============================================================================
 
-// Submit survey response
-router.post('/:id/submit', optionalAuth, asyncHandler(async (req: AuthRequest, res: Response) => {
+// Submit survey response (requires authentication to prevent spam)
+router.post('/:id/submit', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const surveyId = parseInt(req.params.id);
   const data = submitSurveyResponseSchema.parse(req.body);
-  const response = await surveyService.submitResponse(surveyId, req.user?.id || null, data);
+  const response = await surveyService.submitResponse(surveyId, req.user!.id, data);
   res.status(201).json({ success: true, data: response });
 }));
 

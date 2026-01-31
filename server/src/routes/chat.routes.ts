@@ -7,10 +7,10 @@ import { AuthRequest } from '../types/index.js';
 
 const router = Router();
 
-// Send chat message
-router.post('/', optionalAuth, asyncHandler(async (req: AuthRequest, res: Response) => {
+// Send chat message (requires authentication to prevent abuse)
+router.post('/', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const data = chatMessageSchema.parse(req.body);
-  const result = await chatService.chat(data, req.user?.id);
+  const result = await chatService.chat(data, req.user!.id);
   res.json({ success: true, data: result });
 }));
 
@@ -32,8 +32,8 @@ router.get('/history', authenticateToken, asyncHandler(async (req: AuthRequest, 
   res.json({ success: true, data: history });
 }));
 
-// Data analysis endpoint
-router.post('/analyze', optionalAuth, asyncHandler(async (req: AuthRequest, res: Response) => {
+// Data analysis endpoint (requires authentication to prevent abuse)
+router.post('/analyze', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const { data, prompt } = req.body;
 
   if (!data || !prompt) {
@@ -41,7 +41,7 @@ router.post('/analyze', optionalAuth, asyncHandler(async (req: AuthRequest, res:
     return;
   }
 
-  const result = await chatService.analyzeData(data, prompt, req.user?.id);
+  const result = await chatService.analyzeData(data, prompt, req.user!.id);
   res.json({ success: true, data: result });
 }));
 

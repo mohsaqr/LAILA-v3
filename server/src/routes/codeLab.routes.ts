@@ -41,17 +41,17 @@ const reorderSchema = z.object({
 
 // ============= CODE LABS =============
 
-// Get code labs for a module
-router.get('/module/:moduleId', optionalAuth, asyncHandler(async (req: AuthRequest, res: Response) => {
+// Get code labs for a module (requires authentication and enrollment)
+router.get('/module/:moduleId', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const moduleId = parseInt(req.params.moduleId);
-  const codeLabs = await codeLabService.getCodeLabsForModule(moduleId);
+  const codeLabs = await codeLabService.getCodeLabsForModule(moduleId, req.user!.id, req.user!.isInstructor, req.user!.isAdmin);
   res.json({ success: true, data: codeLabs });
 }));
 
-// Get code lab by ID
-router.get('/:id', optionalAuth, asyncHandler(async (req: AuthRequest, res: Response) => {
+// Get code lab by ID (requires authentication and enrollment)
+router.get('/:id', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = parseInt(req.params.id);
-  const codeLab = await codeLabService.getCodeLabById(id, req.user?.id);
+  const codeLab = await codeLabService.getCodeLabById(id, req.user!.id);
   res.json({ success: true, data: codeLab });
 }));
 

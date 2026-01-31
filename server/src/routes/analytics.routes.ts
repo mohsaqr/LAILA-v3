@@ -118,12 +118,12 @@ function getClientIp(req: Request): string | undefined {
 // USER INTERACTION LOGGING
 // ============================================================================
 
-// Store bulk interaction events (with optional auth for non-logged-in tracking)
-router.post('/interactions', optionalAuth, asyncHandler(async (req: AuthRequest, res: Response) => {
+// Store bulk interaction events (requires authentication to prevent spam)
+router.post('/interactions', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const data = bulkInteractionSchema.parse(req.body);
   const result = await analyticsService.storeInteractions(
     data,
-    req.user?.id,
+    req.user!.id,
     getClientIp(req)
   );
   res.json({ success: true, data: result });
@@ -133,12 +133,12 @@ router.post('/interactions', optionalAuth, asyncHandler(async (req: AuthRequest,
 // CHATBOT INTERACTION LOGGING
 // ============================================================================
 
-// Store chatbot interaction with full params and context
-router.post('/chatbot-interaction', optionalAuth, asyncHandler(async (req: AuthRequest, res: Response) => {
+// Store chatbot interaction with full params and context (requires authentication)
+router.post('/chatbot-interaction', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const data = chatbotInteractionSchema.parse(req.body);
   const result = await analyticsService.storeChatbotInteraction(
     data,
-    req.user?.id,
+    req.user!.id,
     getClientIp(req)
   );
   res.json({ success: true, data: { id: result.id } });
@@ -234,8 +234,8 @@ router.get('/chatbot/section/:sectionId', authenticateToken, requireAdmin, async
 // EXPORT ENDPOINTS
 // ============================================================================
 
-// Export interaction logs
-router.get('/export/interactions', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+// Export interaction logs (admin only - contains sensitive user data)
+router.get('/export/interactions', authenticateToken, requireAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
   const summary = await analyticsService.getInteractionSummary({});
 
   res.setHeader('Content-Type', 'application/json');
@@ -243,8 +243,8 @@ router.get('/export/interactions', authenticateToken, asyncHandler(async (req: A
   res.json(summary.recentInteractions);
 }));
 
-// Export chatbot logs
-router.get('/export/chatbot', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+// Export chatbot logs (admin only - contains sensitive user data)
+router.get('/export/chatbot', authenticateToken, requireAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
   const summary = await analyticsService.getChatbotInteractionSummary({});
 
   res.setHeader('Content-Type', 'application/json');

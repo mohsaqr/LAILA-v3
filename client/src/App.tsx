@@ -209,13 +209,55 @@ function App() {
         {/* Standalone Survey route */}
         <Route path="/surveys/:id" element={<SurveyStandalone />} />
 
-        {/* AI Tools */}
-        <Route path="/ai-tools" element={<AITools />} />
-        <Route path="/ai-tools/builder" element={<AIBuilder />} />
-        <Route path="/ai-tools/bias-research" element={<BiasResearch />} />
-        <Route path="/ai-tools/prompt-helper" element={<PromptHelper />} />
-        <Route path="/ai-tools/data-analyzer" element={<DataAnalyzer />} />
-        <Route path="/ai-tools/chatbots" element={<Chatbots />} />
+        {/* AI Tools - Protected to prevent unauthenticated API credit usage */}
+        <Route
+          path="/ai-tools"
+          element={
+            <ProtectedRoute>
+              <AITools />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ai-tools/builder"
+          element={
+            <ProtectedRoute>
+              <AIBuilder />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ai-tools/bias-research"
+          element={
+            <ProtectedRoute>
+              <BiasResearch />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ai-tools/prompt-helper"
+          element={
+            <ProtectedRoute>
+              <PromptHelper />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ai-tools/data-analyzer"
+          element={
+            <ProtectedRoute>
+              <DataAnalyzer />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ai-tools/chatbots"
+          element={
+            <ProtectedRoute>
+              <Chatbots />
+            </ProtectedRoute>
+          }
+        />
 
         {/* AI Tutors */}
         <Route
