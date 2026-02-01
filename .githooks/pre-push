@@ -1,0 +1,23 @@
+#!/bin/bash
+# Pre-push hook: Run tests before pushing
+
+echo "🔍 Running pre-push checks..."
+echo ""
+
+# Run server tests
+echo "📦 Running server tests..."
+cd server
+
+npm test -- --run
+TEST_EXIT=$?
+
+if [ $TEST_EXIT -ne 0 ]; then
+  echo ""
+  echo "❌ Tests failed. Push aborted."
+  echo "   Fix the failing tests before pushing."
+  exit 1
+fi
+
+echo ""
+echo "✅ All checks passed. Proceeding with push."
+exit 0
