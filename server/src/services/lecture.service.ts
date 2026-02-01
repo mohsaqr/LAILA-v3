@@ -36,6 +36,68 @@ export class LectureService {
     return lectures;
   }
 
+  /**
+   * Get lectures with access check - verifies user is enrolled, instructor, or admin.
+   */
+  async getLecturesWithAccessCheck(moduleId: number, userId: number, isInstructor: boolean, isAdmin: boolean) {
+    // Get the module to find the course
+    const module = await prisma.courseModule.findUnique({
+      where: { id: moduleId },
+      include: {
+        course: {
+          select: { id: true, instructorId: true, status: true },
+        },
+      },
+    });
+
+    if (!module) {
+      throw new AppError('Module not found', 404);
+    }
+
+    // Check if user has access
+    const isCourseInstructor = module.course.instructorId === userId;
+
+    if (!isAdmin && !isCourseInstructor) {
+      // Check enrollment for students
+      const enrollment = await prisma.enrollment.findUnique({
+        where: {
+          userId_courseId: {
+            userId,
+            courseId: module.course.id,
+          },
+        },
+      });
+
+      if (!enrollment) {
+        throw new AppError('You must be enrolled to access this content', 403);
+      }
+
+      // If course is unpublished and user is just a student, deny access
+      if (module.course.status !== 'published') {
+        throw new AppError('Course content is not available', 403);
+      }
+    }
+
+    // Return lectures - instructors and admins see all, students see published only
+    const showUnpublished = isAdmin || isCourseInstructor;
+
+    const lectures = await prisma.lecture.findMany({
+      where: {
+        moduleId,
+        ...(showUnpublished ? {} : { isPublished: true }),
+      },
+      orderBy: { orderIndex: 'asc' },
+      include: {
+        attachments: true,
+        sections: {
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    return lectures;
+  }
+
   async getLectureById(lectureId: number, userId?: number) {
     const lecture = await prisma.lecture.findUnique({
       where: { id: lectureId },

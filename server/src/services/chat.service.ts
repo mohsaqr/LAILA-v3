@@ -217,7 +217,22 @@ export class ChatService {
     });
   }
 
-  async getChatHistory(sessionId: string, limit = 50) {
+  async getChatHistory(sessionId: string, userId: number, limit = 50) {
+    // First verify user owns this session
+    const sessionCheck = await prisma.chatLog.findFirst({
+      where: { sessionId },
+      select: { userId: true },
+    });
+
+    if (!sessionCheck) {
+      throw new AppError('Session not found', 404);
+    }
+
+    // Only allow access to own sessions (null userId means legacy data, allow access)
+    if (sessionCheck.userId !== null && sessionCheck.userId !== userId) {
+      throw new AppError('Not authorized to access this session', 403);
+    }
+
     const logs = await prisma.chatLog.findMany({
       where: { sessionId },
       orderBy: { timestamp: 'asc' },

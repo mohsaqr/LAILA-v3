@@ -194,6 +194,71 @@ export class CourseService {
     return course;
   }
 
+  /**
+   * Get course by slug with ownership check for unpublished content.
+   * Admins can see all unpublished courses.
+   * Instructors can only see their own unpublished courses.
+   */
+  async getCourseBySlugWithOwnerCheck(slug: string, userId?: number, isAdmin = false, isInstructor = false) {
+    // First, get the course without status filter to check ownership
+    const course = await prisma.course.findUnique({
+      where: { slug },
+      select: { id: true, instructorId: true, status: true },
+    });
+
+    if (!course) {
+      throw new AppError('Course not found', 404);
+    }
+
+    // Determine if we should include unpublished content
+    let includeUnpublished = false;
+    if (isAdmin) {
+      // Admins can see all unpublished content
+      includeUnpublished = true;
+    } else if (isInstructor && course.instructorId === userId) {
+      // Instructors can only see unpublished content for their own courses
+      includeUnpublished = true;
+    }
+
+    // If course is unpublished and user doesn't have access, throw 404
+    if (course.status !== 'published' && !includeUnpublished) {
+      throw new AppError('Course not found', 404);
+    }
+
+    // Return full course with appropriate visibility
+    if (includeUnpublished) {
+      return prisma.course.findUnique({
+        where: { slug },
+        include: {
+          instructor: {
+            select: { id: true, fullname: true },
+          },
+          modules: {
+            orderBy: { orderIndex: 'asc' },
+            include: {
+              lectures: {
+                orderBy: { orderIndex: 'asc' },
+                select: {
+                  id: true,
+                  title: true,
+                  contentType: true,
+                  duration: true,
+                  isFree: true,
+                  isPublished: true,
+                },
+              },
+            },
+          },
+          _count: {
+            select: { enrollments: true },
+          },
+        },
+      });
+    }
+
+    return this.getCourseBySlug(slug);
+  }
+
   async createCourse(instructorId: number, data: CreateCourseInput, context?: SystemEventContext) {
     const slug = this.generateSlug(data.title);
 

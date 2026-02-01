@@ -1,13 +1,39 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 const prisma = new PrismaClient();
+
+/**
+ * Generate a secure random password.
+ * In development, you can set SEED_ADMIN_PASSWORD, SEED_INSTRUCTOR_PASSWORD, SEED_STUDENT_PASSWORD
+ * environment variables to use consistent passwords.
+ */
+function generateSecurePassword(): string {
+  return crypto.randomBytes(16).toString('base64url');
+}
 
 async function main() {
   console.log('Seeding database...');
 
+  // Use environment variables if provided, otherwise generate secure random passwords
+  const rawAdminPassword = process.env.SEED_ADMIN_PASSWORD || generateSecurePassword();
+  const rawInstructorPassword = process.env.SEED_INSTRUCTOR_PASSWORD || generateSecurePassword();
+  const rawStudentPassword = process.env.SEED_STUDENT_PASSWORD || generateSecurePassword();
+
+  // Log passwords so developers know what they are (only if generated)
+  if (!process.env.SEED_ADMIN_PASSWORD) {
+    console.log('Generated admin password:', rawAdminPassword);
+  }
+  if (!process.env.SEED_INSTRUCTOR_PASSWORD) {
+    console.log('Generated instructor password:', rawInstructorPassword);
+  }
+  if (!process.env.SEED_STUDENT_PASSWORD) {
+    console.log('Generated student password:', rawStudentPassword);
+  }
+
   // Create admin user
-  const adminPassword = await bcrypt.hash('admin123', 10);
+  const adminPassword = await bcrypt.hash(rawAdminPassword, 10);
   const admin = await prisma.user.upsert({
     where: { email: 'admin@laila.edu' },
     update: {},
@@ -23,7 +49,7 @@ async function main() {
   console.log('Created admin user:', admin.email);
 
   // Create instructor user
-  const instructorPassword = await bcrypt.hash('instructor123', 10);
+  const instructorPassword = await bcrypt.hash(rawInstructorPassword, 10);
   const instructor = await prisma.user.upsert({
     where: { email: 'instructor@laila.edu' },
     update: {},
@@ -54,7 +80,7 @@ async function main() {
   console.log('Created second instructor:', instructor2.email);
 
   // Create student user
-  const studentPassword = await bcrypt.hash('student123', 10);
+  const studentPassword = await bcrypt.hash(rawStudentPassword, 10);
   const student = await prisma.user.upsert({
     where: { email: 'student@laila.edu' },
     update: {},
@@ -1385,7 +1411,7 @@ Write bullet points of your key ideas, then ask AI to help expand them. Heavily 
     { fullname: 'Owen Campbell', email: 'owen.campbell@laila.edu' },
   ];
 
-  const defaultStudentPassword = await bcrypt.hash('student123', 10);
+  const defaultStudentPassword = await bcrypt.hash(rawStudentPassword, 10);
 
   for (const studentData of fakeStudents) {
     const newStudent = await prisma.user.upsert({

@@ -14,12 +14,12 @@ router.post('/', authenticateToken, asyncHandler(async (req: AuthRequest, res: R
   res.json({ success: true, data: result });
 }));
 
-// Get chat history by session
+// Get chat history by session (with ownership verification)
 router.get('/session/:sessionId', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const { sessionId } = req.params;
   const limit = parseInt(req.query.limit as string) || 50;
 
-  const history = await chatService.getChatHistory(sessionId, limit);
+  const history = await chatService.getChatHistory(sessionId, req.user!.id, limit);
   res.json({ success: true, data: history });
 }));
 

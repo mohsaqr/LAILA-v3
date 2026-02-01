@@ -61,9 +61,14 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: AuthRequest, res: Resp
   res.json({ success: true, data: course });
 }));
 
-// Get course by slug
-router.get('/slug/:slug', asyncHandler(async (req: AuthRequest, res: Response) => {
-  const course = await courseService.getCourseBySlug(req.params.slug);
+// Get course by slug (requires auth to see unpublished courses)
+router.get('/slug/:slug', optionalAuth, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const course = await courseService.getCourseBySlugWithOwnerCheck(
+    req.params.slug,
+    req.user?.id,
+    req.user?.isAdmin || false,
+    req.user?.isInstructor || false
+  );
   res.json({ success: true, data: course });
 }));
 
@@ -160,10 +165,10 @@ router.put('/:courseId/modules/reorder', authenticateToken, requireInstructor, a
 
 // ============= LECTURES =============
 
-// Get module lectures
-router.get('/modules/:moduleId/lectures', asyncHandler(async (req: AuthRequest, res: Response) => {
+// Get module lectures (requires authentication for enrollment verification)
+router.get('/modules/:moduleId/lectures', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const moduleId = parseInt(req.params.moduleId);
-  const lectures = await lectureService.getLectures(moduleId);
+  const lectures = await lectureService.getLecturesWithAccessCheck(moduleId, req.user!.id, req.user!.isInstructor, req.user!.isAdmin);
   res.json({ success: true, data: lectures });
 }));
 
