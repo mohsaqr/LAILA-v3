@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import compression from 'compression';
+import helmet from 'helmet';
 import session from 'express-session';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -66,6 +67,26 @@ const corsOptions = {
 
 // Middleware
 app.use(cors(corsOptions));
+
+// Security headers via helmet
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      fontSrc: ["'self'"],
+      connectSrc: ["'self'"],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
+    },
+  },
+  crossOriginEmbedderPolicy: false, // Allow embedding resources
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow CORS resources
+}));
+
 app.use(compression()); // Enable gzip/deflate compression for all responses
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));

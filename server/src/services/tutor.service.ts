@@ -2,6 +2,9 @@ import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { chatService } from './chat.service.js';
 import { activityLogService } from './activityLog.service.js';
+import { createLogger } from '../utils/logger.js';
+
+const logger = createLogger('tutor');
 import {
   TutorMode,
   TutorSessionData,
@@ -97,7 +100,7 @@ export class TutorService {
         objectTitle: 'AI Tutor Session',
         objectSubtype: 'manual',
         extensions: { mode: 'manual' },
-      }).catch(err => console.error('[Tutor] Failed to log session start activity:', err));
+      }).catch(err => logger.warn({ err }, 'Failed to log session start activity'));
     }
 
     // Get available agents
@@ -161,7 +164,7 @@ export class TutorService {
       objectTitle: `Mode: ${mode}`,
       objectSubtype: mode,
       extensions: { mode, previousMode: session.mode },
-    }).catch(err => console.error('[Tutor] Failed to log mode change activity:', err));
+    }).catch(err => logger.warn({ err }, 'Failed to log mode change activity'));
 
     return {
       id: session.id,
@@ -216,7 +219,7 @@ export class TutorService {
         sessionId: session.id,
         mode: session.mode,
       },
-    }).catch(err => console.error('[Tutor] Failed to log agent switch activity:', err));
+    }).catch(err => logger.warn({ err }, 'Failed to log agent switch activity'));
 
     return {
       id: session.id,
@@ -451,7 +454,7 @@ export class TutorService {
         agentDisplayName: conversation.chatbot.displayName,
         sessionId: session.id,
       },
-    }).catch(err => console.error('[Tutor] Failed to log conversation clear activity:', err));
+    }).catch(err => logger.warn({ err }, 'Failed to log conversation clear activity'));
   }
 
   // ==========================================================================
@@ -559,7 +562,7 @@ export class TutorService {
         mode: session.mode,
       },
       deviceType: clientInfo?.deviceType,
-    }).catch(err => console.error('[Tutor] Failed to log message sent activity:', err));
+    }).catch(err => logger.warn({ err }, 'Failed to log message sent activity'));
 
     // Build conversation history for multi-turn context (last 10 messages)
     const conversationHistory = conversation.messages.slice(-10).map((m) => ({
@@ -691,7 +694,7 @@ export class TutorService {
         responseTimeMs,
       },
       deviceType: clientInfo?.deviceType,
-    }).catch(err => console.error('[Tutor] Failed to log message received activity:', err));
+    }).catch(err => logger.warn({ err }, 'Failed to log message received activity'));
 
     return {
       userMessage: {
@@ -806,7 +809,7 @@ export class TutorService {
     try {
       return await this.analyzeWithAI(message, agents);
     } catch (error) {
-      console.error('AI routing failed, falling back to keyword-based:', error);
+      logger.warn({ err: error }, 'AI routing failed, falling back to keyword-based');
       return this.analyzeWithKeywords(message, agents);
     }
   }
@@ -862,7 +865,7 @@ Consider:
       if (!jsonMatch) throw new Error('No JSON found in response');
       parsed = JSON.parse(jsonMatch[0]);
     } catch (parseError) {
-      console.error('Failed to parse AI routing response:', response.reply);
+      logger.warn({ err: parseError }, 'Failed to parse AI routing response');
       throw new Error('Invalid AI response format');
     }
 
@@ -870,7 +873,7 @@ Consider:
     const selectedAgent = agents.find(a => a.name === parsed.selectedAgent);
     if (!selectedAgent) {
       // Fallback to first agent if AI selected an invalid one
-      console.warn(`AI selected unknown agent: ${parsed.selectedAgent}`);
+      logger.warn({ selectedAgent: parsed.selectedAgent }, 'AI selected unknown agent, falling back to keyword routing');
       return this.analyzeWithKeywords(message, agents);
     }
 
@@ -1201,7 +1204,7 @@ Synthesized response:`;
         })),
       },
       deviceType: clientInfo?.deviceType,
-    }).catch(err => console.error('[Tutor] Failed to log collaborative activity:', err));
+    }).catch(err => logger.warn({ err }, 'Failed to log collaborative activity'));
 
     return {
       userMessage: {
@@ -1302,7 +1305,7 @@ Synthesized response:`;
         },
       });
     } catch (error) {
-      console.error('Failed to log tutor interaction:', error);
+      logger.warn({ err: error }, 'Failed to log tutor interaction');
       // Don't throw - logging failure shouldn't break the main flow
     }
   }

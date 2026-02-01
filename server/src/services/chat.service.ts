@@ -3,6 +3,9 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import prisma from '../utils/prisma.js';
 import { ChatMessage, ChatRequest, ChatResponse, AIConfig } from '../types/index.js';
 import { AppError } from '../middleware/error.middleware.js';
+import { createLogger } from '../utils/logger.js';
+
+const logger = createLogger('chat');
 
 export class ChatService {
   private openai: OpenAI | null = null;
@@ -110,7 +113,7 @@ export class ChatService {
         reply = await this.chatWithGemini(messages, model, config.apiKey);
       }
     } catch (error: any) {
-      console.error('AI Chat Error:', error);
+      logger.error({ err: error, provider: config.provider }, 'AI Chat Error');
       throw new AppError(error.message || 'Failed to get AI response', 500);
     }
 

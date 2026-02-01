@@ -512,8 +512,8 @@ class CertificateService {
   // =========================================================================
 
   private generateVerificationCode(): string {
-    // Generate a unique, URL-safe verification code
-    return crypto.randomBytes(12).toString('base64url');
+    // Generate a unique, URL-safe verification code with 256 bits of entropy
+    return crypto.randomBytes(32).toString('base64url');
   }
 
   // Create default template if none exists

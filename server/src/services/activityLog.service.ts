@@ -1,6 +1,9 @@
 import prisma from '../utils/prisma.js';
 import { Prisma } from '@prisma/client';
 import ExcelJS from 'exceljs';
+import { createLogger } from '../utils/logger.js';
+
+const logger = createLogger('activity-log');
 
 // Standardized verb types
 export type ActivityVerb =
@@ -57,14 +60,13 @@ class ActivityLogService {
    * Log an activity with automatic context enrichment
    */
   async logActivity(input: LogActivityInput) {
-    console.log('[ActivityLogService] logActivity called:', {
+    logger.debug({
       userId: input.userId,
       verb: input.verb,
       objectType: input.objectType,
       objectId: input.objectId,
       courseId: input.courseId,
-      hasExtensions: !!input.extensions,
-    });
+    }, 'logActivity called');
 
     // Fetch user data
     const user = await prisma.user.findUnique({
@@ -73,7 +75,7 @@ class ActivityLogService {
     });
 
     if (!user) {
-      console.error('[ActivityLogService] User not found:', input.userId);
+      logger.warn({ userId: input.userId }, 'User not found for activity log');
       throw new Error(`User with id ${input.userId} not found`);
     }
 
@@ -201,16 +203,15 @@ class ActivityLogService {
       }
     }
 
-    console.log('[ActivityLogService] Creating log entry with data:', {
+    logger.debug({
       verb: logData.verb,
       objectType: logData.objectType,
       objectId: logData.objectId,
-      courseId: logData.course ? 'connected' : 'none',
-      hasExtensions: !!logData.extensions,
-    });
+      hasCourse: !!logData.course,
+    }, 'Creating activity log entry');
 
     const result = await prisma.learningActivityLog.create({ data: logData });
-    console.log('[ActivityLogService] Log entry created successfully, id:', result.id);
+    logger.debug({ logId: result.id }, 'Activity log entry created');
     return result;
   }
 

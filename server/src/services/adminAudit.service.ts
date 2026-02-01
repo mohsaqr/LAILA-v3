@@ -1,4 +1,7 @@
 import prisma from '../utils/prisma.js';
+import { createLogger } from '../utils/logger.js';
+
+const logger = createLogger('admin-audit');
 
 export interface AuditLogInput {
   adminId: number;
@@ -28,7 +31,7 @@ export class AdminAuditService {
       });
       return log;
     } catch (error) {
-      console.error('Failed to create audit log:', error);
+      logger.error({ err: error, input: { action: input.action, targetType: input.targetType } }, 'Failed to create audit log');
       // Don't throw - audit logging should not break main operations
       return null;
     }
