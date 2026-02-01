@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { adminAuditService } from './adminAudit.service.js';
+import { invalidateUserStatusCache } from '../middleware/auth.middleware.js';
 
 export interface UserFilters {
   search?: string;
@@ -219,6 +220,8 @@ export class UserManagementService {
     }
     if (data.password) {
       updateData.passwordHash = await bcrypt.hash(data.password, 10);
+      // Increment tokenVersion to invalidate existing tokens when password changes
+      updateData.tokenVersion = { increment: 1 };
     }
     if (typeof data.isActive === 'boolean') updateData.isActive = data.isActive;
     if (typeof data.isInstructor === 'boolean') updateData.isInstructor = data.isInstructor;
@@ -249,6 +252,11 @@ export class UserManagementService {
         isConfirmed: true,
       },
     });
+
+    // Invalidate user status cache if isActive or password was changed
+    if (data.isActive !== undefined || data.password) {
+      invalidateUserStatusCache(id);
+    }
 
     // Create audit log
     await adminAuditService.log({
@@ -353,6 +361,9 @@ export class UserManagementService {
     await prisma.user.delete({
       where: { id },
     });
+
+    // Invalidate user status cache
+    invalidateUserStatusCache(id);
 
     // Create audit log
     await adminAuditService.log({

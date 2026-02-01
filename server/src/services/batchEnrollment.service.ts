@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { adminAuditService } from './adminAudit.service.js';
@@ -81,68 +82,75 @@ export class BatchEnrollmentService {
       const rowNumber = i + 1;
 
       try {
-        // Find or create user by email
-        let user = await prisma.user.findUnique({
-          where: { email: row.email.toLowerCase().trim() },
-        });
+        // Use transaction for each row to ensure atomic user creation + enrollment
+        const result = await prisma.$transaction(async (tx) => {
+          // Find or create user by email
+          let user = await tx.user.findUnique({
+            where: { email: row.email.toLowerCase().trim() },
+          });
 
-        if (!user) {
-          // Create new user with temporary password
-          const tempPassword = this.generateTempPassword();
-          user = await prisma.user.create({
-            data: {
-              email: row.email.toLowerCase().trim(),
-              fullname: row.fullname || row.email.split('@')[0],
-              passwordHash: await bcrypt.hash(tempPassword, 10),
-              isConfirmed: true,
+          if (!user) {
+            // Create new user with temporary password
+            const tempPassword = this.generateTempPassword();
+            user = await tx.user.create({
+              data: {
+                email: row.email.toLowerCase().trim(),
+                fullname: row.fullname || row.email.split('@')[0],
+                passwordHash: await bcrypt.hash(tempPassword, 10),
+                isConfirmed: true,
+              },
+            });
+          }
+
+          // Check if already enrolled
+          const existingEnrollment = await tx.enrollment.findUnique({
+            where: {
+              userId_courseId: { userId: user.id, courseId: job.courseId },
             },
           });
-        }
 
-        // Check if already enrolled
-        const existingEnrollment = await prisma.enrollment.findUnique({
-          where: {
-            userId_courseId: { userId: user.id, courseId: job.courseId },
-          },
-        });
+          if (existingEnrollment) {
+            // Skip - already enrolled
+            await tx.batchEnrollmentResult.create({
+              data: {
+                jobId,
+                rowNumber,
+                email: row.email,
+                status: 'skipped',
+                userId: user.id,
+                enrollmentId: existingEnrollment.id,
+                errorMessage: 'User already enrolled',
+              },
+            });
+            return { status: 'skipped' as const };
+          }
 
-        if (existingEnrollment) {
-          // Skip - already enrolled
-          await prisma.batchEnrollmentResult.create({
+          // Create enrollment
+          const enrollment = await tx.enrollment.create({
+            data: {
+              userId: user.id,
+              courseId: job.courseId,
+            },
+          });
+
+          // Log successful result
+          await tx.batchEnrollmentResult.create({
             data: {
               jobId,
               rowNumber,
               email: row.email,
-              status: 'skipped',
+              status: 'success',
               userId: user.id,
-              enrollmentId: existingEnrollment.id,
-              errorMessage: 'User already enrolled',
+              enrollmentId: enrollment.id,
             },
           });
-          continue; // Don't count as success or error
+
+          return { status: 'success' as const };
+        });
+
+        if (result.status === 'success') {
+          successCount++;
         }
-
-        // Create enrollment
-        const enrollment = await prisma.enrollment.create({
-          data: {
-            userId: user.id,
-            courseId: job.courseId,
-          },
-        });
-
-        // Log successful result
-        await prisma.batchEnrollmentResult.create({
-          data: {
-            jobId,
-            rowNumber,
-            email: row.email,
-            status: 'success',
-            userId: user.id,
-            enrollmentId: enrollment.id,
-          },
-        });
-
-        successCount++;
       } catch (error: any) {
         // Log error result
         const errorMessage = error.message || 'Unknown error';
@@ -161,15 +169,18 @@ export class BatchEnrollmentService {
         errorCount++;
       }
 
-      // Update progress
-      await prisma.batchEnrollmentJob.update({
-        where: { id: jobId },
-        data: {
-          processedRows: i + 1,
-          successCount,
-          errorCount,
-        },
-      });
+      // Update progress in batches (every 25 rows) to reduce DB writes
+      const PROGRESS_UPDATE_INTERVAL = 25;
+      if ((i + 1) % PROGRESS_UPDATE_INTERVAL === 0 || i === rows.length - 1) {
+        await prisma.batchEnrollmentJob.update({
+          where: { id: jobId },
+          data: {
+            processedRows: i + 1,
+            successCount,
+            errorCount,
+          },
+        });
+      }
     }
 
     // Mark job as completed
@@ -373,12 +384,8 @@ export class BatchEnrollmentService {
   }
 
   private generateTempPassword(): string {
-    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let password = '';
-    for (let i = 0; i < 12; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return password;
+    // Use cryptographically secure random bytes for temporary passwords
+    return crypto.randomBytes(16).toString('base64url');
   }
 
   // Generate CSV template

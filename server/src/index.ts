@@ -1,11 +1,16 @@
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import session from 'express-session';
 import dotenv from 'dotenv';
 import path from 'path';
 
 // Load environment variables
 dotenv.config();
+
+// Import logger first
+import { logger } from './utils/logger.js';
+import { requestLoggingMiddleware, slowRequestLoggingMiddleware } from './middleware/logging.middleware.js';
 
 // Import routes
 import authRoutes from './routes/auth.routes.js';
@@ -38,10 +43,14 @@ import messageExportRoutes from './routes/messageExport.routes.js';
 import courseTutorRoutes from './routes/courseTutor.routes.js';
 import customLabRoutes from './routes/customLab.routes.js';
 import aiRoutes from './routes/ai.routes.js';
+import quizRoutes from './routes/quiz.routes.js';
+import notificationRoutes from './routes/notification.routes.js';
+import forumRoutes from './routes/forum.routes.js';
+import certificateRoutes from './routes/certificate.routes.js';
 
 // Import middleware
 import { errorHandler } from './middleware/error.middleware.js';
-import { authLimiter, uploadLimiter, apiLimiter } from './middleware/rateLimit.middleware.js';
+import { authLimiter, uploadLimiter, apiLimiter, llmLimiter } from './middleware/rateLimit.middleware.js';
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -57,8 +66,13 @@ const corsOptions = {
 
 // Middleware
 app.use(cors(corsOptions));
+app.use(compression()); // Enable gzip/deflate compression for all responses
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Request logging middleware
+app.use(requestLoggingMiddleware);
+app.use(slowRequestLoggingMiddleware(2000)); // Log requests slower than 2s
 
 // Validate required environment variables
 if (!process.env.SESSION_SECRET) {
@@ -94,7 +108,7 @@ app.use('/api/uploads', uploadLimiter, uploadRoutes);
 
 // Standard API routes
 app.use('/api/users', userRoutes);
-app.use('/api/chat', chatRoutes);
+app.use('/api/chat', llmLimiter, chatRoutes); // AI rate limiting
 app.use('/api/chatbots', chatbotRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/enrollments', enrollmentRoutes);
@@ -111,20 +125,64 @@ app.use('/api/batch-enrollment', batchEnrollmentRoutes);
 app.use('/api/course-roles', courseRolesRoutes);
 app.use('/api/activity-log', activityLogRoutes);
 app.use('/api/code-labs', codeLabRoutes);
-app.use('/api/llm', llmRoutes);
+app.use('/api/llm', llmLimiter, llmRoutes); // AI rate limiting
 app.use('/api/agent-design-logs', agentDesignLogRoutes);
 app.use('/api/prompt-blocks', promptBlockRoutes);
-app.use('/api/tutors', tutorRoutes);
+app.use('/api/tutors', llmLimiter, tutorRoutes); // AI rate limiting
 app.use('/api/surveys', surveyRoutes);
 app.use('/api/emotional-pulse', emotionalPulseRoutes);
 app.use('/api/admin/messages', messageExportRoutes);
 app.use('/api/courses', courseTutorRoutes);
 app.use('/api/labs', customLabRoutes);
-app.use('/api/ai', aiRoutes);
+app.use('/api/ai', llmLimiter, aiRoutes); // AI rate limiting
+app.use('/api/quizzes', quizRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/forums', forumRoutes);
+app.use('/api/certificates', certificateRoutes);
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+// Health check with comprehensive status
+app.get('/api/health', async (req, res) => {
+  const startTime = Date.now();
+
+  try {
+    // Check database connectivity
+    const { prisma } = await import('./utils/prisma.js');
+    await prisma.$queryRaw`SELECT 1`;
+    const dbLatency = Date.now() - startTime;
+
+    res.json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      version: process.env.npm_package_version || '3.0.0',
+      environment: process.env.NODE_ENV || 'development',
+      checks: {
+        database: {
+          status: 'healthy',
+          latencyMs: dbLatency,
+        },
+        memory: {
+          heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+          heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+          unit: 'MB',
+        },
+      },
+    });
+  } catch (error: any) {
+    logger.error({ err: error }, 'Health check failed');
+    res.status(503).json({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      error: error.message,
+      checks: {
+        database: {
+          status: 'unhealthy',
+          error: error.message,
+        },
+      },
+    });
+  }
 });
 
 // Error handling middleware
@@ -132,8 +190,11 @@ app.use(errorHandler);
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info({
+    port: PORT,
+    environment: process.env.NODE_ENV || 'development',
+    nodeVersion: process.version,
+  }, `Server started on port ${PORT}`);
 });
 
 export default app;
