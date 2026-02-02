@@ -17,6 +17,9 @@ import {
   TutorInteractionLogData,
   RoutingInfo,
   CollaborativeInfo,
+  CollaborativeSettings,
+  CollaborativeStyle,
+  AgentContribution,
 } from '../types/tutor.types.js';
 
 export class TutorService {
@@ -468,7 +471,8 @@ export class TutorService {
     userId: number,
     chatbotId: number,
     message: string,
-    clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string }
+    clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
+    collaborativeSettings?: CollaborativeSettings
   ): Promise<TutorMessageResponse> {
     const session = await prisma.tutorSession.findUnique({
       where: { userId },
@@ -496,7 +500,9 @@ export class TutorService {
       case 'router':
         return this.handleRouterMode(session, message, clientInfo);
       case 'collaborative':
-        return this.handleCollaborativeMode(session, message, clientInfo);
+        return this.handleCollaborativeMode(session, message, clientInfo, collaborativeSettings);
+      case 'random':
+        return this.handleRandomMode(session, message, clientInfo);
       case 'manual':
       default:
         return this.handleManualMode(
@@ -573,8 +579,23 @@ export class TutorService {
     // Build the system prompt with chatbot configuration
     let systemPrompt = chatbot.systemPrompt;
 
-    // Add agent identity reminder
-    systemPrompt += `\n\nIMPORTANT: You are ${chatbot.displayName}. Stay in character throughout the conversation. Remember what the user has told you and refer back to previous messages when relevant.`;
+    // Add agent identity reminder and response guidelines
+    systemPrompt += `\n\nIMPORTANT: You are ${chatbot.displayName}. Stay in character throughout the conversation. Remember what the user has told you and refer back to previous messages when relevant.
+
+CRITICAL - HOW TO RESPOND:
+- Address the STUDENT directly (the human learner) - they are your audience
+- Use "you" to refer to the student
+- NEVER start with ANY name followed by colon (no "Beatrice:", no "Tutor:", etc.)
+- NEVER repeat or copy previous responses - just give YOUR fresh perspective
+- If other tutors responded, briefly build on their IDEAS, then add YOUR insight
+- Jump straight into your helpful response - no preamble, no name prefix
+
+RESPONSE GUIDELINES:
+- Keep responses SHORT: 300-500 characters max (about 2-3 sentences)
+- NO markdown formatting: no headers, no tables, no horizontal rules, no code blocks unless showing code
+- Use plain text with occasional **bold** for emphasis only
+- Get to the point immediately - be direct and helpful
+- One concept, one example max - no lengthy explanations`;
 
     if (chatbot.dosRules) {
       try {
@@ -799,19 +820,95 @@ export class TutorService {
   }
 
   /**
-   * Analyze message and route to best agent using AI
+   * Handle random mode - pick a single random tutor to respond
+   */
+  private async handleRandomMode(
+    session: { id: number; userId: number; mode: string },
+    message: string,
+    clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string }
+  ): Promise<TutorMessageResponse> {
+    // Get all available tutor agents
+    const agents = await this.getAvailableAgents();
+
+    if (agents.length === 0) {
+      throw new AppError('No agents available', 500);
+    }
+
+    // Pick a random agent
+    const randomIndex = Math.floor(Math.random() * agents.length);
+    const selectedAgent = agents[randomIndex];
+
+    // Get or create conversation with the selected agent
+    const conversationData = await this.getOrCreateConversation(
+      session.userId,
+      selectedAgent.id
+    );
+
+    const chatbot = await prisma.chatbot.findUnique({
+      where: { id: selectedAgent.id },
+    });
+
+    if (!chatbot) {
+      throw new AppError('Selected agent not found', 500);
+    }
+
+    // Handle the message with the randomly selected agent
+    const response = await this.handleManualMode(
+      session,
+      conversationData,
+      chatbot,
+      message,
+      clientInfo
+    );
+
+    // Log random selection
+    await this.logInteraction({
+      userId: session.userId,
+      sessionId: session.id,
+      conversationId: conversationData.id,
+      chatbotId: selectedAgent.id,
+      chatbotName: selectedAgent.name,
+      chatbotDisplayName: selectedAgent.displayName,
+      eventType: 'message_sent',
+      mode: 'random',
+      routingReason: 'Random selection',
+      routingConfidence: 1.0,
+      ...clientInfo,
+    });
+
+    return {
+      ...response,
+      routingInfo: {
+        selectedAgent: {
+          id: selectedAgent.id,
+          name: selectedAgent.name,
+          displayName: selectedAgent.displayName,
+        },
+        reason: 'Randomly selected',
+        confidence: 1.0,
+      },
+    };
+  }
+
+  /**
+   * Analyze message and route to best agent - FAST keyword-based by default
+   * This is the super-fast routing mechanism that doesn't require AI calls
    */
   private async analyzeAndRoute(
     message: string,
-    agents: TutorAgent[]
+    agents: TutorAgent[],
+    useAI: boolean = false
   ): Promise<RoutingInfo> {
-    // Try AI-based routing first, fall back to keyword-based if it fails
-    try {
-      return await this.analyzeWithAI(message, agents);
-    } catch (error) {
-      logger.warn({ err: error }, 'AI routing failed, falling back to keyword-based');
-      return this.analyzeWithKeywords(message, agents);
+    // Use fast keyword-based routing by default
+    // Only use AI if explicitly requested (for deeper analysis)
+    if (useAI) {
+      try {
+        return await this.analyzeWithAI(message, agents);
+      } catch (error) {
+        logger.warn({ err: error }, 'AI routing failed, falling back to keyword-based');
+      }
     }
+    return this.analyzeWithKeywords(message, agents);
   }
 
   /**
@@ -900,7 +997,8 @@ Consider:
   }
 
   /**
-   * Keyword-based routing (fallback)
+   * Keyword-based routing - SUPER FAST, no AI calls
+   * Scores all agents based on keyword matching for better relevance
    */
   private analyzeWithKeywords(
     message: string,
@@ -908,155 +1006,350 @@ Consider:
   ): RoutingInfo {
     const messageLower = message.toLowerCase();
 
-    let selectedAgent = agents[0];
-    let reason = 'Default selection';
-    let confidence = 0.5;
+    // Score each agent based on keywords
+    const agentScores: Map<number, { score: number; reason: string }> = new Map();
 
-    // Emotional support needed - Beatrice
-    if (
-      messageLower.includes('frustrated') ||
-      messageLower.includes('stressed') ||
-      messageLower.includes('overwhelmed') ||
-      messageLower.includes('dumb') ||
-      messageLower.includes('stupid') ||
-      messageLower.includes('give up') ||
-      messageLower.includes('cant do this')
-    ) {
-      const beatriceAgent = agents.find((a) => a.name === 'beatrice-peer');
-      if (beatriceAgent) {
-        selectedAgent = beatriceAgent;
-        reason = 'Emotional support needed - Beatrice provides encouragement';
-        confidence = 0.9;
-      }
-    }
-    // Wants to discuss/debate - Laila
-    else if (
-      messageLower.includes('disagree') ||
-      messageLower.includes('think about') ||
-      messageLower.includes('opinion') ||
-      messageLower.includes('what do you think') ||
-      messageLower.includes('argue') ||
-      messageLower.includes('debate')
-    ) {
-      const lailaAgent = agents.find((a) => a.name === 'laila-peer');
-      if (lailaAgent) {
-        selectedAgent = lailaAgent;
-        reason = 'Discussion/debate detected - Laila loves intellectual discourse';
-        confidence = 0.85;
-      }
-    }
-    // Socratic tutor - conceptual questions, "why", "what if"
-    else if (
-      messageLower.includes('why') ||
-      messageLower.includes('what if') ||
-      messageLower.includes('explain') ||
-      messageLower.includes('understand') ||
-      messageLower.includes('concept')
-    ) {
-      const socraticAgent = agents.find((a) => a.name === 'socratic-tutor');
-      if (socraticAgent) {
-        selectedAgent = socraticAgent;
-        reason = 'Conceptual exploration - Socratic method guides discovery';
-        confidence = 0.8;
-      }
-    }
-    // Helper tutor - "how do I", "show me", "steps"
-    else if (
-      messageLower.includes('how do') ||
-      messageLower.includes('how to') ||
-      messageLower.includes('show me') ||
-      messageLower.includes('steps') ||
-      messageLower.includes('guide') ||
-      messageLower.includes('tutorial')
-    ) {
-      const helperAgent = agents.find((a) => a.name === 'helper-tutor');
-      if (helperAgent) {
-        selectedAgent = helperAgent;
-        reason = 'Direct guidance needed - Helpful Guide provides clear steps';
-        confidence = 0.85;
-      }
-    }
-    // Project tutor - "project", "build", "code", "debug"
-    else if (
-      messageLower.includes('project') ||
-      messageLower.includes('build') ||
-      messageLower.includes('code') ||
-      messageLower.includes('implement') ||
-      messageLower.includes('debug') ||
-      messageLower.includes('error') ||
-      messageLower.includes('fix')
-    ) {
-      const projectAgent = agents.find((a) => a.name === 'project-tutor');
-      if (projectAgent) {
-        selectedAgent = projectAgent;
-        reason = 'Practical work detected - Project Coach helps with hands-on tasks';
-        confidence = 0.82;
-      }
-    }
-    // Casual peer support - Carmen or Study Buddy
-    else if (
-      messageLower.includes('hey') ||
-      messageLower.includes('hi ') ||
-      messageLower.includes('stuck') ||
-      messageLower.includes('confused') ||
-      messageLower.includes('lost')
-    ) {
-      const carmenAgent = agents.find((a) => a.name === 'carmen-peer');
-      if (carmenAgent) {
-        selectedAgent = carmenAgent;
-        reason = 'Casual tone - Carmen offers peer-to-peer support';
-        confidence = 0.75;
+    // Initialize all agents with base score
+    agents.forEach(a => agentScores.set(a.id, { score: 0.3, reason: 'Available tutor' }));
+
+    // Keyword scoring rules - each match increases score
+    const scoringRules: Array<{
+      keywords: string[];
+      agentNames: string[];
+      boost: number;
+      reason: string;
+    }> = [
+      // Emotional support
+      {
+        keywords: ['frustrated', 'stressed', 'overwhelmed', 'dumb', 'stupid', 'give up', 'cant do this', 'anxious', 'scared', 'worried', 'nervous'],
+        agentNames: ['beatrice-peer', 'friendly-tutor'],
+        boost: 0.6,
+        reason: 'Emotional support needed',
+      },
+      // Discussion/debate
+      {
+        keywords: ['disagree', 'think about', 'opinion', 'what do you think', 'argue', 'debate', 'discuss', 'perspective'],
+        agentNames: ['laila-peer', 'socratic-tutor'],
+        boost: 0.5,
+        reason: 'Intellectual discussion',
+      },
+      // Conceptual understanding
+      {
+        keywords: ['why', 'what if', 'explain', 'understand', 'concept', 'theory', 'meaning', 'difference between'],
+        agentNames: ['socratic-tutor', 'laila-peer'],
+        boost: 0.5,
+        reason: 'Conceptual exploration',
+      },
+      // Step-by-step guidance
+      {
+        keywords: ['how do', 'how to', 'show me', 'steps', 'guide', 'tutorial', 'walk me through', 'example'],
+        agentNames: ['helper-tutor', 'project-tutor'],
+        boost: 0.5,
+        reason: 'Practical guidance needed',
+      },
+      // Project/coding work
+      {
+        keywords: ['project', 'build', 'code', 'implement', 'debug', 'error', 'fix', 'program', 'function', 'bug'],
+        agentNames: ['project-tutor', 'helper-tutor'],
+        boost: 0.5,
+        reason: 'Hands-on technical work',
+      },
+      // Casual support
+      {
+        keywords: ['hey', 'hi ', 'stuck', 'confused', 'lost', 'help me', 'quick question'],
+        agentNames: ['carmen-peer', 'beatrice-peer', 'friendly-tutor'],
+        boost: 0.4,
+        reason: 'Casual peer support',
+      },
+      // Encouragement
+      {
+        keywords: ['trying', 'learning', 'new to', 'beginner', 'first time', 'not sure'],
+        agentNames: ['beatrice-peer', 'friendly-tutor', 'carmen-peer'],
+        boost: 0.4,
+        reason: 'Encouragement for learner',
+      },
+    ];
+
+    // Apply scoring rules
+    for (const rule of scoringRules) {
+      const hasKeyword = rule.keywords.some(kw => messageLower.includes(kw));
+      if (hasKeyword) {
+        for (const agentName of rule.agentNames) {
+          const agent = agents.find(a => a.name === agentName);
+          if (agent) {
+            const current = agentScores.get(agent.id)!;
+            agentScores.set(agent.id, {
+              score: Math.min(0.95, current.score + rule.boost),
+              reason: rule.reason,
+            });
+          }
+        }
       }
     }
 
-    // Calculate alternatives
+    // Also boost agents whose personality/description matches
+    agents.forEach(agent => {
+      const desc = (agent.description || '').toLowerCase();
+      const personality = (agent.personality || '').toLowerCase();
+
+      // Check if message terms appear in agent description
+      const words = messageLower.split(/\s+/).filter(w => w.length > 4);
+      const matchCount = words.filter(w => desc.includes(w) || personality.includes(w)).length;
+      if (matchCount > 0) {
+        const current = agentScores.get(agent.id)!;
+        agentScores.set(agent.id, {
+          score: Math.min(0.95, current.score + matchCount * 0.1),
+          reason: current.reason,
+        });
+      }
+    });
+
+    // Find best agent
+    let bestAgent = agents[0];
+    let bestScore = 0;
+    let bestReason = 'Default selection';
+
+    agentScores.forEach((data, agentId) => {
+      if (data.score > bestScore) {
+        bestScore = data.score;
+        bestReason = data.reason;
+        bestAgent = agents.find(a => a.id === agentId) || agents[0];
+      }
+    });
+
+    // Build alternatives with actual scores
     const alternatives = agents
-      .filter((a) => a.id !== selectedAgent.id)
-      .map((a) => ({
+      .filter(a => a.id !== bestAgent.id)
+      .map(a => ({
         agentId: a.id,
         agentName: a.name,
-        score: Math.random() * 0.5 + 0.3,
+        score: agentScores.get(a.id)?.score || 0.3,
       }))
       .sort((a, b) => b.score - a.score);
 
     return {
       selectedAgent: {
-        id: selectedAgent.id,
-        name: selectedAgent.name,
-        displayName: selectedAgent.displayName,
+        id: bestAgent.id,
+        name: bestAgent.name,
+        displayName: bestAgent.displayName,
       },
-      reason,
-      confidence,
+      reason: bestReason,
+      confidence: bestScore,
       alternatives,
     };
   }
 
   /**
-   * Handle collaborative mode - all agents discuss, synthesize response
+   * Parse @mentions from message to identify specific tutors
+   * Returns array of mentioned agent names (lowercase, normalized)
+   */
+  private parseMentions(message: string, availableAgents: TutorAgent[]): TutorAgent[] {
+    // Match @name patterns (handles display names with spaces using quotes, or simple names)
+    const mentionPatterns = [
+      /@"([^"]+)"/gi,  // @"Display Name"
+      /@'([^']+)'/gi,  // @'Display Name'
+      /@(\S+)/gi,      // @simple-name or @SimpleName
+    ];
+
+    const mentionedNames: string[] = [];
+
+    for (const pattern of mentionPatterns) {
+      let match;
+      while ((match = pattern.exec(message)) !== null) {
+        mentionedNames.push(match[1].toLowerCase().trim());
+      }
+    }
+
+    if (mentionedNames.length === 0) {
+      return [];
+    }
+
+    // Match mentions to available agents (by name or displayName)
+    const mentionedAgents = availableAgents.filter(agent => {
+      const nameLower = agent.name.toLowerCase();
+      const displayNameLower = agent.displayName.toLowerCase();
+
+      return mentionedNames.some(mention =>
+        nameLower.includes(mention) ||
+        displayNameLower.includes(mention) ||
+        mention.includes(nameLower) ||
+        mention.includes(displayNameLower)
+      );
+    });
+
+    return mentionedAgents;
+  }
+
+  /**
+   * Remove @mentions from message for cleaner AI input
+   */
+  private stripMentions(message: string): string {
+    return message
+      .replace(/@"[^"]+"/g, '')
+      .replace(/@'[^']+'/g, '')
+      .replace(/@\S+/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /**
+   * Select relevant tutors for the message using FAST keyword-based routing
+   * Super fast - no AI calls, just keyword matching
+   */
+  private async selectRelevantAgents(
+    message: string,
+    allAgents: TutorAgent[],
+    maxAgents: number = 3
+  ): Promise<TutorAgent[]> {
+    if (allAgents.length <= maxAgents) return allAgents;
+
+    // Use fast keyword-based routing (no AI call)
+    const routingResult = this.analyzeWithKeywords(message, allAgents);
+
+    // Get top agents by score
+    const agentScores = new Map<number, number>();
+    agentScores.set(routingResult.selectedAgent.id, routingResult.confidence);
+
+    routingResult.alternatives?.forEach(alt => {
+      agentScores.set(alt.agentId, alt.score);
+    });
+
+    // Sort agents by score and take top N
+    const sortedAgents = [...allAgents].sort((a, b) => {
+      const scoreA = agentScores.get(a.id) || 0;
+      const scoreB = agentScores.get(b.id) || 0;
+      return scoreB - scoreA;
+    });
+
+    return sortedAgents.slice(0, maxAgents);
+  }
+
+  /**
+   * Get a single agent response with formatting guidelines
+   */
+  private async getAgentResponse(
+    agent: TutorAgent,
+    message: string,
+    conversationHistory: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
+    userId: number,
+    context?: string,
+    maxChars: number = 500
+  ): Promise<AgentContribution> {
+    const startTime = Date.now();
+    try {
+      let systemPrompt = agent.systemPrompt;
+      systemPrompt += `\n\nYou are ${agent.displayName}. ${context || 'Provide your unique perspective.'}
+
+CRITICAL - HOW TO RESPOND:
+- Address the STUDENT directly - they are your audience
+- Use "you" to refer to the student
+- NEVER start with ANY name followed by colon (no "Beatrice:", no "Socratic Guide:", etc.)
+- NEVER repeat or copy previous tutor responses - just give YOUR fresh perspective
+- Do NOT include the previous tutor's text in your response
+- Build on their IDEAS briefly, then add YOUR unique insight
+
+RESPONSE GUIDELINES:
+- Keep response under ${maxChars} characters (about 2-3 sentences)
+- NO markdown: no headers, tables, code blocks, or horizontal rules
+- Plain text only with occasional **bold** for emphasis
+- Be direct and concise`;
+
+      const response = await chatService.chat(
+        {
+          message,
+          module: `tutor-collab-${agent.name}`,
+          systemPrompt,
+          conversationHistory,
+          temperature: agent.temperature ?? 0.7,
+        },
+        userId
+      );
+
+      // Strip any name-like prefix from start of response (UI already shows the name)
+      // This catches: "Name:", "**Name**:", "Name:\n", etc.
+      let cleanedReply = response.reply;
+      // Remove any "Name:" or "**Name**:" pattern at the start (up to 30 chars for the name)
+      cleanedReply = cleanedReply
+        .replace(/^\*\*[^*]{1,30}\*\*[:\s]*/i, '') // **Name**:
+        .replace(/^[A-Z][a-zA-Z\s]{0,25}:\s*/m, '') // Name: (capitalized word followed by colon)
+        .trim();
+
+      return {
+        agentId: agent.id,
+        agentName: agent.name,
+        agentDisplayName: agent.displayName,
+        avatarUrl: agent.avatarUrl,
+        contribution: cleanedReply.trim(),
+        responseTimeMs: Date.now() - startTime,
+      };
+    } catch {
+      return {
+        agentId: agent.id,
+        agentName: agent.name,
+        agentDisplayName: agent.displayName,
+        avatarUrl: agent.avatarUrl,
+        contribution: `[${agent.displayName} was unable to respond]`,
+        responseTimeMs: Date.now() - startTime,
+      };
+    }
+  }
+
+  /**
+   * Handle collaborative mode with multiple styles
+   * Styles: parallel, sequential, debate, random
    */
   private async handleCollaborativeMode(
     session: { id: number; userId: number; mode: string },
     message: string,
-    clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string }
+    clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
+    settings?: CollaborativeSettings
   ): Promise<TutorMessageResponse> {
     const startTime = Date.now();
+    const style: CollaborativeStyle = settings?.style || 'parallel';
+    const maxAgents = settings?.maxAgents || 2; // Default to 2 agents for tighter discussions
+    const maxChars = settings?.maxResponseLength || 500;
+
+    logger.info({ style, maxAgents, maxChars, selectedAgentIds: settings?.selectedAgentIds }, 'Collaborative mode settings');
 
     // Get all available tutor agents
-    const agents = await this.getAvailableAgents();
-
-    if (agents.length === 0) {
+    const allAgents = await this.getAvailableAgents();
+    if (allAgents.length === 0) {
       throw new AppError('No agents available', 500);
     }
 
-    // Use the first agent's conversation to store the collaborative messages
-    const primaryAgent = agents[0];
-    const conversationData = await this.getOrCreateConversation(
-      session.userId,
-      primaryAgent.id
-    );
+    // Determine which agents participate
+    let agents: TutorAgent[];
+    const mentionedAgents = this.parseMentions(message, allAgents);
+    let selectionMethod = 'auto';
 
-    // Build conversation history for context
-    const conversationHistory = conversationData.messages.slice(-10).map((m) => ({
+    if (mentionedAgents.length > 0) {
+      // Use @mentioned agents
+      agents = mentionedAgents;
+      selectionMethod = 'mentioned';
+    } else if (settings?.selectedAgentIds?.length) {
+      // Use picker-selected agents
+      agents = allAgents.filter(a => settings.selectedAgentIds!.includes(a.id));
+      selectionMethod = 'picker';
+    } else {
+      // Select 2 relevant agents by default (not all!)
+      agents = await this.selectRelevantAgents(message, allAgents, maxAgents);
+      selectionMethod = 'auto-relevant';
+    }
+
+    logger.info({
+      selectionMethod,
+      agentCount: agents.length,
+      agentNames: agents.map(a => a.displayName),
+      totalAvailable: allAgents.length,
+    }, 'Collaborative agents selected');
+
+    const cleanMessage = this.stripMentions(message);
+
+    // ALWAYS use the first available agent for team chat storage (unified conversation)
+    // This ensures all collaborative messages go to the same place regardless of which agents respond
+    const teamChatAgent = allAgents[0];
+    const conversationData = await this.getOrCreateConversation(session.userId, teamChatAgent.id);
+    const conversationHistory = conversationData.messages.slice(-10).map(m => ({
       role: m.role as 'user' | 'assistant' | 'system',
       content: m.content,
     }));
@@ -1070,104 +1363,116 @@ Consider:
       },
     });
 
-    // Get responses from all agents in parallel (each agent is aware of conversation history)
-    const agentResponses = await Promise.all(
-      agents.map(async (agent) => {
-        const agentStartTime = Date.now();
-        try {
-          // Build agent-specific system prompt
-          let agentSystemPrompt = agent.systemPrompt;
-          agentSystemPrompt += `\n\nIMPORTANT: You are ${agent.displayName} participating in a collaborative tutoring session. Provide a focused response from your unique perspective. Be aware of what has been discussed previously.`;
+    let agentContributions: AgentContribution[] = [];
+    let synthesis: string | undefined;
+    let totalRounds = 1;
 
-          const response = await chatService.chat(
-            {
-              message: `${message}\n\n[Note: Provide a brief, focused response from your perspective as ${agent.displayName}.]`,
-              module: `tutor-collaborative-${agent.name}`,
-              systemPrompt: agentSystemPrompt,
-              conversationHistory, // Include conversation history for awareness
-              temperature: agent.temperature ?? 0.7,
-            },
-            session.userId
+    // Execute based on style
+    switch (style) {
+      case 'sequential':
+        // Each agent responds in order, building on previous responses
+        let runningContext = '';
+        for (let i = 0; i < agents.length; i++) {
+          const agent = agents[i];
+          const contextMsg = runningContext
+            ? `Student's question: ${cleanMessage}\n\nPrevious tutor responses:\n${runningContext}\n\nBuild on what was said above. Acknowledge the previous points, then add your perspective for the student.`
+            : cleanMessage;
+
+          const contribution = await this.getAgentResponse(
+            agent, contextMsg, conversationHistory, session.userId,
+            i === 0 ? 'Answer the student directly.' : 'Reference what was said before, then add your perspective for the student.', maxChars
           );
-
-          return {
-            agentId: agent.id,
-            agentName: agent.name,
-            agentDisplayName: agent.displayName,
-            contribution: response.reply,
-            responseTimeMs: Date.now() - agentStartTime,
-          };
-        } catch (error) {
-          return {
-            agentId: agent.id,
-            agentName: agent.name,
-            agentDisplayName: agent.displayName,
-            contribution: `[${agent.displayName} was unable to respond]`,
-            responseTimeMs: Date.now() - agentStartTime,
-          };
+          contribution.round = i + 1;
+          agentContributions.push(contribution);
+          runningContext += `\n${agent.displayName}: ${contribution.contribution}\n`;
         }
-      })
-    );
+        break;
 
-    // Synthesize responses
-    const synthesisPrompt = `You are synthesizing responses from multiple tutors about: "${message}"
+      case 'debate':
+        // 2-3 rounds of back-and-forth - building on each other's viewpoints
+        totalRounds = 2;
+        let debateContext = '';
+        for (let round = 1; round <= totalRounds; round++) {
+          for (const agent of agents) {
+            const debatePrompt = round === 1
+              ? `Student's question: ${cleanMessage}\n\nShare your perspective.`
+              : `Student's question: ${cleanMessage}\n\nPrevious viewpoints:\n${debateContext}\n\nBuild on what was said. You may agree, disagree, or add nuance. Address the student while engaging with the previous points.`;
 
-Here are the individual responses:
+            const contribution = await this.getAgentResponse(
+              agent, debatePrompt, conversationHistory, session.userId,
+              round === 1 ? 'Share your view with the student.' : 'Engage with previous points, then share your view with the student.', maxChars
+            );
+            contribution.round = round;
+            agentContributions.push(contribution);
+            debateContext += `\n[Round ${round}] ${agent.displayName}: ${contribution.contribution}\n`;
+          }
+        }
+        break;
 
-${agentResponses.map((r) => `**${r.agentDisplayName}**: ${r.contribution}`).join('\n\n')}
+      case 'random':
+        // Completely random: pick 1-3 from ALL available agents
+        // Each agent builds on previous responses
+        const shuffledAll = [...allAgents].sort(() => Math.random() - 0.5);
+        const randomCount = Math.min(1 + Math.floor(Math.random() * 3), shuffledAll.length); // 1-3
+        const randomSelected = shuffledAll.slice(0, randomCount);
 
-Create a unified, coherent response that:
-1. Combines the best insights from each tutor
-2. Resolves any contradictions thoughtfully
-3. Maintains a helpful, educational tone
-4. Is well-structured and easy to follow
+        // Sequential - each agent sees and builds on what came before
+        let discussionContext = '';
+        for (let i = 0; i < randomSelected.length; i++) {
+          const agent = randomSelected[i];
+          const discussionPrompt = discussionContext
+            ? `Student's question: ${cleanMessage}\n\nPrevious responses:\n${discussionContext}\n\nBuild on what was said above. Acknowledge the previous points, then add your perspective for the student.`
+            : cleanMessage;
 
-Synthesized response:`;
+          const contribution = await this.getAgentResponse(
+            agent, discussionPrompt, conversationHistory, session.userId,
+            i === 0 ? 'Answer the student directly.' : 'Reference what was said before, then add your perspective for the student.', maxChars
+          );
+          contribution.round = i + 1;
+          agentContributions.push(contribution);
+          discussionContext += `\n${agent.displayName}: ${contribution.contribution}\n`;
+        }
+        break;
 
-    let synthesizedResponse: string;
-    try {
-      const response = await chatService.chat(
-        {
-          message: synthesisPrompt,
-          module: 'tutor-collaborative-synthesis',
-          systemPrompt:
-            'You are an expert at synthesizing multiple perspectives into a coherent, helpful response.',
-        },
-        session.userId
-      );
-      synthesizedResponse = response.reply;
-    } catch (error) {
-      // Fallback: just combine responses
-      synthesizedResponse = agentResponses
-        .map((r) => `**${r.agentDisplayName}**:\n${r.contribution}`)
-        .join('\n\n---\n\n');
+      case 'parallel':
+      default:
+        // All selected agents respond simultaneously
+        agentContributions = await Promise.all(
+          agents.map(agent => this.getAgentResponse(
+            agent, cleanMessage, conversationHistory, session.userId, undefined, maxChars
+          ))
+        );
+        break;
     }
+
+    // Build display content (individual responses shown, optional synthesis)
+    const displayParts = agentContributions.map(c =>
+      `**${c.agentDisplayName}**${c.round ? ` (Round ${c.round})` : ''}:\n${c.contribution}`
+    );
+    const displayContent = displayParts.join('\n\n---\n\n');
 
     const responseTimeMs = Date.now() - startTime;
 
-    // Save assistant message with collaborative metadata
+    // Save assistant message
     const assistantMsg = await prisma.tutorMessage.create({
       data: {
         conversationId: conversationData.id,
         role: 'assistant',
-        content: synthesizedResponse,
+        content: displayContent,
         aiModel: 'gpt-4o-mini',
         aiProvider: 'openai',
         responseTimeMs,
-        synthesizedFrom: JSON.stringify(agentResponses),
+        synthesizedFrom: JSON.stringify({ style, agentContributions }),
       },
     });
 
-    // Update conversation metadata
+    // Update conversation
     await prisma.tutorConversation.update({
       where: { id: conversationData.id },
-      data: {
-        lastMessageAt: new Date(),
-        messageCount: { increment: 2 },
-      },
+      data: { lastMessageAt: new Date(), messageCount: { increment: 2 } },
     });
 
-    // Log collaborative interaction
+    // Log interaction
     await this.logInteraction({
       userId: session.userId,
       sessionId: session.id,
@@ -1175,33 +1480,26 @@ Synthesized response:`;
       messageId: assistantMsg.id,
       eventType: 'message_received',
       mode: 'collaborative',
-      assistantMessage: synthesizedResponse,
-      responseCharCount: synthesizedResponse.length,
+      assistantMessage: displayContent,
+      responseCharCount: displayContent.length,
       responseTimeMs,
-      agentContributions: JSON.stringify(agentResponses),
+      agentContributions: JSON.stringify(agentContributions),
       ...clientInfo,
     });
 
-    // Log to unified activity log
     activityLogService.logActivity({
       userId: session.userId,
       verb: 'received',
       objectType: 'tutor_agent',
-      objectId: primaryAgent.id,
-      objectTitle: 'Collaborative Response',
-      objectSubtype: 'collaborative',
+      objectId: teamChatAgent.id,
+      objectTitle: 'Team Chat Response',
+      objectSubtype: style,
       duration: responseTimeMs,
       extensions: {
-        mode: 'collaborative',
-        conversationId: conversationData.id,
-        messageId: assistantMsg.id,
-        responseLength: synthesizedResponse.length,
+        style,
         agentCount: agents.length,
-        agentContributions: agentResponses.map(r => ({
-          agentId: r.agentId,
-          agentName: r.agentName,
-          responseTimeMs: r.responseTimeMs,
-        })),
+        totalRounds,
+        respondingAgents: agents.map(a => a.displayName),
       },
       deviceType: clientInfo?.deviceType,
     }).catch(err => logger.warn({ err }, 'Failed to log collaborative activity'));
@@ -1218,7 +1516,7 @@ Synthesized response:`;
         id: assistantMsg.id,
         conversationId: assistantMsg.conversationId,
         role: 'assistant',
-        content: assistantMsg.content,
+        content: displayContent,
         aiModel: assistantMsg.aiModel,
         aiProvider: assistantMsg.aiProvider,
         responseTimeMs: assistantMsg.responseTimeMs,
@@ -1226,8 +1524,11 @@ Synthesized response:`;
         createdAt: assistantMsg.createdAt,
       },
       collaborativeInfo: {
-        agentContributions: agentResponses,
-        synthesizedBy: 'AI Synthesis Engine',
+        style,
+        agentContributions,
+        synthesis,
+        mentionedAgents: mentionedAgents.length > 0 ? mentionedAgents.map(a => a.displayName) : undefined,
+        totalRounds: style === 'debate' ? totalRounds : undefined,
       },
     };
   }

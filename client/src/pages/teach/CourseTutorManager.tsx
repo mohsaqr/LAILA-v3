@@ -29,6 +29,8 @@ import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { EmptyState } from '../../components/common/EmptyState';
+import { Breadcrumb } from '../../components/common/Breadcrumb';
+import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 
 // Drag and drop helper (simple implementation)
 const useDragAndDrop = (items: CourseTutor[], onReorder: (ids: number[]) => void) => {
@@ -69,7 +71,7 @@ export const CourseTutorManager = () => {
 
   // Module settings state
   const [moduleName, setModuleName] = useState('');
-  const [routingMode, setRoutingMode] = useState<'free' | 'all' | 'single' | 'smart'>('free');
+  const [routingMode, setRoutingMode] = useState<'free' | 'all' | 'single' | 'smart' | 'collaborative' | 'random'>('free');
   const [defaultTutorId, setDefaultTutorId] = useState<number | null>(null);
   const [emotionalPulseEnabled, setEmotionalPulseEnabled] = useState(true);
   const [settingsExpanded, setSettingsExpanded] = useState(true);
@@ -162,7 +164,7 @@ export const CourseTutorManager = () => {
       collaborativeModuleName?: string;
       collaborativeModuleEnabled?: boolean;
       emotionalPulseEnabled?: boolean;
-      tutorRoutingMode?: 'free' | 'all' | 'single' | 'smart';
+      tutorRoutingMode?: 'free' | 'all' | 'single' | 'smart' | 'collaborative' | 'random';
       defaultTutorId?: number | null;
     }) => coursesApi.updateCourseAISettings(parseInt(courseId!), settings),
     onSuccess: () => {
@@ -228,19 +230,17 @@ export const CourseTutorManager = () => {
     }
   };
 
+  const breadcrumbItems = buildTeachingBreadcrumb(courseId, course?.title || 'Course', 'AI Tutors');
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ minHeight: '100vh' }}>
+      {/* Breadcrumb navigation */}
+      <div className="mb-6">
+        <Breadcrumb items={breadcrumbItems} />
+      </div>
+
       {/* Header */}
       <div className="mb-8">
-        <Link
-          to={`/courses/${courseId}`}
-          className="inline-flex items-center gap-1 text-sm mb-4 hover:underline"
-          style={{ color: colors.textSecondary }}
-        >
-          <ChevronLeft className="w-4 h-4" />
-          Back to Course
-        </Link>
-
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
@@ -412,7 +412,7 @@ export const CourseTutorManager = () => {
                     name="routingMode"
                     value="free"
                     checked={routingMode === 'free'}
-                    onChange={(e) => setRoutingMode(e.target.value as 'free' | 'all' | 'single' | 'smart')}
+                    onChange={(e) => setRoutingMode(e.target.value as 'free' | 'all' | 'single' | 'smart' | 'collaborative' | 'random')}
                     className="mt-1"
                   />
                   <div>
@@ -440,7 +440,7 @@ export const CourseTutorManager = () => {
                     name="routingMode"
                     value="all"
                     checked={routingMode === 'all'}
-                    onChange={(e) => setRoutingMode(e.target.value as 'free' | 'all' | 'single' | 'smart')}
+                    onChange={(e) => setRoutingMode(e.target.value as 'free' | 'all' | 'single' | 'smart' | 'collaborative' | 'random')}
                     className="mt-1"
                   />
                   <div>
@@ -463,7 +463,7 @@ export const CourseTutorManager = () => {
                     name="routingMode"
                     value="single"
                     checked={routingMode === 'single'}
-                    onChange={(e) => setRoutingMode(e.target.value as 'free' | 'all' | 'single' | 'smart')}
+                    onChange={(e) => setRoutingMode(e.target.value as 'free' | 'all' | 'single' | 'smart' | 'collaborative' | 'random')}
                     className="mt-1"
                   />
                   <div className="flex-1">
@@ -509,7 +509,7 @@ export const CourseTutorManager = () => {
                     name="routingMode"
                     value="smart"
                     checked={routingMode === 'smart'}
-                    onChange={(e) => setRoutingMode(e.target.value as 'free' | 'all' | 'single' | 'smart')}
+                    onChange={(e) => setRoutingMode(e.target.value as 'free' | 'all' | 'single' | 'smart' | 'collaborative' | 'random')}
                     className="mt-1"
                   />
                   <div>
@@ -521,6 +521,59 @@ export const CourseTutorManager = () => {
                     </p>
                     <p className="text-sm" style={{ color: colors.textSecondary }}>
                       Auto-route questions to the best tutor based on topic
+                    </p>
+                  </div>
+                </label>
+
+                {/* Team Mode / Collaborative Option */}
+                <label
+                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                    routingMode === 'collaborative' ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : ''
+                  }`}
+                  style={{ borderColor: routingMode === 'collaborative' ? undefined : colors.border }}
+                >
+                  <input
+                    type="radio"
+                    name="routingMode"
+                    value="collaborative"
+                    checked={routingMode === 'collaborative'}
+                    onChange={(e) => setRoutingMode(e.target.value as 'free' | 'all' | 'single' | 'smart' | 'collaborative' | 'random')}
+                    className="mt-1"
+                  />
+                  <div>
+                    <p className="font-medium" style={{ color: colors.textPrimary }}>
+                      Team Mode
+                      <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">
+                        New
+                      </span>
+                    </p>
+                    <p className="text-sm" style={{ color: colors.textSecondary }}>
+                      Multiple tutors collaborate to answer each question together
+                    </p>
+                  </div>
+                </label>
+
+                {/* Random Mode Option */}
+                <label
+                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                    routingMode === 'random' ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : ''
+                  }`}
+                  style={{ borderColor: routingMode === 'random' ? undefined : colors.border }}
+                >
+                  <input
+                    type="radio"
+                    name="routingMode"
+                    value="random"
+                    checked={routingMode === 'random'}
+                    onChange={(e) => setRoutingMode(e.target.value as 'free' | 'all' | 'single' | 'smart' | 'collaborative' | 'random')}
+                    className="mt-1"
+                  />
+                  <div>
+                    <p className="font-medium" style={{ color: colors.textPrimary }}>
+                      Random
+                    </p>
+                    <p className="text-sm" style={{ color: colors.textSecondary }}>
+                      A random tutor responds to each question
                     </p>
                   </div>
                 </label>

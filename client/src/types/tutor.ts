@@ -3,7 +3,7 @@
 // =============================================================================
 
 // Mode types
-export type TutorMode = 'manual' | 'router' | 'collaborative';
+export type TutorMode = 'manual' | 'router' | 'collaborative' | 'random';
 
 // Session types
 export interface TutorSession {
@@ -104,15 +104,33 @@ export interface RoutingInfo {
   }>;
 }
 
+// Collaborative mode styles
+export type CollaborativeStyle = 'parallel' | 'sequential' | 'debate' | 'random';
+
+export interface CollaborativeSettings {
+  style: CollaborativeStyle;
+  selectedAgentIds?: number[];
+  maxAgents?: number;
+  maxResponseLength?: number; // Max chars per response (default 500)
+  showIndividualResponses?: boolean;
+}
+
+export interface AgentContribution {
+  agentId: number;
+  agentName: string;
+  agentDisplayName: string;
+  avatarUrl?: string | null;
+  contribution: string;
+  responseTimeMs: number;
+  round?: number; // For debate/sequential modes
+}
+
 export interface CollaborativeInfo {
-  agentContributions: Array<{
-    agentId: number;
-    agentName: string;
-    agentDisplayName: string;
-    contribution: string;
-    responseTimeMs: number;
-  }>;
-  synthesizedBy: string;
+  style: CollaborativeStyle;
+  agentContributions: AgentContribution[];
+  synthesis?: string;
+  mentionedAgents?: string[];
+  totalRounds?: number;
 }
 
 export interface TutorMessageResponse {

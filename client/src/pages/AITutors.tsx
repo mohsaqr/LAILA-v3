@@ -3,6 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Menu, Heart, ArrowLeft } from 'lucide-react';
 import { tutorsApi } from '../api/tutors';
+import { coursesApi } from '../api/courses';
 import { TutorSidebar, TutorChat, EmotionalPulseHistory } from '../components/tutors';
 import { Loading } from '../components/common/Loading';
 import { useTheme } from '../hooks/useTheme';
@@ -12,8 +13,25 @@ import type {
   TutorMode,
   RoutingInfo,
   CollaborativeInfo,
+  CollaborativeSettings,
 } from '../types/tutor';
 import type { EmotionType } from '../types';
+
+// Mapping of course routing modes to session modes
+type CourseRoutingMode = 'free' | 'all' | 'single' | 'smart' | 'collaborative' | 'random';
+
+const mapCourseRoutingToSessionMode = (routingMode: CourseRoutingMode | undefined): TutorMode | null => {
+  switch (routingMode) {
+    case 'collaborative':
+      return 'collaborative';
+    case 'smart':
+      return 'router';
+    case 'random':
+      return 'random';
+    default:
+      return null; // Use existing session mode
+  }
+};
 
 interface MessageWithMeta extends TutorMessage {
   routingInfo?: RoutingInfo;
@@ -48,12 +66,54 @@ export const AITutors = () => {
     staleTime: 30000, // 30 seconds
   });
 
+  // Fetch course data if we're in a course context (to get routing mode)
+  const { data: courseData } = useQuery({
+    queryKey: ['course', courseIdFromUrl],
+    queryFn: () => coursesApi.getCourseById(parseInt(courseIdFromUrl!)),
+    enabled: !!courseIdFromUrl,
+    staleTime: 60000, // 1 minute
+  });
+
+  // Track if we've applied course settings (to avoid re-applying on every session change)
+  const [courseSettingsApplied, setCourseSettingsApplied] = useState(false);
+
+  // Mode change mutation - defined early so it can be used in initialization effect
+  const modeMutation = useMutation({
+    mutationFn: tutorsApi.setMode,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tutorSession'] });
+    },
+  });
+
   // Initialize state from session data
   useEffect(() => {
     if (sessionData) {
-      setMode(sessionData.session.mode);
+      let effectiveMode = sessionData.session.mode;
 
-      // Priority: URL agent param > active session agent
+      // If we have course settings and haven't applied them yet, check if we need to override mode
+      if (courseData && !courseSettingsApplied) {
+        const courseRoutingMode = (courseData as any).tutorRoutingMode as CourseRoutingMode | undefined;
+        const mappedMode = mapCourseRoutingToSessionMode(courseRoutingMode);
+
+        if (mappedMode && mappedMode !== effectiveMode) {
+          effectiveMode = mappedMode;
+          // Update the session mode on the server to match course setting
+          modeMutation.mutate(mappedMode);
+        }
+        setCourseSettingsApplied(true);
+      }
+
+      setMode(effectiveMode);
+
+      // In collaborative/router/random mode, always use first agent for unified team chat
+      if (effectiveMode === 'collaborative' || effectiveMode === 'router' || effectiveMode === 'random') {
+        if (sessionData.agents.length > 0) {
+          setSelectedAgent(sessionData.agents[0]);
+        }
+        return;
+      }
+
+      // Manual mode: Priority: URL agent param > active session agent
       if (agentIdFromUrl) {
         const agentFromUrl = sessionData.agents.find(
           (a) => a.id === parseInt(agentIdFromUrl)
@@ -74,7 +134,7 @@ export const AITutors = () => {
         }
       }
     }
-  }, [sessionData, agentIdFromUrl]);
+  }, [sessionData, agentIdFromUrl, courseData, courseSettingsApplied]);
 
   // Fetch conversation when agent is selected
   const { data: conversationData, isLoading: conversationLoading } = useQuery({
@@ -85,21 +145,37 @@ export const AITutors = () => {
   });
 
   // Update messages when conversation data changes
+  // Parse synthesizedFrom back into collaborativeInfo for saved messages
   useEffect(() => {
     if (conversationData) {
-      setMessages(conversationData.messages);
+      const messagesWithMeta: MessageWithMeta[] = conversationData.messages.map((msg) => {
+        // If this message has synthesizedFrom, parse it back to collaborativeInfo
+        if (msg.synthesizedFrom && msg.role === 'assistant') {
+          try {
+            const parsed = JSON.parse(msg.synthesizedFrom);
+            // Handle both old format (array) and new format ({ style, agentContributions })
+            const agentContributions = Array.isArray(parsed) ? parsed : parsed.agentContributions;
+            const style = Array.isArray(parsed) ? 'parallel' : (parsed.style || 'parallel');
+            if (Array.isArray(agentContributions) && agentContributions.length > 0) {
+              return {
+                ...msg,
+                collaborativeInfo: {
+                  style: style as 'parallel' | 'sequential' | 'debate' | 'random',
+                  agentContributions,
+                },
+              };
+            }
+          } catch {
+            // Invalid JSON, skip
+          }
+        }
+        return msg;
+      });
+      setMessages(messagesWithMeta);
     } else {
       setMessages([]);
     }
   }, [conversationData]);
-
-  // Mode change mutation
-  const modeMutation = useMutation({
-    mutationFn: tutorsApi.setMode,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tutorSession'] });
-    },
-  });
 
   // Active agent mutation
   const activeAgentMutation = useMutation({
@@ -111,8 +187,11 @@ export const AITutors = () => {
 
   // Send message mutation
   const sendMessageMutation = useMutation({
-    mutationFn: ({ chatbotId, message }: { chatbotId: number; message: string }) =>
-      tutorsApi.sendMessage(chatbotId, message),
+    mutationFn: ({ chatbotId, message, collaborativeSettings }: {
+      chatbotId: number;
+      message: string;
+      collaborativeSettings?: CollaborativeSettings;
+    }) => tutorsApi.sendMessage(chatbotId, message, collaborativeSettings),
     onSuccess: (response) => {
       // Add the new messages to the list
       const newMessages: MessageWithMeta[] = [
@@ -158,13 +237,19 @@ export const AITutors = () => {
     async (newMode: TutorMode) => {
       setMode(newMode);
       modeMutation.mutate(newMode);
+
+      // In collaborative/router/random mode, switch to team chat (first agent)
+      const availableAgents = sessionData?.agents || [];
+      if ((newMode === 'collaborative' || newMode === 'router' || newMode === 'random') && availableAgents.length > 0) {
+        setSelectedAgent(availableAgents[0]);
+      }
     },
-    [modeMutation]
+    [modeMutation, sessionData?.agents]
   );
 
   // Handle send message
   const handleSendMessage = useCallback(
-    async (message: string) => {
+    async (message: string, collaborativeSettings?: CollaborativeSettings) => {
       if (!selectedAgent) return;
 
       // Optimistic update - add user message immediately
@@ -181,6 +266,7 @@ export const AITutors = () => {
         await sendMessageMutation.mutateAsync({
           chatbotId: selectedAgent.id,
           message,
+          collaborativeSettings,
         });
         // Remove optimistic message as real messages were added in onSuccess
         setMessages((prev) => prev.filter((m) => m.id !== optimisticUserMessage.id));
@@ -266,9 +352,11 @@ export const AITutors = () => {
       {/* Chat Area (center) */}
       <TutorChat
         agent={selectedAgent}
+        agents={agents}
         messages={messages}
         onSendMessage={handleSendMessage}
         onClearConversation={handleClearConversation}
+        onModeChange={handleModeChange}
         isLoading={sendMessageMutation.isPending || conversationLoading}
         mode={mode}
         conversationId={conversationData?.id}
