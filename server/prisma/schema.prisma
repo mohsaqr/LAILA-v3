@@ -20,8 +20,11 @@ model User {
   isConfirmed  Boolean   @default(false) @map("is_confirmed")
   isInstructor Boolean   @default(false) @map("is_instructor")
   isActive     Boolean   @default(true) @map("is_active")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  lastLogin    DateTime? @map("last_login")
+  tokenVersion      Int       @default(0) @map("token_version") // Increment to invalidate all tokens
+  failedLoginAttempts Int     @default(0) @map("failed_login_attempts")
+  lockedUntil       DateTime? @map("locked_until") // Account lockout timestamp
+  createdAt         DateTime  @default(now()) @map("created_at")
+  lastLogin         DateTime? @map("last_login")
 
   // Relations
   settings         UserSetting[]
@@ -63,6 +66,12 @@ model User {
 
   // Custom Labs
   customLabs CustomLab[]
+
+  // Forum AI Posts (requested by this user)
+  aiRequestedPosts ForumPost[] @relation("AiRequestedPosts")
+
+  // Lecture AI Helper Explain Threads
+  explainThreads LectureExplainThread[] @relation("UserExplainThreads")
 
   @@map("users")
 }
@@ -392,6 +401,9 @@ model Chatbot {
   // Course Tutors (Collaborative Module)
   courseTutors CourseTutor[]
 
+  // Forum AI Posts
+  forumAiPosts ForumPost[] @relation("ForumAiPosts")
+
   @@map("chatbots")
 }
 
@@ -421,6 +433,9 @@ model Course {
   tutorRoutingMode           String   @default("all") @map("tutor_routing_mode") // "all" | "single" | "smart"
   defaultTutorId             Int?     @map("default_tutor_id")
 
+  // Curriculum Display Settings
+  curriculumViewMode         String   @default("mini-cards") @map("curriculum_view_mode") // "mini-cards" | "icons" | "list" | "accordion"
+
   // Relations
   instructor    User                 @relation("InstructorCourses", fields: [instructorId], references: [id])
   modules       CourseModule[]
@@ -441,6 +456,12 @@ model Course {
 
   // Custom Labs
   labAssignments LabAssignment[]
+
+  // Quiz System
+  quizzes Quiz[]
+
+  // Discussion Forums
+  forums Forum[]
 
   @@index([instructorId])
   @@index([status])
@@ -464,6 +485,8 @@ model CourseModule {
   assignments Assignment[]
   codeLabs    CodeLab[]
   labAssignments LabAssignment[]
+  quizzes     Quiz[]
+  forums      Forum[]
 
   @@index([courseId])
   @@map("course_modules")
@@ -484,10 +507,11 @@ model Lecture {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  module      CourseModule        @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  attachments LectureAttachment[]
-  progress    LectureProgress[]
-  sections    LectureSection[]
+  module         CourseModule           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  attachments    LectureAttachment[]
+  progress       LectureProgress[]
+  sections       LectureSection[]
+  explainThreads LectureExplainThread[]
 
   @@index([moduleId])
   @@map("lectures")
@@ -541,6 +565,46 @@ model LectureAttachment {
   lecture Lecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
 
   @@map("lecture_attachments")
+}
+
+// =============================================================================
+// LMS - LECTURE AI HELPER (Explain Mode Threads)
+// =============================================================================
+
+model LectureExplainThread {
+  id        Int      @id @default(autoincrement())
+  lectureId Int      @map("lecture_id")
+  userId    Int      @map("user_id")
+  question  String   // The initial question
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  lecture Lecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+  user    User    @relation("UserExplainThreads", fields: [userId], references: [id], onDelete: Cascade)
+  posts   LectureExplainPost[]
+
+  @@index([lectureId])
+  @@index([userId])
+  @@map("lecture_explain_threads")
+}
+
+model LectureExplainPost {
+  id         Int      @id @default(autoincrement())
+  threadId   Int      @map("thread_id")
+  parentId   Int?     @map("parent_id") // For nested follow-ups
+  authorType String   @map("author_type") // 'user' or 'ai'
+  content    String
+  aiModel    String?  @map("ai_model")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  thread  LectureExplainThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  parent  LectureExplainPost?  @relation("PostReplies", fields: [parentId], references: [id], onDelete: SetNull)
+  replies LectureExplainPost[] @relation("PostReplies")
+
+  @@index([threadId])
+  @@index([parentId])
+  @@map("lecture_explain_posts")
 }
 
 // =============================================================================
@@ -2007,4 +2071,300 @@ model LabAssignment {
   @@index([courseId])
   @@index([moduleId])
   @@map("lab_assignments")
+}
+
+// =============================================================================
+// QUIZ SYSTEM
+// =============================================================================
+
+model Quiz {
+  id            Int       @id @default(autoincrement())
+  courseId      Int       @map("course_id")
+  moduleId      Int?      @map("module_id")
+  title         String
+  description   String?
+  instructions  String?
+  timeLimit     Int?      @map("time_limit") // minutes, null = unlimited
+  maxAttempts   Int       @default(1) @map("max_attempts") // 0 = unlimited
+  passingScore  Float     @default(70) @map("passing_score") // percentage
+  shuffleQuestions Boolean @default(false) @map("shuffle_questions")
+  shuffleOptions Boolean  @default(false) @map("shuffle_options")
+  showResults   String    @default("after_submit") @map("show_results") // after_submit, after_due_date, never
+  isPublished   Boolean   @default(false) @map("is_published")
+  dueDate       DateTime? @map("due_date")
+  availableFrom DateTime? @map("available_from")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  course    Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  module    CourseModule?  @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  questions QuizQuestion[]
+  attempts  QuizAttempt[]
+
+  @@index([courseId])
+  @@index([moduleId])
+  @@index([isPublished])
+  @@map("quizzes")
+}
+
+model QuizQuestion {
+  id            Int      @id @default(autoincrement())
+  quizId        Int      @map("quiz_id")
+  questionType  String   @map("question_type") // multiple_choice, true_false, short_answer, fill_in_blank
+  questionText  String   @map("question_text")
+  options       String?  // JSON array for multiple choice options
+  correctAnswer String   @map("correct_answer") // For objective questions
+  explanation   String?  // Shown after answering
+  points        Float    @default(1)
+  orderIndex    Int      @default(0) @map("order_index")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  quiz    Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers QuizAnswer[]
+
+  @@index([quizId])
+  @@map("quiz_questions")
+}
+
+model QuizAttempt {
+  id          Int       @id @default(autoincrement())
+  quizId      Int       @map("quiz_id")
+  userId      Int       @map("user_id")
+  attemptNumber Int     @default(1) @map("attempt_number")
+  startedAt   DateTime  @default(now()) @map("started_at")
+  submittedAt DateTime? @map("submitted_at")
+  score       Float?    // Percentage score
+  pointsEarned Float?   @map("points_earned")
+  pointsTotal  Float?   @map("points_total")
+  timeTaken   Int?      @map("time_taken") // seconds
+  status      String    @default("in_progress") // in_progress, submitted, graded
+  ipAddress   String?   @map("ip_address")
+
+  // Relations
+  quiz    Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers QuizAnswer[]
+
+  @@unique([quizId, userId, attemptNumber])
+  @@index([quizId])
+  @@index([userId])
+  @@index([status])
+  @@map("quiz_attempts")
+}
+
+model QuizAnswer {
+  id          Int      @id @default(autoincrement())
+  attemptId   Int      @map("attempt_id")
+  questionId  Int      @map("question_id")
+  answer      String?  // User's answer
+  isCorrect   Boolean? @map("is_correct")
+  pointsAwarded Float? @map("points_awarded")
+  answeredAt  DateTime @default(now()) @map("answered_at")
+
+  // Relations
+  attempt  QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+  @@index([attemptId])
+  @@index([questionId])
+  @@map("quiz_answers")
+}
+
+// =============================================================================
+// DISCUSSION FORUMS
+// =============================================================================
+
+model Forum {
+  id          Int       @id @default(autoincrement())
+  courseId    Int       @map("course_id")
+  moduleId    Int?      @map("module_id")  // null = course-level forum
+  title       String
+  description String?
+  isPublished Boolean   @default(true) @map("is_published")
+  allowAnonymous Boolean @default(false) @map("allow_anonymous")
+  orderIndex  Int       @default(0) @map("order_index")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  course  Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  module  CourseModule? @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  threads ForumThread[]
+
+  @@index([courseId])
+  @@index([moduleId])
+  @@map("forums")
+}
+
+model ForumThread {
+  id          Int       @id @default(autoincrement())
+  forumId     Int       @map("forum_id")
+  authorId    Int       @map("author_id")
+  title       String
+  content     String
+  isPinned    Boolean   @default(false) @map("is_pinned")
+  isLocked    Boolean   @default(false) @map("is_locked")
+  isAnonymous Boolean   @default(false) @map("is_anonymous")
+  viewCount   Int       @default(0) @map("view_count")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  forum Forum       @relation(fields: [forumId], references: [id], onDelete: Cascade)
+  posts ForumPost[]
+
+  @@index([forumId])
+  @@index([authorId])
+  @@index([isPinned])
+  @@map("forum_threads")
+}
+
+model ForumPost {
+  id          Int       @id @default(autoincrement())
+  threadId    Int       @map("thread_id")
+  authorId    Int       @map("author_id")
+  parentId    Int?      @map("parent_id") // For nested replies
+  content     String
+  isAnonymous Boolean   @default(false) @map("is_anonymous")
+  isEdited    Boolean   @default(false) @map("is_edited")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // AI Integration
+  isAiGenerated Boolean  @default(false) @map("is_ai_generated")
+  aiAgentId     Int?     @map("ai_agent_id")     // Chatbot ID that generated this
+  aiAgentName   String?  @map("ai_agent_name")   // "carmen-peer", "layla-peer"
+  aiRequestedBy Int?     @map("ai_requested_by") // User who invoked the AI
+
+  // Relations
+  thread    ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  parent    ForumPost?  @relation("PostReplies", fields: [parentId], references: [id], onDelete: SetNull)
+  replies   ForumPost[] @relation("PostReplies")
+  aiAgent   Chatbot?    @relation("ForumAiPosts", fields: [aiAgentId], references: [id], onDelete: SetNull)
+  requester User?       @relation("AiRequestedPosts", fields: [aiRequestedBy], references: [id], onDelete: SetNull)
+
+  @@index([threadId])
+  @@index([authorId])
+  @@index([parentId])
+  @@index([aiAgentId])
+  @@map("forum_posts")
+}
+
+// =============================================================================
+// CERTIFICATES
+// =============================================================================
+
+model CertificateTemplate {
+  id           Int      @id @default(autoincrement())
+  name         String
+  description  String?
+  templateHtml String   @map("template_html") // HTML template with placeholders
+  isDefault    Boolean  @default(false) @map("is_default")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  certificates Certificate[]
+
+  @@map("certificate_templates")
+}
+
+model Certificate {
+  id               Int       @id @default(autoincrement())
+  userId           Int       @map("user_id")
+  courseId         Int       @map("course_id")
+  templateId       Int       @map("template_id")
+  verificationCode String    @unique @map("verification_code")
+  issueDate        DateTime  @default(now()) @map("issue_date")
+  expiryDate       DateTime? @map("expiry_date")
+  metadata         String?   // JSON: additional data like grade, instructor name
+
+  // Relations
+  template CertificateTemplate @relation(fields: [templateId], references: [id])
+
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([courseId])
+  @@index([verificationCode])
+  @@map("certificates")
+}
+
+// =============================================================================
+// EMAIL NOTIFICATION PREFERENCES
+// =============================================================================
+
+model NotificationPreference {
+  id                    Int      @id @default(autoincrement())
+  userId                Int      @unique @map("user_id")
+  emailEnrollment       Boolean  @default(true) @map("email_enrollment")
+  emailAssignmentDue    Boolean  @default(true) @map("email_assignment_due")
+  emailGradePosted      Boolean  @default(true) @map("email_grade_posted")
+  emailAnnouncement     Boolean  @default(true) @map("email_announcement")
+  emailForumReply       Boolean  @default(true) @map("email_forum_reply")
+  emailCertificate      Boolean  @default(true) @map("email_certificate")
+  emailDigestFrequency  String   @default("daily") @map("email_digest_frequency") // none, daily, weekly
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("notification_preferences")
+}
+
+// =============================================================================
+// COURSE PREREQUISITES
+// =============================================================================
+
+model CoursePrerequisite {
+  id                Int      @id @default(autoincrement())
+  courseId          Int      @map("course_id")
+  prerequisiteCourseId Int   @map("prerequisite_course_id")
+  isRequired        Boolean  @default(true) @map("is_required") // true = must complete, false = recommended
+  minProgress       Float    @default(100) @map("min_progress") // minimum progress % required
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@unique([courseId, prerequisiteCourseId])
+  @@index([courseId])
+  @@index([prerequisiteCourseId])
+  @@map("course_prerequisites")
+}
+
+// =============================================================================
+// GRADING RUBRICS
+// =============================================================================
+
+model Rubric {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  courseId    Int?     @map("course_id") // null = template rubric
+  createdById Int      @map("created_by_id")
+  isTemplate  Boolean  @default(false) @map("is_template")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  criteria RubricCriterion[]
+
+  @@index([courseId])
+  @@index([createdById])
+  @@map("rubrics")
+}
+
+model RubricCriterion {
+  id          Int      @id @default(autoincrement())
+  rubricId    Int      @map("rubric_id")
+  name        String
+  description String?
+  maxPoints   Float    @map("max_points")
+  orderIndex  Int      @default(0) @map("order_index")
+  levels      String   // JSON array of {score, description} levels
+
+  // Relations
+  rubric Rubric @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+
+  @@index([rubricId])
+  @@map("rubric_criteria")
 }

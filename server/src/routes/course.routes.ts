@@ -4,6 +4,7 @@ import { moduleService } from '../services/module.service.js';
 import { lectureService } from '../services/lecture.service.js';
 import { sectionService } from '../services/section.service.js';
 import { chatbotConversationService } from '../services/chatbotConversation.service.js';
+import { lectureAIHelperService } from '../services/lectureAIHelper.service.js';
 import { authenticateToken, requireInstructor, optionalAuth } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import {
@@ -19,6 +20,9 @@ import {
   reorderSectionsSchema,
   generateAIContentSchema,
   chatbotMessageSchema,
+  lectureAIHelperChatSchema,
+  createExplainThreadSchema,
+  addExplainFollowUpSchema,
   parsePaginationLimit,
 } from '../utils/validation.js';
 import { AuthRequest } from '../types/index.js';
@@ -333,6 +337,65 @@ router.get('/chatbot-conversations/:conversationId', authenticateToken, requireI
   const conversationId = parseInt(req.params.conversationId);
   const result = await chatbotConversationService.getConversationMessagesForInstructor(conversationId, req.user!.id, req.user!.isAdmin);
   res.json({ success: true, data: result });
+}));
+
+// ============= LECTURE AI HELPER =============
+
+// Chat with AI helper for lecture (Discuss mode - chat-based)
+router.post('/lectures/:lectureId/ai-helper/chat', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const lectureId = parseInt(req.params.lectureId);
+  const { mode, message, sessionId } = lectureAIHelperChatSchema.parse(req.body);
+  const result = await lectureAIHelperService.chat(lectureId, mode, message, req.user!.id, sessionId, req.user!.isAdmin);
+  res.json({ success: true, data: result });
+}));
+
+// Get all AI helper sessions for lecture (Discuss mode)
+router.get('/lectures/:lectureId/ai-helper/sessions', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const lectureId = parseInt(req.params.lectureId);
+  const sessions = await lectureAIHelperService.getSessions(lectureId, req.user!.id, req.user!.isAdmin);
+  res.json({ success: true, data: sessions });
+}));
+
+// Get AI helper chat history for session (Discuss mode)
+router.get('/lectures/:lectureId/ai-helper/history/:sessionId', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const lectureId = parseInt(req.params.lectureId);
+  const { sessionId } = req.params;
+  const history = await lectureAIHelperService.getChatHistory(lectureId, sessionId, req.user!.id, req.user!.isAdmin);
+  res.json({ success: true, data: history });
+}));
+
+// ============= LECTURE AI HELPER - EXPLAIN MODE (Thread-based) =============
+
+// Create new explain thread
+router.post('/lectures/:lectureId/ai-helper/explain/threads', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const lectureId = parseInt(req.params.lectureId);
+  const { question } = createExplainThreadSchema.parse(req.body);
+  const thread = await lectureAIHelperService.createExplainThread(lectureId, req.user!.id, question, req.user!.isAdmin);
+  res.status(201).json({ success: true, data: thread });
+}));
+
+// Get all explain threads for lecture
+router.get('/lectures/:lectureId/ai-helper/explain/threads', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const lectureId = parseInt(req.params.lectureId);
+  const threads = await lectureAIHelperService.getExplainThreads(lectureId, req.user!.id, req.user!.isAdmin);
+  res.json({ success: true, data: threads });
+}));
+
+// Get specific explain thread
+router.get('/lectures/:lectureId/ai-helper/explain/threads/:threadId', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const lectureId = parseInt(req.params.lectureId);
+  const threadId = parseInt(req.params.threadId);
+  const thread = await lectureAIHelperService.getExplainThread(lectureId, threadId, req.user!.id, req.user!.isAdmin);
+  res.json({ success: true, data: thread });
+}));
+
+// Add follow-up to explain thread
+router.post('/lectures/:lectureId/ai-helper/explain/threads/:threadId/follow-up', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const lectureId = parseInt(req.params.lectureId);
+  const threadId = parseInt(req.params.threadId);
+  const { question, parentPostId } = addExplainFollowUpSchema.parse(req.body);
+  const thread = await lectureAIHelperService.addFollowUp(lectureId, threadId, req.user!.id, question, parentPostId, req.user!.isAdmin);
+  res.json({ success: true, data: thread });
 }));
 
 export default router;

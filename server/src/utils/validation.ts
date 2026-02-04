@@ -104,7 +104,7 @@ export const createSectionSchema = z.object({
   title: z.string().optional(), // Section title (e.g., "Introduction", "Key Concepts")
   content: z.string().optional(),
   fileName: z.string().optional(),
-  fileUrl: z.string().url().optional(),
+  fileUrl: z.string().optional(), // Can be URL or data URL (base64)
   fileType: z.string().optional(),
   fileSize: z.number().int().min(0).optional(),
   order: z.number().int().min(0).optional(),
@@ -124,10 +124,11 @@ export const updateSectionSchema = z.object({
   title: z.string().optional(), // Section title
   content: z.string().optional(),
   fileName: z.string().optional(),
-  fileUrl: z.string().url().optional(),
+  fileUrl: z.string().optional(), // Can be URL or data URL (base64)
   fileType: z.string().optional(),
   fileSize: z.number().int().min(0).optional(),
   order: z.number().int().min(0).optional(),
+  orderIndex: z.number().int().min(0).optional(), // Alias for order
   // Chatbot fields
   chatbotTitle: z.string().optional(),
   chatbotIntro: z.string().optional(),
@@ -417,3 +418,28 @@ export type UpdateSurveyInput = z.infer<typeof updateSurveySchema>;
 export type CreateSurveyQuestionInput = z.infer<typeof createSurveyQuestionSchema>;
 export type UpdateSurveyQuestionInput = z.infer<typeof updateSurveyQuestionSchema>;
 export type SubmitSurveyResponseInput = z.infer<typeof submitSurveyResponseSchema>;
+
+// =============================================================================
+// LECTURE AI HELPER VALIDATION SCHEMAS
+// =============================================================================
+
+export const lectureAIHelperChatSchema = z.object({
+  mode: z.enum(['explain', 'discuss']),
+  message: z.string().min(1, 'Message is required'),
+  sessionId: z.string().optional(),
+});
+
+export type LectureAIHelperChatInput = z.infer<typeof lectureAIHelperChatSchema>;
+
+// Explain mode thread schemas
+export const createExplainThreadSchema = z.object({
+  question: z.string().min(1, 'Question is required').max(2000, 'Question too long'),
+});
+
+export const addExplainFollowUpSchema = z.object({
+  question: z.string().min(1, 'Question is required').max(2000, 'Question too long'),
+  parentPostId: z.number().optional(),
+});
+
+export type CreateExplainThreadInput = z.infer<typeof createExplainThreadSchema>;
+export type AddExplainFollowUpInput = z.infer<typeof addExplainFollowUpSchema>;
