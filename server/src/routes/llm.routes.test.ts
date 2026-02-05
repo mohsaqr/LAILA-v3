@@ -410,6 +410,26 @@ describe('LLM Routes', () => {
       expect(response.body.success).toBe(false);
       expect(response.body.data).toEqual([]);
     });
+
+    it('should sanitize error message in production', async () => {
+      const originalEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production';
+
+      try {
+        vi.mocked(llmService.getOllamaModels).mockRejectedValue(new Error('Internal database error - sensitive info'));
+
+        const response = await request(app)
+          .get('/api/llm/ollama/models')
+          .expect(200);
+
+        expect(response.body.success).toBe(false);
+        // In production, the default message should be returned, not the actual error
+        expect(response.body.error).toBe('Failed to connect to Ollama. Please check if the service is running.');
+        expect(response.body.error).not.toContain('sensitive');
+      } finally {
+        process.env.NODE_ENV = originalEnv;
+      }
+    });
   });
 
   describe('POST /api/llm/ollama/pull', () => {
@@ -433,6 +453,18 @@ describe('LLM Routes', () => {
 
       expect(response.body.error).toContain('Model name required');
     });
+
+    it('should return 500 when pull fails', async () => {
+      vi.mocked(llmService.pullOllamaModel).mockRejectedValue(new Error('Pull failed'));
+
+      const response = await request(app)
+        .post('/api/llm/ollama/pull')
+        .send({ modelName: 'llama2' })
+        .expect(500);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain('Pull failed');
+    });
   });
 
   describe('GET /api/llm/lmstudio/models', () => {
@@ -446,6 +478,17 @@ describe('LLM Routes', () => {
 
       expect(response.body.success).toBe(true);
       expect(response.body.data).toHaveLength(1);
+    });
+
+    it('should handle connection error', async () => {
+      vi.mocked(llmService.getLMStudioModels).mockRejectedValue(new Error('Connection refused'));
+
+      const response = await request(app)
+        .get('/api/llm/lmstudio/models')
+        .expect(200);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.data).toEqual([]);
     });
   });
 
