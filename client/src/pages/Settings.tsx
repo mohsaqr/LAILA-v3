@@ -1,12 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bell, Moon, Globe, Shield, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Moon, Globe, Shield, Trash2, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import { usersApi } from '../api/users';
+import { notificationsApi, NotificationPreferences } from '../api/notifications';
 import { Card, CardBody, CardHeader } from '../components/common/Card';
 import { Button } from '../components/common/Button';
+import { useLanguageStore } from '../store/languageStore';
+import { supportedLanguages, SupportedLanguage } from '../i18n/config';
 
 interface SettingToggleProps {
   label: string;
@@ -41,9 +45,11 @@ const SettingToggle = ({ label, description, enabled, onChange, colors }: Settin
 );
 
 export const Settings = () => {
+  const { t } = useTranslation(['settings', 'common']);
   const { user, logout } = useAuth();
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
+  const { language: currentLanguage, setLanguage } = useLanguageStore();
 
   const colors = {
     bg: isDark ? '#111827' : '#f9fafb',
@@ -62,6 +68,22 @@ export const Settings = () => {
     enabled: !!user,
   });
 
+  // Notification preferences
+  const { data: notificationPrefs } = useQuery({
+    queryKey: ['notificationPreferences'],
+    queryFn: () => notificationsApi.getPreferences(),
+    enabled: !!user,
+  });
+
+  const updateNotificationPrefsMutation = useMutation({
+    mutationFn: (data: Partial<NotificationPreferences>) => notificationsApi.updatePreferences(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notificationPreferences'] });
+      toast.success('Notification preferences updated');
+    },
+    onError: () => toast.error('Failed to update notification preferences'),
+  });
+
   const [settings, setSettings] = useState({
     emailNotifications: true,
     darkMode: document.documentElement.classList.contains('dark'),
@@ -69,15 +91,51 @@ export const Settings = () => {
     twoFactorAuth: false,
   });
 
+  const [notifSettings, setNotifSettings] = useState({
+    emailEnrollment: true,
+    emailAssignmentDue: true,
+    emailGradePosted: true,
+    emailAnnouncement: true,
+  });
+
+  // Sync notification settings when data loads
+  useEffect(() => {
+    if (notificationPrefs) {
+      setNotifSettings({
+        emailEnrollment: notificationPrefs.emailEnrollment,
+        emailAssignmentDue: notificationPrefs.emailAssignmentDue,
+        emailGradePosted: notificationPrefs.emailGradePosted,
+        emailAnnouncement: notificationPrefs.emailAnnouncement,
+      });
+    }
+  }, [notificationPrefs]);
+
   const updateSettingMutation = useMutation({
     mutationFn: ({ key, value }: { key: string; value: string | null }) =>
       usersApi.updateUserSetting(user!.id, key, value),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userSettings', user?.id] });
-      toast.success('Setting updated');
+      toast.success(t('setting_updated'));
     },
-    onError: () => toast.error('Failed to update setting'),
+    onError: () => toast.error(t('setting_update_failed')),
   });
+
+  const updateLanguageMutation = useMutation({
+    mutationFn: (language: string) =>
+      usersApi.updateUserSetting(user!.id, 'language', language),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userSettings', user?.id] });
+      toast.success(t('setting_updated'));
+    },
+    onError: () => toast.error(t('setting_update_failed')),
+  });
+
+  const handleLanguageChange = (newLanguage: SupportedLanguage) => {
+    setLanguage(newLanguage);
+    if (user) {
+      updateLanguageMutation.mutate(newLanguage);
+    }
+  };
 
   const handleToggle = (key: keyof typeof settings) => {
     const newValue = !settings[key];
@@ -97,24 +155,51 @@ export const Settings = () => {
     updateSettingMutation.mutate({ key, value: newValue ? 'true' : 'false' });
   };
 
+  const handleNotificationToggle = (key: keyof typeof notifSettings) => {
+    const newValue = !notifSettings[key];
+    setNotifSettings(s => ({ ...s, [key]: newValue }));
+    updateNotificationPrefsMutation.mutate({ [key]: newValue });
+  };
+
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold mb-8" style={{ color: colors.textPrimary }}>Settings</h1>
+      <h1 className="text-3xl font-bold mb-8" style={{ color: colors.textPrimary }}>{t('settings')}</h1>
 
       <div className="space-y-6">
-        {/* Notifications */}
+        {/* Email Notifications */}
         <Card>
           <CardHeader className="flex items-center gap-3">
-            <Bell className="w-5 h-5" style={{ color: colors.textMuted }} />
-            <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>Notifications</h2>
+            <Mail className="w-5 h-5" style={{ color: colors.textMuted }} />
+            <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>{t('email_notifications')}</h2>
           </CardHeader>
           <CardBody>
-            <div style={{ borderColor: colors.border }}>
+            <div className="divide-y" style={{ borderColor: colors.border }}>
               <SettingToggle
-                label="Email Notifications"
-                description="Receive email updates about your courses and assignments"
-                enabled={settings.emailNotifications}
-                onChange={() => handleToggle('emailNotifications')}
+                label={t('course_enrollment')}
+                description={t('course_enrollment_description')}
+                enabled={notifSettings.emailEnrollment}
+                onChange={() => handleNotificationToggle('emailEnrollment')}
+                colors={colors}
+              />
+              <SettingToggle
+                label={t('assignment_reminders')}
+                description={t('assignment_reminders_description')}
+                enabled={notifSettings.emailAssignmentDue}
+                onChange={() => handleNotificationToggle('emailAssignmentDue')}
+                colors={colors}
+              />
+              <SettingToggle
+                label={t('grades_posted')}
+                description={t('grades_posted_description')}
+                enabled={notifSettings.emailGradePosted}
+                onChange={() => handleNotificationToggle('emailGradePosted')}
+                colors={colors}
+              />
+              <SettingToggle
+                label={t('announcements')}
+                description={t('announcements_description')}
+                enabled={notifSettings.emailAnnouncement}
+                onChange={() => handleNotificationToggle('emailAnnouncement')}
                 colors={colors}
               />
             </div>
@@ -125,13 +210,13 @@ export const Settings = () => {
         <Card>
           <CardHeader className="flex items-center gap-3">
             <Moon className="w-5 h-5" style={{ color: colors.textMuted }} />
-            <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>Appearance</h2>
+            <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>{t('appearance')}</h2>
           </CardHeader>
           <CardBody>
             <div style={{ borderColor: colors.border }}>
               <SettingToggle
-                label="Dark Mode"
-                description="Use dark theme across the application"
+                label={t('dark_mode')}
+                description={t('dark_mode_description')}
                 enabled={settings.darkMode}
                 onChange={() => handleToggle('darkMode')}
                 colors={colors}
@@ -144,17 +229,19 @@ export const Settings = () => {
         <Card>
           <CardHeader className="flex items-center gap-3">
             <Globe className="w-5 h-5" style={{ color: colors.textMuted }} />
-            <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>Language & Region</h2>
+            <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
+              {t('language_region')}
+            </h2>
           </CardHeader>
           <CardBody>
             <div className="flex items-center justify-between py-3">
               <div>
-                <p className="font-medium" style={{ color: colors.textPrimary }}>Language</p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>Select your preferred language</p>
+                <p className="font-medium" style={{ color: colors.textPrimary }}>{t('language')}</p>
+                <p className="text-sm" style={{ color: colors.textSecondary }}>{t('language_description')}</p>
               </div>
               <select
-                value={settings.language}
-                onChange={e => setSettings(s => ({ ...s, language: e.target.value }))}
+                value={currentLanguage}
+                onChange={e => handleLanguageChange(e.target.value as SupportedLanguage)}
                 className="px-3 py-2 rounded-lg text-sm"
                 style={{
                   backgroundColor: colors.selectBg,
@@ -163,10 +250,9 @@ export const Settings = () => {
                   border: `1px solid ${colors.selectBorder}`,
                 }}
               >
-                <option value="en">English</option>
-                <option value="ar">Arabic</option>
-                <option value="es">Spanish</option>
-                <option value="fr">French</option>
+                {Object.entries(supportedLanguages).map(([code, { nativeName }]) => (
+                  <option key={code} value={code}>{nativeName}</option>
+                ))}
               </select>
             </div>
           </CardBody>
@@ -176,13 +262,13 @@ export const Settings = () => {
         <Card>
           <CardHeader className="flex items-center gap-3">
             <Shield className="w-5 h-5" style={{ color: colors.textMuted }} />
-            <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>Security</h2>
+            <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>{t('security')}</h2>
           </CardHeader>
           <CardBody>
             <div style={{ borderColor: colors.border }}>
               <SettingToggle
-                label="Two-Factor Authentication"
-                description="Add an extra layer of security to your account"
+                label={t('two_factor_auth')}
+                description={t('two_factor_auth_description')}
                 enabled={settings.twoFactorAuth}
                 onChange={() => handleToggle('twoFactorAuth')}
                 colors={colors}
@@ -195,18 +281,18 @@ export const Settings = () => {
         <Card style={{ borderColor: isDark ? '#7f1d1d' : '#fecaca' }}>
           <CardHeader className="flex items-center gap-3">
             <Trash2 className="w-5 h-5 text-red-500" />
-            <h2 className="text-lg font-semibold text-red-600">Danger Zone</h2>
+            <h2 className="text-lg font-semibold text-red-600">{t('danger_zone')}</h2>
           </CardHeader>
           <CardBody>
             <div className="flex items-center justify-between py-3">
               <div>
-                <p className="font-medium" style={{ color: colors.textPrimary }}>Delete Account</p>
+                <p className="font-medium" style={{ color: colors.textPrimary }}>{t('delete_account')}</p>
                 <p className="text-sm" style={{ color: colors.textSecondary }}>
-                  Permanently delete your account and all associated data
+                  {t('delete_account_description')}
                 </p>
               </div>
               <Button variant="danger" size="sm">
-                Delete Account
+                {t('delete_account')}
               </Button>
             </div>
             <div
@@ -214,11 +300,11 @@ export const Settings = () => {
               style={{ borderColor: colors.border }}
             >
               <div>
-                <p className="font-medium" style={{ color: colors.textPrimary }}>Sign Out</p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>Sign out from your account</p>
+                <p className="font-medium" style={{ color: colors.textPrimary }}>{t('sign_out')}</p>
+                <p className="text-sm" style={{ color: colors.textSecondary }}>{t('sign_out_description')}</p>
               </div>
               <Button variant="outline" size="sm" onClick={() => logout()}>
-                Sign Out
+                {t('sign_out')}
               </Button>
             </div>
           </CardBody>

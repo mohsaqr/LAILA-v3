@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   BookOpen,
   GraduationCap,
@@ -14,19 +15,40 @@ import {
   Eye,
   EyeOff,
   MessagesSquare,
+  Globe,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
 import { ViewAsRole } from '../../store/authStore';
 import { ThemeToggle } from '../common/ThemeToggle';
+import { useLanguageStore } from '../../store/languageStore';
+import { supportedLanguages, SupportedLanguage } from '../../i18n/config';
 
 export const Navbar = () => {
+  const { t } = useTranslation(['navigation', 'common']);
   const { user, isAuthenticated, isAdmin, isActualAdmin, isActualInstructor, viewAsRole, setViewAs, isViewingAs, logout } = useAuth();
   const { isDark } = useTheme();
+  const { language: currentLanguage, setLanguage } = useLanguageStore();
   const location = useLocation();
+  const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isViewAsMenuOpen, setIsViewAsMenuOpen] = useState(false);
+  const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
+
+  // Handler for viewAs changes that preserves the current URL
+  const handleViewAsChange = (role: ViewAsRole) => {
+    const currentPath = location.pathname + location.search;
+    setViewAs(role);
+    setIsViewAsMenuOpen(false);
+    // Force navigation back to current path after state change settles
+    // This prevents any unwanted redirects from other components
+    setTimeout(() => {
+      if (window.location.pathname !== location.pathname) {
+        navigate(currentPath, { replace: true });
+      }
+    }, 0);
+  };
 
   const colors = {
     bg: isDark ? '#1f2937' : '#ffffff',
@@ -48,22 +70,27 @@ export const Navbar = () => {
   // View As options depend on actual user role
   const viewAsOptions: { role: ViewAsRole; label: string; description: string }[] = isActualAdmin
     ? [
-        { role: null, label: 'View as Admin', description: 'Full admin access' },
-        { role: 'instructor', label: 'View as Instructor', description: 'Test instructor view' },
-        { role: 'student', label: 'View as Student', description: 'Test student view' },
+        { role: null, label: t('navigation:view_as_admin'), description: t('navigation:full_admin_access') },
+        { role: 'instructor', label: t('navigation:view_as_instructor'), description: t('navigation:test_instructor_view') },
+        { role: 'student', label: t('navigation:view_as_student'), description: t('navigation:test_student_view') },
       ]
     : [
-        { role: null, label: 'View as Instructor', description: 'Full instructor access' },
-        { role: 'student', label: 'View as Student', description: 'Test student view' },
+        { role: null, label: t('navigation:view_as_instructor'), description: t('navigation:full_instructor_access') },
+        { role: 'student', label: t('navigation:view_as_student'), description: t('navigation:test_student_view') },
       ];
 
   const navItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: BookOpen },
-    { path: '/courses', label: 'Courses', icon: GraduationCap },
-    { path: '/ai-tools', label: 'AI Tools', icon: BrainCircuit },
-    { path: '/ai-tutors', label: 'Chat Tutors', icon: MessagesSquare },
-    ...(isAdmin ? [{ path: '/admin', label: 'Admin', icon: Shield }] : []),
+    { path: '/dashboard', label: t('dashboard'), icon: BookOpen },
+    { path: '/courses', label: t('courses'), icon: GraduationCap },
+    { path: '/ai-tools', label: t('ai_tools'), icon: BrainCircuit },
+    { path: '/ai-tutors', label: t('chat_tutors'), icon: MessagesSquare },
+    ...(isAdmin ? [{ path: '/admin', label: t('admin'), icon: Shield }] : []),
   ];
+
+  const handleLanguageChange = (lang: SupportedLanguage) => {
+    setLanguage(lang);
+    setIsLanguageMenuOpen(false);
+  };
 
   const isActive = (path: string) => location.pathname.startsWith(path);
 
@@ -114,6 +141,44 @@ export const Navbar = () => {
 
           {/* User Menu */}
           <div className="flex items-center gap-2">
+            {/* Language Selector */}
+            <div className="relative">
+              <button
+                onClick={() => setIsLanguageMenuOpen(!isLanguageMenuOpen)}
+                className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
+                title={t('settings:language')}
+              >
+                <Globe className="w-5 h-5" style={{ color: colors.textSecondary }} />
+              </button>
+
+              {isLanguageMenuOpen && (
+                <div
+                  className="absolute right-0 mt-2 w-40 rounded-lg shadow-lg py-1 z-50"
+                  style={{
+                    backgroundColor: colors.dropdownBg,
+                    border: `1px solid ${colors.dropdownBorder}`,
+                  }}
+                >
+                  {Object.entries(supportedLanguages).map(([code, { nativeName }]) => (
+                    <button
+                      key={code}
+                      onClick={() => handleLanguageChange(code as SupportedLanguage)}
+                      className="flex items-center gap-2 w-full px-4 py-2 text-sm transition-colors"
+                      style={{
+                        backgroundColor: currentLanguage === code ? colors.activeBg : 'transparent',
+                        color: currentLanguage === code ? colors.activeText : colors.textSecondary,
+                      }}
+                    >
+                      {nativeName}
+                      {currentLanguage === code && (
+                        <span className="ml-auto">✓</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Theme Toggle */}
             <ThemeToggle />
 
@@ -136,8 +201,8 @@ export const Navbar = () => {
                   )}
                   <span className="hidden sm:block text-sm font-medium">
                     {isViewingAs
-                      ? `Viewing as ${viewAsRole === 'instructor' ? 'Instructor' : 'Student'}`
-                      : 'View As'}
+                      ? t(`navigation:viewing_as_${viewAsRole}`)
+                      : t('navigation:view_as')}
                   </span>
                   <ChevronDown className="w-4 h-4" />
                 </button>
@@ -151,17 +216,14 @@ export const Navbar = () => {
                     }}
                   >
                     <div className="px-4 py-2" style={{ borderBottom: `1px solid ${colors.dropdownBorder}` }}>
-                      <p className="text-xs font-medium uppercase" style={{ color: colors.textMuted }}>Test Role Views</p>
+                      <p className="text-xs font-medium uppercase" style={{ color: colors.textMuted }}>{t('navigation:test_role_views')}</p>
                     </div>
                     {viewAsOptions.map((option) => {
                       const isSelected = (option.role === null && !viewAsRole) || option.role === viewAsRole;
                       return (
                         <button
                           key={option.role || 'admin'}
-                          onClick={() => {
-                            setViewAs(option.role);
-                            setIsViewAsMenuOpen(false);
-                          }}
+                          onClick={() => handleViewAsChange(option.role)}
                           className="flex flex-col items-start w-full px-4 py-2 text-sm"
                           style={{
                             backgroundColor: isSelected ? colors.activeBg : 'transparent',
@@ -177,15 +239,12 @@ export const Navbar = () => {
                       <>
                         <hr style={{ borderColor: colors.dropdownBorder }} className="my-1" />
                         <button
-                          onClick={() => {
-                            setViewAs(null);
-                            setIsViewAsMenuOpen(false);
-                          }}
+                          onClick={() => handleViewAsChange(null)}
                           className="flex items-center gap-2 w-full px-4 py-2 text-sm"
                           style={{ color: isDark ? '#f87171' : '#dc2626' }}
                         >
                           <EyeOff className="w-4 h-4" />
-                          Exit Test Mode
+                          {t('navigation:exit_test_mode')}
                         </button>
                       </>
                     )}
@@ -227,7 +286,7 @@ export const Navbar = () => {
                       onClick={() => setIsUserMenuOpen(false)}
                     >
                       <Settings className="w-4 h-4" />
-                      Preferences
+                      {t('preferences')}
                     </Link>
                     <Link
                       to="/profile"
@@ -236,7 +295,7 @@ export const Navbar = () => {
                       onClick={() => setIsUserMenuOpen(false)}
                     >
                       <User className="w-4 h-4" />
-                      Profile
+                      {t('profile')}
                     </Link>
                     <hr style={{ borderColor: colors.dropdownBorder }} className="my-1" />
                     <button
@@ -248,7 +307,7 @@ export const Navbar = () => {
                       style={{ color: isDark ? '#f87171' : '#dc2626' }}
                     >
                       <LogOut className="w-4 h-4" />
-                      Sign Out
+                      {t('sign_out')}
                     </button>
                   </div>
                 )}
@@ -260,10 +319,10 @@ export const Navbar = () => {
                   className="px-4 py-2 text-sm font-medium"
                   style={{ color: colors.textSecondary }}
                 >
-                  Sign In
+                  {t('sign_in')}
                 </Link>
                 <Link to="/register" className="btn btn-primary text-sm">
-                  Get Started
+                  {t('auth:get_started')}
                 </Link>
               </div>
             )}
