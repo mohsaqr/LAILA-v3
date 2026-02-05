@@ -48,6 +48,16 @@ const createTestApp = (isAdmin = false) => {
   }
 
   app.use('/api/tutors', tutorRoutes);
+
+  // Error handler
+  app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    const statusCode = err.statusCode || 500;
+    res.status(statusCode).json({
+      success: false,
+      error: err.message || 'Internal server error',
+    });
+  });
+
   return app;
 };
 
@@ -227,7 +237,8 @@ describe('Tutor Routes', () => {
         1,
         5,
         'Hello',
-        expect.any(Object)
+        expect.any(Object),
+        undefined // collaborativeSettings
       );
     });
 
