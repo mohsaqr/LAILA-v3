@@ -1,13 +1,15 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { Plus, Settings, Eye, EyeOff, Layers, FileEdit, MessageCircle, Bot, Sparkles, ChevronDown, Heart, Beaker, Check } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Plus, Settings, Eye, EyeOff, Layers, FileEdit, Bot, ChevronDown, Heart, Beaker, Check, ExternalLink, FileQuestion, MessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../../api/courses';
 import { codeLabsApi } from '../../api/codeLabs';
 import { assignmentsApi } from '../../api/assignments';
 import { courseTutorApi } from '../../api/courseTutor';
 import { customLabsApi } from '../../api/customLabs';
+import { forumsApi, Forum, CreateForumInput } from '../../api/forums';
 import { useTheme } from '../../hooks/useTheme';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
@@ -50,7 +52,15 @@ interface AssignmentFormData {
   isPublished: boolean;
 }
 
+interface ForumFormData {
+  title: string;
+  description: string;
+  isPublished: boolean;
+  allowAnonymous: boolean;
+}
+
 export const CurriculumEditor = () => {
+  const { t } = useTranslation('teaching');
   const { id } = useParams<{ id: string }>();
   const courseId = parseInt(id!, 10);
   const navigate = useNavigate();
@@ -85,6 +95,12 @@ export const CurriculumEditor = () => {
     assignment?: Assignment;
   }>({ isOpen: false });
   const [deleteAssignmentConfirm, setDeleteAssignmentConfirm] = useState<Assignment | null>(null);
+  const [forumModal, setForumModal] = useState<{
+    isOpen: boolean;
+    moduleId?: number;
+    forum?: Forum;
+  }>({ isOpen: false });
+  const [deleteForumConfirm, setDeleteForumConfirm] = useState<Forum | null>(null);
 
   // Form states
   const [moduleForm, setModuleForm] = useState<ModuleFormData>({ title: '', description: '', label: '' });
@@ -102,6 +118,12 @@ export const CurriculumEditor = () => {
     points: 100,
     dueDate: '',
     isPublished: false,
+  });
+  const [forumForm, setForumForm] = useState<ForumFormData>({
+    title: '',
+    description: '',
+    isPublished: true,
+    allowAnonymous: false,
   });
 
   // Queries
@@ -142,16 +164,23 @@ export const CurriculumEditor = () => {
     enabled: !!courseId,
   });
 
+  // Fetch forums for the course
+  const { data: courseForums } = useQuery({
+    queryKey: ['courseForums', courseId],
+    queryFn: () => forumsApi.getForums(courseId),
+    enabled: !!courseId,
+  });
+
   // Mutations
   const createModuleMutation = useMutation({
     mutationFn: (data: ModuleFormData) => coursesApi.createModule(courseId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
       queryClient.invalidateQueries({ queryKey: ['course', courseId] });
-      toast.success('Module created');
+      toast.success(t('module_created'));
       closeModuleModal();
     },
-    onError: () => toast.error('Failed to create module'),
+    onError: () => toast.error(t('failed_to_create_module')),
   });
 
   const updateModuleMutation = useMutation({
@@ -159,10 +188,10 @@ export const CurriculumEditor = () => {
       coursesApi.updateModule(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
-      toast.success('Module updated');
+      toast.success(t('module_updated'));
       closeModuleModal();
     },
-    onError: () => toast.error('Failed to update module'),
+    onError: () => toast.error(t('failed_to_update_module')),
   });
 
   const deleteModuleMutation = useMutation({
@@ -170,10 +199,10 @@ export const CurriculumEditor = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
       queryClient.invalidateQueries({ queryKey: ['course', courseId] });
-      toast.success('Module deleted');
+      toast.success(t('module_deleted'));
       setDeleteModuleConfirm(null);
     },
-    onError: () => toast.error('Failed to delete module'),
+    onError: () => toast.error(t('failed_to_delete_module')),
   });
 
   const reorderModulesMutation = useMutation({
@@ -181,7 +210,7 @@ export const CurriculumEditor = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
     },
-    onError: () => toast.error('Failed to reorder modules'),
+    onError: () => toast.error(t('failed_to_reorder_modules')),
   });
 
   const createLectureMutation = useMutation({
@@ -189,10 +218,10 @@ export const CurriculumEditor = () => {
       coursesApi.createLecture(moduleId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
-      toast.success('Lesson created');
+      toast.success(t('lesson_created'));
       closeLectureModal();
     },
-    onError: () => toast.error('Failed to create lesson'),
+    onError: () => toast.error(t('failed_to_create_lesson')),
   });
 
   const updateLectureMutation = useMutation({
@@ -200,20 +229,20 @@ export const CurriculumEditor = () => {
       coursesApi.updateLecture(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
-      toast.success('Lesson updated');
+      toast.success(t('lesson_updated'));
       closeLectureModal();
     },
-    onError: () => toast.error('Failed to update lesson'),
+    onError: () => toast.error(t('failed_to_update_lesson')),
   });
 
   const deleteLectureMutation = useMutation({
     mutationFn: (id: number) => coursesApi.deleteLecture(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
-      toast.success('Lesson deleted');
+      toast.success(t('lesson_deleted'));
       setDeleteLectureConfirm(null);
     },
-    onError: () => toast.error('Failed to delete lesson'),
+    onError: () => toast.error(t('failed_to_delete_lesson')),
   });
 
   const publishMutation = useMutation({
@@ -221,9 +250,9 @@ export const CurriculumEditor = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['course', courseId] });
       queryClient.invalidateQueries({ queryKey: ['teachingCourses'] });
-      toast.success('Course published');
+      toast.success(t('course_published'));
     },
-    onError: () => toast.error('Failed to publish course'),
+    onError: () => toast.error(t('failed_to_publish_course')),
   });
 
   const unpublishMutation = useMutation({
@@ -231,9 +260,9 @@ export const CurriculumEditor = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['course', courseId] });
       queryClient.invalidateQueries({ queryKey: ['teachingCourses'] });
-      toast.success('Course unpublished');
+      toast.success(t('course_unpublished'));
     },
-    onError: () => toast.error('Failed to unpublish course'),
+    onError: () => toast.error(t('failed_to_unpublish_course')),
   });
 
   // Code Lab mutations
@@ -242,10 +271,10 @@ export const CurriculumEditor = () => {
       codeLabsApi.createCodeLab({ moduleId, title: data.title, description: data.description }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
-      toast.success('Code Lab created');
+      toast.success(t('code_lab_created'));
       closeCodeLabModal();
     },
-    onError: () => toast.error('Failed to create Code Lab'),
+    onError: () => toast.error(t('failed_to_create_code_lab')),
   });
 
   const updateCodeLabMutation = useMutation({
@@ -253,20 +282,20 @@ export const CurriculumEditor = () => {
       codeLabsApi.updateCodeLab(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
-      toast.success('Code Lab updated');
+      toast.success(t('code_lab_updated'));
       closeCodeLabModal();
     },
-    onError: () => toast.error('Failed to update Code Lab'),
+    onError: () => toast.error(t('failed_to_update_code_lab')),
   });
 
   const deleteCodeLabMutation = useMutation({
     mutationFn: (id: number) => codeLabsApi.deleteCodeLab(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
-      toast.success('Code Lab deleted');
+      toast.success(t('code_lab_deleted'));
       setDeleteCodeLabConfirm(null);
     },
-    onError: () => toast.error('Failed to delete Code Lab'),
+    onError: () => toast.error(t('failed_to_delete_code_lab')),
   });
 
   // Assign lab template to course
@@ -276,10 +305,10 @@ export const CurriculumEditor = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseLabAssignments', courseId] });
       queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
-      toast.success('Lab template added to course');
+      toast.success(t('lab_template_added'));
       closeCodeLabModal();
     },
-    onError: () => toast.error('Failed to add lab template'),
+    onError: () => toast.error(t('failed_to_add_lab_template')),
   });
 
   // Unassign lab template from course
@@ -287,9 +316,9 @@ export const CurriculumEditor = () => {
     mutationFn: (labId: number) => customLabsApi.unassignFromCourse(labId, courseId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseLabAssignments', courseId] });
-      toast.success('Lab template removed from course');
+      toast.success(t('lab_template_removed'));
     },
-    onError: () => toast.error('Failed to remove lab template'),
+    onError: () => toast.error(t('failed_to_remove_lab_template')),
   });
 
   // Assignment mutations
@@ -301,13 +330,13 @@ export const CurriculumEditor = () => {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
-      toast.success('Assignment created');
+      toast.success(t('assignment_created'));
       closeAssignmentModal();
     },
     onError: (error: any) => {
       console.error('Failed to create assignment:', error);
       const message = error?.response?.data?.message || error?.message || 'Unknown error';
-      toast.error(`Failed to create assignment: ${message}`);
+      toast.error(`${t('failed_to_create_assignment')}: ${message}`);
     },
   });
 
@@ -319,13 +348,13 @@ export const CurriculumEditor = () => {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
-      toast.success('Assignment updated');
+      toast.success(t('assignment_updated'));
       closeAssignmentModal();
     },
     onError: (error: any) => {
       console.error('Failed to update assignment:', error);
       const message = error?.response?.data?.message || error?.message || 'Unknown error';
-      toast.error(`Failed to update assignment: ${message}`);
+      toast.error(`${t('failed_to_update_assignment')}: ${message}`);
     },
   });
 
@@ -333,10 +362,42 @@ export const CurriculumEditor = () => {
     mutationFn: (id: number) => assignmentsApi.deleteAssignment(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
-      toast.success('Assignment deleted');
+      toast.success(t('assignment_deleted'));
       setDeleteAssignmentConfirm(null);
     },
-    onError: () => toast.error('Failed to delete assignment'),
+    onError: () => toast.error(t('failed_to_delete_assignment')),
+  });
+
+  // Forum mutations
+  const createForumMutation = useMutation({
+    mutationFn: (data: CreateForumInput) => forumsApi.createForum(courseId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseForums', courseId] });
+      toast.success(t('forum_created'));
+      closeForumModal();
+    },
+    onError: () => toast.error(t('failed_to_create_forum')),
+  });
+
+  const updateForumMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<CreateForumInput> }) =>
+      forumsApi.updateForum(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseForums', courseId] });
+      toast.success(t('forum_updated'));
+      closeForumModal();
+    },
+    onError: () => toast.error(t('failed_to_update_forum')),
+  });
+
+  const deleteForumMutation = useMutation({
+    mutationFn: (id: number) => forumsApi.deleteForum(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseForums', courseId] });
+      toast.success(t('forum_deleted'));
+      setDeleteForumConfirm(null);
+    },
+    onError: () => toast.error(t('failed_to_delete_forum')),
   });
 
   // Modal handlers
@@ -428,25 +489,31 @@ export const CurriculumEditor = () => {
     });
   };
 
-  const openAddLessonWithChatbot = () => {
-    // First need a module - show module selector or create flow
-    const sorted = [...(modules || [])].sort((a, b) => a.orderIndex - b.orderIndex);
-    if (sorted.length === 0) {
-      toast.error('Create a module first to add an AI lesson');
-      openAddModuleModal();
-      return;
-    }
-    // Open lesson modal with first module pre-selected
-    setLectureForm({ title: '', contentType: 'mixed', duration: 0, isFree: false });
-    setLectureModal({ isOpen: true, moduleId: sorted[0].id });
-    toast('Create the lesson, then add a Chatbot section in the content editor');
+  const openAddForumModal = (module: CourseModule) => {
+    setForumForm({ title: '', description: '', isPublished: true, allowAnonymous: false });
+    setForumModal({ isOpen: true, moduleId: module.id });
+  };
+
+  const openEditForumModal = (forum: Forum) => {
+    setForumForm({
+      title: forum.title,
+      description: forum.description || '',
+      isPublished: forum.isPublished,
+      allowAnonymous: forum.allowAnonymous,
+    });
+    setForumModal({ isOpen: true, forum });
+  };
+
+  const closeForumModal = () => {
+    setForumModal({ isOpen: false });
+    setForumForm({ title: '', description: '', isPublished: true, allowAnonymous: false });
   };
 
   // Form handlers
   const handleModuleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!moduleForm.title.trim()) {
-      toast.error('Module title is required');
+      toast.error(t('module_title_required'));
       return;
     }
 
@@ -460,7 +527,7 @@ export const CurriculumEditor = () => {
   const handleLectureSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!lectureForm.title.trim()) {
-      toast.error('Lesson title is required');
+      toast.error(t('lesson_title_required'));
       return;
     }
 
@@ -474,7 +541,7 @@ export const CurriculumEditor = () => {
   const handleCodeLabSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!codeLabForm.title.trim()) {
-      toast.error('Code Lab title is required');
+      toast.error(t('code_lab_title_required'));
       return;
     }
 
@@ -488,7 +555,7 @@ export const CurriculumEditor = () => {
   const handleAssignmentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!assignmentForm.title.trim()) {
-      toast.error('Assignment title is required');
+      toast.error(t('title_required'));
       return;
     }
 
@@ -504,6 +571,26 @@ export const CurriculumEditor = () => {
       createAssignmentMutation.mutate({
         ...assignmentForm,
         moduleId: assignmentModal.moduleId,
+      });
+    }
+  };
+
+  const handleForumSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forumForm.title.trim()) {
+      toast.error(t('forum_title_required'));
+      return;
+    }
+
+    if (forumModal.forum) {
+      updateForumMutation.mutate({
+        id: forumModal.forum.id,
+        data: forumForm,
+      });
+    } else if (forumModal.moduleId) {
+      createForumMutation.mutate({
+        ...forumForm,
+        moduleId: forumModal.moduleId,
       });
     }
   };
@@ -586,12 +673,37 @@ export const CurriculumEditor = () => {
   // Assignment reordering is not supported at this time - they are sorted by creation order
   const handleMoveAssignmentUp = (_assignment: Assignment, _module: CourseModule) => {
     // Not implemented - would require orderIndex field on assignments
-    toast('Assignment reordering not yet supported');
+    toast(t('assignment_reordering_not_supported'));
   };
 
   const handleMoveAssignmentDown = (_assignment: Assignment, _module: CourseModule) => {
     // Not implemented - would require orderIndex field on assignments
-    toast('Assignment reordering not yet supported');
+    toast(t('assignment_reordering_not_supported'));
+  };
+
+  // Forum reordering - use orderIndex updates
+  const handleMoveForumUp = (forum: Forum, module: CourseModule) => {
+    const forums = module.forums || [];
+    const sorted = [...forums].sort((a, b) => a.orderIndex - b.orderIndex);
+    const index = sorted.findIndex(f => f.id === forum.id);
+    if (index <= 0) return;
+
+    const prevForum = sorted[index - 1];
+    // Swap order indices
+    updateForumMutation.mutate({ id: forum.id, data: { orderIndex: prevForum.orderIndex } });
+    updateForumMutation.mutate({ id: prevForum.id, data: { orderIndex: forum.orderIndex } });
+  };
+
+  const handleMoveForumDown = (forum: Forum, module: CourseModule) => {
+    const forums = module.forums || [];
+    const sorted = [...forums].sort((a, b) => a.orderIndex - b.orderIndex);
+    const index = sorted.findIndex(f => f.id === forum.id);
+    if (index < 0 || index >= sorted.length - 1) return;
+
+    const nextForum = sorted[index + 1];
+    // Swap order indices
+    updateForumMutation.mutate({ id: forum.id, data: { orderIndex: nextForum.orderIndex } });
+    updateForumMutation.mutate({ id: nextForum.id, data: { orderIndex: forum.orderIndex } });
   };
 
   // Group assignments by moduleId
@@ -622,26 +734,41 @@ export const CurriculumEditor = () => {
     return map;
   }, [courseLabAssignments]);
 
+  // Group forums by moduleId
+  const forumsByModule = useMemo(() => {
+    const map: Record<number, Forum[]> = {};
+    (courseForums || []).forEach(forum => {
+      if (forum.moduleId) {
+        if (!map[forum.moduleId]) {
+          map[forum.moduleId] = [];
+        }
+        map[forum.moduleId].push(forum);
+      }
+    });
+    return map;
+  }, [courseForums]);
+
   if (courseLoading || modulesLoading || assignmentsLoading) {
-    return <Loading fullScreen text="Loading curriculum..." />;
+    return <Loading fullScreen text={t('loading_curriculum')} />;
   }
 
   if (!course) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Course Not Found</h1>
-        <Button onClick={() => navigate('/teach')}>Back to Dashboard</Button>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('course_not_found')}</h1>
+        <Button onClick={() => navigate('/teach')}>{t('back_to_dashboard')}</Button>
       </div>
     );
   }
 
-  // Merge assignments and lab assignments into modules
+  // Merge assignments, lab assignments, and forums into modules
   const sortedModules = [...(modules || [])]
     .sort((a, b) => a.orderIndex - b.orderIndex)
     .map(module => ({
       ...module,
       assignments: assignmentsByModule[module.id] || [],
       labAssignments: labAssignmentsByModule[module.id] || [],
+      forums: forumsByModule[module.id] || [],
     }));
 
   return (
@@ -650,95 +777,108 @@ export const CurriculumEditor = () => {
       <div className="mb-6">
         <Breadcrumb
           items={[
-            { label: 'Teaching', href: '/teach' },
+            { label: t('teaching'), href: '/teach' },
             { label: course.title, href: `/courses/${courseId}` },
-            { label: 'Curriculum' },
+            { label: t('curriculum_editor') },
           ]}
         />
       </div>
 
-      {/* Course Header Card - Split Design */}
-      <Card className="mb-6 overflow-hidden">
-        <div className="flex flex-col lg:flex-row">
-          {/* Left Panel - Course Info */}
-          <div className="flex-1 p-6">
-            <div className="flex items-center gap-2 mb-1">
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{course.title}</h1>
-              <StatusBadge status={course.status} />
-            </div>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">{course.description || 'No description'}</p>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Link to={`/teach/courses/${courseId}/chatbot-logs`}>
-                <Button variant="ghost" size="sm" icon={<MessageCircle className="w-4 h-4" />}>
-                  Chatbot Logs
-                </Button>
-              </Link>
-              <Link to={`/teach/courses/${courseId}/edit`}>
-                <Button variant="ghost" size="sm" icon={<Settings className="w-4 h-4" />}>
-                  Settings
-                </Button>
-              </Link>
-              {course.status === 'published' ? (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => unpublishMutation.mutate()}
-                  loading={unpublishMutation.isPending}
-                  icon={<EyeOff className="w-4 h-4" />}
-                >
-                  Unpublish
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  onClick={() => publishMutation.mutate()}
-                  loading={publishMutation.isPending}
-                  icon={<Eye className="w-4 h-4" />}
-                >
-                  Publish
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* Right Panel - AI Features */}
-          <div
-            className="w-full lg:w-80 p-6 lg:rounded-r-xl"
-            style={{ backgroundColor: isDark ? '#0f172a' : '#1e293b' }}
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="w-5 h-5 text-amber-400" />
-              <h3 className="font-semibold text-white">AI Features</h3>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              {/* Collaborative Tutors Card */}
-              <Link to={`/teach/courses/${courseId}/tutors`}>
-                <div className="p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors cursor-pointer text-center">
-                  <Bot className="w-8 h-8 text-violet-400 mx-auto mb-2" />
-                  <span className="text-white text-sm font-medium block">Collaborative Tutors</span>
-                  <span className="text-slate-400 text-xs">{courseTutors?.length || 0} active</span>
-                </div>
-              </Link>
-
-              {/* Lesson Chatbots Card */}
-              <div className="p-3 rounded-lg bg-slate-700/50 text-center">
-                <MessageCircle className="w-8 h-8 text-amber-400 mx-auto mb-2" />
-                <span className="text-white text-sm font-medium block">Lesson Chatbots</span>
-                <span className="text-slate-400 text-xs">In lessons</span>
-              </div>
-            </div>
-          </div>
+      {/* Course Header */}
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-2">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{course.title}</h1>
+          <StatusBadge status={course.status} />
         </div>
-      </Card>
+        <p className="text-gray-600 dark:text-gray-400">{course.description || t('no_description')}</p>
+      </div>
+
+      {/* Course Management Card - Dark theme */}
+      <div
+        className="mb-6 p-4 rounded-xl"
+        style={{ backgroundColor: isDark ? '#0f172a' : '#1e293b' }}
+      >
+        <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">{t('course_management')}</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+          {/* View Course */}
+          <Link
+            to={`/courses/${courseId}`}
+            className="flex flex-col items-center gap-2 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors text-center"
+          >
+            <ExternalLink className="w-5 h-5 text-blue-400" />
+            <span className="text-white text-xs font-medium">{t('view_course')}</span>
+          </Link>
+
+          {/* Settings */}
+          <Link
+            to={`/teach/courses/${courseId}/edit`}
+            className="flex flex-col items-center gap-2 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors text-center"
+          >
+            <Settings className="w-5 h-5 text-slate-400" />
+            <span className="text-white text-xs font-medium">{t('navigation:settings')}</span>
+          </Link>
+
+          {/* Quizzes */}
+          <Link
+            to={`/teach/courses/${courseId}/quizzes`}
+            className="flex flex-col items-center gap-2 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors text-center"
+          >
+            <FileQuestion className="w-5 h-5 text-cyan-400" />
+            <span className="text-white text-xs font-medium">{t('quizzes')}</span>
+          </Link>
+
+          {/* Forums */}
+          <Link
+            to={`/teach/courses/${courseId}/forums`}
+            className="flex flex-col items-center gap-2 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors text-center"
+          >
+            <MessageSquare className="w-5 h-5 text-emerald-400" />
+            <span className="text-white text-xs font-medium">{t('forums')}</span>
+          </Link>
+
+          {/* AI Tutors */}
+          <Link
+            to={`/teach/courses/${courseId}/tutors`}
+            className="flex flex-col items-center gap-2 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors text-center"
+          >
+            <Bot className="w-5 h-5 text-violet-400" />
+            <span className="text-white text-xs font-medium">{t('ai_tutors')}</span>
+          </Link>
+
+          {/* Publish/Unpublish */}
+          {course.status === 'published' ? (
+            <button
+              onClick={() => unpublishMutation.mutate()}
+              disabled={unpublishMutation.isPending}
+              className="flex flex-col items-center gap-2 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors text-center disabled:opacity-50"
+            >
+              <EyeOff className="w-5 h-5 text-amber-400" />
+              <span className="text-white text-xs font-medium">
+                {unpublishMutation.isPending ? t('unpublishing') : t('unpublish')}
+              </span>
+            </button>
+          ) : (
+            <button
+              onClick={() => publishMutation.mutate()}
+              disabled={publishMutation.isPending}
+              className="flex flex-col items-center gap-2 p-3 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 transition-colors text-center disabled:opacity-50"
+            >
+              <Eye className="w-5 h-5 text-emerald-400" />
+              <span className="text-white text-xs font-medium">
+                {publishMutation.isPending ? t('publishing') : t('publish')}
+              </span>
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Curriculum Section */}
       <Card>
         <CardHeader className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Course Curriculum</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('course_curriculum')}</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Organize your content into modules and lessons
+              {t('organize_content_description')}
             </p>
           </div>
 
@@ -749,7 +889,7 @@ export const CurriculumEditor = () => {
               size="sm"
               icon={<Plus className="w-4 h-4" />}
             >
-              Add Content
+              {t('add_content')}
               <ChevronDown className={`w-4 h-4 ml-1 transition-transform ${addContentOpen ? 'rotate-180' : ''}`} />
             </Button>
 
@@ -763,7 +903,7 @@ export const CurriculumEditor = () => {
                     border: `1px solid ${isDark ? '#374151' : '#e5e7eb'}`
                   }}
                 >
-                  <div className="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Modules</div>
+                  <div className="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">{t('modules_section')}</div>
 
                   <button
                     onClick={() => { openAddModuleModal(); setAddContentOpen(false); }}
@@ -773,8 +913,8 @@ export const CurriculumEditor = () => {
                       <Layers className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div className="text-left">
-                      <span className="font-medium block text-gray-900 dark:text-white">Standard Module</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">Lessons, code labs, assignments</span>
+                      <span className="font-medium block text-gray-900 dark:text-white">{t('standard_module')}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{t('standard_module_description')}</span>
                     </div>
                   </button>
 
@@ -787,26 +927,11 @@ export const CurriculumEditor = () => {
                       <Bot className="w-5 h-5 text-violet-600 dark:text-violet-400" />
                     </div>
                     <div className="text-left">
-                      <span className="font-medium block text-gray-900 dark:text-white">AI Collaborative Module</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">Course-level AI tutors</span>
+                      <span className="font-medium block text-gray-900 dark:text-white">{t('ai_collaborative_module')}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{t('ai_collaborative_module_description')}</span>
                     </div>
                   </Link>
 
-                  <div className="border-t my-2" style={{ borderColor: isDark ? '#374151' : '#e5e7eb' }} />
-                  <div className="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">AI Elements</div>
-
-                  <button
-                    onClick={() => { openAddLessonWithChatbot(); setAddContentOpen(false); }}
-                    className="w-full px-3 py-2 flex items-start gap-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
-                      <MessageCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                    </div>
-                    <div className="text-left">
-                      <span className="font-medium block text-gray-900 dark:text-white">Lesson AI Agent</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">Lesson with embedded chatbot</span>
-                    </div>
-                  </button>
                 </div>
               </>
             )}
@@ -842,15 +967,20 @@ export const CurriculumEditor = () => {
                   onMoveAssignmentUp={handleMoveAssignmentUp}
                   onMoveAssignmentDown={handleMoveAssignmentDown}
                   onRemoveLabAssignment={(labId) => unassignLabMutation.mutate(labId)}
+                  onAddForum={openAddForumModal}
+                  onEditForum={openEditForumModal}
+                  onDeleteForum={setDeleteForumConfirm}
+                  onMoveForumUp={handleMoveForumUp}
+                  onMoveForumDown={handleMoveForumDown}
                 />
               ))}
             </div>
           ) : (
             <EmptyState
               icon={Layers}
-              title="No modules yet"
-              description="Start building your course by adding the first module"
-              action={{ label: 'Add Module', onClick: openAddModuleModal }}
+              title={t('no_modules_yet')}
+              description={t('start_building_course')}
+              action={{ label: t('add_module'), onClick: openAddModuleModal }}
             />
           )}
 
@@ -903,7 +1033,7 @@ export const CurriculumEditor = () => {
                 </div>
                 <Link to={`/teach/courses/${courseId}/tutors`}>
                   <Button size="sm" variant="secondary" icon={<Settings className="w-4 h-4" />}>
-                    Manage
+                    {t('manage')}
                   </Button>
                 </Link>
               </div>
@@ -944,40 +1074,40 @@ export const CurriculumEditor = () => {
       <Modal
         isOpen={moduleModal.isOpen}
         onClose={closeModuleModal}
-        title={moduleModal.module ? 'Edit Module' : 'Add Module'}
+        title={moduleModal.module ? t('edit_module') : t('add_module')}
         size="md"
       >
         <form onSubmit={handleModuleSubmit} className="space-y-4">
           <Input
-            label="Module Title"
+            label={t('module_title')}
             value={moduleForm.title}
             onChange={e => setModuleForm(f => ({ ...f, title: e.target.value }))}
-            placeholder="e.g., Introduction to the Course"
+            placeholder={t('module_title_placeholder')}
             required
           />
           <Input
-            label="Label (optional)"
+            label={t('label_optional')}
             value={moduleForm.label}
             onChange={e => setModuleForm(f => ({ ...f, label: e.target.value }))}
-            placeholder="e.g., Week 1 - Foundations"
-            helpText="A short label displayed next to the module title"
+            placeholder={t('label_placeholder')}
+            helpText={t('label_help_text')}
           />
           <TextArea
-            label="Description (optional)"
+            label={t('description_optional')}
             value={moduleForm.description}
             onChange={e => setModuleForm(f => ({ ...f, description: e.target.value }))}
-            placeholder="Brief description of what this module covers"
+            placeholder={t('module_description_placeholder')}
             rows={3}
           />
           <div className="flex justify-end gap-3 pt-4">
             <Button type="button" variant="secondary" onClick={closeModuleModal}>
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button
               type="submit"
               loading={createModuleMutation.isPending || updateModuleMutation.isPending}
             >
-              {moduleModal.module ? 'Update' : 'Create'}
+              {moduleModal.module ? t('common:update') : t('common:create')}
             </Button>
           </div>
         </form>
@@ -987,19 +1117,19 @@ export const CurriculumEditor = () => {
       <Modal
         isOpen={lectureModal.isOpen}
         onClose={closeLectureModal}
-        title={lectureModal.lecture ? 'Edit Lesson' : 'Add Lesson'}
+        title={lectureModal.lecture ? t('edit_lesson') : t('add_lesson')}
         size="md"
       >
         <form onSubmit={handleLectureSubmit} className="space-y-4">
           <Input
-            label="Lesson Title"
+            label={t('lesson_title')}
             value={lectureForm.title}
             onChange={e => setLectureForm(f => ({ ...f, title: e.target.value }))}
-            placeholder="e.g., Getting Started"
+            placeholder={t('lesson_title_placeholder')}
             required
           />
           <Select
-            label="Content Type"
+            label={t('content_type_label')}
             value={lectureForm.contentType}
             onChange={e =>
               setLectureForm(f => ({
@@ -1008,13 +1138,13 @@ export const CurriculumEditor = () => {
               }))
             }
             options={[
-              { value: 'text', label: 'Text / Article' },
-              { value: 'video', label: 'Video' },
-              { value: 'mixed', label: 'Mixed Content' },
+              { value: 'text', label: t('text_article') },
+              { value: 'video', label: t('video') },
+              { value: 'mixed', label: t('mixed_content') },
             ]}
           />
           <Input
-            label="Duration (minutes)"
+            label={t('duration_minutes')}
             type="number"
             value={lectureForm.duration}
             onChange={e => setLectureForm(f => ({ ...f, duration: parseInt(e.target.value) || 0 }))}
@@ -1029,7 +1159,7 @@ export const CurriculumEditor = () => {
               className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
             <label htmlFor="isFree" className="text-sm text-gray-700">
-              Allow free preview
+              {t('allow_free_preview')}
             </label>
           </div>
 
@@ -1037,27 +1167,27 @@ export const CurriculumEditor = () => {
           {lectureModal.lecture && (
             <div className="border-t border-gray-200 pt-4 mt-4">
               <p className="text-sm text-gray-600 mb-3">
-                Add text, files, or AI-generated content to this lesson:
+                {t('add_lesson_content_description')}
               </p>
               <Link
                 to={`/teach/courses/${courseId}/lectures/${lectureModal.lecture.id}`}
                 className="btn btn-secondary w-full flex items-center justify-center gap-2"
               >
                 <FileEdit className="w-4 h-4" />
-                Edit Lesson Content
+                {t('edit_lesson_content')}
               </Link>
             </div>
           )}
 
           <div className="flex justify-end gap-3 pt-4">
             <Button type="button" variant="secondary" onClick={closeLectureModal}>
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button
               type="submit"
               loading={createLectureMutation.isPending || updateLectureMutation.isPending}
             >
-              {lectureModal.lecture ? 'Update' : 'Create'}
+              {lectureModal.lecture ? t('common:update') : t('common:create')}
             </Button>
           </div>
         </form>
@@ -1068,9 +1198,9 @@ export const CurriculumEditor = () => {
         isOpen={!!deleteModuleConfirm}
         onClose={() => setDeleteModuleConfirm(null)}
         onConfirm={() => deleteModuleConfirm && deleteModuleMutation.mutate(deleteModuleConfirm.id)}
-        title="Delete Module"
-        message={`Are you sure you want to delete "${deleteModuleConfirm?.title}"? All lessons in this module will also be deleted.`}
-        confirmText="Delete"
+        title={t('delete_module')}
+        message={t('delete_module_confirm', { title: deleteModuleConfirm?.title })}
+        confirmText={t('common:delete')}
         loading={deleteModuleMutation.isPending}
       />
 
@@ -1081,9 +1211,9 @@ export const CurriculumEditor = () => {
         onConfirm={() =>
           deleteLectureConfirm && deleteLectureMutation.mutate(deleteLectureConfirm.id)
         }
-        title="Delete Lesson"
-        message={`Are you sure you want to delete "${deleteLectureConfirm?.title}"?`}
-        confirmText="Delete"
+        title={t('delete_lesson')}
+        message={t('delete_lesson_confirm', { title: deleteLectureConfirm?.title })}
+        confirmText={t('common:delete')}
         loading={deleteLectureMutation.isPending}
       />
 
@@ -1091,7 +1221,7 @@ export const CurriculumEditor = () => {
       <Modal
         isOpen={codeLabModal.isOpen}
         onClose={closeCodeLabModal}
-        title={codeLabModal.codeLab ? 'Edit Code Lab' : 'Add Code Lab'}
+        title={codeLabModal.codeLab ? t('edit_code_lab') : t('add_code_lab')}
         size="lg"
       >
         {/* Tabs - only show for new code labs */}
@@ -1106,7 +1236,7 @@ export const CurriculumEditor = () => {
                   : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
-              Create New
+              {t('create_new')}
             </button>
             <button
               type="button"
@@ -1118,7 +1248,7 @@ export const CurriculumEditor = () => {
               }`}
             >
               <Beaker className="w-4 h-4" />
-              From Templates
+              {t('from_templates')}
               {availableLabs && availableLabs.length > 0 && (
                 <span className="px-1.5 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
                   {availableLabs.length}
@@ -1132,17 +1262,17 @@ export const CurriculumEditor = () => {
         {(codeLabModalTab === 'create' || codeLabModal.codeLab) && (
           <form onSubmit={handleCodeLabSubmit} className="space-y-4">
             <Input
-              label="Code Lab Title"
+              label={t('code_lab_title_label')}
               value={codeLabForm.title}
               onChange={e => setCodeLabForm(f => ({ ...f, title: e.target.value }))}
-              placeholder="e.g., Introduction to R Programming"
+              placeholder={t('code_lab_title_placeholder')}
               required
             />
             <TextArea
-              label="Description (optional)"
+              label={t('description_optional')}
               value={codeLabForm.description}
               onChange={e => setCodeLabForm(f => ({ ...f, description: e.target.value }))}
-              placeholder="Brief description of what students will learn in this lab"
+              placeholder={t('code_lab_description_placeholder')}
               rows={3}
             />
 
@@ -1150,27 +1280,27 @@ export const CurriculumEditor = () => {
             {codeLabModal.codeLab && (
               <div className="border-t border-gray-200 pt-4 mt-4">
                 <p className="text-sm text-gray-600 mb-3">
-                  Add code blocks and instructions to this lab:
+                  {t('add_code_blocks_instructions')}
                 </p>
                 <Link
                   to={`/teach/courses/${courseId}/code-labs/${codeLabModal.codeLab.id}`}
                   className="btn btn-secondary w-full flex items-center justify-center gap-2"
                 >
                   <FileEdit className="w-4 h-4" />
-                  Edit Code Lab Content
+                  {t('edit_code_lab_content')}
                 </Link>
               </div>
             )}
 
             <div className="flex justify-end gap-3 pt-4">
               <Button type="button" variant="secondary" onClick={closeCodeLabModal}>
-                Cancel
+                {t('common:cancel')}
               </Button>
               <Button
                 type="submit"
                 loading={createCodeLabMutation.isPending || updateCodeLabMutation.isPending}
               >
-                {codeLabModal.codeLab ? 'Update' : 'Create'}
+                {codeLabModal.codeLab ? t('common:update') : t('common:create')}
               </Button>
             </div>
           </form>
@@ -1182,7 +1312,7 @@ export const CurriculumEditor = () => {
             {availableLabs && availableLabs.length > 0 ? (
               <>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Select a lab template to add to this module. Students will be able to access the lab and its code templates.
+                  {t('select_lab_template_description')}
                 </p>
                 <div className="space-y-2 max-h-80 overflow-y-auto">
                   {availableLabs.map(lab => {
@@ -1226,7 +1356,7 @@ export const CurriculumEditor = () => {
                           {isAlreadyAssigned ? (
                             <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                               <Check className="w-3 h-3" />
-                              Added
+                              {t('added')}
                             </span>
                           ) : isSelected ? (
                             <div className="w-5 h-5 rounded-full bg-primary-500 flex items-center justify-center">
@@ -1244,11 +1374,11 @@ export const CurriculumEditor = () => {
                     to="/teach/labs"
                     className="text-sm text-primary-600 dark:text-primary-400 hover:underline"
                   >
-                    Manage Lab Templates →
+                    {t('manage_lab_templates')}
                   </Link>
                   <div className="flex gap-3">
                     <Button type="button" variant="secondary" onClick={closeCodeLabModal}>
-                      Cancel
+                      {t('common:cancel')}
                     </Button>
                     <Button
                       onClick={() => {
@@ -1262,7 +1392,7 @@ export const CurriculumEditor = () => {
                       disabled={!selectedLabTemplate}
                       loading={assignLabMutation.isPending}
                     >
-                      Add to Module
+                      {t('add_to_module')}
                     </Button>
                   </div>
                 </div>
@@ -1270,13 +1400,13 @@ export const CurriculumEditor = () => {
             ) : (
               <div className="text-center py-8">
                 <Beaker className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                <h3 className="font-medium text-gray-900 dark:text-white mb-2">No Lab Templates</h3>
+                <h3 className="font-medium text-gray-900 dark:text-white mb-2">{t('no_lab_templates')}</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                  Create lab templates to reuse across courses
+                  {t('create_lab_templates_description')}
                 </p>
                 <Link to="/teach/labs">
                   <Button size="sm" icon={<Plus className="w-4 h-4" />}>
-                    Create Lab Template
+                    {t('create_lab_template')}
                   </Button>
                 </Link>
               </div>
@@ -1292,9 +1422,9 @@ export const CurriculumEditor = () => {
         onConfirm={() =>
           deleteCodeLabConfirm && deleteCodeLabMutation.mutate(deleteCodeLabConfirm.id)
         }
-        title="Delete Code Lab"
-        message={`Are you sure you want to delete "${deleteCodeLabConfirm?.title}"? All code blocks in this lab will also be deleted.`}
-        confirmText="Delete"
+        title={t('delete_code_lab')}
+        message={t('delete_code_lab_confirm', { title: deleteCodeLabConfirm?.title })}
+        confirmText={t('common:delete')}
         loading={deleteCodeLabMutation.isPending}
       />
 
@@ -1302,26 +1432,26 @@ export const CurriculumEditor = () => {
       <Modal
         isOpen={assignmentModal.isOpen}
         onClose={closeAssignmentModal}
-        title={assignmentModal.assignment ? 'Edit Assignment' : 'Add Assignment'}
+        title={assignmentModal.assignment ? t('edit_assignment') : t('add_assignment')}
         size="md"
       >
         <form onSubmit={handleAssignmentSubmit} className="space-y-4">
           <Input
-            label="Assignment Title"
+            label={t('assignment_title')}
             value={assignmentForm.title}
             onChange={e => setAssignmentForm(f => ({ ...f, title: e.target.value }))}
-            placeholder="e.g., Week 1 Assignment"
+            placeholder={t('assignment_title_placeholder')}
             required
           />
           <TextArea
-            label="Description (optional)"
+            label={t('assignment_description')}
             value={assignmentForm.description}
             onChange={e => setAssignmentForm(f => ({ ...f, description: e.target.value }))}
-            placeholder="Brief description of the assignment"
+            placeholder={t('assignment_description_placeholder')}
             rows={3}
           />
           <Select
-            label="Submission Type"
+            label={t('submission_type')}
             value={assignmentForm.submissionType}
             onChange={e =>
               setAssignmentForm(f => ({
@@ -1330,27 +1460,27 @@ export const CurriculumEditor = () => {
               }))
             }
             options={[
-              { value: 'text', label: 'Text Submission' },
-              { value: 'file', label: 'File Upload' },
-              { value: 'mixed', label: 'Text + File' },
-              { value: 'ai_agent', label: 'AI Agent Builder' },
+              { value: 'text', label: t('text_submission') },
+              { value: 'file', label: t('file_upload_submission') },
+              { value: 'mixed', label: t('text_file_submission') },
+              { value: 'ai_agent', label: t('ai_agent_submission') },
             ]}
           />
           {assignmentForm.submissionType === 'ai_agent' && (
             <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700">
-              Students will build and configure an AI agent as their submission.
+              {t('ai_agent_info')}
             </div>
           )}
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label="Points"
+              label={t('points_label')}
               type="number"
               value={assignmentForm.points}
               onChange={e => setAssignmentForm(f => ({ ...f, points: parseInt(e.target.value) || 0 }))}
               min={0}
             />
             <Input
-              label="Due Date (optional)"
+              label={t('due_date_optional')}
               type="date"
               value={assignmentForm.dueDate}
               onChange={e => setAssignmentForm(f => ({ ...f, dueDate: e.target.value }))}
@@ -1365,7 +1495,7 @@ export const CurriculumEditor = () => {
               className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
             <label htmlFor="isPublished" className="text-sm text-gray-700">
-              Publish assignment (visible to students)
+              {t('publish_assignment')}
             </label>
           </div>
 
@@ -1373,27 +1503,27 @@ export const CurriculumEditor = () => {
           {assignmentModal.assignment && (
             <div className="border-t border-gray-200 pt-4 mt-4">
               <p className="text-sm text-gray-600 mb-3">
-                View and grade student submissions:
+                {t('view_submissions_description')}
               </p>
               <Link
                 to={`/teach/courses/${courseId}/assignments/${assignmentModal.assignment.id}/submissions`}
                 className="btn btn-secondary w-full flex items-center justify-center gap-2"
               >
                 <FileEdit className="w-4 h-4" />
-                View Submissions
+                {t('view_submissions')}
               </Link>
             </div>
           )}
 
           <div className="flex justify-end gap-3 pt-4">
             <Button type="button" variant="secondary" onClick={closeAssignmentModal}>
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button
               type="submit"
               loading={createAssignmentMutation.isPending || updateAssignmentMutation.isPending}
             >
-              {assignmentModal.assignment ? 'Update' : 'Create'}
+              {assignmentModal.assignment ? t('common:update') : t('common:create')}
             </Button>
           </div>
         </form>
@@ -1406,10 +1536,84 @@ export const CurriculumEditor = () => {
         onConfirm={() =>
           deleteAssignmentConfirm && deleteAssignmentMutation.mutate(deleteAssignmentConfirm.id)
         }
-        title="Delete Assignment"
-        message={`Are you sure you want to delete "${deleteAssignmentConfirm?.title}"? All student submissions will also be deleted.`}
-        confirmText="Delete"
+        title={t('delete_assignment')}
+        message={t('delete_assignment_confirm', { title: deleteAssignmentConfirm?.title })}
+        confirmText={t('common:delete')}
         loading={deleteAssignmentMutation.isPending}
+      />
+
+      {/* Forum Modal */}
+      <Modal
+        isOpen={forumModal.isOpen}
+        onClose={closeForumModal}
+        title={forumModal.forum ? t('edit_forum') : t('add_forum')}
+        size="md"
+      >
+        <form onSubmit={handleForumSubmit} className="space-y-4">
+          <Input
+            label={t('forum_title')}
+            value={forumForm.title}
+            onChange={e => setForumForm(f => ({ ...f, title: e.target.value }))}
+            placeholder={t('forum_title_placeholder')}
+            required
+          />
+          <TextArea
+            label={t('forum_description')}
+            value={forumForm.description}
+            onChange={e => setForumForm(f => ({ ...f, description: e.target.value }))}
+            placeholder={t('forum_description_placeholder')}
+            rows={3}
+          />
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="forumIsPublished"
+              checked={forumForm.isPublished}
+              onChange={e => setForumForm(f => ({ ...f, isPublished: e.target.checked }))}
+              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            />
+            <label htmlFor="forumIsPublished" className="text-sm text-gray-700 dark:text-gray-300">
+              {t('publish_forum')}
+            </label>
+          </div>
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="forumAllowAnonymous"
+              checked={forumForm.allowAnonymous}
+              onChange={e => setForumForm(f => ({ ...f, allowAnonymous: e.target.checked }))}
+              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            />
+            <label htmlFor="forumAllowAnonymous" className="text-sm text-gray-700 dark:text-gray-300">
+              {t('allow_anonymous_posts')}
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button type="button" variant="secondary" onClick={closeForumModal}>
+              {t('common:cancel')}
+            </Button>
+            <Button
+              type="submit"
+              loading={createForumMutation.isPending || updateForumMutation.isPending}
+            >
+              {forumModal.forum ? t('common:update') : t('common:create')}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Forum Confirmation */}
+      <ConfirmDialog
+        isOpen={!!deleteForumConfirm}
+        onClose={() => setDeleteForumConfirm(null)}
+        onConfirm={() =>
+          deleteForumConfirm && deleteForumMutation.mutate(deleteForumConfirm.id)
+        }
+        title={t('delete_forum')}
+        message={t('delete_forum_confirm', { title: deleteForumConfirm?.title })}
+        confirmText={t('common:delete')}
+        loading={deleteForumMutation.isPending}
       />
     </div>
   );

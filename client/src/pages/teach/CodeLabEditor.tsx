@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, Plus, FlaskConical, Eye, EyeOff } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Save, Plus, FlaskConical, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { codeLabsApi } from '../../api/codeLabs';
 import { coursesApi } from '../../api/courses';
@@ -12,9 +13,12 @@ import { Input, TextArea } from '../../components/common/Input';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { CodeBlockEditor } from '../../components/teach/CodeBlockEditor';
+import { Breadcrumb } from '../../components/common/Breadcrumb';
+import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { UpdateCodeBlockData } from '../../types';
 
 export const CodeLabEditor = () => {
+  const { t } = useTranslation('teaching');
   const { id, codeLabId } = useParams<{ id: string; codeLabId: string }>();
   const courseId = parseInt(id!, 10);
   const labId = parseInt(codeLabId!, 10);
@@ -58,18 +62,18 @@ export const CodeLabEditor = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['codeLab', labId] });
       queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
-      toast.success('Code Lab saved');
+      toast.success(t('code_lab_saved'));
     },
-    onError: () => toast.error('Failed to save Code Lab'),
+    onError: () => toast.error(t('failed_to_save_code_lab')),
   });
 
   const createBlockMutation = useMutation({
     mutationFn: () => codeLabsApi.createCodeBlock(labId, { title: 'New Code Block' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['codeLab', labId] });
-      toast.success('Code block added');
+      toast.success(t('code_block_added'));
     },
-    onError: () => toast.error('Failed to add code block'),
+    onError: () => toast.error(t('failed_to_add_code_block')),
   });
 
   const updateBlockMutation = useMutation({
@@ -78,17 +82,17 @@ export const CodeLabEditor = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['codeLab', labId] });
     },
-    onError: () => toast.error('Failed to update code block'),
+    onError: () => toast.error(t('failed_to_update_code_block')),
   });
 
   const deleteBlockMutation = useMutation({
     mutationFn: (blockId: number) => codeLabsApi.deleteCodeBlock(labId, blockId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['codeLab', labId] });
-      toast.success('Code block deleted');
+      toast.success(t('code_block_deleted'));
       setDeleteBlockConfirm(null);
     },
-    onError: () => toast.error('Failed to delete code block'),
+    onError: () => toast.error(t('failed_to_delete_code_block')),
   });
 
   const reorderBlocksMutation = useMutation({
@@ -96,12 +100,12 @@ export const CodeLabEditor = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['codeLab', labId] });
     },
-    onError: () => toast.error('Failed to reorder blocks'),
+    onError: () => toast.error(t('failed_to_reorder_blocks')),
   });
 
   const handleSave = () => {
     if (!formData.title.trim()) {
-      toast.error('Title is required');
+      toast.error(t('title_required'));
       return;
     }
     updateCodeLabMutation.mutate(formData);
@@ -149,15 +153,15 @@ export const CodeLabEditor = () => {
   };
 
   if (isLoading) {
-    return <Loading fullScreen text="Loading Code Lab..." />;
+    return <Loading fullScreen text={t('loading_code_lab')} />;
   }
 
   if (!codeLab) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Code Lab Not Found</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('code_lab_not_found')}</h1>
         <Button onClick={() => navigate(`/teach/courses/${courseId}/curriculum`)}>
-          Back to Curriculum
+          {t('back_to_curriculum')}
         </Button>
       </div>
     );
@@ -167,18 +171,17 @@ export const CodeLabEditor = () => {
     ? [...codeLab.blocks].sort((a, b) => a.orderIndex - b.orderIndex)
     : [];
 
+  const breadcrumbItems = buildTeachingBreadcrumb(id, course?.title || t('course'), t('code_lab'));
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Breadcrumb navigation */}
+      <div className="mb-6">
+        <Breadcrumb items={breadcrumbItems} />
+      </div>
+
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(`/teach/courses/${courseId}/curriculum`)}
-          icon={<ArrowLeft className="w-4 h-4" />}
-        >
-          Back to Curriculum
-        </Button>
+      <div className="flex items-center justify-end mb-6">
         <div className="flex items-center gap-2">
           <Button
             variant="secondary"
@@ -186,7 +189,7 @@ export const CodeLabEditor = () => {
             onClick={togglePublish}
             icon={formData.isPublished ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           >
-            {formData.isPublished ? 'Unpublish' : 'Publish'}
+            {formData.isPublished ? t('unpublish') : t('publish')}
           </Button>
           <Button
             size="sm"
@@ -194,7 +197,7 @@ export const CodeLabEditor = () => {
             loading={updateCodeLabMutation.isPending}
             icon={<Save className="w-4 h-4" />}
           >
-            Save
+            {t('save')}
           </Button>
         </div>
       </div>
@@ -207,22 +210,22 @@ export const CodeLabEditor = () => {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <FlaskConical className="w-5 h-5 text-emerald-600" />
-                <h1 className="text-xl font-semibold text-gray-900">Edit Code Lab</h1>
+                <h1 className="text-xl font-semibold text-gray-900">{t('edit_code_lab')}</h1>
               </div>
             </CardHeader>
             <CardBody className="space-y-4">
               <Input
-                label="Code Lab Title"
+                label={t('code_lab_title')}
                 value={formData.title}
                 onChange={e => handleChange('title', e.target.value)}
-                placeholder="e.g., Introduction to R Programming"
+                placeholder={t('code_lab_title_placeholder')}
                 required
               />
               <TextArea
-                label="Description"
+                label={t('common:description')}
                 value={formData.description}
                 onChange={e => handleChange('description', e.target.value)}
-                placeholder="Describe what students will learn in this lab..."
+                placeholder={t('code_lab_description_placeholder')}
                 rows={3}
               />
             </CardBody>
@@ -232,9 +235,9 @@ export const CodeLabEditor = () => {
           <Card>
             <CardHeader className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Code Blocks</h2>
+                <h2 className="text-lg font-semibold text-gray-900">{t('code_blocks')}</h2>
                 <p className="text-sm text-gray-500">
-                  Add sequential code blocks for students to complete
+                  {t('code_blocks_description')}
                 </p>
               </div>
               <Button
@@ -243,7 +246,7 @@ export const CodeLabEditor = () => {
                 loading={createBlockMutation.isPending}
                 icon={<Plus className="w-4 h-4" />}
               >
-                Add Block
+                {t('add_block')}
               </Button>
             </CardHeader>
             <CardBody>
@@ -265,10 +268,10 @@ export const CodeLabEditor = () => {
               ) : (
                 <EmptyState
                   icon={FlaskConical}
-                  title="No code blocks yet"
-                  description="Add your first code block to start building this lab"
+                  title={t('no_code_blocks_yet')}
+                  description={t('no_code_blocks_description')}
                   action={{
-                    label: 'Add Code Block',
+                    label: t('add_code_block'),
                     onClick: () => createBlockMutation.mutate(),
                   }}
                 />
@@ -282,21 +285,21 @@ export const CodeLabEditor = () => {
           {/* Info */}
           <Card>
             <CardHeader>
-              <h2 className="font-semibold text-gray-900">Code Lab Info</h2>
+              <h2 className="font-semibold text-gray-900">{t('code_lab_info')}</h2>
             </CardHeader>
             <CardBody className="space-y-3 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-500">Course</span>
-                <span className="font-medium text-gray-900">{course?.title || 'Loading...'}</span>
+                <span className="text-gray-500">{t('course')}</span>
+                <span className="font-medium text-gray-900">{course?.title || t('loading')}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Blocks</span>
+                <span className="text-gray-500">{t('blocks_count')}</span>
                 <span className="font-medium text-gray-900">{blocks.length}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Status</span>
+                <span className="text-gray-500">{t('status')}</span>
                 <span className={`font-medium ${formData.isPublished ? 'text-green-600' : 'text-amber-600'}`}>
-                  {formData.isPublished ? 'Published' : 'Draft'}
+                  {formData.isPublished ? t('published') : t('draft')}
                 </span>
               </div>
             </CardBody>
@@ -305,25 +308,25 @@ export const CodeLabEditor = () => {
           {/* Tips */}
           <Card>
             <CardHeader>
-              <h2 className="font-semibold text-gray-900">Tips</h2>
+              <h2 className="font-semibold text-gray-900">{t('tips')}</h2>
             </CardHeader>
             <CardBody>
               <ul className="space-y-3 text-sm text-gray-600">
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-500 mt-0.5">•</span>
-                  <span>Each block should focus on one concept or task</span>
+                  <span>{t('tip_focus_concept')}</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-500 mt-0.5">•</span>
-                  <span>Provide clear instructions for students</span>
+                  <span>{t('tip_clear_instructions')}</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-500 mt-0.5">•</span>
-                  <span>Use starter code to scaffold learning</span>
+                  <span>{t('tip_starter_code')}</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-500 mt-0.5">•</span>
-                  <span>Blocks execute in order, sharing the R session</span>
+                  <span>{t('tip_blocks_order')}</span>
                 </li>
               </ul>
             </CardBody>
@@ -336,9 +339,9 @@ export const CodeLabEditor = () => {
         isOpen={deleteBlockConfirm !== null}
         onClose={() => setDeleteBlockConfirm(null)}
         onConfirm={() => deleteBlockConfirm && deleteBlockMutation.mutate(deleteBlockConfirm)}
-        title="Delete Code Block"
-        message="Are you sure you want to delete this code block? This action cannot be undone."
-        confirmText="Delete"
+        title={t('delete_code_block')}
+        message={t('delete_code_block_confirm')}
+        confirmText={t('common:delete')}
         loading={deleteBlockMutation.isPending}
       />
     </div>
