@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
-  ArrowLeft,
   Download,
   Search,
   CheckCircle,
@@ -22,6 +22,8 @@ import { Input } from '../../components/common/Input';
 import { Modal } from '../../components/common/Modal';
 import { TextArea } from '../../components/common/Input';
 import { EmptyState } from '../../components/common/EmptyState';
+import { Breadcrumb } from '../../components/common/Breadcrumb';
+import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { Assignment } from '../../types';
 
 interface GradebookStudent {
@@ -43,6 +45,7 @@ interface GradebookData {
 }
 
 export const TeacherGradebook = () => {
+  const { t } = useTranslation('teaching');
   const { id: courseId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -102,10 +105,10 @@ export const TeacherGradebook = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['gradebook', parsedCourseId] });
       queryClient.invalidateQueries({ queryKey: ['instructorStats'] });
-      toast.success('Grade saved');
+      toast.success(t('grade_saved'));
       closeGradeModal();
     },
-    onError: () => toast.error('Failed to save grade'),
+    onError: () => toast.error(t('failed_to_save_grade')),
   });
 
   const openGradeModal = (
@@ -118,7 +121,7 @@ export const TeacherGradebook = () => {
     maxPoints: number
   ) => {
     if (!submissionId) {
-      toast.error('No submission to grade');
+      toast.error(t('no_submission_to_grade'));
       return;
     }
     setGradeForm({ grade: currentGrade || 0, feedback: '' });
@@ -144,7 +147,7 @@ export const TeacherGradebook = () => {
     if (!gradeModal.submissionId) return;
 
     if (gradeForm.grade < 0 || gradeForm.grade > (gradeModal.maxPoints || 100)) {
-      toast.error(`Grade must be between 0 and ${gradeModal.maxPoints || 100}`);
+      toast.error(t('grade_range_error', { max: gradeModal.maxPoints || 100 }));
       return;
     }
 
@@ -186,7 +189,7 @@ export const TeacherGradebook = () => {
     link.href = URL.createObjectURL(blob);
     link.download = `gradebook-${course?.title || 'course'}-${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
-    toast.success('Gradebook exported');
+    toast.success(t('gradebook_exported'));
   };
 
   const calculateStudentTotal = (student: GradebookStudent) => {
@@ -218,14 +221,14 @@ export const TeacherGradebook = () => {
   };
 
   if (courseLoading || gradebookLoading) {
-    return <Loading fullScreen text="Loading gradebook..." />;
+    return <Loading fullScreen text={t('loading_gradebook')} />;
   }
 
   if (!course) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold mb-2" style={{ color: colors.textPrimary }}>Course Not Found</h1>
-        <Button onClick={() => navigate('/teach')}>Back to Teaching Dashboard</Button>
+        <h1 className="text-2xl font-bold mb-2" style={{ color: colors.textPrimary }}>{t('course_not_found')}</h1>
+        <Button onClick={() => navigate('/teach')}>{t('back_to_teaching')}</Button>
       </div>
     );
   }
@@ -238,27 +241,22 @@ export const TeacherGradebook = () => {
   const totalAssignments = gradebook?.assignments.length || 0;
   const totalPossiblePoints = gradebook?.assignments.reduce((sum, a) => sum + a.points, 0) || 0;
 
+  const breadcrumbItems = buildTeachingBreadcrumb(courseId, course?.title || 'Course', 'Gradebook');
+
   return (
     <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ minHeight: '100vh' }}>
-      {/* Header */}
+      {/* Breadcrumb navigation */}
       <div className="mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate('/teach')}
-          icon={<ArrowLeft className="w-4 h-4" />}
-        >
-          Back to Teaching Dashboard
-        </Button>
+        <Breadcrumb items={breadcrumbItems} />
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Gradebook</h1>
+          <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{t('gradebook')}</h1>
           <p style={{ color: colors.textSecondary }}>{course.title}</p>
         </div>
         <Button onClick={exportCSV} variant="secondary" icon={<Download className="w-4 h-4" />}>
-          Export CSV
+          {t('export_csv')}
         </Button>
       </div>
 
@@ -276,7 +274,7 @@ export const TeacherGradebook = () => {
               <p className="text-xl font-bold" style={{ color: colors.textPrimary }}>
                 {gradebook?.students.length || 0}
               </p>
-              <p className="text-sm" style={{ color: colors.textSecondary }}>Students</p>
+              <p className="text-sm" style={{ color: colors.textSecondary }}>{t('students')}</p>
             </div>
           </CardBody>
         </Card>
@@ -292,7 +290,7 @@ export const TeacherGradebook = () => {
               <p className="text-xl font-bold" style={{ color: colors.textPrimary }}>
                 {totalAssignments}
               </p>
-              <p className="text-sm" style={{ color: colors.textSecondary }}>Assignments</p>
+              <p className="text-sm" style={{ color: colors.textSecondary }}>{t('navigation:assignments')}</p>
             </div>
           </CardBody>
         </Card>
@@ -308,7 +306,7 @@ export const TeacherGradebook = () => {
               <p className="text-xl font-bold" style={{ color: colors.textPrimary }}>
                 {totalPossiblePoints}
               </p>
-              <p className="text-sm" style={{ color: colors.textSecondary }}>Total Points</p>
+              <p className="text-sm" style={{ color: colors.textSecondary }}>{t('total_points')}</p>
             </div>
           </CardBody>
         </Card>
@@ -323,7 +321,7 @@ export const TeacherGradebook = () => {
           />
           <input
             type="text"
-            placeholder="Search students..."
+            placeholder={t('search_students')}
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -348,7 +346,7 @@ export const TeacherGradebook = () => {
                       className="sticky left-0 z-10 px-4 py-3 text-left text-sm font-semibold"
                       style={{ backgroundColor: colors.bgHeader, color: colors.textPrimary }}
                     >
-                      Student
+                      {t('student')}
                     </th>
                     {gradebook.assignments.map(assignment => (
                       <th
@@ -372,7 +370,7 @@ export const TeacherGradebook = () => {
                       className="px-3 py-3 text-center text-sm font-semibold"
                       style={{ color: colors.textPrimary }}
                     >
-                      Total
+                      {t('common:total')}
                     </th>
                     <th
                       className="px-3 py-3 text-center text-sm font-semibold"
@@ -456,7 +454,7 @@ export const TeacherGradebook = () => {
                       className="sticky left-0 z-10 px-4 py-3 font-semibold"
                       style={{ backgroundColor: colors.bgHeader, color: colors.textPrimary }}
                     >
-                      Class Average
+                      {t('class_average')}
                     </td>
                     {gradebook.assignments.map(assignment => {
                       const avg = calculateClassAverage(assignment.id);
@@ -479,16 +477,16 @@ export const TeacherGradebook = () => {
             <div className="p-8">
               <EmptyState
                 icon={Award}
-                title={gradebook?.assignments.length === 0 ? 'No assignments yet' : 'No students enrolled'}
+                title={gradebook?.assignments.length === 0 ? t('no_assignments_yet') : t('no_students_enrolled')}
                 description={
                   gradebook?.assignments.length === 0
-                    ? 'Create assignments to start tracking grades'
-                    : 'Students will appear here once enrolled'
+                    ? t('create_assignments_to_track')
+                    : t('students_will_appear')
                 }
                 action={
                   gradebook?.assignments.length === 0
                     ? {
-                        label: 'Manage Assignments',
+                        label: t('manage_assignments'),
                         onClick: () => navigate(`/teach/courses/${parsedCourseId}/assignments`),
                       }
                     : undefined
@@ -506,38 +504,38 @@ export const TeacherGradebook = () => {
             className="w-4 h-4 rounded"
             style={{ backgroundColor: colors.bgGraded }}
           />
-          <span>Graded</span>
+          <span>{t('graded')}</span>
         </div>
         <div className="flex items-center gap-2">
           <div
             className="w-4 h-4 rounded"
             style={{ backgroundColor: colors.bgSubmitted }}
           />
-          <span>Submitted (pending grade)</span>
+          <span>{t('submitted_pending_grade')}</span>
         </div>
         <div className="flex items-center gap-2">
           <div
             className="w-4 h-4 rounded"
             style={{ backgroundColor: colors.bgNotSubmitted }}
           />
-          <span>Not submitted</span>
+          <span>{t('not_submitted')}</span>
         </div>
       </div>
 
       {/* Grade Modal */}
-      <Modal isOpen={gradeModal.isOpen} onClose={closeGradeModal} title="Grade Submission" size="md">
+      <Modal isOpen={gradeModal.isOpen} onClose={closeGradeModal} title={t('grade_submission')} size="md">
         <form onSubmit={handleGradeSubmit} className="space-y-4">
           <div style={{ color: colors.textSecondary }}>
             <p className="text-sm mb-1">
-              Student: <strong style={{ color: colors.textPrimary }}>{gradeModal.studentName}</strong>
+              {t('student')}: <strong style={{ color: colors.textPrimary }}>{gradeModal.studentName}</strong>
             </p>
             <p className="text-sm">
-              Assignment: <strong style={{ color: colors.textPrimary }}>{gradeModal.assignmentTitle}</strong>
+              {t('navigation:assignments')}: <strong style={{ color: colors.textPrimary }}>{gradeModal.assignmentTitle}</strong>
             </p>
           </div>
 
           <Input
-            label={`Grade (out of ${gradeModal.maxPoints || 100})`}
+            label={t('grade_out_of', { max: gradeModal.maxPoints || 100 })}
             type="number"
             value={gradeForm.grade}
             onChange={e => setGradeForm(f => ({ ...f, grade: parseInt(e.target.value) || 0 }))}
@@ -547,19 +545,19 @@ export const TeacherGradebook = () => {
           />
 
           <TextArea
-            label="Feedback (optional)"
+            label={t('feedback_optional')}
             value={gradeForm.feedback}
             onChange={e => setGradeForm(f => ({ ...f, feedback: e.target.value }))}
-            placeholder="Provide constructive feedback to the student..."
+            placeholder={t('feedback_placeholder')}
             rows={4}
           />
 
           <div className="flex justify-end gap-3 pt-4 border-t" style={{ borderColor: colors.border }}>
             <Button type="button" variant="secondary" onClick={closeGradeModal}>
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button type="submit" loading={gradeMutation.isPending}>
-              {gradeModal.currentGrade !== null ? 'Update Grade' : 'Submit Grade'}
+              {gradeModal.currentGrade !== null ? t('update_grade') : t('submit_grade')}
             </Button>
           </div>
         </form>
@@ -600,7 +598,6 @@ const GradeCell = ({ submission, colors, onClick }: GradeCellProps) => {
         onClick={onClick}
         className="inline-flex items-center justify-center px-2 py-1 rounded text-sm font-medium cursor-pointer hover:opacity-80 transition-opacity"
         style={{ backgroundColor: colors.bgGraded, color: colors.textGraded }}
-        title="Click to update grade"
       >
         {submission.grade}
       </button>
@@ -613,10 +610,8 @@ const GradeCell = ({ submission, colors, onClick }: GradeCellProps) => {
       onClick={onClick}
       className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs cursor-pointer hover:opacity-80 transition-opacity"
       style={{ backgroundColor: colors.bgSubmitted, color: colors.textSubmitted }}
-      title="Click to grade"
     >
       <Clock className="w-3 h-3" />
-      <span>Grade</span>
     </button>
   );
 };

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   FlaskConical,
   Plus,
@@ -10,7 +11,6 @@ import {
   Lock,
   Code,
   Users,
-  ArrowLeft,
   X,
   GripVertical,
   ChevronDown,
@@ -24,11 +24,14 @@ import { coursesApi } from '../../api/courses';
 import { Card, CardBody } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
+import { Breadcrumb } from '../../components/common/Breadcrumb';
+import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { useTheme } from '../../hooks/useTheme';
 import { CustomLab, LabTemplate, LabType, Course } from '../../types';
 import toast from 'react-hot-toast';
 
 export const LabManager = () => {
+  const { t } = useTranslation('teaching');
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
 
@@ -91,10 +94,10 @@ export const LabManager = () => {
       queryClient.invalidateQueries({ queryKey: ['myLabs'] });
       setShowCreateModal(false);
       resetLabForm();
-      toast.success('Lab created successfully');
+      toast.success(t('lab_created'));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to create lab');
+      toast.error(error.message || t('failed_to_create_lab'));
     },
   });
 
@@ -104,10 +107,10 @@ export const LabManager = () => {
       queryClient.invalidateQueries({ queryKey: ['myLabs'] });
       setShowEditModal(false);
       setSelectedLab(null);
-      toast.success('Lab updated successfully');
+      toast.success(t('lab_updated'));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update lab');
+      toast.error(error.message || t('failed_to_update_lab'));
     },
   });
 
@@ -117,10 +120,10 @@ export const LabManager = () => {
       queryClient.invalidateQueries({ queryKey: ['myLabs'] });
       setShowDeleteModal(false);
       setSelectedLab(null);
-      toast.success('Lab deleted successfully');
+      toast.success(t('lab_deleted'));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to delete lab');
+      toast.error(error.message || t('failed_to_delete_lab'));
     },
   });
 
@@ -130,10 +133,10 @@ export const LabManager = () => {
       queryClient.invalidateQueries({ queryKey: ['myLabs'] });
       setShowTemplateModal(false);
       resetTemplateForm();
-      toast.success('Template added successfully');
+      toast.success(t('template_added'));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to add template');
+      toast.error(error.message || t('failed_to_add_template'));
     },
   });
 
@@ -144,10 +147,10 @@ export const LabManager = () => {
       queryClient.invalidateQueries({ queryKey: ['myLabs'] });
       setShowTemplateModal(false);
       setSelectedTemplate(null);
-      toast.success('Template updated successfully');
+      toast.success(t('template_updated'));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update template');
+      toast.error(error.message || t('failed_to_update_template'));
     },
   });
 
@@ -156,10 +159,10 @@ export const LabManager = () => {
       customLabsApi.deleteTemplate(labId, templateId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myLabs'] });
-      toast.success('Template deleted');
+      toast.success(t('template_deleted'));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to delete template');
+      toast.error(error.message || t('failed_to_delete_template'));
     },
   });
 
@@ -170,10 +173,10 @@ export const LabManager = () => {
       queryClient.invalidateQueries({ queryKey: ['myLabs'] });
       setShowAssignModal(false);
       setAssignCourseId(null);
-      toast.success('Lab assigned to course');
+      toast.success(t('lab_assigned'));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to assign lab');
+      toast.error(error.message || t('failed_to_assign_lab'));
     },
   });
 
@@ -182,10 +185,10 @@ export const LabManager = () => {
       customLabsApi.unassignFromCourse(labId, courseId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myLabs'] });
-      toast.success('Lab unassigned from course');
+      toast.success(t('lab_unassigned'));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to unassign lab');
+      toast.error(error.message || t('failed_to_unassign_lab'));
     },
   });
 
@@ -286,32 +289,32 @@ export const LabManager = () => {
   };
 
   if (labsLoading) {
-    return <Loading text="Loading labs..." />;
+    return <Loading text={t('loading_labs')} />;
   }
+
+  const breadcrumbItems = buildTeachingBreadcrumb(undefined, undefined, t('navigation:labs'));
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: colors.bg }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Breadcrumb navigation */}
+        <div className="mb-6">
+          <Breadcrumb items={breadcrumbItems} />
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Link to="/labs">
-              <Button variant="ghost" size="sm" icon={<ArrowLeft className="w-4 h-4" />}>
-                Back to Labs
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
-                Lab Manager
-              </h1>
-              <p className="text-sm" style={{ color: colors.textSecondary }}>
-                Create and manage your custom labs
-              </p>
-            </div>
+          <div>
+            <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
+              {t('lab_manager')}
+            </h1>
+            <p className="text-sm" style={{ color: colors.textSecondary }}>
+              {t('lab_manager_description')}
+            </p>
           </div>
 
           <Button onClick={() => setShowCreateModal(true)} icon={<Plus className="w-4 h-4" />}>
-            Create Lab
+            {t('create_lab')}
           </Button>
         </div>
 
@@ -340,21 +343,21 @@ export const LabManager = () => {
                           <div className="flex items-center gap-3 text-sm" style={{ color: colors.textSecondary }}>
                             <span className="flex items-center gap-1">
                               <Code className="w-3.5 h-3.5" />
-                              {lab._count?.templates || 0} templates
+                              {lab._count?.templates || 0} {t('templates')}
                             </span>
                             <span className="flex items-center gap-1">
                               <Users className="w-3.5 h-3.5" />
-                              {lab._count?.assignments || 0} courses
+                              {lab._count?.assignments || 0} {t('courses_count')}
                             </span>
                             {lab.isPublic ? (
                               <span className="flex items-center gap-1 text-emerald-500">
                                 <Globe className="w-3.5 h-3.5" />
-                                Public
+                                {t('public')}
                               </span>
                             ) : (
                               <span className="flex items-center gap-1">
                                 <Lock className="w-3.5 h-3.5" />
-                                Private
+                                {t('private')}
                               </span>
                             )}
                           </div>
@@ -364,7 +367,7 @@ export const LabManager = () => {
                       <div className="flex items-center gap-2">
                         <Link to={`/labs/${lab.id}`} onClick={(e) => e.stopPropagation()}>
                           <Button variant="ghost" size="sm">
-                            Preview
+                            {t('preview')}
                           </Button>
                         </Link>
                         <Button
@@ -376,7 +379,7 @@ export const LabManager = () => {
                           }}
                           icon={<BookOpen className="w-4 h-4" />}
                         >
-                          Assign
+                          {t('assign')}
                         </Button>
                         <Button
                           variant="ghost"
@@ -387,7 +390,7 @@ export const LabManager = () => {
                           }}
                           icon={<Pencil className="w-4 h-4" />}
                         >
-                          Edit
+                          {t('common:edit')}
                         </Button>
                         <Button
                           variant="ghost"
@@ -398,7 +401,7 @@ export const LabManager = () => {
                           }}
                           icon={<Trash2 className="w-4 h-4 text-red-500" />}
                         >
-                          Delete
+                          {t('common:delete')}
                         </Button>
                         {isExpanded ? (
                           <ChevronDown className="w-5 h-5" style={{ color: colors.textSecondary }} />
@@ -415,7 +418,7 @@ export const LabManager = () => {
                         <div className="mb-4">
                           <div className="flex items-center justify-between mb-3">
                             <h4 className="font-medium" style={{ color: colors.textPrimary }}>
-                              Templates
+                              {t('templates_title')}
                             </h4>
                             <Button
                               variant="secondary"
@@ -423,7 +426,7 @@ export const LabManager = () => {
                               onClick={() => openTemplateModal(lab)}
                               icon={<Plus className="w-3.5 h-3.5" />}
                             >
-                              Add Template
+                              {t('add_template')}
                             </Button>
                           </div>
 
@@ -457,7 +460,7 @@ export const LabManager = () => {
                                         onClick={() => openTemplateModal(lab, template)}
                                         icon={<Pencil className="w-3.5 h-3.5" />}
                                       >
-                                        Edit
+                                        {t('common:edit')}
                                       </Button>
                                       <Button
                                         variant="ghost"
@@ -470,7 +473,7 @@ export const LabManager = () => {
                                         }
                                         icon={<Trash2 className="w-3.5 h-3.5 text-red-500" />}
                                       >
-                                        Delete
+                                        {t('common:delete')}
                                       </Button>
                                     </div>
                                   </div>
@@ -478,7 +481,7 @@ export const LabManager = () => {
                             </div>
                           ) : (
                             <p className="text-sm" style={{ color: colors.textSecondary }}>
-                              No templates yet. Add templates to provide code examples for students.
+                              {t('no_templates_description')}
                             </p>
                           )}
                         </div>
@@ -487,7 +490,7 @@ export const LabManager = () => {
                         {lab.assignments && lab.assignments.length > 0 && (
                           <div>
                             <h4 className="font-medium mb-3" style={{ color: colors.textPrimary }}>
-                              Assigned Courses
+                              {t('assigned_courses')}
                             </h4>
                             <div className="flex flex-wrap gap-2">
                               {lab.assignments.map((assignment) => (
@@ -525,13 +528,13 @@ export const LabManager = () => {
             <CardBody className="text-center py-16">
               <FlaskConical className="w-16 h-16 mx-auto mb-4" style={{ color: colors.textSecondary }} />
               <h3 className="text-xl font-semibold mb-2" style={{ color: colors.textPrimary }}>
-                No Labs Yet
+                {t('no_labs_yet')}
               </h3>
               <p className="mb-6" style={{ color: colors.textSecondary }}>
-                Create your first lab to get started with interactive R analytics.
+                {t('no_labs_description')}
               </p>
               <Button onClick={() => setShowCreateModal(true)} icon={<Plus className="w-4 h-4" />}>
-                Create Your First Lab
+                {t('create_your_first_lab')}
               </Button>
             </CardBody>
           </Card>
@@ -540,11 +543,11 @@ export const LabManager = () => {
 
       {/* Create Lab Modal */}
       {showCreateModal && (
-        <Modal title="Create New Lab" onClose={() => setShowCreateModal(false)}>
+        <Modal title={t('create_new_lab')} onClose={() => setShowCreateModal(false)}>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-                Lab Name *
+                {t('lab_name')} *
               </label>
               <input
                 type="text"
@@ -558,7 +561,7 @@ export const LabManager = () => {
 
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-                Description
+                {t('common:description')}
               </label>
               <textarea
                 value={labForm.description}
@@ -566,13 +569,12 @@ export const LabManager = () => {
                 className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 style={{ backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }}
                 rows={3}
-                placeholder="Describe what this lab is about..."
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-                Lab Type *
+                {t('lab_type')} *
               </label>
               <select
                 value={labForm.labType}
@@ -582,7 +584,7 @@ export const LabManager = () => {
               >
                 {labTypes?.map((type: LabType) => (
                   <option key={type.id} value={type.id} disabled={type.disabled}>
-                    {type.name} {type.disabled ? '(Coming Soon)' : ''}
+                    {type.name} {type.disabled ? `(${t('coming_soon')})` : ''}
                   </option>
                 ))}
               </select>
@@ -597,7 +599,7 @@ export const LabManager = () => {
                 className="w-4 h-4 rounded text-emerald-500"
               />
               <label htmlFor="addDefaultTemplates" className="text-sm" style={{ color: colors.textPrimary }}>
-                Add default templates for this lab type
+                {t('add_default_templates')}
               </label>
             </div>
 
@@ -610,20 +612,20 @@ export const LabManager = () => {
                 className="w-4 h-4 rounded text-emerald-500"
               />
               <label htmlFor="isPublic" className="text-sm" style={{ color: colors.textPrimary }}>
-                Make this lab public (visible to all users)
+                {t('make_lab_public')}
               </label>
             </div>
 
             <div className="flex justify-end gap-3 pt-4">
               <Button variant="secondary" onClick={() => setShowCreateModal(false)}>
-                Cancel
+                {t('common:cancel')}
               </Button>
               <Button
                 onClick={handleCreateLab}
                 disabled={!labForm.name || createLabMutation.isPending}
                 icon={createLabMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               >
-                {createLabMutation.isPending ? 'Creating...' : 'Create Lab'}
+                {createLabMutation.isPending ? t('creating') : t('create_lab')}
               </Button>
             </div>
           </div>
@@ -632,11 +634,11 @@ export const LabManager = () => {
 
       {/* Edit Lab Modal */}
       {showEditModal && selectedLab && (
-        <Modal title="Edit Lab" onClose={() => setShowEditModal(false)}>
+        <Modal title={t('edit_lab')} onClose={() => setShowEditModal(false)}>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-                Lab Name *
+                {t('lab_name')} *
               </label>
               <input
                 type="text"
@@ -649,7 +651,7 @@ export const LabManager = () => {
 
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-                Description
+                {t('common:description')}
               </label>
               <textarea
                 value={labForm.description}
@@ -669,20 +671,20 @@ export const LabManager = () => {
                 className="w-4 h-4 rounded text-emerald-500"
               />
               <label htmlFor="editIsPublic" className="text-sm" style={{ color: colors.textPrimary }}>
-                Make this lab public
+                {t('make_lab_public')}
               </label>
             </div>
 
             <div className="flex justify-end gap-3 pt-4">
               <Button variant="secondary" onClick={() => setShowEditModal(false)}>
-                Cancel
+                {t('common:cancel')}
               </Button>
               <Button
                 onClick={handleUpdateLab}
                 disabled={!labForm.name || updateLabMutation.isPending}
                 icon={<Save className="w-4 h-4" />}
               >
-                {updateLabMutation.isPending ? 'Saving...' : 'Save Changes'}
+                {updateLabMutation.isPending ? t('saving') : t('save_changes')}
               </Button>
             </div>
           </div>
@@ -691,13 +693,13 @@ export const LabManager = () => {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedLab && (
-        <Modal title="Delete Lab" onClose={() => setShowDeleteModal(false)}>
+        <Modal title={t('delete_lab')} onClose={() => setShowDeleteModal(false)}>
           <p className="mb-6" style={{ color: colors.textSecondary }}>
-            Are you sure you want to delete <strong>{selectedLab.name}</strong>? This action cannot be undone. All templates and course assignments will be removed.
+            {t('delete_lab_confirm', { name: selectedLab.name })}
           </p>
           <div className="flex justify-end gap-3">
             <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button
               onClick={handleDeleteLab}
@@ -705,7 +707,7 @@ export const LabManager = () => {
               className="bg-red-600 hover:bg-red-700"
               icon={<Trash2 className="w-4 h-4" />}
             >
-              {deleteLabMutation.isPending ? 'Deleting...' : 'Delete Lab'}
+              {deleteLabMutation.isPending ? t('deleting') : t('delete_lab')}
             </Button>
           </div>
         </Modal>
@@ -714,13 +716,13 @@ export const LabManager = () => {
       {/* Template Modal */}
       {showTemplateModal && selectedLab && (
         <Modal
-          title={selectedTemplate ? 'Edit Template' : 'Add Template'}
+          title={selectedTemplate ? t('edit_template') : t('add_template')}
           onClose={() => setShowTemplateModal(false)}
         >
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-                Title *
+                {t('common:title')} *
               </label>
               <input
                 type="text"
@@ -734,7 +736,7 @@ export const LabManager = () => {
 
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-                Description
+                {t('common:description')}
               </label>
               <input
                 type="text"
@@ -742,13 +744,12 @@ export const LabManager = () => {
                 onChange={(e) => setTemplateForm({ ...templateForm, description: e.target.value })}
                 className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 style={{ backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }}
-                placeholder="Brief description of what this template does"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-                R Code *
+                {t('r_code')} *
               </label>
               <textarea
                 value={templateForm.code}
@@ -762,14 +763,14 @@ export const LabManager = () => {
 
             <div className="flex justify-end gap-3 pt-4">
               <Button variant="secondary" onClick={() => setShowTemplateModal(false)}>
-                Cancel
+                {t('common:cancel')}
               </Button>
               <Button
                 onClick={handleSaveTemplate}
                 disabled={!templateForm.title || !templateForm.code || addTemplateMutation.isPending || updateTemplateMutation.isPending}
                 icon={<Save className="w-4 h-4" />}
               >
-                {addTemplateMutation.isPending || updateTemplateMutation.isPending ? 'Saving...' : 'Save Template'}
+                {addTemplateMutation.isPending || updateTemplateMutation.isPending ? t('saving') : t('save_template')}
               </Button>
             </div>
           </div>
@@ -778,15 +779,15 @@ export const LabManager = () => {
 
       {/* Assign to Course Modal */}
       {showAssignModal && selectedLab && (
-        <Modal title="Assign Lab to Course" onClose={() => setShowAssignModal(false)}>
+        <Modal title={t('assign_lab_to_course')} onClose={() => setShowAssignModal(false)}>
           <div className="space-y-4">
             <p className="text-sm" style={{ color: colors.textSecondary }}>
-              Select a course to assign <strong>{selectedLab.name}</strong> to.
+              {t('select_course_to_assign', { name: selectedLab.name })}
             </p>
 
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-                Course
+                {t('course')}
               </label>
               <select
                 value={assignCourseId || ''}
@@ -794,12 +795,12 @@ export const LabManager = () => {
                 className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 style={{ backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }}
               >
-                <option value="">Select a course...</option>
+                <option value="">{t('select_course_placeholder')}</option>
                 {myCourses?.map((course: Course) => {
                   const isAlreadyAssigned = selectedLab.assignments?.some((a) => a.courseId === course.id);
                   return (
                     <option key={course.id} value={course.id} disabled={isAlreadyAssigned}>
-                      {course.title} {isAlreadyAssigned ? '(Already assigned)' : ''}
+                      {course.title} {isAlreadyAssigned ? `(${t('already_assigned')})` : ''}
                     </option>
                   );
                 })}
@@ -808,14 +809,14 @@ export const LabManager = () => {
 
             <div className="flex justify-end gap-3 pt-4">
               <Button variant="secondary" onClick={() => setShowAssignModal(false)}>
-                Cancel
+                {t('common:cancel')}
               </Button>
               <Button
                 onClick={handleAssignLab}
                 disabled={!assignCourseId || assignLabMutation.isPending}
                 icon={<BookOpen className="w-4 h-4" />}
               >
-                {assignLabMutation.isPending ? 'Assigning...' : 'Assign to Course'}
+                {assignLabMutation.isPending ? t('assigning') : t('assign_to_course')}
               </Button>
             </div>
           </div>

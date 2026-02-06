@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
-  ArrowLeft,
   Plus,
   Edit,
   Trash2,
@@ -24,6 +24,8 @@ import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { EmptyState } from '../../components/common/EmptyState';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Input, TextArea, Select } from '../../components/common/Input';
+import { Breadcrumb } from '../../components/common/Breadcrumb';
+import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { Assignment, CourseModule } from '../../types';
 
 interface AssignmentFormData {
@@ -49,6 +51,7 @@ const initialFormData: AssignmentFormData = {
 };
 
 export const AssignmentManager = () => {
+  const { t } = useTranslation('teaching');
   const { id } = useParams<{ id: string }>();
   const courseId = parseInt(id!, 10);
   const navigate = useNavigate();
@@ -86,10 +89,10 @@ export const AssignmentManager = () => {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
-      toast.success('Assignment created');
+      toast.success(t('assignment_created'));
       closeModal();
     },
-    onError: () => toast.error('Failed to create assignment'),
+    onError: () => toast.error(t('failed_to_create_assignment')),
   });
 
   const updateMutation = useMutation({
@@ -100,20 +103,20 @@ export const AssignmentManager = () => {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
-      toast.success('Assignment updated');
+      toast.success(t('assignment_updated'));
       closeModal();
     },
-    onError: () => toast.error('Failed to update assignment'),
+    onError: () => toast.error(t('failed_to_update_assignment')),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => assignmentsApi.deleteAssignment(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
-      toast.success('Assignment deleted');
+      toast.success(t('assignment_deleted'));
       setDeleteConfirm(null);
     },
-    onError: () => toast.error('Failed to delete assignment'),
+    onError: () => toast.error(t('failed_to_delete_assignment')),
   });
 
   const openCreateModal = () => {
@@ -143,7 +146,7 @@ export const AssignmentManager = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title.trim()) {
-      toast.error('Title is required');
+      toast.error(t('title_required'));
       return;
     }
 
@@ -159,8 +162,8 @@ export const AssignmentManager = () => {
   };
 
   const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return 'No due date';
-    return new Date(dateStr).toLocaleDateString('en-US', {
+    if (!dateStr) return t('no_due_date');
+    return new Date(dateStr).toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -170,30 +173,25 @@ export const AssignmentManager = () => {
   };
 
   if (courseLoading || assignmentsLoading) {
-    return <Loading fullScreen text="Loading assignments..." />;
+    return <Loading fullScreen text={t('loading_assignments')} />;
   }
 
   if (!course) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Course Not Found</h1>
-        <Button onClick={() => navigate('/teach')}>Back to Dashboard</Button>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('course_not_found')}</h1>
+        <Button onClick={() => navigate('/teach')}>{t('back_to_dashboard')}</Button>
       </div>
     );
   }
 
+  const breadcrumbItems = buildTeachingBreadcrumb(id, course?.title || 'Course', 'Assignments');
+
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
+      {/* Breadcrumb navigation */}
       <div className="mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(`/teach/courses/${courseId}/curriculum`)}
-          icon={<ArrowLeft className="w-4 h-4" />}
-        >
-          Back to Curriculum
-        </Button>
+        <Breadcrumb items={breadcrumbItems} />
       </div>
 
       {/* Course Header */}
@@ -201,10 +199,10 @@ export const AssignmentManager = () => {
         <CardBody className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{course.title}</h1>
-            <p className="text-gray-600">Manage assignments and grading</p>
+            <p className="text-gray-600">{t('manage_assignments_and_grading')}</p>
           </div>
           <Button onClick={openCreateModal} icon={<Plus className="w-4 h-4" />}>
-            Create Assignment
+            {t('create_assignment')}
           </Button>
         </CardBody>
       </Card>
@@ -212,7 +210,7 @@ export const AssignmentManager = () => {
       {/* Assignments List */}
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold text-gray-900">Assignments</h2>
+          <h2 className="text-lg font-semibold text-gray-900">{t('navigation:assignments')}</h2>
         </CardHeader>
         <CardBody>
           {assignments && assignments.length > 0 ? (
@@ -242,7 +240,7 @@ export const AssignmentManager = () => {
                       <StatusBadge status={assignment.isPublished ? 'published' : 'draft'} />
                       {isAgentAssignment && (
                         <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded">
-                          AI Agent
+                          {t('ai_agent')}
                         </span>
                       )}
                     </div>
@@ -253,11 +251,11 @@ export const AssignmentManager = () => {
                       </span>
                       <span className="flex items-center gap-1">
                         <Award className="w-4 h-4" />
-                        {assignment.points} points
+                        {assignment.points} {t('points')}
                       </span>
                       <span className="flex items-center gap-1">
                         <Users className="w-4 h-4" />
-                        {assignment._count?.submissions || 0} submissions
+                        {assignment._count?.submissions || 0} {t('submissions')}
                       </span>
                     </div>
                   </div>
@@ -265,20 +263,20 @@ export const AssignmentManager = () => {
                   <div className="flex items-center gap-2">
                     <Link to={reviewUrl}>
                       <Button variant="outline" size="sm" icon={<Eye className="w-4 h-4" />}>
-                        Review
+                        {t('review')}
                       </Button>
                     </Link>
                     <button
                       onClick={() => openEditModal(assignment)}
                       className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
-                      title="Edit assignment"
+                      title={t('edit_assignment')}
                     >
                       <Edit className="w-4 h-4 text-gray-500" />
                     </button>
                     <button
                       onClick={() => setDeleteConfirm(assignment)}
                       className="p-2 rounded-lg hover:bg-red-100 transition-colors"
-                      title="Delete assignment"
+                      title={t('delete_assignment')}
                     >
                       <Trash2 className="w-4 h-4 text-red-500" />
                     </button>
@@ -290,9 +288,9 @@ export const AssignmentManager = () => {
           ) : (
             <EmptyState
               icon={FileText}
-              title="No assignments yet"
-              description="Create your first assignment to start collecting student work"
-              action={{ label: 'Create Assignment', onClick: openCreateModal }}
+              title={t('no_assignments_yet')}
+              description={t('no_assignments_description')}
+              action={{ label: t('create_assignment'), onClick: openCreateModal }}
             />
           )}
         </CardBody>
@@ -302,12 +300,12 @@ export const AssignmentManager = () => {
       <Modal
         isOpen={formModal.isOpen}
         onClose={closeModal}
-        title={formModal.assignment ? 'Edit Assignment' : 'Create Assignment'}
+        title={formModal.assignment ? t('edit_assignment') : t('create_assignment')}
         size="lg"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Title"
+            label={t('common:title')}
             value={formData.title}
             onChange={e => handleChange('title', e.target.value)}
             placeholder="e.g., Week 1 Lab Assignment"
@@ -315,30 +313,30 @@ export const AssignmentManager = () => {
           />
 
           <TextArea
-            label="Description"
+            label={t('common:description')}
             value={formData.description}
             onChange={e => handleChange('description', e.target.value)}
-            placeholder="Brief description of the assignment"
+            placeholder=""
             rows={2}
           />
 
           <TextArea
-            label="Instructions"
+            label={t('instructions')}
             value={formData.instructions}
             onChange={e => handleChange('instructions', e.target.value)}
-            placeholder="Detailed instructions for students"
+            placeholder=""
             rows={4}
           />
 
           <div className="grid grid-cols-2 gap-4">
             <Select
-              label="Module (optional)"
+              label={t('module_optional')}
               value={formData.moduleId?.toString() || ''}
               onChange={e =>
                 handleChange('moduleId', e.target.value ? parseInt(e.target.value) : null)
               }
               options={[
-                { value: '', label: 'No specific module' },
+                { value: '', label: t('no_specific_module') },
                 ...(modules || []).map((m: CourseModule) => ({
                   value: m.id.toString(),
                   label: m.title,
@@ -347,30 +345,30 @@ export const AssignmentManager = () => {
             />
 
             <Select
-              label="Submission Type"
+              label={t('submission_type')}
               value={formData.submissionType}
               onChange={e =>
                 handleChange('submissionType', e.target.value as 'text' | 'file' | 'mixed' | 'ai_agent')
               }
               options={[
-                { value: 'text', label: 'Text Entry' },
-                { value: 'file', label: 'File Upload' },
-                { value: 'mixed', label: 'Text and File' },
-                { value: 'ai_agent', label: 'AI Agent Builder' },
+                { value: 'text', label: t('text_entry') },
+                { value: 'file', label: t('file_upload') },
+                { value: 'mixed', label: t('text_and_file') },
+                { value: 'ai_agent', label: t('ai_agent_builder') },
               ]}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label="Due Date"
+              label={t('due_date')}
               type="datetime-local"
               value={formData.dueDate}
               onChange={e => handleChange('dueDate', e.target.value)}
             />
 
             <Input
-              label="Points"
+              label={t('points')}
               type="number"
               value={formData.points}
               onChange={e => handleChange('points', parseInt(e.target.value) || 0)}
@@ -387,19 +385,19 @@ export const AssignmentManager = () => {
               className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
             <label htmlFor="isPublished" className="text-sm text-gray-700">
-              Publish immediately (students can see and submit)
+              {t('publish_immediately')}
             </label>
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button type="button" variant="secondary" onClick={closeModal}>
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button
               type="submit"
               loading={createMutation.isPending || updateMutation.isPending}
             >
-              {formModal.assignment ? 'Update' : 'Create'}
+              {formModal.assignment ? t('common:update') : t('common:create')}
             </Button>
           </div>
         </form>
@@ -410,9 +408,9 @@ export const AssignmentManager = () => {
         isOpen={!!deleteConfirm}
         onClose={() => setDeleteConfirm(null)}
         onConfirm={() => deleteConfirm && deleteMutation.mutate(deleteConfirm.id)}
-        title="Delete Assignment"
-        message={`Are you sure you want to delete "${deleteConfirm?.title}"? All student submissions will also be deleted.`}
-        confirmText="Delete"
+        title={t('delete_assignment')}
+        message={t('delete_assignment_confirm', { title: deleteConfirm?.title })}
+        confirmText={t('common:delete')}
         loading={deleteMutation.isPending}
       />
     </div>
