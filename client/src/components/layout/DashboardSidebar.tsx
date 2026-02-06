@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard,
   GraduationCap,
@@ -11,6 +12,9 @@ import {
   Activity,
   Bot,
   FlaskConical,
+  MessageSquare,
+  Award,
+  FileQuestion,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
@@ -26,6 +30,7 @@ interface NavItem {
 }
 
 export const DashboardSidebar = () => {
+  const { t } = useTranslation(['navigation', 'common']);
   const location = useLocation();
   const { isDark } = useTheme();
   const { isInstructor, isAuthenticated } = useAuth();
@@ -42,7 +47,8 @@ export const DashboardSidebar = () => {
   }, [isCollapsed]);
 
   // Extract courseId from URL for course-context aware navigation
-  const courseIdMatch = location.pathname.match(/\/(?:teach\/)?courses\/(\d+)/);
+  // Handles: /courses/123, /course/123, /teach/courses/123
+  const courseIdMatch = location.pathname.match(/\/(?:teach\/)?courses?\/(\d+)/);
   const currentCourseId = courseIdMatch ? courseIdMatch[1] : null;
 
   // Theme colors
@@ -63,31 +69,61 @@ export const DashboardSidebar = () => {
   }
 
   const studentNavItems: NavItem[] = [
-    { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-    { label: 'My Courses', icon: GraduationCap, path: '/courses' },
-    { label: 'Labs', icon: FlaskConical, path: '/labs' },
-    { label: 'Gradebook', icon: ClipboardList, path: '/dashboard/gradebook' },
-    { label: 'Calendar', icon: Calendar, path: '/dashboard/calendar' },
-    { label: 'AI Tools', icon: BrainCircuit, path: '/ai-tools' },
+    { label: t('dashboard'), icon: LayoutDashboard, path: '/dashboard' },
+    { label: t('my_courses'), icon: GraduationCap, path: '/courses' },
+    { label: t('labs'), icon: FlaskConical, path: '/labs' },
+    {
+      label: currentCourseId ? t('course_forums') : t('forums'),
+      icon: MessageSquare,
+      path: currentCourseId ? `/course/${currentCourseId}/forums` : '/forums',
+    },
+    {
+      label: currentCourseId ? t('course_quizzes') : t('quizzes'),
+      icon: FileQuestion,
+      path: currentCourseId ? `/course/${currentCourseId}/quizzes` : '/quizzes',
+    },
+    {
+      label: currentCourseId ? t('course_certificates') : t('certificates'),
+      icon: Award,
+      path: currentCourseId ? `/course/${currentCourseId}/certificates` : '/certificates',
+    },
+    { label: t('gradebook'), icon: ClipboardList, path: '/dashboard/gradebook' },
+    { label: t('calendar'), icon: Calendar, path: '/dashboard/calendar' },
+    { label: t('ai_tools'), icon: BrainCircuit, path: '/ai-tools' },
   ];
 
   // Build instructor nav items - only show admin logs to actual admins
   const instructorNavItems: NavItem[] = [
-    { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-    { label: 'My Courses', icon: GraduationCap, path: '/courses' },
-    { label: 'Lab Templates', icon: FlaskConical, path: '/teach/labs' },
+    { label: t('dashboard'), icon: LayoutDashboard, path: '/dashboard' },
+    { label: t('my_courses'), icon: GraduationCap, path: '/courses' },
+    { label: t('lab_templates'), icon: FlaskConical, path: '/teach/labs' },
     {
-      label: 'AI Tutors',
+      label: currentCourseId ? t('course_quizzes') : t('quizzes'),
+      icon: FileQuestion,
+      path: currentCourseId ? `/teach/courses/${currentCourseId}/quizzes` : '/teach/quizzes',
+    },
+    {
+      label: t('ai_tutors'),
       icon: Bot,
       path: currentCourseId ? `/teach/courses/${currentCourseId}/tutors` : '#',
       disabled: !currentCourseId,
     },
-    { label: 'Surveys', icon: ClipboardCheck, path: '/teach/surveys' },
+    { label: t('surveys'), icon: ClipboardCheck, path: '/teach/surveys' },
+    {
+      label: currentCourseId ? t('course_forums') : t('forums'),
+      icon: MessageSquare,
+      path: currentCourseId ? `/teach/courses/${currentCourseId}/forums` : '/forums',
+    },
+    {
+      label: currentCourseId ? t('course_certificates') : t('certificates'),
+      icon: Award,
+      path: currentCourseId ? `/teach/courses/${currentCourseId}/certificates` : '/teach/certificates',
+    },
     // Only show admin logs link to actual admins (not just instructors)
-    ...(isActualAdmin ? [{ label: 'Logs', icon: Activity, path: '/admin/logs' }] : []),
-    { label: 'Gradebook', icon: ClipboardList, path: '/dashboard/gradebook' },
-    { label: 'Calendar', icon: Calendar, path: '/dashboard/calendar' },
-    { label: 'AI Tools', icon: BrainCircuit, path: '/ai-tools' },
+    ...(isActualAdmin ? [{ label: t('logs'), icon: Activity, path: '/admin/logs' }] : []),
+    { label: t('gradebook'), icon: ClipboardList, path: '/dashboard/gradebook' },
+    { label: t('calendar'), icon: Calendar, path: '/dashboard/calendar' },
+    { label: t('ai_tools'), icon: BrainCircuit, path: '/ai-tools' },
   ];
 
   const navItems = isInstructor ? instructorNavItems : studentNavItems;
@@ -124,7 +160,7 @@ export const DashboardSidebar = () => {
                   style={{
                     color: colors.textDisabled,
                   }}
-                  title={isCollapsed ? `${item.label} (Select a course first)` : 'Select a course first'}
+                  title={isCollapsed ? `${item.label} (${t('common:select_course_first')})` : t('common:select_course_first')}
                 >
                   <Icon className="w-5 h-5 flex-shrink-0" />
                   {!isCollapsed && (
@@ -171,7 +207,7 @@ export const DashboardSidebar = () => {
             ) : (
               <>
                 <ChevronLeft className="w-5 h-5" />
-                <span className="ml-2 text-sm">Collapse</span>
+                <span className="ml-2 text-sm">{t('common:collapse')}</span>
               </>
             )}
           </button>
