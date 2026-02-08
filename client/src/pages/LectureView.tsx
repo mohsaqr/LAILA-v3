@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Download, FileText, Sparkles, Upload, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { coursesApi } from '../api/courses';
 import { resolveFileUrl } from '../api/client';
 import { useTheme } from '../hooks/useTheme';
@@ -14,6 +15,7 @@ import activityLogger from '../services/activityLogger';
 import { LectureSection } from '../types';
 
 export const LectureView = () => {
+  const { t } = useTranslation(['courses', 'common']);
   const { courseId, lectureId } = useParams<{ courseId: string; lectureId: string }>();
   const { isDark } = useTheme();
 
@@ -80,8 +82,8 @@ export const LectureView = () => {
 
   // Build breadcrumb items
   const breadcrumbItems: Array<{ label: string; href?: string }> = [
-    { label: 'Courses', href: '/courses' },
-    { label: course?.title || 'Course', href: `/courses/${courseId}` },
+    { label: t('courses'), href: '/courses' },
+    { label: course?.title || t('course'), href: `/courses/${courseId}` },
   ];
 
   if (currentModule) {
@@ -93,7 +95,7 @@ export const LectureView = () => {
   }
 
   if (isLoading) {
-    return <Loading fullScreen text="Loading lecture..." />;
+    return <Loading fullScreen text={t('loading_lecture')} />;
   }
 
   if (!lecture) {
@@ -101,10 +103,10 @@ export const LectureView = () => {
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: colors.bg }}>
         <Card>
           <CardBody className="text-center py-8 px-12">
-            <h2 className="text-xl font-bold mb-2" style={{ color: colors.textPrimary }}>Lecture Not Found</h2>
-            <p className="mb-4" style={{ color: colors.textSecondary }}>The requested lecture could not be found.</p>
+            <h2 className="text-xl font-bold mb-2" style={{ color: colors.textPrimary }}>{t('lecture_not_found')}</h2>
+            <p className="mb-4" style={{ color: colors.textSecondary }}>{t('lecture_not_found_description')}</p>
             <Link to={`/courses/${courseId}`} className="btn btn-primary">
-              Back to Course
+              {t('back_to_course_button')}
             </Link>
           </CardBody>
         </Card>
@@ -143,7 +145,7 @@ export const LectureView = () => {
           return (
             <div key={section.id} className="mb-8 p-4 rounded-lg text-center" style={{ backgroundColor: colors.bgHover }}>
               <Upload className="w-8 h-8 mx-auto mb-2" style={{ color: colors.textMuted }} />
-              <p style={{ color: colors.textSecondary }}>No file uploaded</p>
+              <p style={{ color: colors.textSecondary }}>{t('no_file_uploaded')}</p>
             </div>
           );
         }
@@ -219,7 +221,7 @@ export const LectureView = () => {
             <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{lecture.title}</h1>
             {lecture.duration && (
               <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-                {lecture.duration} min
+                {t('n_minutes', { count: lecture.duration })}
               </p>
             )}
           </div>
@@ -247,7 +249,7 @@ export const LectureView = () => {
             {/* Attachments */}
             {lecture.attachments && lecture.attachments.length > 0 && (
               <div className="mt-8 pt-6" style={{ borderTop: `1px solid ${colors.border}` }}>
-                <h3 className="font-semibold mb-4" style={{ color: colors.textPrimary }}>Attachments</h3>
+                <h3 className="font-semibold mb-4" style={{ color: colors.textPrimary }}>{t('attachments')}</h3>
                 <div className="space-y-2">
                   {lecture.attachments.map(att => (
                     <a
@@ -289,7 +291,7 @@ export const LectureView = () => {
             >
               <ChevronLeft className="w-4 h-4" />
               <div className="text-left">
-                <p className="text-xs" style={{ color: colors.textSecondary }}>Previous</p>
+                <p className="text-xs" style={{ color: colors.textSecondary }}>{t('previous_lecture')}</p>
                 <p className="text-sm font-medium truncate max-w-[200px]">{prevLecture.title}</p>
               </div>
             </Link>
@@ -304,7 +306,7 @@ export const LectureView = () => {
               style={{ backgroundColor: colors.bgCard, border: `1px solid ${colors.border}`, color: colors.textPrimary }}
             >
               <div className="text-right">
-                <p className="text-xs" style={{ color: colors.textSecondary }}>Next</p>
+                <p className="text-xs" style={{ color: colors.textSecondary }}>{t('next_lecture')}</p>
                 <p className="text-sm font-medium truncate max-w-[200px]">{nextLecture.title}</p>
               </div>
               <ChevronRight className="w-4 h-4" />
@@ -316,7 +318,7 @@ export const LectureView = () => {
               style={{ backgroundColor: colors.bgPrimaryLight, color: colors.textPrimary600 }}
             >
               <BookOpen className="w-4 h-4" />
-              <span className="text-sm font-medium">Back to Course</span>
+              <span className="text-sm font-medium">{t('back_to_course_button')}</span>
             </Link>
           )}
         </div>

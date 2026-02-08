@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
   User,
@@ -18,6 +19,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { EmptyState } from '../../components/common/EmptyState';
 
 export const AgentSubmissionsList = () => {
+  const { t } = useTranslation(['teaching', 'common']);
   const { id, assignmentId } = useParams<{ id: string; assignmentId: string }>();
   const navigate = useNavigate();
 
@@ -37,15 +39,15 @@ export const AgentSubmissionsList = () => {
   });
 
   if (assignmentLoading || submissionsLoading) {
-    return <Loading fullScreen text="Loading submissions..." />;
+    return <Loading fullScreen text={t('loading_submissions')} />;
   }
 
   if (!assignment) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Assignment Not Found</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('assignment_not_found')}</h1>
         <Button onClick={() => navigate(`/teach/courses/${courseId}/assignments`)}>
-          Back to Assignments
+          {t('back_to_assignments')}
         </Button>
       </div>
     );
@@ -84,7 +86,7 @@ export const AgentSubmissionsList = () => {
           onClick={() => navigate(`/teach/courses/${courseId}/assignments`)}
           icon={<ArrowLeft className="w-4 h-4" />}
         >
-          Back to Assignments
+          {t('back_to_assignments')}
         </Button>
       </div>
 
@@ -96,7 +98,7 @@ export const AgentSubmissionsList = () => {
               <div className="flex items-center gap-2 mb-2">
                 <Bot className="w-5 h-5 text-violet-600" />
                 <span className="text-sm font-medium text-violet-600 bg-violet-100 px-2 py-0.5 rounded">
-                  AI Agent Assignment
+                  {t('ai_agent_assignment')}
                 </span>
               </div>
               <h1 className="text-2xl font-bold text-gray-900 mb-2">{assignment.title}</h1>
@@ -106,15 +108,15 @@ export const AgentSubmissionsList = () => {
               <div className="flex items-center gap-6 text-sm">
                 <div className="flex items-center gap-2 text-gray-500">
                   <Award className="w-4 h-4" />
-                  <span>{assignment.points} points</span>
+                  <span>{t('x_points', { count: assignment.points })}</span>
                 </div>
                 <div className="flex items-center gap-2 text-gray-500">
                   <Clock className="w-4 h-4 text-yellow-500" />
-                  <span>{pendingCount} pending</span>
+                  <span>{t('pending_count', { count: pendingCount })}</span>
                 </div>
                 <div className="flex items-center gap-2 text-gray-500">
                   <Check className="w-4 h-4 text-green-500" />
-                  <span>{gradedCount} graded</span>
+                  <span>{t('graded_count', { count: gradedCount })}</span>
                 </div>
               </div>
             </div>
@@ -126,7 +128,7 @@ export const AgentSubmissionsList = () => {
       <Card>
         <CardHeader>
           <h2 className="text-lg font-semibold text-gray-900">
-            Submissions ({submissions.length})
+            {t('submissions_count', { count: submissions.length })}
           </h2>
         </CardHeader>
         <CardBody>
@@ -150,7 +152,7 @@ export const AgentSubmissionsList = () => {
                       </div>
                       <div>
                         <h3 className="font-medium text-gray-900">
-                          {config.user?.fullname || 'Unknown Student'}
+                          {config.user?.fullname || t('unknown_student')}
                         </h3>
                         <p className="text-sm text-gray-500">{config.user?.email}</p>
                       </div>
@@ -174,24 +176,24 @@ export const AgentSubmissionsList = () => {
                     <div className="flex items-center gap-1.5">
                       <MessageSquare className="w-4 h-4 text-gray-400" />
                       <span>
-                        {config._count?.testConversations || 0} test conversations
+                        {config._count?.testConversations || 0} {t('test_conversations')}
                       </span>
                     </div>
                     <span className="text-gray-400">•</span>
-                    <span>Version {config.version}</span>
+                    <span>{t('version')} {config.version}</span>
                   </div>
 
                   {/* Submission date */}
                   {config.submittedAt && (
                     <div className="mt-2 text-xs text-gray-500">
-                      Submitted {formatDate(config.submittedAt)}
+                      {t('submitted')} {formatDate(config.submittedAt)}
                     </div>
                   )}
 
                   {/* Feedback preview */}
                   {config.submission?.feedback && (
                     <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-700">
-                      <span className="font-medium">Feedback: </span>
+                      <span className="font-medium">{t('feedback')}: </span>
                       {config.submission.feedback.length > 100
                         ? `${config.submission.feedback.slice(0, 100)}...`
                         : config.submission.feedback}
@@ -203,8 +205,8 @@ export const AgentSubmissionsList = () => {
           ) : (
             <EmptyState
               icon={Bot}
-              title="No submissions yet"
-              description="Students haven't submitted any agents for this assignment"
+              title={t('no_submissions_yet')}
+              description={t('no_submissions_description')}
             />
           )}
         </CardBody>

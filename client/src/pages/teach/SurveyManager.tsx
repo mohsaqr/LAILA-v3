@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Plus,
   Edit2,
@@ -26,6 +27,7 @@ import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { useTheme } from '../../hooks/useTheme';
 
 export const SurveyManager = () => {
+  const { t } = useTranslation(['teaching', 'common']);
   const { id: courseId } = useParams<{ id: string }>();
   const { isDark } = useTheme();
 
@@ -312,11 +314,11 @@ export const SurveyManager = () => {
     <div className="max-w-5xl mx-auto px-4 py-8">
       <Breadcrumb
         items={[
-          { label: 'Teaching', href: '/teach' },
+          { label: t('teaching'), href: '/teach' },
           ...(courseId
-            ? [{ label: 'Course', href: `/teach/courses/${courseId}/curriculum` }]
+            ? [{ label: t('course'), href: `/teach/courses/${courseId}/curriculum` }]
             : []),
-          { label: 'Surveys' },
+          { label: t('surveys') },
         ]}
       />
 
@@ -326,18 +328,18 @@ export const SurveyManager = () => {
             className="text-2xl font-bold"
             style={{ color: isDark ? '#f3f4f6' : '#111827' }}
           >
-            Surveys
+            {t('surveys')}
           </h1>
           <p
             className="mt-1"
             style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
           >
-            Create and manage feedback surveys
+            {t('create_manage_surveys')}
           </p>
         </div>
         <Button onClick={() => setShowCreateModal(true)}>
           <Plus className="w-4 h-4 mr-2" />
-          Create Survey
+          {t('create_survey')}
         </Button>
       </div>
 
@@ -348,7 +350,7 @@ export const SurveyManager = () => {
             onClick={() => setError(null)}
             className="ml-2 underline"
           >
-            Dismiss
+            {t('common:dismiss')}
           </button>
         </div>
       )}
@@ -360,10 +362,10 @@ export const SurveyManager = () => {
               className="text-lg mb-4"
               style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
             >
-              No surveys yet
+              {t('no_surveys_yet')}
             </p>
             <Button onClick={() => setShowCreateModal(true)}>
-              Create your first survey
+              {t('create_first_survey')}
             </Button>
           </CardBody>
         </Card>
@@ -388,17 +390,17 @@ export const SurveyManager = () => {
                         className="text-sm"
                         style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
                       >
-                        {survey._count?.questions || 0} questions
+                        {t('questions_stat', { count: survey._count?.questions || 0 })}
                       </span>
                       <span
                         className="text-sm"
                         style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
                       >
-                        {survey._count?.responses || 0} responses
+                        {t('responses_stat', { count: survey._count?.responses || 0 })}
                       </span>
                       {survey.isAnonymous && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">
-                          Anonymous
+                          {t('anonymous_badge')}
                         </span>
                       )}
                       <span
@@ -408,7 +410,7 @@ export const SurveyManager = () => {
                             : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
                         }`}
                       >
-                        {survey.isPublished ? 'Published' : 'Draft'}
+                        {survey.isPublished ? t('published') : t('draft')}
                       </span>
                     </div>
                   </div>
@@ -423,7 +425,7 @@ export const SurveyManager = () => {
                           e.stopPropagation();
                           copyShareLink(survey.id);
                         }}
-                        title="Copy share link"
+                        title={t('copy_share_link')}
                       >
                         <Link2 className="w-4 h-4" />
                       </Button>
@@ -431,7 +433,7 @@ export const SurveyManager = () => {
                         to={courseId ? `/teach/courses/${courseId}/surveys/${survey.id}/responses` : `/teach/surveys/${survey.id}/responses`}
                         onClick={e => e.stopPropagation()}
                       >
-                        <Button variant="ghost" size="sm" title="View responses">
+                        <Button variant="ghost" size="sm" title={t('view_responses')}>
                           <BarChart3 className="w-4 h-4" />
                         </Button>
                       </Link>
@@ -445,7 +447,7 @@ export const SurveyManager = () => {
                         e.stopPropagation();
                         handlePublishSurvey(survey);
                       }}
-                      title="Publish survey"
+                      title={t('publish_survey')}
                       disabled={(survey._count?.questions || 0) === 0}
                     >
                       <Eye className="w-4 h-4" />
@@ -566,7 +568,7 @@ export const SurveyManager = () => {
                       className="text-sm text-center py-4"
                       style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
                     >
-                      No questions yet
+                      {t('no_questions_yet')}
                     </p>
                   )}
                   <Button
@@ -576,7 +578,7 @@ export const SurveyManager = () => {
                     onClick={() => openQuestionModal(survey)}
                   >
                     <Plus className="w-4 h-4 mr-2" />
-                    Add Question
+                    {t('add_question')}
                   </Button>
                 </div>
               )}
@@ -589,12 +591,12 @@ export const SurveyManager = () => {
       <Modal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        title="Create Survey"
+        title={t('create_survey')}
         size="md"
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Title</label>
+            <label className="block text-sm font-medium mb-1">{t('title_label')}</label>
             <input
               type="text"
               value={surveyForm.title}
@@ -605,11 +607,11 @@ export const SurveyManager = () => {
                 borderColor: isDark ? '#374151' : '#d1d5db',
                 color: isDark ? '#f3f4f6' : '#111827',
               }}
-              placeholder="Survey title"
+              placeholder={t('survey_title_placeholder')}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Description</label>
+            <label className="block text-sm font-medium mb-1">{t('description_label')}</label>
             <textarea
               value={surveyForm.description}
               onChange={e => setSurveyForm(prev => ({ ...prev, description: e.target.value }))}
@@ -620,7 +622,7 @@ export const SurveyManager = () => {
                 color: isDark ? '#f3f4f6' : '#111827',
               }}
               rows={3}
-              placeholder="Optional description"
+              placeholder={t('optional_description')}
             />
           </div>
           <label className="flex items-center gap-2">
@@ -630,14 +632,14 @@ export const SurveyManager = () => {
               onChange={e => setSurveyForm(prev => ({ ...prev, isAnonymous: e.target.checked }))}
               className="w-4 h-4 rounded"
             />
-            <span className="text-sm">Anonymous responses (no user tracking)</span>
+            <span className="text-sm">{t('anonymous_responses_desc')}</span>
           </label>
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="ghost" onClick={() => setShowCreateModal(false)}>
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button onClick={handleCreateSurvey} loading={submitting}>
-              Create
+              {t('common:create')}
             </Button>
           </div>
         </div>
@@ -647,12 +649,12 @@ export const SurveyManager = () => {
       <Modal
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
-        title="Edit Survey"
+        title={t('edit_survey')}
         size="md"
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Title</label>
+            <label className="block text-sm font-medium mb-1">{t('title_label')}</label>
             <input
               type="text"
               value={surveyForm.title}
@@ -666,7 +668,7 @@ export const SurveyManager = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Description</label>
+            <label className="block text-sm font-medium mb-1">{t('description_label')}</label>
             <textarea
               value={surveyForm.description}
               onChange={e => setSurveyForm(prev => ({ ...prev, description: e.target.value }))}
@@ -686,14 +688,14 @@ export const SurveyManager = () => {
               onChange={e => setSurveyForm(prev => ({ ...prev, isAnonymous: e.target.checked }))}
               className="w-4 h-4 rounded"
             />
-            <span className="text-sm">Anonymous responses</span>
+            <span className="text-sm">{t('anonymous_responses')}</span>
           </label>
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="ghost" onClick={() => setShowEditModal(false)}>
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button onClick={handleUpdateSurvey} loading={submitting}>
-              Save
+              {t('common:save')}
             </Button>
           </div>
         </div>
@@ -703,18 +705,18 @@ export const SurveyManager = () => {
       <Modal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
-        title="Delete Survey"
+        title={t('delete_survey')}
         size="sm"
       >
         <p className="mb-4">
-          Are you sure you want to delete "{selectedSurvey?.title}"? This will also delete all responses.
+          {t('delete_survey_confirm', { title: selectedSurvey?.title })}
         </p>
         <div className="flex justify-end gap-3">
           <Button variant="ghost" onClick={() => setShowDeleteModal(false)}>
-            Cancel
+            {t('common:cancel')}
           </Button>
           <Button variant="danger" onClick={handleDeleteSurvey} loading={submitting}>
-            Delete
+            {t('common:delete')}
           </Button>
         </div>
       </Modal>
@@ -726,12 +728,12 @@ export const SurveyManager = () => {
           setShowQuestionModal(false);
           setEditingQuestion(null);
         }}
-        title={editingQuestion ? 'Edit Question' : 'Add Question'}
+        title={editingQuestion ? t('edit_question') : t('add_question')}
         size="md"
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Question</label>
+            <label className="block text-sm font-medium mb-1">{t('question_label')}</label>
             <input
               type="text"
               value={questionForm.questionText}
@@ -744,11 +746,11 @@ export const SurveyManager = () => {
                 borderColor: isDark ? '#374151' : '#d1d5db',
                 color: isDark ? '#f3f4f6' : '#111827',
               }}
-              placeholder="Enter your question"
+              placeholder={t('enter_question_placeholder')}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Question Type</label>
+            <label className="block text-sm font-medium mb-1">{t('question_type_label')}</label>
             <select
               value={questionForm.questionType}
               onChange={e =>
@@ -764,15 +766,15 @@ export const SurveyManager = () => {
                 color: isDark ? '#f3f4f6' : '#111827',
               }}
             >
-              <option value="single_choice">Single Choice (Radio)</option>
-              <option value="multiple_choice">Multiple Choice (Checkbox)</option>
-              <option value="free_text">Free Text</option>
+              <option value="single_choice">{t('single_choice_radio')}</option>
+              <option value="multiple_choice">{t('multiple_choice_checkbox')}</option>
+              <option value="free_text">{t('free_text')}</option>
             </select>
           </div>
 
           {questionForm.questionType !== 'free_text' && (
             <div>
-              <label className="block text-sm font-medium mb-1">Options</label>
+              <label className="block text-sm font-medium mb-1">{t('options_label')}</label>
               <div className="space-y-2">
                 {questionForm.options?.map((option, index) => (
                   <div key={index} className="flex gap-2">
@@ -790,7 +792,7 @@ export const SurveyManager = () => {
                         borderColor: isDark ? '#374151' : '#d1d5db',
                         color: isDark ? '#f3f4f6' : '#111827',
                       }}
-                      placeholder={`Option ${index + 1}`}
+                      placeholder={t('option_placeholder', { number: index + 1 })}
                     />
                     {(questionForm.options?.length || 0) > 1 && (
                       <Button
@@ -817,7 +819,7 @@ export const SurveyManager = () => {
                   }
                 >
                   <Plus className="w-4 h-4 mr-1" />
-                  Add Option
+                  {t('add_option')}
                 </Button>
               </div>
             </div>
@@ -832,7 +834,7 @@ export const SurveyManager = () => {
               }
               className="w-4 h-4 rounded"
             />
-            <span className="text-sm">Required question</span>
+            <span className="text-sm">{t('required_question')}</span>
           </label>
 
           <div className="flex justify-end gap-3 pt-4">
@@ -843,13 +845,13 @@ export const SurveyManager = () => {
                 setEditingQuestion(null);
               }}
             >
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button
               onClick={editingQuestion ? handleUpdateQuestion : handleAddQuestion}
               loading={submitting}
             >
-              {editingQuestion ? 'Save' : 'Add'}
+              {editingQuestion ? t('common:save') : t('common:add')}
             </Button>
           </div>
         </div>

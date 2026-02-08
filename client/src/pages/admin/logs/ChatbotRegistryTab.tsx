@@ -6,6 +6,7 @@
 
 import { useState, Fragment } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   Filter,
   RefreshCw,
@@ -58,6 +59,7 @@ type SortField =
   | 'createdAt';
 
 export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotRegistryTabProps) => {
+  const { t } = useTranslation(['admin', 'common']);
   // Filter state
   const [filters, setFilters] = useState<ChatbotRegistryFilters>({
     page: 1,
@@ -220,7 +222,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
             <div className="flex items-center gap-2">
               <Bot className="w-5 h-5 text-primary-500" />
               <div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">Total Chatbots</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">{t('total_chatbots')}</div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {(stats?.totalChatbots || 0).toLocaleString()}
                 </div>
@@ -233,7 +235,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
             <div className="flex items-center gap-2">
               <Globe className="w-5 h-5 text-blue-500" />
               <div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">Global AI Tutors</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">{t('global_ai_tutors')}</div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {(stats?.globalChatbots || 0).toLocaleString()}
                 </div>
@@ -246,7 +248,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
             <div className="flex items-center gap-2">
               <BookOpen className="w-5 h-5 text-purple-500" />
               <div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">Section Chatbots</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">{t('section_chatbots')}</div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {(stats?.sectionChatbots || 0).toLocaleString()}
                 </div>
@@ -259,7 +261,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
             <div className="flex items-center gap-2">
               <MessageSquare className="w-5 h-5 text-green-500" />
               <div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">Total Conversations</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">{t('total_conversations')}</div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {(stats?.totalConversations || 0).toLocaleString()}
                 </div>
@@ -275,10 +277,10 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
               <Filter className="w-4 h-4" />
-              Filters
+              {t('filters')}
               {hasActiveFilters && (
                 <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded-full">
-                  Active
+                  {t('active')}
                 </span>
               )}
             </div>
@@ -289,7 +291,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                 ) : (
                   <RefreshCw className="w-4 h-4 mr-1" />
                 )}
-                Refresh
+                {t('common:refresh')}
               </Button>
               <Button
                 variant="outline"
@@ -327,13 +329,13 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
             {/* Search */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Search
+                {t('search')}
               </label>
               <div className="relative">
                 <input
                   type="text"
                   className="w-full border border-gray-300 dark:border-gray-600 rounded-md pl-9 pr-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                  placeholder="Search name, prompt, description..."
+                  placeholder={t('search_chatbot')}
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   onKeyDown={handleSearchKeyDown}
@@ -358,7 +360,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
             {/* Type Filter */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Type
+                {t('type')}
               </label>
               <select
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
@@ -367,16 +369,16 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                   updateFilter('type', e.target.value as 'global' | 'section' | undefined)
                 }
               >
-                <option value="">All Types</option>
-                <option value="global">Global AI Tutors</option>
-                <option value="section">Section Chatbots</option>
+                <option value="">{t('all_types')}</option>
+                <option value="global">{t('global_ai_tutors')}</option>
+                <option value="section">{t('section_chatbots')}</option>
               </select>
             </div>
 
             {/* Course Filter */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Course
+                {t('course')}
               </label>
               <select
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
@@ -385,7 +387,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                   updateFilter('courseId', e.target.value ? parseInt(e.target.value) : undefined)
                 }
               >
-                <option value="">All Courses</option>
+                <option value="">{t('all_courses')}</option>
                 {filterOptions?.courses.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.title}
@@ -397,7 +399,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
             {/* Creator Filter */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Creator
+                {t('creator')}
               </label>
               <select
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
@@ -406,7 +408,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                   updateFilter('creatorId', e.target.value ? parseInt(e.target.value) : undefined)
                 }
               >
-                <option value="">All Creators</option>
+                <option value="">{t('all_creators')}</option>
                 {filterOptions?.creators.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.fullname || u.email}
@@ -418,14 +420,14 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
             {/* Category Filter */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Category
+                {t('category')}
               </label>
               <select
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 value={filters.category || ''}
                 onChange={(e) => updateFilter('category', e.target.value || undefined)}
               >
-                <option value="">All Categories</option>
+                <option value="">{t('all_categories')}</option>
                 {filterOptions?.categories.map((c) => (
                   <option key={c.category} value={c.category}>
                     {c.category} ({c.count})
@@ -440,7 +442,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
             {/* Active Status */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Status
+                {t('filter_by_status')}
               </label>
               <select
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
@@ -452,14 +454,14 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                   )
                 }
               >
-                <option value="">All</option>
-                <option value="true">Active</option>
-                <option value="false">Inactive</option>
+                <option value="">{t('all_status')}</option>
+                <option value="true">{t('active')}</option>
+                <option value="false">{t('inactive')}</option>
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Start Date
+                {t('start_date')}
               </label>
               <input
                 type="date"
@@ -470,7 +472,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                End Date
+                {t('end_date')}
               </label>
               <input
                 type="date"
@@ -482,7 +484,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
             <div className="flex items-end">
               <Button variant="outline" className="w-full" onClick={clearFilters}>
                 <X className="w-4 h-4 mr-1" />
-                Clear Filters
+                {t('clear_filters')}
               </Button>
             </div>
           </div>
@@ -495,12 +497,10 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
           <div className="flex items-center justify-between text-gray-900 dark:text-gray-100">
             <span className="flex items-center gap-2">
               <Bot className="w-5 h-5" />
-              Chatbot Registry
+              {t('chatbot_registry')}
             </span>
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              Showing {(pagination.page - 1) * pagination.limit + 1}-
-              {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
-              {pagination.total.toLocaleString()} chatbots
+              {t('showing_chatbots_range', { start: (pagination.page - 1) * pagination.limit + 1, end: Math.min(pagination.page * pagination.limit, pagination.total), total: pagination.total.toLocaleString() })}
             </span>
           </div>
         </CardHeader>
@@ -511,11 +511,11 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
             </div>
           ) : chatbots.length === 0 ? (
             <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-              No chatbots found
+              {t('no_chatbots_found')}
               {hasActiveFilters && (
                 <div className="mt-2">
                   <Button variant="outline" size="sm" onClick={clearFilters}>
-                    Clear Filters
+                    {t('clear_filters')}
                   </Button>
                 </div>
               )}
@@ -531,7 +531,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                       onClick={() => handleSort('type')}
                     >
                       <div className="flex items-center">
-                        Type
+                        {t('type')}
                         <SortIcon field="type" />
                       </div>
                     </th>
@@ -540,7 +540,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                       onClick={() => handleSort('displayName')}
                     >
                       <div className="flex items-center">
-                        Name
+                        {t('name')}
                         <SortIcon field="displayName" />
                       </div>
                     </th>
@@ -549,7 +549,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                       onClick={() => handleSort('category')}
                     >
                       <div className="flex items-center">
-                        Context
+                        {t('context')}
                         <SortIcon field="category" />
                       </div>
                     </th>
@@ -558,7 +558,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                       onClick={() => handleSort('creatorName')}
                     >
                       <div className="flex items-center">
-                        Creator
+                        {t('creator')}
                         <SortIcon field="creatorName" />
                       </div>
                     </th>
@@ -567,7 +567,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                       onClick={() => handleSort('isActive')}
                     >
                       <div className="flex items-center">
-                        Status
+                        {t('filter_by_status')}
                         <SortIcon field="isActive" />
                       </div>
                     </th>
@@ -576,7 +576,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                       onClick={() => handleSort('conversationCount')}
                     >
                       <div className="flex items-center">
-                        Conv.
+                        {t('conversations_abbr')}
                         <SortIcon field="conversationCount" />
                       </div>
                     </th>
@@ -585,7 +585,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                       onClick={() => handleSort('messageCount')}
                     >
                       <div className="flex items-center">
-                        Msgs
+                        {t('messages_abbr')}
                         <SortIcon field="messageCount" />
                       </div>
                     </th>
@@ -594,7 +594,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                       onClick={() => handleSort('uniqueUsers')}
                     >
                       <div className="flex items-center">
-                        Users
+                        {t('users')}
                         <SortIcon field="uniqueUsers" />
                       </div>
                     </th>
@@ -603,7 +603,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                       onClick={() => handleSort('createdAt')}
                     >
                       <div className="flex items-center">
-                        Created
+                        {t('created')}
                         <SortIcon field="createdAt" />
                       </div>
                     </th>
@@ -632,7 +632,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                             ) : (
                               <BookOpen className="w-3 h-3 mr-1" />
                             )}
-                            {chatbot.type === 'global' ? 'Global' : 'Section'}
+                            {chatbot.type === 'global' ? t('global') : t('section')}
                           </span>
                         </td>
                         <td className="px-4 py-3">
@@ -659,7 +659,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                         <td className="px-4 py-3">
                           {chatbot.type === 'global' ? (
                             <span className="text-sm text-gray-700 dark:text-gray-300">
-                              {chatbot.category || 'Uncategorized'}
+                              {chatbot.category || t('uncategorized')}
                             </span>
                           ) : (
                             <div>
@@ -685,7 +685,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                               </div>
                             </div>
                           ) : (
-                            <span className="text-gray-400 dark:text-gray-500">System</span>
+                            <span className="text-gray-400 dark:text-gray-500">{t('system')}</span>
                           )}
                         </td>
                         <td className="px-4 py-3">
@@ -696,7 +696,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                                 : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
                             }`}
                           >
-                            {chatbot.isActive ? 'Active' : 'Inactive'}
+                            {chatbot.isActive ? t('active') : t('inactive')}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
@@ -729,7 +729,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                               {/* System Prompt */}
                               <div className="space-y-2">
                                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
-                                  System Prompt
+                                  {t('system_prompt')}
                                 </h4>
                                 {chatbot.systemPrompt ? (
                                   <div className="max-h-48 overflow-y-auto p-3 bg-gray-100 dark:bg-gray-900 rounded text-gray-700 dark:text-gray-300 whitespace-pre-wrap text-xs">
@@ -737,7 +737,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                                   </div>
                                 ) : (
                                   <span className="text-gray-400 dark:text-gray-500 italic">
-                                    No system prompt defined
+                                    {t('no_system_prompt')}
                                   </span>
                                 )}
                               </div>
@@ -745,13 +745,13 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                               {/* Rules */}
                               <div className="space-y-2">
                                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
-                                  Behavior Rules
+                                  {t('behavior_rules')}
                                 </h4>
                                 <div className="grid grid-cols-2 gap-4">
                                   {/* Do's Rules */}
                                   <div>
                                     <div className="text-xs font-medium text-green-700 dark:text-green-400 mb-1">
-                                      Do's
+                                      {t('dos_rules')}
                                     </div>
                                     {chatbot.dosRules && chatbot.dosRules.length > 0 ? (
                                       <ul className="space-y-1">
@@ -767,14 +767,14 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                                       </ul>
                                     ) : (
                                       <span className="text-gray-400 dark:text-gray-500 text-xs italic">
-                                        None defined
+                                        {t('none_defined')}
                                       </span>
                                     )}
                                   </div>
                                   {/* Don'ts Rules */}
                                   <div>
                                     <div className="text-xs font-medium text-red-700 dark:text-red-400 mb-1">
-                                      Don'ts
+                                      {t('donts_rules')}
                                     </div>
                                     {chatbot.dontsRules && chatbot.dontsRules.length > 0 ? (
                                       <ul className="space-y-1">
@@ -790,7 +790,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                                       </ul>
                                     ) : (
                                       <span className="text-gray-400 dark:text-gray-500 text-xs italic">
-                                        None defined
+                                        {t('none_defined')}
                                       </span>
                                     )}
                                   </div>
@@ -800,42 +800,42 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                               {/* Configuration */}
                               <div className="space-y-2">
                                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
-                                  Configuration
+                                  {t('configuration')}
                                 </h4>
                                 <div className="grid grid-cols-2 gap-2 text-gray-600 dark:text-gray-400">
                                   <div>
                                     <span className="text-gray-500 dark:text-gray-500">
-                                      Personality:
+                                      {t('personality')}:
                                     </span>{' '}
                                     {chatbot.personality || '-'}
                                   </div>
                                   <div>
                                     <span className="text-gray-500 dark:text-gray-500">
-                                      Temperature:
+                                      {t('temperature')}:
                                     </span>{' '}
                                     {chatbot.temperature ?? '-'}
                                   </div>
                                   <div>
                                     <span className="text-gray-500 dark:text-gray-500">
-                                      Max Tokens:
+                                      {t('max_tokens')}:
                                     </span>{' '}
                                     {chatbot.maxTokens ?? '-'}
                                   </div>
                                   <div>
                                     <span className="text-gray-500 dark:text-gray-500">
-                                      Response Style:
+                                      {t('response_style')}:
                                     </span>{' '}
                                     {chatbot.responseStyle || '-'}
                                   </div>
                                   <div>
                                     <span className="text-gray-500 dark:text-gray-500">
-                                      Model:
+                                      {t('model')}:
                                     </span>{' '}
-                                    {chatbot.modelPreference || 'Default'}
+                                    {chatbot.modelPreference || t('default_model')}
                                   </div>
                                   <div>
                                     <span className="text-gray-500 dark:text-gray-500">
-                                      Last Activity:
+                                      {t('last_activity')}:
                                     </span>{' '}
                                     {chatbot.lastActivity ? formatDate(chatbot.lastActivity) : '-'}
                                   </div>
@@ -845,13 +845,13 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                               {/* Welcome & Suggestions */}
                               <div className="space-y-2">
                                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
-                                  User Experience
+                                  {t('user_experience')}
                                 </h4>
                                 <div className="space-y-3 text-gray-600 dark:text-gray-400">
                                   {/* Welcome Message */}
                                   <div>
                                     <div className="text-xs font-medium text-gray-500 dark:text-gray-500 mb-1">
-                                      Welcome Message
+                                      {t('welcome_message')}
                                     </div>
                                     {chatbot.welcomeMessage ? (
                                       <div className="text-xs bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-blue-700 dark:text-blue-300">
@@ -859,7 +859,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                                       </div>
                                     ) : (
                                       <span className="text-gray-400 dark:text-gray-500 text-xs italic">
-                                        None
+                                        {t('none_defined')}
                                       </span>
                                     )}
                                   </div>
@@ -868,7 +868,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                                     chatbot.suggestedQuestions.length > 0 && (
                                       <div>
                                         <div className="text-xs font-medium text-gray-500 dark:text-gray-500 mb-1">
-                                          Suggested Questions
+                                          {t('suggested_questions')}
                                         </div>
                                         <div className="flex flex-wrap gap-1">
                                           {chatbot.suggestedQuestions.map((q, i) => (
@@ -889,25 +889,25 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                               {chatbot.type === 'section' && (
                                 <div className="space-y-2 md:col-span-2">
                                   <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
-                                    Course Hierarchy
+                                    {t('course_hierarchy')}
                                   </h4>
                                   <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                                    <span className="font-medium">Course:</span>
+                                    <span className="font-medium">{t('course')}:</span>
                                     {chatbot.courseTitle} (#{chatbot.courseId})
                                     <span className="text-gray-400 dark:text-gray-500">
                                       &rarr;
                                     </span>
-                                    <span className="font-medium">Module:</span>
+                                    <span className="font-medium">{t('module')}:</span>
                                     {chatbot.moduleTitle}
                                     <span className="text-gray-400 dark:text-gray-500">
                                       &rarr;
                                     </span>
-                                    <span className="font-medium">Lecture:</span>
+                                    <span className="font-medium">{t('lecture')}:</span>
                                     {chatbot.lectureTitle} (#{chatbot.lectureId})
                                     <span className="text-gray-400 dark:text-gray-500">
                                       &rarr;
                                     </span>
-                                    <span className="font-medium">Section:</span>#{chatbot.sectionId}
+                                    <span className="font-medium">{t('section')}:</span>#{chatbot.sectionId}
                                   </div>
                                 </div>
                               )}
@@ -916,7 +916,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                               {chatbot.knowledgeContext && (
                                 <div className="space-y-2 md:col-span-2">
                                   <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
-                                    Knowledge Context
+                                    {t('knowledge_context')}
                                   </h4>
                                   <div className="max-h-32 overflow-y-auto p-3 bg-gray-100 dark:bg-gray-900 rounded text-gray-700 dark:text-gray-300 whitespace-pre-wrap text-xs">
                                     {chatbot.knowledgeContext}
@@ -928,7 +928,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                               {chatbot.personalityPrompt && (
                                 <div className="space-y-2 md:col-span-2">
                                   <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
-                                    Personality Prompt
+                                    {t('personality_prompt')}
                                   </h4>
                                   <div className="max-h-32 overflow-y-auto p-3 bg-purple-50 dark:bg-purple-900/20 rounded text-purple-700 dark:text-purple-300 whitespace-pre-wrap text-xs">
                                     {chatbot.personalityPrompt}
@@ -950,7 +950,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
           {pagination.totalPages > 1 && (
             <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700">
               <div className="text-sm text-gray-500 dark:text-gray-400">
-                Page {pagination.page} of {pagination.totalPages}
+                {t('page_x_of_y', { page: pagination.page, total: pagination.totalPages })}
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -959,7 +959,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                   onClick={() => goToPage(1)}
                   disabled={pagination.page === 1}
                 >
-                  First
+                  {t('first')}
                 </Button>
                 <Button
                   variant="outline"
@@ -968,7 +968,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                   disabled={pagination.page === 1}
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  Prev
+                  {t('prev')}
                 </Button>
 
                 {/* Page numbers */}
@@ -1007,7 +1007,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                   onClick={() => goToPage(pagination.page + 1)}
                   disabled={pagination.page === pagination.totalPages}
                 >
-                  Next
+                  {t('next')}
                   <ChevronRight className="w-4 h-4" />
                 </Button>
                 <Button
@@ -1016,7 +1016,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                   onClick={() => goToPage(pagination.totalPages)}
                   disabled={pagination.page === pagination.totalPages}
                 >
-                  Last
+                  {t('last')}
                 </Button>
               </div>
             </div>

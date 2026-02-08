@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Award, Calendar, ExternalLink, Download } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../hooks/useTheme';
 import { Card, CardBody } from '../components/common/Card';
 import { Button } from '../components/common/Button';
@@ -18,6 +19,7 @@ interface CertificateItem {
 }
 
 export const CertificateList = () => {
+  const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
 
   const colors = {
@@ -39,22 +41,22 @@ export const CertificateList = () => {
   });
 
   if (isLoading) {
-    return <Loading text="Loading certificates..." />;
+    return <Loading text={t('loading_certificates')} />;
   }
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Breadcrumb navigation */}
       <div className="mb-6">
-        <Breadcrumb items={[{ label: 'My Certificates' }]} />
+        <Breadcrumb items={[{ label: t('my_certificates') }]} />
       </div>
 
       <div className="mb-8">
         <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
-          My Certificates
+          {t('my_certificates')}
         </h1>
         <p className="mt-2" style={{ color: colors.textSecondary }}>
-          View and download your earned certificates
+          {t('no_certificates_description').replace('Complete courses to earn certificates that you can share and download.', 'View and download your earned certificates')}
         </p>
       </div>
 
@@ -63,13 +65,13 @@ export const CertificateList = () => {
           <CardBody className="text-center py-12">
             <Award className="w-12 h-12 mx-auto mb-4" style={{ color: colors.gold }} />
             <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>
-              No Certificates Yet
+              {t('no_certificates_yet')}
             </h3>
             <p style={{ color: colors.textSecondary }}>
-              Complete courses to earn certificates. They will appear here once issued.
+              {t('no_certificates_description')}
             </p>
             <Link to="/courses" className="mt-4 inline-block">
-              <Button>Browse Courses</Button>
+              <Button>{t('browse_courses')}</Button>
             </Link>
           </CardBody>
         </Card>
@@ -101,7 +103,7 @@ export const CertificateList = () => {
                     <div className="flex items-center gap-2 mt-2" style={{ color: colors.textSecondary }}>
                       <Calendar className="w-4 h-4" />
                       <span className="text-sm">
-                        Issued {new Date(cert.issuedAt).toLocaleDateString()}
+                        {t('issued_on', { date: new Date(cert.issuedAt).toLocaleDateString() })}
                       </span>
                     </div>
                     <p className="text-xs mt-1 font-mono" style={{ color: colors.textSecondary }}>
@@ -113,13 +115,13 @@ export const CertificateList = () => {
                   <Link to={`/certificate/${cert.id}`} className="flex-1">
                     <Button variant="outline" size="sm" className="w-full">
                       <ExternalLink className="w-4 h-4 mr-2" />
-                      View
+                      {t('common:view')}
                     </Button>
                   </Link>
                   <Link to={`/verify/${cert.verificationCode}`} className="flex-1">
                     <Button size="sm" className="w-full">
                       <Download className="w-4 h-4 mr-2" />
-                      Download
+                      {t('common:download')}
                     </Button>
                   </Link>
                 </div>

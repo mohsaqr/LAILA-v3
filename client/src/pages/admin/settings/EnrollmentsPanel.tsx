@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Download, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
 import { adminApi } from '../../../api/admin';
 import { useTheme } from '../../../hooks/useTheme';
@@ -9,6 +10,7 @@ import { Modal } from '../../../components/common/Modal';
 import toast from 'react-hot-toast';
 
 export const EnrollmentsPanel = () => {
+  const { t } = useTranslation(['admin', 'common']);
   const [page, setPage] = useState(1);
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [csvText, setCsvText] = useState('');
@@ -53,14 +55,14 @@ export const EnrollmentsPanel = () => {
       a.download = `enrollments-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success('Export downloaded');
+      toast.success(t('export_downloaded'));
     } catch {
-      toast.error('Export failed');
+      toast.error(t('export_failed'));
     }
   };
 
   if (isLoading) {
-    return <Loading text="Loading enrollments..." />;
+    return <Loading text={t('loading_enrollments')} />;
   }
 
   const enrollments = data?.enrollments || [];
@@ -71,15 +73,15 @@ export const EnrollmentsPanel = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>Enrollments</h2>
-          <p className="text-sm" style={{ color: colors.textSecondary }}>{pagination?.total || 0} total enrollments</p>
+          <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>{t('enrollments')}</h2>
+          <p className="text-sm" style={{ color: colors.textSecondary }}>{t('total_enrollments', { count: pagination?.total || 0 })}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => setShowBatchModal(true)}>
-            <Upload className="w-4 h-4 mr-1" /> Batch Import
+            <Upload className="w-4 h-4 mr-1" /> {t('batch_import')}
           </Button>
           <Button variant="outline" size="sm" onClick={handleExport}>
-            <Download className="w-4 h-4 mr-1" /> Export
+            <Download className="w-4 h-4 mr-1" /> {t('common:export')}
           </Button>
         </div>
       </div>
@@ -89,11 +91,11 @@ export const EnrollmentsPanel = () => {
         <table className="w-full">
           <thead>
             <tr style={{ borderBottom: `1px solid ${colors.border}`, backgroundColor: colors.bgHeader }}>
-              <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>Student</th>
-              <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>Course</th>
-              <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>Progress</th>
-              <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>Status</th>
-              <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>Enrolled</th>
+              <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>{t('student')}</th>
+              <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>{t('course')}</th>
+              <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>{t('progress')}</th>
+              <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>{t('status')}</th>
+              <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>{t('enrolled')}</th>
             </tr>
           </thead>
           <tbody>
@@ -150,7 +152,7 @@ export const EnrollmentsPanel = () => {
             style={{ borderTop: `1px solid ${colors.border}`, backgroundColor: colors.bgHeader }}
           >
             <p className="text-sm" style={{ color: colors.textSecondary }}>
-              Page {pagination.page} of {pagination.totalPages}
+              {t('page_x_of_y', { page: pagination.page, total: pagination.totalPages })}
             </p>
             <div className="flex gap-1">
               <button
@@ -175,10 +177,10 @@ export const EnrollmentsPanel = () => {
       </div>
 
       {/* Batch Import Modal */}
-      <Modal isOpen={showBatchModal} onClose={() => setShowBatchModal(false)} title="Batch Import Enrollments">
+      <Modal isOpen={showBatchModal} onClose={() => setShowBatchModal(false)} title={t('batch_import_enrollments')}>
         <div className="space-y-4">
           <p className="text-sm" style={{ color: colors.textSecondary }}>
-            Paste CSV data with columns: <code className="px-1 rounded" style={{ backgroundColor: colors.bgModal, color: colors.textPrimary }}>email,course_id</code>
+            {t('batch_import_instructions')} <code className="px-1 rounded" style={{ backgroundColor: colors.bgModal, color: colors.textPrimary }}>email,course_id</code>
           </p>
           <textarea
             value={csvText}
@@ -192,9 +194,9 @@ export const EnrollmentsPanel = () => {
             }}
           />
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowBatchModal(false)}>Cancel</Button>
-            <Button onClick={() => { toast.success('Feature coming soon'); setShowBatchModal(false); }}>
-              Import
+            <Button variant="outline" onClick={() => setShowBatchModal(false)}>{t('common:cancel')}</Button>
+            <Button onClick={() => { toast.success(t('feature_coming_soon')); setShowBatchModal(false); }}>
+              {t('import')}
             </Button>
           </div>
         </div>

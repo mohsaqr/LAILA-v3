@@ -87,5 +87,46 @@
   "options": "Options",
   "more_options": "More options",
   "app_name": "LAILA",
-  "copyright": "© {{year}} LAILA. All rights reserved."
+  "copyright": "© {{year}} LAILA. All rights reserved.",
+  "help": "Help",
+  "go_back": "Go Back",
+  "dismiss": "Dismiss",
+  "courses": "Courses",
+  "settings": "Settings",
+  "dashboard": "Dashboard",
+
+  "status_draft": "Draft",
+  "status_published": "Published",
+  "status_archived": "Archived",
+  "status_submitted": "Submitted",
+  "status_graded": "Graded",
+  "status_returned": "Returned",
+  "status_active": "Active",
+  "status_completed": "Completed",
+  "status_pending": "Pending",
+  "status_not_started": "Not Started",
+
+  "theme_dark": "Dark",
+  "theme_light": "Light",
+  "theme_label": "Theme: {{theme}}",
+  "theme_aria_label": "Current theme: {{theme}}. Click to switch.",
+
+  "emotion_productive": "Productive",
+  "emotion_stimulated": "Stimulated",
+  "emotion_frustrated": "Frustrated",
+  "emotion_learning": "Learning",
+  "emotion_enjoying": "Enjoying",
+  "emotion_bored": "Bored",
+  "emotion_quitting": "Quitting",
+  "how_are_you_feeling": "How are you feeling?",
+  "thanks_for_sharing": "Thanks for sharing!",
+
+  "skip_to_main_content": "Skip to main content",
+  "skip_to_navigation": "Skip to navigation",
+
+  "something_went_wrong": "Something went wrong",
+  "error_boundary_message": "We're sorry, but something unexpected happened. Please try refreshing the page or go back to the home page.",
+  "try_again": "Try Again",
+  "go_home": "Go Home",
+  "reload_page": "Reload Page"
 }

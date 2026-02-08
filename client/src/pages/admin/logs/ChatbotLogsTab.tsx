@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   MessageCircle,
   Clock,
@@ -35,6 +36,7 @@ interface ChatbotLogsTabProps {
 }
 
 export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTabProps) => {
+  const { t } = useTranslation(['admin']);
   const [selectedChatbotLog, setSelectedChatbotLog] = useState<any | null>(null);
 
   const { data: chatbotSummary, isLoading: chatbotLoading, refetch: refetchChatbot } = useQuery({
@@ -58,7 +60,7 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
   };
 
   if (chatbotLoading) {
-    return <Loading text="Loading chatbot logs..." />;
+    return <Loading text={t('loading_chatbot_logs')} />;
   }
 
   if (!chatbotSummary) {
@@ -76,7 +78,7 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{chatbotSummary.totalLogs}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Total Logs</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('total_logs')}</p>
             </div>
           </CardBody>
         </Card>
@@ -87,7 +89,7 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{chatbotSummary.byChatbot?.length || 0}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Active Chatbots</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('active_chatbots')}</p>
             </div>
           </CardBody>
         </Card>
@@ -100,7 +102,7 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {chatbotSummary.responseTimeStats?.avg?.toFixed(2) || 0}s
               </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Avg Response</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('avg_response')}</p>
             </div>
           </CardBody>
         </Card>
@@ -111,7 +113,7 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{chatbotSummary.byUser?.length || 0}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Unique Users</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('unique_users')}</p>
             </div>
           </CardBody>
         </Card>
@@ -124,7 +126,7 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
           <CardHeader className="py-3">
             <div className="flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">By Course</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{t('by_course')}</h3>
             </div>
           </CardHeader>
           <CardBody className="pt-0">
@@ -133,7 +135,7 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
                 chatbotSummary.byCourse.map((item: any) => (
                   <div key={item.courseId} className="flex items-center justify-between text-sm">
                     <span className="text-gray-700 dark:text-gray-300 truncate" title={item.courseTitle}>
-                      {item.courseTitle || `Course #${item.courseId}`}
+                      {item.courseTitle || `${t('course')} #${item.courseId}`}
                     </span>
                     <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded text-xs font-medium">
                       {item.count}
@@ -141,7 +143,7 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
                   </div>
                 ))
               ) : (
-                <p className="text-gray-400 dark:text-gray-500 text-sm">No data</p>
+                <p className="text-gray-400 dark:text-gray-500 text-sm">{t('no_data')}</p>
               )}
             </div>
           </CardBody>
@@ -152,7 +154,7 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
           <CardHeader className="py-3">
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">By Module</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{t('by_module')}</h3>
             </div>
           </CardHeader>
           <CardBody className="pt-0">
@@ -161,7 +163,7 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
                 chatbotSummary.byModule.map((item: any) => (
                   <div key={item.moduleId} className="flex items-center justify-between text-sm">
                     <span className="text-gray-700 dark:text-gray-300 truncate" title={item.moduleTitle}>
-                      {item.moduleTitle || `Module #${item.moduleId}`}
+                      {item.moduleTitle || `${t('module')} #${item.moduleId}`}
                     </span>
                     <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded text-xs font-medium">
                       {item.count}
@@ -169,7 +171,7 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
                   </div>
                 ))
               ) : (
-                <p className="text-gray-400 dark:text-gray-500 text-sm">No data</p>
+                <p className="text-gray-400 dark:text-gray-500 text-sm">{t('no_data')}</p>
               )}
             </div>
           </CardBody>
@@ -180,7 +182,7 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
           <CardHeader className="py-3">
             <div className="flex items-center gap-2">
               <Activity className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">By Event Type</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{t('by_event_type')}</h3>
             </div>
           </CardHeader>
           <CardBody className="pt-0">
@@ -202,7 +204,7 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
           <CardHeader className="py-3">
             <div className="flex items-center gap-2">
               <Zap className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">By AI Model</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{t('by_ai_model')}</h3>
             </div>
           </CardHeader>
           <CardBody className="pt-0">
@@ -217,7 +219,7 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
                   </div>
                 ))
               ) : (
-                <p className="text-gray-400 dark:text-gray-500 text-sm">No data</p>
+                <p className="text-gray-400 dark:text-gray-500 text-sm">{t('no_data')}</p>
               )}
             </div>
           </CardBody>
@@ -228,7 +230,7 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
           <CardHeader className="py-3">
             <div className="flex items-center gap-2">
               <User className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Top Users</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{t('top_users')}</h3>
             </div>
           </CardHeader>
           <CardBody className="pt-0">
@@ -236,14 +238,14 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
               {chatbotSummary.byUser?.length > 0 ? (
                 chatbotSummary.byUser.slice(0, 5).map((item: any) => (
                   <div key={item.userId} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-700 dark:text-gray-300 truncate">{item.userName || `User #${item.userId}`}</span>
+                    <span className="text-gray-700 dark:text-gray-300 truncate">{item.userName || `${t('user')} #${item.userId}`}</span>
                     <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs font-medium">
                       {item.count}
                     </span>
                   </div>
                 ))
               ) : (
-                <p className="text-gray-400 dark:text-gray-500 text-sm">No data</p>
+                <p className="text-gray-400 dark:text-gray-500 text-sm">{t('no_data')}</p>
               )}
             </div>
           </CardBody>
@@ -254,25 +256,25 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
           <CardHeader className="py-3">
             <div className="flex items-center gap-2">
               <Hash className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Message Stats</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{t('message_stats')}</h3>
             </div>
           </CardHeader>
           <CardBody className="pt-0">
             <div className="space-y-3 text-sm">
               <div>
-                <p className="text-gray-500 dark:text-gray-400 text-xs">Avg Message Length</p>
+                <p className="text-gray-500 dark:text-gray-400 text-xs">{t('avg_message_length')}</p>
                 <p className="font-medium text-gray-900 dark:text-gray-100">
-                  {Math.round(chatbotSummary.messageLengthStats?.avgChars || 0)} chars / {Math.round(chatbotSummary.messageLengthStats?.avgWords || 0)} words
+                  {Math.round(chatbotSummary.messageLengthStats?.avgChars || 0)} {t('chars')} / {Math.round(chatbotSummary.messageLengthStats?.avgWords || 0)} {t('words')}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 dark:text-gray-400 text-xs">Avg Response Length</p>
+                <p className="text-gray-500 dark:text-gray-400 text-xs">{t('avg_response_length')}</p>
                 <p className="font-medium text-gray-900 dark:text-gray-100">
-                  {Math.round(chatbotSummary.responseLengthStats?.avgChars || 0)} chars / {Math.round(chatbotSummary.responseLengthStats?.avgWords || 0)} words
+                  {Math.round(chatbotSummary.responseLengthStats?.avgChars || 0)} {t('chars')} / {Math.round(chatbotSummary.responseLengthStats?.avgWords || 0)} {t('words')}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 dark:text-gray-400 text-xs">Response Time Range</p>
+                <p className="text-gray-500 dark:text-gray-400 text-xs">{t('response_time_range')}</p>
                 <p className="font-medium text-gray-900 dark:text-gray-100">
                   {chatbotSummary.responseTimeStats?.min?.toFixed(2) || 0}s - {chatbotSummary.responseTimeStats?.max?.toFixed(2) || 0}s
                 </p>
@@ -285,11 +287,11 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
       {/* Recent Logs Table */}
       <Card>
         <CardHeader className="flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100">Recent Chatbot Interactions</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('recent_chatbot_interactions')}</h3>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => refetchChatbot()}>
               <RefreshCw className="w-4 h-4 mr-1" />
-              Refresh
+              {t('common:refresh')}
             </Button>
             <Button variant="ghost" size="sm" onClick={handleExportChatbot} disabled={exportStatus === 'loading'}>
               {exportStatus === 'loading' ? (
@@ -297,7 +299,7 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
               ) : (
                 <Download className="w-4 h-4 mr-1" />
               )}
-              Export JSON
+              {t('export_json')}
             </Button>
           </div>
         </CardHeader>
@@ -306,12 +308,12 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Timestamp</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">From</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Chatbot</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Course</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Content</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Model</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('timestamp')}</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('from')}</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('chatbot')}</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('course')}</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('content')}</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('model')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -326,11 +328,11 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
                         </td>
                         <td className="px-3 py-2">
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
-                            {item.userFullname || 'User'}
+                            {item.userFullname || t('user')}
                           </span>
                         </td>
                         <td className="px-3 py-2 text-xs text-gray-600 dark:text-gray-400">
-                          <div>{item.chatbotTitle || 'Unnamed'}</div>
+                          <div>{item.chatbotTitle || t('unnamed')}</div>
                           <div className="text-gray-400 dark:text-gray-500 text-[10px]">ID: {item.conversationId}</div>
                         </td>
                         <td className="px-3 py-2 text-xs">
@@ -354,11 +356,11 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
                         </td>
                         <td className="px-3 py-2">
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
-                            Bot
+                            {t('bot')}
                           </span>
                         </td>
                         <td className="px-3 py-2 text-xs text-gray-600 dark:text-gray-400">
-                          <div>{item.chatbotTitle || 'Unnamed'}</div>
+                          <div>{item.chatbotTitle || t('unnamed')}</div>
                           <div className="text-gray-400 dark:text-gray-500 text-[10px]">ID: {item.conversationId}</div>
                         </td>
                         <td className="px-3 py-2 text-xs">
@@ -385,18 +387,18 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
                         </td>
                         <td className="px-3 py-2">
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300">
-                            System
+                            {t('system')}
                           </span>
                         </td>
                         <td className="px-3 py-2 text-xs text-gray-600 dark:text-gray-400">
-                          <div>{item.chatbotTitle || 'Unnamed'}</div>
+                          <div>{item.chatbotTitle || t('unnamed')}</div>
                           <div className="text-gray-400 dark:text-gray-500 text-[10px]">ID: {item.conversationId}</div>
                         </td>
                         <td className="px-3 py-2 text-xs">
                           <div className="text-blue-600 dark:text-blue-400 truncate max-w-[100px]" title={item.courseTitle}>{item.courseTitle || '-'}</div>
                         </td>
                         <td className="px-3 py-2">
-                          <span className="text-xs text-gray-500 dark:text-gray-400 italic">Conversation started by {item.userFullname || 'User'}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400 italic">{t('conversation_started_by', { user: item.userFullname || t('user') })}</span>
                         </td>
                         <td className="px-3 py-2 text-gray-400 dark:text-gray-500 text-xs">-</td>
                       </tr>
@@ -415,6 +417,7 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
         <ChatbotLogDetailModal
           log={selectedChatbotLog}
           onClose={() => setSelectedChatbotLog(null)}
+          t={t}
         />
       )}
     </>
@@ -424,15 +427,16 @@ export const ChatbotLogsTab = ({ exportStatus, setExportStatus }: ChatbotLogsTab
 interface ChatbotLogDetailModalProps {
   log: any;
   onClose: () => void;
+  t: (key: string, options?: Record<string, unknown>) => string;
 }
 
-const ChatbotLogDetailModal = ({ log, onClose }: ChatbotLogDetailModalProps) => {
+const ChatbotLogDetailModal = ({ log, onClose, t }: ChatbotLogDetailModalProps) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-700/50">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Chatbot Interaction Details</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('chatbot_interaction_details')}</h3>
           <button onClick={onClose} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded">
             <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
           </button>
@@ -446,12 +450,12 @@ const ChatbotLogDetailModal = ({ log, onClose }: ChatbotLogDetailModalProps) => 
               {/* Timing */}
               <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                  <Clock className="w-4 h-4" /> Timing
+                  <Clock className="w-4 h-4" /> {t('timing')}
                 </h4>
                 <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div><span className="text-gray-500 dark:text-gray-400">Timestamp:</span></div>
+                  <div><span className="text-gray-500 dark:text-gray-400">{t('timestamp')}:</span></div>
                   <div className="font-medium text-gray-900 dark:text-gray-100">{formatFullDate(log.timestamp)}</div>
-                  <div><span className="text-gray-500 dark:text-gray-400">Session ID:</span></div>
+                  <div><span className="text-gray-500 dark:text-gray-400">{t('session_id')}:</span></div>
                   <div className="font-mono text-xs text-gray-900 dark:text-gray-100">{log.sessionId}</div>
                 </div>
               </div>
@@ -459,10 +463,10 @@ const ChatbotLogDetailModal = ({ log, onClose }: ChatbotLogDetailModalProps) => 
               {/* User */}
               <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                  <User className="w-4 h-4" /> User
+                  <User className="w-4 h-4" /> {t('user')}
                 </h4>
                 <div className="text-sm">
-                  <p className="font-medium text-gray-900 dark:text-gray-100">{log.userFullname || 'Anonymous'}</p>
+                  <p className="font-medium text-gray-900 dark:text-gray-100">{log.userFullname || t('anonymous')}</p>
                   <p className="text-gray-500 dark:text-gray-400">{log.userEmail}</p>
                 </div>
               </div>
@@ -470,19 +474,19 @@ const ChatbotLogDetailModal = ({ log, onClose }: ChatbotLogDetailModalProps) => 
               {/* Course Hierarchy */}
               <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                  <BookOpen className="w-4 h-4" /> Course Hierarchy
+                  <BookOpen className="w-4 h-4" /> {t('course_hierarchy')}
                 </h4>
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center gap-2">
-                    <span className="w-16 text-gray-500 dark:text-gray-400">Course:</span>
+                    <span className="w-16 text-gray-500 dark:text-gray-400">{t('course')}:</span>
                     <span className="font-medium text-gray-900 dark:text-gray-100">{log.courseTitle || '-'}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-16 text-gray-500 dark:text-gray-400">Module:</span>
+                    <span className="w-16 text-gray-500 dark:text-gray-400">{t('module')}:</span>
                     <span className="text-gray-900 dark:text-gray-100">{log.moduleTitle || '-'}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-16 text-gray-500 dark:text-gray-400">Lecture:</span>
+                    <span className="w-16 text-gray-500 dark:text-gray-400">{t('lecture')}:</span>
                     <span className="text-gray-900 dark:text-gray-100">{log.lectureTitle || '-'}</span>
                   </div>
                 </div>
@@ -491,12 +495,12 @@ const ChatbotLogDetailModal = ({ log, onClose }: ChatbotLogDetailModalProps) => 
               {/* Client Info */}
               <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                  <Monitor className="w-4 h-4" /> Client
+                  <Monitor className="w-4 h-4" /> {t('client')}
                 </h4>
                 <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div><span className="text-gray-500 dark:text-gray-400">Device:</span></div>
+                  <div><span className="text-gray-500 dark:text-gray-400">{t('device')}:</span></div>
                   <div className="text-gray-900 dark:text-gray-100">{log.deviceType || '-'}</div>
-                  <div><span className="text-gray-500 dark:text-gray-400">Browser:</span></div>
+                  <div><span className="text-gray-500 dark:text-gray-400">{t('browser')}:</span></div>
                   <div className="text-gray-900 dark:text-gray-100">{log.browserName} {log.browserVersion}</div>
                 </div>
               </div>
@@ -507,7 +511,7 @@ const ChatbotLogDetailModal = ({ log, onClose }: ChatbotLogDetailModalProps) => 
               {/* Event */}
               <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4">
                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                  <Activity className="w-4 h-4" /> Event
+                  <Activity className="w-4 h-4" /> {t('event')}
                 </h4>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                   log.eventType === 'error' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' :
@@ -522,14 +526,14 @@ const ChatbotLogDetailModal = ({ log, onClose }: ChatbotLogDetailModalProps) => 
               {/* Chatbot Config */}
               <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                  <Bot className="w-4 h-4" /> Chatbot Config
+                  <Bot className="w-4 h-4" /> {t('chatbot_config')}
                 </h4>
                 <div className="space-y-2 text-sm">
-                  <div><span className="text-gray-500 dark:text-gray-400">Title:</span> <span className="text-gray-900 dark:text-gray-100">{log.chatbotTitle || '-'}</span></div>
-                  <div><span className="text-gray-500 dark:text-gray-400">Intro:</span> <span className="text-gray-900 dark:text-gray-100">{log.chatbotIntro || '-'}</span></div>
+                  <div><span className="text-gray-500 dark:text-gray-400">{t('title')}:</span> <span className="text-gray-900 dark:text-gray-100">{log.chatbotTitle || '-'}</span></div>
+                  <div><span className="text-gray-500 dark:text-gray-400">{t('intro')}:</span> <span className="text-gray-900 dark:text-gray-100">{log.chatbotIntro || '-'}</span></div>
                   {log.chatbotSystemPrompt && (
                     <div>
-                      <span className="text-gray-500 dark:text-gray-400">System Prompt:</span>
+                      <span className="text-gray-500 dark:text-gray-400">{t('system_prompt')}:</span>
                       <pre className="mt-1 p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded text-xs whitespace-pre-wrap max-h-24 overflow-y-auto text-gray-900 dark:text-gray-100">
                         {log.chatbotSystemPrompt}
                       </pre>
@@ -541,10 +545,10 @@ const ChatbotLogDetailModal = ({ log, onClose }: ChatbotLogDetailModalProps) => 
               {/* Message */}
               {log.messageContent && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">User Message</h4>
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">{t('user_message')}</h4>
                   <p className="text-sm bg-white dark:bg-gray-800 rounded p-3 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100">{log.messageContent}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    {log.messageCharCount} chars / {log.messageWordCount} words
+                    {log.messageCharCount} {t('chars')} / {log.messageWordCount} {t('words')}
                   </p>
                 </div>
               )}
@@ -552,14 +556,14 @@ const ChatbotLogDetailModal = ({ log, onClose }: ChatbotLogDetailModalProps) => 
               {/* Response */}
               {log.responseContent && (
                 <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">AI Response</h4>
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">{t('ai_response')}</h4>
                   <p className="text-sm bg-white dark:bg-gray-800 rounded p-3 border border-gray-200 dark:border-gray-600 whitespace-pre-wrap max-h-48 overflow-y-auto text-gray-900 dark:text-gray-100">
                     {log.responseContent}
                   </p>
                   <div className="flex flex-wrap gap-4 text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    <span>{log.responseCharCount} chars</span>
-                    <span>Response: {log.responseTime?.toFixed(2)}s</span>
-                    <span>Model: {log.aiModel}</span>
+                    <span>{log.responseCharCount} {t('chars')}</span>
+                    <span>{t('response_label')}: {log.responseTime?.toFixed(2)}s</span>
+                    <span>{t('model')}: {log.aiModel}</span>
                   </div>
                 </div>
               )}
@@ -567,7 +571,7 @@ const ChatbotLogDetailModal = ({ log, onClose }: ChatbotLogDetailModalProps) => 
               {/* Error */}
               {log.errorMessage && (
                 <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
-                  <h4 className="font-semibold text-red-700 dark:text-red-400 mb-2">Error</h4>
+                  <h4 className="font-semibold text-red-700 dark:text-red-400 mb-2">{t('error')}</h4>
                   <p className="text-sm text-red-600 dark:text-red-400">{log.errorMessage}</p>
                 </div>
               )}

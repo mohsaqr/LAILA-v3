@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   Users,
   BookOpen,
@@ -16,6 +17,7 @@ import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Loading } from '../../components/common/Loading';
 
 export const AdminDashboard = () => {
+  const { t } = useTranslation(['admin', 'common']);
   const { isDark } = useTheme();
   const { data: adminData, isLoading } = useQuery({
     queryKey: ['adminStats'],
@@ -55,15 +57,15 @@ export const AdminDashboard = () => {
   };
 
   if (isLoading) {
-    return <Loading fullScreen text="Loading admin dashboard..." />;
+    return <Loading fullScreen text={t('loading_admin_dashboard')} />;
   }
 
   const stats = adminData?.stats;
 
   return (
     <AdminLayout
-      title="Overview"
-      description="Platform statistics and recent activity"
+      title={t('overview')}
+      description={t('platform_statistics_desc')}
     >
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -71,25 +73,25 @@ export const AdminDashboard = () => {
           icon={<Users className="w-6 h-6" style={{ color: colors.textBlue }} />}
           iconBgColor={colors.bgBlue}
           value={stats?.totalUsers || 0}
-          label="Total Users"
+          label={t('total_users')}
         />
         <StatCard
           icon={<TrendingUp className="w-6 h-6" style={{ color: colors.textGreen }} />}
           iconBgColor={colors.bgGreen}
           value={stats?.activeUsers || 0}
-          label="Active Users"
+          label={t('active_users')}
         />
         <StatCard
           icon={<BookOpen className="w-6 h-6" style={{ color: colors.textTeal }} />}
           iconBgColor={colors.bgTeal}
           value={stats?.totalCourses || 0}
-          label="Total Courses"
+          label={t('total_courses')}
         />
         <StatCard
           icon={<GraduationCap className="w-6 h-6" style={{ color: colors.textIndigo }} />}
           iconBgColor={colors.bgIndigo}
           value={stats?.publishedCourses || 0}
-          label="Published"
+          label={t('common:published')}
         />
       </div>
 
@@ -98,19 +100,19 @@ export const AdminDashboard = () => {
           icon={<UserPlus className="w-6 h-6" style={{ color: colors.textCyan }} />}
           iconBgColor={colors.bgCyan}
           value={stats?.totalEnrollments || 0}
-          label="Enrollments"
+          label={t('enrollments')}
         />
         <StatCard
           icon={<FileText className="w-6 h-6" style={{ color: colors.textOrange }} />}
           iconBgColor={colors.bgOrange}
           value={stats?.totalAssignments || 0}
-          label="Assignments"
+          label={t('assignments')}
         />
         <StatCard
           icon={<MessageSquare className="w-6 h-6" style={{ color: colors.textPink }} />}
           iconBgColor={colors.bgPink}
           value={stats?.totalChatLogs || 0}
-          label="Chat Sessions"
+          label={t('chat_sessions')}
         />
         <div
           className="rounded-xl p-4 flex items-center justify-center"
@@ -121,24 +123,24 @@ export const AdminDashboard = () => {
         >
           <div className="text-center">
             <p className="text-2xl font-bold text-white">LAILA</p>
-            <p className="text-xs" style={{ color: colors.textMuted }}>Admin Panel</p>
+            <p className="text-xs" style={{ color: colors.textMuted }}>{t('admin_panel')}</p>
           </div>
         </div>
       </div>
 
       {/* Recent Activity Section */}
-      <h2 className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>Recent Activity</h2>
+      <h2 className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>{t('recent_activity')}</h2>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Users */}
         <Card>
           <CardHeader className="flex items-center justify-between">
-            <h3 className="font-medium" style={{ color: colors.textPrimary }}>New Users</h3>
+            <h3 className="font-medium" style={{ color: colors.textPrimary }}>{t('new_users')}</h3>
             <Link
               to="/admin/settings?tab=users"
               className="text-sm hover:underline"
               style={{ color: colors.linkColor }}
             >
-              View All
+              {t('view_all')}
             </Link>
           </CardHeader>
           <CardBody className="p-0">
@@ -164,7 +166,7 @@ export const AdminDashboard = () => {
               ))}
               {(!adminData?.recentUsers || adminData.recentUsers.length === 0) && (
                 <div className="px-6 py-8 text-center text-sm" style={{ color: colors.textSecondary }}>
-                  No recent users
+                  {t('no_recent_users')}
                 </div>
               )}
             </div>
@@ -174,13 +176,13 @@ export const AdminDashboard = () => {
         {/* Recent Enrollments */}
         <Card>
           <CardHeader className="flex items-center justify-between">
-            <h3 className="font-medium" style={{ color: colors.textPrimary }}>New Enrollments</h3>
+            <h3 className="font-medium" style={{ color: colors.textPrimary }}>{t('new_enrollments')}</h3>
             <Link
               to="/admin/settings?tab=enrollments"
               className="text-sm hover:underline"
               style={{ color: colors.linkColor }}
             >
-              View All
+              {t('view_all')}
             </Link>
           </CardHeader>
           <CardBody className="p-0">
@@ -206,7 +208,7 @@ export const AdminDashboard = () => {
               ))}
               {(!adminData?.recentEnrollments || adminData.recentEnrollments.length === 0) && (
                 <div className="px-6 py-8 text-center text-sm" style={{ color: colors.textSecondary }}>
-                  No recent enrollments
+                  {t('no_recent_enrollments')}
                 </div>
               )}
             </div>

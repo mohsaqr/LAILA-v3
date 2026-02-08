@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { FileQuestion, Clock, Users, ChevronRight, Plus } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { Card, CardBody } from '../../components/common/Card';
@@ -22,6 +23,7 @@ interface QuizListItem {
 }
 
 export const QuizList = () => {
+  const { t } = useTranslation(['teaching', 'common']);
   const { isDark } = useTheme();
 
   const colors = {
@@ -43,7 +45,7 @@ export const QuizList = () => {
   });
 
   if (isLoading) {
-    return <Loading text="Loading quizzes..." />;
+    return <Loading text={t('loading_quizzes')} />;
   }
 
   const breadcrumbItems = buildTeachingBreadcrumb(undefined, undefined, 'All Quizzes');
@@ -58,10 +60,10 @@ export const QuizList = () => {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
-            Quiz Manager
+            {t('quiz_manager')}
           </h1>
           <p className="mt-2" style={{ color: colors.textSecondary }}>
-            Manage quizzes across all your courses
+            {t('manage_quizzes_all')}
           </p>
         </div>
       </div>
@@ -71,15 +73,15 @@ export const QuizList = () => {
           <CardBody className="text-center py-12">
             <FileQuestion className="w-12 h-12 mx-auto mb-4" style={{ color: colors.textSecondary }} />
             <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>
-              No Quizzes Created
+              {t('no_quizzes_created')}
             </h3>
             <p style={{ color: colors.textSecondary }}>
-              Create quizzes from your course curriculum pages.
+              {t('create_quizzes_from_course')}
             </p>
             <Link to="/courses" className="mt-4 inline-block">
               <Button>
                 <Plus className="w-4 h-4 mr-2" />
-                Go to Courses
+                {t('go_to_courses')}
               </Button>
             </Link>
           </CardBody>
@@ -113,7 +115,7 @@ export const QuizList = () => {
                               : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
                           }`}
                         >
-                          {quiz.isPublished ? 'Published' : 'Draft'}
+                          {quiz.isPublished ? t('published') : t('draft')}
                         </span>
                       </div>
                       <p className="text-sm" style={{ color: colors.textSecondary }}>
@@ -127,7 +129,7 @@ export const QuizList = () => {
                         {quiz.questionCount}
                       </p>
                       <p className="text-xs" style={{ color: colors.textSecondary }}>
-                        Questions
+                        {t('questions_label')}
                       </p>
                     </div>
                     {quiz.timeLimit && (

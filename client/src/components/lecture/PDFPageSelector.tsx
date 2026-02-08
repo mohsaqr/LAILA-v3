@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FileText, Check, ChevronRight } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { LecturePDFInfo, PDFPageRanges } from '../../api/lectureAIHelper';
@@ -12,6 +13,7 @@ interface PDFPageSelectorProps {
 const LARGE_PDF_THRESHOLD = 5;
 
 export const PDFPageSelector = ({ pdfs, onContinue }: PDFPageSelectorProps) => {
+  const { t } = useTranslation(['teaching', 'common']);
   const { isDark } = useTheme();
 
   // Initialize page ranges - small PDFs default to "all", large PDFs need selection
@@ -96,10 +98,10 @@ export const PDFPageSelector = ({ pdfs, onContinue }: PDFPageSelectorProps) => {
       <div className="text-center mb-4">
         <FileText className="w-10 h-10 mx-auto mb-2" style={{ color: colors.accent }} />
         <h3 className="font-medium" style={{ color: colors.textPrimary }}>
-          This lecture has PDF documents
+          {t('lecture_has_pdfs')}
         </h3>
         <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-          Select which pages to include in the AI context
+          {t('select_pages_for_ai')}
         </p>
       </div>
 
@@ -129,7 +131,7 @@ export const PDFPageSelector = ({ pdfs, onContinue }: PDFPageSelectorProps) => {
                 backgroundColor: colors.bgHover,
                 color: colors.textSecondary
               }}>
-                {pdf.pageCount} pages
+                {t('n_pages', { count: pdf.pageCount })}
               </span>
             </div>
 
@@ -148,7 +150,7 @@ export const PDFPageSelector = ({ pdfs, onContinue }: PDFPageSelectorProps) => {
                       border: isSelected ? `1px solid ${colors.accent}` : `1px solid transparent`,
                     }}
                   >
-                    {range === 'all' ? 'All' : range}
+                    {range === 'all' ? t('common:all') : range}
                   </button>
                 );
               })}
@@ -157,13 +159,13 @@ export const PDFPageSelector = ({ pdfs, onContinue }: PDFPageSelectorProps) => {
             {/* Custom range input */}
             <div className="flex items-center gap-2">
               <span className="text-xs" style={{ color: colors.textSecondary }}>
-                Or custom:
+                {t('or_custom')}
               </span>
               <input
                 type="text"
                 value={customValue}
                 onChange={(e) => handleCustomRangeChange(pdf.fileName, e.target.value)}
-                placeholder="e.g., 1-3,7-10"
+                placeholder={t('custom_range_placeholder')}
                 className="flex-1 px-2 py-1 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
                 style={{
                   backgroundColor: colors.bg,
@@ -177,7 +179,7 @@ export const PDFPageSelector = ({ pdfs, onContinue }: PDFPageSelectorProps) => {
             {selectedRange && (
               <div className="mt-2 flex items-center gap-1 text-xs" style={{ color: colors.success }}>
                 <Check className="w-3 h-3" />
-                <span>Pages {selectedRange === 'all' ? `1-${pdf.pageCount}` : selectedRange} selected</span>
+                <span>{t('pages_selected', { range: selectedRange === 'all' ? `1-${pdf.pageCount}` : selectedRange })}</span>
               </div>
             )}
           </div>
@@ -202,7 +204,7 @@ export const PDFPageSelector = ({ pdfs, onContinue }: PDFPageSelectorProps) => {
                 {pdf.fileName}
               </span>
               <span className="text-xs" style={{ color: colors.textSecondary }}>
-                ({pdf.pageCount} pages) - All pages included
+                ({t('n_pages', { count: pdf.pageCount })}) - {t('all_pages_included')}
               </span>
             </div>
           ))}
@@ -219,14 +221,14 @@ export const PDFPageSelector = ({ pdfs, onContinue }: PDFPageSelectorProps) => {
           color: allSelectionsComplete ? '#ffffff' : colors.textSecondary,
         }}
       >
-        Continue to Ask Questions
+        {t('continue_to_ask_questions')}
         <ChevronRight className="w-4 h-4" />
       </button>
 
       {/* Help text for incomplete selection */}
       {!allSelectionsComplete && largePdfs.length > 0 && (
         <p className="text-center text-xs" style={{ color: colors.textSecondary }}>
-          Please select pages for all large PDFs to continue
+          {t('select_pages_all_pdfs')}
         </p>
       )}
     </div>

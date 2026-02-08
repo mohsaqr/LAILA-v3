@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { BookOpen, GraduationCap, Clock, ArrowRight, CheckCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { enrollmentsApi } from '../api/enrollments';
 import { useTheme } from '../hooks/useTheme';
 import { Card, CardBody } from '../components/common/Card';
@@ -8,6 +9,7 @@ import { Loading } from '../components/common/Loading';
 import { Enrollment } from '../types';
 
 export const MyLearning = () => {
+  const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
   const { data: enrollments, isLoading } = useQuery({
     queryKey: ['enrollments'],
@@ -27,16 +29,16 @@ export const MyLearning = () => {
   const completedEnrollments = enrollments?.filter(e => e.status === 'completed') || [];
 
   if (isLoading) {
-    return <Loading fullScreen text="Loading your courses..." />;
+    return <Loading fullScreen text={t('my_learning_loading')} />;
   }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ backgroundColor: colors.bg, minHeight: '100vh' }}>
-      <h1 className="text-3xl font-bold mb-8" style={{ color: colors.textPrimary }}>My Learning</h1>
+      <h1 className="text-3xl font-bold mb-8" style={{ color: colors.textPrimary }}>{t('my_learning')}</h1>
 
       {/* Active Courses */}
       <section className="mb-12">
-        <h2 className="text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>In Progress</h2>
+        <h2 className="text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>{t('in_progress_title')}</h2>
 
         {activeEnrollments.length > 0 ? (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -48,10 +50,10 @@ export const MyLearning = () => {
           <Card>
             <CardBody className="text-center py-12">
               <BookOpen className="w-16 h-16 mx-auto mb-4" style={{ color: colors.textMuted }} />
-              <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>No active courses</h3>
-              <p className="mb-4" style={{ color: colors.textSecondary }}>Start learning by enrolling in a course</p>
+              <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>{t('no_active_courses')}</h3>
+              <p className="mb-4" style={{ color: colors.textSecondary }}>{t('start_learning')}</p>
               <Link to="/catalog" className="btn btn-primary">
-                Browse Courses
+                {t('browse_courses')}
               </Link>
             </CardBody>
           </Card>
@@ -61,7 +63,7 @@ export const MyLearning = () => {
       {/* Completed Courses */}
       {completedEnrollments.length > 0 && (
         <section>
-          <h2 className="text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>Completed</h2>
+          <h2 className="text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>{t('completed')}</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {completedEnrollments.map(enrollment => (
               <EnrollmentCard key={enrollment.id} enrollment={enrollment} completed />
@@ -74,6 +76,7 @@ export const MyLearning = () => {
 };
 
 const EnrollmentCard = ({ enrollment, completed = false }: { enrollment: Enrollment; completed?: boolean }) => {
+  const { t } = useTranslation(['courses']);
   const { isDark } = useTheme();
 
   const colors = {
@@ -103,7 +106,7 @@ const EnrollmentCard = ({ enrollment, completed = false }: { enrollment: Enrollm
           {/* Progress */}
           <div className="mb-4">
             <div className="flex items-center justify-between text-sm mb-1">
-              <span style={{ color: colors.textSecondary }}>Progress</span>
+              <span style={{ color: colors.textSecondary }}>{t('progress')}</span>
               <span className="font-medium" style={{ color: colors.textPrimary }}>{enrollment.progress}%</span>
             </div>
             <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: colors.bgProgress }}>
@@ -118,10 +121,10 @@ const EnrollmentCard = ({ enrollment, completed = false }: { enrollment: Enrollm
             {enrollment.lastAccessAt ? (
               <span className="flex items-center gap-1">
                 <Clock className="w-4 h-4" />
-                Last accessed {new Date(enrollment.lastAccessAt).toLocaleDateString()}
+                {t('last_accessed', { date: new Date(enrollment.lastAccessAt).toLocaleDateString() })}
               </span>
             ) : (
-              <span>Not started</span>
+              <span>{t('not_started')}</span>
             )}
             <ArrowRight className="w-4 h-4" />
           </div>

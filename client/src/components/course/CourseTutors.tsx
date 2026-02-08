@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Bot, Sparkles, Settings, MessageSquare, ChevronRight } from 'lucide-react';
 import { courseTutorApi } from '../../api/courseTutor';
 import { useTheme } from '../../hooks/useTheme';
@@ -13,6 +14,7 @@ interface CourseTutorsProps {
 }
 
 export const CourseTutors = ({ courseId, moduleName, isInstructor }: CourseTutorsProps) => {
+  const { t } = useTranslation(['courses']);
   const { isDark } = useTheme();
 
   const colors = {
@@ -29,7 +31,7 @@ export const CourseTutors = ({ courseId, moduleName, isInstructor }: CourseTutor
   });
 
   if (isLoading) {
-    return <Loading text="Loading AI tutors..." />;
+    return <Loading text={t('loading_ai_tutors')} />;
   }
 
   // No tutors available
@@ -39,17 +41,17 @@ export const CourseTutors = ({ courseId, moduleName, isInstructor }: CourseTutor
         <CardBody className="text-center py-12">
           <Bot className="w-12 h-12 mx-auto mb-4" style={{ color: colors.textMuted }} />
           <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>
-            No AI Tutors Available
+            {t('no_ai_tutors_available')}
           </h3>
           <p style={{ color: colors.textSecondary }}>
-            This course doesn't have any AI tutors configured yet.
+            {t('no_ai_tutors_description')}
           </p>
         </CardBody>
       </Card>
     );
   }
 
-  const displayName = moduleName || 'AI Tutors';
+  const displayName = moduleName || t('ai_tutors');
 
   return (
     <div className="space-y-4">
@@ -61,7 +63,7 @@ export const CourseTutors = ({ courseId, moduleName, isInstructor }: CourseTutor
             className="text-sm text-primary-600 hover:underline flex items-center gap-1"
           >
             <Settings className="w-4 h-4" />
-            Manage Tutors
+            {t('manage_tutors')}
           </Link>
         </div>
       )}
@@ -85,7 +87,7 @@ export const CourseTutors = ({ courseId, moduleName, isInstructor }: CourseTutor
                   {displayName}
                 </h3>
                 <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-                  {tutors.length} AI tutor{tutors.length !== 1 ? 's' : ''} ready to help you learn
+                  {t('x_ai_tutors_ready', { count: tutors.length })}
                 </p>
               </div>
 
@@ -128,7 +130,7 @@ export const CourseTutors = ({ courseId, moduleName, isInstructor }: CourseTutor
                   )}
                 </div>
                 <span className="text-sm" style={{ color: colors.textMuted }}>
-                  Click to start chatting with AI tutors
+                  {t('click_to_start_chatting_tutors')}
                 </span>
               </div>
             </div>

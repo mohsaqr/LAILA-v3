@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Scale,
   Sparkles,
@@ -88,6 +89,7 @@ const infoCards = [
 ];
 
 export const AITools = () => {
+  const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
 
   // Theme colors
@@ -106,9 +108,9 @@ export const AITools = () => {
           <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <BrainCircuit className="w-10 h-10" />
           </div>
-          <h1 className="text-4xl font-bold mb-4">AI Research Tools</h1>
+          <h1 className="text-4xl font-bold mb-4">{t('ai_research_tools')}</h1>
           <p className="text-xl text-white/90 max-w-2xl mx-auto">
-            Powerful AI-powered tools for academic research, learning, and content creation
+            {t('ai_tools_description')}
           </p>
         </div>
 
@@ -142,7 +144,7 @@ export const AITools = () => {
                     </ul>
 
                     <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r ${tool.gradient} text-white font-medium`}>
-                      Launch Tool
+                      {t('launch_tool')}
                       <ArrowRight className="w-4 h-4" />
                     </div>
                   </CardBody>
@@ -156,9 +158,9 @@ export const AITools = () => {
         <div className="text-center text-white mb-8">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Lightbulb className="w-6 h-6" />
-            <h2 className="text-2xl font-bold">How It Works</h2>
+            <h2 className="text-2xl font-bold">{t('how_it_works')}</h2>
           </div>
-          <p className="text-white/80">Our AI tools are designed to enhance your research and learning experience</p>
+          <p className="text-white/80">{t('ai_tools_description')}</p>
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">

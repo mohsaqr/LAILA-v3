@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Activity,
   MousePointer,
@@ -21,6 +22,7 @@ import { ChatbotRegistryTab } from './logs/ChatbotRegistryTab';
 import { ForumLogsTab } from './logs/ForumLogsTab';
 
 export const LogsDashboard = () => {
+  const { t } = useTranslation(['admin', 'common']);
   const [activeTab, setActiveTab] = useState<TabType>('activity');
   const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const { isDark } = useTheme();
@@ -33,17 +35,17 @@ export const LogsDashboard = () => {
   };
 
   const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
-    { id: 'activity', label: 'Activity Log', icon: <Activity className="w-4 h-4" /> },
-    { id: 'messages', label: 'Messages', icon: <MessagesSquare className="w-4 h-4" /> },
-    { id: 'interactions', label: 'User Interactions', icon: <MousePointer className="w-4 h-4" /> },
-    { id: 'chatbots', label: 'Chatbot Registry', icon: <Bot className="w-4 h-4" /> },
-    { id: 'forums', label: 'Forum Logs', icon: <MessageSquare className="w-4 h-4" /> },
+    { id: 'activity', label: t('activity_log'), icon: <Activity className="w-4 h-4" /> },
+    { id: 'messages', label: t('messages'), icon: <MessagesSquare className="w-4 h-4" /> },
+    { id: 'interactions', label: t('user_interactions'), icon: <MousePointer className="w-4 h-4" /> },
+    { id: 'chatbots', label: t('chatbot_registry'), icon: <Bot className="w-4 h-4" /> },
+    { id: 'forums', label: t('forum_logs'), icon: <MessageSquare className="w-4 h-4" /> },
   ];
 
   return (
     <AdminLayout
-      title="Logs & Analytics"
-      description="Comprehensive logging for all platform activities"
+      title={t('logs_analytics')}
+      description={t('logs_analytics_desc')}
     >
       {/* Tab Navigation */}
       <div className="flex gap-2 mb-6 pb-4" style={{ borderBottom: `1px solid ${colors.border}` }}>

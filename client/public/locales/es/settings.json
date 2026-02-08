@@ -44,5 +44,23 @@
   "setting_updated": "Configuración actualizada",
   "setting_update_failed": "Error al actualizar la configuración",
   "sign_out": "Cerrar sesión",
-  "sign_out_description": "Cerrar sesión de tu cuenta"
+  "sign_out_description": "Cerrar sesión de tu cuenta",
+
+  "profile": "Perfil",
+  "personal_information": "Información Personal",
+  "full_name": "Nombre Completo",
+  "full_name_placeholder": "Nombre completo",
+  "email": "Correo Electrónico",
+  "account_status": "Estado de la Cuenta",
+  "verified": "Verificado",
+  "pending_verification": "Verificación Pendiente",
+  "member_since": "Miembro desde",
+  "na": "N/D",
+  "profile_updated": "Perfil actualizado exitosamente",
+  "failed_update_profile": "Error al actualizar perfil",
+  "name_required": "El nombre es obligatorio",
+  "last_changed_never": "Último cambio: Nunca",
+  "role_admin": "Administrador",
+  "role_instructor": "Instructor",
+  "role_student": "Estudiante"
 }

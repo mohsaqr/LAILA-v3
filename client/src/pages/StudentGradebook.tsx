@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { assignmentsApi } from '../api/assignments';
 import { enrollmentsApi } from '../api/enrollments';
 import { useTheme } from '../hooks/useTheme';
@@ -26,6 +27,7 @@ type SortOption = 'dueDate' | 'grade' | 'status' | 'title';
 type SortDirection = 'asc' | 'desc';
 
 export const StudentGradebook = () => {
+  const { t } = useTranslation(['courses', 'common']);
   const { courseId } = useParams<{ courseId: string }>();
   const parsedCourseId = parseInt(courseId!, 10);
   const { isDark } = useTheme();
@@ -93,7 +95,7 @@ export const StudentGradebook = () => {
   });
 
   if (enrollmentLoading || assignmentsLoading) {
-    return <Loading fullScreen text="Loading grades..." />;
+    return <Loading fullScreen text={t('loading_grades')} />;
   }
 
   if (!enrollment?.enrolled) {
@@ -101,10 +103,10 @@ export const StudentGradebook = () => {
       <div className="min-h-screen flex items-center justify-center">
         <Card>
           <CardBody className="text-center py-8 px-12">
-            <h2 className="text-xl font-bold mb-2" style={{ color: colors.textPrimary }}>Not Enrolled</h2>
-            <p className="mb-4" style={{ color: colors.textSecondary }}>You need to enroll in this course to view grades</p>
+            <h2 className="text-xl font-bold mb-2" style={{ color: colors.textPrimary }}>{t('not_enrolled_title')}</h2>
+            <p className="mb-4" style={{ color: colors.textSecondary }}>{t('need_enroll_grades')}</p>
             <Link to={`/courses/${courseId}`}>
-              <Button>View Course</Button>
+              <Button>{t('view_course')}</Button>
             </Link>
           </CardBody>
         </Card>
@@ -197,13 +199,13 @@ export const StudentGradebook = () => {
       <div className="mb-6">
         <Link to={`/courses/${courseId}/assignments`}>
           <Button variant="ghost" size="sm" icon={<ArrowLeft className="w-4 h-4" />}>
-            Back to Assignments
+            {t('back_to_assignments')}
           </Button>
         </Link>
       </div>
 
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2" style={{ color: colors.textPrimary }}>My Grades</h1>
+        <h1 className="text-3xl font-bold mb-2" style={{ color: colors.textPrimary }}>{t('my_grades')}</h1>
         <p style={{ color: colors.textSecondary }}>{course?.title}</p>
       </div>
 
@@ -227,10 +229,10 @@ export const StudentGradebook = () => {
               </div>
               <div>
                 <h2 className="text-lg font-semibold" style={{ color: colors.textGreen }}>
-                  Overall Grade
+                  {t('overall_grade')}
                 </h2>
                 <p className="text-sm" style={{ color: colors.textSecondary }}>
-                  {overallGrade.gradedCount} of {overallGrade.totalCount} assignments graded
+                  {t('assignments_graded_of', { graded: overallGrade.gradedCount, total: overallGrade.totalCount })}
                 </p>
               </div>
             </div>
@@ -239,7 +241,7 @@ export const StudentGradebook = () => {
                 {overallGrade.percentage}%
               </div>
               <div className="text-sm" style={{ color: colors.textSecondary }}>
-                {overallGrade.totalEarned}/{overallGrade.totalPossible} points
+                {overallGrade.totalEarned}/{overallGrade.totalPossible} {t('n_points', { count: overallGrade.totalPossible }).replace(/^\d+\s*/, '')}
               </div>
             </div>
           </div>
@@ -248,12 +250,12 @@ export const StudentGradebook = () => {
 
       {/* Sort Options */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <span className="text-sm" style={{ color: colors.textSecondary }}>Sort by:</span>
+        <span className="text-sm" style={{ color: colors.textSecondary }}>{t('sort_by_label')}</span>
         {[
-          { key: 'dueDate', label: 'Due Date' },
-          { key: 'grade', label: 'Grade' },
-          { key: 'status', label: 'Status' },
-          { key: 'title', label: 'Title' },
+          { key: 'dueDate', label: t('due_date_label') },
+          { key: 'grade', label: t('grade_label') },
+          { key: 'status', label: t('status_label') },
+          { key: 'title', label: t('title_label') },
         ].map(option => (
           <button
             key={option.key}
@@ -289,8 +291,8 @@ export const StudentGradebook = () => {
         <Card>
           <CardBody className="text-center py-12">
             <FileText className="w-16 h-16 mx-auto mb-4" style={{ color: colors.textMuted }} />
-            <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>No assignments yet</h3>
-            <p style={{ color: colors.textSecondary }}>Check back later for new assignments</p>
+            <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>{t('no_assignments_yet')}</h3>
+            <p style={{ color: colors.textSecondary }}>{t('check_back_later_assignments')}</p>
           </CardBody>
         </Card>
       )}
@@ -310,6 +312,7 @@ interface AssignmentGradeCardProps {
 }
 
 const AssignmentGradeCard = ({ assignment, submission, courseId, colors }: AssignmentGradeCardProps) => {
+  const { t } = useTranslation(['courses', 'common']);
   const isAgentAssignment = assignment.submissionType === 'ai_agent';
   const now = new Date();
   const dueDate = assignment.dueDate ? new Date(assignment.dueDate) : null;
@@ -325,7 +328,7 @@ const AssignmentGradeCard = ({ assignment, submission, courseId, colors }: Assig
           style={{ backgroundColor: colors.bgGreen, color: colors.textGreen }}
         >
           <CheckCircle className="w-3 h-3" />
-          Graded
+          {t('common:completed')}
         </span>
       );
     }
@@ -336,7 +339,7 @@ const AssignmentGradeCard = ({ assignment, submission, courseId, colors }: Assig
           style={{ backgroundColor: colors.bgBlue, color: colors.textBlue }}
         >
           <CheckCircle className="w-3 h-3" />
-          Submitted
+          {t('submitted_status')}
         </span>
       );
     }
@@ -347,7 +350,7 @@ const AssignmentGradeCard = ({ assignment, submission, courseId, colors }: Assig
           style={{ backgroundColor: colors.bgRed, color: colors.textRed }}
         >
           <AlertCircle className="w-3 h-3" />
-          Past Due
+          {t('past_due_status')}
         </span>
       );
     }
@@ -358,7 +361,7 @@ const AssignmentGradeCard = ({ assignment, submission, courseId, colors }: Assig
           style={{ backgroundColor: colors.bgYellow, color: colors.textYellow }}
         >
           <Clock className="w-3 h-3" />
-          Draft
+          {t('common:draft')}
         </span>
       );
     }
@@ -368,7 +371,7 @@ const AssignmentGradeCard = ({ assignment, submission, courseId, colors }: Assig
         style={{ backgroundColor: colors.bgGray, color: colors.textGray }}
       >
         <FileText className="w-3 h-3" />
-        Not Started
+        {t('not_started_status')}
       </span>
     );
   };
@@ -411,7 +414,7 @@ const AssignmentGradeCard = ({ assignment, submission, courseId, colors }: Assig
                   className="text-xs px-2 py-0.5 rounded"
                   style={{ backgroundColor: colors.bgTeal, color: colors.textTeal }}
                 >
-                  AI Agent
+                  {t('ai_agent_label')}
                 </span>
               )}
               {getStatusBadge()}
@@ -423,12 +426,12 @@ const AssignmentGradeCard = ({ assignment, submission, courseId, colors }: Assig
                   style={{ color: isPastDue && !isSubmitted ? colors.textRed : colors.textSecondary }}
                 >
                   <Calendar className="w-4 h-4" />
-                  Due {dueDate.toLocaleDateString()}
+                  {t('due_date', { date: dueDate.toLocaleDateString() })}
                 </span>
               )}
               <span className="flex items-center gap-1">
                 <Award className="w-4 h-4" />
-                {assignment.points} points
+                {t('points_format', { points: assignment.points })}
               </span>
             </div>
           </div>
@@ -444,7 +447,7 @@ const AssignmentGradeCard = ({ assignment, submission, courseId, colors }: Assig
                   /{assignment.points}
                 </div>
                 <div className="text-xs" style={{ color: colors.textGreen }}>
-                  {Math.round((submission.grade / assignment.points) * 100)}%
+                  {t('grade_percent', { percent: Math.round((submission.grade / assignment.points) * 100) })}
                 </div>
               </div>
             ) : (

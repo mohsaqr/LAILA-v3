@@ -6,6 +6,7 @@
 
 import { useState, useMemo, Fragment } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   Filter,
   RefreshCw,
@@ -103,6 +104,7 @@ const eventTypeColors: Record<string, string> = {
 };
 
 export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsTabProps) => {
+  const { t } = useTranslation(['admin', 'common']);
   // Filter state
   const [filters, setFilters] = useState<InteractionFilters>({
     page: 1,
@@ -254,7 +256,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
               <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {(summary?.totalInteractions || pagination.total || 0).toLocaleString()}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">Total Interactions</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{t('total_interactions')}</div>
             </div>
           </CardBody>
         </Card>
@@ -267,13 +269,13 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
               <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {summary?.uniqueSessions || 0}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">Unique Sessions</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{t('unique_sessions')}</div>
             </div>
           </CardBody>
         </Card>
         <Card>
           <CardBody className="p-4">
-            <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">Top Event Types</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">{t('top_event_types')}</div>
             <div className="flex flex-wrap gap-1">
               {statsDisplay.topTypes.map(([type, count]: [string, number]) => (
                 <span
@@ -295,7 +297,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
               <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {summary?.byPage?.length || 0}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">Pages Tracked</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{t('pages_tracked')}</div>
             </div>
           </CardBody>
         </Card>
@@ -307,10 +309,10 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
               <Filter className="w-4 h-4" />
-              Filters
+              {t('filters')}
               {hasActiveFilters && (
                 <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded-full">
-                  Active
+                  {t('active')}
                 </span>
               )}
             </div>
@@ -326,7 +328,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
                 ) : (
                   <RefreshCw className="w-4 h-4 mr-1" />
                 )}
-                Refresh
+                {t('common:refresh')}
               </Button>
               <Button
                 variant="outline"
@@ -335,7 +337,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
                 disabled={exportStatus === 'loading'}
               >
                 <FileText className="w-4 h-4 mr-1" />
-                CSV
+                {t('csv')}
               </Button>
               <Button
                 size="sm"
@@ -349,7 +351,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
                 ) : (
                   <FileJson className="w-4 h-4 mr-1" />
                 )}
-                JSON
+                {t('json')}
               </Button>
             </div>
           </div>
@@ -358,12 +360,12 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
           <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             {/* Search */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('search')}</label>
               <div className="relative">
                 <input
                   type="text"
                   className="w-full border border-gray-300 dark:border-gray-600 rounded-md pl-9 pr-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                  placeholder="Search user, page, course..."
+                  placeholder={t('search_user_page_course')}
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   onKeyDown={handleSearchKeyDown}
@@ -387,13 +389,13 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
 
             {/* User Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('user')}</label>
               <select
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 value={filters.userId || ''}
                 onChange={(e) => updateFilter('userId', e.target.value ? parseInt(e.target.value) : undefined)}
               >
-                <option value="">All Users</option>
+                <option value="">{t('all_users')}</option>
                 {filterOptions?.users.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.fullname || u.email || `User #${u.id}`}
@@ -404,13 +406,13 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
 
             {/* Course Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Course</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('course')}</label>
               <select
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 value={filters.courseId || ''}
                 onChange={(e) => updateFilter('courseId', e.target.value ? parseInt(e.target.value) : undefined)}
               >
-                <option value="">All Courses</option>
+                <option value="">{t('all_courses')}</option>
                 {filterOptions?.courses.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.title || `Course #${c.id}`}
@@ -421,13 +423,13 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
 
             {/* Event Type Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Event Type</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('event_type')}</label>
               <select
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 value={filters.eventType || ''}
                 onChange={(e) => updateFilter('eventType', e.target.value || undefined)}
               >
-                <option value="">All Types</option>
+                <option value="">{t('all_types')}</option>
                 {filterOptions?.eventTypes.map((e) => (
                   <option key={e.eventType} value={e.eventType}>
                     {e.eventType} ({e.count})
@@ -438,13 +440,13 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
 
             {/* Page Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Page</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('page')}</label>
               <select
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 value={filters.pagePath || ''}
                 onChange={(e) => updateFilter('pagePath', e.target.value || undefined)}
               >
-                <option value="">All Pages</option>
+                <option value="">{t('all_pages')}</option>
                 {filterOptions?.pages.map((p) => (
                   <option key={p.path} value={p.path}>
                     {p.path.length > 30 ? '...' + p.path.slice(-27) : p.path} ({p.count})
@@ -457,7 +459,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
           {/* Date Filters */}
           <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mt-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('start_date')}</label>
               <input
                 type="date"
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
@@ -466,7 +468,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Date</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('end_date')}</label>
               <input
                 type="date"
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
@@ -477,7 +479,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
             <div className="flex items-end">
               <Button variant="outline" className="w-full" onClick={clearFilters}>
                 <X className="w-4 h-4 mr-1" />
-                Clear Filters
+                {t('clear_filters')}
               </Button>
             </div>
           </div>
@@ -488,10 +490,9 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between text-gray-900 dark:text-gray-100">
-            <span>User Interactions</span>
+            <span>{t('user_interactions')}</span>
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              Showing {(pagination.page - 1) * pagination.limit + 1}-
-              {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total.toLocaleString()} logs
+              {t('showing_range', { start: (pagination.page - 1) * pagination.limit + 1, end: Math.min(pagination.page * pagination.limit, pagination.total), total: pagination.total.toLocaleString() })}
             </span>
           </div>
         </CardHeader>
@@ -500,11 +501,11 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
             <div className="p-8"><Loading /></div>
           ) : logs.length === 0 ? (
             <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-              No interaction logs found
+              {t('no_interaction_logs')}
               {hasActiveFilters && (
                 <div className="mt-2">
                   <Button variant="outline" size="sm" onClick={clearFilters}>
-                    Clear Filters
+                    {t('clear_filters')}
                   </Button>
                 </div>
               )}
@@ -520,7 +521,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
                       onClick={() => handleSort('timestamp')}
                     >
                       <div className="flex items-center">
-                        Timestamp
+                        {t('timestamp')}
                         <SortIcon field="timestamp" />
                       </div>
                     </th>
@@ -529,7 +530,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
                       onClick={() => handleSort('userFullname')}
                     >
                       <div className="flex items-center">
-                        User
+                        {t('user')}
                         <SortIcon field="userFullname" />
                       </div>
                     </th>
@@ -538,7 +539,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
                       onClick={() => handleSort('eventType')}
                     >
                       <div className="flex items-center">
-                        Event
+                        {t('event')}
                         <SortIcon field="eventType" />
                       </div>
                     </th>
@@ -547,7 +548,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
                       onClick={() => handleSort('pagePath')}
                     >
                       <div className="flex items-center">
-                        Page
+                        {t('page_label')}
                         <SortIcon field="pagePath" />
                       </div>
                     </th>
@@ -556,7 +557,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
                       onClick={() => handleSort('courseTitle')}
                     >
                       <div className="flex items-center">
-                        Course
+                        {t('course')}
                         <SortIcon field="courseTitle" />
                       </div>
                     </th>
@@ -565,7 +566,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
                       onClick={() => handleSort('deviceType')}
                     >
                       <div className="flex items-center">
-                        Device
+                        {t('device')}
                         <SortIcon field="deviceType" />
                       </div>
                     </th>
@@ -574,7 +575,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
                       onClick={() => handleSort('scrollDepth')}
                     >
                       <div className="flex items-center">
-                        Scroll
+                        {t('scroll')}
                         <SortIcon field="scrollDepth" />
                       </div>
                     </th>
@@ -656,61 +657,61 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
                               {/* User Context */}
                               <div className="space-y-2">
                                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
-                                  User Context
+                                  {t('user_context')}
                                 </h4>
                                 <div className="space-y-1 text-gray-600 dark:text-gray-400">
-                                  <div><span className="text-gray-500 dark:text-gray-500">ID:</span> {log.userId || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Email:</span> {log.userEmail || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Name:</span> {log.userFullname || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Session:</span> {log.sessionId ? log.sessionId.substring(0, 16) + '...' : '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Session Duration:</span> {log.sessionDuration != null ? `${log.sessionDuration}s` : '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Time on Page:</span> {log.timeOnPage != null ? `${log.timeOnPage}s` : '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('id')}:</span> {log.userId || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('email')}:</span> {log.userEmail || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('name')}:</span> {log.userFullname || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('session')}:</span> {log.sessionId ? log.sessionId.substring(0, 16) + '...' : '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('session_duration')}:</span> {log.sessionDuration != null ? `${log.sessionDuration}s` : '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('time_on_page')}:</span> {log.timeOnPage != null ? `${log.timeOnPage}s` : '-'}</div>
                                 </div>
                               </div>
 
                               {/* Event Details */}
                               <div className="space-y-2">
                                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
-                                  Event Details
+                                  {t('event_details')}
                                 </h4>
                                 <div className="space-y-1 text-gray-600 dark:text-gray-400">
-                                  <div><span className="text-gray-500 dark:text-gray-500">Type:</span> {log.eventType}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Category:</span> {log.eventCategory || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Action:</span> {log.eventAction || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Label:</span> {log.eventLabel || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Value:</span> {log.eventValue ?? '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Sequence:</span> {log.eventSequence ?? '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('type')}:</span> {log.eventType}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('event_category')}:</span> {log.eventCategory || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('event_action')}:</span> {log.eventAction || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('event_label')}:</span> {log.eventLabel || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('event_value')}:</span> {log.eventValue ?? '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('event_sequence')}:</span> {log.eventSequence ?? '-'}</div>
                                 </div>
                               </div>
 
                               {/* Page & Course Context */}
                               <div className="space-y-2">
                                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
-                                  Page & Course
+                                  {t('page_course')}
                                 </h4>
                                 <div className="space-y-1 text-gray-600 dark:text-gray-400">
-                                  <div><span className="text-gray-500 dark:text-gray-500">Page:</span> {log.pagePath || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Title:</span> {log.pageTitle || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Referrer:</span> {log.referrerUrl ? log.referrerUrl.substring(0, 30) + '...' : '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Course:</span> {log.courseTitle || '-'} {log.courseId && `(#${log.courseId})`}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Module:</span> {log.moduleTitle || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Lecture:</span> {log.lectureTitle || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('page_label')}:</span> {log.pagePath || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('title_label')}:</span> {log.pageTitle || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('referrer')}:</span> {log.referrerUrl ? log.referrerUrl.substring(0, 30) + '...' : '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('course')}:</span> {log.courseTitle || '-'} {log.courseId && `(#${log.courseId})`}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('module')}:</span> {log.moduleTitle || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('lecture')}:</span> {log.lectureTitle || '-'}</div>
                                 </div>
                               </div>
 
                               {/* Client Info */}
                               <div className="space-y-2">
                                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
-                                  Client Info
+                                  {t('client_info')}
                                 </h4>
                                 <div className="space-y-1 text-gray-600 dark:text-gray-400">
-                                  <div><span className="text-gray-500 dark:text-gray-500">Device:</span> {log.deviceType || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Browser:</span> {log.browserName} {log.browserVersion}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">OS:</span> {log.osName} {log.osVersion}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Screen:</span> {log.screenWidth && log.screenHeight ? `${log.screenWidth}x${log.screenHeight}` : '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Viewport:</span> {log.viewportWidth && log.viewportHeight ? `${log.viewportWidth}x${log.viewportHeight}` : '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Language:</span> {log.language || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Timezone:</span> {log.timezone || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('device')}:</span> {log.deviceType || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('browser')}:</span> {log.browserName} {log.browserVersion}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('os')}:</span> {log.osName} {log.osVersion}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('screen')}:</span> {log.screenWidth && log.screenHeight ? `${log.screenWidth}x${log.screenHeight}` : '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('viewport')}:</span> {log.viewportWidth && log.viewportHeight ? `${log.viewportWidth}x${log.viewportHeight}` : '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('language_label')}:</span> {log.language || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('timezone_label')}:</span> {log.timezone || '-'}</div>
                                 </div>
                               </div>
                             </div>
@@ -719,18 +720,18 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
                             {(log.elementId || log.elementType || log.elementText) && (
                               <div className="mt-4">
                                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1 mb-2">
-                                  Element Details
+                                  {t('element_details')}
                                 </h4>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 dark:text-gray-400">
-                                  <div><span className="text-gray-500 dark:text-gray-500">ID:</span> {log.elementId || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Type:</span> {log.elementType || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Name:</span> {log.elementName || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Value:</span> {log.elementValue || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('element_id')}:</span> {log.elementId || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('element_type_label')}:</span> {log.elementType || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('element_name')}:</span> {log.elementName || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('element_value_label')}:</span> {log.elementValue || '-'}</div>
                                   {log.elementText && (
-                                    <div className="col-span-2"><span className="text-gray-500 dark:text-gray-500">Text:</span> {log.elementText.substring(0, 100)}{log.elementText.length > 100 ? '...' : ''}</div>
+                                    <div className="col-span-2"><span className="text-gray-500 dark:text-gray-500">{t('element_text')}:</span> {log.elementText.substring(0, 100)}{log.elementText.length > 100 ? '...' : ''}</div>
                                   )}
                                   {log.elementHref && (
-                                    <div className="col-span-2"><span className="text-gray-500 dark:text-gray-500">Href:</span> {log.elementHref}</div>
+                                    <div className="col-span-2"><span className="text-gray-500 dark:text-gray-500">{t('element_href')}:</span> {log.elementHref}</div>
                                   )}
                                 </div>
                               </div>
@@ -741,7 +742,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
                               <div className="mt-4">
                                 <details>
                                   <summary className="cursor-pointer text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                    Metadata (click to expand)
+                                    {t('metadata_expand')}
                                   </summary>
                                   <pre className="mt-2 p-3 bg-gray-100 dark:bg-gray-900 rounded text-xs overflow-x-auto text-gray-800 dark:text-gray-200">
                                     {JSON.stringify(log.metadata, null, 2)}
@@ -752,7 +753,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
 
                             {log.testMode && (
                               <div className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                                Test Mode: {log.testMode}
+                                {t('test_mode')}: {log.testMode}
                               </div>
                             )}
                           </td>
@@ -769,7 +770,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
           {pagination.totalPages > 1 && (
             <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700">
               <div className="text-sm text-gray-500 dark:text-gray-400">
-                Page {pagination.page} of {pagination.totalPages}
+                {t('page_x_of_y', { page: pagination.page, total: pagination.totalPages })}
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -778,7 +779,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
                   onClick={() => goToPage(1)}
                   disabled={pagination.page === 1}
                 >
-                  First
+                  {t('first')}
                 </Button>
                 <Button
                   variant="outline"
@@ -787,7 +788,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
                   disabled={pagination.page === 1}
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  Prev
+                  {t('prev')}
                 </Button>
 
                 {/* Page numbers */}
@@ -826,7 +827,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
                   onClick={() => goToPage(pagination.page + 1)}
                   disabled={pagination.page === pagination.totalPages}
                 >
-                  Next
+                  {t('next')}
                   <ChevronRight className="w-4 h-4" />
                 </Button>
                 <Button
@@ -835,7 +836,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
                   onClick={() => goToPage(pagination.totalPages)}
                   disabled={pagination.page === pagination.totalPages}
                 >
-                  Last
+                  {t('last')}
                 </Button>
               </div>
             </div>

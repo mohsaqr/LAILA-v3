@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Radio, Users, Sparkles } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import type { TutorMode } from '../../types/tutor';
@@ -8,33 +9,34 @@ interface TutorModeSelectorProps {
   disabled?: boolean;
 }
 
-const modes: { value: TutorMode; label: string; description: string; icon: React.ElementType }[] = [
-  {
-    value: 'manual',
-    label: 'Manual',
-    description: 'Choose which tutor responds',
-    icon: Radio,
-  },
-  {
-    value: 'router',
-    label: 'Auto-Route',
-    description: 'AI picks the best tutor',
-    icon: Sparkles,
-  },
-  {
-    value: 'collaborative',
-    label: 'Team',
-    description: 'All tutors contribute',
-    icon: Users,
-  },
-];
-
 export const TutorModeSelector = ({
   mode,
   onModeChange,
   disabled = false,
 }: TutorModeSelectorProps) => {
+  const { t } = useTranslation(['tutors']);
   const { isDark } = useTheme();
+
+  const modes: { value: TutorMode; label: string; description: string; icon: React.ElementType }[] = [
+    {
+      value: 'manual',
+      label: t('mode_manual'),
+      description: t('mode_manual_desc'),
+      icon: Radio,
+    },
+    {
+      value: 'router',
+      label: t('mode_auto_route'),
+      description: t('mode_auto_route_desc'),
+      icon: Sparkles,
+    },
+    {
+      value: 'collaborative',
+      label: t('mode_team'),
+      description: t('mode_team_desc'),
+      icon: Users,
+    },
+  ];
 
   // Theme colors
   const colors = {
@@ -53,7 +55,7 @@ export const TutorModeSelector = ({
   return (
     <div className="p-3 border-t" style={{ borderColor: colors.border }}>
       <p className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: colors.textLabel }}>
-        Mode
+        {t('mode')}
       </p>
       <div className="space-y-1">
         {modes.map((m) => {

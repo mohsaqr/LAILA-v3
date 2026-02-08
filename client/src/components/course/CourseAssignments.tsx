@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ClipboardList, Bot, ChevronRight } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { Card, CardBody } from '../common/Card';
@@ -19,6 +20,7 @@ interface CourseAssignmentsProps {
 }
 
 export const CourseAssignments = ({ courseId, assignments }: CourseAssignmentsProps) => {
+  const { t } = useTranslation(['courses']);
   const { isDark } = useTheme();
 
   const colors = {
@@ -40,10 +42,10 @@ export const CourseAssignments = ({ courseId, assignments }: CourseAssignmentsPr
         <CardBody className="text-center py-12">
           <ClipboardList className="w-12 h-12 mx-auto mb-4" style={{ color: colors.textMuted }} />
           <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>
-            No Assignments Available
+            {t('no_assignments_available')}
           </h3>
           <p style={{ color: colors.textSecondary }}>
-            This course doesn't have any assignments yet.
+            {t('no_assignments_description')}
           </p>
         </CardBody>
       </Card>
@@ -82,9 +84,9 @@ export const CourseAssignments = ({ courseId, assignments }: CourseAssignmentsPr
                 )}
                 <div className="flex items-center gap-3 mt-2 text-sm" style={{ color: colors.textSecondary }}>
                   {assignment.dueDate && (
-                    <span>Due: {new Date(assignment.dueDate).toLocaleDateString()}</span>
+                    <span>{t('due_date_format', { date: new Date(assignment.dueDate).toLocaleDateString() })}</span>
                   )}
-                  <span>{assignment.points} points</span>
+                  <span>{t('x_points', { count: assignment.points })}</span>
                   <span
                     className="px-2 py-0.5 rounded text-xs"
                     style={{
@@ -92,7 +94,7 @@ export const CourseAssignments = ({ courseId, assignments }: CourseAssignmentsPr
                       color: assignment.submissionType === 'ai_agent' ? colors.textTeal : colors.textAmber,
                     }}
                   >
-                    {assignment.submissionType === 'ai_agent' ? 'AI Agent' : 'Standard'}
+                    {assignment.submissionType === 'ai_agent' ? t('ai_agent_type') : t('standard_type')}
                   </span>
                 </div>
               </div>

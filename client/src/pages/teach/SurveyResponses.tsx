@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Download, Users, FileText } from 'lucide-react';
 import { SurveyResponsesData } from '../../types';
 import { surveysApi } from '../../api/surveys';
@@ -10,6 +11,7 @@ import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { useTheme } from '../../hooks/useTheme';
 
 export const SurveyResponses = () => {
+  const { t } = useTranslation(['teaching', 'common']);
   const { id: courseId, surveyId } = useParams<{ id: string; surveyId: string }>();
   const navigate = useNavigate();
   const { isDark } = useTheme();
@@ -71,7 +73,7 @@ export const SurveyResponses = () => {
         <Card>
           <CardBody className="text-center py-12">
             <p className="text-red-600 dark:text-red-400 mb-4">{error || 'No data found'}</p>
-            <Button onClick={() => navigate(-1)}>Go Back</Button>
+            <Button onClick={() => navigate(-1)}>{t('common:go_back')}</Button>
           </CardBody>
         </Card>
       </div>
@@ -82,9 +84,9 @@ export const SurveyResponses = () => {
     <div className="max-w-5xl mx-auto px-4 py-8">
       <Breadcrumb
         items={[
-          { label: 'Teaching', href: '/teach' },
-          { label: 'Surveys', href: courseId ? `/teach/courses/${courseId}/surveys` : '/teach/surveys' },
-          { label: 'Responses' },
+          { label: t('teaching'), href: '/teach' },
+          { label: t('surveys'), href: courseId ? `/teach/courses/${courseId}/surveys` : '/teach/surveys' },
+          { label: t('responses') },
         ]}
       />
 
@@ -97,13 +99,13 @@ export const SurveyResponses = () => {
             className="mb-2"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
+            {t('common:back')}
           </Button>
           <h1
             className="text-2xl font-bold"
             style={{ color: isDark ? '#f3f4f6' : '#111827' }}
           >
-            {data.survey.title} - Responses
+            {data.survey.title} - {t('responses')}
           </h1>
           <div className="flex items-center gap-4 mt-2">
             <span
@@ -111,11 +113,11 @@ export const SurveyResponses = () => {
               style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
             >
               <Users className="w-4 h-4" />
-              {data.totalResponses} responses
+              {t('responses_stat', { count: data.totalResponses })}
             </span>
             {data.survey.isAnonymous && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">
-                Anonymous
+                {t('anonymous_badge')}
               </span>
             )}
           </div>
@@ -135,7 +137,7 @@ export const SurveyResponses = () => {
                   : 'bg-white text-gray-700 hover:bg-gray-50'
               }`}
             >
-              Summary
+              {t('summary_view')}
             </button>
             <button
               onClick={() => setViewMode('individual')}
@@ -147,12 +149,12 @@ export const SurveyResponses = () => {
                   : 'bg-white text-gray-700 hover:bg-gray-50'
               }`}
             >
-              Individual
+              {t('individual_view')}
             </button>
           </div>
           <Button onClick={handleExport} loading={exporting} variant="outline">
             <Download className="w-4 h-4 mr-2" />
-            Export CSV
+            {t('export_csv')}
           </Button>
         </div>
       </div>
@@ -165,7 +167,7 @@ export const SurveyResponses = () => {
               className="text-lg"
               style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
             >
-              No responses yet
+              {t('no_responses_yet')}
             </p>
           </CardBody>
         </Card>
@@ -180,7 +182,7 @@ export const SurveyResponses = () => {
                       className="text-sm font-medium"
                       style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
                     >
-                      Question {index + 1}
+                      {t('question_number', { number: index + 1 })}
                     </span>
                     <h3
                       className="font-semibold mt-1"
@@ -193,7 +195,7 @@ export const SurveyResponses = () => {
                     className="text-sm"
                     style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
                   >
-                    {stat.totalResponses} responses
+                    {t('responses_stat', { count: stat.totalResponses })}
                   </span>
                 </div>
               </CardHeader>

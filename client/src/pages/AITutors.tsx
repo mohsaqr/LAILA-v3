@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Menu, Heart, ArrowLeft } from 'lucide-react';
 import { tutorsApi } from '../api/tutors';
 import { coursesApi } from '../api/courses';
@@ -39,6 +40,7 @@ interface MessageWithMeta extends TutorMessage {
 }
 
 export const AITutors = () => {
+  const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
@@ -294,7 +296,7 @@ export const AITutors = () => {
 
   // Loading state
   if (sessionLoading) {
-    return <Loading fullScreen text="Loading AI Tutors..." />;
+    return <Loading fullScreen text={t('loading_ai_tutors')} />;
   }
 
   const agents = sessionData?.agents || [];
@@ -310,7 +312,7 @@ export const AITutors = () => {
             className="inline-flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Course
+            {t('back_to_course_button')}
           </Link>
         </div>
       )}

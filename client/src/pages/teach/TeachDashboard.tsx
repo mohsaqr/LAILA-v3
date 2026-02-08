@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Plus,
   BookOpen,
@@ -31,6 +32,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { Course } from '../../types';
 
 export const TeachDashboard = () => {
+  const { t } = useTranslation(['teaching', 'common']);
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -76,9 +78,9 @@ export const TeachDashboard = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teachingCourses'] });
       queryClient.invalidateQueries({ queryKey: ['instructorStats'] });
-      toast.success('Course published successfully');
+      toast.success(t('course_published'));
     },
-    onError: () => toast.error('Failed to publish course'),
+    onError: () => toast.error(t('failed_to_publish_course')),
   });
 
   const unpublishMutation = useMutation({
@@ -86,9 +88,9 @@ export const TeachDashboard = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teachingCourses'] });
       queryClient.invalidateQueries({ queryKey: ['instructorStats'] });
-      toast.success('Course unpublished');
+      toast.success(t('course_unpublished'));
     },
-    onError: () => toast.error('Failed to unpublish course'),
+    onError: () => toast.error(t('failed_to_unpublish_course')),
   });
 
   const deleteMutation = useMutation({
@@ -96,10 +98,10 @@ export const TeachDashboard = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teachingCourses'] });
       queryClient.invalidateQueries({ queryKey: ['instructorStats'] });
-      toast.success('Course deleted');
+      toast.success(t('common:deleted'));
       setDeleteConfirm(null);
     },
-    onError: () => toast.error('Failed to delete course'),
+    onError: () => toast.error(t('common:error')),
   });
 
   const handleTogglePublish = (course: Course) => {
@@ -112,7 +114,7 @@ export const TeachDashboard = () => {
   };
 
   if (statsLoading) {
-    return <Loading fullScreen text="Loading teaching dashboard..." />;
+    return <Loading fullScreen text={t('loading')} />;
   }
 
   return (
@@ -120,11 +122,11 @@ export const TeachDashboard = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>Teaching Dashboard</h1>
-          <p className="mt-1" style={{ color: colors.textSecondary }}>Manage your courses and track student progress</p>
+          <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>{t('teach_dashboard')}</h1>
+          <p className="mt-1" style={{ color: colors.textSecondary }}>{t('manage_assignments_and_grading')}</p>
         </div>
         <Button onClick={() => navigate('/teach/create')} icon={<Plus className="w-4 h-4" />}>
-          Create Course
+          {t('create_course')}
         </Button>
       </div>
 
@@ -140,7 +142,7 @@ export const TeachDashboard = () => {
             </div>
             <div>
               <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{instructorStats?.totalCourses || 0}</p>
-              <p className="text-sm" style={{ color: colors.textSecondary }}>Your Courses</p>
+              <p className="text-sm" style={{ color: colors.textSecondary }}>{t('your_courses')}</p>
             </div>
           </CardBody>
         </Card>
@@ -155,7 +157,7 @@ export const TeachDashboard = () => {
             </div>
             <div>
               <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{instructorStats?.totalStudents || 0}</p>
-              <p className="text-sm" style={{ color: colors.textSecondary }}>Total Students</p>
+              <p className="text-sm" style={{ color: colors.textSecondary }}>{t('total_students')}</p>
             </div>
           </CardBody>
         </Card>
@@ -170,7 +172,7 @@ export const TeachDashboard = () => {
             </div>
             <div>
               <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{instructorStats?.totalAssignments || 0}</p>
-              <p className="text-sm" style={{ color: colors.textSecondary }}>Assignments</p>
+              <p className="text-sm" style={{ color: colors.textSecondary }}>{t('assignment_manager')}</p>
             </div>
           </CardBody>
         </Card>
@@ -185,7 +187,7 @@ export const TeachDashboard = () => {
             </div>
             <div>
               <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{instructorStats?.pendingGrading || 0}</p>
-              <p className="text-sm" style={{ color: colors.textSecondary }}>Pending Grading</p>
+              <p className="text-sm" style={{ color: colors.textSecondary }}>{t('pending_grading')}</p>
             </div>
           </CardBody>
         </Card>
@@ -193,10 +195,10 @@ export const TeachDashboard = () => {
 
       {/* Courses List */}
       <div>
-        <h2 className="text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>Your Courses</h2>
+        <h2 className="text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>{t('your_courses')}</h2>
 
         {coursesLoading ? (
-          <Loading text="Loading courses..." />
+          <Loading text={t('loading')} />
         ) : courses && courses.length > 0 ? (
           <div className="space-y-4">
             {courses.map(course => (
@@ -218,7 +220,7 @@ export const TeachDashboard = () => {
                       <StatusBadge status={course.status} />
                     </div>
                     <p className="text-sm truncate mb-2" style={{ color: colors.textSecondary }}>
-                      {course.description || 'No description'}
+                      {course.description || t('no_description')}
                     </p>
                     <div className="flex items-center gap-4 text-xs" style={{ color: colors.textMuted }}>
                       <span>{course._count?.modules || 0} modules</span>
@@ -231,27 +233,27 @@ export const TeachDashboard = () => {
                   <div className="flex items-center gap-2">
                     <Link to={`/teach/courses/${course.id}/curriculum`}>
                       <Button variant="outline" size="sm">
-                        Curriculum
+                        {t('curriculum_editor')}
                       </Button>
                     </Link>
                     <Link to={`/teach/courses/${course.id}/assignments`}>
                       <Button variant="ghost" size="sm">
-                        Assignments
+                        {t('assignment_manager')}
                       </Button>
                     </Link>
                     <Link to={`/teach/courses/${course.id}/gradebook`}>
                       <Button variant="ghost" size="sm" icon={<ClipboardList className="w-4 h-4" />}>
-                        Gradebook
+                        {t('gradebook')}
                       </Button>
                     </Link>
                     <Link to={`/teach/courses/${course.id}/surveys`}>
                       <Button variant="ghost" size="sm" icon={<ClipboardCheck className="w-4 h-4" />}>
-                        Surveys
+                        {t('survey_manager')}
                       </Button>
                     </Link>
                     <Link to={`/teach/courses/${course.id}/tutors`}>
                       <Button variant="ghost" size="sm" icon={<Bot className="w-4 h-4" />}>
-                        Tutors
+                        {t('tutor_manager')}
                       </Button>
                     </Link>
 
@@ -282,7 +284,7 @@ export const TeachDashboard = () => {
                               onClick={() => setActiveMenu(null)}
                             >
                               <Edit className="w-4 h-4" />
-                              Edit Details
+                              {t('edit')}
                             </Link>
                             <button
                               onClick={() => handleTogglePublish(course)}
@@ -292,12 +294,12 @@ export const TeachDashboard = () => {
                               {course.status === 'published' ? (
                                 <>
                                   <EyeOff className="w-4 h-4" />
-                                  Unpublish
+                                  {t('unpublish')}
                                 </>
                               ) : (
                                 <>
                                   <Eye className="w-4 h-4" />
-                                  Publish
+                                  {t('publish')}
                                 </>
                               )}
                             </button>
@@ -309,7 +311,7 @@ export const TeachDashboard = () => {
                               className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600"
                             >
                               <Trash2 className="w-4 h-4" />
-                              Delete
+                              {t('common:delete')}
                             </button>
                           </div>
                         </>
@@ -325,10 +327,10 @@ export const TeachDashboard = () => {
             <CardBody>
               <EmptyState
                 icon={BookOpen}
-                title="No courses yet"
-                description="Create your first course to start teaching"
+                title={t('no_courses_created')}
+                description={t('no_courses_desc')}
                 action={{
-                  label: 'Create Course',
+                  label: t('create_course'),
                   onClick: () => navigate('/teach/create'),
                 }}
               />
@@ -342,9 +344,9 @@ export const TeachDashboard = () => {
         isOpen={!!deleteConfirm}
         onClose={() => setDeleteConfirm(null)}
         onConfirm={() => deleteConfirm && deleteMutation.mutate(deleteConfirm.id)}
-        title="Delete Course"
-        message={`Are you sure you want to delete "${deleteConfirm?.title}"? This action cannot be undone and will remove all associated modules, lectures, and student enrollments.`}
-        confirmText="Delete"
+        title={t('delete_course')}
+        message={t('delete_module_confirm', { title: deleteConfirm?.title })}
+        confirmText={t('common:delete')}
         loading={deleteMutation.isPending}
       />
     </div>

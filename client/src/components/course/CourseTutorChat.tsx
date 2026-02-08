@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Send, ChevronLeft, Bot, Trash2, Plus, MessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { courseTutorApi, MergedTutorConfig, Conversation, Message } from '../../api/courseTutor';
@@ -22,6 +23,7 @@ export const CourseTutorChat = ({
   onBack,
   existingConversations,
 }: CourseTutorChatProps) => {
+  const { t } = useTranslation(['courses']);
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
   const [activeConversationId, setActiveConversationId] = useState<number | null>(
@@ -68,7 +70,7 @@ export const CourseTutorChat = ({
       });
       setActiveConversationId(conversation.id);
     },
-    onError: (err: any) => toast.error(err.message || 'Failed to start conversation'),
+    onError: (err: any) => toast.error(err.message || t('failed_to_start_conversation')),
   });
 
   // Send message mutation
@@ -86,7 +88,7 @@ export const CourseTutorChat = ({
         queryKey: ['tutorConversations', courseId, tutor.courseTutorId],
       });
     },
-    onError: (err: any) => toast.error(err.message || 'Failed to send message'),
+    onError: (err: any) => toast.error(err.message || t('failed_to_send_message_toast')),
     onSettled: () => {
       setIsTyping(false);
     },
@@ -100,9 +102,9 @@ export const CourseTutorChat = ({
         queryKey: ['tutorConversations', courseId, tutor.courseTutorId],
       });
       setActiveConversationId(null);
-      toast.success('Conversation deleted');
+      toast.success(t('conversation_deleted'));
     },
-    onError: (err: any) => toast.error(err.message || 'Failed to delete conversation'),
+    onError: (err: any) => toast.error(err.message || t('failed_to_delete_conversation')),
   });
 
   // Fetch conversations list
@@ -190,7 +192,7 @@ export const CourseTutorChat = ({
             onClick={handleNewConversation}
             loading={createConversationMutation.isPending}
           >
-            New Conversation
+            {t('new_conversation')}
           </Button>
         </div>
 
@@ -210,7 +212,7 @@ export const CourseTutorChat = ({
                 <MessageSquare className="w-4 h-4" style={{ color: colors.textMuted }} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm truncate" style={{ color: colors.textPrimary }}>
-                    {conv.title || `Conversation ${conv.id}`}
+                    {conv.title || t('conversation_number', { id: conv.id })}
                   </p>
                   <p className="text-xs" style={{ color: colors.textMuted }}>
                     {new Date(conv.updatedAt).toLocaleDateString()}
@@ -220,7 +222,7 @@ export const CourseTutorChat = ({
             ))
           ) : (
             <p className="p-4 text-sm text-center" style={{ color: colors.textMuted }}>
-              No conversations yet
+              {t('no_conversations_yet')}
             </p>
           )}
         </div>
@@ -228,7 +230,7 @@ export const CourseTutorChat = ({
         <div className="p-3 border-t" style={{ borderColor: colors.borderLight }}>
           <Button variant="ghost" size="sm" className="w-full" onClick={onBack}>
             <ChevronLeft className="w-4 h-4 mr-1" />
-            Back to Tutors
+            {t('back_to_tutors')}
           </Button>
         </div>
       </div>
@@ -270,9 +272,9 @@ export const CourseTutorChat = ({
               onClick={() => deleteConversationMutation.mutate(activeConversationId)}
               loading={deleteConversationMutation.isPending}
               icon={<Trash2 className="w-4 h-4" />}
-              title="Delete conversation"
+              title={t('delete_conversation')}
             >
-              Clear
+              {t('clear')}
             </Button>
           )}
         </div>
@@ -280,7 +282,7 @@ export const CourseTutorChat = ({
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messagesLoading ? (
-            <Loading text="Loading messages..." />
+            <Loading text={t('loading_messages')} />
           ) : messages.length === 0 ? (
             <div className="flex items-start gap-3">
               <div
@@ -294,7 +296,7 @@ export const CourseTutorChat = ({
               >
                 <p className="text-sm" style={{ color: colors.textPrimary }}>
                   {tutor.welcomeMessage ||
-                    `Hello! I'm ${tutor.displayName}. How can I help you with ${courseTitle}?`}
+                    t('tutor_welcome_message', { name: tutor.displayName, course: courseTitle })}
                 </p>
               </div>
             </div>
@@ -348,7 +350,7 @@ export const CourseTutorChat = ({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={`Message ${tutor.displayName}...`}
+              placeholder={t('message_tutor', { name: tutor.displayName })}
               className="flex-1 px-4 py-2 border rounded-lg resize-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
               style={{
                 backgroundColor: colors.inputBg,
@@ -364,11 +366,11 @@ export const CourseTutorChat = ({
               loading={sendMessageMutation.isPending}
               icon={<Send className="w-4 h-4" />}
             >
-              Send
+              {t('send')}
             </Button>
           </div>
           <p className="text-xs mt-2" style={{ color: colors.textMuted }}>
-            Press Enter to send, Shift+Enter for new line
+            {t('keyboard_hint')}
           </p>
         </div>
       </div>

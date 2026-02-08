@@ -6,6 +6,7 @@
 
 import { useState, useMemo, Fragment } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   Filter,
   RefreshCw,
@@ -74,6 +75,7 @@ interface ActivityLog {
 type SortField = 'timestamp' | 'userFullname' | 'verb' | 'objectType' | 'objectTitle' | 'courseTitle' | 'progress' | 'duration';
 
 export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsTabProps) => {
+  const { t } = useTranslation(['admin', 'common']);
   // Filter state
   const [filters, setFilters] = useState<ActivityLogFilters>({
     page: 1,
@@ -229,7 +231,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardBody className="p-4">
-            <div className="text-sm text-gray-500 dark:text-gray-400">Total Activities</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{t('total_activities')}</div>
             <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               {(stats?.totalActivities || pagination.total || 0).toLocaleString()}
             </div>
@@ -237,7 +239,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
         </Card>
         <Card>
           <CardBody className="p-4">
-            <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">Top Verbs</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">{t('top_verbs')}</div>
             <div className="flex flex-wrap gap-1">
               {statsDisplay.topVerbs.map(([verb, count]: [string, number]) => (
                 <span
@@ -252,7 +254,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
         </Card>
         <Card>
           <CardBody className="p-4">
-            <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">Top Object Types</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">{t('top_object_types')}</div>
             <div className="flex flex-wrap gap-1">
               {statsDisplay.topObjectTypes.map(([type, count]: [string, number]) => (
                 <span
@@ -267,7 +269,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
         </Card>
         <Card>
           <CardBody className="p-4">
-            <div className="text-sm text-gray-500 dark:text-gray-400">Unique Users</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{t('unique_users')}</div>
             <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               {filterOptions?.users.length || 0}
             </div>
@@ -281,10 +283,10 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
               <Filter className="w-4 h-4" />
-              Filters
+              {t('filters')}
               {hasActiveFilters && (
                 <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded-full">
-                  Active
+                  {t('active')}
                 </span>
               )}
             </div>
@@ -300,7 +302,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
                 ) : (
                   <RefreshCw className="w-4 h-4 mr-1" />
                 )}
-                Refresh
+                {t('common:refresh')}
               </Button>
               <Button
                 variant="outline"
@@ -309,7 +311,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
                 disabled={exportStatus === 'loading'}
               >
                 <FileText className="w-4 h-4 mr-1" />
-                CSV
+                {t('csv')}
               </Button>
               <Button
                 variant="outline"
@@ -318,7 +320,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
                 disabled={exportStatus === 'loading'}
               >
                 <FileSpreadsheet className="w-4 h-4 mr-1" />
-                Excel
+                {t('excel')}
               </Button>
               <Button
                 size="sm"
@@ -332,7 +334,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
                 ) : (
                   <FileJson className="w-4 h-4 mr-1" />
                 )}
-                JSON
+                {t('json')}
               </Button>
             </div>
           </div>
@@ -341,12 +343,12 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
           <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             {/* Search */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('search')}</label>
               <div className="relative">
                 <input
                   type="text"
                   className="w-full border border-gray-300 dark:border-gray-600 rounded-md pl-9 pr-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                  placeholder="Search user, object, course..."
+                  placeholder={t('search_user_object_course')}
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   onKeyDown={handleSearchKeyDown}
@@ -370,13 +372,13 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
 
             {/* User Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('user')}</label>
               <select
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 value={filters.userId || ''}
                 onChange={(e) => updateFilter('userId', e.target.value ? parseInt(e.target.value) : undefined)}
               >
-                <option value="">All Users</option>
+                <option value="">{t('all_users')}</option>
                 {filterOptions?.users.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.fullname || u.email || `User #${u.id}`}
@@ -387,13 +389,13 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
 
             {/* Course Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Course</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('course')}</label>
               <select
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 value={filters.courseId || ''}
                 onChange={(e) => updateFilter('courseId', e.target.value ? parseInt(e.target.value) : undefined)}
               >
-                <option value="">All Courses</option>
+                <option value="">{t('all_courses')}</option>
                 {filterOptions?.courses.map((c) => (
                   <option key={c.id} value={c.id || ''}>
                     {c.title || `Course #${c.id}`}
@@ -404,13 +406,13 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
 
             {/* Verb Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Verb</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('verb')}</label>
               <select
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 value={filters.verb || ''}
                 onChange={(e) => updateFilter('verb', e.target.value || undefined)}
               >
-                <option value="">All Verbs</option>
+                <option value="">{t('all_verbs')}</option>
                 {filterOptions?.verbs.map((v) => (
                   <option key={v.verb} value={v.verb}>
                     {v.verb} ({v.count})
@@ -421,13 +423,13 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
 
             {/* Object Type Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Object Type</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('object_type')}</label>
               <select
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 value={filters.objectType || ''}
                 onChange={(e) => updateFilter('objectType', e.target.value || undefined)}
               >
-                <option value="">All Types</option>
+                <option value="">{t('all_types')}</option>
                 {filterOptions?.objectTypes.map((o) => (
                   <option key={o.objectType} value={o.objectType}>
                     {o.objectType} ({o.count})
@@ -440,7 +442,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
           {/* Date Filters */}
           <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mt-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('start_date')}</label>
               <input
                 type="date"
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
@@ -449,7 +451,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Date</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('end_date')}</label>
               <input
                 type="date"
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
@@ -460,7 +462,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
             <div className="flex items-end">
               <Button variant="outline" className="w-full" onClick={clearFilters}>
                 <X className="w-4 h-4 mr-1" />
-                Clear Filters
+                {t('clear_filters')}
               </Button>
             </div>
           </div>
@@ -471,10 +473,9 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between text-gray-900 dark:text-gray-100">
-            <span>Activity Logs</span>
+            <span>{t('activity_logs')}</span>
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              Showing {(pagination.page - 1) * pagination.limit + 1}-
-              {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total.toLocaleString()} logs
+              {t('showing_range', { start: (pagination.page - 1) * pagination.limit + 1, end: Math.min(pagination.page * pagination.limit, pagination.total), total: pagination.total.toLocaleString() })}
             </span>
           </div>
         </CardHeader>
@@ -483,11 +484,11 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
             <div className="p-8"><Loading /></div>
           ) : logs.length === 0 ? (
             <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-              No activity logs found
+              {t('no_activity_logs')}
               {hasActiveFilters && (
                 <div className="mt-2">
                   <Button variant="outline" size="sm" onClick={clearFilters}>
-                    Clear Filters
+                    {t('clear_filters')}
                   </Button>
                 </div>
               )}
@@ -503,7 +504,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
                       onClick={() => handleSort('timestamp')}
                     >
                       <div className="flex items-center">
-                        Timestamp
+                        {t('timestamp')}
                         <SortIcon field="timestamp" />
                       </div>
                     </th>
@@ -512,7 +513,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
                       onClick={() => handleSort('userFullname')}
                     >
                       <div className="flex items-center">
-                        User
+                        {t('user')}
                         <SortIcon field="userFullname" />
                       </div>
                     </th>
@@ -521,7 +522,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
                       onClick={() => handleSort('verb')}
                     >
                       <div className="flex items-center">
-                        Verb
+                        {t('verb')}
                         <SortIcon field="verb" />
                       </div>
                     </th>
@@ -530,7 +531,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
                       onClick={() => handleSort('objectType')}
                     >
                       <div className="flex items-center">
-                        Object Type
+                        {t('object_type')}
                         <SortIcon field="objectType" />
                       </div>
                     </th>
@@ -539,7 +540,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
                       onClick={() => handleSort('objectTitle')}
                     >
                       <div className="flex items-center">
-                        Object
+                        {t('object')}
                         <SortIcon field="objectTitle" />
                       </div>
                     </th>
@@ -548,7 +549,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
                       onClick={() => handleSort('courseTitle')}
                     >
                       <div className="flex items-center">
-                        Course
+                        {t('course')}
                         <SortIcon field="courseTitle" />
                       </div>
                     </th>
@@ -557,7 +558,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
                       onClick={() => handleSort('progress')}
                     >
                       <div className="flex items-center">
-                        Progress
+                        {t('progress')}
                         <SortIcon field="progress" />
                       </div>
                     </th>
@@ -566,7 +567,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
                       onClick={() => handleSort('duration')}
                     >
                       <div className="flex items-center">
-                        Duration
+                        {t('duration')}
                         <SortIcon field="duration" />
                       </div>
                     </th>
@@ -649,53 +650,53 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
                               {/* User Context */}
                               <div className="space-y-2">
                                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
-                                  User Context
+                                  {t('user_context')}
                                 </h4>
                                 <div className="space-y-1 text-gray-600 dark:text-gray-400">
-                                  <div><span className="text-gray-500 dark:text-gray-500">ID:</span> {log.userId}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Email:</span> {log.userEmail || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Name:</span> {log.userFullname || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Role:</span> {log.userRole || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Session:</span> {log.sessionId ? log.sessionId.substring(0, 16) + '...' : '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('id')}:</span> {log.userId}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('email')}:</span> {log.userEmail || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('name')}:</span> {log.userFullname || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('role')}:</span> {log.userRole || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('session')}:</span> {log.sessionId ? log.sessionId.substring(0, 16) + '...' : '-'}</div>
                                 </div>
                               </div>
 
                               {/* Course Hierarchy */}
                               <div className="space-y-2">
                                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
-                                  Course Hierarchy
+                                  {t('course_hierarchy')}
                                 </h4>
                                 <div className="space-y-1 text-gray-600 dark:text-gray-400">
-                                  <div><span className="text-gray-500 dark:text-gray-500">Course:</span> {log.courseTitle || '-'} {log.courseId && `(#${log.courseId})`}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Module:</span> {log.moduleTitle || '-'} {log.moduleOrder != null && `(Order: ${log.moduleOrder})`}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Lecture:</span> {log.lectureTitle || '-'} {log.lectureOrder != null && `(Order: ${log.lectureOrder})`}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Section:</span> {log.sectionTitle || '-'} {log.sectionOrder != null && `(Order: ${log.sectionOrder})`}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('course')}:</span> {log.courseTitle || '-'} {log.courseId && `(#${log.courseId})`}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('module')}:</span> {log.moduleTitle || '-'} {log.moduleOrder != null && `(${t('order')}: ${log.moduleOrder})`}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('lecture')}:</span> {log.lectureTitle || '-'} {log.lectureOrder != null && `(${t('order')}: ${log.lectureOrder})`}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('section')}:</span> {log.sectionTitle || '-'} {log.sectionOrder != null && `(${t('order')}: ${log.sectionOrder})`}</div>
                                 </div>
                               </div>
 
                               {/* Results */}
                               <div className="space-y-2">
                                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
-                                  Results
+                                  {t('results')}
                                 </h4>
                                 <div className="space-y-1 text-gray-600 dark:text-gray-400">
-                                  <div><span className="text-gray-500 dark:text-gray-500">Success:</span> {log.success != null ? (log.success ? 'Yes' : 'No') : '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Score:</span> {log.score != null ? `${log.score}${log.maxScore != null ? ` / ${log.maxScore}` : ''}` : '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Progress:</span> {log.progress != null ? `${log.progress}%` : '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Duration:</span> {log.duration != null ? `${log.duration} seconds` : '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('common:success')}:</span> {log.success != null ? (log.success ? t('common:yes') : t('common:no')) : '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('score')}:</span> {log.score != null ? `${log.score}${log.maxScore != null ? ` / ${log.maxScore}` : ''}` : '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('progress')}:</span> {log.progress != null ? `${log.progress}%` : '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('duration')}:</span> {log.duration != null ? `${log.duration} ${t('seconds')}` : '-'}</div>
                                 </div>
                               </div>
 
                               {/* Client Info */}
                               <div className="space-y-2">
                                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
-                                  Client Info
+                                  {t('client_info')}
                                 </h4>
                                 <div className="space-y-1 text-gray-600 dark:text-gray-400">
-                                  <div><span className="text-gray-500 dark:text-gray-500">Device:</span> {log.deviceType || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Browser:</span> {log.browserName || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Object ID:</span> {log.objectId || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">Subtype:</span> {log.objectSubtype || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('device')}:</span> {log.deviceType || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('browser')}:</span> {log.browserName || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('object_id')}:</span> {log.objectId || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">{t('subtype')}:</span> {log.objectSubtype || '-'}</div>
                                 </div>
                               </div>
                             </div>
@@ -706,28 +707,28 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
                               return (
                                 <div className="mt-4">
                                   <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1 mb-2">
-                                    Extensions
+                                    {t('extensions')}
                                   </h4>
                                   {/* Show specific fields nicely */}
                                   {ext.userMessage && (
                                     <div className="mb-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded text-blue-700 dark:text-blue-300 text-sm">
-                                      <span className="font-medium">User Message:</span> {String(ext.userMessage)}
+                                      <span className="font-medium">{t('user_message')}:</span> {String(ext.userMessage)}
                                     </div>
                                   )}
                                   {ext.assistantMessage && (
                                     <div className="mb-2 p-2 bg-green-50 dark:bg-green-900/20 rounded text-green-700 dark:text-green-300 text-sm">
-                                      <span className="font-medium">AI Response:</span> {String(ext.assistantMessage)}
+                                      <span className="font-medium">{t('ai_response')}:</span> {String(ext.assistantMessage)}
                                     </div>
                                   )}
                                   {ext.aiModel && (
                                     <div className="mb-2 text-sm text-gray-600 dark:text-gray-400">
-                                      <span className="font-medium">AI Model:</span> {String(ext.aiModel)}
+                                      <span className="font-medium">{t('ai_model')}:</span> {String(ext.aiModel)}
                                     </div>
                                   )}
                                   {/* Show full JSON for other fields */}
                                   <details className="mt-2">
                                     <summary className="cursor-pointer text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
-                                      View raw JSON
+                                      {t('view_raw_json')}
                                     </summary>
                                     <pre className="mt-2 p-3 bg-gray-100 dark:bg-gray-900 rounded text-xs overflow-x-auto text-gray-800 dark:text-gray-200">
                                       {JSON.stringify(log.extensions, null, 2)}
@@ -750,7 +751,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
           {pagination.totalPages > 1 && (
             <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700">
               <div className="text-sm text-gray-500 dark:text-gray-400">
-                Page {pagination.page} of {pagination.totalPages}
+                {t('page_x_of_y', { page: pagination.page, total: pagination.totalPages })}
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -759,7 +760,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
                   onClick={() => goToPage(1)}
                   disabled={pagination.page === 1}
                 >
-                  First
+                  {t('first')}
                 </Button>
                 <Button
                   variant="outline"
@@ -768,7 +769,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
                   disabled={pagination.page === 1}
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  Prev
+                  {t('prev')}
                 </Button>
 
                 {/* Page numbers */}
@@ -807,7 +808,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
                   onClick={() => goToPage(pagination.page + 1)}
                   disabled={pagination.page === pagination.totalPages}
                 >
-                  Next
+                  {t('next')}
                   <ChevronRight className="w-4 h-4" />
                 </Button>
                 <Button
@@ -816,7 +817,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
                   onClick={() => goToPage(pagination.totalPages)}
                   disabled={pagination.page === pagination.totalPages}
                 >
-                  Last
+                  {t('last')}
                 </Button>
               </div>
             </div>

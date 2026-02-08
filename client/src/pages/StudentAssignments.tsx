@@ -11,6 +11,7 @@ import {
   Bot,
   TrendingUp,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { assignmentsApi } from '../api/assignments';
 import { enrollmentsApi } from '../api/enrollments';
 import { useTheme } from '../hooks/useTheme';
@@ -20,6 +21,7 @@ import { Button } from '../components/common/Button';
 import { Assignment } from '../types';
 
 export const StudentAssignments = () => {
+  const { t } = useTranslation(['courses', 'common']);
   const { courseId } = useParams<{ courseId: string }>();
   const parsedCourseId = parseInt(courseId!, 10);
   const { isDark } = useTheme();
@@ -57,7 +59,7 @@ export const StudentAssignments = () => {
   });
 
   if (enrollmentLoading || assignmentsLoading) {
-    return <Loading fullScreen text="Loading assignments..." />;
+    return <Loading fullScreen text={t('loading_assignments')} />;
   }
 
   if (!enrollment?.enrolled) {
@@ -65,10 +67,10 @@ export const StudentAssignments = () => {
       <div className="min-h-screen flex items-center justify-center">
         <Card>
           <CardBody className="text-center py-8 px-12">
-            <h2 className="text-xl font-bold mb-2" style={{ color: colors.textPrimary }}>Not Enrolled</h2>
-            <p className="mb-4" style={{ color: colors.textSecondary }}>You need to enroll in this course to view assignments</p>
+            <h2 className="text-xl font-bold mb-2" style={{ color: colors.textPrimary }}>{t('not_enrolled_title')}</h2>
+            <p className="mb-4" style={{ color: colors.textSecondary }}>{t('need_enroll_assignments')}</p>
             <Link to={`/catalog/${courseId}`} className="btn btn-primary">
-              View Course
+              {t('view_course')}
             </Link>
           </CardBody>
         </Card>
@@ -93,19 +95,19 @@ export const StudentAssignments = () => {
       <div className="mb-6">
         <Link to={`/learn/${courseId}`}>
           <Button variant="ghost" size="sm" icon={<ArrowLeft className="w-4 h-4" />}>
-            Back to Course
+            {t('back_to_course')}
           </Button>
         </Link>
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold mb-2" style={{ color: colors.textPrimary }}>Assignments</h1>
+          <h1 className="text-3xl font-bold mb-2" style={{ color: colors.textPrimary }}>{t('assignments')}</h1>
           <p style={{ color: colors.textSecondary }}>{course?.title}</p>
         </div>
         <Link to={`/courses/${parsedCourseId}/grades`}>
           <Button variant="secondary" icon={<TrendingUp className="w-4 h-4" />}>
-            My Grades
+            {t('my_grades')}
           </Button>
         </Link>
       </div>
@@ -120,8 +122,8 @@ export const StudentAssignments = () => {
         <Card>
           <CardBody className="text-center py-12">
             <FileText className="w-16 h-16 mx-auto mb-4" style={{ color: colors.textMuted }} />
-            <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>No assignments yet</h3>
-            <p style={{ color: colors.textSecondary }}>Check back later for new assignments</p>
+            <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>{t('no_assignments_yet')}</h3>
+            <p style={{ color: colors.textSecondary }}>{t('check_back_later_assignments')}</p>
           </CardBody>
         </Card>
       )}
@@ -136,6 +138,7 @@ interface AssignmentCardProps {
 }
 
 const AssignmentCard = ({ assignment, courseId, colors }: AssignmentCardProps) => {
+  const { t } = useTranslation(['courses']);
   const { data: mySubmission } = useQuery({
     queryKey: ['mySubmission', assignment.id],
     queryFn: () => assignmentsApi.getMySubmission(assignment.id),
@@ -156,7 +159,7 @@ const AssignmentCard = ({ assignment, courseId, colors }: AssignmentCardProps) =
           style={{ backgroundColor: colors.bgGreen, color: colors.textGreen }}
         >
           <Award className="w-3 h-3" />
-          Graded: {mySubmission?.grade}/{assignment.points}
+          {t('graded_with_score', { grade: mySubmission?.grade, total: assignment.points })}
         </span>
       );
     }
@@ -167,7 +170,7 @@ const AssignmentCard = ({ assignment, courseId, colors }: AssignmentCardProps) =
           style={{ backgroundColor: colors.bgBlue, color: colors.textBlue }}
         >
           <CheckCircle className="w-3 h-3" />
-          Submitted
+          {t('submitted_status')}
         </span>
       );
     }
@@ -178,7 +181,7 @@ const AssignmentCard = ({ assignment, courseId, colors }: AssignmentCardProps) =
           style={{ backgroundColor: colors.bgRed, color: colors.textRed }}
         >
           <AlertCircle className="w-3 h-3" />
-          Past Due
+          {t('past_due_status')}
         </span>
       );
     }
@@ -189,7 +192,7 @@ const AssignmentCard = ({ assignment, courseId, colors }: AssignmentCardProps) =
           style={{ backgroundColor: colors.bgYellow, color: colors.textYellow }}
         >
           <Clock className="w-3 h-3" />
-          Draft Saved
+          {t('draft_saved_status')}
         </span>
       );
     }
@@ -199,7 +202,7 @@ const AssignmentCard = ({ assignment, courseId, colors }: AssignmentCardProps) =
         style={{ backgroundColor: colors.bgGray, color: colors.textGray }}
       >
         <FileText className="w-3 h-3" />
-        Not Started
+        {t('not_started_status')}
       </span>
     );
   };
@@ -239,7 +242,7 @@ const AssignmentCard = ({ assignment, courseId, colors }: AssignmentCardProps) =
                   className="text-xs px-2 py-0.5 rounded"
                   style={{ backgroundColor: colors.bgTeal, color: colors.textTeal }}
                 >
-                  AI Agent
+                  {t('ai_agent_label')}
                 </span>
               )}
               {getStatusBadge()}
@@ -247,7 +250,7 @@ const AssignmentCard = ({ assignment, courseId, colors }: AssignmentCardProps) =
             <div className="flex items-center gap-4 text-sm" style={{ color: colors.textSecondary }}>
               <span className="flex items-center gap-1">
                 <Award className="w-4 h-4" />
-                {assignment.points} points
+                {t('points_format', { points: assignment.points })}
               </span>
               {dueDate && (
                 <span
@@ -255,7 +258,7 @@ const AssignmentCard = ({ assignment, courseId, colors }: AssignmentCardProps) =
                   style={{ color: isPastDue && !isSubmitted ? colors.textRed : colors.textSecondary }}
                 >
                   <Calendar className="w-4 h-4" />
-                  Due {dueDate.toLocaleDateString()} at {dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {t('due_at', { date: dueDate.toLocaleDateString(), time: dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) })}
                 </span>
               )}
               {assignment.module && (
@@ -267,8 +270,8 @@ const AssignmentCard = ({ assignment, courseId, colors }: AssignmentCardProps) =
           <div className="flex-shrink-0">
             <span className="font-medium text-sm text-primary-600">
               {isAgentAssignment
-                ? (isGraded ? 'View Grade' : isSubmitted ? 'View Agent' : 'Build Agent')
-                : (isGraded ? 'View Grade' : isSubmitted ? 'View Submission' : 'View')
+                ? (isGraded ? t('view_grade') : isSubmitted ? t('view_agent') : t('build_agent'))
+                : (isGraded ? t('view_grade') : isSubmitted ? t('view_submission') : t('common:view'))
               }
             </span>
           </div>

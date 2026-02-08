@@ -1,4 +1,5 @@
 import { useEffect, useId } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 
@@ -11,6 +12,7 @@ interface ModalProps {
 }
 
 export const Modal = ({ isOpen, onClose, title, children, size = 'md' }: ModalProps) => {
+  const { t } = useTranslation(['common']);
   const titleId = useId();
   const focusTrapRef = useFocusTrap(isOpen);
 
@@ -61,7 +63,7 @@ export const Modal = ({ isOpen, onClose, title, children, size = 'md' }: ModalPr
               </h3>
               <button
                 onClick={onClose}
-                aria-label="Close"
+                aria-label={t('close')}
                 className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-300 dark:hover:bg-gray-700 transition-colors"
               >
                 <X className="w-5 h-5" />

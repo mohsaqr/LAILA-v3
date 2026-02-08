@@ -141,5 +141,19 @@
   "sequential_chain": "سلسلة متتابعة",
   "debate_mode": "وضع المناظرة",
   "random_selection": "اختيار عشوائي",
-  "round": "الجولة {{number}}"
+  "round": "الجولة {{number}}",
+
+  "routed_to": "موجّه إلى {{name}}",
+  "confidence_percent": "{{percent}}% ثقة",
+  "team_response_from": "رد الفريق من {{count}} مدرّسين",
+  "view_individual_contributions": "عرض المساهمات الفردية",
+  "start_conversation": "ابدأ محادثة",
+
+  "mode": "الوضع",
+  "mode_manual": "يدوي",
+  "mode_manual_desc": "اختر أي مدرّس يرد",
+  "mode_auto_route": "توجيه تلقائي",
+  "mode_auto_route_desc": "الذكاء الاصطناعي يختار أفضل مدرّس",
+  "mode_team": "فريق",
+  "mode_team_desc": "جميع المدرّسين يساهمون"
 }

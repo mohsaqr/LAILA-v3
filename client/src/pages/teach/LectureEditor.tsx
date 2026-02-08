@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Save, Layers } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../../api/courses';
@@ -15,6 +16,7 @@ import { SectionEditor, AddSectionToolbar } from '../../components/teach/Section
 import { UpdateSectionData } from '../../types';
 
 export const LectureEditor = () => {
+  const { t } = useTranslation(['teaching', 'common']);
   const { id, lectureId } = useParams<{ id: string; lectureId: string }>();
   const courseId = parseInt(id!, 10);
   const lecId = parseInt(lectureId!, 10);
@@ -67,9 +69,9 @@ export const LectureEditor = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lecture', lecId] });
       queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
-      toast.success('Lesson saved');
+      toast.success(t('lesson_saved'));
     },
-    onError: () => toast.error('Failed to save lesson'),
+    onError: () => toast.error(t('failed_to_save_lesson_msg')),
   });
 
   const createSectionMutation = useMutation({
@@ -79,9 +81,9 @@ export const LectureEditor = () => {
       queryClient.invalidateQueries({ queryKey: ['lecture', lecId] });
       // Auto-expand the newly created section
       setExpandedSectionId(newSection.id);
-      toast.success('Section added');
+      toast.success(t('section_added'));
     },
-    onError: () => toast.error('Failed to add section'),
+    onError: () => toast.error(t('failed_to_add_section')),
   });
 
   const updateSectionMutation = useMutation({
@@ -90,17 +92,17 @@ export const LectureEditor = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lecture', lecId] });
     },
-    onError: () => toast.error('Failed to update section'),
+    onError: () => toast.error(t('failed_to_save_section')),
   });
 
   const deleteSectionMutation = useMutation({
     mutationFn: (sectionId: number) => coursesApi.deleteSection(sectionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lecture', lecId] });
-      toast.success('Section deleted');
+      toast.success(t('section_deleted'));
       setDeleteSectionConfirm(null);
     },
-    onError: () => toast.error('Failed to delete section'),
+    onError: () => toast.error(t('failed_to_delete_section')),
   });
 
   const reorderSectionsMutation = useMutation({
@@ -108,12 +110,12 @@ export const LectureEditor = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lecture', lecId] });
     },
-    onError: () => toast.error('Failed to reorder sections'),
+    onError: () => toast.error(t('failed_to_reorder_sections')),
   });
 
   const handleSave = () => {
     if (!formData.title.trim()) {
-      toast.error('Title is required');
+      toast.error(t('title_required_msg'));
       return;
     }
     updateLectureMutation.mutate(formData);
@@ -173,15 +175,15 @@ export const LectureEditor = () => {
   };
 
   if (isLoading) {
-    return <Loading fullScreen text="Loading lesson..." />;
+    return <Loading fullScreen text={t('loading_lesson')} />;
   }
 
   if (!lecture) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Lesson Not Found</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('lesson_not_found')}</h1>
         <Button onClick={() => navigate(`/teach/courses/${courseId}/curriculum`)}>
-          Back to Curriculum
+          {t('back_to_curriculum')}
         </Button>
       </div>
     );
@@ -197,10 +199,10 @@ export const LectureEditor = () => {
       <div className="flex items-center justify-between mb-6">
         <Breadcrumb
           items={[
-            { label: 'Teaching', href: '/teach' },
-            { label: course?.title || 'Course', href: `/courses/${courseId}` },
-            { label: 'Curriculum', href: `/teach/courses/${courseId}/curriculum` },
-            { label: lecture.title || 'Lesson' },
+            { label: t('teaching'), href: '/teach' },
+            { label: course?.title || t('course'), href: `/courses/${courseId}` },
+            { label: t('curriculum_editor'), href: `/teach/courses/${courseId}/curriculum` },
+            { label: lecture.title || t('lesson_title') },
           ]}
         />
         <Button
@@ -209,7 +211,7 @@ export const LectureEditor = () => {
           loading={updateLectureMutation.isPending}
           icon={<Save className="w-4 h-4" />}
         >
-          Save
+          {t('save')}
         </Button>
       </div>
 
@@ -219,14 +221,14 @@ export const LectureEditor = () => {
           {/* Lesson Title */}
           <Card>
             <CardHeader>
-              <h1 className="text-xl font-semibold text-gray-900">Edit Lesson</h1>
+              <h1 className="text-xl font-semibold text-gray-900">{t('edit_lesson')}</h1>
             </CardHeader>
             <CardBody>
               <Input
-                label="Lesson Title"
+                label={t('lesson_title')}
                 value={formData.title}
                 onChange={e => handleChange('title', e.target.value)}
-                placeholder="Enter lesson title"
+                placeholder={t('enter_lesson_title')}
                 required
               />
             </CardBody>
@@ -236,9 +238,9 @@ export const LectureEditor = () => {
           <Card>
             <CardHeader className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Sections</h2>
+                <h2 className="text-lg font-semibold text-gray-900">{t('sections')}</h2>
                 <p className="text-sm text-gray-500">
-                  Add and organize your lesson content
+                  {t('add_organize_content')}
                 </p>
               </div>
             </CardHeader>
@@ -266,8 +268,8 @@ export const LectureEditor = () => {
               ) : (
                 <EmptyState
                   icon={Layers}
-                  title="No sections yet"
-                  description="Add your first section to start building this lesson"
+                  title={t('no_sections_yet')}
+                  description={t('add_first_section_desc')}
                 />
               )}
 
@@ -281,34 +283,34 @@ export const LectureEditor = () => {
           {/* Settings */}
           <Card>
             <CardHeader>
-              <h2 className="font-semibold text-gray-900">Settings</h2>
+              <h2 className="font-semibold text-gray-900">{t('lesson_settings')}</h2>
             </CardHeader>
             <CardBody className="space-y-4">
               <Select
-                label="Content Type"
+                label={t('content_type_label')}
                 value={formData.contentType}
                 onChange={e =>
                   handleChange('contentType', e.target.value as 'text' | 'video' | 'mixed')
                 }
                 options={[
-                  { value: 'text', label: 'Text / Article' },
-                  { value: 'video', label: 'Video' },
-                  { value: 'mixed', label: 'Mixed Content' },
+                  { value: 'text', label: t('text_article') },
+                  { value: 'video', label: t('video') },
+                  { value: 'mixed', label: t('mixed_content') },
                 ]}
               />
 
               {(formData.contentType === 'video' || formData.contentType === 'mixed') && (
                 <Input
-                  label="Video URL"
+                  label={t('video_url')}
                   value={formData.videoUrl}
                   onChange={e => handleChange('videoUrl', e.target.value)}
                   placeholder="https://youtube.com/watch?v=..."
-                  helpText="YouTube, Vimeo, or direct video URL"
+                  helpText={t('video_url_help')}
                 />
               )}
 
               <Input
-                label="Duration (minutes)"
+                label={t('duration_minutes')}
                 type="number"
                 value={formData.duration}
                 onChange={e => handleChange('duration', parseInt(e.target.value) || 0)}
@@ -324,7 +326,7 @@ export const LectureEditor = () => {
                   className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                 />
                 <label htmlFor="isFree" className="text-sm text-gray-700">
-                  Allow free preview
+                  {t('allow_free_preview')}
                 </label>
               </div>
             </CardBody>
@@ -333,7 +335,7 @@ export const LectureEditor = () => {
           {/* Section Guide */}
           <Card>
             <CardHeader>
-              <h2 className="font-semibold text-gray-900">Section Types</h2>
+              <h2 className="font-semibold text-gray-900">{t('section_types_guide')}</h2>
             </CardHeader>
             <CardBody>
               <ul className="space-y-3 text-sm">
@@ -342,8 +344,8 @@ export const LectureEditor = () => {
                     T
                   </span>
                   <div>
-                    <span className="font-medium text-gray-900">Text</span>
-                    <p className="text-gray-500">Write rich content with Markdown support</p>
+                    <span className="font-medium text-gray-900">{t('text_section_guide')}</span>
+                    <p className="text-gray-500">{t('text_section_desc')}</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-3">
@@ -351,8 +353,8 @@ export const LectureEditor = () => {
                     F
                   </span>
                   <div>
-                    <span className="font-medium text-gray-900">File</span>
-                    <p className="text-gray-500">Upload PDFs, documents, images</p>
+                    <span className="font-medium text-gray-900">{t('file_section_guide')}</span>
+                    <p className="text-gray-500">{t('file_section_desc')}</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-3">
@@ -360,8 +362,8 @@ export const LectureEditor = () => {
                     AI
                   </span>
                   <div>
-                    <span className="font-medium text-gray-900">AI Generated</span>
-                    <p className="text-gray-500">Generate content using AI assistance</p>
+                    <span className="font-medium text-gray-900">{t('ai_generated_guide')}</span>
+                    <p className="text-gray-500">{t('ai_generated_desc')}</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-3">
@@ -369,8 +371,8 @@ export const LectureEditor = () => {
                     C
                   </span>
                   <div>
-                    <span className="font-medium text-gray-900">Chatbot</span>
-                    <p className="text-gray-500">Interactive AI assistant for students</p>
+                    <span className="font-medium text-gray-900">{t('chatbot_guide')}</span>
+                    <p className="text-gray-500">{t('chatbot_desc')}</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-3">
@@ -378,8 +380,8 @@ export const LectureEditor = () => {
                     A
                   </span>
                   <div>
-                    <span className="font-medium text-gray-900">Assignment</span>
-                    <p className="text-gray-500">Embed a course assignment</p>
+                    <span className="font-medium text-gray-900">{t('assignment_guide')}</span>
+                    <p className="text-gray-500">{t('assignment_desc')}</p>
                   </div>
                 </li>
               </ul>
@@ -393,9 +395,9 @@ export const LectureEditor = () => {
         isOpen={deleteSectionConfirm !== null}
         onClose={() => setDeleteSectionConfirm(null)}
         onConfirm={() => deleteSectionConfirm && deleteSectionMutation.mutate(deleteSectionConfirm)}
-        title="Delete Section"
-        message="Are you sure you want to delete this section? This action cannot be undone."
-        confirmText="Delete"
+        title={t('delete_section')}
+        message={t('delete_section_confirm')}
+        confirmText={t('common:delete')}
         loading={deleteSectionMutation.isPending}
       />
     </div>

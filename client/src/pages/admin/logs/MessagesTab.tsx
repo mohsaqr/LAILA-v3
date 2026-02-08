@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   MessageCircle,
   Clock,
@@ -47,6 +48,7 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps) => {
+  const { t } = useTranslation(['admin', 'common']);
   const [filters, setFilters] = useState<MessageFilters>({
     page: 1,
     limit: 50,
@@ -123,7 +125,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
   };
 
   if (statsLoading && messagesLoading) {
-    return <Loading text="Loading messages..." />;
+    return <Loading text={t('loading_messages')} />;
   }
 
   return (
@@ -137,7 +139,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats?.total || 0}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Total Messages</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('total_messages')}</p>
             </div>
           </CardBody>
         </Card>
@@ -148,7 +150,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats?.chatbot || 0}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Chatbot</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('chatbot')}</p>
             </div>
           </CardBody>
         </Card>
@@ -159,7 +161,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats?.tutor || 0}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Tutor</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('tutor')}</p>
             </div>
           </CardBody>
         </Card>
@@ -170,7 +172,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats?.agent || 0}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Agent Tests</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('agent_tests')}</p>
             </div>
           </CardBody>
         </Card>
@@ -185,7 +187,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats?.uniqueUsers || 0}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Unique Users</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('unique_users')}</p>
             </div>
           </CardBody>
         </Card>
@@ -198,7 +200,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {stats?.avgResponseTimeMs ? `${(stats.avgResponseTimeMs / 1000).toFixed(2)}s` : 'N/A'}
               </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Avg Response</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('avg_response')}</p>
             </div>
           </CardBody>
         </Card>
@@ -211,7 +213,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {stats?.totalTokens ? stats.totalTokens.toLocaleString() : '0'}
               </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Total Tokens</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('total_tokens')}</p>
             </div>
           </CardBody>
         </Card>
@@ -224,7 +226,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {stats?.byCourse?.length || 0}
               </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Courses</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('courses')}</p>
             </div>
           </CardBody>
         </Card>
@@ -237,7 +239,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
           <CardHeader className="py-3">
             <div className="flex items-center gap-2">
               <Cpu className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">By AI Model</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{t('by_ai_model')}</h3>
             </div>
           </CardHeader>
           <CardBody className="pt-0">
@@ -254,7 +256,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
                   </div>
                 ))
               ) : (
-                <p className="text-gray-400 dark:text-gray-500 text-sm">No data</p>
+                <p className="text-gray-400 dark:text-gray-500 text-sm">{t('common:no_data')}</p>
               )}
             </div>
           </CardBody>
@@ -265,7 +267,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
           <CardHeader className="py-3">
             <div className="flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">By Course</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{t('by_course')}</h3>
             </div>
           </CardHeader>
           <CardBody className="pt-0">
@@ -282,7 +284,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
                   </div>
                 ))
               ) : (
-                <p className="text-gray-400 dark:text-gray-500 text-sm">No data</p>
+                <p className="text-gray-400 dark:text-gray-500 text-sm">{t('common:no_data')}</p>
               )}
             </div>
           </CardBody>
@@ -292,16 +294,16 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
       {/* Filters & Actions */}
       <Card className="mb-6">
         <CardHeader className="flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100">Messages</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('messages')}</h3>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
               <Filter className="w-4 h-4 mr-1" />
-              Filters
+              {t('filters')}
               {showFilters ? <ChevronUp className="w-4 h-4 ml-1" /> : <ChevronDown className="w-4 h-4 ml-1" />}
             </Button>
             <Button variant="outline" size="sm" onClick={handleRefresh}>
               <RefreshCw className="w-4 h-4 mr-1" />
-              Refresh
+              {t('common:refresh')}
             </Button>
             <Button variant="ghost" size="sm" onClick={handleExportCSV} disabled={exportStatus === 'loading'}>
               {exportStatus === 'loading' ? (
@@ -309,7 +311,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
               ) : (
                 <Download className="w-4 h-4 mr-1" />
               )}
-              CSV
+              {t('csv')}
             </Button>
             <Button variant="ghost" size="sm" onClick={handleExportExcel} disabled={exportStatus === 'loading'}>
               {exportStatus === 'loading' ? (
@@ -317,7 +319,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
               ) : (
                 <FileSpreadsheet className="w-4 h-4 mr-1" />
               )}
-              Excel
+              {t('excel')}
             </Button>
           </div>
         </CardHeader>
@@ -327,7 +329,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
           <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('start_date')}</label>
                 <input
                   type="date"
                   value={filters.startDate || ''}
@@ -336,7 +338,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Date</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('end_date')}</label>
                 <input
                   type="date"
                   value={filters.endDate || ''}
@@ -345,23 +347,23 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">System Type</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('system_type')}</label>
                 <select
                   value={filters.systemType || ''}
                   onChange={(e) => setFilters(prev => ({ ...prev, systemType: e.target.value as MessageFilters['systemType'] || undefined, page: 1 }))}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
                 >
-                  <option value="">All Systems</option>
-                  <option value="chatbot">Chatbot</option>
-                  <option value="tutor">Tutor</option>
-                  <option value="agent">Agent Tests</option>
+                  <option value="">{t('all_systems')}</option>
+                  <option value="chatbot">{t('chatbot')}</option>
+                  <option value="tutor">{t('tutor')}</option>
+                  <option value="agent">{t('agent_tests')}</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User ID</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('user_id')}</label>
                 <input
                   type="number"
-                  placeholder="Filter by user ID"
+                  placeholder={t('filter_by_user_id')}
                   value={filters.userId || ''}
                   onChange={(e) => setFilters(prev => ({ ...prev, userId: e.target.value ? parseInt(e.target.value) : undefined, page: 1 }))}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
@@ -374,7 +376,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
                 size="sm"
                 onClick={() => setFilters({ page: 1, limit: 50 })}
               >
-                Clear Filters
+                {t('clear_filters')}
               </Button>
             </div>
           </div>
@@ -384,7 +386,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
         <CardBody className="p-0">
           {messagesLoading ? (
             <div className="p-8 text-center">
-              <Loading text="Loading messages..." />
+              <Loading text={t('loading_messages')} />
             </div>
           ) : (
             <>
@@ -392,17 +394,17 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
                     <tr>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Timestamp</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">System</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Session</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">User</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Course</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Module/Assignment</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Lecture/Section</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Chatbot/Agent</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Role</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Content</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Device</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('timestamp')}</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('system')}</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('session')}</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('user')}</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('course')}</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('module_assignment')}</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('lecture_section')}</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('chatbot_agent')}</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('role')}</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('content')}</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('device')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -483,7 +485,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
                                 className="text-blue-600 dark:text-blue-400 text-[10px] hover:underline"
                                 onClick={(e) => { e.stopPropagation(); toggleMessageExpand(msg.id); }}
                               >
-                                {expandedMessages.has(msg.id) ? 'Show less' : 'Show more'}
+                                {expandedMessages.has(msg.id) ? t('show_less') : t('show_more')}
                               </button>
                             )}
                           </td>
@@ -495,7 +497,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
                     ) : (
                       <tr>
                         <td colSpan={11} className="px-3 py-8 text-center text-gray-500 dark:text-gray-400">
-                          No messages found
+                          {t('no_messages_found')}
                         </td>
                       </tr>
                     )}
@@ -507,9 +509,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
               {messagesData?.pagination && messagesData.pagination.totalPages > 1 && (
                 <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
                   <div className="text-sm text-gray-500 dark:text-gray-400">
-                    Showing {((messagesData.pagination.page - 1) * messagesData.pagination.limit) + 1} -{' '}
-                    {Math.min(messagesData.pagination.page * messagesData.pagination.limit, messagesData.pagination.total)} of{' '}
-                    {messagesData.pagination.total} messages
+                    {t('showing_messages_range', { start: ((messagesData.pagination.page - 1) * messagesData.pagination.limit) + 1, end: Math.min(messagesData.pagination.page * messagesData.pagination.limit, messagesData.pagination.total), total: messagesData.pagination.total })}
                   </div>
                   <div className="flex gap-2">
                     <Button
@@ -518,10 +518,10 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
                       disabled={messagesData.pagination.page <= 1}
                       onClick={() => handlePageChange(messagesData.pagination.page - 1)}
                     >
-                      Previous
+                      {t('previous')}
                     </Button>
                     <span className="px-3 py-1 text-sm text-gray-700 dark:text-gray-300">
-                      Page {messagesData.pagination.page} of {messagesData.pagination.totalPages}
+                      {t('page_x_of_y', { page: messagesData.pagination.page, total: messagesData.pagination.totalPages })}
                     </span>
                     <Button
                       variant="outline"
@@ -529,7 +529,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps)
                       disabled={messagesData.pagination.page >= messagesData.pagination.totalPages}
                       onClick={() => handlePageChange(messagesData.pagination.page + 1)}
                     >
-                      Next
+                      {t('next')}
                     </Button>
                   </div>
                 </div>
@@ -556,13 +556,14 @@ interface MessageDetailModalProps {
 }
 
 const MessageDetailModal = ({ message, onClose }: MessageDetailModalProps) => {
+  const { t } = useTranslation(['admin', 'common']);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-700/50">
           <div className="flex items-center gap-3">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Message Details</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('message_details')}</h3>
             <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${SYSTEM_TYPE_COLORS[message.systemType]}`}>
               {message.systemType}
             </span>
@@ -583,7 +584,7 @@ const MessageDetailModal = ({ message, onClose }: MessageDetailModalProps) => {
               {/* Timing & Session */}
               <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                  <Clock className="w-4 h-4" /> Timing & Session
+                  <Clock className="w-4 h-4" /> {t('timing_session')}
                 </h4>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div><span className="text-gray-500 dark:text-gray-400">Timestamp:</span></div>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Plus,
   Trash2,
@@ -42,6 +43,7 @@ const defaultQuestionForm: QuestionFormData = {
 };
 
 export const QuizEditor = () => {
+  const { t } = useTranslation(['teaching', 'common']);
   const { id: courseId, quizId } = useParams<{ id: string; quizId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -81,11 +83,11 @@ export const QuizEditor = () => {
     mutationFn: (data: Partial<Quiz>) => quizzesApi.updateQuiz(parsedQuizId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quiz', parsedQuizId] });
-      toast.success('Quiz updated');
+      toast.success(t('quiz_updated'));
       setIsSettingsOpen(false);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to update quiz');
+      toast.error(error.response?.data?.error || t('failed_to_update_quiz'));
     },
   });
 
@@ -94,12 +96,12 @@ export const QuizEditor = () => {
     mutationFn: (data: CreateQuestionInput) => quizzesApi.addQuestion(parsedQuizId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quiz', parsedQuizId] });
-      toast.success('Question added');
+      toast.success(t('question_added'));
       setIsQuestionModalOpen(false);
       setQuestionForm(defaultQuestionForm);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to add question');
+      toast.error(error.response?.data?.error || t('failed_add_question'));
     },
   });
 
@@ -109,13 +111,13 @@ export const QuizEditor = () => {
       quizzesApi.updateQuestion(questionId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quiz', parsedQuizId] });
-      toast.success('Question updated');
+      toast.success(t('question_updated'));
       setIsQuestionModalOpen(false);
       setEditingQuestion(null);
       setQuestionForm(defaultQuestionForm);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to update question');
+      toast.error(error.response?.data?.error || t('failed_update_question'));
     },
   });
 
@@ -124,10 +126,10 @@ export const QuizEditor = () => {
     mutationFn: (questionId: number) => quizzesApi.deleteQuestion(questionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quiz', parsedQuizId] });
-      toast.success('Question deleted');
+      toast.success(t('question_deleted'));
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to delete question');
+      toast.error(error.response?.data?.error || t('failed_delete_question'));
     },
   });
 
@@ -136,10 +138,10 @@ export const QuizEditor = () => {
     mutationFn: () => quizzesApi.updateQuiz(parsedQuizId, { isPublished: !quiz?.isPublished }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quiz', parsedQuizId] });
-      toast.success(quiz?.isPublished ? 'Quiz unpublished' : 'Quiz published');
+      toast.success(quiz?.isPublished ? t('quiz_unpublished') : t('quiz_published'));
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to update quiz');
+      toast.error(error.response?.data?.error || t('failed_to_update_quiz'));
     },
   });
 
@@ -182,13 +184,13 @@ export const QuizEditor = () => {
   };
 
   const handleDeleteQuestion = (questionId: number) => {
-    if (window.confirm('Are you sure you want to delete this question?')) {
+    if (window.confirm(t('delete_question_confirm'))) {
       deleteQuestionMutation.mutate(questionId);
     }
   };
 
   if (isLoading) {
-    return <Loading text="Loading quiz..." />;
+    return <Loading text={t('loading_quiz')} />;
   }
 
   if (error || !quiz) {
@@ -197,8 +199,8 @@ export const QuizEditor = () => {
         <Card>
           <CardBody className="text-center">
             <AlertCircle className="w-12 h-12 mx-auto mb-4 text-red-500" />
-            <p style={{ color: colors.textPrimary }}>Failed to load quiz.</p>
-            <Button onClick={() => navigate(-1)} className="mt-4">Go Back</Button>
+            <p style={{ color: colors.textPrimary }}>{t('failed_load_quiz')}</p>
+            <Button onClick={() => navigate(-1)} className="mt-4">{t('common:go_back')}</Button>
           </CardBody>
         </Card>
       </div>
@@ -225,15 +227,15 @@ export const QuizEditor = () => {
               {quiz.title}
             </h1>
             <p className="text-sm" style={{ color: colors.textSecondary }}>
-              {quiz.questions?.length || 0} questions
-              {quiz.timeLimit && ` • ${quiz.timeLimit} min time limit`}
+              {t('x_questions', { count: quiz.questions?.length || 0 })}
+              {quiz.timeLimit && ` • ${t('time_limit_display', { minutes: quiz.timeLimit })}`}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <Button variant="secondary" onClick={() => setIsSettingsOpen(true)}>
               <Settings size={18} />
-              Settings
+              {t('settings')}
             </Button>
             <Button
               variant={quiz.isPublished ? 'secondary' : 'primary'}
@@ -243,12 +245,12 @@ export const QuizEditor = () => {
               {quiz.isPublished ? (
                 <>
                   <EyeOff size={18} />
-                  Unpublish
+                  {t('unpublish')}
                 </>
               ) : (
                 <>
                   <Eye size={18} />
-                  Publish
+                  {t('publish')}
                 </>
               )}
             </Button>
@@ -263,25 +265,25 @@ export const QuizEditor = () => {
                 <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
                   {quiz.questions?.length || 0}
                 </p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>Questions</p>
+                <p className="text-sm" style={{ color: colors.textSecondary }}>{t('questions_label')}</p>
               </div>
               <div>
                 <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
                   {quiz.timeLimit || '∞'}
                 </p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>Minutes</p>
+                <p className="text-sm" style={{ color: colors.textSecondary }}>{t('minutes_label')}</p>
               </div>
               <div>
                 <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
                   {quiz.maxAttempts || '∞'}
                 </p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>Max Attempts</p>
+                <p className="text-sm" style={{ color: colors.textSecondary }}>{t('max_attempts')}</p>
               </div>
               <div>
                 <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
                   {quiz.passingScore}%
                 </p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>Passing Score</p>
+                <p className="text-sm" style={{ color: colors.textSecondary }}>{t('passing_score')}</p>
               </div>
             </div>
           </CardBody>
@@ -290,11 +292,11 @@ export const QuizEditor = () => {
         {/* Questions List */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold" style={{ color: colors.textPrimary }}>
-            Questions
+            {t('questions_label')}
           </h2>
           <Button onClick={() => handleOpenQuestionModal()}>
             <Plus size={18} />
-            Add Question
+            {t('add_question')}
           </Button>
         </div>
 
@@ -324,7 +326,7 @@ export const QuizEditor = () => {
                               {question.questionType.replace('_', ' ')}
                             </span>
                             <span className="text-sm" style={{ color: colors.textSecondary }}>
-                              {question.points} point{question.points !== 1 ? 's' : ''}
+                              {t('x_points', { count: question.points })}
                             </span>
                           </div>
                           {question.questionType === 'multiple_choice' && question.options && (
@@ -347,7 +349,7 @@ export const QuizEditor = () => {
                           )}
                           {question.questionType === 'true_false' && (
                             <p className="mt-2 text-sm" style={{ color: colors.textSecondary }}>
-                              Correct answer: <span className="font-medium">{question.correctAnswer}</span>
+                              {t('correct_answer_label')}: <span className="font-medium">{question.correctAnswer}</span>
                             </p>
                           )}
                         </div>
@@ -357,7 +359,7 @@ export const QuizEditor = () => {
                             size="sm"
                             onClick={() => handleOpenQuestionModal(question)}
                           >
-                            Edit
+                            {t('edit')}
                           </Button>
                           <Button
                             variant="secondary"
@@ -378,13 +380,13 @@ export const QuizEditor = () => {
           <Card>
             <CardBody className="text-center py-12">
               <AlertCircle className="w-12 h-12 mx-auto mb-4" style={{ color: colors.textSecondary }} />
-              <p style={{ color: colors.textPrimary }}>No questions yet</p>
+              <p style={{ color: colors.textPrimary }}>{t('no_questions_yet')}</p>
               <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-                Add your first question to get started
+                {t('add_first_question_desc')}
               </p>
               <Button onClick={() => handleOpenQuestionModal()} className="mt-4">
                 <Plus size={18} />
-                Add Question
+                {t('add_question')}
               </Button>
             </CardBody>
           </Card>
@@ -395,7 +397,7 @@ export const QuizEditor = () => {
       <Modal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-        title="Quiz Settings"
+        title={t('quiz_settings')}
       >
         <form
           onSubmit={(e) => {
@@ -416,7 +418,7 @@ export const QuizEditor = () => {
         >
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-              Title
+              {t('title_label')}
             </label>
             <input
               name="title"
@@ -428,7 +430,7 @@ export const QuizEditor = () => {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-              Description
+              {t('description_label')}
             </label>
             <textarea
               name="description"
@@ -440,7 +442,7 @@ export const QuizEditor = () => {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-              Instructions
+              {t('instructions_label')}
             </label>
             <textarea
               name="instructions"
@@ -453,21 +455,21 @@ export const QuizEditor = () => {
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-                Time Limit (min)
+                {t('time_limit_minutes')}
               </label>
               <input
                 name="timeLimit"
                 type="number"
                 min="0"
                 defaultValue={quiz.timeLimit || ''}
-                placeholder="No limit"
+                placeholder={t('no_time_limit')}
                 className="w-full px-3 py-2 rounded-lg"
                 style={{ backgroundColor: colors.bgInput, borderColor: colors.border, borderWidth: 1, color: colors.textPrimary }}
               />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-                Max Attempts
+                {t('max_attempts')}
               </label>
               <input
                 name="maxAttempts"
@@ -480,7 +482,7 @@ export const QuizEditor = () => {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-                Passing Score (%)
+                {t('passing_score_percent')}
               </label>
               <input
                 name="passingScore"
@@ -501,7 +503,7 @@ export const QuizEditor = () => {
                 defaultChecked={quiz.shuffleQuestions}
                 className="w-4 h-4"
               />
-              <span className="text-sm" style={{ color: colors.textPrimary }}>Shuffle questions</span>
+              <span className="text-sm" style={{ color: colors.textPrimary }}>{t('shuffle_questions')}</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -510,16 +512,16 @@ export const QuizEditor = () => {
                 defaultChecked={quiz.shuffleOptions}
                 className="w-4 h-4"
               />
-              <span className="text-sm" style={{ color: colors.textPrimary }}>Shuffle options</span>
+              <span className="text-sm" style={{ color: colors.textPrimary }}>{t('shuffle_options')}</span>
             </label>
           </div>
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="secondary" onClick={() => setIsSettingsOpen(false)}>
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button type="submit" disabled={updateQuizMutation.isPending}>
               <Save size={18} />
-              Save Settings
+              {t('save_settings')}
             </Button>
           </div>
         </form>
@@ -533,12 +535,12 @@ export const QuizEditor = () => {
           setEditingQuestion(null);
           setQuestionForm(defaultQuestionForm);
         }}
-        title={editingQuestion ? 'Edit Question' : 'Add Question'}
+        title={editingQuestion ? t('edit_question') : t('add_question')}
       >
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-              Question Type
+              {t('question_type_label')}
             </label>
             <select
               value={questionForm.questionType}
@@ -550,16 +552,16 @@ export const QuizEditor = () => {
               className="w-full px-3 py-2 rounded-lg"
               style={{ backgroundColor: colors.bgInput, borderColor: colors.border, borderWidth: 1, color: colors.textPrimary }}
             >
-              <option value="multiple_choice">Multiple Choice</option>
-              <option value="true_false">True/False</option>
-              <option value="short_answer">Short Answer</option>
-              <option value="fill_in_blank">Fill in the Blank</option>
+              <option value="multiple_choice">{t('multiple_choice')}</option>
+              <option value="true_false">{t('true_false')}</option>
+              <option value="short_answer">{t('short_answer')}</option>
+              <option value="fill_in_blank">{t('fill_in_blank')}</option>
             </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-              Question Text
+              {t('question_text_label')}
             </label>
             <textarea
               value={questionForm.questionText}
@@ -574,7 +576,7 @@ export const QuizEditor = () => {
           {questionForm.questionType === 'multiple_choice' && (
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-                Options (click to mark as correct)
+                {t('options_click_correct')}
               </label>
               <div className="space-y-2">
                 {questionForm.options.map((option, idx) => (
@@ -601,7 +603,7 @@ export const QuizEditor = () => {
                         newOptions[idx] = e.target.value;
                         setQuestionForm({ ...questionForm, options: newOptions });
                       }}
-                      placeholder={`Option ${idx + 1}`}
+                      placeholder={t('option_placeholder', { number: idx + 1 })}
                       className="flex-1 px-3 py-2 rounded-lg"
                       style={{ backgroundColor: colors.bgInput, borderColor: colors.border, borderWidth: 1, color: colors.textPrimary }}
                     />
@@ -614,7 +616,7 @@ export const QuizEditor = () => {
           {questionForm.questionType === 'true_false' && (
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-                Correct Answer
+                {t('correct_answer_label')}
               </label>
               <div className="flex gap-4">
                 {['true', 'false'].map((value) => (
@@ -637,7 +639,7 @@ export const QuizEditor = () => {
           {(questionForm.questionType === 'short_answer' || questionForm.questionType === 'fill_in_blank') && (
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-                Correct Answer
+                {t('correct_answer_label')}
               </label>
               <input
                 value={questionForm.correctAnswer}
@@ -651,7 +653,7 @@ export const QuizEditor = () => {
 
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-              Explanation (shown after answering)
+              {t('explanation_label')}
             </label>
             <textarea
               value={questionForm.explanation}
@@ -664,7 +666,7 @@ export const QuizEditor = () => {
 
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-              Points
+              {t('points_label')}
             </label>
             <input
               type="number"
@@ -686,14 +688,14 @@ export const QuizEditor = () => {
                 setQuestionForm(defaultQuestionForm);
               }}
             >
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button
               onClick={handleSaveQuestion}
               disabled={addQuestionMutation.isPending || updateQuestionMutation.isPending}
             >
               <Save size={18} />
-              {editingQuestion ? 'Update Question' : 'Add Question'}
+              {editingQuestion ? t('update_question') : t('add_question')}
             </Button>
           </div>
         </div>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { AlertTriangle } from 'lucide-react';
 import { Modal } from './Modal';
 import { Button } from './Button';
@@ -20,11 +21,12 @@ export const ConfirmDialog = ({
   onConfirm,
   title,
   message,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
+  confirmText,
+  cancelText,
   variant = 'danger',
   loading = false,
 }: ConfirmDialogProps) => {
+  const { t } = useTranslation(['common']);
   const iconColors = {
     danger: 'text-red-500 bg-red-100',
     warning: 'text-yellow-500 bg-yellow-100',
@@ -42,14 +44,14 @@ export const ConfirmDialog = ({
         <p className="mt-2 text-gray-600">{message}</p>
         <div className="mt-6 flex gap-3 justify-center">
           <Button variant="secondary" onClick={onClose} disabled={loading}>
-            {cancelText}
+            {cancelText || t('cancel')}
           </Button>
           <Button
             variant={variant === 'danger' ? 'danger' : 'primary'}
             onClick={onConfirm}
             loading={loading}
           >
-            {confirmText}
+            {confirmText || t('confirm')}
           </Button>
         </div>
       </div>

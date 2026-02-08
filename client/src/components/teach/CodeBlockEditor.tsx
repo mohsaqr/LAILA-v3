@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ChevronUp,
   ChevronDown,
@@ -30,6 +31,7 @@ export const CodeBlockEditor = ({
   onMoveUp,
   onMoveDown,
 }: CodeBlockEditorProps) => {
+  const { t } = useTranslation(['teaching']);
   const [isExpanded, setIsExpanded] = useState(true);
   const [localTitle, setLocalTitle] = useState(block.title);
   const [localInstructions, setLocalInstructions] = useState(block.instructions || '');
@@ -87,7 +89,7 @@ export const CodeBlockEditor = ({
             onChange={e => setLocalTitle(e.target.value)}
             onBlur={handleTitleBlur}
             className="w-full bg-transparent border-none p-0 text-sm font-medium text-gray-900 focus:outline-none focus:ring-0"
-            placeholder="Block title..."
+            placeholder={t('block_title_placeholder')}
           />
         </div>
 
@@ -97,7 +99,7 @@ export const CodeBlockEditor = ({
             onClick={() => onMoveUp(block.id)}
             disabled={index === 0}
             className="p-1 rounded hover:bg-emerald-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Move up"
+            title={t('move_up')}
           >
             <ChevronUp className="w-4 h-4 text-gray-500" />
           </button>
@@ -105,7 +107,7 @@ export const CodeBlockEditor = ({
             onClick={() => onMoveDown(block.id)}
             disabled={index === totalBlocks - 1}
             className="p-1 rounded hover:bg-emerald-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Move down"
+            title={t('move_down')}
           >
             <ChevronDown className="w-4 h-4 text-gray-500" />
           </button>
@@ -115,7 +117,7 @@ export const CodeBlockEditor = ({
         <button
           onClick={() => onDelete(block.id)}
           className="p-1.5 rounded hover:bg-red-100 transition-colors"
-          title="Delete block"
+          title={t('delete_block')}
         >
           <Trash2 className="w-4 h-4 text-red-500" />
         </button>
@@ -128,18 +130,18 @@ export const CodeBlockEditor = ({
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
               <FileText className="w-4 h-4 text-gray-400" />
-              Instructions
+              {t('instructions')}
             </label>
             <TextArea
               value={localInstructions}
               onChange={e => setLocalInstructions(e.target.value)}
               onBlur={handleInstructionsBlur}
-              placeholder="Explain what students should do in this block..."
+              placeholder={t('instructions_placeholder')}
               rows={3}
               className="text-sm"
             />
             <p className="text-xs text-gray-400 mt-1">
-              Supports Markdown formatting
+              {t('supports_markdown')}
             </p>
           </div>
 
@@ -147,19 +149,19 @@ export const CodeBlockEditor = ({
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
               <Code className="w-4 h-4 text-gray-400" />
-              Starter Code
+              {t('starter_code')}
             </label>
             <textarea
               value={localStarterCode}
               onChange={e => setLocalStarterCode(e.target.value)}
               onBlur={handleStarterCodeBlur}
-              placeholder="# Enter starter R code here...&#10;&#10;# Students will see this code when they open the block"
+              placeholder={t('starter_code_placeholder')}
               rows={8}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg font-mono text-sm bg-gray-900 text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-y"
               spellCheck={false}
             />
             <p className="text-xs text-gray-400 mt-1">
-              Pre-populated code that students can modify and run
+              {t('starter_code_help')}
             </p>
           </div>
         </div>

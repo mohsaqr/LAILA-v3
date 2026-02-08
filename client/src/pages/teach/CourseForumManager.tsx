@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { MessageSquare, Plus, Edit, Trash2, Users, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTheme } from '../../hooks/useTheme';
@@ -19,6 +20,7 @@ interface CourseInfo {
 }
 
 export const CourseForumManager = () => {
+  const { t } = useTranslation(['teaching', 'common']);
   const { id: courseId } = useParams<{ id: string }>();
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
@@ -60,9 +62,9 @@ export const CourseForumManager = () => {
       queryClient.invalidateQueries({ queryKey: ['forums', 'course', courseId] });
       setShowCreateModal(false);
       resetForm();
-      toast.success('Forum created successfully');
+      toast.success(t('forum_created_success'));
     },
-    onError: () => toast.error('Failed to create forum'),
+    onError: () => toast.error(t('failed_create_forum')),
   });
 
   const updateMutation = useMutation({
@@ -72,18 +74,18 @@ export const CourseForumManager = () => {
       queryClient.invalidateQueries({ queryKey: ['forums', 'course', courseId] });
       setEditingForum(null);
       resetForm();
-      toast.success('Forum updated successfully');
+      toast.success(t('forum_updated_success'));
     },
-    onError: () => toast.error('Failed to update forum'),
+    onError: () => toast.error(t('failed_update_forum')),
   });
 
   const deleteMutation = useMutation({
     mutationFn: forumsApi.deleteForum,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['forums', 'course', courseId] });
-      toast.success('Forum deleted');
+      toast.success(t('forum_deleted_success'));
     },
-    onError: () => toast.error('Failed to delete forum'),
+    onError: () => toast.error(t('failed_delete_forum')),
   });
 
   const resetForm = () => {
@@ -121,7 +123,7 @@ export const CourseForumManager = () => {
   };
 
   if (isLoading) {
-    return <Loading text="Loading forums..." />;
+    return <Loading text={t('loading_forums')} />;
   }
 
   const breadcrumbItems = buildTeachingBreadcrumb(courseId, course?.title || 'Course', 'Forums');
@@ -136,17 +138,17 @@ export const CourseForumManager = () => {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
-            Forum Manager
+            {t('forum_manager')}
           </h1>
           {course && (
             <p className="mt-2" style={{ color: colors.textSecondary }}>
-              Manage discussion forums for {course.title}
+              {t('manage_forums_for', { course: course.title })}
             </p>
           )}
         </div>
         <Button onClick={() => setShowCreateModal(true)}>
           <Plus className="w-4 h-4 mr-2" />
-          New Forum
+          {t('new_forum')}
         </Button>
       </div>
 
@@ -155,14 +157,14 @@ export const CourseForumManager = () => {
           <CardBody className="text-center py-12">
             <MessageSquare className="w-12 h-12 mx-auto mb-4" style={{ color: colors.textSecondary }} />
             <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>
-              No Forums Created
+              {t('no_forums_created')}
             </h3>
             <p style={{ color: colors.textSecondary }}>
-              Create discussion forums for your students to engage with each other.
+              {t('create_forums_desc')}
             </p>
             <Button className="mt-4" onClick={() => setShowCreateModal(true)}>
               <Plus className="w-4 h-4 mr-2" />
-              Create Forum
+              {t('create_forum_btn')}
             </Button>
           </CardBody>
         </Card>
@@ -185,7 +187,7 @@ export const CourseForumManager = () => {
                             : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
                         }`}
                       >
-                        {forum.isPublished ? 'Published' : 'Draft'}
+                        {forum.isPublished ? t('published') : t('draft')}
                       </span>
                     </div>
                     {forum.description && (
@@ -197,7 +199,7 @@ export const CourseForumManager = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <Link to={`/courses/${courseId}/forums/${forum.id}`}>
-                    <Button variant="ghost" size="sm" title="View Forum">
+                    <Button variant="ghost" size="sm" title={t('view_forum')}>
                       <Eye className="w-4 h-4" />
                     </Button>
                   </Link>
@@ -205,7 +207,7 @@ export const CourseForumManager = () => {
                     variant="ghost"
                     size="sm"
                     onClick={() => openEditModal(forum)}
-                    title="Edit"
+                    title={t('edit')}
                   >
                     <Edit className="w-4 h-4" />
                   </Button>
@@ -213,11 +215,11 @@ export const CourseForumManager = () => {
                     variant="ghost"
                     size="sm"
                     onClick={() => {
-                      if (confirm('Delete this forum? All threads will be removed.')) {
+                      if (confirm(t('delete_forum_threads_warning'))) {
                         deleteMutation.mutate(forum.id);
                       }
                     }}
-                    title="Delete"
+                    title={t('common:delete')}
                   >
                     <Trash2 className="w-4 h-4 text-red-500" />
                   </Button>
@@ -231,7 +233,7 @@ export const CourseForumManager = () => {
                   </div>
                   {forum.allowAnonymous && (
                     <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">
-                      Anonymous allowed
+                      {t('anonymous_allowed')}
                     </span>
                   )}
                 </div>
@@ -245,12 +247,12 @@ export const CourseForumManager = () => {
       <Modal
         isOpen={showCreateModal || !!editingForum}
         onClose={closeModal}
-        title={editingForum ? 'Edit Forum' : 'Create Forum'}
+        title={editingForum ? t('edit_forum') : t('create_forum_title')}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-              Forum Title
+              {t('forum_title_label')}
             </label>
             <input
               type="text"
@@ -262,13 +264,13 @@ export const CourseForumManager = () => {
                 borderColor: colors.border,
                 color: colors.textPrimary,
               }}
-              placeholder="e.g., General Discussion"
+              placeholder={t('forum_title_placeholder')}
               required
             />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-              Description
+              {t('description_label')}
             </label>
             <textarea
               value={formData.description}
@@ -280,7 +282,7 @@ export const CourseForumManager = () => {
                 color: colors.textPrimary,
               }}
               rows={3}
-              placeholder="What is this forum for?"
+              placeholder={t('forum_description_placeholder')}
             />
           </div>
           <div className="flex items-center gap-4">
@@ -292,7 +294,7 @@ export const CourseForumManager = () => {
                 className="rounded"
               />
               <span className="text-sm" style={{ color: colors.textPrimary }}>
-                Published
+                {t('published')}
               </span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
@@ -303,16 +305,16 @@ export const CourseForumManager = () => {
                 className="rounded"
               />
               <span className="text-sm" style={{ color: colors.textPrimary }}>
-                Allow anonymous posts
+                {t('allow_anonymous_posts')}
               </span>
             </label>
           </div>
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={closeModal}>
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-              {editingForum ? 'Update' : 'Create'} Forum
+              {editingForum ? t('update_forum') : t('create_forum_btn')}
             </Button>
           </div>
         </form>

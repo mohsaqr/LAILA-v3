@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   ClipboardList,
   TrendingUp,
@@ -34,6 +35,7 @@ interface CourseGrade {
 }
 
 export const DashboardGradebook = () => {
+  const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
   const { isInstructor } = useAuth();
 
@@ -99,7 +101,7 @@ export const DashboardGradebook = () => {
   });
 
   if (enrollmentsLoading || assignmentsLoading) {
-    return <Loading fullScreen text="Loading gradebook..." />;
+    return <Loading fullScreen text={t('loading_gradebook')} />;
   }
 
   // Calculate grades for each course
@@ -179,11 +181,11 @@ export const DashboardGradebook = () => {
               <ClipboardList className="w-5 h-5" style={{ color: colors.textIndigo }} />
             </div>
             <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
-              {isInstructor ? 'My Grades (as Student)' : 'My Grades'}
+              {isInstructor ? t('my_grades_as_student') : t('my_grades')}
             </h1>
           </div>
           <p style={{ color: colors.textSecondary }}>
-            View your grades across all enrolled courses
+            {t('view_grades_description')}
           </p>
         </div>
 
@@ -206,7 +208,7 @@ export const DashboardGradebook = () => {
                     >
                       {Math.round((overallStats.totalEarned / overallStats.totalPossible) * 100)}%
                     </p>
-                    <p className="text-sm" style={{ color: colors.textSecondary }}>Overall Average</p>
+                    <p className="text-sm" style={{ color: colors.textSecondary }}>{t('overall_average')}</p>
                   </div>
                 </CardBody>
               </Card>
@@ -223,7 +225,7 @@ export const DashboardGradebook = () => {
                     <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
                       {overallStats.totalCourses}
                     </p>
-                    <p className="text-sm" style={{ color: colors.textSecondary }}>Courses</p>
+                    <p className="text-sm" style={{ color: colors.textSecondary }}>{t('common:courses')}</p>
                   </div>
                 </CardBody>
               </Card>
@@ -240,7 +242,7 @@ export const DashboardGradebook = () => {
                     <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
                       {overallStats.totalEarned}/{overallStats.totalPossible}
                     </p>
-                    <p className="text-sm" style={{ color: colors.textSecondary }}>Total Points</p>
+                    <p className="text-sm" style={{ color: colors.textSecondary }}>{t('total_points')}</p>
                   </div>
                 </CardBody>
               </Card>
@@ -257,7 +259,7 @@ export const DashboardGradebook = () => {
                     <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
                       {overallStats.totalGraded}/{overallStats.totalAssignments}
                     </p>
-                    <p className="text-sm" style={{ color: colors.textSecondary }}>Graded</p>
+                    <p className="text-sm" style={{ color: colors.textSecondary }}>{t('graded')}</p>
                   </div>
                 </CardBody>
               </Card>
@@ -265,7 +267,7 @@ export const DashboardGradebook = () => {
 
             {/* Course Cards */}
             <h2 className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>
-              Grades by Course
+              {t('grades_by_course')}
             </h2>
             <div className="space-y-4">
               {courseGrades.map((course) => (
@@ -299,16 +301,16 @@ export const DashboardGradebook = () => {
                         <div className="flex flex-wrap items-center gap-4 text-sm" style={{ color: colors.textSecondary }}>
                           <span className="flex items-center gap-1">
                             <Award className="w-4 h-4" />
-                            {course.totalEarned}/{course.totalPossible} points
+                            {course.totalEarned}/{course.totalPossible} {t('points')}
                           </span>
                           <span className="flex items-center gap-1">
                             <FileText className="w-4 h-4" />
-                            {course.gradedCount}/{course.totalAssignments} graded
+                            {course.gradedCount}/{course.totalAssignments} {t('graded')}
                           </span>
                         </div>
                         {course.recentGrade && (
                           <p className="text-xs mt-1" style={{ color: colors.textMuted }}>
-                            Last grade: {course.recentGrade.assignmentTitle} ({course.recentGrade.grade}/{course.recentGrade.maxPoints})
+                            {t('last_grade')}: {course.recentGrade.assignmentTitle} ({course.recentGrade.grade}/{course.recentGrade.maxPoints})
                           </p>
                         )}
                       </div>
@@ -338,10 +340,10 @@ export const DashboardGradebook = () => {
             <CardBody className="py-12">
               <EmptyState
                 icon={ClipboardList}
-                title="No grades yet"
-                description="Enroll in courses and complete assignments to see your grades here"
+                title={t('no_grades_yet')}
+                description={t('no_grades_description')}
                 action={{
-                  label: 'Browse Courses',
+                  label: t('browse_courses'),
                   onClick: () => window.location.href = '/courses',
                 }}
               />

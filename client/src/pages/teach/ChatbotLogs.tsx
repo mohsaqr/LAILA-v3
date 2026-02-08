@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   MessageCircle,
   Users,
@@ -21,6 +22,7 @@ import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { ChatbotConversationMessage } from '../../types';
 
 export const ChatbotLogs = () => {
+  const { t } = useTranslation(['teaching', 'common']);
   const { id } = useParams<{ id: string }>();
   const courseId = parseInt(id!, 10);
   const navigate = useNavigate();
@@ -89,19 +91,19 @@ export const ChatbotLogs = () => {
   };
 
   if (courseLoading || sectionsLoading || analyticsLoading) {
-    return <Loading fullScreen text="Loading chatbot logs..." />;
+    return <Loading fullScreen text={t('loading_chatbot_logs')} />;
   }
 
   if (!course) {
     return (
       <div className="max-w-6xl mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Course Not Found</h1>
-        <Button onClick={() => navigate('/teach')}>Back to Dashboard</Button>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('course_not_found')}</h1>
+        <Button onClick={() => navigate('/teach')}>{t('back_to_dashboard')}</Button>
       </div>
     );
   }
 
-  const breadcrumbItems = buildTeachingBreadcrumb(id, course?.title || 'Course', 'Chatbot Logs');
+  const breadcrumbItems = buildTeachingBreadcrumb(id, course?.title || 'Course', t('chatbot_logs'));
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -115,11 +117,11 @@ export const ChatbotLogs = () => {
         <CardBody className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{course.title}</h1>
-            <p className="text-gray-600">Chatbot Conversations & Analytics</p>
+            <p className="text-gray-600">{t('chatbot_conversations_analytics')}</p>
           </div>
           <div className="flex items-center gap-2 text-amber-600">
             <MessageCircle className="w-6 h-6" />
-            <span className="text-lg font-semibold">AI Chatbot Logs</span>
+            <span className="text-lg font-semibold">{t('ai_chatbot_logs')}</span>
           </div>
         </CardBody>
       </Card>
@@ -134,7 +136,7 @@ export const ChatbotLogs = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900">{analytics.totalConversations}</p>
-                <p className="text-sm text-gray-500">Conversations</p>
+                <p className="text-sm text-gray-500">{t('conversations')}</p>
               </div>
             </CardBody>
           </Card>
@@ -145,7 +147,7 @@ export const ChatbotLogs = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900">{analytics.totalMessages}</p>
-                <p className="text-sm text-gray-500">Total Messages</p>
+                <p className="text-sm text-gray-500">{t('total_messages')}</p>
               </div>
             </CardBody>
           </Card>
@@ -156,7 +158,7 @@ export const ChatbotLogs = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900">{analytics.uniqueStudents}</p>
-                <p className="text-sm text-gray-500">Students</p>
+                <p className="text-sm text-gray-500">{t('students')}</p>
               </div>
             </CardBody>
           </Card>
@@ -167,7 +169,7 @@ export const ChatbotLogs = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900">{analytics.avgMessagesPerConversation}</p>
-                <p className="text-sm text-gray-500">Avg Msgs/Conv</p>
+                <p className="text-sm text-gray-500">{t('avg_msgs_conv')}</p>
               </div>
             </CardBody>
           </Card>
@@ -179,7 +181,7 @@ export const ChatbotLogs = () => {
         {/* Chatbot Sections List */}
         <Card className="lg:col-span-1">
           <CardHeader>
-            <h2 className="text-lg font-semibold text-gray-900">Chatbot Sections</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t('chatbot_sections')}</h2>
           </CardHeader>
           <CardBody className="p-0">
             {sections && sections.length > 0 ? (
@@ -205,7 +207,7 @@ export const ChatbotLogs = () => {
                       </div>
                       <div className="flex items-center gap-2 ml-2">
                         <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">
-                          {section.totalConversations} chats
+                          {section.totalConversations} {t('chats')}
                         </span>
                         <ChevronRight className="w-4 h-4 text-gray-400" />
                       </div>
@@ -217,8 +219,8 @@ export const ChatbotLogs = () => {
               <div className="p-6">
                 <EmptyState
                   icon={MessageCircle}
-                  title="No chatbot sections"
-                  description="Add chatbot sections to your lessons to see conversations here"
+                  title={t('no_chatbot_sections')}
+                  description={t('no_chatbot_sections_desc')}
                 />
               </div>
             )}
@@ -229,14 +231,14 @@ export const ChatbotLogs = () => {
         <Card className="lg:col-span-1">
           <CardHeader>
             <h2 className="text-lg font-semibold text-gray-900">
-              {selectedSectionId ? 'Student Conversations' : 'Select a Section'}
+              {selectedSectionId ? t('student_conversations') : t('select_section')}
             </h2>
           </CardHeader>
           <CardBody className="p-0">
             {selectedSectionId ? (
               conversationsLoading ? (
                 <div className="p-6">
-                  <Loading text="Loading conversations..." />
+                  <Loading text={t('loading_conversations')} />
                 </div>
               ) : conversationsData?.conversations && conversationsData.conversations.length > 0 ? (
                 <>
@@ -256,7 +258,7 @@ export const ChatbotLogs = () => {
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-gray-900 truncate">{conv.user.fullname}</p>
                             <p className="text-xs text-gray-500">
-                              {conv.messageCount} messages &middot; {formatRelativeTime(conv.updatedAt)}
+                              {conv.messageCount} {t('messages')} &middot; {formatRelativeTime(conv.updatedAt)}
                             </p>
                           </div>
                           <ChevronRight className="w-4 h-4 text-gray-400" />
@@ -272,10 +274,10 @@ export const ChatbotLogs = () => {
                         disabled={conversationsPage === 1}
                         onClick={() => setConversationsPage(p => p - 1)}
                       >
-                        Previous
+                        {t('previous')}
                       </Button>
                       <span className="text-sm text-gray-500">
-                        Page {conversationsPage} of {conversationsData.pagination.totalPages}
+                        {t('page_of', { current: conversationsPage, total: conversationsData.pagination.totalPages })}
                       </span>
                       <Button
                         variant="ghost"
@@ -283,7 +285,7 @@ export const ChatbotLogs = () => {
                         disabled={conversationsPage === conversationsData.pagination.totalPages}
                         onClick={() => setConversationsPage(p => p + 1)}
                       >
-                        Next
+                        {t('next')}
                       </Button>
                     </div>
                   )}
@@ -292,15 +294,15 @@ export const ChatbotLogs = () => {
                 <div className="p-6">
                   <EmptyState
                     icon={MessageSquare}
-                    title="No conversations yet"
-                    description="Students haven't started any conversations with this chatbot"
+                    title={t('no_conversations_yet')}
+                    description={t('no_conversations_desc')}
                   />
                 </div>
               )
             ) : (
               <div className="p-6 text-center text-gray-500">
                 <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>Select a chatbot section to view conversations</p>
+                <p>{t('select_chatbot_section')}</p>
               </div>
             )}
           </CardBody>
@@ -312,15 +314,15 @@ export const ChatbotLogs = () => {
             <h2 className="text-lg font-semibold text-gray-900">
               {conversationDetail?.conversation ? (
                 <span>
-                  Conversation with {conversationDetail.conversation.user.fullname}
+                  {t('conversation_with', { name: conversationDetail.conversation.user.fullname })}
                 </span>
               ) : (
-                'Select a Conversation'
+                t('select_conversation')
               )}
             </h2>
             {conversationDetail?.conversation && (
               <p className="text-sm text-gray-500 mt-1">
-                Started {formatDate(conversationDetail.conversation.createdAt)}
+                {t('started_date', { date: formatDate(conversationDetail.conversation.createdAt) })}
               </p>
             )}
           </CardHeader>
@@ -328,7 +330,7 @@ export const ChatbotLogs = () => {
             {selectedConversationId ? (
               messagesLoading ? (
                 <div className="p-6">
-                  <Loading text="Loading messages..." />
+                  <Loading text={t('loading_messages')} />
                 </div>
               ) : conversationDetail?.messages && conversationDetail.messages.length > 0 ? (
                 <div className="max-h-[500px] overflow-y-auto p-4 space-y-4">
@@ -371,15 +373,15 @@ export const ChatbotLogs = () => {
                 <div className="p-6">
                   <EmptyState
                     icon={MessageCircle}
-                    title="No messages"
-                    description="This conversation has no messages"
+                    title={t('no_messages')}
+                    description={t('no_messages_desc')}
                   />
                 </div>
               )
             ) : (
               <div className="p-6 text-center text-gray-500">
                 <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>Select a conversation to view messages</p>
+                <p>{t('select_conversation_desc')}</p>
               </div>
             )}
           </CardBody>
@@ -392,7 +394,7 @@ export const ChatbotLogs = () => {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Clock className="w-5 h-5 text-gray-500" />
-              <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{t('recent_activity')}</h2>
             </div>
           </CardHeader>
           <CardBody>

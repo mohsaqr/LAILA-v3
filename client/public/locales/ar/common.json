@@ -87,5 +87,46 @@
   "options": "الخيارات",
   "more_options": "المزيد من الخيارات",
   "app_name": "LAILA",
-  "copyright": "© {{year}} LAILA. جميع الحقوق محفوظة."
+  "copyright": "© {{year}} LAILA. جميع الحقوق محفوظة.",
+  "help": "مساعدة",
+  "go_back": "العودة",
+  "dismiss": "إغلاق",
+  "courses": "الدورات",
+  "settings": "الإعدادات",
+  "dashboard": "لوحة التحكم",
+
+  "status_draft": "مسودة",
+  "status_published": "منشور",
+  "status_archived": "مؤرشف",
+  "status_submitted": "مُرسل",
+  "status_graded": "مُقيَّم",
+  "status_returned": "مُرجع",
+  "status_active": "نشط",
+  "status_completed": "مكتمل",
+  "status_pending": "قيد الانتظار",
+  "status_not_started": "لم يبدأ",
+
+  "theme_dark": "داكن",
+  "theme_light": "فاتح",
+  "theme_label": "المظهر: {{theme}}",
+  "theme_aria_label": "المظهر الحالي: {{theme}}. انقر للتبديل.",
+
+  "emotion_productive": "منتج",
+  "emotion_stimulated": "متحمس",
+  "emotion_frustrated": "محبط",
+  "emotion_learning": "متعلم",
+  "emotion_enjoying": "مستمتع",
+  "emotion_bored": "ملل",
+  "emotion_quitting": "مستسلم",
+  "how_are_you_feeling": "كيف تشعر؟",
+  "thanks_for_sharing": "شكراً للمشاركة!",
+
+  "skip_to_main_content": "انتقل إلى المحتوى الرئيسي",
+  "skip_to_navigation": "انتقل إلى التنقل",
+
+  "something_went_wrong": "حدث خطأ ما",
+  "error_boundary_message": "نأسف، حدث شيء غير متوقع. يرجى محاولة تحديث الصفحة أو العودة إلى الصفحة الرئيسية.",
+  "try_again": "حاول مرة أخرى",
+  "go_home": "الصفحة الرئيسية",
+  "reload_page": "إعادة تحميل الصفحة"
 }

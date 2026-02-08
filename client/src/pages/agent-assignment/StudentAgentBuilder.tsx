@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Award,
   CheckCircle,
@@ -44,13 +45,6 @@ import { useAuth } from '../../hooks/useAuth';
 
 type TabType = 'identity' | 'behavior' | 'advanced' | 'test';
 
-const TABS: { id: TabType; label: string; icon: React.ElementType }[] = [
-  { id: 'identity', label: 'Identity & Role', icon: User },
-  { id: 'behavior', label: 'Behavior', icon: Sparkles },
-  { id: 'advanced', label: 'Advanced', icon: Settings },
-  { id: 'test', label: 'Test & Reflect', icon: Play },
-];
-
 // Default form data
 const getDefaultFormData = (): AgentConfigFormData => ({
   agentName: '',
@@ -73,6 +67,7 @@ const getDefaultFormData = (): AgentConfigFormData => ({
 });
 
 export const StudentAgentBuilder = () => {
+  const { t } = useTranslation(['teaching', 'common', 'navigation']);
   const { courseId, assignmentId } = useParams<{
     courseId: string;
     assignmentId: string;
@@ -80,6 +75,13 @@ export const StudentAgentBuilder = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+
+  const TABS: { id: TabType; label: string; icon: React.ElementType }[] = [
+    { id: 'identity', label: t('identity_role'), icon: User },
+    { id: 'behavior', label: t('behavior'), icon: Sparkles },
+    { id: 'advanced', label: t('advanced'), icon: Settings },
+    { id: 'test', label: t('test_reflect'), icon: Play },
+  ];
   const [activeTab, setActiveTab] = useState<TabType>('identity');
   const [formData, setFormData] = useState<AgentConfigFormData>(getDefaultFormData());
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -156,13 +158,13 @@ export const StudentAgentBuilder = () => {
       agentAssignmentsApi.createAgentConfig(assId, formDataToSend),
     onSuccess: (newConfig) => {
       queryClient.invalidateQueries({ queryKey: ['myAgentConfig', assId] });
-      toast.success('Agent created successfully!');
+      toast.success(t('agent_created'));
       logger?.setAgentConfigId(newConfig.id);
       logger?.setVersion(newConfig.version);
       logger?.logDraftSaved(formData);
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.error || 'Failed to create agent');
+      toast.error(err.response?.data?.error || t('failed_to_create_agent'));
     },
   });
 
@@ -172,12 +174,12 @@ export const StudentAgentBuilder = () => {
       agentAssignmentsApi.updateAgentConfig(assId, formDataToSend),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['myAgentConfig', assId] });
-      toast.success('Agent saved!');
+      toast.success(t('agent_saved'));
       logger?.setVersion(updated.version);
       logger?.logDraftSaved(formData);
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.error || 'Failed to save agent');
+      toast.error(err.response?.data?.error || t('failed_to_save_agent'));
     },
   });
 
@@ -219,22 +221,22 @@ export const StudentAgentBuilder = () => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.agentName.trim()) {
-      newErrors.agentName = 'Agent name is required';
+      newErrors.agentName = t('agent_name_required');
     } else if (formData.agentName.length > 100) {
-      newErrors.agentName = 'Agent name must be less than 100 characters';
+      newErrors.agentName = t('agent_name_max_length');
     }
 
     if (!formData.systemPrompt.trim()) {
-      newErrors.systemPrompt = 'System prompt is required';
+      newErrors.systemPrompt = t('system_prompt_required');
     } else if (formData.systemPrompt.length < 10) {
-      newErrors.systemPrompt = 'System prompt must be at least 10 characters';
+      newErrors.systemPrompt = t('system_prompt_min_length');
     }
 
     if (formData.avatarImageUrl) {
       try {
         new URL(formData.avatarImageUrl);
       } catch {
-        newErrors.avatarImageUrl = 'Please enter a valid URL';
+        newErrors.avatarImageUrl = t('invalid_avatar_url');
       }
     }
 
@@ -273,19 +275,19 @@ export const StudentAgentBuilder = () => {
   };
 
   if (isLoading) {
-    return <Loading fullScreen text="Loading assignment..." />;
+    return <Loading fullScreen text={t('loading_assignment')} />;
   }
 
   if (error || !data) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8 text-center">
         <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Failed to Load Assignment</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('failed_to_load_assignment')}</h1>
         <p className="text-gray-600 mb-4">
-          {(error as any)?.response?.data?.error || 'Something went wrong'}
+          {(error as any)?.response?.data?.error || t('something_went_wrong')}
         </p>
         <Button onClick={() => navigate(`/courses/${courseId}`)}>
-          Back to Course
+          {t('back_to_course')}
         </Button>
       </div>
     );
@@ -319,7 +321,7 @@ export const StudentAgentBuilder = () => {
       <div className="mb-6">
         <Breadcrumb
           items={[
-            { label: 'Courses', href: '/courses' },
+            { label: t('navigation:courses'), href: '/courses' },
             { label: courseName, href: `/courses/${courseId}` },
             { label: assignment.title },
           ]}
@@ -338,7 +340,7 @@ export const StudentAgentBuilder = () => {
               <div className="flex flex-wrap items-center gap-4 text-sm">
                 <div className="flex items-center gap-1.5 text-gray-500">
                   <Award className="w-4 h-4" />
-                  <span>{assignment.points} points</span>
+                  <span>{t('x_points', { count: assignment.points })}</span>
                 </div>
                 {assignment.dueDate && (
                   <div
@@ -349,12 +351,12 @@ export const StudentAgentBuilder = () => {
                     {isPastDue ? (
                       <>
                         <CheckCircle className="w-4 h-4" />
-                        <span className="font-medium">Submitted on {formatDate(assignment.dueDate)}</span>
+                        <span className="font-medium">{t('submitted_on', { date: formatDate(assignment.dueDate) })}</span>
                       </>
                     ) : (
                       <>
                         <Clock className="w-4 h-4" />
-                        <span>Due {formatDate(assignment.dueDate)}</span>
+                        <span>{t('due_on', { date: formatDate(assignment.dueDate) })}</span>
                       </>
                     )}
                   </div>
@@ -370,7 +372,7 @@ export const StudentAgentBuilder = () => {
                 loading={isSaving}
                 icon={<Save className="w-4 h-4" />}
               >
-                Save Progress
+                {t('save_progress')}
               </Button>
             )}
           </div>
@@ -380,14 +382,14 @@ export const StudentAgentBuilder = () => {
             <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
                 <CheckCircle className="w-5 h-5 text-green-600" />
-                <span className="font-semibold text-green-800">Graded</span>
+                <span className="font-semibold text-green-800">{t('graded_label')}</span>
               </div>
               <div className="text-2xl font-bold text-green-900 mb-1">
-                {config.submission.grade}/{assignment.points} points
+                {config.submission.grade}/{assignment.points} {t('points')}
               </div>
               {config.submission.feedback && (
                 <div className="mt-2">
-                  <p className="text-sm font-medium text-green-800">Feedback:</p>
+                  <p className="text-sm font-medium text-green-800">{t('feedback_label')}</p>
                   <p className="text-sm text-green-700">{config.submission.feedback}</p>
                 </div>
               )}
@@ -397,7 +399,7 @@ export const StudentAgentBuilder = () => {
           {/* Instructions */}
           {assignment.instructions && (
             <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h3 className="font-medium text-blue-900 mb-2">Instructions</h3>
+              <h3 className="font-medium text-blue-900 mb-2">{t('instructions_header')}</h3>
               <p className="text-sm text-blue-800 whitespace-pre-wrap">{assignment.instructions}</p>
             </div>
           )}
@@ -437,7 +439,7 @@ export const StudentAgentBuilder = () => {
                 onClick={() => navigate(`/courses/${courseId}/agent-assignments/${assignmentId}/use`)}
                 icon={<Bot className="w-5 h-5" />}
               >
-                Chat with {config?.agentName}
+                {t('chat_with_agent', { name: config?.agentName })}
               </Button>
             </div>
           </CardBody>

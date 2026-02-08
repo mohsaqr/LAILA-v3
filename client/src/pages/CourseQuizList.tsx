@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { FileQuestion, Clock, CheckCircle, AlertCircle, ChevronRight } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import { Card, CardBody } from '../components/common/Card';
@@ -33,6 +34,7 @@ interface CourseInfo {
 }
 
 export const CourseQuizList = () => {
+  const { t } = useTranslation(['courses']);
   const { courseId } = useParams<{ courseId: string }>();
   const { isDark } = useTheme();
 
@@ -64,7 +66,7 @@ export const CourseQuizList = () => {
   });
 
   if (isLoading) {
-    return <Loading text="Loading quizzes..." />;
+    return <Loading text={t('loading_quizzes')} />;
   }
 
   const getQuizStatus = (quiz: Quiz) => {
@@ -75,18 +77,18 @@ export const CourseQuizList = () => {
       : null;
 
     if (bestScore !== null && bestScore >= quiz.passingScore) {
-      return { status: 'passed', label: 'Passed', color: colors.success };
+      return { status: 'passed', label: t('quiz_passed'), color: colors.success };
     } else if (completedAttempts.length > 0) {
-      return { status: 'attempted', label: 'Not Passed', color: colors.warning };
+      return { status: 'attempted', label: t('quiz_not_passed'), color: colors.warning };
     } else if (attempts.some(a => a.status === 'in_progress')) {
-      return { status: 'in_progress', label: 'In Progress', color: colors.warning };
+      return { status: 'in_progress', label: t('quiz_in_progress'), color: colors.warning };
     }
-    return { status: 'not_started', label: 'Not Started', color: colors.textSecondary };
+    return { status: 'not_started', label: t('quiz_not_started'), color: colors.textSecondary };
   };
 
   const breadcrumbItems = [
-    ...buildCourseBreadcrumb(courseId!, course?.title || 'Course'),
-    { label: 'Quizzes' },
+    ...buildCourseBreadcrumb(courseId!, course?.title || t('course')),
+    { label: t('quizzes') },
   ];
 
   return (
@@ -98,11 +100,11 @@ export const CourseQuizList = () => {
 
       <div className="mb-8">
         <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
-          Course Quizzes
+          {t('course_quizzes')}
         </h1>
         {course && (
           <p className="mt-2" style={{ color: colors.textSecondary }}>
-            Quizzes for {course.title}
+            {t('quizzes_for_course', { title: course.title })}
           </p>
         )}
       </div>
@@ -112,10 +114,10 @@ export const CourseQuizList = () => {
           <CardBody className="text-center py-12">
             <FileQuestion className="w-12 h-12 mx-auto mb-4" style={{ color: colors.textSecondary }} />
             <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>
-              No Quizzes Available
+              {t('no_quizzes_available')}
             </h3>
             <p style={{ color: colors.textSecondary }}>
-              This course doesn't have any quizzes yet.
+              {t('no_quizzes_description')}
             </p>
           </CardBody>
         </Card>
@@ -152,16 +154,16 @@ export const CourseQuizList = () => {
                         )}
                         <div className="flex items-center gap-4 mt-2">
                           <span className="text-sm" style={{ color: colors.textSecondary }}>
-                            {quiz._count?.questions || 0} questions
+                            {t('x_questions', { count: quiz._count?.questions || 0 })}
                           </span>
                           {quiz.timeLimit && (
                             <span className="text-sm flex items-center gap-1" style={{ color: colors.textSecondary }}>
                               <Clock className="w-3 h-3" />
-                              {quiz.timeLimit} min
+                              {t('x_min', { count: quiz.timeLimit })}
                             </span>
                           )}
                           <span className="text-sm" style={{ color: colors.textSecondary }}>
-                            {attemptCount}/{quiz.maxAttempts === 0 ? '∞' : quiz.maxAttempts} attempts
+                            {t('attempts_count', { current: attemptCount, max: quiz.maxAttempts === 0 ? '∞' : quiz.maxAttempts })}
                           </span>
                         </div>
                       </div>
@@ -179,7 +181,7 @@ export const CourseQuizList = () => {
                       </div>
                       {quiz.dueDate && (
                         <span className="text-sm" style={{ color: colors.textSecondary }}>
-                          Due: {new Date(quiz.dueDate).toLocaleDateString()}
+                          {t('due_date_short', { date: new Date(quiz.dueDate).toLocaleDateString() })}
                         </span>
                       )}
                       <ChevronRight className="w-5 h-5" style={{ color: colors.textSecondary }} />

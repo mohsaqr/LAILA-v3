@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Bot, Sparkles, Settings, MessageSquare, ChevronRight } from 'lucide-react';
 import { courseTutorApi } from '../../api/courseTutor';
 import { useTheme } from '../../hooks/useTheme';
@@ -13,6 +14,7 @@ interface CollaborativeModuleProps {
 }
 
 export const CollaborativeModule = ({ courseId, moduleName, isInstructor }: CollaborativeModuleProps) => {
+  const { t } = useTranslation(['courses']);
   const { isDark } = useTheme();
 
   // Theme colors
@@ -36,14 +38,14 @@ export const CollaborativeModule = ({ courseId, moduleName, isInstructor }: Coll
         <CardBody className="text-center py-8">
           <Bot className="w-10 h-10 mx-auto mb-2" style={{ color: colors.textMuted }} />
           <p className="text-sm" style={{ color: colors.textSecondary }}>
-            No AI tutors available
+            {t('no_ai_tutors_available')}
           </p>
         </CardBody>
       </Card>
     );
   }
 
-  const displayName = moduleName || 'Collaborative Module';
+  const displayName = moduleName || t('collaborative_module');
   const tutorCount = tutors?.length || 0;
 
   return (
@@ -56,7 +58,7 @@ export const CollaborativeModule = ({ courseId, moduleName, isInstructor }: Coll
             className="text-xs text-primary-600 hover:underline flex items-center gap-1"
           >
             <Settings className="w-3 h-3" />
-            Manage Tutors
+            {t('manage_tutors')}
           </Link>
         </div>
       )}
@@ -80,7 +82,7 @@ export const CollaborativeModule = ({ courseId, moduleName, isInstructor }: Coll
                   {displayName}
                 </h3>
                 <p className="text-sm" style={{ color: colors.textSecondary }}>
-                  {tutorCount} AI tutor{tutorCount !== 1 ? 's' : ''} ready to help
+                  {t('x_ai_tutors_ready_help', { count: tutorCount })}
                 </p>
               </div>
 
@@ -121,7 +123,7 @@ export const CollaborativeModule = ({ courseId, moduleName, isInstructor }: Coll
                     )}
                   </div>
                   <span className="text-xs" style={{ color: colors.textMuted }}>
-                    Click to start chatting
+                    {t('click_to_start_chatting')}
                   </span>
                 </div>
               </div>

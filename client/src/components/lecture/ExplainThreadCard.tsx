@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Bot, User, CornerDownRight, MessageSquare, Loader2, Send } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useTheme } from '../../hooks/useTheme';
@@ -15,6 +16,7 @@ export const ExplainThreadCard = ({
   onFollowUp,
   isSubmitting,
 }: ExplainThreadCardProps) => {
+  const { t } = useTranslation(['teaching', 'common']);
   const { isDark } = useTheme();
   const [followUpInput, setFollowUpInput] = useState('');
   const [showFollowUp, setShowFollowUp] = useState(false);
@@ -41,10 +43,10 @@ export const ExplainThreadCard = ({
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffMins < 1) return t('just_now');
+    if (diffMins < 60) return t('minutes_ago', { count: diffMins });
+    if (diffHours < 24) return t('hours_ago', { count: diffHours });
+    if (diffDays < 7) return t('days_ago', { count: diffDays });
     return date.toLocaleDateString();
   };
 
@@ -90,7 +92,7 @@ export const ExplainThreadCard = ({
           {isNested && (
             <div className="flex items-center gap-1 text-xs mb-2" style={{ color: colors.textSecondary }}>
               <CornerDownRight size={12} />
-              <span>{isUser ? 'Follow-up' : 'AI Response'}</span>
+              <span>{isUser ? t('follow_up') : t('ai_response')}</span>
             </div>
           )}
 
@@ -115,7 +117,7 @@ export const ExplainThreadCard = ({
                   className="font-medium text-sm"
                   style={{ color: isUser ? colors.textPrimary : colors.aiAccent }}
                 >
-                  {isUser ? 'You' : 'AI Tutor'}
+                  {isUser ? t('you') : t('ai_tutor')}
                 </span>
                 <span className="text-xs" style={{ color: colors.textSecondary }}>
                   {formatTimeAgo(post.createdAt)}
@@ -196,7 +198,7 @@ export const ExplainThreadCard = ({
             style={{ color: colors.accent }}
           >
             <MessageSquare size={16} />
-            Ask Follow-up
+            {t('ask_follow_up')}
           </button>
         ) : (
           <div className="space-y-3">
@@ -205,7 +207,7 @@ export const ExplainThreadCard = ({
                 value={followUpInput}
                 onChange={(e) => setFollowUpInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask a follow-up question..."
+                placeholder={t('ask_follow_up_placeholder')}
                 disabled={localSubmitting}
                 rows={2}
                 className="flex-1 px-3 py-2 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-sm"
@@ -235,7 +237,7 @@ export const ExplainThreadCard = ({
               className="text-xs"
               style={{ color: colors.textSecondary }}
             >
-              Cancel
+              {t('common:cancel')}
             </button>
           </div>
         )}

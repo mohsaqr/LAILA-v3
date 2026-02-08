@@ -44,5 +44,23 @@
   "setting_updated": "Setting updated",
   "setting_update_failed": "Failed to update setting",
   "sign_out": "Sign Out",
-  "sign_out_description": "Sign out from your account"
+  "sign_out_description": "Sign out from your account",
+
+  "profile": "Profile",
+  "personal_information": "Personal Information",
+  "full_name": "Full Name",
+  "full_name_placeholder": "Full name",
+  "email": "Email",
+  "account_status": "Account Status",
+  "verified": "Verified",
+  "pending_verification": "Pending Verification",
+  "member_since": "Member Since",
+  "na": "N/A",
+  "profile_updated": "Profile updated successfully",
+  "failed_update_profile": "Failed to update profile",
+  "name_required": "Name is required",
+  "last_changed_never": "Last changed: Never",
+  "role_admin": "Admin",
+  "role_instructor": "Instructor",
+  "role_student": "Student"
 }

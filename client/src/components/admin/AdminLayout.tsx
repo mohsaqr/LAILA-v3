@@ -1,4 +1,5 @@
 import { ReactNode, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Menu, X } from 'lucide-react';
 import { AdminSidebar } from './AdminSidebar';
 import { Breadcrumb, BreadcrumbItem } from '../common/Breadcrumb';
@@ -19,6 +20,7 @@ export const AdminLayout = ({
   headerActions,
   breadcrumbs,
 }: AdminLayoutProps) => {
+  const { t } = useTranslation(['admin']);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Default breadcrumbs for admin pages
@@ -40,7 +42,7 @@ export const AdminLayout = ({
             <button
               className="md:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
+              aria-label={sidebarOpen ? t('close_menu') : t('open_menu')}
             >
               {sidebarOpen ? (
                 <X className="w-6 h-6 text-gray-600 dark:text-gray-300" />

@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { codeLabsApi } from '../api/codeLabs';
 import { useWebR } from '../hooks/useWebR';
 import { Button } from '../components/common/Button';
@@ -25,6 +26,7 @@ interface AIHelperState {
 }
 
 export const CodeLabPage = () => {
+  const { t } = useTranslation(['courses', 'common']);
   const { courseId, codeLabId } = useParams<{ courseId: string; codeLabId: string }>();
   const labId = parseInt(codeLabId!, 10);
   const navigate = useNavigate();
@@ -108,22 +110,20 @@ export const CodeLabPage = () => {
   }, [codeLab?.blocks, aiHelper.block, executionResults]);
 
   if (isLoading) {
-    return <Loading fullScreen text="Loading Code Lab..." />;
+    return <Loading fullScreen text={t('loading_code_lab')} />;
   }
 
   if (error || !codeLab) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Code Lab Not Found</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('code_lab_not_found')}</h1>
         <p className="text-gray-600 mb-4">
-          The code lab you're looking for doesn't exist or you don't have access.
+          {t('lab_not_found_description')}
         </p>
-        <Button onClick={() => navigate(-1)}>Go Back</Button>
+        <Button onClick={() => navigate(-1)}>{t('go_back')}</Button>
       </div>
     );
   }
-
-  const courseTitle = codeLab.module?.course?.title;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -136,7 +136,7 @@ export const CodeLabPage = () => {
               size="sm"
               icon={<ArrowLeft className="w-4 h-4" />}
             >
-              Back to {courseTitle || 'Course'}
+              {t('back_to_course_button')}
             </Button>
           </Link>
         ) : (
@@ -146,7 +146,7 @@ export const CodeLabPage = () => {
             onClick={() => navigate(-1)}
             icon={<ArrowLeft className="w-4 h-4" />}
           >
-            Go Back
+            {t('go_back')}
           </Button>
         )}
       </div>

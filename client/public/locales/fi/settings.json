@@ -44,5 +44,23 @@
   "setting_updated": "Asetus päivitetty",
   "setting_update_failed": "Asetuksen päivitys epäonnistui",
   "sign_out": "Kirjaudu ulos",
-  "sign_out_description": "Kirjaudu ulos tililtäsi"
+  "sign_out_description": "Kirjaudu ulos tililtäsi",
+
+  "profile": "Profiili",
+  "personal_information": "Henkilötiedot",
+  "full_name": "Koko nimi",
+  "full_name_placeholder": "Koko nimi",
+  "email": "Sähköposti",
+  "account_status": "Tilin tila",
+  "verified": "Vahvistettu",
+  "pending_verification": "Odottaa vahvistusta",
+  "member_since": "Jäsen alkaen",
+  "na": "Ei saatavilla",
+  "profile_updated": "Profiili päivitetty onnistuneesti",
+  "failed_update_profile": "Profiilin päivitys epäonnistui",
+  "name_required": "Nimi on pakollinen",
+  "last_changed_never": "Viimeksi vaihdettu: Ei koskaan",
+  "role_admin": "Ylläpitäjä",
+  "role_instructor": "Opettaja",
+  "role_student": "Opiskelija"
 }

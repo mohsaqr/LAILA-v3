@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Blocks,
@@ -90,6 +91,7 @@ const initialCategoryForm: CategoryFormData = {
 };
 
 export const PromptBlocksManagement = () => {
+  const { t } = useTranslation(['admin', 'common']);
   const queryClient = useQueryClient();
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [showBlockModal, setShowBlockModal] = useState(false);
@@ -114,10 +116,10 @@ export const PromptBlocksManagement = () => {
       queryClient.invalidateQueries({ queryKey: ['promptBlocks'] });
       setShowBlockModal(false);
       setBlockForm(initialBlockForm);
-      toast.success('Block created');
+      toast.success(t('block_created'));
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to create block');
+      toast.error(error.response?.data?.error || t('failed_to_create_block'));
     },
   });
 
@@ -130,10 +132,10 @@ export const PromptBlocksManagement = () => {
       setShowBlockModal(false);
       setEditingBlock(null);
       setBlockForm(initialBlockForm);
-      toast.success('Block updated');
+      toast.success(t('block_updated'));
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to update block');
+      toast.error(error.response?.data?.error || t('failed_to_update_block'));
     },
   });
 
@@ -142,10 +144,10 @@ export const PromptBlocksManagement = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminPromptBlocks'] });
       queryClient.invalidateQueries({ queryKey: ['promptBlocks'] });
-      toast.success('Block deactivated');
+      toast.success(t('block_deactivated'));
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to delete block');
+      toast.error(error.response?.data?.error || t('failed_to_delete_block'));
     },
   });
 
@@ -164,7 +166,7 @@ export const PromptBlocksManagement = () => {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['adminPromptBlocks'] });
       queryClient.invalidateQueries({ queryKey: ['promptBlocks'] });
-      toast.success(variables.isActive ? 'Block activated' : 'Block deactivated');
+      toast.success(variables.isActive ? t('block_activated') : t('block_deactivated'));
     },
   });
 
@@ -176,10 +178,10 @@ export const PromptBlocksManagement = () => {
       queryClient.invalidateQueries({ queryKey: ['promptBlocks'] });
       setShowCategoryModal(false);
       setCategoryForm(initialCategoryForm);
-      toast.success('Category created');
+      toast.success(t('category_created'));
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to create category');
+      toast.error(error.response?.data?.error || t('failed_to_create_category'));
     },
   });
 
@@ -192,10 +194,10 @@ export const PromptBlocksManagement = () => {
       setShowCategoryModal(false);
       setEditingCategory(null);
       setCategoryForm(initialCategoryForm);
-      toast.success('Category updated');
+      toast.success(t('category_updated'));
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to update category');
+      toast.error(error.response?.data?.error || t('failed_to_update_category'));
     },
   });
 
@@ -205,13 +207,13 @@ export const PromptBlocksManagement = () => {
       queryClient.invalidateQueries({ queryKey: ['adminPromptBlocks'] });
       queryClient.invalidateQueries({ queryKey: ['promptBlocks'] });
       if (result.blocksSeeded || result.categoriesSeeded) {
-        toast.success('Default blocks seeded');
+        toast.success(t('default_blocks_seeded'));
       } else {
-        toast.success('Default blocks already exist');
+        toast.success(t('default_blocks_exist'));
       }
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to seed defaults');
+      toast.error(error.response?.data?.error || t('failed_to_seed_defaults'));
     },
   });
 
@@ -302,7 +304,7 @@ export const PromptBlocksManagement = () => {
   };
 
   if (isLoading) {
-    return <Loading fullScreen text="Loading prompt blocks..." />;
+    return <Loading fullScreen text={t('loading_prompt_blocks')} />;
   }
 
   const categories = data?.categories || [];
@@ -312,8 +314,8 @@ export const PromptBlocksManagement = () => {
 
   return (
     <AdminLayout
-      title="Prompt Building Blocks"
-      description="Manage the prompt blocks that students can use to build their AI agents"
+      title={t('prompt_building_blocks')}
+      description={t('prompt_blocks_description')}
       headerActions={
         <>
           <Button
@@ -322,7 +324,7 @@ export const PromptBlocksManagement = () => {
             onClick={() => refetch()}
             icon={<RefreshCw className="w-4 h-4" />}
           >
-            Refresh
+            {t('common:refresh')}
           </Button>
           <Button
             variant="secondary"
@@ -330,7 +332,7 @@ export const PromptBlocksManagement = () => {
             onClick={() => seedDefaultsMutation.mutate()}
             loading={seedDefaultsMutation.isPending}
           >
-            Seed Defaults
+            {t('seed_defaults')}
           </Button>
         </>
       }
@@ -344,14 +346,14 @@ export const PromptBlocksManagement = () => {
                 onClick={() => openBlockModal()}
                 icon={<Plus className="w-4 h-4" />}
               >
-                Add Block
+                {t('add_block')}
               </Button>
               <Button
                 variant="secondary"
                 onClick={() => openCategoryModal()}
                 icon={<FolderPlus className="w-4 h-4" />}
               >
-                Add Category
+                {t('add_category')}
               </Button>
             </div>
             <div className="flex items-center gap-2">
@@ -362,7 +364,7 @@ export const PromptBlocksManagement = () => {
                   onChange={(e) => setShowInactive(e.target.checked)}
                   className="rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500"
                 />
-                Show inactive
+                {t('show_inactive')}
               </label>
             </div>
           </div>
@@ -375,9 +377,9 @@ export const PromptBlocksManagement = () => {
           <Card>
             <CardBody className="text-center py-12">
               <Blocks className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No blocks yet</h3>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">{t('no_blocks_yet')}</h3>
               <p className="text-gray-500 dark:text-gray-400 mb-4">
-                Click "Seed Defaults" to add the default prompt blocks, or create your own.
+                {t('no_blocks_description')}
               </p>
             </CardBody>
           </Card>
@@ -403,14 +405,14 @@ export const PromptBlocksManagement = () => {
                             {category.name}
                             {!category.isActive && (
                               <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded">
-                                Inactive
+                                {t('inactive')}
                               </span>
                             )}
                           </h3>
                           <p className="text-sm text-gray-500 dark:text-gray-400">{category.description}</p>
                         </div>
                         <span className="text-sm text-gray-400 dark:text-gray-500 ml-auto mr-2">
-                          {blocks.length} blocks
+                          {t('n_blocks', { count: blocks.length })}
                         </span>
                         {isExpanded ? (
                           <ChevronDown className="w-5 h-5 text-gray-400 dark:text-gray-500" />
@@ -427,7 +429,7 @@ export const PromptBlocksManagement = () => {
                         }}
                         icon={<Edit2 className="w-4 h-4" />}
                       >
-                        <span className="sr-only">Edit</span>
+                        <span className="sr-only">{t('common:edit')}</span>
                       </Button>
                     </div>
                   </CardHeader>
@@ -437,7 +439,7 @@ export const PromptBlocksManagement = () => {
                       <div className="space-y-2">
                         {blocks.length === 0 ? (
                           <p className="text-sm text-gray-500 dark:text-gray-400 py-4 text-center">
-                            No blocks in this category.{' '}
+                            {t('no_blocks_in_category')}{' '}
                             <button
                               onClick={() => {
                                 setBlockForm({ ...initialBlockForm, category: category.slug });
@@ -445,7 +447,7 @@ export const PromptBlocksManagement = () => {
                               }}
                               className="text-violet-600 dark:text-violet-400 hover:underline"
                             >
-                              Add one
+                              {t('add_one')}
                             </button>
                           </p>
                         ) : (
@@ -469,7 +471,7 @@ export const PromptBlocksManagement = () => {
                                   )}
                                   {!block.isActive && (
                                     <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded">
-                                      Inactive
+                                      {t('inactive')}
                                     </span>
                                   )}
                                 </div>
@@ -489,7 +491,7 @@ export const PromptBlocksManagement = () => {
                                     })
                                   }
                                   className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-amber-500 dark:hover:text-amber-400 rounded"
-                                  title={block.popular ? 'Remove from popular' : 'Mark as popular'}
+                                  title={block.popular ? t('remove_from_popular') : t('mark_as_popular')}
                                 >
                                   {block.popular ? (
                                     <Star className="w-4 h-4 fill-current" />
@@ -505,7 +507,7 @@ export const PromptBlocksManagement = () => {
                                     })
                                   }
                                   className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 rounded"
-                                  title={block.isActive ? 'Deactivate' : 'Activate'}
+                                  title={block.isActive ? t('deactivate') : t('activate')}
                                 >
                                   {block.isActive ? (
                                     <Eye className="w-4 h-4" />
@@ -516,18 +518,18 @@ export const PromptBlocksManagement = () => {
                                 <button
                                   onClick={() => openBlockModal(block)}
                                   className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-violet-600 dark:hover:text-violet-400 rounded"
-                                  title="Edit"
+                                  title={t('common:edit')}
                                 >
                                   <Edit2 className="w-4 h-4" />
                                 </button>
                                 <button
                                   onClick={() => {
-                                    if (confirm('Deactivate this block?')) {
+                                    if (confirm(t('confirm_deactivate_block'))) {
                                       deleteBlockMutation.mutate(block.id);
                                     }
                                   }}
                                   className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 rounded"
-                                  title="Delete"
+                                  title={t('common:delete')}
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </button>
@@ -552,12 +554,12 @@ export const PromptBlocksManagement = () => {
           setEditingBlock(null);
           setBlockForm(initialBlockForm);
         }}
-        title={editingBlock ? 'Edit Block' : 'Add Block'}
+        title={editingBlock ? t('edit_block') : t('add_block')}
       >
         <form onSubmit={handleBlockSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Category
+              {t('category')}
             </label>
             <select
               value={blockForm.category}
@@ -575,24 +577,24 @@ export const PromptBlocksManagement = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Label
+              {t('label')}
             </label>
             <Input
               value={blockForm.label}
               onChange={(e) => setBlockForm({ ...blockForm, label: e.target.value })}
-              placeholder="e.g., Patient Tutor"
+              placeholder={t('label_placeholder')}
               required
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Prompt Text
+              {t('prompt_text')}
             </label>
             <TextArea
               value={blockForm.promptText}
               onChange={(e) => setBlockForm({ ...blockForm, promptText: e.target.value })}
-              placeholder="The actual prompt text that will be inserted..."
+              placeholder={t('prompt_text_placeholder')}
               rows={3}
               required
             />
@@ -600,12 +602,12 @@ export const PromptBlocksManagement = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Description
+              {t('description')}
             </label>
             <Input
               value={blockForm.description}
               onChange={(e) => setBlockForm({ ...blockForm, description: e.target.value })}
-              placeholder="Short description of what this block does"
+              placeholder={t('description_placeholder')}
             />
           </div>
 
@@ -618,7 +620,7 @@ export const PromptBlocksManagement = () => {
               className="rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500"
             />
             <label htmlFor="popular" className="text-sm text-gray-700 dark:text-gray-300">
-              Show in Popular section
+              {t('show_in_popular')}
             </label>
           </div>
 
@@ -632,13 +634,13 @@ export const PromptBlocksManagement = () => {
                 setBlockForm(initialBlockForm);
               }}
             >
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button
               type="submit"
               loading={createBlockMutation.isPending || updateBlockMutation.isPending}
             >
-              {editingBlock ? 'Update' : 'Create'}
+              {editingBlock ? t('common:update') : t('common:create')}
             </Button>
           </div>
         </form>
@@ -652,13 +654,13 @@ export const PromptBlocksManagement = () => {
           setEditingCategory(null);
           setCategoryForm(initialCategoryForm);
         }}
-        title={editingCategory ? 'Edit Category' : 'Add Category'}
+        title={editingCategory ? t('edit_category') : t('add_category')}
       >
         <form onSubmit={handleCategorySubmit} className="space-y-4">
           {!editingCategory && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Slug
+                {t('slug')}
               </label>
               <Input
                 value={categoryForm.slug}
@@ -668,53 +670,53 @@ export const PromptBlocksManagement = () => {
                     slug: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''),
                   })
                 }
-                placeholder="e.g., custom_category"
+                placeholder={t('slug_placeholder')}
                 required
               />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Lowercase letters, numbers, and underscores only
+                {t('slug_hint')}
               </p>
             </div>
           )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Name
+              {t('name')}
             </label>
             <Input
               value={categoryForm.name}
               onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
-              placeholder="e.g., Custom Category"
+              placeholder={t('category_name_placeholder')}
               required
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Description
+              {t('description')}
             </label>
             <Input
               value={categoryForm.description}
               onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
-              placeholder="Short description of this category"
+              placeholder={t('category_description_placeholder')}
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Icon
+              {t('icon')}
             </label>
             <select
               value={categoryForm.icon}
               onChange={(e) => setCategoryForm({ ...categoryForm, icon: e.target.value })}
               className="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-violet-500 focus:ring-violet-500"
             >
-              <option value="User">User (Persona)</option>
-              <option value="MessageCircle">MessageCircle (Tone)</option>
-              <option value="Sparkles">Sparkles (Behavior)</option>
-              <option value="Shield">Shield (Constraint)</option>
-              <option value="Layout">Layout (Format)</option>
-              <option value="BookOpen">BookOpen (Knowledge)</option>
+              <option value="User">{t('icon_user_persona')}</option>
+              <option value="MessageCircle">{t('icon_message_tone')}</option>
+              <option value="Sparkles">{t('icon_sparkles_behavior')}</option>
+              <option value="Shield">{t('icon_shield_constraint')}</option>
+              <option value="Layout">{t('icon_layout_format')}</option>
+              <option value="BookOpen">{t('icon_book_knowledge')}</option>
             </select>
           </div>
 
@@ -728,13 +730,13 @@ export const PromptBlocksManagement = () => {
                 setCategoryForm(initialCategoryForm);
               }}
             >
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button
               type="submit"
               loading={createCategoryMutation.isPending || updateCategoryMutation.isPending}
             >
-              {editingCategory ? 'Update' : 'Create'}
+              {editingCategory ? t('common:update') : t('common:create')}
             </Button>
           </div>
         </form>

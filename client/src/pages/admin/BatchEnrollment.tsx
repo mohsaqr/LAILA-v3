@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   Upload,
   Download,
@@ -20,6 +21,7 @@ import { Modal } from '../../components/common/Modal';
 import { BatchEnrollmentJob, BatchEnrollmentResult, Course } from '../../types';
 
 export const BatchEnrollment = () => {
+  const { t } = useTranslation(['admin', 'common']);
   const queryClient = useQueryClient();
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -105,17 +107,17 @@ export const BatchEnrollment = () => {
       case 'success':
         return (
           <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded">
-            Success
+            {t('common:success')}
           </span>
         );
       case 'error':
         return (
-          <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded">Error</span>
+          <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded">{t('common:error')}</span>
         );
       case 'skipped':
         return (
           <span className="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded">
-            Skipped
+            {t('skipped')}
           </span>
         );
       default:
@@ -125,12 +127,12 @@ export const BatchEnrollment = () => {
 
   return (
     <AdminLayout
-      title="Batch Enrollment"
-      description="Upload CSV to enroll multiple users at once"
+      title={t('batch_enrollment')}
+      description={t('batch_enrollment_desc')}
       headerActions={
         <Button variant="outline" onClick={() => batchEnrollmentApi.downloadTemplate()}>
           <Download className="w-4 h-4 mr-2" />
-          Download Template
+          {t('download_template')}
         </Button>
       }
     >
@@ -138,13 +140,13 @@ export const BatchEnrollment = () => {
         {/* Upload Section */}
         <Card>
           <CardHeader>
-            <h2 className="font-semibold text-gray-900">Upload CSV File</h2>
+            <h2 className="font-semibold text-gray-900">{t('upload_csv_file')}</h2>
           </CardHeader>
           <CardBody className="space-y-4">
             {/* Course Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Course
+                {t('select_course')}
               </label>
               <select
                 value={selectedCourseId || ''}
@@ -152,7 +154,7 @@ export const BatchEnrollment = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                 disabled={coursesLoading}
               >
-                <option value="">Choose a course...</option>
+                <option value="">{t('choose_course')}</option>
                 {coursesData?.courses?.map((course: Course) => (
                   <option key={course.id} value={course.id}>
                     {course.title}
@@ -185,16 +187,16 @@ export const BatchEnrollment = () => {
                     size="sm"
                     onClick={() => setSelectedFile(null)}
                   >
-                    Remove
+                    {t('common:remove')}
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-2">
                   <Upload className="w-12 h-12 text-gray-400 mx-auto" />
                   <p className="text-gray-600">
-                    Drag and drop a CSV file here, or{' '}
+                    {t('drag_drop_csv')}{' '}
                     <label className="text-primary-600 cursor-pointer hover:underline">
-                      browse
+                      {t('browse')}
                       <input
                         type="file"
                         accept=".csv"
@@ -203,7 +205,7 @@ export const BatchEnrollment = () => {
                       />
                     </label>
                   </p>
-                  <p className="text-xs text-gray-400">CSV files only, max 5MB</p>
+                  <p className="text-xs text-gray-400">{t('csv_files_max')}</p>
                 </div>
               )}
             </div>
@@ -217,12 +219,12 @@ export const BatchEnrollment = () => {
               {uploadMutation.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Processing...
+                  {t('processing')}
                 </>
               ) : (
                 <>
                   <Upload className="w-4 h-4 mr-2" />
-                  Upload and Enroll
+                  {t('upload_and_enroll')}
                 </>
               )}
             </Button>
@@ -235,9 +237,9 @@ export const BatchEnrollment = () => {
 
             {/* CSV Format Info */}
             <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">CSV Format</h3>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">{t('csv_format')}</h3>
               <p className="text-xs text-gray-500 mb-2">
-                Your CSV file should have the following columns:
+                {t('csv_format_desc')}
               </p>
               <code className="block text-xs bg-gray-100 p-2 rounded">
                 email,fullname
@@ -245,7 +247,7 @@ export const BatchEnrollment = () => {
                 student@example.com,John Doe
               </code>
               <p className="text-xs text-gray-400 mt-2">
-                Only the email column is required. New users will be created automatically.
+                {t('email_required_info')}
               </p>
             </div>
           </CardBody>
@@ -254,14 +256,14 @@ export const BatchEnrollment = () => {
         {/* Recent Jobs */}
         <Card>
           <CardHeader>
-            <h2 className="font-semibold text-gray-900">Recent Jobs</h2>
+            <h2 className="font-semibold text-gray-900">{t('recent_jobs')}</h2>
           </CardHeader>
           <CardBody className="p-0">
             {jobsLoading ? (
-              <Loading text="Loading jobs..." />
+              <Loading text={t('loading_jobs')} />
             ) : jobsData?.jobs.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
-                No batch enrollment jobs yet.
+                {t('no_batch_jobs')}
               </div>
             ) : (
               <div className="divide-y divide-gray-100">
@@ -283,9 +285,9 @@ export const BatchEnrollment = () => {
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-right text-sm">
-                        <p className="text-green-600">{job.successCount} success</p>
+                        <p className="text-green-600">{job.successCount} {t('common:success')}</p>
                         {job.errorCount > 0 && (
-                          <p className="text-red-500">{job.errorCount} errors</p>
+                          <p className="text-red-500">{job.errorCount} {t('errors')}</p>
                         )}
                       </div>
                       <ChevronRight className="w-4 h-4 text-gray-400" />
@@ -305,10 +307,10 @@ export const BatchEnrollment = () => {
           setIsResultsModalOpen(false);
           setSelectedJob(null);
         }}
-        title={`Job Results: ${selectedJob?.fileName}`}
+        title={t('job_results', { fileName: selectedJob?.fileName })}
       >
         {resultsLoading ? (
-          <Loading text="Loading results..." />
+          <Loading text={t('loading_results')} />
         ) : (
           <div className="space-y-4">
             {/* Summary */}
@@ -318,14 +320,14 @@ export const BatchEnrollment = () => {
                 <p className="text-xl font-bold text-green-700">
                   {selectedJob?.successCount || 0}
                 </p>
-                <p className="text-xs text-green-600">Success</p>
+                <p className="text-xs text-green-600">{t('common:success')}</p>
               </div>
               <div className="bg-red-50 rounded-lg p-4 text-center">
                 <XCircle className="w-6 h-6 text-red-500 mx-auto mb-1" />
                 <p className="text-xl font-bold text-red-700">
                   {selectedJob?.errorCount || 0}
                 </p>
-                <p className="text-xs text-red-600">Errors</p>
+                <p className="text-xs text-red-600">{t('errors')}</p>
               </div>
               <div className="bg-yellow-50 rounded-lg p-4 text-center">
                 <AlertCircle className="w-6 h-6 text-yellow-500 mx-auto mb-1" />
@@ -334,7 +336,7 @@ export const BatchEnrollment = () => {
                     (selectedJob?.successCount || 0) -
                     (selectedJob?.errorCount || 0)}
                 </p>
-                <p className="text-xs text-yellow-600">Skipped</p>
+                <p className="text-xs text-yellow-600">{t('skipped')}</p>
               </div>
             </div>
 
@@ -344,16 +346,16 @@ export const BatchEnrollment = () => {
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                      Row
+                      {t('row')}
                     </th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                      Email
+                      {t('email')}
                     </th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                      Status
+                      {t('common:status')}
                     </th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                      Message
+                      {t('message')}
                     </th>
                   </tr>
                 </thead>

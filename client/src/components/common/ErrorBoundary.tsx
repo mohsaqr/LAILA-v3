@@ -1,4 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
+import { Translation } from 'react-i18next';
 import { AlertTriangle, RefreshCcw, Home } from 'lucide-react';
 
 interface Props {
@@ -63,62 +64,66 @@ export class ErrorBoundary extends Component<Props, State> {
 
       // Default error UI
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
-          <div className="max-w-md w-full text-center">
-            <div className="mb-6">
-              <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
-                <AlertTriangle className="w-8 h-8 text-red-600 dark:text-red-400" />
-              </div>
-            </div>
+        <Translation ns={['common']}>
+          {(t) => (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+              <div className="max-w-md w-full text-center">
+                <div className="mb-6">
+                  <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                    <AlertTriangle className="w-8 h-8 text-red-600 dark:text-red-400" />
+                  </div>
+                </div>
 
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-              Something went wrong
-            </h1>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                  {t('something_went_wrong')}
+                </h1>
 
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              We're sorry, but something unexpected happened. Please try refreshing the page or go back to the home page.
-            </p>
-
-            {/* Show error details in development mode */}
-            {import.meta.env.DEV && this.state.error && (
-              <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg text-left">
-                <p className="text-sm font-mono text-red-800 dark:text-red-300 break-all">
-                  {this.state.error.toString()}
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                  {t('error_boundary_message')}
                 </p>
-                {this.state.errorInfo && (
-                  <pre className="mt-2 text-xs font-mono text-red-600 dark:text-red-400 overflow-auto max-h-40">
-                    {this.state.errorInfo.componentStack}
-                  </pre>
+
+                {/* Show error details in development mode */}
+                {import.meta.env.DEV && this.state.error && (
+                  <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg text-left">
+                    <p className="text-sm font-mono text-red-800 dark:text-red-300 break-all">
+                      {this.state.error.toString()}
+                    </p>
+                    {this.state.errorInfo && (
+                      <pre className="mt-2 text-xs font-mono text-red-600 dark:text-red-400 overflow-auto max-h-40">
+                        {this.state.errorInfo.componentStack}
+                      </pre>
+                    )}
+                  </div>
                 )}
+
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <button
+                    onClick={this.handleRetry}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
+                  >
+                    <RefreshCcw className="w-4 h-4" />
+                    {t('try_again')}
+                  </button>
+
+                  <button
+                    onClick={this.handleGoHome}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg transition-colors"
+                  >
+                    <Home className="w-4 h-4" />
+                    {t('go_home')}
+                  </button>
+                </div>
+
+                <button
+                  onClick={this.handleReload}
+                  className="mt-4 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline"
+                >
+                  {t('reload_page')}
+                </button>
               </div>
-            )}
-
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button
-                onClick={this.handleRetry}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
-              >
-                <RefreshCcw className="w-4 h-4" />
-                Try Again
-              </button>
-
-              <button
-                onClick={this.handleGoHome}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg transition-colors"
-              >
-                <Home className="w-4 h-4" />
-                Go Home
-              </button>
             </div>
-
-            <button
-              onClick={this.handleReload}
-              className="mt-4 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline"
-            >
-              Reload Page
-            </button>
-          </div>
-        </div>
+          )}
+        </Translation>
       );
     }
 

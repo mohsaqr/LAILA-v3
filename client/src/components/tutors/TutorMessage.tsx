@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Bot, User, Info, Users } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import type { TutorMessage as TutorMessageType, RoutingInfo, CollaborativeInfo } from '../../types/tutor';
@@ -17,6 +18,7 @@ export const TutorMessage = ({
   collaborativeInfo,
   showMetadata = false,
 }: TutorMessageProps) => {
+  const { t } = useTranslation(['tutors']);
   const { isDark } = useTheme();
   const isUser = message.role === 'user';
 
@@ -58,9 +60,9 @@ export const TutorMessage = ({
         {routingInfo && !isUser && (
           <div className="flex items-center gap-1 text-xs mb-1" style={{ color: colors.textSecondary }}>
             <Info className="w-3 h-3" />
-            <span>Routed to {routingInfo.selectedAgent.displayName}</span>
+            <span>{t('routed_to', { name: routingInfo.selectedAgent.displayName })}</span>
             <span style={{ color: colors.textMuted }}>
-              ({Math.round(routingInfo.confidence * 100)}% confidence)
+              ({t('confidence_percent', { percent: Math.round(routingInfo.confidence * 100) })})
             </span>
           </div>
         )}
@@ -70,7 +72,7 @@ export const TutorMessage = ({
           <div className="flex items-center gap-1 text-xs mb-1" style={{ color: colors.textSecondary }}>
             <Users className="w-3 h-3" />
             <span>
-              Team response from {collaborativeInfo.agentContributions.length} tutors
+              {t('team_response_from', { count: collaborativeInfo.agentContributions.length })}
             </span>
           </div>
         )}
@@ -104,7 +106,7 @@ export const TutorMessage = ({
         {collaborativeInfo && !isUser && (
           <details className="mt-2">
             <summary className="text-xs cursor-pointer" style={{ color: colors.textSecondary }}>
-              View individual contributions
+              {t('view_individual_contributions')}
             </summary>
             <div className="mt-2 space-y-2 text-sm">
               {collaborativeInfo.agentContributions.map((contrib, idx) => (

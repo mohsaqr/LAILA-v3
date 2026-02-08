@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   UserPlus,
@@ -28,6 +29,7 @@ interface CourseRoleManagerProps {
 }
 
 export const CourseRoleManager = ({ courseId }: CourseRoleManagerProps) => {
+  const { t } = useTranslation(['admin', 'common']);
   const queryClient = useQueryClient();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -131,7 +133,7 @@ export const CourseRoleManager = ({ courseId }: CourseRoleManagerProps) => {
   };
 
   if (isLoading) {
-    return <Loading text="Loading course roles..." />;
+    return <Loading text={t('loading_course_roles')} />;
   }
 
   return (
@@ -139,19 +141,19 @@ export const CourseRoleManager = ({ courseId }: CourseRoleManagerProps) => {
       <CardHeader className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Shield className="w-5 h-5 text-primary-500" />
-          <h2 className="font-semibold text-gray-900">Course Team</h2>
+          <h2 className="font-semibold text-gray-900">{t('course_team')}</h2>
         </div>
         <Button size="sm" onClick={() => setIsAddModalOpen(true)}>
           <UserPlus className="w-4 h-4 mr-1" />
-          Add Role
+          {t('add_role')}
         </Button>
       </CardHeader>
       <CardBody className="p-0">
         {roles?.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             <Users className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-            <p>No team members assigned yet.</p>
-            <p className="text-sm">Add TAs, co-instructors, or course admins.</p>
+            <p>{t('no_team_members')}</p>
+            <p className="text-sm">{t('add_team_suggestion')}</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
@@ -200,17 +202,17 @@ export const CourseRoleManager = ({ courseId }: CourseRoleManagerProps) => {
           setIsAddModalOpen(false);
           resetForm();
         }}
-        title="Add Team Member"
+        title={t('add_team_member')}
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Select User</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('select_user')}</label>
             <select
               value={selectedUserId || ''}
               onChange={(e) => setSelectedUserId(Number(e.target.value) || null)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
             >
-              <option value="">Choose a user...</option>
+              <option value="">{t('choose_user')}</option>
               {availableUsers?.map((user: User) => (
                 <option key={user.id} value={user.id}>
                   {user.fullname} ({user.email})
@@ -220,7 +222,7 @@ export const CourseRoleManager = ({ courseId }: CourseRoleManagerProps) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('role')}</label>
             <select
               value={selectedRoleType}
               onChange={(e) => handleRoleTypeChange(e.target.value as CourseRoleType)}
@@ -233,7 +235,7 @@ export const CourseRoleManager = ({ courseId }: CourseRoleManagerProps) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Permissions</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('permissions')}</label>
             <div className="space-y-2">
               {(Object.keys(PERMISSION_LABELS) as Permission[]).map((permission) => (
                 <label key={permission} className="flex items-center gap-2">
@@ -251,13 +253,13 @@ export const CourseRoleManager = ({ courseId }: CourseRoleManagerProps) => {
 
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="outline" onClick={() => setIsAddModalOpen(false)}>
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button
               onClick={() => assignRoleMutation.mutate()}
               disabled={!selectedUserId || assignRoleMutation.isPending}
             >
-              {assignRoleMutation.isPending ? 'Adding...' : 'Add Role'}
+              {assignRoleMutation.isPending ? t('adding') : t('add_role')}
             </Button>
           </div>
         </div>
@@ -271,11 +273,11 @@ export const CourseRoleManager = ({ courseId }: CourseRoleManagerProps) => {
           setSelectedRole(null);
           resetForm();
         }}
-        title={`Edit Role: ${selectedRole?.user?.fullname}`}
+        title={t('edit_role_title', { name: selectedRole?.user?.fullname })}
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('role')}</label>
             <select
               value={selectedRoleType}
               onChange={(e) => handleRoleTypeChange(e.target.value as CourseRoleType)}
@@ -288,7 +290,7 @@ export const CourseRoleManager = ({ courseId }: CourseRoleManagerProps) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Permissions</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('permissions')}</label>
             <div className="space-y-2">
               {(Object.keys(PERMISSION_LABELS) as Permission[]).map((permission) => (
                 <label key={permission} className="flex items-center gap-2">
@@ -306,13 +308,13 @@ export const CourseRoleManager = ({ courseId }: CourseRoleManagerProps) => {
 
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button
               onClick={() => updateRoleMutation.mutate()}
               disabled={updateRoleMutation.isPending}
             >
-              {updateRoleMutation.isPending ? 'Saving...' : 'Save Changes'}
+              {updateRoleMutation.isPending ? t('saving') : t('save_changes')}
             </Button>
           </div>
         </div>
@@ -326,9 +328,9 @@ export const CourseRoleManager = ({ courseId }: CourseRoleManagerProps) => {
           setSelectedRole(null);
         }}
         onConfirm={() => removeRoleMutation.mutate()}
-        title="Remove Team Member"
-        message={`Are you sure you want to remove ${selectedRole?.user?.fullname} from this course team?`}
-        confirmText="Remove"
+        title={t('remove_team_member')}
+        message={t('confirm_remove_team_member', { name: selectedRole?.user?.fullname })}
+        confirmText={t('common:remove')}
         loading={removeRoleMutation.isPending}
       />
     </Card>

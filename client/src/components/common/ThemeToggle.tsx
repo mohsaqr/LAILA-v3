@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Sun, Moon } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 
@@ -7,17 +8,18 @@ interface ThemeToggleProps {
 }
 
 export const ThemeToggle = ({ showLabel = false, className = '' }: ThemeToggleProps) => {
+  const { t } = useTranslation(['common']);
   const { isDark, toggleTheme } = useTheme();
 
-  const label = isDark ? 'Dark' : 'Light';
+  const label = isDark ? t('theme_dark') : t('theme_light');
 
   return (
     <button
       onClick={toggleTheme}
       className={`p-2 rounded-lg transition-colors ${className}`}
       style={{ backgroundColor: isDark ? '#374151' : '#f3f4f6' }}
-      title={`Theme: ${label}`}
-      aria-label={`Current theme: ${label}. Click to switch.`}
+      title={t('theme_label', { theme: label })}
+      aria-label={t('theme_aria_label', { theme: label })}
     >
       <span className="flex items-center gap-2">
         {isDark ? (

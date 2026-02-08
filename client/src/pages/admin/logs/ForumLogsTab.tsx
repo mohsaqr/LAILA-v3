@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   MessageSquare,
   Users,
@@ -34,6 +35,7 @@ interface ForumLogsTabProps {
 }
 
 export const ForumLogsTab = ({ exportStatus, setExportStatus }: ForumLogsTabProps) => {
+  const { t } = useTranslation(['admin', 'common']);
   const [selectedPost, setSelectedPost] = useState<any | null>(null);
   const [viewMode, setViewMode] = useState<'posts' | 'threads'>('posts');
 
@@ -112,7 +114,7 @@ export const ForumLogsTab = ({ exportStatus, setExportStatus }: ForumLogsTabProp
   };
 
   if (isLoading) {
-    return <Loading text="Loading forum logs..." />;
+    return <Loading text={t('loading_forum_logs')} />;
   }
 
   if (!forumSummary) {
@@ -130,7 +132,7 @@ export const ForumLogsTab = ({ exportStatus, setExportStatus }: ForumLogsTabProp
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{forumSummary.totalForums}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Forums</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('forums')}</p>
             </div>
           </CardBody>
         </Card>
@@ -141,7 +143,7 @@ export const ForumLogsTab = ({ exportStatus, setExportStatus }: ForumLogsTabProp
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{forumSummary.totalThreads}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Threads</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('threads')}</p>
             </div>
           </CardBody>
         </Card>
@@ -152,7 +154,7 @@ export const ForumLogsTab = ({ exportStatus, setExportStatus }: ForumLogsTabProp
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{forumSummary.totalPosts}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Posts</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('posts')}</p>
             </div>
           </CardBody>
         </Card>
@@ -163,7 +165,7 @@ export const ForumLogsTab = ({ exportStatus, setExportStatus }: ForumLogsTabProp
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{forumSummary.namedPosts}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Named Posts</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('named_posts')}</p>
             </div>
           </CardBody>
         </Card>
@@ -174,7 +176,7 @@ export const ForumLogsTab = ({ exportStatus, setExportStatus }: ForumLogsTabProp
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{forumSummary.anonymousPosts}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Anonymous</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('anonymous')}</p>
             </div>
           </CardBody>
         </Card>
@@ -187,7 +189,7 @@ export const ForumLogsTab = ({ exportStatus, setExportStatus }: ForumLogsTabProp
           <CardHeader className="py-3">
             <div className="flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Forums by Course</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{t('forums_by_course')}</h3>
             </div>
           </CardHeader>
           <CardBody className="pt-0">
@@ -204,12 +206,12 @@ export const ForumLogsTab = ({ exportStatus, setExportStatus }: ForumLogsTabProp
                       </span>
                     </div>
                     <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded text-xs font-medium ml-2">
-                      {item.threadCount} threads
+                      {item.threadCount} {t('threads')}
                     </span>
                   </div>
                 ))
               ) : (
-                <p className="text-gray-400 dark:text-gray-500 text-sm">No forums yet</p>
+                <p className="text-gray-400 dark:text-gray-500 text-sm">{t('no_forums_yet')}</p>
               )}
             </div>
           </CardBody>
@@ -220,7 +222,7 @@ export const ForumLogsTab = ({ exportStatus, setExportStatus }: ForumLogsTabProp
           <CardHeader className="py-3">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Top Contributors</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{t('top_contributors')}</h3>
             </div>
           </CardHeader>
           <CardBody className="pt-0">
@@ -238,12 +240,12 @@ export const ForumLogsTab = ({ exportStatus, setExportStatus }: ForumLogsTabProp
                       </div>
                     </div>
                     <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded text-xs font-medium">
-                      {item.count} posts
+                      {item.count} {t('posts')}
                     </span>
                   </div>
                 ))
               ) : (
-                <p className="text-gray-400 dark:text-gray-500 text-sm">No data</p>
+                <p className="text-gray-400 dark:text-gray-500 text-sm">{t('common:no_data')}</p>
               )}
             </div>
           </CardBody>
@@ -254,7 +256,7 @@ export const ForumLogsTab = ({ exportStatus, setExportStatus }: ForumLogsTabProp
       <Card>
         <CardHeader className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100">Recent Forum Activity</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('recent_forum_activity')}</h3>
             <div className="flex gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
               <button
                 onClick={() => setViewMode('posts')}
@@ -264,7 +266,7 @@ export const ForumLogsTab = ({ exportStatus, setExportStatus }: ForumLogsTabProp
                     : 'text-gray-600 dark:text-gray-400'
                 }`}
               >
-                Posts
+                {t('posts')}
               </button>
               <button
                 onClick={() => setViewMode('threads')}
@@ -274,56 +276,56 @@ export const ForumLogsTab = ({ exportStatus, setExportStatus }: ForumLogsTabProp
                     : 'text-gray-600 dark:text-gray-400'
                 }`}
               >
-                Threads
+                {t('threads')}
               </button>
             </div>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => refetch()}>
               <RefreshCw className="w-4 h-4 mr-1" />
-              Refresh
+              {t('common:refresh')}
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={handleExportExcel}
               disabled={exportStatus === 'loading'}
-              title="Export as Excel (includes Posts, Threads, Summary, and User Activity sheets)"
+              title={t('export_excel_tooltip')}
             >
               {exportStatus === 'loading' ? (
                 <Loader2 className="w-4 h-4 mr-1 animate-spin" />
               ) : (
                 <FileSpreadsheet className="w-4 h-4 mr-1 text-green-600" />
               )}
-              Excel
+              {t('excel')}
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={handleExportCSV}
               disabled={exportStatus === 'loading'}
-              title="Export posts as CSV"
+              title={t('export_csv_tooltip')}
             >
               {exportStatus === 'loading' ? (
                 <Loader2 className="w-4 h-4 mr-1 animate-spin" />
               ) : (
                 <FileText className="w-4 h-4 mr-1 text-blue-600" />
               )}
-              CSV
+              {t('csv')}
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={handleExportJSON}
               disabled={exportStatus === 'loading'}
-              title="Export summary as JSON"
+              title={t('export_json_tooltip')}
             >
               {exportStatus === 'loading' ? (
                 <Loader2 className="w-4 h-4 mr-1 animate-spin" />
               ) : (
                 <Download className="w-4 h-4 mr-1" />
               )}
-              JSON
+              {t('json')}
             </Button>
           </div>
         </CardHeader>
@@ -333,12 +335,12 @@ export const ForumLogsTab = ({ exportStatus, setExportStatus }: ForumLogsTabProp
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
                   <tr>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Time</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Author</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Thread</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Course</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Content</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Type</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('time')}</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('author')}</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('thread')}</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('course')}</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('content')}</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('type')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -382,7 +384,7 @@ export const ForumLogsTab = ({ exportStatus, setExportStatus }: ForumLogsTabProp
                             ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
                             : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
                         }`}>
-                          {post.isReply ? 'Reply' : 'New Post'}
+                          {post.isReply ? t('reply') : t('new_post')}
                         </span>
                       </td>
                     </tr>
@@ -393,12 +395,12 @@ export const ForumLogsTab = ({ exportStatus, setExportStatus }: ForumLogsTabProp
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
                   <tr>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Time</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Author</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Title</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Forum</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Course</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Posts</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('time')}</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('author')}</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('title')}</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('forum')}</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('course')}</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('posts')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -461,12 +463,13 @@ interface PostDetailModalProps {
 }
 
 const PostDetailModal = ({ post, onClose }: PostDetailModalProps) => {
+  const { t } = useTranslation(['admin', 'common']);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-700/50">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Forum Post Details</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('forum_post_details')}</h3>
           <button onClick={onClose} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded">
             <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
           </button>
@@ -478,7 +481,7 @@ const PostDetailModal = ({ post, onClose }: PostDetailModalProps) => {
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
               <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
-                <Clock className="w-4 h-4" /> Timestamp
+                <Clock className="w-4 h-4" /> {t('timestamp')}
               </h4>
               <p className="text-sm text-gray-700 dark:text-gray-300">
                 {new Date(post.createdAt).toLocaleString()}
@@ -486,12 +489,12 @@ const PostDetailModal = ({ post, onClose }: PostDetailModalProps) => {
             </div>
             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
               <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
-                <User className="w-4 h-4" /> Author
+                <User className="w-4 h-4" /> {t('author')}
               </h4>
               <div className="flex items-center gap-2">
                 {post.isAnonymous && <EyeOff className="w-4 h-4 text-gray-400" />}
                 <span className="text-sm text-gray-700 dark:text-gray-300">{post.authorName}</span>
-                {post.isAnonymous && <span className="text-xs text-gray-500">(Anonymous)</span>}
+                {post.isAnonymous && <span className="text-xs text-gray-500">({t('anonymous')})</span>}
               </div>
             </div>
           </div>
@@ -499,12 +502,12 @@ const PostDetailModal = ({ post, onClose }: PostDetailModalProps) => {
           {/* Location */}
           <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
             <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
-              <BookOpen className="w-4 h-4" /> Location
+              <BookOpen className="w-4 h-4" /> {t('location')}
             </h4>
             <div className="space-y-1 text-sm">
-              <p><span className="text-gray-500 dark:text-gray-400">Course:</span> <span className="text-gray-900 dark:text-gray-100">{post.courseTitle}</span></p>
-              <p><span className="text-gray-500 dark:text-gray-400">Forum:</span> <span className="text-gray-900 dark:text-gray-100">{post.forumTitle}</span></p>
-              <p><span className="text-gray-500 dark:text-gray-400">Thread:</span> <span className="text-gray-900 dark:text-gray-100">{post.threadTitle}</span></p>
+              <p><span className="text-gray-500 dark:text-gray-400">{t('course')}:</span> <span className="text-gray-900 dark:text-gray-100">{post.courseTitle}</span></p>
+              <p><span className="text-gray-500 dark:text-gray-400">{t('forum')}:</span> <span className="text-gray-900 dark:text-gray-100">{post.forumTitle}</span></p>
+              <p><span className="text-gray-500 dark:text-gray-400">{t('thread')}:</span> <span className="text-gray-900 dark:text-gray-100">{post.threadTitle}</span></p>
             </div>
           </div>
 
@@ -515,13 +518,13 @@ const PostDetailModal = ({ post, onClose }: PostDetailModalProps) => {
                 ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
                 : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
             }`}>
-              {post.isReply ? 'Reply to another post' : 'Original post in thread'}
+              {post.isReply ? t('reply_to_post') : t('original_post')}
             </span>
           </div>
 
           {/* Content */}
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-            <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Content</h4>
+            <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">{t('content')}</h4>
             <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
               {post.fullContent}
             </p>

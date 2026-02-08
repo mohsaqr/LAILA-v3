@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../../api/courses';
@@ -9,6 +10,7 @@ import { Button } from '../../components/common/Button';
 import { CourseForm, CourseFormData } from '../../components/teach/CourseForm';
 
 export const CourseCreate = () => {
+  const { t } = useTranslation(['teaching', 'common']);
   const navigate = useNavigate();
   const { isDark } = useTheme();
 
@@ -25,11 +27,11 @@ export const CourseCreate = () => {
         difficulty: data.difficulty || null,
       }),
     onSuccess: course => {
-      toast.success('Course created successfully');
+      toast.success(t('course_created'));
       navigate(`/teach/courses/${course.id}/curriculum`);
     },
     onError: () => {
-      toast.error('Failed to create course');
+      toast.error(t('failed_to_create_course'));
     },
   });
 
@@ -47,21 +49,21 @@ export const CourseCreate = () => {
           onClick={() => navigate('/teach')}
           icon={<ArrowLeft className="w-4 h-4" />}
         >
-          Back to Dashboard
+          {t('back_to_dashboard')}
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Create New Course</h1>
+          <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{t('create_new_course')}</h1>
           <p className="mt-1" style={{ color: colors.textSecondary }}>
-            Fill in the details below to create your course. You can add modules and lectures after creation.
+            {t('no_courses_desc')}
           </p>
         </CardHeader>
         <CardBody>
           <CourseForm
             onSubmit={handleSubmit}
-            submitLabel="Create Course"
+            submitLabel={t('create_course')}
             loading={createMutation.isPending}
           />
         </CardBody>

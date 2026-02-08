@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   Bot,
   Plus,
@@ -195,6 +196,7 @@ const parseJsonArray = (str: string | null): string[] => {
 };
 
 export const AIBuilder = () => {
+  const { t } = useTranslation(['courses', 'common']);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { isDark } = useTheme();
@@ -478,7 +480,7 @@ export const AIBuilder = () => {
   );
 
   if (isLoading) {
-    return <Loading fullScreen text="Loading AI Components..." />;
+    return <Loading fullScreen text={t('loading_ai_components')} />;
   }
 
   return (
@@ -491,7 +493,7 @@ export const AIBuilder = () => {
           style={{ color: colors.textSecondary }}
         >
           <ChevronLeft className="w-4 h-4" />
-          Back to Course Tutors
+          {t('back_to_course_tutors')}
         </Link>
       )}
 
@@ -500,16 +502,16 @@ export const AIBuilder = () => {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: colors.textPrimary }}>
             <Bot className="w-8 h-8 text-primary-600" />
-            AI Builder
+            {t('ai_builder')}
           </h1>
           <p className="mt-1" style={{ color: colors.textSecondary }}>
             {courseContext
-              ? 'Create a custom AI tutor for your course'
-              : 'Create and customize reusable AI components for your courses'}
+              ? t('ai_builder_course_desc')
+              : t('ai_builder_desc')}
           </p>
         </div>
         <Button onClick={() => setShowForm(true)} icon={<Plus className="w-4 h-4" />}>
-          New Component
+          {t('new_component')}
         </Button>
       </div>
 
@@ -648,9 +650,9 @@ export const AIBuilder = () => {
         {filteredComponents?.length === 0 && (
           <div className="col-span-full text-center py-12">
             <Bot className="w-12 h-12 mx-auto mb-4" style={{ color: colors.textMuted }} />
-            <p style={{ color: colors.textSecondary }}>No AI components found</p>
+            <p style={{ color: colors.textSecondary }}>{t('no_ai_components')}</p>
             <Button onClick={() => setShowForm(true)} variant="outline" className="mt-4">
-              Create your first component
+              {t('create_first_component')}
             </Button>
           </div>
         )}
@@ -662,7 +664,7 @@ export const AIBuilder = () => {
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b flex items-center justify-between bg-gray-50">
               <h2 className="text-lg font-semibold">
-                {editingComponent ? 'Customize AI Agent' : 'Build Custom AI Agent'}
+                {editingComponent ? t('customize_ai_agent') : t('build_custom_ai')}
               </h2>
               <button onClick={resetForm} className="p-1 hover:bg-gray-200 rounded">
                 <X className="w-5 h-5" />
@@ -672,10 +674,10 @@ export const AIBuilder = () => {
             {/* Tabs */}
             <div className="border-b flex">
               {[
-                { id: 'basic', label: 'Basic Info', icon: FileText },
-                { id: 'behavior', label: 'Behavior', icon: Sliders },
+                { id: 'basic', label: t('basic_info'), icon: FileText },
+                { id: 'behavior', label: t('behavior'), icon: Sliders },
                 { id: 'advanced', label: 'Advanced', icon: Cpu },
-                ...(editingComponent ? [{ id: 'test', label: 'Test Chat', icon: Play }] : []),
+                ...(editingComponent ? [{ id: 'test', label: t('test_chat'), icon: Play }] : []),
               ].map(tab => {
                 const Icon = tab.icon;
                 return (
@@ -1104,7 +1106,7 @@ export const AIBuilder = () => {
                     {testMessages.length === 0 ? (
                       <div className="text-center text-gray-400 py-8">
                         <MessageSquare className="w-8 h-8 mx-auto mb-2" />
-                        <p>Send a message to test your AI component</p>
+                        <p>{t('send_test_message')}</p>
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -1136,7 +1138,7 @@ export const AIBuilder = () => {
                       onChange={e => setTestInput(e.target.value)}
                       onKeyPress={e => e.key === 'Enter' && handleTestChat()}
                       className="flex-1 border rounded-lg px-4 py-2"
-                      placeholder="Type a test message..."
+                      placeholder={t('type_test_message')}
                       disabled={isTesting}
                     />
                     <Button
@@ -1155,7 +1157,7 @@ export const AIBuilder = () => {
               {activeTab !== 'test' && (
                 <div className="flex gap-3 mt-6 pt-4 border-t">
                   <Button type="button" variant="outline" onClick={resetForm} className="flex-1">
-                    Cancel
+                    {t('common:cancel')}
                   </Button>
                   <Button
                     type="submit"
@@ -1164,10 +1166,10 @@ export const AIBuilder = () => {
                     icon={courseContext && !editingComponent ? <Sparkles className="w-4 h-4" /> : <Check className="w-4 h-4" />}
                   >
                     {editingComponent
-                      ? 'Save Changes'
+                      ? t('save_changes')
                       : courseContext
-                        ? 'Create & Add to Course'
-                        : 'Create Component'}
+                        ? t('create_add_course')
+                        : t('create_component')}
                   </Button>
                 </div>
               )}

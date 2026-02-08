@@ -1,4 +1,5 @@
 import { useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Send, Loader2, Bot, User } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 
@@ -23,9 +24,11 @@ export const LectureAIHelperChat = ({
   inputValue,
   onInputChange,
   onSend,
-  placeholder = 'Ask a question about the lecture...',
+  placeholder,
 }: LectureAIHelperChatProps) => {
+  const { t } = useTranslation(['teaching']);
   const { isDark } = useTheme();
+  const effectivePlaceholder = placeholder || t('ask_about_lecture');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -159,7 +162,7 @@ export const LectureAIHelperChat = ({
             value={inputValue}
             onChange={(e) => onInputChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={placeholder}
+            placeholder={effectivePlaceholder}
             disabled={isLoading}
             rows={1}
             className="flex-1 px-4 py-2.5 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"

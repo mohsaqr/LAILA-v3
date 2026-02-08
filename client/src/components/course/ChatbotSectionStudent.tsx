@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Send, MessageCircle, Loader2, Trash2 } from 'lucide-react';
 import { LectureSection, ChatbotConversationMessage } from '../../types';
 import { coursesApi } from '../../api/courses';
@@ -14,6 +15,7 @@ interface ChatbotSectionStudentProps {
 }
 
 export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStudentProps) => {
+  const { t } = useTranslation(['courses']);
   const [message, setMessage] = useState('');
   const [hasTrackedStart, setHasTrackedStart] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -170,7 +172,7 @@ export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStude
   };
 
   const handleClearConversation = () => {
-    if (confirm('Are you sure you want to clear your conversation history?')) {
+    if (confirm(t('confirm_clear_conversation'))) {
       clearConversationMutation.mutate();
     }
   };
@@ -208,7 +210,7 @@ export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStude
           )}
           <div className="flex-1">
             <h3 className="text-lg font-semibold text-gray-900">
-              {section.chatbotTitle || 'AI Teaching Assistant'}
+              {section.chatbotTitle || t('ai_teaching_assistant')}
             </h3>
             {section.chatbotIntro && (
               <p className="text-sm text-gray-600 mt-0.5">{section.chatbotIntro}</p>
@@ -238,7 +240,7 @@ export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStude
           ) : displayMessages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-500">
               <MessageCircle className="w-10 h-10 mb-2 opacity-50" />
-              <p className="text-sm">Start a conversation!</p>
+              <p className="text-sm">{t('start_conversation')}</p>
             </div>
           ) : (
             <>
@@ -285,7 +287,7 @@ export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStude
               type="text"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Type your message..."
+              placeholder={t('type_your_message')}
               disabled={sendMessageMutation.isPending}
               className="flex-1 px-4 py-2.5 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
             />
@@ -303,7 +305,7 @@ export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStude
           </div>
           {sendMessageMutation.isError && (
             <p className="mt-2 text-sm text-red-500">
-              Failed to send message. Please try again.
+              {t('failed_to_send_message')}
             </p>
           )}
         </form>

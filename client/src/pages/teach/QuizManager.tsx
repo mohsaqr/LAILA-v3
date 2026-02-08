@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Plus,
   Trash2,
@@ -24,6 +25,7 @@ import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 
 export const QuizManager = () => {
+  const { t } = useTranslation(['teaching', 'common']);
   const { id: courseId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -69,14 +71,14 @@ export const QuizManager = () => {
     mutationFn: (data: CreateQuizInput) => quizzesApi.createQuiz(parsedCourseId, data),
     onSuccess: (quiz) => {
       queryClient.invalidateQueries({ queryKey: ['quizzes', parsedCourseId] });
-      toast.success('Quiz created');
+      toast.success(t('quiz_created'));
       setIsCreateModalOpen(false);
       setNewQuizForm({ title: '', description: '', timeLimit: undefined, maxAttempts: 1, passingScore: 70 });
       // Navigate to quiz editor
       navigate(`/teach/courses/${courseId}/quizzes/${quiz.id}`);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to create quiz');
+      toast.error(error.response?.data?.error || t('failed_to_create_quiz'));
     },
   });
 
@@ -85,10 +87,10 @@ export const QuizManager = () => {
     mutationFn: (quizId: number) => quizzesApi.deleteQuiz(quizId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quizzes', parsedCourseId] });
-      toast.success('Quiz deleted');
+      toast.success(t('quiz_deleted'));
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to delete quiz');
+      toast.error(error.response?.data?.error || t('failed_to_delete_quiz'));
     },
   });
 
@@ -100,12 +102,12 @@ export const QuizManager = () => {
       queryClient.invalidateQueries({ queryKey: ['quizzes', parsedCourseId] });
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to update quiz');
+      toast.error(error.response?.data?.error || t('failed_to_update_quiz'));
     },
   });
 
   const handleDeleteQuiz = (quizId: number, title: string) => {
-    if (window.confirm(`Are you sure you want to delete "${title}"? This will also delete all questions and attempts.`)) {
+    if (window.confirm(t('delete_quiz_confirm', { title }))) {
       deleteQuizMutation.mutate(quizId);
     }
   };
@@ -116,7 +118,7 @@ export const QuizManager = () => {
   };
 
   if (isLoading) {
-    return <Loading text="Loading quizzes..." />;
+    return <Loading text={t('loading_quizzes')} />;
   }
 
   const breadcrumbItems = buildTeachingBreadcrumb(courseId, course?.title || 'Course', 'Quizzes');
@@ -133,16 +135,16 @@ export const QuizManager = () => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
-              Quiz Manager
+              {t('quiz_manager')}
             </h1>
             <p className="text-sm" style={{ color: colors.textSecondary }}>
-              Create and manage course quizzes
+              {t('create_manage_quizzes')}
             </p>
           </div>
 
           <Button onClick={() => setIsCreateModalOpen(true)}>
             <Plus size={18} />
-            Create Quiz
+            {t('create_quiz')}
           </Button>
         </div>
 
@@ -164,7 +166,7 @@ export const QuizManager = () => {
                             style={{ backgroundColor: colors.bgGreen, color: colors.textGreen }}
                           >
                             <Eye size={12} />
-                            Published
+                            {t('published')}
                           </span>
                         ) : (
                           <span
@@ -172,7 +174,7 @@ export const QuizManager = () => {
                             style={{ backgroundColor: colors.bgHover, color: colors.textSecondary }}
                           >
                             <EyeOff size={12} />
-                            Draft
+                            {t('draft')}
                           </span>
                         )}
                       </div>
@@ -186,7 +188,7 @@ export const QuizManager = () => {
                       <div className="flex items-center gap-6 text-sm" style={{ color: colors.textSecondary }}>
                         <span className="flex items-center gap-1">
                           <CheckCircle size={14} />
-                          {quiz._count?.questions || 0} questions
+                          {t('x_questions', { count: quiz._count?.questions || 0 })}
                         </span>
                         {quiz.timeLimit && (
                           <span className="flex items-center gap-1">
@@ -196,11 +198,11 @@ export const QuizManager = () => {
                         )}
                         <span className="flex items-center gap-1">
                           <Users size={14} />
-                          {quiz._count?.attempts || 0} attempts
+                          {t('x_attempts', { count: quiz._count?.attempts || 0 })}
                         </span>
                         <span className="flex items-center gap-1">
                           <BarChart3 size={14} />
-                          {quiz.passingScore}% to pass
+                          {t('percent_to_pass', { score: quiz.passingScore })}
                         </span>
                       </div>
                     </div>
@@ -220,7 +222,7 @@ export const QuizManager = () => {
                       <Link to={`/teach/courses/${courseId}/quizzes/${quiz.id}`}>
                         <Button variant="secondary" size="sm">
                           <Edit size={16} />
-                          Edit
+                          {t('edit')}
                         </Button>
                       </Link>
                       <Button
@@ -241,13 +243,13 @@ export const QuizManager = () => {
           <Card>
             <CardBody className="text-center py-12">
               <CheckCircle className="w-12 h-12 mx-auto mb-4" style={{ color: colors.textSecondary }} />
-              <p style={{ color: colors.textPrimary }}>No quizzes yet</p>
+              <p style={{ color: colors.textPrimary }}>{t('no_quizzes_yet')}</p>
               <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-                Create your first quiz to assess student knowledge
+                {t('create_first_quiz_desc')}
               </p>
               <Button onClick={() => setIsCreateModalOpen(true)} className="mt-4">
                 <Plus size={18} />
-                Create Quiz
+                {t('create_quiz')}
               </Button>
             </CardBody>
           </Card>
@@ -258,31 +260,31 @@ export const QuizManager = () => {
       <Modal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        title="Create New Quiz"
+        title={t('create_new_quiz')}
       >
         <form onSubmit={handleCreateQuiz} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-              Title *
+              {t('quiz_title')} *
             </label>
             <input
               value={newQuizForm.title}
               onChange={(e) => setNewQuizForm({ ...newQuizForm, title: e.target.value })}
               required
-              placeholder="e.g., Chapter 1 Quiz"
+              placeholder={t('chapter_quiz_placeholder')}
               className="w-full px-3 py-2 rounded-lg"
               style={{ backgroundColor: colors.bgInput, borderColor: colors.border, borderWidth: 1, color: colors.textPrimary }}
             />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-              Description
+              {t('quiz_description')}
             </label>
             <textarea
               value={newQuizForm.description || ''}
               onChange={(e) => setNewQuizForm({ ...newQuizForm, description: e.target.value })}
               rows={2}
-              placeholder="Brief description of the quiz"
+              placeholder={t('brief_quiz_desc')}
               className="w-full px-3 py-2 rounded-lg"
               style={{ backgroundColor: colors.bgInput, borderColor: colors.border, borderWidth: 1, color: colors.textPrimary }}
             />
@@ -290,7 +292,7 @@ export const QuizManager = () => {
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-                Time Limit (min)
+                {t('time_limit_minutes')}
               </label>
               <input
                 type="number"
@@ -300,14 +302,14 @@ export const QuizManager = () => {
                   ...newQuizForm,
                   timeLimit: e.target.value ? parseInt(e.target.value) : undefined,
                 })}
-                placeholder="No limit"
+                placeholder={t('no_time_limit')}
                 className="w-full px-3 py-2 rounded-lg"
                 style={{ backgroundColor: colors.bgInput, borderColor: colors.border, borderWidth: 1, color: colors.textPrimary }}
               />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-                Max Attempts
+                {t('max_attempts')}
               </label>
               <input
                 type="number"
@@ -323,7 +325,7 @@ export const QuizManager = () => {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-                Passing Score (%)
+                {t('passing_score')}
               </label>
               <input
                 type="number"
@@ -341,10 +343,10 @@ export const QuizManager = () => {
           </div>
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="secondary" onClick={() => setIsCreateModalOpen(false)}>
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button type="submit" disabled={createQuizMutation.isPending}>
-              Create Quiz
+              {t('create_quiz')}
             </Button>
           </div>
         </form>

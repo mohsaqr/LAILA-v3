@@ -9,6 +9,7 @@ import {
   Loader2,
   AlertTriangle,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { customLabsApi } from '../api/customLabs';
 import { LabCodeEditor, LabOutput, LabTemplates } from '../components/labs';
 import { Button } from '../components/common/Button';
@@ -25,6 +26,7 @@ interface OutputItem {
 
 // Inner component that uses WebR after lab is loaded
 const LabRunnerContent = ({ lab }: { lab: any }) => {
+  const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
 
   // Lab state
@@ -103,7 +105,7 @@ const LabRunnerContent = ({ lab }: { lab: any }) => {
           <div className="flex items-center gap-4">
             <Link to="/labs">
               <Button variant="ghost" size="sm" icon={<ArrowLeft className="w-4 h-4" />}>
-                Back to Labs
+                {t('back_to_labs')}
               </Button>
             </Link>
             <div className="flex items-center gap-3">
@@ -137,10 +139,10 @@ const LabRunnerContent = ({ lab }: { lab: any }) => {
               />
               <span style={{ color: colors.textSecondary }}>
                 {isReady
-                  ? 'R Ready'
+                  ? t('r_ready')
                   : webRLoading
                   ? loadingStatus
-                  : webRError || 'R Error'}
+                  : webRError || t('r_error')}
               </span>
             </div>
 
@@ -151,7 +153,7 @@ const LabRunnerContent = ({ lab }: { lab: any }) => {
               disabled={webRLoading}
               icon={<RefreshCw className="w-4 h-4" />}
             >
-              Reset Session
+              {t('reset_session')}
             </Button>
 
             <Button
@@ -159,7 +161,7 @@ const LabRunnerContent = ({ lab }: { lab: any }) => {
               size="sm"
               icon={<HelpCircle className="w-4 h-4" />}
             >
-              Help
+              {t('common:help')}
             </Button>
           </div>
         </div>
@@ -232,7 +234,7 @@ const LabRunnerContent = ({ lab }: { lab: any }) => {
             <Card className="mt-6">
               <CardBody className="p-4">
                 <h3 className="font-medium mb-3" style={{ color: colors.textPrimary }}>
-                  Tips
+                  {t('lab_tips')}
                 </h3>
                 <ul className="text-sm space-y-2" style={{ color: colors.textSecondary }}>
                   <li>- Press <kbd className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-xs font-mono">Ctrl+Enter</kbd> to run code</li>
@@ -266,6 +268,7 @@ const LabRunnerContent = ({ lab }: { lab: any }) => {
 };
 
 export const LabRunner = () => {
+  const { t } = useTranslation(['courses', 'common']);
   const { id } = useParams<{ id: string }>();
   const { isDark } = useTheme();
 
@@ -285,7 +288,7 @@ export const LabRunner = () => {
   };
 
   if (labLoading) {
-    return <Loading text="Loading lab..." />;
+    return <Loading text={t('loading_labs')} />;
   }
 
   if (!lab) {
@@ -295,13 +298,13 @@ export const LabRunner = () => {
           <CardBody className="text-center py-12 px-8">
             <AlertTriangle className="w-16 h-16 mx-auto mb-4 text-amber-500" />
             <h2 className="text-xl font-semibold mb-2" style={{ color: colors.textPrimary }}>
-              Lab Not Found
+              {t('lab_not_found')}
             </h2>
             <p className="mb-6" style={{ color: colors.textSecondary }}>
-              The lab you're looking for doesn't exist or you don't have access to it.
+              {t('lab_not_found_description')}
             </p>
             <Link to="/labs">
-              <Button icon={<ArrowLeft className="w-4 h-4" />}>Back to Labs</Button>
+              <Button icon={<ArrowLeft className="w-4 h-4" />}>{t('back_to_labs')}</Button>
             </Link>
           </CardBody>
         </Card>

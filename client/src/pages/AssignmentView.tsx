@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
+import { useTranslation } from 'react-i18next';
 import { assignmentsApi } from '../api/assignments';
 import { enrollmentsApi } from '../api/enrollments';
 import { learningAnalyticsApi } from '../api/admin';
@@ -30,6 +31,7 @@ import { getSessionId, getClientInfo } from '../utils/analytics';
 import { debug } from '../utils/debug';
 
 export const AssignmentView = () => {
+  const { t } = useTranslation(['courses', 'common']);
   const { courseId, assignmentId } = useParams<{ courseId: string; assignmentId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -123,9 +125,9 @@ export const AssignmentView = () => {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mySubmission', assignmentId] });
-      toast.success('Draft saved');
+      toast.success(t('draft_saved'));
     },
-    onError: () => toast.error('Failed to save draft'),
+    onError: () => toast.error(t('failed_save_draft')),
   });
 
   const submitMutation = useMutation({
@@ -138,7 +140,7 @@ export const AssignmentView = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mySubmission', assignmentId] });
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
-      toast.success('Assignment submitted successfully!');
+      toast.success(t('assignment_submitted'));
 
       // Log assignment_submit event
       const clientInfo = getClientInfo();
@@ -158,12 +160,12 @@ export const AssignmentView = () => {
       }
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to submit assignment');
+      toast.error(error.response?.data?.message || t('failed_submit_assignment'));
     },
   });
 
   if (enrollmentLoading || assignmentLoading || submissionLoading) {
-    return <Loading fullScreen text="Loading assignment..." />;
+    return <Loading fullScreen text={t('loading_assignment')} />;
   }
 
   if (!enrollment?.enrolled) {
@@ -171,10 +173,10 @@ export const AssignmentView = () => {
       <div className="min-h-screen flex items-center justify-center">
         <Card>
           <CardBody className="text-center py-8 px-12">
-            <h2 className="text-xl font-bold mb-2" style={{ color: colors.textPrimary }}>Not Enrolled</h2>
-            <p className="mb-4" style={{ color: colors.textSecondary }}>You need to enroll in this course to view this assignment</p>
+            <h2 className="text-xl font-bold mb-2" style={{ color: colors.textPrimary }}>{t('not_enrolled_title')}</h2>
+            <p className="mb-4" style={{ color: colors.textSecondary }}>{t('need_enroll_view_assignment')}</p>
             <Link to={`/catalog/${courseId}`} className="btn btn-primary">
-              View Course
+              {t('view_course')}
             </Link>
           </CardBody>
         </Card>
@@ -187,9 +189,9 @@ export const AssignmentView = () => {
       <div className="min-h-screen flex items-center justify-center">
         <Card>
           <CardBody className="text-center py-8 px-12">
-            <h2 className="text-xl font-bold mb-2" style={{ color: colors.textPrimary }}>Assignment Not Found</h2>
+            <h2 className="text-xl font-bold mb-2" style={{ color: colors.textPrimary }}>{t('assignment_not_found')}</h2>
             <Button onClick={() => navigate(`/courses/${courseId}/assignments`)}>
-              Back to Assignments
+              {t('back_to_assignments')}
             </Button>
           </CardBody>
         </Card>
@@ -200,7 +202,7 @@ export const AssignmentView = () => {
   // Redirect AI agent assignments to the agent builder page
   if (assignment.submissionType === 'ai_agent') {
     navigate(`/courses/${courseId}/agent-assignments/${assignmentId}`, { replace: true });
-    return <Loading fullScreen text="Redirecting to Agent Builder..." />;
+    return <Loading fullScreen text={t('redirecting_agent_builder')} />;
   }
 
   const course = enrollment.enrollment?.course;
@@ -213,7 +215,7 @@ export const AssignmentView = () => {
 
   const handleSubmit = () => {
     if (!content.trim() && fileUrls.length === 0) {
-      toast.error('Please add some content or upload files before submitting');
+      toast.error(t('add_content_before_submit'));
       return;
     }
     submitMutation.mutate();
@@ -225,9 +227,9 @@ export const AssignmentView = () => {
       <div className="mb-6">
         <Breadcrumb
           items={[
-            { label: 'Courses', href: '/courses' },
-            { label: course?.title || 'Course', href: `/courses/${courseId}` },
-            { label: 'Assignments', href: `/courses/${courseId}/assignments` },
+            { label: t('courses'), href: '/courses' },
+            { label: course?.title || t('course'), href: `/courses/${courseId}` },
+            { label: t('assignments'), href: `/courses/${courseId}/assignments` },
             { label: assignment.title },
           ]}
         />
@@ -255,17 +257,17 @@ export const AssignmentView = () => {
           <div className="flex flex-wrap items-center gap-4 text-sm" style={{ color: colors.textSecondary }}>
             <span className="flex items-center gap-1">
               <Award className="w-4 h-4" />
-              {assignment.points} points
+              {t('points_format', { points: assignment.points })}
             </span>
             {dueDate && (
               <span className="flex items-center gap-1" style={{ color: isPastDue ? colors.textRed : colors.textSecondary }}>
                 <Calendar className="w-4 h-4" />
-                Due {dueDate.toLocaleDateString()} at {dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {t('due_at', { date: dueDate.toLocaleDateString(), time: dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) })}
               </span>
             )}
             <span className="flex items-center gap-1 capitalize">
               <FileText className="w-4 h-4" />
-              {assignment.submissionType} submission
+              {t('submission_type_label', { type: assignment.submissionType })}
             </span>
           </div>
         </CardBody>
@@ -278,7 +280,7 @@ export const AssignmentView = () => {
           {assignment.description && (
             <Card>
               <CardHeader>
-                <h2 className="font-semibold" style={{ color: colors.textPrimary }}>Description</h2>
+                <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{t('assignment_description')}</h2>
               </CardHeader>
               <CardBody>
                 <div className="prose max-w-none" style={{ color: colors.textSecondary }}>
@@ -292,7 +294,7 @@ export const AssignmentView = () => {
           {assignment.instructions && (
             <Card>
               <CardHeader>
-                <h2 className="font-semibold" style={{ color: colors.textPrimary }}>Instructions</h2>
+                <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{t('assignment_instructions')}</h2>
               </CardHeader>
               <CardBody>
                 <div className="prose max-w-none" style={{ color: colors.textSecondary }}>
@@ -306,15 +308,15 @@ export const AssignmentView = () => {
           {!isGraded && (
             <Card>
               <CardHeader>
-                <h2 className="font-semibold" style={{ color: colors.textPrimary }}>Your Submission</h2>
+                <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{t('your_submission')}</h2>
               </CardHeader>
               <CardBody className="space-y-4">
                 {(assignment.submissionType === 'text' || assignment.submissionType === 'mixed') && (
                   <TextArea
-                    label="Your Answer"
+                    label={t('your_answer_label')}
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    placeholder="Write your answer here..."
+                    placeholder={t('write_answer_placeholder')}
                     rows={10}
                     disabled={isSubmitted}
                   />
@@ -323,11 +325,11 @@ export const AssignmentView = () => {
                 {(assignment.submissionType === 'file' || assignment.submissionType === 'mixed') && (
                   <div>
                     <label className="block text-sm font-medium mb-2" style={{ color: colors.textSecondary }}>
-                      File Attachments
+                      {t('file_attachments')}
                     </label>
                     {assignment.allowedFileTypes && (
                       <p className="text-xs mb-2" style={{ color: colors.textMuted }}>
-                        Allowed types: {assignment.allowedFileTypes}
+                        {t('allowed_types', { types: assignment.allowedFileTypes })}
                       </p>
                     )}
                     <div
@@ -336,10 +338,10 @@ export const AssignmentView = () => {
                     >
                       <Upload className="w-8 h-8 mx-auto mb-2" style={{ color: colors.textMuted }} />
                       <p className="text-sm" style={{ color: colors.textSecondary }}>
-                        File upload coming soon
+                        {t('file_upload_coming_soon')}
                       </p>
                       <p className="text-xs mt-1" style={{ color: colors.textMuted }}>
-                        Max size: {assignment.maxFileSize || 10}MB
+                        {t('max_file_size', { size: assignment.maxFileSize || 10 })}
                       </p>
                     </div>
 
@@ -376,14 +378,14 @@ export const AssignmentView = () => {
                       loading={saveDraftMutation.isPending}
                       icon={<Save className="w-4 h-4" />}
                     >
-                      Save Draft
+                      {t('save_draft')}
                     </Button>
                     <Button
                       onClick={handleSubmit}
                       loading={submitMutation.isPending}
                       icon={<Send className="w-4 h-4" />}
                     >
-                      Submit Assignment
+                      {t('submit_assignment')}
                     </Button>
                   </div>
                 )}
@@ -392,7 +394,7 @@ export const AssignmentView = () => {
                   <div className="flex items-center gap-2 p-4 rounded-lg" style={{ backgroundColor: colors.bgBlueBanner }}>
                     <CheckCircle className="w-5 h-5" style={{ color: colors.textBlue }} />
                     <p style={{ color: colors.textBlue }}>
-                      Your assignment has been submitted. Waiting for grading.
+                      {t('submitted_waiting_grading')}
                     </p>
                   </div>
                 )}
@@ -404,7 +406,7 @@ export const AssignmentView = () => {
           {isGraded && mySubmission && (
             <Card>
               <CardHeader>
-                <h2 className="font-semibold" style={{ color: colors.textPrimary }}>Your Submission</h2>
+                <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{t('your_submission')}</h2>
               </CardHeader>
               <CardBody>
                 {mySubmission.content && (
@@ -413,7 +415,7 @@ export const AssignmentView = () => {
                   </div>
                 )}
                 <p className="text-sm" style={{ color: colors.textMuted }}>
-                  Submitted on {new Date(mySubmission.submittedAt).toLocaleString()}
+                  {t('submitted_on', { date: new Date(mySubmission.submittedAt).toLocaleString() })}
                 </p>
               </CardBody>
             </Card>
@@ -428,7 +430,7 @@ export const AssignmentView = () => {
               <CardHeader>
                 <h2 className="font-semibold flex items-center gap-2" style={{ color: colors.textGreen }}>
                   <Award className="w-5 h-5" />
-                  Your Grade
+                  {t('your_grade')}
                 </h2>
               </CardHeader>
               <CardBody>
@@ -438,7 +440,7 @@ export const AssignmentView = () => {
                   </span>
                   <span className="text-xl" style={{ color: colors.textGreen }}>/{assignment.points}</span>
                   <p className="text-sm mt-1" style={{ color: colors.textGreen }}>
-                    {Math.round((mySubmission.grade! / assignment.points) * 100)}%
+                    {t('grade_percent', { percent: Math.round((mySubmission.grade! / assignment.points) * 100) })}
                   </p>
                 </div>
 
@@ -446,7 +448,7 @@ export const AssignmentView = () => {
                   <div className="border-t pt-4" style={{ borderColor: colors.borderGreen }}>
                     <h3 className="font-medium flex items-center gap-2 mb-2" style={{ color: colors.textGreen }}>
                       <MessageSquare className="w-4 h-4" />
-                      Instructor Feedback
+                      {t('instructor_feedback')}
                     </h3>
                     <p className="text-sm" style={{ color: colors.textGreen }}>{mySubmission.feedback}</p>
                   </div>
@@ -454,7 +456,7 @@ export const AssignmentView = () => {
 
                 {mySubmission.gradedAt && (
                   <p className="text-xs mt-4" style={{ color: colors.textGreen }}>
-                    Graded on {new Date(mySubmission.gradedAt).toLocaleString()}
+                    {t('graded_on', { date: new Date(mySubmission.gradedAt).toLocaleString() })}
                   </p>
                 )}
               </CardBody>
@@ -464,26 +466,26 @@ export const AssignmentView = () => {
           {/* Submission Info */}
           <Card>
             <CardHeader>
-              <h2 className="font-semibold" style={{ color: colors.textPrimary }}>Submission Info</h2>
+              <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{t('submission_info')}</h2>
             </CardHeader>
             <CardBody className="space-y-3 text-sm">
               <div className="flex items-center justify-between">
-                <span style={{ color: colors.textSecondary }}>Status</span>
+                <span style={{ color: colors.textSecondary }}>{t('status_label')}</span>
                 <span className="font-medium capitalize" style={{ color: colors.textPrimary }}>
-                  {mySubmission?.status || 'Not started'}
+                  {mySubmission?.status || t('not_started_status')}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span style={{ color: colors.textSecondary }}>Type</span>
+                <span style={{ color: colors.textSecondary }}>{t('common:type')}</span>
                 <span className="font-medium capitalize" style={{ color: colors.textPrimary }}>{assignment.submissionType}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span style={{ color: colors.textSecondary }}>Points</span>
+                <span style={{ color: colors.textSecondary }}>{t('n_points', { count: assignment.points }).replace(/^\d+\s*/, '')}</span>
                 <span className="font-medium" style={{ color: colors.textPrimary }}>{assignment.points}</span>
               </div>
               {dueDate && (
                 <div className="flex items-center justify-between">
-                  <span style={{ color: colors.textSecondary }}>Due Date</span>
+                  <span style={{ color: colors.textSecondary }}>{t('due_date_label')}</span>
                   <span className="font-medium" style={{ color: isPastDue ? colors.textRed : colors.textPrimary }}>
                     {dueDate.toLocaleDateString()}
                   </span>
@@ -491,7 +493,7 @@ export const AssignmentView = () => {
               )}
               {mySubmission?.submittedAt && (
                 <div className="flex items-center justify-between">
-                  <span style={{ color: colors.textSecondary }}>Submitted</span>
+                  <span style={{ color: colors.textSecondary }}>{t('submitted_status')}</span>
                   <span className="font-medium" style={{ color: colors.textPrimary }}>
                     {new Date(mySubmission.submittedAt).toLocaleDateString()}
                   </span>
@@ -511,7 +513,7 @@ export const AssignmentView = () => {
           isOpen={showSurveyModal}
           onClose={() => setShowSurveyModal(false)}
           onComplete={() => {
-            toast.success('Thank you for your feedback!');
+            toast.success(t('thank_you_feedback'));
           }}
         />
       )}
@@ -537,6 +539,7 @@ const StatusBadge = ({
   points: number;
   colors: Record<string, string>;
 }) => {
+  const { t } = useTranslation(['courses']);
   if (isGraded) {
     return (
       <span
@@ -544,7 +547,7 @@ const StatusBadge = ({
         style={{ backgroundColor: colors.bgGreen, color: colors.textGreen }}
       >
         <Award className="w-4 h-4" />
-        Graded: {grade}/{points}
+        {t('graded_with_score', { grade, total: points })}
       </span>
     );
   }
@@ -555,7 +558,7 @@ const StatusBadge = ({
         style={{ backgroundColor: colors.bgBlue, color: colors.textBlue }}
       >
         <CheckCircle className="w-4 h-4" />
-        Submitted
+        {t('submitted_status')}
       </span>
     );
   }
@@ -566,7 +569,7 @@ const StatusBadge = ({
         style={{ backgroundColor: colors.bgRed, color: colors.textRed }}
       >
         <AlertCircle className="w-4 h-4" />
-        Past Due
+        {t('past_due_status')}
       </span>
     );
   }
@@ -577,7 +580,7 @@ const StatusBadge = ({
         style={{ backgroundColor: colors.bgYellow, color: colors.textYellow }}
       >
         <Clock className="w-4 h-4" />
-        Draft Saved
+        {t('draft_saved_status')}
       </span>
     );
   }
@@ -587,7 +590,7 @@ const StatusBadge = ({
       style={{ backgroundColor: colors.bgGray, color: colors.textGray }}
     >
       <FileText className="w-4 h-4" />
-      Not Started
+      {t('not_started_status')}
     </span>
   );
 };

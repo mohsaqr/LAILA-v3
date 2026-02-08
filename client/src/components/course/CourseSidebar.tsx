@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   BookOpen,
   ClipboardList,
@@ -38,15 +39,6 @@ interface CourseSidebarProps {
   counts?: SectionCounts;
 }
 
-const sectionConfig: { key: CourseSection; label: string; icon: React.ElementType; color: string }[] = [
-  { key: 'curriculum', label: 'Curriculum', icon: BookOpen, color: 'primary' },
-  { key: 'assignments', label: 'Assignments', icon: ClipboardList, color: 'amber' },
-  { key: 'quizzes', label: 'Quizzes', icon: FileQuestion, color: 'teal' },
-  { key: 'forums', label: 'Forums', icon: MessageSquare, color: 'teal' },
-  { key: 'tutors', label: 'AI Tutors', icon: Bot, color: 'violet' },
-  { key: 'certificates', label: 'Certificates', icon: Award, color: 'gold' },
-];
-
 export const CourseSidebar = ({
   modules,
   activeSection,
@@ -54,8 +46,18 @@ export const CourseSidebar = ({
   onModuleClick,
   counts = {},
 }: CourseSidebarProps) => {
+  const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  const sectionConfig: { key: CourseSection; label: string; icon: React.ElementType; color: string }[] = [
+    { key: 'curriculum', label: t('curriculum'), icon: BookOpen, color: 'primary' },
+    { key: 'assignments', label: t('assignments'), icon: ClipboardList, color: 'amber' },
+    { key: 'quizzes', label: t('quizzes'), icon: FileQuestion, color: 'teal' },
+    { key: 'forums', label: t('forums'), icon: MessageSquare, color: 'teal' },
+    { key: 'tutors', label: t('ai_tutors'), icon: Bot, color: 'violet' },
+    { key: 'certificates', label: t('certificates'), icon: Award, color: 'gold' },
+  ];
 
   const colors = {
     bg: isDark ? '#1f2937' : '#ffffff',
@@ -204,7 +206,7 @@ export const CourseSidebar = ({
       >
         <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: colors.border }}>
           <h2 className="font-semibold" style={{ color: colors.textPrimary }}>
-            Course Navigation
+            {t('course_navigation')}
           </h2>
           <button
             onClick={() => setIsMobileOpen(false)}

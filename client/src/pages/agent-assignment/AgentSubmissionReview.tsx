@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
   User,
@@ -30,6 +31,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 type TabType = 'config' | 'design' | 'history' | 'conversations' | 'test' | 'grade';
 
 export const AgentSubmissionReview = () => {
+  const { t } = useTranslation(['teaching', 'common']);
   const { id, assignmentId, submissionId } = useParams<{
     id: string;
     assignmentId: string;
@@ -76,10 +78,10 @@ export const AgentSubmissionReview = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agentSubmission', assId, subId] });
       queryClient.invalidateQueries({ queryKey: ['agentSubmissions', assId] });
-      toast.success('Submission graded successfully!');
+      toast.success(t('submission_graded_successfully'));
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.error || 'Failed to grade submission');
+      toast.error(err.response?.data?.error || t('failed_to_grade'));
     },
   });
 
@@ -88,20 +90,20 @@ export const AgentSubmissionReview = () => {
   };
 
   if (assignmentLoading || submissionLoading) {
-    return <Loading fullScreen text="Loading submission..." />;
+    return <Loading fullScreen text={t('loading_submission')} />;
   }
 
   if (!assignment || !submission || !submission.agentConfig) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8 text-center">
         <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Submission Not Found</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('submission_not_found')}</h1>
         <Button
           onClick={() =>
             navigate(`/teach/courses/${courseId}/assignments/${assId}/submissions`)
           }
         >
-          Back to Submissions
+          {t('back_to_submissions')}
         </Button>
       </div>
     );
@@ -122,16 +124,16 @@ export const AgentSubmissionReview = () => {
   };
 
   const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
-    { id: 'config', label: 'Configuration', icon: <FileEdit className="w-4 h-4" /> },
-    { id: 'design', label: 'Design Process', icon: <Activity className="w-4 h-4" /> },
-    { id: 'history', label: 'Change History', icon: <History className="w-4 h-4" /> },
+    { id: 'config', label: t('configuration'), icon: <FileEdit className="w-4 h-4" /> },
+    { id: 'design', label: t('design_process'), icon: <Activity className="w-4 h-4" /> },
+    { id: 'history', label: t('change_history'), icon: <History className="w-4 h-4" /> },
     {
       id: 'conversations',
-      label: 'Test Conversations',
+      label: t('test_conversations'),
       icon: <MessageSquare className="w-4 h-4" />,
     },
-    { id: 'test', label: 'Test Agent', icon: <PlayCircle className="w-4 h-4" /> },
-    { id: 'grade', label: 'Grade', icon: <Award className="w-4 h-4" /> },
+    { id: 'test', label: t('test_agent'), icon: <PlayCircle className="w-4 h-4" /> },
+    { id: 'grade', label: t('grade_tab'), icon: <Award className="w-4 h-4" /> },
   ];
 
   return (
@@ -146,7 +148,7 @@ export const AgentSubmissionReview = () => {
           }
           icon={<ArrowLeft className="w-4 h-4" />}
         >
-          Back to Submissions
+          {t('back_to_submissions')}
         </Button>
       </div>
 
@@ -165,7 +167,7 @@ export const AgentSubmissionReview = () => {
                   </div>
                   <div>
                     <p className="font-medium text-gray-900">
-                      {student?.fullname || 'Unknown Student'}
+                      {student?.fullname || t('unknown_student')}
                     </p>
                     <p className="text-sm text-gray-500">{student?.email}</p>
                   </div>
@@ -175,11 +177,11 @@ export const AgentSubmissionReview = () => {
               <div className="flex flex-wrap items-center gap-4 text-sm">
                 <div className="flex items-center gap-1.5 text-gray-500">
                   <Award className="w-4 h-4" />
-                  <span>{assignment.points} points</span>
+                  <span>{t('x_points', { count: assignment.points })}</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-gray-500">
                   <Calendar className="w-4 h-4" />
-                  <span>Submitted {formatDate(submission.submittedAt)}</span>
+                  <span>{t('submitted_at', { date: formatDate(submission.submittedAt) })}</span>
                 </div>
                 <StatusBadge status={isGraded ? 'graded' : 'submitted'} />
               </div>
@@ -191,7 +193,7 @@ export const AgentSubmissionReview = () => {
                 <div className="text-3xl font-bold text-gray-900">
                   {submission.grade}/{assignment.points}
                 </div>
-                <p className="text-sm text-gray-500">Grade</p>
+                <p className="text-sm text-gray-500">{t('grade')}</p>
               </div>
             )}
           </div>
@@ -199,8 +201,8 @@ export const AgentSubmissionReview = () => {
           {/* Agent Name Badge */}
           <div className="mt-4 p-3 bg-violet-50 border border-violet-200 rounded-lg">
             <p className="text-sm text-violet-800">
-              <span className="font-medium">Agent Name:</span> {config.agentName}
-              <span className="text-violet-600 ml-2">• Version {config.version}</span>
+              <span className="font-medium">{t('agent_name')}:</span> {config.agentName}
+              <span className="text-violet-600 ml-2">• {t('version')} {config.version}</span>
             </p>
           </div>
         </CardBody>
@@ -247,7 +249,7 @@ export const AgentSubmissionReview = () => {
 
       {activeTab === 'grade' && (
         <GradeAgentForm
-          studentName={student?.fullname || 'Unknown Student'}
+          studentName={student?.fullname || t('unknown_student')}
           maxPoints={assignment.points}
           currentGrade={submission.grade}
           currentFeedback={submission.feedback}

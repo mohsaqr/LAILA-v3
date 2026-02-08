@@ -141,5 +141,19 @@
   "sequential_chain": "Cadena secuencial",
   "debate_mode": "Modo debate",
   "random_selection": "Selección aleatoria",
-  "round": "Ronda {{number}}"
+  "round": "Ronda {{number}}",
+
+  "routed_to": "Dirigido a {{name}}",
+  "confidence_percent": "{{percent}}% confianza",
+  "team_response_from": "Respuesta del equipo de {{count}} tutores",
+  "view_individual_contributions": "Ver contribuciones individuales",
+  "start_conversation": "Iniciar conversación",
+
+  "mode": "Modo",
+  "mode_manual": "Manual",
+  "mode_manual_desc": "Elige qué tutor responde",
+  "mode_auto_route": "Auto-Ruta",
+  "mode_auto_route_desc": "IA elige el mejor tutor",
+  "mode_team": "Equipo",
+  "mode_team_desc": "Todos los tutores contribuyen"
 }

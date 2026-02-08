@@ -8,6 +8,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Send,
   Loader2,
@@ -23,6 +24,7 @@ import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { AgentTestMessage } from '../../types';
 
 export const UseMyAgent = () => {
+  const { t } = useTranslation(['teaching', 'common', 'navigation']);
   const { courseId, assignmentId } = useParams<{
     courseId: string;
     assignmentId: string;
@@ -68,8 +70,8 @@ export const UseMyAgent = () => {
       setError(null);
     },
     onError: (err: any) => {
-      setError(err.response?.data?.error || 'Failed to start conversation');
-      toast.error('Failed to start conversation');
+      setError(err.response?.data?.error || t('failed_to_start_conversation'));
+      toast.error(t('failed_to_start_conversation'));
     },
   });
 
@@ -103,7 +105,7 @@ export const UseMyAgent = () => {
       setError(null);
     },
     onError: (err: any) => {
-      setError(err.response?.data?.error || 'Failed to send message');
+      setError(err.response?.data?.error || t('failed_to_send_message'));
     },
   });
 
@@ -127,7 +129,7 @@ export const UseMyAgent = () => {
   };
 
   if (isLoading) {
-    return <Loading fullScreen text="Loading your agent..." />;
+    return <Loading fullScreen text={t('loading_your_agent')} />;
   }
 
   if (fetchError || !data) {
@@ -135,12 +137,12 @@ export const UseMyAgent = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="text-center">
           <Bot className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-gray-900 mb-2">Agent Not Found</h1>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">{t('agent_not_found')}</h1>
           <p className="text-gray-600 mb-4">
-            {(fetchError as any)?.response?.data?.error || 'Could not load your agent'}
+            {(fetchError as any)?.response?.data?.error || t('could_not_load_agent')}
           </p>
           <Button onClick={() => navigate(`/courses/${courseId}`)}>
-            Back to Course
+            {t('back_to_course')}
           </Button>
         </div>
       </div>
@@ -159,16 +161,16 @@ export const UseMyAgent = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="text-center max-w-md">
           <Bot className="w-16 h-16 text-amber-500 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-gray-900 mb-2">Agent Not Ready</h1>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">{t('agent_not_ready')}</h1>
           <p className="text-gray-600 mb-4">
-            Your agent will be available after the due date. Continue designing it until then.
+            {t('agent_available_after_due')}
           </p>
           <Button
             onClick={() =>
               navigate(`/courses/${courseId}/agent-assignments/${assignmentId}`)
             }
           >
-            Go to Agent Builder
+            {t('go_to_agent_builder')}
           </Button>
         </div>
       </div>
@@ -205,7 +207,7 @@ export const UseMyAgent = () => {
           {/* Breadcrumb Navigation */}
           <Breadcrumb
             items={[
-              { label: 'Courses', href: '/courses' },
+              { label: t('navigation:courses'), href: '/courses' },
               { label: courseName, href: `/courses/${courseId}` },
               { label: config.agentName },
             ]}
@@ -240,7 +242,7 @@ export const UseMyAgent = () => {
                 onClick={handleNewConversation}
                 icon={<RotateCcw className="w-4 h-4" />}
               >
-                New Chat
+                {t('new_chat')}
               </Button>
             )}
           </div>
@@ -255,7 +257,7 @@ export const UseMyAgent = () => {
           <div className="flex justify-center mb-4">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-violet-100 text-violet-700 rounded-full text-xs">
               <Sparkles className="w-3 h-3" />
-              <span>New conversation session</span>
+              <span>{t('new_conversation_session')}</span>
             </div>
           </div>
 
@@ -271,7 +273,7 @@ export const UseMyAgent = () => {
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <p className="text-sm text-red-500 mb-4">{error}</p>
               <Button size="sm" onClick={() => startConversationMutation.mutate()}>
-                Try Again
+                {t('try_again')}
               </Button>
             </div>
           )}
@@ -361,7 +363,7 @@ export const UseMyAgent = () => {
           {/* Suggested Questions (show at start) */}
           {conversationId && suggestedQuestions.length > 0 && messages.length === 0 && (
             <div className="px-4 py-3 border-t border-gray-200 bg-white/80">
-              <p className="text-xs text-gray-500 mb-2">Try asking:</p>
+              <p className="text-xs text-gray-500 mb-2">{t('try_asking')}</p>
               <div className="flex flex-wrap gap-2">
                 {suggestedQuestions.slice(0, 4).map((question, index) => (
                   <button
@@ -387,7 +389,7 @@ export const UseMyAgent = () => {
                   type="text"
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
-                  placeholder={`Message ${config.agentName}...`}
+                  placeholder={t('message_agent', { name: config.agentName })}
                   disabled={sendMessageMutation.isPending}
                   className="flex-1 px-4 py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:opacity-50"
                 />

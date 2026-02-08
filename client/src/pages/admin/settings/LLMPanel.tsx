@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   Bot,
   Settings,
@@ -66,6 +67,7 @@ const PROVIDER_OPTIONS = [
 ];
 
 export const LLMPanel = () => {
+  const { t } = useTranslation(['admin', 'common']);
   const queryClient = useQueryClient();
   const [expandedProvider, setExpandedProvider] = useState<number | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -89,10 +91,10 @@ export const LLMPanel = () => {
       queryClient.invalidateQueries({ queryKey: ['llmProviders'] });
       setShowAddModal(false);
       setFormData(initialFormData);
-      toast.success('Provider created');
+      toast.success(t('provider_created'));
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Failed to create provider');
+      toast.error(error.message || t('failed_to_create_provider'));
     },
   });
 
@@ -103,10 +105,10 @@ export const LLMPanel = () => {
       queryClient.invalidateQueries({ queryKey: ['llmProviders'] });
       setEditingProvider(null);
       setShowAddModal(false);
-      toast.success('Provider updated');
+      toast.success(t('provider_updated'));
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Failed to update provider');
+      toast.error(error.message || t('failed_to_update_provider'));
     },
   });
 
@@ -114,10 +116,10 @@ export const LLMPanel = () => {
     mutationFn: llmApi.deleteProvider,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['llmProviders'] });
-      toast.success('Provider deleted');
+      toast.success(t('provider_deleted'));
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Failed to delete provider');
+      toast.error(error.message || t('failed_to_delete_provider'));
     },
   });
 
@@ -125,14 +127,14 @@ export const LLMPanel = () => {
     mutationFn: llmApi.testProvider,
     onSuccess: (data) => {
       if (data.success) {
-        toast.success(`Connection successful (${data.latency}ms)`);
+        toast.success(t('connection_successful_latency', { latency: data.latency }));
       } else {
         toast.error(data.message);
       }
       queryClient.invalidateQueries({ queryKey: ['llmProviders'] });
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Connection test failed');
+      toast.error(error.message || t('connection_test_failed'));
     },
   });
 
@@ -140,10 +142,10 @@ export const LLMPanel = () => {
     mutationFn: llmApi.toggleProvider,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['llmProviders'] });
-      toast.success(`Provider ${data.isEnabled ? 'enabled' : 'disabled'}`);
+      toast.success(data.isEnabled ? t('provider_enabled') : t('provider_disabled'));
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Failed to toggle provider');
+      toast.error(error.message || t('failed_to_toggle_provider'));
     },
   });
 
@@ -151,10 +153,10 @@ export const LLMPanel = () => {
     mutationFn: llmApi.setDefaultProvider,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['llmProviders'] });
-      toast.success('Default provider updated');
+      toast.success(t('default_provider_updated'));
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Failed to set default provider');
+      toast.error(error.message || t('failed_to_set_default'));
     },
   });
 
@@ -162,10 +164,10 @@ export const LLMPanel = () => {
     mutationFn: llmApi.seedProviders,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['llmProviders'] });
-      toast.success('Default providers seeded');
+      toast.success(t('default_providers_seeded'));
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Failed to seed providers');
+      toast.error(error.message || t('failed_to_seed_providers'));
     },
   });
 
@@ -173,10 +175,10 @@ export const LLMPanel = () => {
     mutationFn: llmApi.seedModels,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['llmProviders'] });
-      toast.success('Models seeded');
+      toast.success(t('models_seeded'));
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Failed to seed models');
+      toast.error(error.message || t('failed_to_seed_models'));
     },
   });
 
@@ -268,7 +270,7 @@ export const LLMPanel = () => {
   };
 
   if (isLoading) {
-    return <Loading text="Loading LLM providers..." />;
+    return <Loading text={t('loading_llm_providers')} />;
   }
 
   return (
@@ -276,15 +278,15 @@ export const LLMPanel = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">LLM Providers</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{providers?.length || 0} configured providers</p>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('llm_providers')}</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('configured_providers', { count: providers?.length || 0 })}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => seedMutation.mutate()} loading={seedMutation.isPending}>
-            <RefreshCw className="w-4 h-4 mr-1" /> Seed Defaults
+            <RefreshCw className="w-4 h-4 mr-1" /> {t('seed_defaults')}
           </Button>
           <Button size="sm" onClick={() => { setEditingProvider(null); setFormData(initialFormData); setShowAddModal(true); }}>
-            <Plus className="w-4 h-4 mr-1" /> Add Provider
+            <Plus className="w-4 h-4 mr-1" /> {t('add_provider')}
           </Button>
         </div>
       </div>
@@ -294,11 +296,11 @@ export const LLMPanel = () => {
         {providers?.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-8 text-center">
             <Bot className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">No providers configured</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Add an LLM provider or seed the defaults to get started.</p>
+            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">{t('no_providers_configured')}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t('add_provider_or_seed')}</p>
             <div className="flex gap-2 justify-center">
-              <Button variant="outline" size="sm" onClick={() => seedMutation.mutate()}>Seed Defaults</Button>
-              <Button size="sm" onClick={() => setShowAddModal(true)}>Add Provider</Button>
+              <Button variant="outline" size="sm" onClick={() => seedMutation.mutate()}>{t('seed_defaults')}</Button>
+              <Button size="sm" onClick={() => setShowAddModal(true)}>{t('add_provider')}</Button>
             </div>
           </div>
         ) : (
@@ -318,14 +320,14 @@ export const LLMPanel = () => {
                       <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">{provider.displayName}</h3>
                       {provider.isDefault && (
                         <span className="px-1.5 py-0.5 text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded flex items-center gap-1">
-                          <Star className="w-3 h-3" /> Default
+                          <Star className="w-3 h-3" /> {t('default_label')}
                         </span>
                       )}
                       {!provider.isEnabled && (
-                        <span className="px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded">Disabled</span>
+                        <span className="px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded">{t('disabled_label')}</span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{provider.defaultModel || 'No default model'}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{provider.defaultModel || t('no_default_model')}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -334,13 +336,13 @@ export const LLMPanel = () => {
                     <span>{provider.totalRequests} req</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button onClick={(e) => { e.stopPropagation(); testMutation.mutate(provider.id); }} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Test">
+                    <button onClick={(e) => { e.stopPropagation(); testMutation.mutate(provider.id); }} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title={t('test_connection')}>
                       <Play className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); toggleMutation.mutate(provider.id); }} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title={provider.isEnabled ? 'Disable' : 'Enable'}>
+                    <button onClick={(e) => { e.stopPropagation(); toggleMutation.mutate(provider.id); }} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title={provider.isEnabled ? t('disable') : t('enable')}>
                       {provider.isEnabled ? <Power className="w-4 h-4 text-green-500" /> : <PowerOff className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); if (!provider.isDefault) setDefaultMutation.mutate(provider.id); }} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title={provider.isDefault ? 'Default' : 'Set as default'} disabled={provider.isDefault}>
+                    <button onClick={(e) => { e.stopPropagation(); if (!provider.isDefault) setDefaultMutation.mutate(provider.id); }} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title={provider.isDefault ? t('default_label') : t('set_as_default')} disabled={provider.isDefault}>
                       {provider.isDefault ? <Star className="w-4 h-4 text-yellow-500" /> : <StarOff className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
                     </button>
                     {expandedProvider === provider.id ? <ChevronUp className="w-4 h-4 text-gray-400 dark:text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
@@ -353,25 +355,25 @@ export const LLMPanel = () => {
                 <div className="border-t border-gray-100 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900/50">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     <div>
-                      <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2">Connection</h4>
+                      <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2">{t('connection')}</h4>
                       <dl className="space-y-1">
-                        <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">URL</dt><dd className="text-gray-900 dark:text-gray-100 font-mono text-xs truncate max-w-[150px]">{provider.baseUrl || '-'}</dd></div>
-                        <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">API Key</dt><dd className="text-gray-900 dark:text-gray-100">{provider.apiKey ? '••••••' : 'Not set'}</dd></div>
+                        <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{t('url')}</dt><dd className="text-gray-900 dark:text-gray-100 font-mono text-xs truncate max-w-[150px]">{provider.baseUrl || '-'}</dd></div>
+                        <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{t('api_key')}</dt><dd className="text-gray-900 dark:text-gray-100">{provider.apiKey ? '••••••' : t('not_set')}</dd></div>
                       </dl>
                     </div>
                     <div>
-                      <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2">Defaults</h4>
+                      <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2">{t('defaults')}</h4>
                       <dl className="space-y-1">
-                        <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">Temperature</dt><dd className="text-gray-900 dark:text-gray-100">{provider.defaultTemperature}</dd></div>
-                        <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">Max Tokens</dt><dd className="text-gray-900 dark:text-gray-100">{provider.defaultMaxTokens}</dd></div>
+                        <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{t('temperature')}</dt><dd className="text-gray-900 dark:text-gray-100">{provider.defaultTemperature}</dd></div>
+                        <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{t('max_tokens')}</dt><dd className="text-gray-900 dark:text-gray-100">{provider.defaultMaxTokens}</dd></div>
                       </dl>
                     </div>
                     <div>
-                      <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2">Capabilities</h4>
+                      <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2">{t('capabilities')}</h4>
                       <div className="flex flex-wrap gap-1">
-                        {provider.supportsStreaming && <span className="px-1.5 py-0.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded">Streaming</span>}
-                        {provider.supportsVision && <span className="px-1.5 py-0.5 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded">Vision</span>}
-                        {provider.supportsFunctionCalling && <span className="px-1.5 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">Functions</span>}
+                        {provider.supportsStreaming && <span className="px-1.5 py-0.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded">{t('streaming')}</span>}
+                        {provider.supportsVision && <span className="px-1.5 py-0.5 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded">{t('vision')}</span>}
+                        {provider.supportsFunctionCalling && <span className="px-1.5 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">{t('functions')}</span>}
                       </div>
                     </div>
                   </div>
@@ -380,9 +382,9 @@ export const LLMPanel = () => {
                   {provider.models && provider.models.length > 0 && (
                     <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Models</h4>
+                        <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('models')}</h4>
                         <button onClick={() => seedModelsMutation.mutate(provider.id)} className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
-                          Seed Models
+                          {t('seed_models')}
                         </button>
                       </div>
                       <div className="flex flex-wrap gap-1">
@@ -398,13 +400,13 @@ export const LLMPanel = () => {
                   {/* Actions */}
                   <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => handleEdit(provider)}>
-                      <Settings className="w-3 h-3 mr-1" /> Edit
+                      <Settings className="w-3 h-3 mr-1" /> {t('common:edit')}
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => seedModelsMutation.mutate(provider.id)} loading={seedModelsMutation.isPending}>
-                      <RefreshCw className="w-3 h-3 mr-1" /> Seed Models
+                      <RefreshCw className="w-3 h-3 mr-1" /> {t('seed_models')}
                     </Button>
-                    <Button variant="outline" size="sm" className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30" onClick={() => { if (confirm('Delete this provider?')) deleteMutation.mutate(provider.id); }}>
-                      <Trash2 className="w-3 h-3 mr-1" /> Delete
+                    <Button variant="outline" size="sm" className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30" onClick={() => { if (confirm(t('confirm_delete_provider'))) deleteMutation.mutate(provider.id); }}>
+                      <Trash2 className="w-3 h-3 mr-1" /> {t('common:delete')}
                     </Button>
                   </div>
                 </div>
@@ -418,12 +420,12 @@ export const LLMPanel = () => {
       <Modal
         isOpen={showAddModal}
         onClose={() => { setShowAddModal(false); setEditingProvider(null); setFormData(initialFormData); }}
-        title={editingProvider ? 'Edit Provider' : 'Add Provider'}
+        title={editingProvider ? t('edit_provider') : t('add_provider')}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {!editingProvider && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Provider Type</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('provider_type')}</label>
               <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
                 {PROVIDER_OPTIONS.map((option) => (
                   <button
@@ -443,20 +445,20 @@ export const LLMPanel = () => {
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Display Name" value={formData.displayName} onChange={(e) => setFormData({ ...formData, displayName: e.target.value })} placeholder="My OpenAI" />
-            <Input label="Default Model" value={formData.defaultModel} onChange={(e) => setFormData({ ...formData, defaultModel: e.target.value })} placeholder="gpt-4o-mini" />
+            <Input label={t('display_name')} value={formData.displayName} onChange={(e) => setFormData({ ...formData, displayName: e.target.value })} placeholder="My OpenAI" />
+            <Input label={t('default_model')} value={formData.defaultModel} onChange={(e) => setFormData({ ...formData, defaultModel: e.target.value })} placeholder="gpt-4o-mini" />
           </div>
 
-          <Input label="Base URL" value={formData.baseUrl} onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })} placeholder="https://api.openai.com/v1" />
+          <Input label={t('base_url')} value={formData.baseUrl} onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })} placeholder="https://api.openai.com/v1" />
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API Key</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('api_key')}</label>
             <div className="relative">
               <input
                 type={showApiKey ? 'text' : 'password'}
                 value={formData.apiKey}
                 onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
-                placeholder={editingProvider ? 'Leave empty to keep existing' : 'sk-...'}
+                placeholder={editingProvider ? t('leave_empty_keep_existing') : 'sk-...'}
                 className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 pr-10"
               />
               <button type="button" onClick={() => setShowApiKey(!showApiKey)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500">
@@ -467,11 +469,11 @@ export const LLMPanel = () => {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('temperature')}</label>
               <input type="number" step="0.1" min="0" max="2" value={formData.defaultTemperature} onChange={(e) => setFormData({ ...formData, defaultTemperature: parseFloat(e.target.value) || 0.7 })} className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max Tokens</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('max_tokens')}</label>
               <input type="number" min="1" value={formData.defaultMaxTokens} onChange={(e) => setFormData({ ...formData, defaultMaxTokens: parseInt(e.target.value) || 2048 })} className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100" />
             </div>
           </div>
@@ -479,14 +481,14 @@ export const LLMPanel = () => {
           {(formData.name === 'ollama' || formData.name === 'lmstudio') && (
             <label className="flex items-center gap-2 p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg text-sm text-gray-900 dark:text-gray-100">
               <input type="checkbox" checked={formData.skipTlsVerify} onChange={(e) => setFormData({ ...formData, skipTlsVerify: e.target.checked })} className="rounded border-gray-300 dark:border-gray-600" />
-              Skip TLS verification (for local providers)
+              {t('skip_tls_verification')}
             </label>
           )}
 
           <div className="flex justify-end gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <Button type="button" variant="outline" onClick={() => { setShowAddModal(false); setEditingProvider(null); setFormData(initialFormData); }}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => { setShowAddModal(false); setEditingProvider(null); setFormData(initialFormData); }}>{t('common:cancel')}</Button>
             <Button type="submit" loading={createMutation.isPending || updateMutation.isPending} disabled={!formData.name}>
-              {editingProvider ? 'Update' : 'Create'}
+              {editingProvider ? t('common:update') : t('common:create')}
             </Button>
           </div>
         </form>

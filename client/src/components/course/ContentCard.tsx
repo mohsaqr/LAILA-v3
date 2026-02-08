@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   FileText,
   PlayCircle,
@@ -26,9 +27,10 @@ interface ContentCardProps {
   size?: ContentCardSize;
 }
 
-const contentConfig: Record<ContentType, {
+// Config without labels - labels added in component with translations
+const contentConfigBase: Record<ContentType, {
   icon: React.ElementType;
-  label: string;
+  labelKey: string;
   bgLight: string;
   bgDark: string;
   textLight: string;
@@ -38,7 +40,7 @@ const contentConfig: Record<ContentType, {
 }> = {
   lecture: {
     icon: FileText,
-    label: 'Lecture',
+    labelKey: 'content_lecture',
     bgLight: 'bg-blue-50',
     bgDark: 'rgba(59, 130, 246, 0.15)',
     textLight: '#2563eb',
@@ -48,7 +50,7 @@ const contentConfig: Record<ContentType, {
   },
   video: {
     icon: PlayCircle,
-    label: 'Video',
+    labelKey: 'content_video',
     bgLight: 'bg-purple-50',
     bgDark: 'rgba(139, 92, 246, 0.15)',
     textLight: '#7c3aed',
@@ -58,7 +60,7 @@ const contentConfig: Record<ContentType, {
   },
   mixed: {
     icon: Layers,
-    label: 'Mixed',
+    labelKey: 'content_mixed',
     bgLight: 'bg-slate-50',
     bgDark: 'rgba(100, 116, 139, 0.15)',
     textLight: '#475569',
@@ -68,7 +70,7 @@ const contentConfig: Record<ContentType, {
   },
   lab: {
     icon: FlaskConical,
-    label: 'Code Lab',
+    labelKey: 'content_code_lab',
     bgLight: 'bg-indigo-50',
     bgDark: 'rgba(99, 102, 241, 0.15)',
     textLight: '#4f46e5',
@@ -78,7 +80,7 @@ const contentConfig: Record<ContentType, {
   },
   quiz: {
     icon: FileQuestion,
-    label: 'Quiz',
+    labelKey: 'content_quiz',
     bgLight: 'bg-emerald-50',
     bgDark: 'rgba(16, 185, 129, 0.15)',
     textLight: '#059669',
@@ -88,7 +90,7 @@ const contentConfig: Record<ContentType, {
   },
   assignment: {
     icon: ClipboardList,
-    label: 'Assignment',
+    labelKey: 'content_assignment',
     bgLight: 'bg-amber-50',
     bgDark: 'rgba(245, 158, 11, 0.15)',
     textLight: '#d97706',
@@ -98,7 +100,7 @@ const contentConfig: Record<ContentType, {
   },
   ai_agent: {
     icon: Bot,
-    label: 'AI Agent',
+    labelKey: 'content_ai_agent',
     bgLight: 'bg-teal-50',
     bgDark: 'rgba(8, 143, 143, 0.15)',
     textLight: '#0d9488',
@@ -108,7 +110,7 @@ const contentConfig: Record<ContentType, {
   },
   forum: {
     icon: MessageSquare,
-    label: 'Forum',
+    labelKey: 'content_forum',
     bgLight: 'bg-cyan-50',
     bgDark: 'rgba(6, 182, 212, 0.15)',
     textLight: '#0891b2',
@@ -118,7 +120,7 @@ const contentConfig: Record<ContentType, {
   },
   ai: {
     icon: Sparkles,
-    label: 'AI Content',
+    labelKey: 'content_ai',
     bgLight: 'bg-teal-50',
     bgDark: 'rgba(20, 184, 166, 0.15)',
     textLight: '#0d9488',
@@ -145,9 +147,11 @@ export const ContentCard = ({
   disabled = false,
   size = 'normal',
 }: ContentCardProps) => {
+  const { t } = useTranslation(['courses']);
   const { isDark } = useTheme();
-  const config = contentConfig[type];
+  const config = contentConfigBase[type];
   const Icon = config.icon;
+  const label = t(config.labelKey);
 
   const cardStyles: React.CSSProperties = {
     backgroundColor: isDark ? '#1f2937' : '#ffffff',
@@ -273,7 +277,7 @@ export const ContentCard = ({
           }}
           {...(!isDark && { className: `text-[10px] font-medium px-1.5 py-0.5 rounded ${config.bgLight}` })}
         >
-          {config.label}
+          {label}
         </span>
         {metadata && (
           <span

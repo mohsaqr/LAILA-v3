@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { MessageCircle, Image, X, Eye, Edit2, ImagePlus, Library, ChevronDown, Sparkles } from 'lucide-react';
 import { LectureSection, UpdateSectionData } from '../../types';
@@ -188,6 +189,7 @@ Add images: ![description](https://example.com/image.png)
 };
 
 export const ChatbotSection = ({ section, onChange, readOnly = false }: ChatbotSectionProps) => {
+  const { t } = useTranslation(['teaching']);
   const [formData, setFormData] = useState({
     chatbotTitle: section.chatbotTitle || '',
     chatbotIntro: section.chatbotIntro || '',
@@ -289,7 +291,7 @@ export const ChatbotSection = ({ section, onChange, readOnly = false }: ChatbotS
         <div className="bg-gray-50 rounded-lg p-4 flex items-center gap-3">
           <MessageCircle className="w-5 h-5 text-amber-500" />
           <span className="text-sm text-gray-600">
-            Students will see an interactive chat interface here
+            {t('students_see_chat_interface')}
           </span>
         </div>
       </div>
@@ -303,7 +305,7 @@ export const ChatbotSection = ({ section, onChange, readOnly = false }: ChatbotS
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <Library className="w-5 h-5 text-violet-600" />
-            <span className="font-medium text-gray-900">AI Component Library</span>
+            <span className="font-medium text-gray-900">{t('ai_component_library')}</span>
           </div>
           <Button
             type="button"
@@ -312,11 +314,11 @@ export const ChatbotSection = ({ section, onChange, readOnly = false }: ChatbotS
             onClick={() => setShowLibrary(!showLibrary)}
             icon={<ChevronDown className={`w-4 h-4 transition-transform ${showLibrary ? 'rotate-180' : ''}`} />}
           >
-            {selectedLibraryId ? 'Change Template' : 'Choose Template'}
+            {selectedLibraryId ? t('change_template') : t('choose_template')}
           </Button>
         </div>
         <p className="text-sm text-gray-600">
-          Select a pre-built AI component or configure a custom chatbot below
+          {t('ai_library_description')}
         </p>
 
         {/* Library Dropdown */}
@@ -324,7 +326,7 @@ export const ChatbotSection = ({ section, onChange, readOnly = false }: ChatbotS
           <div className="mt-3 bg-white rounded-lg border shadow-lg max-h-64 overflow-y-auto">
             {aiComponents.length === 0 ? (
               <div className="p-4 text-center text-gray-500 text-sm">
-                No AI components available. Create some in the AI Builder.
+                {t('no_ai_components')}
               </div>
             ) : (
               <div className="divide-y">
@@ -355,12 +357,12 @@ export const ChatbotSection = ({ section, onChange, readOnly = false }: ChatbotS
 
       {/* Title */}
       <Input
-        label="Chatbot Title"
+        label={t('chatbot_title')}
         value={formData.chatbotTitle}
         onChange={e => handleChange('chatbotTitle', e.target.value)}
         onBlur={() => handleBlur('chatbotTitle')}
-        placeholder="Ask the Teaching Assistant"
-        helpText="Title shown above the chat interface"
+        placeholder={t('chatbot_title_placeholder')}
+        helpText={t('chatbot_title_help')}
       />
 
       {/* Rich Text Intro Editor */}
@@ -373,7 +375,7 @@ export const ChatbotSection = ({ section, onChange, readOnly = false }: ChatbotS
       {/* Avatar Image URL */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Avatar Image (optional)
+          {t('avatar_image_optional')}
         </label>
         {formData.chatbotImageUrl ? (
           <div className="flex items-center gap-4">
@@ -393,7 +395,7 @@ export const ChatbotSection = ({ section, onChange, readOnly = false }: ChatbotS
             <button
               onClick={handleRemoveImage}
               className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-              title="Remove image"
+              title={t('remove_image')}
             >
               <X className="w-5 h-5" />
             </button>
@@ -413,46 +415,46 @@ export const ChatbotSection = ({ section, onChange, readOnly = false }: ChatbotS
             </div>
           </div>
         )}
-        <p className="mt-1 text-xs text-gray-500">URL for the chatbot avatar shown in the header</p>
+        <p className="mt-1 text-xs text-gray-500">{t('avatar_url_help')}</p>
       </div>
 
       {/* Welcome Message */}
       <TextArea
-        label="Welcome Message"
+        label={t('welcome_message')}
         value={formData.chatbotWelcome}
         onChange={e => handleChange('chatbotWelcome', e.target.value)}
         onBlur={() => handleBlur('chatbotWelcome')}
-        placeholder="Hi! I'm your AI teaching assistant. How can I help you today?"
+        placeholder={t('welcome_message_placeholder')}
         rows={2}
-        helpText="First message students see when they open the chat"
+        helpText={t('welcome_message_help')}
       />
 
       {/* System Prompt */}
       <TextArea
-        label="System Prompt"
+        label={t('system_prompt')}
         value={formData.chatbotSystemPrompt}
         onChange={e => handleChange('chatbotSystemPrompt', e.target.value)}
         onBlur={() => handleBlur('chatbotSystemPrompt')}
-        placeholder="You are a helpful teaching assistant for a course on machine learning. Help students understand concepts, answer questions about the material, and guide them through problems. Be encouraging and patient."
+        placeholder={t('system_prompt_placeholder')}
         rows={4}
-        helpText="Instructions for the AI about how to behave and respond. Students won't see this."
+        helpText={t('system_prompt_help')}
       />
 
       {/* Preview */}
       <div className="border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
-        <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Student Preview</p>
+        <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">{t('student_preview')}</p>
         <div className="bg-white rounded-lg p-4 shadow-sm">
           {formData.chatbotImageUrl && (
             <div className="flex justify-center mb-3">
               <img
                 src={formData.chatbotImageUrl}
-                alt="Chatbot avatar"
+                alt={t('chatbot_avatar')}
                 className="w-16 h-16 rounded-full object-cover"
               />
             </div>
           )}
           <h4 className="text-center font-medium text-gray-900 mb-2">
-            {formData.chatbotTitle || 'Ask the Teaching Assistant'}
+            {formData.chatbotTitle || t('chatbot_title_placeholder')}
           </h4>
           {formData.chatbotIntro ? (
             <div
@@ -461,7 +463,7 @@ export const ChatbotSection = ({ section, onChange, readOnly = false }: ChatbotS
             />
           ) : (
             <p className="text-center text-sm text-gray-600 mb-3">
-              Chat with our AI assistant
+              {t('chat_with_ai_assistant')}
             </p>
           )}
           <div className="border rounded-lg p-3 bg-gray-50">
@@ -470,7 +472,7 @@ export const ChatbotSection = ({ section, onChange, readOnly = false }: ChatbotS
                 <MessageCircle className="w-3 h-3 text-amber-600" />
               </div>
               <div className="bg-white rounded-lg px-3 py-2 text-sm shadow-sm">
-                {formData.chatbotWelcome || "Hi! I'm your AI teaching assistant. How can I help you today?"}
+                {formData.chatbotWelcome || t('default_welcome_message')}
               </div>
             </div>
           </div>

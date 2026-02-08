@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   BookOpen,
   ChevronDown,
@@ -81,9 +82,10 @@ interface SectionRendererProps {
   moduleId?: number;
   onOpenContent?: (section: LectureSection, lectureId?: number, moduleId?: number) => void;
   colors: Record<string, string>;
+  t: (key: string, options?: Record<string, unknown>) => string;
 }
 
-const SectionRenderer = ({ section, courseId, lectureId, moduleId, onOpenContent, colors }: SectionRendererProps) => {
+const SectionRenderer = ({ section, courseId, lectureId, moduleId, onOpenContent, colors, t }: SectionRendererProps) => {
   switch (section.type) {
     case 'text':
     case 'ai-generated': {
@@ -106,7 +108,7 @@ const SectionRenderer = ({ section, courseId, lectureId, moduleId, onOpenContent
             </div>
             <div className="flex-1 min-w-0">
               <h4 className="font-medium mb-1" style={{ color: colors.textPrimary }}>
-                {section.title || 'Text Content'}
+                {section.title || t('text_content')}
               </h4>
               {section.content ? (
                 <>
@@ -117,11 +119,11 @@ const SectionRenderer = ({ section, courseId, lectureId, moduleId, onOpenContent
                     style={{ backgroundColor: colors.bgPrimaryLight, color: colors.textPrimary600 }}
                   >
                     <BookOpen className="w-4 h-4" />
-                    Read Article
+                    {t('read_article')}
                   </button>
                 </>
               ) : (
-                <p className="text-sm italic" style={{ color: colors.textMuted }}>No content yet</p>
+                <p className="text-sm italic" style={{ color: colors.textMuted }}>{t('no_content_yet')}</p>
               )}
             </div>
           </div>
@@ -134,7 +136,7 @@ const SectionRenderer = ({ section, courseId, lectureId, moduleId, onOpenContent
         return (
           <div className="mb-4 p-4 rounded-lg text-center" style={{ backgroundColor: colors.bgHover }}>
             <Upload className="w-8 h-8 mx-auto mb-2" style={{ color: colors.textMuted }} />
-            <p style={{ color: colors.textSecondary }}>No file uploaded</p>
+            <p style={{ color: colors.textSecondary }}>{t('no_file_uploaded')}</p>
           </div>
         );
       }
@@ -152,7 +154,7 @@ const SectionRenderer = ({ section, courseId, lectureId, moduleId, onOpenContent
             <div>
               <iframe src={resolveFileUrl(section.fileUrl)} className="w-full h-[500px] rounded-lg border" title={section.fileName || 'PDF'} style={{ borderColor: colors.border }} />
               <a href={resolveFileUrl(section.fileUrl)} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-2 text-primary-600 hover:underline" onClick={handleFileDownload}>
-                <Download className="w-4 h-4" /> Download {section.fileName}
+                <Download className="w-4 h-4" /> {t('download_file', { name: section.fileName })}
               </a>
             </div>
           ) : (
@@ -199,6 +201,7 @@ export const CourseCurriculum = ({
   hasAccess,
   onOpenContent,
 }: CourseCurriculumProps) => {
+  const { t } = useTranslation(['courses']);
   const { isDark } = useTheme();
 
   const colors = {
@@ -276,7 +279,7 @@ export const CourseCurriculum = ({
       <Card>
         <CardBody className="text-center py-8">
           <BookOpen className="w-12 h-12 mx-auto mb-3" style={{ color: colors.textMuted }} />
-          <p style={{ color: colors.textSecondary }}>No content available yet</p>
+          <p style={{ color: colors.textSecondary }}>{t('no_content_available_yet')}</p>
         </CardBody>
       </Card>
     );
@@ -300,7 +303,7 @@ export const CourseCurriculum = ({
               </div>
               <div>
                 <h3 className="font-medium" style={{ color: colors.textPrimary }}>{module.title}</h3>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>{module.lectures?.length || 0} lessons</p>
+                <p className="text-sm" style={{ color: colors.textSecondary }}>{t('x_lessons', { count: module.lectures?.length || 0 })}</p>
               </div>
             </div>
             {expandedModules.includes(module.id) ? (
@@ -345,7 +348,7 @@ export const CourseCurriculum = ({
                   {selectedLectureId === lecture.id && hasAccess && (
                     <div className="px-4 py-4" style={{ backgroundColor: colors.bgHover, borderTop: `1px solid ${colors.borderLight}` }}>
                       {lectureLoading ? (
-                        <div className="text-center py-4"><Loading text="Loading content..." /></div>
+                        <div className="text-center py-4"><Loading text={t('loading_content')} /></div>
                       ) : lectureContent ? (
                         <div>
                           {/* Video */}
@@ -392,7 +395,7 @@ export const CourseCurriculum = ({
                                     style={{ backgroundColor: colors.bgPrimaryLight, color: colors.textPrimary600 }}
                                   >
                                     <BookOpen className="w-4 h-4" />
-                                    Read Article
+                                    {t('read_article')}
                                   </button>
                                 </div>
                               </div>
@@ -408,12 +411,13 @@ export const CourseCurriculum = ({
                               moduleId={module.id}
                               onOpenContent={handleOpenSectionContent}
                               colors={colors}
+                              t={t}
                             />
                           ))}
                           {/* Attachments */}
                           {lectureContent.attachments && lectureContent.attachments.length > 0 && (
                             <div className="mt-4 pt-4" style={{ borderTop: `1px solid ${colors.border}` }}>
-                              <h4 className="font-medium mb-2" style={{ color: colors.textPrimary }}>Attachments</h4>
+                              <h4 className="font-medium mb-2" style={{ color: colors.textPrimary }}>{t('attachments')}</h4>
                               <div className="space-y-2">
                                 {lectureContent.attachments.map(att => (
                                   <a
@@ -435,7 +439,7 @@ export const CourseCurriculum = ({
                           )}
                         </div>
                       ) : (
-                        <p style={{ color: colors.textSecondary }}>No content available</p>
+                        <p style={{ color: colors.textSecondary }}>{t('no_content_available')}</p>
                       )}
                     </div>
                   )}
@@ -456,7 +460,7 @@ export const CourseCurriculum = ({
                     className="text-xs px-2 py-0.5 rounded"
                     style={{ backgroundColor: colors.bgEmerald, color: colors.textEmerald }}
                   >
-                    Lab
+                    {t('lab_badge')}
                   </span>
                 </Link>
               ))}
@@ -475,7 +479,7 @@ export const CourseCurriculum = ({
                     className="text-xs px-2 py-0.5 rounded"
                     style={{ backgroundColor: colors.bgTeal, color: colors.textTeal }}
                   >
-                    Forum
+                    {t('forum_badge')}
                   </span>
                 </Link>
               ))}

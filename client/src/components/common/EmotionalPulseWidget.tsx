@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { emotionalPulseApi } from '../../api/emotionalPulse';
 import { useTheme } from '../../hooks/useTheme';
 import type { EmotionType, EmotionalPulseContext } from '../../types';
@@ -12,16 +13,6 @@ const DEFAULT_EMOTIONS: EmotionType[] = [
   'bored',
   'quitting',
 ];
-
-const EMOTION_LABELS: Record<EmotionType, string> = {
-  productive: 'Productive',
-  stimulated: 'Stimulated',
-  frustrated: 'Frustrated',
-  learning: 'Learning',
-  enjoying: 'Enjoying',
-  bored: 'Bored',
-  quitting: 'Quitting',
-};
 
 const EMOTION_EMOJIS: Record<EmotionType, string> = {
   productive: '',
@@ -52,7 +43,18 @@ export const EmotionalPulseWidget = ({
   compact = false,
   onPulse,
 }: EmotionalPulseWidgetProps) => {
+  const { t } = useTranslation(['common']);
   const { isDark } = useTheme();
+
+  const emotionLabels: Record<EmotionType, string> = {
+    productive: t('emotion_productive'),
+    stimulated: t('emotion_stimulated'),
+    frustrated: t('emotion_frustrated'),
+    learning: t('emotion_learning'),
+    enjoying: t('emotion_enjoying'),
+    bored: t('emotion_bored'),
+    quitting: t('emotion_quitting'),
+  };
   const [selectedEmotion, setSelectedEmotion] = useState<EmotionType | null>(null);
   const [isDisabled, setIsDisabled] = useState(false);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
@@ -144,7 +146,7 @@ export const EmotionalPulseWidget = ({
           className={`${compact ? 'text-xs' : 'text-sm'} font-medium`}
           style={{ color: colors.textSecondary }}
         >
-          {isDisabled ? 'Thanks for sharing!' : 'How are you feeling?'}
+          {isDisabled ? t('thanks_for_sharing') : t('how_are_you_feeling')}
         </span>
         {isDisabled && cooldownRemaining > 0 && (
           <span
@@ -199,7 +201,7 @@ export const EmotionalPulseWidget = ({
               {EMOTION_EMOJIS[emotion] && (
                 <span className="mr-1">{EMOTION_EMOJIS[emotion]}</span>
               )}
-              {EMOTION_LABELS[emotion]}
+              {emotionLabels[emotion]}
             </button>
           );
         })}

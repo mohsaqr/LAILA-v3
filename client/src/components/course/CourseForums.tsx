@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { MessageSquare, Users, Clock, ChevronRight } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { Card, CardBody } from '../common/Card';
@@ -20,6 +21,7 @@ interface CourseForumsProps {
 }
 
 export const CourseForums = ({ courseId }: CourseForumsProps) => {
+  const { t } = useTranslation(['courses']);
   const { isDark } = useTheme();
 
   const colors = {
@@ -38,7 +40,7 @@ export const CourseForums = ({ courseId }: CourseForumsProps) => {
   });
 
   if (isLoading) {
-    return <Loading text="Loading forums..." />;
+    return <Loading text={t('loading_forums')} />;
   }
 
   if (!forums || forums.length === 0) {
@@ -47,10 +49,10 @@ export const CourseForums = ({ courseId }: CourseForumsProps) => {
         <CardBody className="text-center py-12">
           <MessageSquare className="w-12 h-12 mx-auto mb-4" style={{ color: colors.textMuted }} />
           <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>
-            No Forums Available
+            {t('no_forums_available')}
           </h3>
           <p style={{ color: colors.textSecondary }}>
-            This course doesn't have any active discussion forums yet.
+            {t('no_forums_description')}
           </p>
         </CardBody>
       </Card>
@@ -89,7 +91,7 @@ export const CourseForums = ({ courseId }: CourseForumsProps) => {
                 <div className="text-center hidden sm:block">
                   <div className="flex items-center gap-1" style={{ color: colors.textSecondary }}>
                     <Users className="w-4 h-4" />
-                    <span className="text-sm">{forum._count?.threads || 0} threads</span>
+                    <span className="text-sm">{t('x_threads', { count: forum._count?.threads || 0 })}</span>
                   </div>
                 </div>
                 {forum.lastActivity && (

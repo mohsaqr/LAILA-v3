@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Users, BookOpen, PlayCircle, Edit, Settings, PenSquare } from 'lucide-react';
 import { Button } from '../common/Button';
 import { useTheme } from '../../hooks/useTheme';
@@ -31,6 +32,7 @@ export const CourseHeader = ({
   onEnroll,
   isEnrolling,
 }: CourseHeaderProps) => {
+  const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
 
   const colors = {
@@ -47,7 +49,7 @@ export const CourseHeader = ({
           <div className="px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
               <PenSquare className="w-5 h-5" />
-              <span className="font-medium">Instructor View</span>
+              <span className="font-medium">{t('instructor_view')}</span>
             </div>
             <div className="flex items-center gap-3">
               <Link
@@ -55,14 +57,14 @@ export const CourseHeader = ({
                 className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
               >
                 <Edit className="w-4 h-4" />
-                Edit Course
+                {t('edit_course')}
               </Link>
               <Link
                 to={`/teach/courses/${course.id}/edit`}
                 className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
               >
                 <Settings className="w-4 h-4" />
-                Settings
+                {t('common:settings')}
               </Link>
             </div>
           </div>
@@ -77,15 +79,15 @@ export const CourseHeader = ({
         )}
         <div className="flex flex-wrap items-center gap-4 text-sm">
           <span className="flex items-center gap-1">
-            <Users className="w-4 h-4" /> {course._count?.enrollments || 0} students
+            <Users className="w-4 h-4" /> {t('x_students', { count: course._count?.enrollments || 0 })}
           </span>
           <span className="flex items-center gap-1">
-            <BookOpen className="w-4 h-4" /> {course.modules?.length || 0} modules
+            <BookOpen className="w-4 h-4" /> {t('x_modules', { count: course.modules?.length || 0 })}
           </span>
           <span className="flex items-center gap-1">
-            <PlayCircle className="w-4 h-4" /> {totalLectures} lessons
+            <PlayCircle className="w-4 h-4" /> {t('x_lessons', { count: totalLectures })}
           </span>
-          {course.instructor && <span>by {course.instructor.fullname}</span>}
+          {course.instructor && <span>{t('by_instructor', { name: course.instructor.fullname })}</span>}
         </div>
 
         {/* Action buttons for non-enrolled users */}
@@ -97,14 +99,14 @@ export const CourseHeader = ({
                 loading={isEnrolling}
                 className="bg-white text-primary-600 hover:bg-gray-100"
               >
-                Enroll Now - Free
+                {t('enroll_now_free')}
               </Button>
             ) : (
               <Link
                 to="/login"
                 className="btn bg-white text-primary-600 hover:bg-gray-100 px-4 py-2 rounded-lg font-medium"
               >
-                Sign in to Enroll
+                {t('sign_in_to_enroll')}
               </Link>
             )}
           </div>

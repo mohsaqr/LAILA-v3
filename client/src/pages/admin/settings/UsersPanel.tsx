@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Search, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { usersApi } from '../../../api/users';
 import { adminApi } from '../../../api/admin';
@@ -9,6 +10,7 @@ import { Loading } from '../../../components/common/Loading';
 import toast from 'react-hot-toast';
 
 export const UsersPanel = () => {
+  const { t } = useTranslation(['admin', 'common']);
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -47,7 +49,7 @@ export const UsersPanel = () => {
       usersApi.updateUser(userId, { isActive }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast.success('User updated');
+      toast.success(t('user_updated'));
     },
   });
 
@@ -61,14 +63,14 @@ export const UsersPanel = () => {
       a.download = `users-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success('Export downloaded');
+      toast.success(t('export_downloaded'));
     } catch {
-      toast.error('Export failed');
+      toast.error(t('export_failed'));
     }
   };
 
   if (isLoading) {
-    return <Loading text="Loading users..." />;
+    return <Loading text={t('loading_users')} />;
   }
 
   const users = data?.users || [];
@@ -79,12 +81,12 @@ export const UsersPanel = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>Users</h2>
-          <p className="text-sm" style={{ color: colors.textSecondary }}>{pagination?.total || 0} total users</p>
+          <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>{t('users')}</h2>
+          <p className="text-sm" style={{ color: colors.textSecondary }}>{t('total_users', { count: pagination?.total || 0 })}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleExport}>
-            <Download className="w-4 h-4 mr-1" /> Export
+            <Download className="w-4 h-4 mr-1" /> {t('common:export')}
           </Button>
         </div>
       </div>
@@ -95,7 +97,7 @@ export const UsersPanel = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
           <input
             type="text"
-            placeholder="Search users..."
+            placeholder={t('search_users')}
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             className="w-full pl-10 pr-4 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -113,11 +115,11 @@ export const UsersPanel = () => {
         <table className="w-full">
           <thead>
             <tr style={{ borderBottom: `1px solid ${colors.border}`, backgroundColor: colors.bgHeader }}>
-              <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>User</th>
-              <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>Role</th>
-              <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>Status</th>
-              <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>Joined</th>
-              <th className="text-right text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>Actions</th>
+              <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>{t('user')}</th>
+              <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>{t('role')}</th>
+              <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>{t('status')}</th>
+              <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>{t('joined')}</th>
+              <th className="text-right text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>{t('actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -146,19 +148,19 @@ export const UsersPanel = () => {
                       <span
                         className="inline-flex px-2 py-0.5 text-xs font-medium rounded"
                         style={{ backgroundColor: colors.bgRed, color: colors.textRed }}
-                      >Admin</span>
+                      >{t('role_admin')}</span>
                     )}
                     {user.isInstructor && (
                       <span
                         className="inline-flex px-2 py-0.5 text-xs font-medium rounded"
                         style={{ backgroundColor: colors.bgBlue, color: colors.textBlue }}
-                      >Instructor</span>
+                      >{t('role_instructor')}</span>
                     )}
                     {!user.isAdmin && !user.isInstructor && (
                       <span
                         className="inline-flex px-2 py-0.5 text-xs font-medium rounded"
                         style={{ backgroundColor: colors.bgGray, color: colors.textGray }}
-                      >Student</span>
+                      >{t('role_student')}</span>
                     )}
                   </div>
                 </td>
@@ -170,7 +172,7 @@ export const UsersPanel = () => {
                       color: user.isActive !== false ? colors.textGreen : colors.textMuted,
                     }}
                   >
-                    {user.isActive !== false ? 'Active' : 'Inactive'}
+                    {user.isActive !== false ? t('status_active') : t('status_inactive')}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-sm" style={{ color: colors.textSecondary }}>
@@ -182,7 +184,7 @@ export const UsersPanel = () => {
                     className="text-xs hover:underline"
                     style={{ color: colors.textSecondary }}
                   >
-                    {user.isActive !== false ? 'Deactivate' : 'Activate'}
+                    {user.isActive !== false ? t('deactivate') : t('activate')}
                   </button>
                 </td>
               </tr>
@@ -197,7 +199,7 @@ export const UsersPanel = () => {
             style={{ borderTop: `1px solid ${colors.border}`, backgroundColor: colors.bgHeader }}
           >
             <p className="text-sm" style={{ color: colors.textSecondary }}>
-              Page {pagination.page} of {pagination.totalPages}
+              {t('page_x_of_y', { page: pagination.page, total: pagination.totalPages })}
             </p>
             <div className="flex gap-1">
               <button

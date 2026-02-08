@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Bot, Sparkles } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import type { TutorAgent } from '../../api/forums';
@@ -19,6 +20,7 @@ export const ForumAgentSelector = ({
   compact = false,
   isLoading = false,
 }: ForumAgentSelectorProps) => {
+  const { t } = useTranslation(['courses']);
   const { isDark } = useTheme();
 
   const colors = {
@@ -53,11 +55,11 @@ export const ForumAgentSelector = ({
           className={`${compact ? 'text-xs' : 'text-sm'} font-medium`}
           style={{ color: colors.textSecondary }}
         >
-          Ask AI Tutor
+          {t('ask_ai_tutor')}
         </span>
         {isLoading && (
           <span className="animate-pulse text-xs" style={{ color: colors.accent }}>
-            Generating response...
+            {t('generating_response')}
           </span>
         )}
       </div>

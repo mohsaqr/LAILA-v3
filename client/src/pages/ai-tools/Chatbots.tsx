@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Send, Bot, User, Loader2, MessageSquare } from 'lucide-react';
 import { chatbotsApi } from '../../api/chat';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
@@ -10,6 +11,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { Chatbot, ChatMessage } from '../../types';
 
 export const Chatbots = () => {
+  const { t } = useTranslation(['courses', 'common']);
   const [selectedBot, setSelectedBot] = useState<Chatbot | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -52,7 +54,7 @@ export const Chatbots = () => {
         ...prev,
         {
           role: 'assistant',
-          content: 'Sorry, I encountered an error. Please try again.',
+          content: t('error_occurred'),
         },
       ]);
     } finally {
@@ -68,7 +70,7 @@ export const Chatbots = () => {
   };
 
   if (botsLoading) {
-    return <Loading fullScreen text="Loading chatbots..." />;
+    return <Loading fullScreen text={t('loading_chatbots')} />;
   }
 
   return (
@@ -77,7 +79,7 @@ export const Chatbots = () => {
       <div className="mb-6">
         <Link to="/ai-tools">
           <Button variant="ghost" size="sm" icon={<ArrowLeft className="w-4 h-4" />}>
-            Back to AI Tools
+            {t('back_to_ai_tools')}
           </Button>
         </Link>
       </div>
@@ -87,8 +89,8 @@ export const Chatbots = () => {
           <Bot className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">AI Chatbots</h1>
-          <p className="text-gray-600">Chat with specialized AI assistants</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('ai_chatbots')}</h1>
+          <p className="text-gray-600">{t('chat_with_assistants')}</p>
         </div>
       </div>
 
@@ -97,7 +99,7 @@ export const Chatbots = () => {
         <div className="lg:col-span-1">
           <Card>
             <CardHeader>
-              <h2 className="font-semibold text-gray-900">Available Assistants</h2>
+              <h2 className="font-semibold text-gray-900">{t('available_assistants')}</h2>
             </CardHeader>
             <CardBody className="p-2">
               {chatbots && chatbots.length > 0 ? (
@@ -133,8 +135,8 @@ export const Chatbots = () => {
               ) : (
                 <EmptyState
                   icon={Bot}
-                  title="No chatbots available"
-                  description="Contact an admin to set up chatbots"
+                  title={t('no_chatbots_available')}
+                  description={t('contact_admin_chatbots')}
                 />
               )}
             </CardBody>
@@ -153,7 +155,7 @@ export const Chatbots = () => {
                   </div>
                   <div>
                     <h2 className="font-semibold text-gray-900">{selectedBot.displayName}</h2>
-                    <p className="text-xs text-gray-500">{selectedBot.category || 'AI Assistant'}</p>
+                    <p className="text-xs text-gray-500">{selectedBot.category || t('ai_assistant')}</p>
                   </div>
                 </CardHeader>
 
@@ -210,7 +212,7 @@ export const Chatbots = () => {
                       value={input}
                       onChange={e => setInput(e.target.value)}
                       onKeyPress={handleKeyPress}
-                      placeholder="Type your message..."
+                      placeholder={t('type_your_message')}
                       className="flex-1 px-4 py-2 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                       rows={1}
                     />
@@ -228,8 +230,8 @@ export const Chatbots = () => {
               <div className="flex-1 flex items-center justify-center">
                 <EmptyState
                   icon={MessageSquare}
-                  title="Select a chatbot"
-                  description="Choose an AI assistant from the list to start chatting"
+                  title={t('select_chatbot')}
+                  description={t('select_chatbot_desc')}
                 />
               </div>
             )}

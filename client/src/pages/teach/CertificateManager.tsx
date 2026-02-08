@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Award, Plus, Edit, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTheme } from '../../hooks/useTheme';
@@ -23,6 +24,7 @@ interface CertificateTemplate {
 }
 
 export const CertificateManager = () => {
+  const { t } = useTranslation(['teaching', 'common']);
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -60,9 +62,9 @@ export const CertificateManager = () => {
       queryClient.invalidateQueries({ queryKey: ['certificateTemplates'] });
       setShowCreateModal(false);
       setFormData({ name: '', description: '', templateHtml: '' });
-      toast.success('Template created successfully');
+      toast.success(t('template_created'));
     },
-    onError: () => toast.error('Failed to create template'),
+    onError: () => toast.error(t('failed_create_template')),
   });
 
   const updateMutation = useMutation({
@@ -73,9 +75,9 @@ export const CertificateManager = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['certificateTemplates'] });
       setEditingTemplate(null);
-      toast.success('Template updated successfully');
+      toast.success(t('template_updated'));
     },
-    onError: () => toast.error('Failed to update template'),
+    onError: () => toast.error(t('failed_update_template')),
   });
 
   const deleteMutation = useMutation({
@@ -85,9 +87,9 @@ export const CertificateManager = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['certificateTemplates'] });
-      toast.success('Template deleted');
+      toast.success(t('template_deleted'));
     },
-    onError: () => toast.error('Failed to delete template'),
+    onError: () => toast.error(t('failed_delete_template')),
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -115,7 +117,7 @@ export const CertificateManager = () => {
   };
 
   if (isLoading) {
-    return <Loading text="Loading certificate templates..." />;
+    return <Loading text={t('loading_certificate_templates')} />;
   }
 
   const breadcrumbItems = buildTeachingBreadcrumb(undefined, undefined, 'Certificates');
@@ -130,15 +132,15 @@ export const CertificateManager = () => {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
-            Certificate Templates
+            {t('certificate_templates')}
           </h1>
           <p className="mt-2" style={{ color: colors.textSecondary }}>
-            Create and manage certificate templates for your courses
+            {t('manage_certificate_templates_desc')}
           </p>
         </div>
         <Button onClick={() => setShowCreateModal(true)}>
           <Plus className="w-4 h-4 mr-2" />
-          New Template
+          {t('new_template')}
         </Button>
       </div>
 
@@ -147,14 +149,14 @@ export const CertificateManager = () => {
           <CardBody className="text-center py-12">
             <Award className="w-12 h-12 mx-auto mb-4" style={{ color: colors.gold }} />
             <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>
-              No Templates Created
+              {t('no_templates_created')}
             </h3>
             <p style={{ color: colors.textSecondary }}>
-              Create certificate templates to issue to students who complete your courses.
+              {t('create_templates_desc')}
             </p>
             <Button className="mt-4" onClick={() => setShowCreateModal(true)}>
               <Plus className="w-4 h-4 mr-2" />
-              Create Template
+              {t('create_template')}
             </Button>
           </CardBody>
         </Card>
@@ -171,7 +173,7 @@ export const CertificateManager = () => {
                     </h3>
                     {template.isDefault && (
                       <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded-full">
-                        Default
+                        {t('default_label')}
                       </span>
                     )}
                   </div>
@@ -180,18 +182,18 @@ export const CertificateManager = () => {
                   <button
                     onClick={() => openEditModal(template)}
                     className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-                    title="Edit"
+                    title={t('edit')}
                   >
                     <Edit className="w-4 h-4" style={{ color: colors.textSecondary }} />
                   </button>
                   <button
                     onClick={() => {
-                      if (confirm('Delete this template?')) {
+                      if (confirm(t('delete_template_confirm'))) {
                         deleteMutation.mutate(template.id);
                       }
                     }}
                     className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-                    title="Delete"
+                    title={t('common:delete')}
                   >
                     <Trash2 className="w-4 h-4 text-red-500" />
                   </button>
@@ -204,8 +206,8 @@ export const CertificateManager = () => {
                   </p>
                 )}
                 <div className="flex items-center justify-between text-sm" style={{ color: colors.textSecondary }}>
-                  <span>{template.issuedCount} certificates issued</span>
-                  <span>Created {new Date(template.createdAt).toLocaleDateString()}</span>
+                  <span>{t('x_certificates_issued', { count: template.issuedCount })}</span>
+                  <span>{t('created_date', { date: new Date(template.createdAt).toLocaleDateString() })}</span>
                 </div>
               </CardBody>
             </Card>
@@ -217,12 +219,12 @@ export const CertificateManager = () => {
       <Modal
         isOpen={showCreateModal || !!editingTemplate}
         onClose={closeModal}
-        title={editingTemplate ? 'Edit Template' : 'Create Certificate Template'}
+        title={editingTemplate ? t('edit_template') : t('create_certificate_template')}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-              Template Name
+              {t('template_name_label')}
             </label>
             <input
               type="text"
@@ -234,13 +236,13 @@ export const CertificateManager = () => {
                 borderColor: colors.border,
                 color: colors.textPrimary,
               }}
-              placeholder="e.g., Course Completion Certificate"
+              placeholder={t('template_name_placeholder')}
               required
             />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-              Description
+              {t('description_label')}
             </label>
             <input
               type="text"
@@ -252,12 +254,12 @@ export const CertificateManager = () => {
                 borderColor: colors.border,
                 color: colors.textPrimary,
               }}
-              placeholder="Brief description of this template"
+              placeholder={t('template_description_placeholder')}
             />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-              Certificate Content (HTML)
+              {t('certificate_content_html')}
             </label>
             <textarea
               value={formData.templateHtml}
@@ -269,19 +271,19 @@ export const CertificateManager = () => {
                 color: colors.textPrimary,
               }}
               rows={10}
-              placeholder="<div>Certificate content with {{studentName}}, {{courseName}}, {{date}} placeholders</div>"
+              placeholder={t('certificate_html_placeholder')}
               required
             />
             <p className="text-xs mt-1" style={{ color: colors.textSecondary }}>
-              Available placeholders: {'{{studentName}}'}, {'{{courseName}}'}, {'{{date}}'}, {'{{verificationCode}}'}
+              {t('available_placeholders')}
             </p>
           </div>
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={closeModal}>
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-              {editingTemplate ? 'Update' : 'Create'} Template
+              {editingTemplate ? t('update_template') : t('create_template')}
             </Button>
           </div>
         </form>

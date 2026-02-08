@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Award, UserCheck, Calendar, Search, Send } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTheme } from '../../hooks/useTheme';
@@ -40,6 +41,7 @@ interface CertificateTemplate {
 }
 
 export const CourseCertificateManager = () => {
+  const { t } = useTranslation(['teaching', 'common']);
   const { id: courseId } = useParams<{ id: string }>();
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
@@ -109,9 +111,9 @@ export const CourseCertificateManager = () => {
       queryClient.invalidateQueries({ queryKey: ['certificates', 'course', courseId] });
       setShowIssueModal(false);
       setSelectedStudent(null);
-      toast.success('Certificate issued successfully');
+      toast.success(t('certificate_issued'));
     },
-    onError: () => toast.error('Failed to issue certificate'),
+    onError: () => toast.error(t('failed_issue_certificate')),
   });
 
   const handleIssue = () => {
@@ -137,7 +139,7 @@ export const CourseCertificateManager = () => {
   );
 
   if (loadingIssued || loadingEligible) {
-    return <Loading text="Loading certificates..." />;
+    return <Loading text={t('loading_certificates')} />;
   }
 
   const breadcrumbItems = buildTeachingBreadcrumb(courseId, course?.title || 'Course', 'Certificates');
@@ -151,11 +153,11 @@ export const CourseCertificateManager = () => {
 
       <div className="mb-8">
         <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
-          Certificate Manager
+          {t('certificate_manager')}
         </h1>
         {course && (
           <p className="mt-2" style={{ color: colors.textSecondary }}>
-            Issue and manage certificates for {course.title}
+            {t('issue_manage_certificates_for', { course: course.title })}
           </p>
         )}
       </div>
@@ -164,7 +166,7 @@ export const CourseCertificateManager = () => {
       <section className="mb-10">
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
           <Award className="w-5 h-5" style={{ color: colors.gold }} />
-          Issued Certificates ({issuedCertificates?.length || 0})
+          {t('issued_certificates')} ({issuedCertificates?.length || 0})
         </h2>
 
         {!issuedCertificates || issuedCertificates.length === 0 ? (
@@ -172,7 +174,7 @@ export const CourseCertificateManager = () => {
             <CardBody className="text-center py-8">
               <Award className="w-10 h-10 mx-auto mb-3" style={{ color: colors.textSecondary }} />
               <p style={{ color: colors.textSecondary }}>
-                No certificates have been issued for this course yet.
+                {t('no_certificates_issued_yet')}
               </p>
             </CardBody>
           </Card>
@@ -211,7 +213,7 @@ export const CourseCertificateManager = () => {
                     </div>
                     <Link to={`/certificate/${cert.id}`}>
                       <Button variant="outline" size="sm">
-                        View
+                        {t('view')}
                       </Button>
                     </Link>
                   </div>
@@ -226,7 +228,7 @@ export const CourseCertificateManager = () => {
       <section>
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
           <UserCheck className="w-5 h-5" style={{ color: colors.accent }} />
-          Issue New Certificate
+          {t('issue_new_certificate')}
         </h2>
 
         <Card>
@@ -236,7 +238,7 @@ export const CourseCertificateManager = () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textSecondary }} />
                 <input
                   type="text"
-                  placeholder="Search students..."
+                  placeholder={t('search_students')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 rounded-lg border"
@@ -252,8 +254,8 @@ export const CourseCertificateManager = () => {
             {filteredStudents.length === 0 ? (
               <p className="text-center py-4" style={{ color: colors.textSecondary }}>
                 {searchTerm
-                  ? 'No matching students found'
-                  : 'All eligible students have already received certificates'}
+                  ? t('no_matching_students')
+                  : t('all_students_have_certificates')}
               </p>
             ) : (
               <div className="space-y-2 max-h-96 overflow-y-auto">
@@ -277,7 +279,7 @@ export const CourseCertificateManager = () => {
                           {student.completionPercentage}%
                         </p>
                         <p className="text-xs" style={{ color: colors.textSecondary }}>
-                          completed
+                          {t('completed_label')}
                         </p>
                       </div>
                       <Button
@@ -285,7 +287,7 @@ export const CourseCertificateManager = () => {
                         onClick={() => openIssueModal(student)}
                       >
                         <Send className="w-4 h-4 mr-1" />
-                        Issue
+                        {t('issue')}
                       </Button>
                     </div>
                   </div>
@@ -303,7 +305,7 @@ export const CourseCertificateManager = () => {
           setShowIssueModal(false);
           setSelectedStudent(null);
         }}
-        title="Issue Certificate"
+        title={t('issue_certificate')}
       >
         {selectedStudent && (
           <div className="space-y-4">
@@ -315,14 +317,14 @@ export const CourseCertificateManager = () => {
                 {selectedStudent.email}
               </p>
               <p className="text-sm mt-2" style={{ color: colors.textSecondary }}>
-                Course completion: {selectedStudent.completionPercentage}%
+                {t('course_completion_percent', { percent: selectedStudent.completionPercentage })}
               </p>
             </div>
 
             {templates && templates.length > 0 && (
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: colors.textPrimary }}>
-                  Certificate Template
+                  {t('certificate_template')}
                 </label>
                 <select
                   value={selectedTemplate || ''}
@@ -336,7 +338,7 @@ export const CourseCertificateManager = () => {
                 >
                   {templates.map((template) => (
                     <option key={template.id} value={template.id}>
-                      {template.name} {template.isDefault ? '(Default)' : ''}
+                      {template.name} {template.isDefault ? `(${t('default_label')})` : ''}
                     </option>
                   ))}
                 </select>
@@ -351,14 +353,14 @@ export const CourseCertificateManager = () => {
                   setSelectedStudent(null);
                 }}
               >
-                Cancel
+                {t('common:cancel')}
               </Button>
               <Button
                 onClick={handleIssue}
                 disabled={issueMutation.isPending}
               >
                 <Award className="w-4 h-4 mr-2" />
-                Issue Certificate
+                {t('issue_certificate')}
               </Button>
             </div>
           </div>

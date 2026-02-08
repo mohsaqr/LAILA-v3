@@ -12,6 +12,7 @@ import {
   Lock,
   Globe,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { customLabsApi } from '../api/customLabs';
 import { Card, CardBody } from '../components/common/Card';
 import { Button } from '../components/common/Button';
@@ -29,6 +30,7 @@ const labTypeConfig: Record<string, { icon: typeof FlaskConical; gradient: strin
 };
 
 export const Labs = () => {
+  const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
   const { isInstructor } = useAuth();
   const navigate = useNavigate();
@@ -67,7 +69,7 @@ export const Labs = () => {
   };
 
   if (labsLoading) {
-    return <Loading text="Loading labs..." />;
+    return <Loading text={t('loading_labs')} />;
   }
 
   return (
@@ -80,10 +82,10 @@ export const Labs = () => {
               <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 flex items-center justify-center">
                 <FlaskConical className="w-6 h-6 text-white" />
               </div>
-              Custom Labs
+              {t('custom_labs')}
             </h1>
             <p className="mt-2" style={{ color: colors.textSecondary }}>
-              Interactive R-based analytics labs for learning and research
+              {t('interactive_labs_description')}
             </p>
           </div>
 
@@ -92,7 +94,7 @@ export const Labs = () => {
               onClick={() => navigate('/teach/labs')}
               icon={<Plus className="w-4 h-4" />}
             >
-              Manage Labs
+              {t('manage_labs')}
             </Button>
           )}
         </div>
@@ -107,7 +109,7 @@ export const Labs = () => {
             />
             <input
               type="text"
-              placeholder="Search labs..."
+              placeholder={t('search_labs')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 rounded-lg border focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -136,7 +138,7 @@ export const Labs = () => {
                 minWidth: '180px',
               }}
             >
-              <option value="">All Types</option>
+              <option value="">{t('all_types')}</option>
               {labTypes?.map((type: LabType) => (
                 <option key={type.id} value={type.id} disabled={type.disabled}>
                   {type.name}
@@ -175,7 +177,7 @@ export const Labs = () => {
                             style={{ backgroundColor: colors.badge, color: colors.badgeText }}
                           >
                             <Globe className="w-3 h-3" />
-                            Public
+                            {t('public')}
                           </span>
                         ) : (
                           <span
@@ -183,7 +185,7 @@ export const Labs = () => {
                             style={{ backgroundColor: isDark ? '#374151' : '#f3f4f6', color: colors.textSecondary }}
                           >
                             <Lock className="w-3 h-3" />
-                            Private
+                            {t('private')}
                           </span>
                         )}
                       </div>
@@ -202,7 +204,7 @@ export const Labs = () => {
                     <div className="flex items-center gap-4 text-sm mb-4" style={{ color: colors.textSecondary }}>
                       <span className="flex items-center gap-1">
                         <Code className="w-4 h-4" />
-                        {lab._count?.templates || 0} templates
+                        {t('n_templates', { count: lab._count?.templates || 0 })}
                       </span>
                       {lab._count?.assignments !== undefined && lab._count.assignments > 0 && (
                         <span className="flex items-center gap-1">
@@ -219,7 +221,7 @@ export const Labs = () => {
                       <div
                         className={`inline-flex items-center gap-1 text-sm font-medium bg-gradient-to-r ${config.gradient} bg-clip-text text-transparent`}
                       >
-                        Open Lab
+                        {t('open_lab')}
                         <ArrowRight className="w-4 h-4 text-emerald-500" />
                       </div>
                     </div>
@@ -233,16 +235,16 @@ export const Labs = () => {
             <CardBody className="text-center py-16">
               <FlaskConical className="w-16 h-16 mx-auto mb-4" style={{ color: colors.textSecondary }} />
               <h3 className="text-xl font-semibold mb-2" style={{ color: colors.textPrimary }}>
-                No Labs Available
+                {t('no_labs_available')}
               </h3>
               <p className="mb-6" style={{ color: colors.textSecondary }}>
                 {search || selectedType
-                  ? 'No labs match your search criteria. Try adjusting your filters.'
-                  : 'There are no labs available yet. Check back later or ask your instructor.'}
+                  ? t('try_adjusting_search')
+                  : t('no_labs_description')}
               </p>
               {isInstructor && (
                 <Button onClick={() => navigate('/teach/labs')} icon={<Plus className="w-4 h-4" />}>
-                  Create Your First Lab
+                  {t('manage_labs')}
                 </Button>
               )}
             </CardBody>

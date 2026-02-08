@@ -87,5 +87,46 @@
   "options": "Opciones",
   "more_options": "Más opciones",
   "app_name": "LAILA",
-  "copyright": "© {{year}} LAILA. Todos los derechos reservados."
+  "copyright": "© {{year}} LAILA. Todos los derechos reservados.",
+  "help": "Ayuda",
+  "go_back": "Volver",
+  "dismiss": "Descartar",
+  "courses": "Cursos",
+  "settings": "Configuración",
+  "dashboard": "Panel de control",
+
+  "status_draft": "Borrador",
+  "status_published": "Publicado",
+  "status_archived": "Archivado",
+  "status_submitted": "Enviado",
+  "status_graded": "Calificado",
+  "status_returned": "Devuelto",
+  "status_active": "Activo",
+  "status_completed": "Completado",
+  "status_pending": "Pendiente",
+  "status_not_started": "No iniciado",
+
+  "theme_dark": "Oscuro",
+  "theme_light": "Claro",
+  "theme_label": "Tema: {{theme}}",
+  "theme_aria_label": "Tema actual: {{theme}}. Haz clic para cambiar.",
+
+  "emotion_productive": "Productivo",
+  "emotion_stimulated": "Estimulado",
+  "emotion_frustrated": "Frustrado",
+  "emotion_learning": "Aprendiendo",
+  "emotion_enjoying": "Disfrutando",
+  "emotion_bored": "Aburrido",
+  "emotion_quitting": "Abandonando",
+  "how_are_you_feeling": "¿Cómo te sientes?",
+  "thanks_for_sharing": "¡Gracias por compartir!",
+
+  "skip_to_main_content": "Ir al contenido principal",
+  "skip_to_navigation": "Ir a la navegación",
+
+  "something_went_wrong": "Algo salió mal",
+  "error_boundary_message": "Lo sentimos, ocurrió algo inesperado. Por favor, intenta actualizar la página o volver a la página de inicio.",
+  "try_again": "Intentar de nuevo",
+  "go_home": "Ir al inicio",
+  "reload_page": "Recargar página"
 }

@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard,
   Users,
@@ -15,19 +16,20 @@ interface AdminSidebarProps {
   onNavigate?: () => void;
 }
 
-const sidebarItems = [
-  { path: '/admin', label: 'Overview', icon: LayoutDashboard, exact: true },
-  { path: '/admin/settings?tab=users', label: 'Users', icon: Users },
-  { path: '/admin/settings?tab=enrollments', label: 'Enrollments', icon: GraduationCap },
-  { path: '/admin/logs', label: 'Logs', icon: BarChart3 },
-  { path: '/admin/chatbot-registry', label: 'Chatbots', icon: MessageSquare },
-  { path: '/admin/settings?tab=llm', label: 'LLM', icon: Bot },
-  { path: '/admin/settings?tab=system', label: 'System', icon: Settings },
-  { path: '/admin/prompt-blocks', label: 'Prompts', icon: Blocks },
-];
-
 export const AdminSidebar = ({ className = '', onNavigate }: AdminSidebarProps) => {
+  const { t } = useTranslation(['admin']);
   const location = useLocation();
+
+  const sidebarItems = [
+    { path: '/admin', label: t('overview'), icon: LayoutDashboard, exact: true },
+    { path: '/admin/settings?tab=users', label: t('users'), icon: Users },
+    { path: '/admin/settings?tab=enrollments', label: t('enrollments'), icon: GraduationCap },
+    { path: '/admin/logs', label: t('logs'), icon: BarChart3 },
+    { path: '/admin/chatbot-registry', label: t('chatbots'), icon: MessageSquare },
+    { path: '/admin/settings?tab=llm', label: t('llm'), icon: Bot },
+    { path: '/admin/settings?tab=system', label: t('system_label'), icon: Settings },
+    { path: '/admin/prompt-blocks', label: t('prompts'), icon: Blocks },
+  ];
 
   const isActive = (item: typeof sidebarItems[0]) => {
     if (item.exact) {

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Send, Bot, X } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { ForumAgentSelector } from './ForumAgentSelector';
@@ -26,7 +27,7 @@ export const ForumReplyInput = ({
   onSubmit,
   onAiRequest,
   agents,
-  placeholder = 'Write your reply...',
+  placeholder,
   disabled = false,
   isSubmitting = false,
   isAiLoading = false,
@@ -34,7 +35,9 @@ export const ForumReplyInput = ({
   onCancelReply,
   showAgentSelector = true,
 }: ForumReplyInputProps) => {
+  const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
+  const effectivePlaceholder = placeholder || t('write_your_reply');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -168,12 +171,12 @@ export const ForumReplyInput = ({
       {/* Replying to indicator */}
       {replyingToName && (
         <div className="flex items-center gap-2 text-sm" style={{ color: colors.textSecondary }}>
-          <span>Replying to <strong style={{ color: colors.textPrimary }}>{replyingToName}</strong></span>
+          <span>{t('replying_to')} <strong style={{ color: colors.textPrimary }}>{replyingToName}</strong></span>
           {onCancelReply && (
             <button
               onClick={onCancelReply}
               className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
-              title="Cancel reply"
+              title={t('cancel_reply')}
             >
               <X size={14} />
             </button>
@@ -188,7 +191,7 @@ export const ForumReplyInput = ({
           value={value}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          placeholder={placeholder}
+          placeholder={effectivePlaceholder}
           rows={4}
           disabled={disabled || isSubmitting || isAiLoading}
           className="w-full px-3 py-2 rounded-lg resize-none"
@@ -218,7 +221,7 @@ export const ForumReplyInput = ({
               color: colors.textSecondary
             }}>
               <Bot size={12} className="inline mr-1" />
-              AI Tutors
+              {t('ai_tutors')}
             </div>
             {filteredAgents.map((agent) => (
               <button
@@ -278,7 +281,7 @@ export const ForumReplyInput = ({
               disabled={disabled || isAiLoading}
             >
               <Bot size={16} />
-              Ask AI
+              {t('ask_ai')}
             </button>
           )}
         </div>
@@ -286,7 +289,7 @@ export const ForumReplyInput = ({
         <div className="flex items-center gap-2">
           {onCancelReply && (
             <Button variant="ghost" size="sm" onClick={onCancelReply} disabled={isSubmitting}>
-              Cancel
+              {t('common:cancel')}
             </Button>
           )}
           <Button
@@ -295,7 +298,7 @@ export const ForumReplyInput = ({
             size="sm"
           >
             <Send size={16} />
-            {isSubmitting ? 'Posting...' : 'Post Reply'}
+            {isSubmitting ? t('posting') : t('post_reply')}
           </Button>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ChevronRight, Home } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
@@ -16,6 +17,7 @@ interface BreadcrumbProps {
 }
 
 export const Breadcrumb = ({ items, className = '', homeHref = '/dashboard', showHome = true }: BreadcrumbProps) => {
+  const { t } = useTranslation(['common']);
   const { isDark } = useTheme();
 
   const colors = {
@@ -37,7 +39,7 @@ export const Breadcrumb = ({ items, className = '', homeHref = '/dashboard', sho
               to={homeHref}
               className="transition-colors"
               style={{ color: colors.homeLink }}
-              title="Dashboard"
+              title={t('dashboard')}
             >
               <Home className="w-4 h-4" />
             </Link>

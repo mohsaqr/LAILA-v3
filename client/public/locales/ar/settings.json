@@ -44,5 +44,23 @@
   "setting_updated": "تم تحديث الإعداد",
   "setting_update_failed": "فشل تحديث الإعداد",
   "sign_out": "تسجيل الخروج",
-  "sign_out_description": "تسجيل الخروج من حسابك"
+  "sign_out_description": "تسجيل الخروج من حسابك",
+
+  "profile": "الملف الشخصي",
+  "personal_information": "المعلومات الشخصية",
+  "full_name": "الاسم الكامل",
+  "full_name_placeholder": "الاسم الكامل",
+  "email": "البريد الإلكتروني",
+  "account_status": "حالة الحساب",
+  "verified": "موثّق",
+  "pending_verification": "في انتظار التحقق",
+  "member_since": "عضو منذ",
+  "na": "غير متاح",
+  "profile_updated": "تم تحديث الملف الشخصي بنجاح",
+  "failed_update_profile": "فشل تحديث الملف الشخصي",
+  "name_required": "الاسم مطلوب",
+  "last_changed_never": "آخر تغيير: أبداً",
+  "role_admin": "مدير",
+  "role_instructor": "مدرّس",
+  "role_student": "طالب"
 }

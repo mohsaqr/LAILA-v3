@@ -141,5 +141,19 @@
   "sequential_chain": "Peräkkäinen ketju",
   "debate_mode": "Väittelytila",
   "random_selection": "Satunnainen valinta",
-  "round": "Kierros {{number}}"
+  "round": "Kierros {{number}}",
+
+  "routed_to": "Ohjattu tutorille {{name}}",
+  "confidence_percent": "{{percent}}% varmuus",
+  "team_response_from": "Tiimin vastaus {{count}} tutorilta",
+  "view_individual_contributions": "Näytä yksittäiset panokset",
+  "start_conversation": "Aloita keskustelu",
+
+  "mode": "Tila",
+  "mode_manual": "Manuaalinen",
+  "mode_manual_desc": "Valitse mikä tutor vastaa",
+  "mode_auto_route": "Automaattiohjaus",
+  "mode_auto_route_desc": "AI valitsee parhaan tutorin",
+  "mode_team": "Tiimi",
+  "mode_team_desc": "Kaikki tutorit osallistuvat"
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   Plus,
   GripVertical,
@@ -63,6 +64,7 @@ const useDragAndDrop = (items: CourseTutor[], onReorder: (ids: number[]) => void
 };
 
 export const CourseTutorManager = () => {
+  const { t } = useTranslation(['teaching', 'common']);
   const { id: courseId } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const { isDark } = useTheme();
@@ -131,10 +133,10 @@ export const CourseTutorManager = () => {
       queryClient.invalidateQueries({ queryKey: ['courseTutors', courseId] });
       queryClient.invalidateQueries({ queryKey: ['availableTutors', courseId] });
       queryClient.invalidateQueries({ queryKey: ['courseTutorStats', courseId] });
-      toast.success(`${data.length} tutor${data.length !== 1 ? 's' : ''} added to course`);
+      toast.success(data.length === 1 ? t('tutors_added', { count: data.length }) : t('tutors_added_plural', { count: data.length }));
       setShowAddModal(false);
     },
-    onError: (err: any) => toast.error(err.message || 'Failed to add tutors'),
+    onError: (err: any) => toast.error(err.message || t('failed_to_add_tutors')),
   });
 
   const deleteMutation = useMutation({
@@ -144,10 +146,10 @@ export const CourseTutorManager = () => {
       queryClient.invalidateQueries({ queryKey: ['courseTutors', courseId] });
       queryClient.invalidateQueries({ queryKey: ['availableTutors', courseId] });
       queryClient.invalidateQueries({ queryKey: ['courseTutorStats', courseId] });
-      toast.success('Tutor removed from course');
+      toast.success(t('tutor_removed'));
       setDeleteConfirm(null);
     },
-    onError: (err: any) => toast.error(err.message || 'Failed to remove tutor'),
+    onError: (err: any) => toast.error(err.message || t('failed_to_remove_tutor')),
   });
 
   const reorderMutation = useMutation({
@@ -156,7 +158,7 @@ export const CourseTutorManager = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseTutors', courseId] });
     },
-    onError: (err: any) => toast.error(err.message || 'Failed to reorder'),
+    onError: (err: any) => toast.error(err.message || t('failed_to_reorder')),
   });
 
   const updateSettingsMutation = useMutation({
@@ -169,9 +171,9 @@ export const CourseTutorManager = () => {
     }) => coursesApi.updateCourseAISettings(parseInt(courseId!), settings),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['course', courseId] });
-      toast.success('Settings saved');
+      toast.success(t('settings_saved'));
     },
-    onError: (err: any) => toast.error(err.message || 'Failed to save settings'),
+    onError: (err: any) => toast.error(err.message || t('failed_to_save_settings')),
   });
 
   // Sync settings state with course data
@@ -199,17 +201,17 @@ export const CourseTutorManager = () => {
   );
 
   if (courseLoading || tutorsLoading) {
-    return <Loading fullScreen text="Loading course tutors..." />;
+    return <Loading fullScreen text={t('loading_course_tutors')} />;
   }
 
   if (!course) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-12 text-center">
         <h2 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
-          Course not found
+          {t('course_not_found')}
         </h2>
         <Link to={`/courses/${courseId}`} className="text-primary-600 hover:underline mt-2 inline-block">
-          Back to Course
+          {t('back_to_course')}
         </Link>
       </div>
     );
@@ -230,7 +232,7 @@ export const CourseTutorManager = () => {
     }
   };
 
-  const breadcrumbItems = buildTeachingBreadcrumb(courseId, course?.title || 'Course', 'AI Tutors');
+  const breadcrumbItems = buildTeachingBreadcrumb(courseId, course?.title || 'Course', t('ai_tutors'));
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ minHeight: '100vh' }}>
@@ -244,14 +246,14 @@ export const CourseTutorManager = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
-              Collaborative Module
+              {t('collaborative_module')}
             </h1>
             <p className="mt-1" style={{ color: colors.textSecondary }}>
-              Manage AI tutors for <span className="font-medium">{course.title}</span>
+              {t('manage_ai_tutors_for', { course: course.title })}
             </p>
           </div>
           <Button onClick={() => setShowAddModal(true)} icon={<Plus className="w-4 h-4" />}>
-            Add Tutor
+            {t('add_tutor')}
           </Button>
         </div>
       </div>
@@ -272,7 +274,7 @@ export const CourseTutorManager = () => {
                   {stats.totalTutors}
                 </p>
                 <p className="text-sm" style={{ color: colors.textSecondary }}>
-                  Total Tutors
+                  {t('total_tutors')}
                 </p>
               </div>
             </CardBody>
@@ -291,7 +293,7 @@ export const CourseTutorManager = () => {
                   {stats.activeTutors}
                 </p>
                 <p className="text-sm" style={{ color: colors.textSecondary }}>
-                  Active
+                  {t('active')}
                 </p>
               </div>
             </CardBody>
@@ -310,7 +312,7 @@ export const CourseTutorManager = () => {
                   {stats.totalConversations}
                 </p>
                 <p className="text-sm" style={{ color: colors.textSecondary }}>
-                  Conversations
+                  {t('conversations')}
                 </p>
               </div>
             </CardBody>
@@ -329,7 +331,7 @@ export const CourseTutorManager = () => {
                   {stats.totalMessages}
                 </p>
                 <p className="text-sm" style={{ color: colors.textSecondary }}>
-                  Messages
+                  {t('total_messages')}
                 </p>
               </div>
             </CardBody>
@@ -346,7 +348,7 @@ export const CourseTutorManager = () => {
           <div className="flex items-center gap-2">
             <Settings className="w-5 h-5" style={{ color: colors.textPrimary600 }} />
             <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
-              Module Settings
+              {t('module_settings')}
             </h2>
           </div>
           <ChevronLeft
@@ -362,13 +364,13 @@ export const CourseTutorManager = () => {
                 className="block text-sm font-medium mb-1"
                 style={{ color: colors.textPrimary }}
               >
-                Module Name (shown to students)
+                {t('module_name_shown')}
               </label>
               <input
                 type="text"
                 value={moduleName}
                 onChange={(e) => setModuleName(e.target.value)}
-                placeholder="Collaborative AI Tutors"
+                placeholder={t('collaborative_ai_tutors')}
                 className="w-full px-3 py-2 border rounded-lg"
                 style={{
                   backgroundColor: colors.bgCard,
@@ -377,7 +379,7 @@ export const CourseTutorManager = () => {
                 }}
               />
               <p className="text-xs mt-1" style={{ color: colors.textMuted }}>
-                Leave empty to use default name
+                {t('leave_empty_default')}
               </p>
             </div>
 
@@ -391,12 +393,12 @@ export const CourseTutorManager = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                 </svg>
                 <h3 className="font-semibold" style={{ color: colors.textPrimary }}>
-                  Tutor Routing
+                  {t('tutor_routing')}
                 </h3>
               </div>
 
               <p className="text-sm mb-3" style={{ color: colors.textSecondary }}>
-                Control how students access and interact with tutors
+                {t('tutor_routing_desc')}
               </p>
 
               <div className="space-y-3">
@@ -417,13 +419,13 @@ export const CourseTutorManager = () => {
                   />
                   <div>
                     <p className="font-medium" style={{ color: colors.textPrimary }}>
-                      Free Choice
+                      {t('free_choice')}
                       <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                        Recommended
+                        {t('recommended')}
                       </span>
                     </p>
                     <p className="text-sm" style={{ color: colors.textSecondary }}>
-                      Students freely choose and switch between any tutor
+                      {t('free_choice_desc')}
                     </p>
                   </div>
                 </label>
@@ -444,9 +446,9 @@ export const CourseTutorManager = () => {
                     className="mt-1"
                   />
                   <div>
-                    <p className="font-medium" style={{ color: colors.textPrimary }}>All Tutors (Guided)</p>
+                    <p className="font-medium" style={{ color: colors.textPrimary }}>{t('all_tutors_guided')}</p>
                     <p className="text-sm" style={{ color: colors.textSecondary }}>
-                      Students see all tutors with recommendations on which to use
+                      {t('all_tutors_guided_desc')}
                     </p>
                   </div>
                 </label>
@@ -467,9 +469,9 @@ export const CourseTutorManager = () => {
                     className="mt-1"
                   />
                   <div className="flex-1">
-                    <p className="font-medium" style={{ color: colors.textPrimary }}>Single Tutor</p>
+                    <p className="font-medium" style={{ color: colors.textPrimary }}>{t('single_tutor_mode')}</p>
                     <p className="text-sm" style={{ color: colors.textSecondary }}>
-                      Students only see one default tutor
+                      {t('single_tutor_desc')}
                     </p>
                   </div>
                 </label>
@@ -487,7 +489,7 @@ export const CourseTutorManager = () => {
                         color: colors.textPrimary,
                       }}
                     >
-                      <option value="">Select default tutor...</option>
+                      <option value="">{t('select_default_tutor')}</option>
                       {tutors.filter(t => t.isActive).map((tutor) => (
                         <option key={tutor.id} value={tutor.id}>
                           {tutor.customName || tutor.chatbot?.displayName}
@@ -514,13 +516,13 @@ export const CourseTutorManager = () => {
                   />
                   <div>
                     <p className="font-medium" style={{ color: colors.textPrimary }}>
-                      Smart Routing
+                      {t('smart_routing_mode')}
                       <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                        Beta
+                        {t('beta')}
                       </span>
                     </p>
                     <p className="text-sm" style={{ color: colors.textSecondary }}>
-                      Auto-route questions to the best tutor based on topic
+                      {t('smart_routing_desc')}
                     </p>
                   </div>
                 </label>
@@ -542,13 +544,13 @@ export const CourseTutorManager = () => {
                   />
                   <div>
                     <p className="font-medium" style={{ color: colors.textPrimary }}>
-                      Team Mode
+                      {t('team_mode')}
                       <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">
-                        New
+                        {t('new_label')}
                       </span>
                     </p>
                     <p className="text-sm" style={{ color: colors.textSecondary }}>
-                      Multiple tutors collaborate to answer each question together
+                      {t('team_mode_desc')}
                     </p>
                   </div>
                 </label>
@@ -570,10 +572,10 @@ export const CourseTutorManager = () => {
                   />
                   <div>
                     <p className="font-medium" style={{ color: colors.textPrimary }}>
-                      Random
+                      {t('random_mode_label')}
                     </p>
                     <p className="text-sm" style={{ color: colors.textSecondary }}>
-                      A random tutor responds to each question
+                      {t('random_mode_desc')}
                     </p>
                   </div>
                 </label>
@@ -588,10 +590,10 @@ export const CourseTutorManager = () => {
               <Heart className="w-5 h-5" style={{ color: '#ec4899' }} />
               <div className="flex-1">
                 <p className="font-medium" style={{ color: colors.textPrimary }}>
-                  Emotional Pulse
+                  {t('emotional_pulse')}
                 </p>
                 <p className="text-sm" style={{ color: colors.textSecondary }}>
-                  Show emotional feedback widget to students during conversations
+                  {t('emotional_pulse_desc')}
                 </p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -612,7 +614,7 @@ export const CourseTutorManager = () => {
                 loading={updateSettingsMutation.isPending}
                 icon={<Save className="w-4 h-4" />}
               >
-                Save Settings
+                {t('save_settings')}
               </Button>
             </div>
           </CardBody>
@@ -623,7 +625,7 @@ export const CourseTutorManager = () => {
       <Card>
         <CardHeader>
           <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
-            Tutors in this course
+            {t('tutors_in_course')}
           </h2>
         </CardHeader>
         <CardBody>
@@ -672,7 +674,7 @@ export const CourseTutorManager = () => {
                           className="text-xs px-2 py-0.5 rounded"
                           style={{ backgroundColor: colors.bgHover, color: colors.textMuted }}
                         >
-                          Inactive
+                          {t('inactive')}
                         </span>
                       )}
                       {(tutor.customName || tutor.customSystemPrompt) && (
@@ -680,7 +682,7 @@ export const CourseTutorManager = () => {
                           className="text-xs px-2 py-0.5 rounded"
                           style={{ backgroundColor: colors.bgTeal, color: colors.textTeal }}
                         >
-                          Customized
+                          {t('customized')}
                         </span>
                       )}
                     </div>
@@ -691,8 +693,8 @@ export const CourseTutorManager = () => {
                       className="flex items-center gap-4 text-xs mt-1"
                       style={{ color: colors.textMuted }}
                     >
-                      <span>{tutor._count?.conversations || 0} conversations</span>
-                      <span>{tutor.totalMessages || 0} messages</span>
+                      <span>{t('x_conversations', { count: tutor._count?.conversations || 0 })}</span>
+                      <span>{t('x_messages', { count: tutor.totalMessages || 0 })}</span>
                     </div>
                   </div>
 
@@ -703,7 +705,7 @@ export const CourseTutorManager = () => {
                         size="sm"
                         icon={<Copy className="w-4 h-4" />}
                       >
-                        Duplicate
+                        {t('duplicate')}
                       </Button>
                     </Link>
                     <Link to={`/ai-tools/builder?edit=${tutor.chatbotId}`}>
@@ -712,7 +714,7 @@ export const CourseTutorManager = () => {
                         size="sm"
                         icon={<Edit className="w-4 h-4" />}
                       >
-                        Edit
+                        {t('edit')}
                       </Button>
                     </Link>
                     <Button
@@ -722,7 +724,7 @@ export const CourseTutorManager = () => {
                       icon={<Trash2 className="w-4 h-4" />}
                       className="text-red-600 hover:text-red-700"
                     >
-                      Remove
+                      {t('remove')}
                     </Button>
                   </div>
                 </div>
@@ -731,10 +733,10 @@ export const CourseTutorManager = () => {
           ) : (
             <EmptyState
               icon={Bot}
-              title="No tutors yet"
-              description="Add AI tutors to help your students learn"
+              title={t('no_tutors_yet')}
+              description={t('no_tutors_desc')}
               action={{
-                label: 'Add Tutor',
+                label: t('add_tutor'),
                 onClick: () => setShowAddModal(true),
               }}
             />
@@ -759,11 +761,9 @@ export const CourseTutorManager = () => {
         isOpen={!!deleteConfirm}
         onClose={() => setDeleteConfirm(null)}
         onConfirm={() => deleteConfirm && deleteMutation.mutate(deleteConfirm.id)}
-        title="Remove Tutor"
-        message={`Are you sure you want to remove "${
-          deleteConfirm?.customName || deleteConfirm?.chatbot?.displayName
-        }" from this course? Student conversations will also be deleted.`}
-        confirmText="Remove"
+        title={t('remove_tutor')}
+        message={t('remove_tutor_confirm', { name: deleteConfirm?.customName || deleteConfirm?.chatbot?.displayName })}
+        confirmText={t('remove')}
         loading={deleteMutation.isPending}
       />
     </div>

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { Award, Calendar, ExternalLink, Download, Trophy } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../hooks/useTheme';
 import { Card, CardBody } from '../components/common/Card';
 import { Button } from '../components/common/Button';
@@ -30,6 +31,7 @@ interface CourseInfo {
 }
 
 export const CourseCertificates = () => {
+  const { t } = useTranslation(['courses', 'common']);
   const { courseId } = useParams<{ courseId: string }>();
   const { isDark } = useTheme();
 
@@ -68,7 +70,7 @@ export const CourseCertificates = () => {
   });
 
   if (loadingCerts || loadingAvailable) {
-    return <Loading text="Loading certificates..." />;
+    return <Loading text={t('loading_certificates')} />;
   }
 
   const earnedCertificates = certificates || [];
@@ -88,11 +90,11 @@ export const CourseCertificates = () => {
 
       <div className="mb-8">
         <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
-          Course Certificates
+          {t('course_certificates')}
         </h1>
         {course && (
           <p className="mt-2" style={{ color: colors.textSecondary }}>
-            Certificates for {course.title}
+            {t('certificate_for', { course: course.title })}
           </p>
         )}
       </div>
@@ -101,7 +103,7 @@ export const CourseCertificates = () => {
       <section className="mb-10">
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
           <Trophy className="w-5 h-5" style={{ color: colors.gold }} />
-          Earned Certificates
+          {t('earned_certificates')}
         </h2>
 
         {earnedCertificates.length === 0 ? (
@@ -109,7 +111,7 @@ export const CourseCertificates = () => {
             <CardBody className="text-center py-8">
               <Award className="w-10 h-10 mx-auto mb-3" style={{ color: colors.textSecondary }} />
               <p style={{ color: colors.textSecondary }}>
-                You haven't earned any certificates in this course yet.
+                {t('no_certificates_yet')}
               </p>
             </CardBody>
           </Card>
@@ -138,7 +140,7 @@ export const CourseCertificates = () => {
                       <div className="flex items-center gap-2 mt-2" style={{ color: colors.textSecondary }}>
                         <Calendar className="w-4 h-4" />
                         <span className="text-sm">
-                          Issued {new Date(cert.issueDate).toLocaleDateString()}
+                          {t('issued_on', { date: new Date(cert.issueDate).toLocaleDateString() })}
                         </span>
                       </div>
                       <p className="text-xs mt-1 font-mono" style={{ color: colors.textSecondary }}>
@@ -150,13 +152,13 @@ export const CourseCertificates = () => {
                     <Link to={`/certificate/${cert.id}`} className="flex-1">
                       <Button variant="outline" size="sm" className="w-full">
                         <ExternalLink className="w-4 h-4 mr-2" />
-                        View
+                        {t('common:view')}
                       </Button>
                     </Link>
                     <Link to={`/verify/${cert.verificationCode}`} className="flex-1">
                       <Button size="sm" className="w-full">
                         <Download className="w-4 h-4 mr-2" />
-                        Download
+                        {t('common:download')}
                       </Button>
                     </Link>
                   </div>
@@ -171,7 +173,7 @@ export const CourseCertificates = () => {
       {availableToEarn.length > 0 && (
         <section>
           <h2 className="text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>
-            Available to Earn
+            {t('available_to_earn')}
           </h2>
           <div className="space-y-4">
             {availableToEarn.map((cert) => (

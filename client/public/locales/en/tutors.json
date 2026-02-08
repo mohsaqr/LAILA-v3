@@ -141,5 +141,19 @@
   "sequential_chain": "Sequential chain",
   "debate_mode": "Debate mode",
   "random_selection": "Random selection",
-  "round": "Round {{number}}"
+  "round": "Round {{number}}",
+
+  "routed_to": "Routed to {{name}}",
+  "confidence_percent": "{{percent}}% confidence",
+  "team_response_from": "Team response from {{count}} tutors",
+  "view_individual_contributions": "View individual contributions",
+  "start_conversation": "Start a conversation",
+
+  "mode": "Mode",
+  "mode_manual": "Manual",
+  "mode_manual_desc": "Choose which tutor responds",
+  "mode_auto_route": "Auto-Route",
+  "mode_auto_route_desc": "AI picks the best tutor",
+  "mode_team": "Team",
+  "mode_team_desc": "All tutors contribute"
 }

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Calendar,
   Clock,
@@ -16,6 +17,7 @@ import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 
 export const DashboardCalendar = () => {
+  const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
@@ -71,7 +73,7 @@ export const DashboardCalendar = () => {
   });
 
   if (enrollmentsLoading || assignmentsLoading) {
-    return <Loading fullScreen text="Loading calendar..." />;
+    return <Loading fullScreen text={t('loading_calendar')} />;
   }
 
   // Get assignments for the current month
@@ -125,7 +127,15 @@ export const DashboardCalendar = () => {
   };
 
   const days = getMonthDays();
-  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const weekDays = [
+    t('weekday_sun'),
+    t('weekday_mon'),
+    t('weekday_tue'),
+    t('weekday_wed'),
+    t('weekday_thu'),
+    t('weekday_fri'),
+    t('weekday_sat'),
+  ];
 
   // Get upcoming assignments (next 7 days)
   const today = new Date();
@@ -152,11 +162,11 @@ export const DashboardCalendar = () => {
               <Calendar className="w-5 h-5" style={{ color: colors.textToday }} />
             </div>
             <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
-              Calendar
+              {t('calendar')}
             </h1>
           </div>
           <p style={{ color: colors.textSecondary }}>
-            View your upcoming assignments and deadlines
+            {t('calendar_description')}
           </p>
         </div>
 
@@ -242,7 +252,7 @@ export const DashboardCalendar = () => {
                           ))}
                           {assignments.length > 2 && (
                             <span className="text-xs" style={{ color: colors.textMuted }}>
-                              +{assignments.length - 2} more
+                              {t('x_more', { count: assignments.length - 2 })}
                             </span>
                           )}
                         </div>
@@ -259,7 +269,7 @@ export const DashboardCalendar = () => {
             <Card>
               <CardBody>
                 <h3 className="font-semibold mb-4" style={{ color: colors.textPrimary }}>
-                  Upcoming (Next 7 Days)
+                  {t('upcoming_next_7_days')}
                 </h3>
                 {upcomingAssignments.length > 0 ? (
                   <div className="space-y-3">
@@ -302,7 +312,7 @@ export const DashboardCalendar = () => {
                   </div>
                 ) : (
                   <p className="text-sm text-center py-4" style={{ color: colors.textMuted }}>
-                    No upcoming assignments
+                    {t('no_upcoming_assignments')}
                   </p>
                 )}
               </CardBody>

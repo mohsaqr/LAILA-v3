@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronRight, FileText, PlayCircle, Layers, FlaskConical, FileQuestion, ClipboardList, MessageSquare, Bot } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { ContentCard, ContentType, ContentCardSize } from './ContentCard';
@@ -68,6 +69,7 @@ export const ModuleSection = ({
   hasAccess,
   viewMode = 'mini-cards',
 }: ModuleSectionProps) => {
+  const { t } = useTranslation(['courses']);
   const { isDark } = useTheme();
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -110,7 +112,7 @@ export const ModuleSection = ({
       id: lecture.id,
       type: getLectureContentType(lecture),
       title: lecture.title,
-      metadata: lecture.duration ? `${lecture.duration} min` : undefined,
+      metadata: lecture.duration ? t('x_min', { count: lecture.duration }) : undefined,
       href: `/courses/${courseId}/lectures/${lecture.id}`,
     })),
     ...publishedLabs.map(lab => ({
@@ -125,7 +127,7 @@ export const ModuleSection = ({
       type: 'quiz' as ContentType,
       title: quiz.title,
       subtitle: quiz.description || undefined,
-      metadata: quiz._count?.questions ? `${quiz._count.questions} questions` : undefined,
+      metadata: quiz._count?.questions ? t('x_questions', { count: quiz._count.questions }) : undefined,
       href: `/courses/${courseId}/quizzes/${quiz.id}`,
     })),
     ...publishedAssignments.map(assignment => ({
@@ -133,8 +135,8 @@ export const ModuleSection = ({
       type: (assignment.submissionType === 'ai_agent' ? 'ai_agent' : 'assignment') as ContentType,
       title: assignment.title,
       metadata: assignment.dueDate
-        ? `Due ${new Date(assignment.dueDate).toLocaleDateString()}`
-        : `${assignment.points} pts`,
+        ? t('due_date_short', { date: new Date(assignment.dueDate).toLocaleDateString() })
+        : t('x_pts', { count: assignment.points }),
       href: assignment.submissionType === 'ai_agent'
         ? `/courses/${courseId}/agent-assignments/${assignment.id}`
         : `/courses/${courseId}/assignments/${assignment.id}`,
@@ -144,7 +146,7 @@ export const ModuleSection = ({
       type: 'forum' as ContentType,
       title: forum.title,
       subtitle: forum.description || undefined,
-      metadata: forum._count?.threads ? `${forum._count.threads} threads` : undefined,
+      metadata: forum._count?.threads ? t('x_threads', { count: forum._count.threads }) : undefined,
       href: `/courses/${courseId}/forums/${forum.id}`,
     })),
   ];
@@ -291,7 +293,7 @@ export const ModuleSection = ({
             className="text-sm"
             style={{ color: colors.textSecondary }}
           >
-            {contentCount} {contentCount === 1 ? 'item' : 'items'}
+            {t('x_items', { count: contentCount })}
           </span>
         </button>
 
@@ -313,7 +315,7 @@ export const ModuleSection = ({
               className="text-sm"
               style={{ color: colors.textSecondary }}
             >
-              No content available in this module yet.
+              {t('no_content_in_module')}
             </p>
           </div>
         )}
@@ -359,7 +361,7 @@ export const ModuleSection = ({
               className="text-xs sm:text-sm mt-1"
               style={{ color: colors.textSecondary }}
             >
-              {contentCount} {contentCount === 1 ? 'item' : 'items'}
+              {t('x_items', { count: contentCount })}
             </p>
           </div>
         </div>
@@ -393,7 +395,7 @@ export const ModuleSection = ({
             className="text-center py-8"
             style={{ color: colors.textSecondary }}
           >
-            No content available in this module yet.
+            {t('no_content_in_module')}
           </p>
         )}
       </div>

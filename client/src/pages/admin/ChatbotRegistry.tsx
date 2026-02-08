@@ -4,16 +4,18 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AdminLayout } from '../../components/admin';
 import { ChatbotRegistryTab } from './logs/ChatbotRegistryTab';
 
 export const ChatbotRegistry = () => {
+  const { t } = useTranslation(['admin', 'common']);
   const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   return (
     <AdminLayout
-      title="Chatbot Registry"
-      description="View and manage all chatbots across the platform"
+      title={t('chatbot_registry')}
+      description={t('chatbot_registry_desc')}
     >
       <ChatbotRegistryTab
         exportStatus={exportStatus}

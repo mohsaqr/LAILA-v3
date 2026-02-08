@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Upload, File, FileText, Image, Film, Music, Archive, Download, X, Loader2 } from 'lucide-react';
 import { LectureSection, UpdateSectionData } from '../../types';
 import { Button } from '../common/Button';
@@ -41,14 +42,15 @@ const getFileIcon = (fileType: string | null) => {
   return FILE_ICONS[type] || File;
 };
 
-const formatFileSize = (bytes: number | null) => {
-  if (!bytes) return 'Unknown size';
+const formatFileSize = (bytes: number | null, t: (key: string) => string) => {
+  if (!bytes) return t('unknown_size');
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
 export const FileSection = ({ section, onFileChange, onRemoveFile, readOnly = false }: FileSectionProps) => {
+  const { t } = useTranslation(['teaching']);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -143,7 +145,7 @@ export const FileSection = ({ section, onFileChange, onRemoveFile, readOnly = fa
         <div className="flex-1 min-w-0">
           <p className="font-medium text-gray-900 truncate">{section.fileName}</p>
           <p className="text-sm text-gray-500">
-            {section.fileType?.toUpperCase()} - {formatFileSize(section.fileSize)}
+            {section.fileType?.toUpperCase()} - {formatFileSize(section.fileSize, t)}
           </p>
         </div>
         <a
@@ -152,7 +154,7 @@ export const FileSection = ({ section, onFileChange, onRemoveFile, readOnly = fa
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors"
         >
           <Download className="w-4 h-4" />
-          Download
+          {t('download')}
         </a>
       </div>
     );
@@ -163,7 +165,7 @@ export const FileSection = ({ section, onFileChange, onRemoveFile, readOnly = fa
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <Upload className="w-4 h-4" />
-          <span>File Section</span>
+          <span>{t('file_section')}</span>
         </div>
         <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
           <div className="flex-shrink-0 p-3 bg-white rounded-lg border border-gray-200">
@@ -172,7 +174,7 @@ export const FileSection = ({ section, onFileChange, onRemoveFile, readOnly = fa
           <div className="flex-1 min-w-0">
             <p className="font-medium text-gray-900 truncate">{section.fileName}</p>
             <p className="text-sm text-gray-500">
-              {section.fileType?.toUpperCase()} - {formatFileSize(section.fileSize)}
+              {section.fileType?.toUpperCase()} - {formatFileSize(section.fileSize, t)}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -180,14 +182,14 @@ export const FileSection = ({ section, onFileChange, onRemoveFile, readOnly = fa
               href={resolveFileUrl(section.fileUrl) || '#'}
               download={section.fileName}
               className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Download"
+              title={t('download')}
             >
               <Download className="w-5 h-5" />
             </a>
             <button
               onClick={onRemoveFile}
               className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-              title="Remove file"
+              title={t('remove_file')}
             >
               <X className="w-5 h-5" />
             </button>
@@ -201,7 +203,7 @@ export const FileSection = ({ section, onFileChange, onRemoveFile, readOnly = fa
     <div className="space-y-2">
       <div className="flex items-center gap-2 text-sm text-gray-600">
         <Upload className="w-4 h-4" />
-        <span>File Section</span>
+        <span>{t('file_section')}</span>
       </div>
       <div
         className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
@@ -216,21 +218,21 @@ export const FileSection = ({ section, onFileChange, onRemoveFile, readOnly = fa
         {isUploading ? (
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="w-10 h-10 text-primary-500 animate-spin" />
-            <p className="text-sm text-gray-600">Uploading file...</p>
+            <p className="text-sm text-gray-600">{t('uploading_file')}</p>
           </div>
         ) : (
           <>
             <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
-            <p className="text-gray-600 mb-2">Drag and drop a file here, or</p>
+            <p className="text-gray-600 mb-2">{t('drag_drop_file')}</p>
             <Button
               variant="secondary"
               size="sm"
               onClick={() => fileInputRef.current?.click()}
             >
-              Choose File
+              {t('choose_file')}
             </Button>
             <p className="text-xs text-gray-400 mt-2">
-              PDF, DOC, PPT, images, videos up to 50MB
+              {t('file_types_limit')}
             </p>
           </>
         )}

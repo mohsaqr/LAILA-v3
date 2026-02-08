@@ -87,5 +87,46 @@
   "options": "Vaihtoehdot",
   "more_options": "Lisää vaihtoehtoja",
   "app_name": "LAILA",
-  "copyright": "© {{year}} LAILA. Kaikki oikeudet pidätetään."
+  "copyright": "© {{year}} LAILA. Kaikki oikeudet pidätetään.",
+  "help": "Ohje",
+  "go_back": "Palaa takaisin",
+  "dismiss": "Hylkää",
+  "courses": "Kurssit",
+  "settings": "Asetukset",
+  "dashboard": "Kojelauta",
+
+  "status_draft": "Luonnos",
+  "status_published": "Julkaistu",
+  "status_archived": "Arkistoitu",
+  "status_submitted": "Lähetetty",
+  "status_graded": "Arvioitu",
+  "status_returned": "Palautettu",
+  "status_active": "Aktiivinen",
+  "status_completed": "Valmis",
+  "status_pending": "Odottaa",
+  "status_not_started": "Ei aloitettu",
+
+  "theme_dark": "Tumma",
+  "theme_light": "Vaalea",
+  "theme_label": "Teema: {{theme}}",
+  "theme_aria_label": "Nykyinen teema: {{theme}}. Napsauta vaihtaaksesi.",
+
+  "emotion_productive": "Tuottava",
+  "emotion_stimulated": "Innostunut",
+  "emotion_frustrated": "Turhautunut",
+  "emotion_learning": "Oppiva",
+  "emotion_enjoying": "Nauttiva",
+  "emotion_bored": "Kyllästynyt",
+  "emotion_quitting": "Luovuttava",
+  "how_are_you_feeling": "Miltä sinusta tuntuu?",
+  "thanks_for_sharing": "Kiitos jakamisesta!",
+
+  "skip_to_main_content": "Siirry pääsisältöön",
+  "skip_to_navigation": "Siirry navigointiin",
+
+  "something_went_wrong": "Jotain meni pieleen",
+  "error_boundary_message": "Pahoittelemme, jotain odottamatonta tapahtui. Yritä päivittää sivu tai palaa etusivulle.",
+  "try_again": "Yritä uudelleen",
+  "go_home": "Etusivulle",
+  "reload_page": "Lataa sivu uudelleen"
 }

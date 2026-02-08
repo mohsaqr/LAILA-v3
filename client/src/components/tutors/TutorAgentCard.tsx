@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Bot, MessageCircle } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import type { TutorAgent, TutorConversation } from '../../types/tutor';
@@ -15,6 +16,7 @@ export const TutorAgentCard = ({
   isSelected,
   onClick,
 }: TutorAgentCardProps) => {
+  const { t } = useTranslation(['tutors']);
   const { isDark } = useTheme();
   const hasUnread = false; // Placeholder for future notification system
   const messageCount = conversation?.messageCount || 0;
@@ -101,7 +103,7 @@ export const TutorAgentCard = ({
           {conversation?.lastMessage
             ? conversation.lastMessage.content.slice(0, 30) +
               (conversation.lastMessage.content.length > 30 ? '...' : '')
-            : agent.description || 'Start a conversation'}
+            : agent.description || t('start_conversation')}
         </p>
       </div>
 
