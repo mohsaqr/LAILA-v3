@@ -1,3 +1,6 @@
+// Import Forum from api/forums for use in CourseModule
+import type { Forum as ForumType } from '../api/forums';
+
 // User types
 export interface User {
   id: number;
@@ -9,6 +12,7 @@ export interface User {
   isConfirmed?: boolean;
   createdAt?: string;
   lastLogin?: string;
+  language?: string | null;
 }
 
 export interface AuthResponse {
@@ -17,6 +21,8 @@ export interface AuthResponse {
 }
 
 // Course types
+export type CurriculumViewMode = 'mini-cards' | 'icons' | 'list' | 'accordion';
+
 export interface Course {
   id: number;
   title: string;
@@ -31,6 +37,7 @@ export interface Course {
   createdAt: string;
   updatedAt: string;
   publishedAt: string | null;
+  curriculumViewMode?: CurriculumViewMode;
   instructor?: {
     id: number;
     fullname: string;
@@ -54,12 +61,17 @@ export interface CourseModule {
   lectures?: Lecture[];
   codeLabs?: CodeLab[];
   assignments?: Assignment[];
+  forums?: ForumType[];
   _count?: {
     lectures: number;
     codeLabs?: number;
     assignments?: number;
+    forums?: number;
   };
 }
+
+// Re-export Forum type for convenience
+export type { Forum } from '../api/forums';
 
 // Code Lab types
 export interface CodeLab {

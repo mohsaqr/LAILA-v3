@@ -46,6 +46,24 @@ export interface ExplainThread {
   posts: ExplainPost[];
 }
 
+// PDF info for page selection UI
+export interface LecturePDFInfo {
+  id: number;
+  fileName: string;
+  pageCount: number;
+  source: 'section' | 'attachment';
+  fileUrl: string;
+}
+
+export interface PDFInfoResponse {
+  pdfs: LecturePDFInfo[];
+}
+
+// Page ranges for PDF extraction (fileName -> pageRange)
+export interface PDFPageRanges {
+  [fileName: string]: string; // e.g., { "Chapter5.pdf": "1-5", "Notes.pdf": "all" }
+}
+
 export const lectureAIHelperApi = {
   // ==========================================
   // DISCUSS MODE (Chat-based) - Existing
@@ -80,13 +98,22 @@ export const lectureAIHelperApi = {
   // EXPLAIN MODE (Thread-based Q&A) - New
   // ==========================================
 
+  // Get PDF info for a lecture (page counts for page selection UI)
+  getPdfInfo: async (lectureId: number): Promise<PDFInfoResponse> => {
+    const response = await apiClient.get<ApiResponse<PDFInfoResponse>>(
+      `/courses/lectures/${lectureId}/ai-helper/pdf-info`
+    );
+    return response.data.data!;
+  },
+
   createExplainThread: async (
     lectureId: number,
-    question: string
+    question: string,
+    pdfPageRanges?: PDFPageRanges
   ): Promise<ExplainThread> => {
     const response = await apiClient.post<ApiResponse<ExplainThread>>(
       `/courses/lectures/${lectureId}/ai-helper/explain/threads`,
-      { question }
+      { question, pdfPageRanges }
     );
     return response.data.data!;
   },
@@ -112,11 +139,12 @@ export const lectureAIHelperApi = {
     lectureId: number,
     threadId: number,
     question: string,
-    parentPostId?: number
+    parentPostId?: number,
+    pdfPageRanges?: PDFPageRanges
   ): Promise<ExplainThread> => {
     const response = await apiClient.post<ApiResponse<ExplainThread>>(
       `/courses/lectures/${lectureId}/ai-helper/explain/threads/${threadId}/follow-up`,
-      { question, parentPostId }
+      { question, parentPostId, pdfPageRanges }
     );
     return response.data.data!;
   },

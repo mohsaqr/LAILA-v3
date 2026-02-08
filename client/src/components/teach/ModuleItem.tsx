@@ -16,12 +16,14 @@ import {
   MessageCircle,
   Beaker,
   ExternalLink,
+  MessageSquare,
 } from 'lucide-react';
-import { CourseModule, Lecture, CodeLab, Assignment, LabAssignment } from '../../types';
+import { CourseModule, Lecture, CodeLab, Assignment, LabAssignment, Forum } from '../../types';
 import { Button } from '../common/Button';
 import { LectureItem } from './LectureItem';
 import { CodeLabItem } from './CodeLabItem';
 import { AssignmentItem } from './AssignmentItem';
+import { ForumItem } from './ForumItem';
 
 interface ModuleItemProps {
   module: CourseModule & { labAssignments?: LabAssignment[] };
@@ -51,6 +53,12 @@ interface ModuleItemProps {
   onMoveAssignmentDown: (assignment: Assignment, module: CourseModule) => void;
   // Lab Template handlers
   onRemoveLabAssignment?: (labId: number) => void;
+  // Forum handlers
+  onAddForum?: (module: CourseModule) => void;
+  onEditForum?: (forum: Forum) => void;
+  onDeleteForum?: (forum: Forum) => void;
+  onMoveForumUp?: (forum: Forum, module: CourseModule) => void;
+  onMoveForumDown?: (forum: Forum, module: CourseModule) => void;
 }
 
 export const ModuleItem = ({
@@ -78,12 +86,18 @@ export const ModuleItem = ({
   onMoveAssignmentUp,
   onMoveAssignmentDown,
   onRemoveLabAssignment,
+  onAddForum,
+  onEditForum,
+  onDeleteForum,
+  onMoveForumUp,
+  onMoveForumDown,
 }: ModuleItemProps) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const lectures = module.lectures || [];
   const codeLabs = module.codeLabs || [];
   const assignments = module.assignments || [];
   const labAssignments = module.labAssignments || [];
+  const forums = module.forums || [];
 
   return (
     <div className="border border-gray-200 rounded-lg bg-white">
@@ -119,6 +133,7 @@ export const ModuleItem = ({
             {codeLabs.length > 0 && ` • ${codeLabs.length} code lab${codeLabs.length !== 1 ? 's' : ''}`}
             {labAssignments.length > 0 && ` • ${labAssignments.length} lab template${labAssignments.length !== 1 ? 's' : ''}`}
             {assignments.length > 0 && ` • ${assignments.length} assignment${assignments.length !== 1 ? 's' : ''}`}
+            {forums.length > 0 && ` • ${forums.length} forum${forums.length !== 1 ? 's' : ''}`}
           </span>
         </div>
 
@@ -242,6 +257,16 @@ export const ModuleItem = ({
                       <ClipboardList className="w-3 h-3" />
                       Assignment
                     </button>
+                    {onAddForum && (
+                      <button
+                        onClick={() => onAddForum(module)}
+                        className="text-xs px-2 py-1 rounded-md border border-teal-200 hover:bg-teal-50 text-teal-600 hover:text-teal-700 transition-colors flex items-center gap-1"
+                        title="Add Forum"
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        Forum
+                      </button>
+                    )}
                   </div>
                 </div>
               ))
@@ -343,6 +368,27 @@ export const ModuleItem = ({
             </div>
           )}
 
+          {/* Forums */}
+          {forums.length > 0 && onEditForum && onDeleteForum && (
+            <div className="pt-2 border-t border-gray-100 mt-2 space-y-2">
+              {forums
+                .sort((a, b) => a.orderIndex - b.orderIndex)
+                .map((forum, index) => (
+                  <ForumItem
+                    key={forum.id}
+                    forum={forum}
+                    courseId={courseId}
+                    isFirst={index === 0}
+                    isLast={index === forums.length - 1}
+                    onEdit={onEditForum}
+                    onDelete={onDeleteForum}
+                    onMoveUp={() => onMoveForumUp?.(forum, module)}
+                    onMoveDown={() => onMoveForumDown?.(forum, module)}
+                  />
+                ))}
+            </div>
+          )}
+
           {/* Action buttons - shown when no lessons exist */}
           {lectures.length === 0 && (
             <div className="flex gap-2 mt-2 flex-wrap">
@@ -373,6 +419,17 @@ export const ModuleItem = ({
               >
                 Add Assignment
               </Button>
+              {onAddForum && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onAddForum(module)}
+                  icon={<MessageSquare className="w-4 h-4" />}
+                  className="flex-1 min-w-[120px] text-teal-600 hover:bg-teal-50"
+                >
+                  Add Forum
+                </Button>
+              )}
             </div>
           )}
         </div>

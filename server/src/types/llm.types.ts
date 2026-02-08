@@ -818,4 +818,194 @@ export type LLMErrorCode =
   | 'CONNECTION_ERROR'
   | 'INVALID_REQUEST'
   | 'PROVIDER_ERROR'
+  | 'UNSUPPORTED_PARAMETER'
   | 'UNKNOWN_ERROR';
+
+// =============================================================================
+// PARAMETER SUPPORT MATRIX
+// =============================================================================
+
+/**
+ * Defines which parameters each provider/model supports.
+ * Used to validate requests and reject unsupported parameters loudly.
+ */
+export interface ProviderParameterSupport {
+  temperature: boolean;
+  maxTokens: boolean;
+  topP: boolean;
+  topK: boolean;
+  frequencyPenalty: boolean;
+  presencePenalty: boolean;
+  repeatPenalty: boolean;
+  stop: boolean;
+}
+
+/**
+ * Parameter support matrix for each provider.
+ * 'openai-o1' is a special case for o1/o3 models which have restricted parameters.
+ */
+export const PARAMETER_SUPPORT: Record<string, ProviderParameterSupport> = {
+  openai: {
+    temperature: true,
+    maxTokens: true,
+    topP: true,
+    topK: false,
+    frequencyPenalty: true,
+    presencePenalty: true,
+    repeatPenalty: false,
+    stop: true,
+  },
+  'openai-o1': {
+    // Special case for o1/o3 models - very restricted parameters
+    temperature: false,
+    maxTokens: true, // Uses max_completion_tokens instead
+    topP: false,
+    topK: false,
+    frequencyPenalty: false,
+    presencePenalty: false,
+    repeatPenalty: false,
+    stop: false,
+  },
+  'azure-openai': {
+    temperature: true,
+    maxTokens: true,
+    topP: true,
+    topK: false,
+    frequencyPenalty: true,
+    presencePenalty: true,
+    repeatPenalty: false,
+    stop: true,
+  },
+  gemini: {
+    temperature: true,
+    maxTokens: true, // Maps to maxOutputTokens
+    topP: true,
+    topK: true,
+    frequencyPenalty: false,
+    presencePenalty: false,
+    repeatPenalty: false,
+    stop: true,
+  },
+  anthropic: {
+    temperature: true,
+    maxTokens: true,
+    topP: true,
+    topK: true,
+    frequencyPenalty: false,
+    presencePenalty: false,
+    repeatPenalty: false,
+    stop: true,
+  },
+  ollama: {
+    temperature: true,
+    maxTokens: true, // Maps to num_predict
+    topP: true,
+    topK: true,
+    frequencyPenalty: false,
+    presencePenalty: false,
+    repeatPenalty: true, // Ollama uses repeat_penalty instead
+    stop: true,
+  },
+  openrouter: {
+    temperature: true,
+    maxTokens: true,
+    topP: true,
+    topK: false,
+    frequencyPenalty: true,
+    presencePenalty: true,
+    repeatPenalty: false,
+    stop: true,
+  },
+  together: {
+    temperature: true,
+    maxTokens: true,
+    topP: true,
+    topK: false,
+    frequencyPenalty: true,
+    presencePenalty: true,
+    repeatPenalty: false,
+    stop: true,
+  },
+  groq: {
+    temperature: true,
+    maxTokens: true,
+    topP: true,
+    topK: false,
+    frequencyPenalty: true,
+    presencePenalty: true,
+    repeatPenalty: false,
+    stop: true,
+  },
+  mistral: {
+    temperature: true,
+    maxTokens: true,
+    topP: true,
+    topK: false,
+    frequencyPenalty: false,
+    presencePenalty: false,
+    repeatPenalty: false,
+    stop: true,
+  },
+  lmstudio: {
+    // LM Studio is OpenAI-compatible
+    temperature: true,
+    maxTokens: true,
+    topP: true,
+    topK: false,
+    frequencyPenalty: true,
+    presencePenalty: true,
+    repeatPenalty: false,
+    stop: true,
+  },
+  cohere: {
+    temperature: true,
+    maxTokens: true,
+    topP: true,
+    topK: true,
+    frequencyPenalty: true,
+    presencePenalty: true,
+    repeatPenalty: false,
+    stop: true,
+  },
+  custom: {
+    // Custom providers: allow all, let the provider handle unsupported params
+    temperature: true,
+    maxTokens: true,
+    topP: true,
+    topK: true,
+    frequencyPenalty: true,
+    presencePenalty: true,
+    repeatPenalty: true,
+    stop: true,
+  },
+};
+
+/**
+ * Get parameter support for a provider, with special handling for o1/o3 models.
+ */
+export function getParameterSupport(providerName: string, model?: string): ProviderParameterSupport {
+  // Check for o1/o3 models first (they have restricted parameters)
+  if (model && (model.startsWith('o1-') || model.startsWith('o3-'))) {
+    return PARAMETER_SUPPORT['openai-o1'];
+  }
+  return PARAMETER_SUPPORT[providerName] || PARAMETER_SUPPORT['custom'];
+}
+
+/**
+ * Human-readable provider names for error messages.
+ */
+export const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
+  openai: 'OpenAI',
+  'openai-o1': 'OpenAI o1/o3 models',
+  'azure-openai': 'Azure OpenAI',
+  gemini: 'Google Gemini',
+  anthropic: 'Anthropic Claude',
+  ollama: 'Ollama',
+  openrouter: 'OpenRouter',
+  together: 'Together AI',
+  groq: 'Groq',
+  mistral: 'Mistral AI',
+  lmstudio: 'LM Studio',
+  cohere: 'Cohere',
+  custom: 'Custom Provider',
+};

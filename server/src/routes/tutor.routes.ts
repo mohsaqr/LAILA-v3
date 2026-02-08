@@ -139,7 +139,7 @@ router.delete(
 
 /**
  * POST /api/tutors/conversations/:chatbotId/message
- * Send message { message: string }
+ * Send message { message: string, collaborativeSettings?: CollaborativeSettings }
  */
 router.post(
   '/conversations/:chatbotId/message',
@@ -147,7 +147,7 @@ router.post(
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
     const chatbotId = parseInt(req.params.chatbotId);
-    const { message } = req.body;
+    const { message, collaborativeSettings } = req.body;
 
     if (isNaN(chatbotId)) {
       res.status(400).json({ success: false, error: 'Invalid chatbotId' });
@@ -170,7 +170,8 @@ router.post(
       userId,
       chatbotId,
       message.trim(),
-      clientInfo
+      clientInfo,
+      collaborativeSettings
     );
 
     res.json({ success: true, data: response });

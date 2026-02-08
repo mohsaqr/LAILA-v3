@@ -366,11 +366,18 @@ router.get('/lectures/:lectureId/ai-helper/history/:sessionId', authenticateToke
 
 // ============= LECTURE AI HELPER - EXPLAIN MODE (Thread-based) =============
 
+// Get PDF info for a lecture (page counts for page selection UI)
+router.get('/lectures/:lectureId/ai-helper/pdf-info', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const lectureId = parseInt(req.params.lectureId);
+  const pdfInfo = await lectureAIHelperService.getPdfInfo(lectureId, req.user!.id, req.user!.isAdmin);
+  res.json({ success: true, data: { pdfs: pdfInfo } });
+}));
+
 // Create new explain thread
 router.post('/lectures/:lectureId/ai-helper/explain/threads', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const lectureId = parseInt(req.params.lectureId);
-  const { question } = createExplainThreadSchema.parse(req.body);
-  const thread = await lectureAIHelperService.createExplainThread(lectureId, req.user!.id, question, req.user!.isAdmin);
+  const { question, pdfPageRanges } = createExplainThreadSchema.parse(req.body);
+  const thread = await lectureAIHelperService.createExplainThread(lectureId, req.user!.id, question, req.user!.isAdmin, pdfPageRanges);
   res.status(201).json({ success: true, data: thread });
 }));
 
@@ -393,8 +400,8 @@ router.get('/lectures/:lectureId/ai-helper/explain/threads/:threadId', authentic
 router.post('/lectures/:lectureId/ai-helper/explain/threads/:threadId/follow-up', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const lectureId = parseInt(req.params.lectureId);
   const threadId = parseInt(req.params.threadId);
-  const { question, parentPostId } = addExplainFollowUpSchema.parse(req.body);
-  const thread = await lectureAIHelperService.addFollowUp(lectureId, threadId, req.user!.id, question, parentPostId, req.user!.isAdmin);
+  const { question, parentPostId, pdfPageRanges } = addExplainFollowUpSchema.parse(req.body);
+  const thread = await lectureAIHelperService.addFollowUp(lectureId, threadId, req.user!.id, question, parentPostId, req.user!.isAdmin, pdfPageRanges);
   res.json({ success: true, data: thread });
 }));
 

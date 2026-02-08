@@ -622,8 +622,9 @@ export class AgentAssignmentService {
     let completionTokens: number | undefined;
     let totalTokens: number | undefined;
 
-    // Get temperature from config (default to 0.7)
-    const temperature = config.temperature ?? 0.7;
+    // Get temperature from config - only pass if explicitly set (Minimal Parameter Principle)
+    // config.temperature is nullable, so undefined/null means "use provider default"
+    const temperature = config.temperature ?? undefined;
 
     try {
       if (aiConfig.provider === 'openai') {
@@ -1161,7 +1162,7 @@ export class AgentAssignmentService {
     messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
     model: string,
     apiKey: string,
-    temperature = 0.7,
+    temperature?: number,
     baseUrl?: string
   ): Promise<{ content: string; promptTokens?: number; completionTokens?: number; totalTokens?: number }> {
     const client = new OpenAI({
@@ -1169,12 +1170,29 @@ export class AgentAssignmentService {
       baseURL: baseUrl, // For LM Studio or other OpenAI-compatible endpoints
     });
 
-    const response = await client.chat.completions.create({
+    // OpenAI's o1/o3 models use max_completion_tokens instead of max_tokens
+    // and don't support temperature parameter
+    const isO1Model = model.startsWith('o1-') || model.startsWith('o3-');
+
+    // Build request params - only include explicitly provided parameters (Minimal Parameter Principle)
+    const requestParams: any = {
       model,
       messages,
-      max_tokens: 2000,
-      temperature,
-    });
+    };
+
+    if (isO1Model) {
+      // o1 models only support max_completion_tokens, no temperature/top_p etc.
+      requestParams.max_completion_tokens = 2000;
+      // DO NOT send temperature - will cause an error
+    } else {
+      requestParams.max_tokens = 2000;
+      // Only add temperature if explicitly provided
+      if (temperature !== undefined) {
+        requestParams.temperature = temperature;
+      }
+    }
+
+    const response = await client.chat.completions.create(requestParams);
 
     return {
       content: response.choices[0]?.message?.content || 'No response generated',
@@ -1188,12 +1206,19 @@ export class AgentAssignmentService {
     messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
     model: string,
     apiKey: string,
-    temperature = 0.7
+    temperature?: number
   ): Promise<string> {
     const client = new GoogleGenerativeAI(apiKey);
+
+    // Build generation config - only include explicitly provided parameters (Minimal Parameter Principle)
+    const generationConfig: any = {};
+    if (temperature !== undefined) {
+      generationConfig.temperature = temperature;
+    }
+
     const genModel = client.getGenerativeModel({
       model,
-      generationConfig: { temperature },
+      generationConfig: Object.keys(generationConfig).length > 0 ? generationConfig : undefined,
     });
 
     const systemMessage = messages.find(m => m.role === 'system');

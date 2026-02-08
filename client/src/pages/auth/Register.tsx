@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { BrainCircuit, Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
@@ -8,6 +9,7 @@ import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 
 export const Register = () => {
+  const { t } = useTranslation(['auth', 'common']);
   const [fullname, setFullname] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,12 +33,12 @@ export const Register = () => {
     e.preventDefault();
 
     if (password !== confirmPassword) {
-      toast.error('Passwords do not match');
+      toast.error(t('password_mismatch'));
       return;
     }
 
     if (password.length < 6) {
-      toast.error('Password must be at least 6 characters');
+      toast.error(t('password_too_short'));
       return;
     }
 
@@ -44,10 +46,10 @@ export const Register = () => {
 
     try {
       await register(fullname, email, password);
-      toast.success('Account created successfully!');
+      toast.success(t('account_created'));
       navigate('/dashboard');
     } catch (error: any) {
-      toast.error(error.message || 'Failed to create account');
+      toast.error(error.message || t('register_failed'));
     } finally {
       setIsLoading(false);
     }
@@ -64,8 +66,8 @@ export const Register = () => {
                 <BrainCircuit className="w-7 h-7 text-white" />
               </div>
             </Link>
-            <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Create an account</h1>
-            <p className="mt-1" style={{ color: colors.textSecondary }}>Start your AI-powered learning journey</p>
+            <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{t('register_title')}</h1>
+            <p className="mt-1" style={{ color: colors.textSecondary }}>{t('register_subtitle')}</p>
           </div>
 
           {/* Form */}
@@ -74,7 +76,7 @@ export const Register = () => {
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: colors.textMuted }} />
               <Input
                 type="text"
-                placeholder="Full name"
+                placeholder={t('fullname_placeholder')}
                 value={fullname}
                 onChange={(e) => setFullname(e.target.value)}
                 className="pl-11"
@@ -86,7 +88,7 @@ export const Register = () => {
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: colors.textMuted }} />
               <Input
                 type="email"
-                placeholder="Email address"
+                placeholder={t('email_placeholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="pl-11"
@@ -98,7 +100,7 @@ export const Register = () => {
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: colors.textMuted }} />
               <Input
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Password"
+                placeholder={t('password_placeholder')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="pl-11 pr-11"
@@ -118,7 +120,7 @@ export const Register = () => {
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: colors.textMuted }} />
               <Input
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Confirm password"
+                placeholder={t('confirm_password_placeholder')}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="pl-11"
@@ -127,16 +129,16 @@ export const Register = () => {
             </div>
 
             <Button type="submit" className="w-full" loading={isLoading}>
-              Create Account
+              {t('sign_up')}
             </Button>
           </form>
 
           {/* Footer */}
           <div className="mt-6 text-center">
             <p style={{ color: colors.textSecondary }}>
-              Already have an account?{' '}
+              {t('have_account')}{' '}
               <Link to="/login" className="font-medium hover:underline" style={{ color: colors.linkColor }}>
-                Sign in
+                {t('login_link')}
               </Link>
             </p>
           </div>

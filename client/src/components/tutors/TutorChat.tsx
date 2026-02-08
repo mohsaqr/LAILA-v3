@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Send, Trash2, Bot, MessageSquare, Sparkles, Users } from 'lucide-react';
 import { TutorMessage } from './TutorMessage';
 import { TutorTypingIndicator } from './TutorTypingIndicator';
+import { CollaborativePicker } from './CollaborativePicker';
+import { CollaborativeResponse } from './CollaborativeResponse';
 import { Button } from '../common/Button';
 import { EmotionalPulseWidget } from '../common/EmotionalPulseWidget';
 import { useTheme } from '../../hooks/useTheme';
@@ -11,6 +14,7 @@ import type {
   TutorMode,
   RoutingInfo,
   CollaborativeInfo,
+  CollaborativeSettings,
 } from '../../types/tutor';
 import type { EmotionType } from '../../types';
 
@@ -21,27 +25,38 @@ interface MessageWithMeta extends TutorMessageType {
 
 interface TutorChatProps {
   agent: TutorAgent | null;
+  agents?: TutorAgent[]; // All available agents for collaborative picker
   messages: MessageWithMeta[];
-  onSendMessage: (message: string) => Promise<void>;
+  onSendMessage: (message: string, settings?: CollaborativeSettings) => Promise<void>;
   onClearConversation: () => void;
+  onModeChange?: (mode: TutorMode) => void;
   isLoading: boolean;
   mode: TutorMode;
   conversationId?: number;
   onEmotionalPulse?: (emotion: EmotionType) => void;
+  /** Allow students to change routing mode (default: true) */
+  allowModeSwitch?: boolean;
 }
 
 export const TutorChat = ({
   agent,
+  agents = [],
   messages,
   onSendMessage,
   onClearConversation,
+  onModeChange,
   isLoading,
   mode,
   conversationId,
   onEmotionalPulse,
+  allowModeSwitch = true,
 }: TutorChatProps) => {
   const { isDark } = useTheme();
+  const { t } = useTranslation(['tutors', 'common']);
   const [input, setInput] = useState('');
+  const [collaborativeSettings, setCollaborativeSettings] = useState<CollaborativeSettings>({
+    style: 'parallel',
+  });
 
   // Theme colors
   const colors = {
@@ -82,7 +97,10 @@ export const TutorChat = ({
 
     const message = input.trim();
     setInput('');
-    await onSendMessage(message);
+
+    // Pass collaborative settings only in collaborative mode
+    const settings = mode === 'collaborative' ? collaborativeSettings : undefined;
+    await onSendMessage(message, settings);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -101,7 +119,7 @@ export const TutorChat = ({
             style={{ color: colors.modeBadgeTealText, backgroundColor: colors.modeBadgeTealBg }}
           >
             <Sparkles className="w-3 h-3" />
-            <span>Auto-Route</span>
+            <span>{t('auto_route')}</span>
           </div>
         );
       case 'collaborative':
@@ -111,7 +129,7 @@ export const TutorChat = ({
             style={{ color: colors.modeBadgeBlueText, backgroundColor: colors.modeBadgeBlueBg }}
           >
             <Users className="w-3 h-3" />
-            <span>Team Mode</span>
+            <span>{t('team_mode')}</span>
           </div>
         );
       default:
@@ -130,10 +148,9 @@ export const TutorChat = ({
           >
             <MessageSquare className="w-8 h-8" style={{ color: colors.emptyIconInner }} />
           </div>
-          <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>Select a Tutor</h3>
+          <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>{t('select_a_tutor')}</h3>
           <p className="max-w-sm" style={{ color: colors.textSecondary }}>
-            Choose a tutor from the sidebar to start a conversation. Each tutor has a
-            unique teaching style.
+            {t('select_tutor_description')}
           </p>
         </div>
       </div>
@@ -164,39 +181,111 @@ export const TutorChat = ({
         style={{ borderColor: colors.borderLight }}
       >
         <div className="flex items-center gap-3">
-          <div
-            className={`w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br ${getPersonalityColor()} text-white`}
-          >
-            {agent.avatarUrl ? (
-              <img
-                src={agent.avatarUrl}
-                alt={agent.displayName}
-                className="w-full h-full rounded-full object-cover"
-              />
-            ) : (
-              <Bot className="w-5 h-5" />
-            )}
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{agent.displayName}</h2>
-              {getModeLabel()}
-            </div>
-            <p className="text-xs" style={{ color: colors.textSecondary }}>
-              {agent.description || 'AI Tutor'}
-            </p>
-          </div>
+          {/* Show Team Chat avatar/name in collaborative/router mode */}
+          {mode === 'collaborative' || mode === 'router' ? (
+            <>
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-500 text-white">
+                <Users className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{t('team_chat')}</h2>
+                  {getModeLabel()}
+                </div>
+                <p className="text-xs" style={{ color: colors.textSecondary }}>
+                  {mode === 'collaborative'
+                    ? t('n_tutors_available', { count: agents.length })
+                    : t('best_tutor_auto_selected')
+                  }
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br ${getPersonalityColor()} text-white`}
+              >
+                {agent.avatarUrl ? (
+                  <img
+                    src={agent.avatarUrl}
+                    alt={agent.displayName}
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  <Bot className="w-5 h-5" />
+                )}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{agent.displayName}</h2>
+                  {getModeLabel()}
+                </div>
+                <p className="text-xs" style={{ color: colors.textSecondary }}>
+                  {agent.description || t('ai_tutor')}
+                </p>
+              </div>
+            </>
+          )}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onClearConversation}
-          disabled={isLoading || messages.length === 0}
-          icon={<Trash2 className="w-4 h-4" />}
-          title="Clear conversation"
-        >
-          Clear
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Mode quick-switch buttons - only if allowed */}
+          {allowModeSwitch && (
+            <div className="flex items-center gap-1 mr-2">
+              <button
+                onClick={() => onModeChange?.('manual')}
+                disabled={isLoading}
+                className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                  mode === 'manual' ? 'font-medium' : ''
+                }`}
+                style={{
+                  backgroundColor: mode === 'manual' ? (isDark ? 'rgba(59, 130, 246, 0.2)' : '#eff6ff') : 'transparent',
+                  color: mode === 'manual' ? (isDark ? '#60a5fa' : '#2563eb') : colors.textSecondary,
+                }}
+                title={t('manual_title')}
+              >
+                {t('manual')}
+              </button>
+              <button
+                onClick={() => onModeChange?.('router')}
+                disabled={isLoading}
+                className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                  mode === 'router' ? 'font-medium' : ''
+                }`}
+                style={{
+                  backgroundColor: mode === 'router' ? (isDark ? 'rgba(8, 143, 143, 0.2)' : '#f0fdfd') : 'transparent',
+                  color: mode === 'router' ? (isDark ? '#22d3d3' : '#088F8F') : colors.textSecondary,
+                }}
+                title={t('auto_title')}
+              >
+                {t('auto')}
+              </button>
+              <button
+                onClick={() => onModeChange?.('collaborative')}
+                disabled={isLoading}
+                className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                  mode === 'collaborative' ? 'font-medium' : ''
+                }`}
+                style={{
+                  backgroundColor: mode === 'collaborative' ? (isDark ? 'rgba(59, 130, 246, 0.2)' : '#eff6ff') : 'transparent',
+                color: mode === 'collaborative' ? (isDark ? '#60a5fa' : '#2563eb') : colors.textSecondary,
+              }}
+                title={t('team_title')}
+              >
+                {t('team')}
+              </button>
+            </div>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClearConversation}
+            disabled={isLoading || messages.length === 0}
+            icon={<Trash2 className="w-4 h-4" />}
+            title={t('clear_conversation')}
+          >
+            {t('clear')}
+          </Button>
+        </div>
       </div>
 
       {/* Messages Area */}
@@ -220,23 +309,43 @@ export const TutorChat = ({
             >
               <p className="text-sm" style={{ color: colors.textPrimary }}>
                 {agent.welcomeMessage ||
-                  `Hello! I'm ${agent.displayName}. How can I help you today?`}
+                  t('hello_greeting', { name: agent.displayName })}
               </p>
             </div>
           </div>
         )}
 
         {/* Conversation messages */}
-        {messages.map((message) => (
-          <TutorMessage
-            key={message.id}
-            message={message}
-            agentName={agent.displayName}
-            routingInfo={message.routingInfo}
-            collaborativeInfo={message.collaborativeInfo}
-            showMetadata={true}
-          />
-        ))}
+        {messages.map((message) => {
+          // For collaborative responses, show staggered display
+          if (message.role === 'assistant' && message.collaborativeInfo?.agentContributions?.length) {
+            // Show immediately if message is older than 5 seconds (loaded from history)
+            const messageAge = Date.now() - new Date(message.createdAt).getTime();
+            const isOldMessage = messageAge > 5000;
+
+            return (
+              <div key={message.id}>
+                <CollaborativeResponse
+                  contributions={message.collaborativeInfo.agentContributions}
+                  style={message.collaborativeInfo.style}
+                  immediate={isOldMessage}
+                />
+              </div>
+            );
+          }
+
+          // Regular message display
+          return (
+            <TutorMessage
+              key={message.id}
+              message={message}
+              agentName={agent.displayName}
+              routingInfo={message.routingInfo}
+              collaborativeInfo={message.collaborativeInfo}
+              showMetadata={true}
+            />
+          );
+        })}
 
         {/* Typing indicator */}
         {isLoading && <TutorTypingIndicator agentName={agent.displayName} />}
@@ -254,6 +363,18 @@ export const TutorChat = ({
         onPulse={onEmotionalPulse}
       />
 
+      {/* Collaborative Picker (only in collaborative mode) */}
+      {mode === 'collaborative' && agents.length > 0 && (
+        <div className="px-4 pt-3">
+          <CollaborativePicker
+            agents={agents}
+            currentSettings={collaborativeSettings}
+            onSettingsChange={setCollaborativeSettings}
+            disabled={isLoading}
+          />
+        </div>
+      )}
+
       {/* Input Area */}
       <div className="p-4 border-t" style={{ borderColor: colors.borderLight }}>
         <div className="flex gap-2">
@@ -262,7 +383,7 @@ export const TutorChat = ({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={`Message ${agent.displayName}...`}
+            placeholder={mode === 'collaborative' ? t('message_team') : t('message_tutor', { name: agent.displayName })}
             className="flex-1 px-4 py-2 border rounded-lg resize-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
             style={{
               backgroundColor: colors.inputBg,
@@ -271,19 +392,19 @@ export const TutorChat = ({
             }}
             rows={1}
             disabled={isLoading}
-            aria-label={`Message ${agent.displayName}`}
+            aria-label={mode === 'collaborative' ? t('message_team') : t('message_tutor', { name: agent.displayName })}
           />
           <Button
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
             icon={<Send className="w-4 h-4" />}
-            aria-label="Send message"
+            aria-label={t('send_message')}
           >
-            Send
+            {t('send')}
           </Button>
         </div>
         <p className="text-xs mt-2" style={{ color: colors.textMuted }}>
-          Press Enter to send, Shift+Enter for new line
+          {t('press_enter_to_send')}
         </p>
       </div>
     </div>

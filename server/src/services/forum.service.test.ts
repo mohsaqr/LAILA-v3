@@ -432,6 +432,203 @@ describe('ForumService', () => {
     });
   });
 
+  describe('updateThread', () => {
+    it('should update thread as author', async () => {
+      const mockThreadForUpdate = {
+        ...mockThread,
+        authorId: 20,
+      };
+      vi.mocked(prisma.forumThread.findUnique).mockResolvedValue(mockThreadForUpdate as any);
+      vi.mocked(prisma.forumThread.update).mockResolvedValue({
+        ...mockThreadForUpdate,
+        title: 'Updated Title',
+      } as any);
+      vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any);
+
+      const thread = await forumService.updateThread(1, 20, { title: 'Updated Title' });
+
+      expect(thread.title).toBe('Updated Title');
+    });
+
+    it('should allow instructor to update any thread', async () => {
+      vi.mocked(prisma.forumThread.findUnique).mockResolvedValue(mockThread as any);
+      vi.mocked(prisma.forumThread.update).mockResolvedValue({
+        ...mockThread,
+        title: 'Updated By Instructor',
+      } as any);
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({ fullname: 'Instructor' } as any);
+
+      const thread = await forumService.updateThread(1, 10, { title: 'Updated By Instructor' });
+
+      expect(thread.title).toBe('Updated By Instructor');
+    });
+
+    it('should throw 404 when thread not found', async () => {
+      vi.mocked(prisma.forumThread.findUnique).mockResolvedValue(null);
+
+      await expect(
+        forumService.updateThread(999, 20, { title: 'Test' })
+      ).rejects.toThrow(AppError);
+      await expect(
+        forumService.updateThread(999, 20, { title: 'Test' })
+      ).rejects.toThrow('Thread not found');
+    });
+
+    it('should throw 400 when thread is locked', async () => {
+      vi.mocked(prisma.forumThread.findUnique).mockResolvedValue({
+        ...mockThread,
+        isLocked: true,
+        authorId: 20,
+      } as any);
+
+      await expect(
+        forumService.updateThread(1, 20, { title: 'Test' })
+      ).rejects.toThrow(AppError);
+      await expect(
+        forumService.updateThread(1, 20, { title: 'Test' })
+      ).rejects.toThrow('Thread is locked');
+    });
+
+    it('should throw 403 when not authorized', async () => {
+      vi.mocked(prisma.forumThread.findUnique).mockResolvedValue(mockThread as any);
+
+      await expect(
+        forumService.updateThread(1, 99, { title: 'Test' }, false)
+      ).rejects.toThrow(AppError);
+      await expect(
+        forumService.updateThread(1, 99, { title: 'Test' }, false)
+      ).rejects.toThrow('Not authorized');
+    });
+  });
+
+  describe('deleteThread', () => {
+    it('should delete thread as author', async () => {
+      const mockThreadForDelete = {
+        ...mockThread,
+        authorId: 20,
+        _count: { posts: 3 },
+      };
+      vi.mocked(prisma.forumThread.findUnique).mockResolvedValue(mockThreadForDelete as any);
+      vi.mocked(prisma.forumThread.delete).mockResolvedValue(mockThread as any);
+      vi.mocked(prisma.user.findUnique)
+        .mockResolvedValueOnce(mockUser as any) // Deleter
+        .mockResolvedValueOnce({ fullname: 'Thread Author' } as any); // Thread author
+
+      const result = await forumService.deleteThread(1, 20);
+
+      expect(result.message).toBe('Thread deleted');
+    });
+
+    it('should allow instructor to delete any thread', async () => {
+      const mockThreadWithCount = {
+        ...mockThread,
+        _count: { posts: 5 },
+      };
+      vi.mocked(prisma.forumThread.findUnique).mockResolvedValue(mockThreadWithCount as any);
+      vi.mocked(prisma.forumThread.delete).mockResolvedValue(mockThread as any);
+      vi.mocked(prisma.user.findUnique)
+        .mockResolvedValueOnce({ fullname: 'Instructor' } as any)
+        .mockResolvedValueOnce({ fullname: 'Thread Author' } as any);
+
+      const result = await forumService.deleteThread(1, 10);
+
+      expect(result.message).toBe('Thread deleted');
+    });
+
+    it('should throw 404 when thread not found', async () => {
+      vi.mocked(prisma.forumThread.findUnique).mockResolvedValue(null);
+
+      await expect(forumService.deleteThread(999, 20)).rejects.toThrow(AppError);
+      await expect(forumService.deleteThread(999, 20)).rejects.toThrow('Thread not found');
+    });
+
+    it('should throw 403 when not authorized', async () => {
+      vi.mocked(prisma.forumThread.findUnique).mockResolvedValue(mockThread as any);
+
+      await expect(forumService.deleteThread(1, 99, false)).rejects.toThrow(AppError);
+      await expect(forumService.deleteThread(1, 99, false)).rejects.toThrow('Not authorized');
+    });
+
+    it('should delete thread with anonymous author', async () => {
+      const anonThread = {
+        ...mockThread,
+        authorId: 20,
+        isAnonymous: true,
+        _count: { posts: 0 },
+      };
+      vi.mocked(prisma.forumThread.findUnique).mockResolvedValue(anonThread as any);
+      vi.mocked(prisma.forumThread.delete).mockResolvedValue(mockThread as any);
+      vi.mocked(prisma.user.findUnique)
+        .mockResolvedValueOnce(mockUser as any)
+        .mockResolvedValueOnce({ fullname: 'Thread Author' } as any);
+
+      const result = await forumService.deleteThread(1, 20);
+
+      expect(result.message).toBe('Thread deleted');
+    });
+  });
+
+  describe('getThreads', () => {
+    it('should return threads for enrolled user', async () => {
+      vi.mocked(prisma.forum.findUnique).mockResolvedValue(mockForum as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue({ id: 1 } as any);
+      vi.mocked(prisma.forumThread.findMany).mockResolvedValue([{
+        ...mockThread,
+        posts: [{ id: 1 }],
+      }] as any);
+      vi.mocked(prisma.forumThread.count).mockResolvedValue(1);
+      vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 15, fullname: 'Thread Author' }] as any);
+
+      const result = await forumService.getThreads(1, 20, 1, 20, false, false);
+
+      expect(result.threads).toHaveLength(1);
+      expect(result.pagination.total).toBe(1);
+      expect(result.threads[0].replyCount).toBe(1);
+    });
+
+    it('should throw 404 when forum not found', async () => {
+      vi.mocked(prisma.forum.findUnique).mockResolvedValue(null);
+
+      await expect(forumService.getThreads(999, 20)).rejects.toThrow(AppError);
+      await expect(forumService.getThreads(999, 20)).rejects.toThrow('Forum not found');
+    });
+
+    it('should throw 403 when not enrolled', async () => {
+      vi.mocked(prisma.forum.findUnique).mockResolvedValue(mockForum as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null);
+
+      await expect(forumService.getThreads(1, 99, 1, 20, false, false)).rejects.toThrow(AppError);
+      await expect(forumService.getThreads(1, 99, 1, 20, false, false)).rejects.toThrow('Not enrolled');
+    });
+
+    it('should allow instructor to view threads', async () => {
+      vi.mocked(prisma.forum.findUnique).mockResolvedValue(mockForum as any);
+      vi.mocked(prisma.forumThread.findMany).mockResolvedValue([mockThread] as any);
+      vi.mocked(prisma.forumThread.count).mockResolvedValue(1);
+      vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 15, fullname: 'Thread Author' }] as any);
+
+      const result = await forumService.getThreads(1, 10, 1, 20, true, false);
+
+      expect(result.threads).toHaveLength(1);
+    });
+
+    it('should hide author for anonymous threads', async () => {
+      vi.mocked(prisma.forum.findUnique).mockResolvedValue(mockForum as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue({ id: 1 } as any);
+      vi.mocked(prisma.forumThread.findMany).mockResolvedValue([{
+        ...mockThread,
+        isAnonymous: true,
+        posts: [],
+      }] as any);
+      vi.mocked(prisma.forumThread.count).mockResolvedValue(1);
+      vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 15, fullname: 'Thread Author' }] as any);
+
+      const result = await forumService.getThreads(1, 20, 1, 20, false, false);
+
+      expect(result.threads[0].author).toBeNull();
+    });
+  });
+
   describe('getThread', () => {
     it('should return thread with posts', async () => {
       vi.mocked(prisma.forumThread.findUnique).mockResolvedValue({
@@ -568,6 +765,89 @@ describe('ForumService', () => {
         forumService.createPost(1, 20, { content: 'Test', parentId: 5 })
       ).rejects.toThrow('Invalid parent post');
     });
+
+    it('should throw 400 when anonymous posting not allowed in forum', async () => {
+      const threadWithNoAnon = {
+        ...mockThread,
+        forum: { ...mockThread.forum, allowAnonymous: false },
+      };
+      vi.mocked(prisma.forumThread.findUnique).mockResolvedValue(threadWithNoAnon as any);
+      vi.mocked(prisma.user.findUnique)
+        .mockResolvedValueOnce(mockUser as any)
+        .mockResolvedValueOnce({ fullname: 'Thread Author' } as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue({ id: 1 } as any);
+
+      await expect(
+        forumService.createPost(1, 20, { content: 'Test', isAnonymous: true })
+      ).rejects.toThrow(AppError);
+      await expect(
+        forumService.createPost(1, 20, { content: 'Test', isAnonymous: true })
+      ).rejects.toThrow('Anonymous posting is not allowed in this forum');
+    });
+
+    it('should create reply to parent post successfully', async () => {
+      const threadWithAnon = {
+        ...mockThread,
+        forum: { ...mockThread.forum, allowAnonymous: true },
+      };
+      const parentPost = {
+        id: 5,
+        threadId: 1,
+        authorId: 30,
+        content: 'This is the parent post content that is fairly long and exceeds 200 characters so we can test the truncation logic properly. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
+        isAnonymous: false,
+      };
+      vi.mocked(prisma.forumThread.findUnique).mockResolvedValue(threadWithAnon as any);
+      vi.mocked(prisma.user.findUnique)
+        .mockResolvedValueOnce(mockUser as any) // User check
+        .mockResolvedValueOnce({ id: 30, fullname: 'Parent Author' } as any) // Parent author check
+        .mockResolvedValueOnce({ fullname: 'Thread Author' } as any); // Thread author
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue({ id: 1 } as any);
+      vi.mocked(prisma.forumPost.findUnique).mockResolvedValue(parentPost as any);
+      vi.mocked(prisma.forumPost.create).mockResolvedValue({
+        ...mockPost,
+        parentId: 5,
+      } as any);
+
+      const post = await forumService.createPost(1, 20, {
+        content: 'Reply to parent',
+        parentId: 5,
+      });
+
+      expect(post.parentId).toBe(5);
+    });
+
+    it('should handle anonymous parent post in reply', async () => {
+      const threadWithAnon = {
+        ...mockThread,
+        forum: { ...mockThread.forum, allowAnonymous: true },
+      };
+      const parentPost = {
+        id: 5,
+        threadId: 1,
+        authorId: 30,
+        content: 'Anonymous parent',
+        isAnonymous: true,
+      };
+      vi.mocked(prisma.forumThread.findUnique).mockResolvedValue(threadWithAnon as any);
+      vi.mocked(prisma.user.findUnique)
+        .mockResolvedValueOnce(mockUser as any)
+        .mockResolvedValueOnce({ id: 30, fullname: 'Parent Author' } as any)
+        .mockResolvedValueOnce({ fullname: 'Thread Author' } as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue({ id: 1 } as any);
+      vi.mocked(prisma.forumPost.findUnique).mockResolvedValue(parentPost as any);
+      vi.mocked(prisma.forumPost.create).mockResolvedValue({
+        ...mockPost,
+        parentId: 5,
+      } as any);
+
+      const post = await forumService.createPost(1, 20, {
+        content: 'Reply to anonymous',
+        parentId: 5,
+      });
+
+      expect(post.parentId).toBe(5);
+    });
   });
 
   describe('updatePost', () => {
@@ -669,6 +949,60 @@ describe('ForumService', () => {
 
       await expect(forumService.deletePost(1, 99, false)).rejects.toThrow(AppError);
       await expect(forumService.deletePost(1, 99, false)).rejects.toThrow('Not authorized');
+    });
+
+    it('should delete post with parentId and log parent info', async () => {
+      const postWithParent = {
+        ...mockPost,
+        authorId: 20,
+        parentId: 5,
+        thread: mockThread,
+      };
+      const parentPost = {
+        id: 5,
+        authorId: 30,
+        content: 'Parent post content',
+        isAnonymous: false,
+      };
+      vi.mocked(prisma.forumPost.findUnique)
+        .mockResolvedValueOnce(postWithParent as any) // First call for the post to delete
+        .mockResolvedValueOnce(parentPost as any); // Second call for the parent post
+      vi.mocked(prisma.forumPost.delete).mockResolvedValue(postWithParent as any);
+      vi.mocked(prisma.user.findUnique)
+        .mockResolvedValueOnce(mockUser as any) // Deleter info
+        .mockResolvedValueOnce({ fullname: 'Post Author' } as any) // Post author
+        .mockResolvedValueOnce({ fullname: 'Parent Author' } as any); // Parent author
+
+      const result = await forumService.deletePost(1, 20);
+
+      expect(result.message).toBe('Post deleted');
+    });
+
+    it('should handle delete post with anonymous parent', async () => {
+      const postWithParent = {
+        ...mockPost,
+        authorId: 20,
+        parentId: 5,
+        thread: mockThread,
+      };
+      const parentPost = {
+        id: 5,
+        authorId: 30,
+        content: 'Parent post content',
+        isAnonymous: true,
+      };
+      vi.mocked(prisma.forumPost.findUnique)
+        .mockResolvedValueOnce(postWithParent as any)
+        .mockResolvedValueOnce(parentPost as any);
+      vi.mocked(prisma.forumPost.delete).mockResolvedValue(postWithParent as any);
+      vi.mocked(prisma.user.findUnique)
+        .mockResolvedValueOnce(mockUser as any)
+        .mockResolvedValueOnce({ fullname: 'Post Author' } as any)
+        .mockResolvedValueOnce({ fullname: 'Parent Author' } as any);
+
+      const result = await forumService.deletePost(1, 20);
+
+      expect(result.message).toBe('Post deleted');
     });
   });
 
@@ -815,6 +1149,91 @@ describe('ForumService', () => {
         })
       );
     });
+
+    it('should throw 403 when user not enrolled and not instructor', async () => {
+      // User is not admin, not instructor, and not course owner
+      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+        id: 30,
+        fullname: 'Other User',
+        email: 'other@test.com',
+        isAdmin: false,
+        isInstructor: false,
+      } as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null);
+
+      await expect(forumService.createAiPost(1, 30, 1)).rejects.toThrow(AppError);
+      await expect(forumService.createAiPost(1, 30, 1)).rejects.toThrow('Not enrolled in this course');
+    });
+
+    it('should throw 400 when parent post belongs to different thread', async () => {
+      vi.mocked(prisma.forumPost.findUnique).mockResolvedValue({
+        id: 5,
+        threadId: 999, // Different thread
+        content: 'Parent in different thread',
+        authorId: 20,
+        isAnonymous: false,
+      } as any);
+
+      await expect(forumService.createAiPost(1, 20, 1, 5)).rejects.toThrow(AppError);
+      await expect(forumService.createAiPost(1, 20, 1, 5)).rejects.toThrow('Invalid parent post');
+    });
+
+    it('should create AI post with existing thread posts for context', async () => {
+      vi.mocked(prisma.forumThread.findUnique).mockResolvedValue({
+        ...mockThread,
+        isAnonymous: true,
+        posts: [
+          {
+            id: 1,
+            content: 'First post',
+            authorId: 21,
+            isAnonymous: false,
+            isAiGenerated: false,
+            aiAgentName: null,
+            createdAt: new Date(),
+          },
+          {
+            id: 2,
+            content: 'AI response',
+            authorId: 20,
+            isAnonymous: false,
+            isAiGenerated: true,
+            aiAgentName: 'Math Tutor',
+            createdAt: new Date(),
+          },
+          {
+            id: 3,
+            content: 'Anonymous reply',
+            authorId: 22,
+            isAnonymous: true,
+            isAiGenerated: false,
+            aiAgentName: null,
+            createdAt: new Date(),
+          },
+        ],
+      } as any);
+      vi.mocked(prisma.user.findMany).mockResolvedValue([
+        { id: 21, fullname: 'User 21' },
+        { id: 22, fullname: 'User 22' },
+      ] as any);
+      vi.mocked(prisma.forumPost.create).mockResolvedValue({
+        ...mockPost,
+        isAiGenerated: true,
+        aiAgentName: 'Math Tutor',
+      } as any);
+
+      const post = await forumService.createAiPost(1, 20, 1);
+
+      expect(post.isAiGenerated).toBe(true);
+      expect(chatService.chat).toHaveBeenCalled();
+    });
+
+    it('should handle parent post not found', async () => {
+      vi.mocked(prisma.forumPost.findUnique).mockResolvedValue(null);
+
+      await expect(forumService.createAiPost(1, 20, 1, 999)).rejects.toThrow(AppError);
+      await expect(forumService.createAiPost(1, 20, 1, 999)).rejects.toThrow('Invalid parent post');
+    });
   });
 
   // ===========================================================================
@@ -878,6 +1297,161 @@ describe('ForumService', () => {
           where: { moduleId: 1 },
         })
       );
+    });
+  });
+
+  // ===========================================================================
+  // updateForum
+  // ===========================================================================
+
+  describe('updateForum', () => {
+    const mockForumWithCourse = {
+      id: 1,
+      title: 'Test Forum',
+      courseId: 1,
+      course: { id: 1, title: 'Test Course', instructorId: 10 },
+    };
+
+    it('should update forum as instructor', async () => {
+      vi.mocked(prisma.forum.findUnique).mockResolvedValue(mockForumWithCourse as any);
+      vi.mocked(prisma.forum.update).mockResolvedValue({
+        ...mockForumWithCourse,
+        title: 'Updated Forum',
+      } as any);
+
+      const result = await forumService.updateForum(1, 10, { title: 'Updated Forum' });
+
+      expect(result.title).toBe('Updated Forum');
+      expect(prisma.forum.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { title: 'Updated Forum' },
+      });
+    });
+
+    it('should update forum as admin', async () => {
+      vi.mocked(prisma.forum.findUnique).mockResolvedValue(mockForumWithCourse as any);
+      vi.mocked(prisma.forum.update).mockResolvedValue({
+        ...mockForumWithCourse,
+        description: 'New description',
+      } as any);
+
+      const result = await forumService.updateForum(1, 99, { description: 'New description' }, true);
+
+      expect(result.description).toBe('New description');
+    });
+
+    it('should throw 404 when forum not found', async () => {
+      vi.mocked(prisma.forum.findUnique).mockResolvedValue(null);
+
+      await expect(
+        forumService.updateForum(999, 10, { title: 'Updated' })
+      ).rejects.toThrow(AppError);
+      await expect(
+        forumService.updateForum(999, 10, { title: 'Updated' })
+      ).rejects.toThrow('Forum not found');
+    });
+
+    it('should throw 403 when not authorized', async () => {
+      vi.mocked(prisma.forum.findUnique).mockResolvedValue(mockForumWithCourse as any);
+
+      await expect(
+        forumService.updateForum(1, 99, { title: 'Updated' }, false)
+      ).rejects.toThrow(AppError);
+      await expect(
+        forumService.updateForum(1, 99, { title: 'Updated' }, false)
+      ).rejects.toThrow('Not authorized');
+    });
+  });
+
+  // ===========================================================================
+  // getAllUserForums
+  // ===========================================================================
+
+  describe('getAllUserForums', () => {
+    const mockForums = [
+      {
+        id: 1,
+        title: 'Forum 1',
+        description: 'Description 1',
+        courseId: 1,
+        course: { id: 1, title: 'Course 1' },
+        _count: { threads: 5 },
+        threads: [{ createdAt: new Date() }],
+      },
+    ];
+
+    it('should return forums for enrolled student', async () => {
+      vi.mocked(prisma.enrollment.findMany).mockResolvedValue([{ courseId: 1 }] as any);
+      vi.mocked(prisma.forum.findMany).mockResolvedValue(mockForums as any);
+
+      const result = await forumService.getAllUserForums(20, false, false);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].title).toBe('Forum 1');
+      expect(result[0].threadCount).toBe(5);
+    });
+
+    it('should return forums for instructor including own courses', async () => {
+      vi.mocked(prisma.course.findMany).mockResolvedValue([{ id: 2 }] as any);
+      vi.mocked(prisma.enrollment.findMany).mockResolvedValue([{ courseId: 1 }] as any);
+      vi.mocked(prisma.forum.findMany).mockResolvedValue(mockForums as any);
+
+      const result = await forumService.getAllUserForums(10, true, false);
+
+      expect(result).toHaveLength(1);
+      // Verify course.findMany was called for instructor's own courses
+      expect(prisma.course.findMany).toHaveBeenCalledWith({
+        where: { instructorId: 10 },
+        select: { id: true },
+      });
+    });
+
+    it('should return empty array when no enrollments', async () => {
+      vi.mocked(prisma.enrollment.findMany).mockResolvedValue([]);
+
+      const result = await forumService.getAllUserForums(20, false, false);
+
+      expect(result).toEqual([]);
+    });
+
+    it('should return all forums for admin', async () => {
+      vi.mocked(prisma.course.findMany).mockResolvedValue([{ id: 1 }] as any);
+      vi.mocked(prisma.forum.findMany).mockResolvedValue(mockForums as any);
+
+      const result = await forumService.getAllUserForums(99, false, true);
+
+      expect(result).toHaveLength(1);
+    });
+  });
+
+  // ===========================================================================
+  // getThread - additional tests
+  // ===========================================================================
+
+  describe('getThread - enrollment check', () => {
+    const mockThread = {
+      id: 1,
+      title: 'Test Thread',
+      content: 'Content',
+      authorId: 20,
+      forum: {
+        id: 1,
+        courseId: 1,
+        course: { id: 1, instructorId: 10 },
+      },
+      posts: [],
+    };
+
+    it('should throw 403 when not enrolled and not instructor', async () => {
+      vi.mocked(prisma.forumThread.findUnique).mockResolvedValue(mockThread as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null);
+
+      await expect(
+        forumService.getThread(1, 99, false, false)
+      ).rejects.toThrow(AppError);
+      await expect(
+        forumService.getThread(1, 99, false, false)
+      ).rejects.toThrow('Not enrolled in this course');
     });
   });
 });

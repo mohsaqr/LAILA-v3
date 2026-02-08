@@ -44,3 +44,33 @@ export const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+/**
+ * Rate limiter for AI/LLM endpoints.
+ * Stricter limits to prevent API cost abuse and denial of wallet attacks.
+ */
+export const llmLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10, // 10 requests per minute
+  message: {
+    success: false,
+    error: 'Too many AI requests. Please slow down to avoid service abuse.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
+ * Rate limiter for forum AI agent requests.
+ * Strict limits to prevent abuse of AI tutor features in forums.
+ */
+export const forumAiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 3, // 3 AI requests per minute per user
+  message: {
+    success: false,
+    error: 'AI request limit reached. Please wait before asking another AI tutor.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});

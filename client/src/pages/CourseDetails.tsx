@@ -1,178 +1,43 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Users,
   BookOpen,
   PlayCircle,
-  FileText,
-  ChevronDown,
-  ChevronRight,
   Edit,
   Settings,
-  Download,
-  FlaskConical,
-  Sparkles,
-  Upload,
   ClipboardList,
   Bot,
+  MessageSquare,
   PenSquare,
+  FileText,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../api/courses';
 import { enrollmentsApi } from '../api/enrollments';
 import { assignmentsApi } from '../api/assignments';
+import { forumsApi, Forum } from '../api/forums';
+import { quizzesApi, Quiz } from '../api/quizzes';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import { Card, CardBody } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
-import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStudent';
-import { AssignmentSectionStudent } from '../components/course/AssignmentSectionStudent';
-import { ContentModal } from '../components/content/ContentModal';
 import { CollaborativeModule } from '../components/course/CollaborativeModule';
-import { useState, useEffect } from 'react';
-import { LectureSection } from '../types';
+import { ModuleSection } from '../components/course/ModuleSection';
+import { useEffect, useRef } from 'react';
+import { Assignment, CurriculumViewMode } from '../types';
 import activityLogger from '../services/activityLogger';
-
-// Helper to strip HTML and truncate for preview
-const getPreviewText = (html: string, maxLength = 250): string => {
-  const div = document.createElement('div');
-  div.innerHTML = html;
-  const text = div.textContent || div.innerText || '';
-  if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength).trim() + '...';
-};
-
-// Section renderer for lecture content
-interface SectionRendererProps {
-  section: LectureSection;
-  courseId: number;
-  lectureId?: number;
-  moduleId?: number;
-  onOpenContent?: (section: LectureSection, lectureId?: number, moduleId?: number) => void;
-  colors: Record<string, string>;
-}
-
-const SectionRenderer = ({ section, courseId, lectureId, moduleId, onOpenContent, colors }: SectionRendererProps) => {
-  switch (section.type) {
-    case 'text':
-    case 'ai-generated': {
-      const previewText = section.content ? getPreviewText(section.content, 250) : '';
-      return (
-        <div
-          className="mb-4 p-3 rounded-lg border hover:shadow-sm transition-shadow"
-          style={{ backgroundColor: colors.bgCard, borderColor: colors.border }}
-        >
-          <div className="flex items-start gap-3">
-            <div
-              className="flex-shrink-0 p-2 rounded-lg"
-              style={{ backgroundColor: section.type === 'ai-generated' ? colors.bgTeal : colors.bgBlue }}
-            >
-              {section.type === 'ai-generated' ? (
-                <Sparkles className="w-5 h-5" style={{ color: colors.textTeal }} />
-              ) : (
-                <FileText className="w-5 h-5" style={{ color: colors.textBlue }} />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <h4 className="font-medium mb-1" style={{ color: colors.textPrimary }}>
-                {section.title || 'Text Content'}
-              </h4>
-              {section.content ? (
-                <>
-                  <p className="text-sm line-clamp-3 mb-2" style={{ color: colors.textSecondary }}>{previewText}</p>
-                  <button
-                    onClick={() => onOpenContent?.(section, lectureId, moduleId)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
-                    style={{ backgroundColor: colors.bgPrimaryLight, color: colors.textPrimary600 }}
-                  >
-                    <BookOpen className="w-4 h-4" />
-                    Read Article
-                  </button>
-                </>
-              ) : (
-                <p className="text-sm italic" style={{ color: colors.textMuted }}>No content yet</p>
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    case 'file':
-      if (!section.fileUrl) {
-        return (
-          <div className="mb-4 p-4 rounded-lg text-center" style={{ backgroundColor: colors.bgHover }}>
-            <Upload className="w-8 h-8 mx-auto mb-2" style={{ color: colors.textMuted }} />
-            <p style={{ color: colors.textSecondary }}>No file uploaded</p>
-          </div>
-        );
-      }
-      const isImage = section.fileType?.startsWith('image/');
-      const isPdf = section.fileType === 'application/pdf';
-      const handleFileDownload = () => {
-        activityLogger.logFileDownloaded(section.id, section.fileName || undefined, lectureId, courseId).catch(() => {});
-      };
-      return (
-        <div className="mb-4">
-          {section.title && <h4 className="font-medium mb-2" style={{ color: colors.textPrimary }}>{section.title}</h4>}
-          {isImage ? (
-            <img src={section.fileUrl} alt={section.fileName || ''} className="max-w-full rounded-lg" />
-          ) : isPdf ? (
-            <div>
-              <iframe src={section.fileUrl} className="w-full h-[500px] rounded-lg border" title={section.fileName || 'PDF'} style={{ borderColor: colors.border }} />
-              <a href={section.fileUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-2 text-primary-600 hover:underline" onClick={handleFileDownload}>
-                <Download className="w-4 h-4" /> Download {section.fileName}
-              </a>
-            </div>
-          ) : (
-            <a
-              href={section.fileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-3 p-4 rounded-lg transition-colors"
-              style={{ backgroundColor: colors.bgHover }}
-              onClick={handleFileDownload}
-            >
-              <FileText className="w-8 h-8" style={{ color: colors.textMuted }} />
-              <div className="flex-1">
-                <p className="font-medium" style={{ color: colors.textPrimary }}>{section.fileName}</p>
-                {section.fileSize && <p className="text-sm" style={{ color: colors.textSecondary }}>{(section.fileSize / 1024).toFixed(1)} KB</p>}
-              </div>
-              <Download className="w-5 h-5" style={{ color: colors.textMuted }} />
-            </a>
-          )}
-        </div>
-      );
-
-    case 'chatbot':
-      return (
-        <div className="mb-4">
-          <ChatbotSectionStudent section={section} courseId={courseId} />
-        </div>
-      );
-
-    case 'assignment':
-      return (
-        <div className="mb-4">
-          <AssignmentSectionStudent section={section} courseId={courseId} />
-        </div>
-      );
-
-    default:
-      return null;
-  }
-};
 
 export const CourseDetails = () => {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const { isAuthenticated, user, isInstructor: isUserInstructor, isActualAdmin, isActualInstructor } = useAuth();
   const { isDark } = useTheme();
-  const [expandedModules, setExpandedModules] = useState<number[]>([]);
-  const [selectedLectureId, setSelectedLectureId] = useState<number | null>(null);
-  const [modalContent, setModalContent] = useState<{ title?: string; content: string } | null>(null);
+  const { t } = useTranslation(['courses', 'common']);
+  const moduleRefs = useRef<Record<number, HTMLElement | null>>({});
 
   // Theme colors
   const colors = {
@@ -180,18 +45,12 @@ export const CourseDetails = () => {
     bgCard: isDark ? '#1f2937' : '#ffffff',
     bgHeader: isDark ? '#1f2937' : '#ffffff',
     bgHover: isDark ? '#374151' : '#f9fafb',
-    bgSelected: isDark ? 'rgba(99, 102, 241, 0.2)' : '#eef2ff',
     textPrimary: isDark ? '#f3f4f6' : '#111827',
     textSecondary: isDark ? '#9ca3af' : '#6b7280',
     textMuted: isDark ? '#6b7280' : '#9ca3af',
     border: isDark ? '#374151' : '#e5e7eb',
-    borderLight: isDark ? '#374151' : '#f3f4f6',
-    // Icon backgrounds
     bgPrimary: isDark ? 'rgba(99, 102, 241, 0.2)' : '#e0e7ff',
     textPrimary600: isDark ? '#a5b4fc' : '#4f46e5',
-    bgPrimaryLight: isDark ? 'rgba(99, 102, 241, 0.2)' : '#eef2ff',
-    bgBlue: isDark ? 'rgba(59, 130, 246, 0.2)' : '#dbeafe',
-    textBlue: isDark ? '#93c5fd' : '#2563eb',
     bgTeal: isDark ? 'rgba(8, 143, 143, 0.2)' : '#f0fdfd',
     textTeal: isDark ? '#5eecec' : '#088F8F',
     bgAmber: isDark ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7',
@@ -211,27 +70,61 @@ export const CourseDetails = () => {
     enabled: isAuthenticated,
   });
 
-  // Fetch assignments for the course (for enrolled users or instructors/admins)
+  // Fetch assignments for the course
   const { data: assignments } = useQuery({
     queryKey: ['courseAssignments', id],
     queryFn: () => assignmentsApi.getAssignments(parseInt(id!)),
     enabled: isAuthenticated && (enrollmentData?.enrolled || isActualAdmin || isActualInstructor),
   });
 
-  // Filter to only published assignments
-  const publishedAssignments = (assignments || []).filter(a => a.isPublished);
-
-  // Fetch selected lecture content
-  const { data: lectureContent, isLoading: lectureLoading } = useQuery({
-    queryKey: ['lecture', selectedLectureId],
-    queryFn: () => coursesApi.getLectureById(selectedLectureId!),
-    enabled: !!selectedLectureId,
+  // Fetch quizzes for the course
+  const { data: quizzes } = useQuery({
+    queryKey: ['courseQuizzes', id],
+    queryFn: () => quizzesApi.getQuizzes(parseInt(id!)),
+    enabled: isAuthenticated && (enrollmentData?.enrolled || isActualAdmin || isActualInstructor),
   });
+
+  // Fetch forums for the course
+  const { data: forums } = useQuery({
+    queryKey: ['courseForums', id],
+    queryFn: () => forumsApi.getForums(parseInt(id!)),
+    enabled: isAuthenticated && (enrollmentData?.enrolled || isActualAdmin || isActualInstructor),
+  });
+
+  // Group items by moduleId
+  const assignmentsByModule = (assignments || []).reduce((acc: Record<number, Assignment[]>, assignment: Assignment) => {
+    if (assignment.moduleId && assignment.isPublished) {
+      if (!acc[assignment.moduleId]) acc[assignment.moduleId] = [];
+      acc[assignment.moduleId].push(assignment);
+    }
+    return acc;
+  }, {} as Record<number, Assignment[]>);
+
+  const quizzesByModule = (quizzes || []).reduce((acc: Record<number, Quiz[]>, quiz: Quiz) => {
+    if (quiz.moduleId && quiz.isPublished) {
+      if (!acc[quiz.moduleId]) acc[quiz.moduleId] = [];
+      acc[quiz.moduleId].push(quiz);
+    }
+    return acc;
+  }, {} as Record<number, Quiz[]>);
+
+  const forumsByModule = (forums || []).reduce((acc: Record<number, Forum[]>, forum: Forum) => {
+    if (forum.moduleId && forum.isPublished) {
+      if (!acc[forum.moduleId]) acc[forum.moduleId] = [];
+      acc[forum.moduleId].push(forum);
+    }
+    return acc;
+  }, {} as Record<number, Forum[]>);
+
+  // Standalone items (not assigned to a module)
+  const standaloneAssignments = (assignments || []).filter(a => !a.moduleId && a.isPublished);
+  const standaloneQuizzes = (quizzes || []).filter(q => !q.moduleId && q.isPublished);
+  const standaloneForums = (forums || []).filter(f => !f.moduleId && f.isPublished);
 
   const enrollMutation = useMutation({
     mutationFn: () => enrollmentsApi.enroll(parseInt(id!), course?.title),
     onSuccess: () => {
-      toast.success('Successfully enrolled!');
+      toast.success(t('successfully_enrolled'));
       queryClient.invalidateQueries({ queryKey: ['enrollment', id] });
       queryClient.invalidateQueries({ queryKey: ['enrollments'] });
     },
@@ -247,65 +140,35 @@ export const CourseDetails = () => {
     }
   }, [course?.id, isAuthenticated]);
 
-  const toggleModule = (moduleId: number) => {
-    setExpandedModules(prev =>
-      prev.includes(moduleId) ? prev.filter(mid => mid !== moduleId) : [...prev, moduleId]
-    );
-  };
-
-  const selectLecture = (lectureId: number, lectureTitle?: string, moduleId?: number) => {
-    if (selectedLectureId !== lectureId) {
-      // Log lecture started when opening a new lecture
-      activityLogger.logLectureStarted(lectureId, lectureTitle, parseInt(id!), moduleId).catch(() => {});
-    }
-    setSelectedLectureId(selectedLectureId === lectureId ? null : lectureId);
-  };
-
-  // Handler for opening content in modal
-  const handleOpenContent = (section: LectureSection, lectureId?: number, moduleId?: number) => {
-    setModalContent({ title: section.title || undefined, content: section.content || '' });
-    // Log section viewed
-    activityLogger.logSectionViewed(
-      section.id,
-      section.title || undefined,
-      section.type,
-      lectureId,
-      parseInt(id!),
-      moduleId
-    ).catch(() => {});
-  };
-
-  // Handler for opening content in new tab
-  const handleOpenInNewPage = () => {
-    if (modalContent) {
-      const contentId = Date.now();
-      sessionStorage.setItem(`content-${contentId}`, JSON.stringify(modalContent));
-      window.open(`/content/section/${contentId}`, '_blank');
-      setModalContent(null);
+  // Scroll to module
+  const scrollToModule = (moduleId: number) => {
+    const element = moduleRefs.current[moduleId];
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
 
   if (isLoading) {
-    return <Loading fullScreen text="Loading course..." />;
+    return <Loading fullScreen text={t('loading_course')} />;
   }
 
   if (!course) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-12 text-center">
-        <h2 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Course not found</h2>
-        <Link to="/catalog" className="text-primary-600 hover:underline mt-2 inline-block">Back to catalog</Link>
+        <h2 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{t('course_not_found')}</h2>
+        <Link to="/catalog" className="text-primary-600 hover:underline mt-2 inline-block">{t('back_to_catalog')}</Link>
       </div>
     );
   }
 
   const isEnrolled = enrollmentData?.enrolled;
   const isCourseInstructor = user?.id === course.instructorId;
-  // Only show instructor controls if user is actual course instructor AND not viewing as student
   const showInstructorControls = isCourseInstructor && isUserInstructor;
-  // For ACCESS: use actual roles (so instructors can test student view)
-  // For UI CONTROLS: use effective roles (isUserInstructor, isAdmin)
   const hasAccess = isEnrolled || isActualAdmin || isActualInstructor;
   const totalLectures = course.modules?.reduce((sum, m) => sum + (m.lectures?.length || 0), 0) || 0;
+
+  // Get the view mode from course settings, default to 'mini-cards'
+  const viewMode: CurriculumViewMode = (course as any).curriculumViewMode || 'mini-cards';
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: colors.bg }}>
@@ -314,21 +177,21 @@ export const CourseDetails = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <Breadcrumb
             items={[
-              { label: 'Courses', href: '/courses' },
-              { label: course.category || 'General', href: `/courses?category=${encodeURIComponent(course.category || '')}` },
+              { label: t('courses'), href: '/courses' },
+              { label: course.category || t('general'), href: `/courses?category=${encodeURIComponent(course.category || '')}` },
               { label: course.title },
             ]}
           />
         </div>
       </div>
 
-      {/* Instructor Toolbar - Prominent Edit Banner */}
+      {/* Instructor Toolbar */}
       {(showInstructorControls || isActualAdmin) && (
         <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
               <PenSquare className="w-5 h-5" />
-              <span className="font-medium">Instructor View</span>
+              <span className="font-medium">{t('instructor_view')}</span>
             </div>
             <div className="flex items-center gap-3">
               <Link
@@ -336,14 +199,14 @@ export const CourseDetails = () => {
                 className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
               >
                 <Edit className="w-4 h-4" />
-                Edit Course
+                {t('edit_course')}
               </Link>
               <Link
                 to={`/teach/courses/${course.id}/edit`}
                 className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
               >
                 <Settings className="w-4 h-4" />
-                Settings
+                {t('common:settings')}
               </Link>
             </div>
           </div>
@@ -356,21 +219,21 @@ export const CourseDetails = () => {
           <h1 className="text-2xl md:text-3xl font-bold mb-2">{course.title}</h1>
           <p className="text-white/90 mb-4">{course.description}</p>
           <div className="flex flex-wrap items-center gap-4 text-sm">
-            <span className="flex items-center gap-1"><Users className="w-4 h-4" /> {course._count?.enrollments || 0} students</span>
-            <span className="flex items-center gap-1"><BookOpen className="w-4 h-4" /> {course.modules?.length || 0} modules</span>
-            <span className="flex items-center gap-1"><PlayCircle className="w-4 h-4" /> {totalLectures} lessons</span>
-            <span>by {course.instructor?.fullname}</span>
+            <span className="flex items-center gap-1"><Users className="w-4 h-4" /> {t('n_students', { count: course._count?.enrollments || 0 })}</span>
+            <span className="flex items-center gap-1"><BookOpen className="w-4 h-4" /> {t('n_modules', { count: course.modules?.length || 0 })}</span>
+            <span className="flex items-center gap-1"><PlayCircle className="w-4 h-4" /> {t('n_lessons', { count: totalLectures })}</span>
+            <span>{t('by_instructor', { name: course.instructor?.fullname })}</span>
           </div>
 
           {/* Action buttons for non-enrolled users */}
           <div className="mt-4 flex flex-wrap gap-3">
             {!hasAccess && isAuthenticated && (
               <Button onClick={() => enrollMutation.mutate()} loading={enrollMutation.isPending} className="bg-white text-primary-600 hover:bg-gray-100">
-                Enroll Now - Free
+                {t('enroll_now_free')}
               </Button>
             )}
             {!isAuthenticated && (
-              <Link to="/login" className="btn bg-white text-primary-600 hover:bg-gray-100">Sign in to Enroll</Link>
+              <Link to="/login" className="btn bg-white text-primary-600 hover:bg-gray-100">{t('sign_in_to_enroll')}</Link>
             )}
           </div>
         </div>
@@ -382,210 +245,55 @@ export const CourseDetails = () => {
           {/* Main Content Column */}
           <div className="flex-1 min-w-0">
             {course.modules && course.modules.length > 0 ? (
-              <div className="space-y-3">
+              <div className={viewMode === 'accordion' ? 'space-y-2' : 'space-y-6'}>
                 {course.modules.map((module, moduleIndex) => (
-              <Card key={module.id}>
-                <button
-                  onClick={() => toggleModule(module.id)}
-                  className="w-full p-4 flex items-center justify-between text-left transition-colors"
-                  style={{ backgroundColor: expandedModules.includes(module.id) ? colors.bgSelected : 'transparent' }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center font-medium text-sm"
-                      style={{ backgroundColor: colors.bgPrimary, color: colors.textPrimary600 }}
-                    >
-                      {moduleIndex + 1}
-                    </div>
-                    <div>
-                      <h3 className="font-medium" style={{ color: colors.textPrimary }}>{module.title}</h3>
-                      <p className="text-sm" style={{ color: colors.textSecondary }}>{module.lectures?.length || 0} lessons</p>
-                    </div>
+                  <div
+                    key={module.id}
+                    ref={(el) => { moduleRefs.current[module.id] = el; }}
+                  >
+                    <ModuleSection
+                      module={module}
+                      moduleIndex={moduleIndex}
+                      courseId={parseInt(id!)}
+                      lectures={module.lectures}
+                      codeLabs={module.codeLabs}
+                      quizzes={quizzesByModule[module.id]}
+                      assignments={assignmentsByModule[module.id]}
+                      forums={forumsByModule[module.id]}
+                      hasAccess={hasAccess}
+                      viewMode={viewMode}
+                    />
                   </div>
-                  {expandedModules.includes(module.id) ? (
-                    <ChevronDown className="w-5 h-5" style={{ color: colors.textMuted }} />
-                  ) : (
-                    <ChevronRight className="w-5 h-5" style={{ color: colors.textMuted }} />
-                  )}
-                </button>
-
-                {expandedModules.includes(module.id) && (
-                  <div style={{ borderTop: `1px solid ${colors.borderLight}` }}>
-                    {/* Lectures */}
-                    {module.lectures?.map((lecture) => (
-                      <div key={lecture.id}>
-                        <button
-                          onClick={() => hasAccess && selectLecture(lecture.id, lecture.title, module.id)}
-                          disabled={!hasAccess}
-                          className={`w-full px-4 py-3 flex items-center gap-3 text-left transition-colors ${!hasAccess ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
-                          style={{
-                            backgroundColor: selectedLectureId === lecture.id ? colors.bgSelected : 'transparent',
-                          }}
-                        >
-                          <div
-                            className="w-6 h-6 rounded-full flex items-center justify-center"
-                            style={{ backgroundColor: hasAccess ? colors.bgPrimary : colors.bgHover }}
-                          >
-                            {lecture.contentType === 'video' ? (
-                              <PlayCircle className="w-4 h-4" style={{ color: hasAccess ? colors.textPrimary600 : colors.textMuted }} />
-                            ) : (
-                              <FileText className="w-4 h-4" style={{ color: hasAccess ? colors.textPrimary600 : colors.textMuted }} />
-                            )}
-                          </div>
-                          <span className="flex-1 text-sm" style={{ color: hasAccess ? colors.textPrimary : colors.textMuted }}>{lecture.title}</span>
-                          {selectedLectureId === lecture.id ? (
-                            <ChevronDown className="w-4 h-4" style={{ color: colors.textMuted }} />
-                          ) : (
-                            <ChevronRight className="w-4 h-4" style={{ color: colors.textMuted }} />
-                          )}
-                        </button>
-
-                        {/* Inline lecture content */}
-                        {selectedLectureId === lecture.id && hasAccess && (
-                          <div className="px-4 py-4" style={{ backgroundColor: colors.bgHover, borderTop: `1px solid ${colors.borderLight}` }}>
-                            {lectureLoading ? (
-                              <div className="text-center py-4"><Loading text="Loading content..." /></div>
-                            ) : lectureContent ? (
-                              <div>
-                                {/* Video */}
-                                {lectureContent.videoUrl && (
-                                  <div className="mb-4 aspect-video bg-black rounded-lg overflow-hidden">
-                                    <iframe src={lectureContent.videoUrl} className="w-full h-full" allowFullScreen />
-                                  </div>
-                                )}
-                                {/* Legacy content - as card */}
-                                {lectureContent.content && (
-                                  <div
-                                    className="mb-4 p-3 rounded-lg border hover:shadow-sm transition-shadow"
-                                    style={{ backgroundColor: colors.bgCard, borderColor: colors.border }}
-                                  >
-                                    <div className="flex items-start gap-3">
-                                      <div className="flex-shrink-0 p-2 rounded-lg" style={{ backgroundColor: colors.bgBlue }}>
-                                        <FileText className="w-5 h-5" style={{ color: colors.textBlue }} />
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <h4 className="font-medium mb-1" style={{ color: colors.textPrimary }}>{lectureContent.title}</h4>
-                                        <p className="text-sm line-clamp-3 mb-2" style={{ color: colors.textSecondary }}>
-                                          {getPreviewText(lectureContent.content, 250)}
-                                        </p>
-                                        <button
-                                          onClick={() => {
-                                            setModalContent({ title: lectureContent.title, content: lectureContent.content! });
-                                            // Log legacy content viewed
-                                            activityLogger.logSectionViewed(
-                                              -1,
-                                              lectureContent.title,
-                                              'legacy-text',
-                                              lecture.id,
-                                              parseInt(id!),
-                                              module.id
-                                            ).catch(() => {});
-                                          }}
-                                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
-                                          style={{ backgroundColor: colors.bgPrimaryLight, color: colors.textPrimary600 }}
-                                        >
-                                          <BookOpen className="w-4 h-4" />
-                                          Read Article
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                                {/* Sections */}
-                                {lectureContent.sections?.sort((a, b) => a.order - b.order).map((section) => (
-                                  <SectionRenderer
-                                    key={section.id}
-                                    section={section}
-                                    courseId={parseInt(id!)}
-                                    lectureId={lecture.id}
-                                    moduleId={module.id}
-                                    onOpenContent={handleOpenContent}
-                                    colors={colors}
-                                  />
-                                ))}
-                                {/* Attachments */}
-                                {lectureContent.attachments && lectureContent.attachments.length > 0 && (
-                                  <div className="mt-4 pt-4" style={{ borderTop: `1px solid ${colors.border}` }}>
-                                    <h4 className="font-medium mb-2" style={{ color: colors.textPrimary }}>Attachments</h4>
-                                    <div className="space-y-2">
-                                      {lectureContent.attachments.map(att => (
-                                        <a
-                                          key={att.id}
-                                          href={att.fileUrl}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="flex items-center gap-2 p-2 rounded transition-colors"
-                                          style={{ backgroundColor: colors.bgCard }}
-                                          onClick={() => activityLogger.logFileDownloaded(att.id, att.fileName, lecture.id, parseInt(id!)).catch(() => {})}
-                                        >
-                                          <FileText className="w-4 h-4" style={{ color: colors.textMuted }} />
-                                          <span className="text-sm" style={{ color: colors.textSecondary }}>{att.fileName}</span>
-                                          <Download className="w-4 h-4 ml-auto" style={{ color: colors.textMuted }} />
-                                        </a>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <p style={{ color: colors.textSecondary }}>No content available</p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-
-                    {/* Code Labs */}
-                    {module.codeLabs?.filter(lab => lab.isPublished)?.map(lab => (
-                      <Link
-                        key={`codelab-${lab.id}`}
-                        to={hasAccess ? `/courses/${course.id}/code-labs/${lab.id}` : '#'}
-                        className={`w-full px-4 py-3 flex items-center gap-3 ${!hasAccess ? 'opacity-60 cursor-not-allowed' : ''}`}
-                        onClick={(e) => !hasAccess && e.preventDefault()}
-                      >
-                        <FlaskConical className="w-5 h-5" style={{ color: colors.textEmerald }} />
-                        <span className="flex-1 text-sm" style={{ color: colors.textPrimary }}>{lab.title}</span>
-                        <span
-                          className="text-xs px-2 py-0.5 rounded"
-                          style={{ backgroundColor: colors.bgEmerald, color: colors.textEmerald }}
-                        >
-                          Lab
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                )}
+                ))}
+              </div>
+            ) : (
+              <Card>
+                <CardBody className="text-center py-8">
+                  <BookOpen className="w-12 h-12 mx-auto mb-3" style={{ color: colors.textMuted }} />
+                  <p style={{ color: colors.textSecondary }}>{t('no_content_available')}</p>
+                </CardBody>
               </Card>
-            ))}
-          </div>
-        ) : (
-          <Card>
-            <CardBody className="text-center py-8">
-              <BookOpen className="w-12 h-12 mx-auto mb-3" style={{ color: colors.textMuted }} />
-              <p style={{ color: colors.textSecondary }}>No content available yet</p>
-            </CardBody>
-          </Card>
-        )}
+            )}
 
-            {/* Assignments Section */}
-            {hasAccess && publishedAssignments.length > 0 && (
+            {/* Standalone Assignments Section */}
+            {hasAccess && standaloneAssignments.length > 0 && (
               <div className="mt-8">
                 <h2 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
                   <ClipboardList className="w-6 h-6" style={{ color: colors.textAmber }} />
-                  Assignments
+                  {t('course_assignments')}
                 </h2>
-                <div className="space-y-3">
-                  {publishedAssignments.map((assignment) => (
-                    <Card key={assignment.id} hover>
-                      <Link
-                        to={assignment.submissionType === 'ai_agent'
-                          ? `/courses/${course.id}/agent-assignments/${assignment.id}`
-                          : `/courses/${course.id}/assignments/${assignment.id}`}
-                        className="block"
-                      >
-                        <CardBody className="flex items-center gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {standaloneAssignments.map((assignment) => (
+                    <Link
+                      key={assignment.id}
+                      to={assignment.submissionType === 'ai_agent'
+                        ? `/courses/${course.id}/agent-assignments/${assignment.id}`
+                        : `/courses/${course.id}/assignments/${assignment.id}`}
+                    >
+                      <Card hover className="h-full">
+                        <CardBody className="flex items-start gap-4">
                           <div
-                            className="w-12 h-12 rounded-lg flex items-center justify-center"
+                            className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
                             style={{
                               backgroundColor: assignment.submissionType === 'ai_agent' ? colors.bgTeal : colors.bgAmber
                             }}
@@ -596,54 +304,163 @@ export const CourseDetails = () => {
                               <ClipboardList className="w-6 h-6" style={{ color: colors.textAmber }} />
                             )}
                           </div>
-                          <div className="flex-1">
-                            <h3 className="font-medium" style={{ color: colors.textPrimary }}>{assignment.title}</h3>
-                            <div className="flex items-center gap-3 text-sm" style={{ color: colors.textSecondary }}>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium line-clamp-2" style={{ color: colors.textPrimary }}>{assignment.title}</h3>
+                            <div className="flex items-center gap-2 mt-1 text-sm" style={{ color: colors.textSecondary }}>
                               {assignment.dueDate && (
-                                <span>Due: {new Date(assignment.dueDate).toLocaleDateString()}</span>
+                                <span>{t('due_date', { date: new Date(assignment.dueDate).toLocaleDateString() })}</span>
                               )}
-                              <span>{assignment.points} points</span>
-                              <span
-                                className="px-2 py-0.5 rounded text-xs"
-                                style={{
-                                  backgroundColor: assignment.submissionType === 'ai_agent' ? colors.bgTeal : colors.bgAmber,
-                                  color: assignment.submissionType === 'ai_agent' ? colors.textTeal : colors.textAmber,
-                                }}
-                              >
-                                {assignment.submissionType === 'ai_agent' ? 'AI Agent' : 'Standard'}
-                              </span>
+                              <span>{t('n_points', { count: assignment.points })}</span>
                             </div>
                           </div>
-                          <ChevronRight className="w-5 h-5" style={{ color: colors.textMuted }} />
                         </CardBody>
-                      </Link>
-                    </Card>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Standalone Quizzes Section */}
+            {hasAccess && standaloneQuizzes.length > 0 && (
+              <div className="mt-8">
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
+                  <FileText className="w-6 h-6" style={{ color: colors.textEmerald }} />
+                  {t('course_quizzes')}
+                </h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {standaloneQuizzes.map((quiz) => (
+                    <Link key={quiz.id} to={`/courses/${course.id}/quizzes/${quiz.id}`}>
+                      <Card hover className="h-full">
+                        <CardBody className="flex items-start gap-4">
+                          <div
+                            className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
+                            style={{ backgroundColor: colors.bgEmerald }}
+                          >
+                            <FileText className="w-6 h-6" style={{ color: colors.textEmerald }} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium line-clamp-2" style={{ color: colors.textPrimary }}>{quiz.title}</h3>
+                            <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
+                              {t('n_questions', { count: quiz._count?.questions || 0 })}
+                            </p>
+                          </div>
+                        </CardBody>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Standalone Forums Section */}
+            {hasAccess && standaloneForums.length > 0 && (
+              <div className="mt-8">
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
+                  <MessageSquare className="w-6 h-6" style={{ color: colors.textTeal }} />
+                  {t('course_forums')}
+                </h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {standaloneForums.map((forum) => (
+                    <Link key={forum.id} to={`/courses/${course.id}/forums/${forum.id}`}>
+                      <Card hover className="h-full">
+                        <CardBody className="flex items-start gap-4">
+                          <div
+                            className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
+                            style={{ backgroundColor: colors.bgTeal }}
+                          >
+                            <MessageSquare className="w-6 h-6" style={{ color: colors.textTeal }} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium line-clamp-2" style={{ color: colors.textPrimary }}>{forum.title}</h3>
+                            {forum.description && (
+                              <p className="text-sm mt-1 line-clamp-1" style={{ color: colors.textSecondary }}>
+                                {forum.description}
+                              </p>
+                            )}
+                            <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
+                              {t('n_threads', { count: forum._count?.threads || 0 })}
+                            </p>
+                          </div>
+                        </CardBody>
+                      </Card>
+                    </Link>
                   ))}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Sidebar - Collaborative Modules */}
+          {/* Sidebar */}
           {hasAccess && (
             <div className="lg:w-80 flex-shrink-0">
-              <div className="lg:sticky lg:top-4">
-                <CollaborativeModule courseId={parseInt(id!)} moduleName={(course as any).collaborativeModuleName} isInstructor={showInstructorControls || isActualAdmin} />
+              <div className="lg:sticky lg:top-4 space-y-4">
+                {/* Module Navigation */}
+                {course.modules && course.modules.length > 0 && (
+                  <Card>
+                    <CardBody className="p-4">
+                      <h3 className="font-semibold mb-3" style={{ color: colors.textPrimary }}>
+                        {t('modules')}
+                      </h3>
+                      <nav className="space-y-1">
+                        {course.modules.map((module, idx) => (
+                          <button
+                            key={module.id}
+                            onClick={() => scrollToModule(module.id)}
+                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-3"
+                          >
+                            <span
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
+                              style={{ backgroundColor: colors.bgPrimary, color: colors.textPrimary600 }}
+                            >
+                              {idx + 1}
+                            </span>
+                            <span
+                              className="text-sm truncate"
+                              style={{ color: colors.textPrimary }}
+                            >
+                              {module.title}
+                            </span>
+                          </button>
+                        ))}
+                      </nav>
+                    </CardBody>
+                  </Card>
+                )}
+
+                {/* Collaborative Module */}
+                <CollaborativeModule
+                  courseId={parseInt(id!)}
+                  moduleName={(course as any).collaborativeModuleName}
+                  isInstructor={showInstructorControls || isActualAdmin}
+                />
+
+                {/* Discussion Forums Card */}
+                <Link to={`/courses/${id}/forums`}>
+                  <Card hover className="transition-shadow">
+                    <CardBody className="flex items-center gap-4 p-4">
+                      <div
+                        className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
+                        style={{ backgroundColor: colors.bgTeal }}
+                      >
+                        <MessageSquare className="w-6 h-6" style={{ color: colors.textTeal }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium" style={{ color: colors.textPrimary }}>
+                          {t('discussion_forums')}
+                        </h3>
+                        <p className="text-sm" style={{ color: colors.textSecondary }}>
+                          {t('join_course_discussions')}
+                        </p>
+                      </div>
+                    </CardBody>
+                  </Card>
+                </Link>
               </div>
             </div>
           )}
         </div>
       </div>
-
-      {/* Content Modal */}
-      <ContentModal
-        isOpen={!!modalContent}
-        onClose={() => setModalContent(null)}
-        title={modalContent?.title}
-        content={modalContent?.content || ''}
-        onOpenInNewPage={handleOpenInNewPage}
-      />
-
     </div>
   );
 };

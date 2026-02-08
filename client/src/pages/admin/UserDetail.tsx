@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  ArrowLeft,
   Edit2,
   Trash2,
   BookOpen,
@@ -23,6 +22,7 @@ import { Loading } from '../../components/common/Loading';
 import { Modal } from '../../components/common/Modal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { Input } from '../../components/common/Input';
+import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { UpdateUserData, Course } from '../../types';
 
 export const UserDetail = () => {
@@ -106,6 +106,12 @@ export const UserDetail = () => {
     (course: Course) => !user?.enrollments.some((e) => e.courseId === course.id)
   );
 
+  const breadcrumbItems = [
+    { label: 'Admin', href: '/admin' },
+    { label: 'Users', href: '/admin/users' },
+    { label: user?.fullname || 'User Details' },
+  ];
+
   if (isLoading) {
     return <Loading fullScreen text="Loading user details..." />;
   }
@@ -127,19 +133,16 @@ export const UserDetail = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Breadcrumb navigation */}
+      <div className="mb-6">
+        <Breadcrumb items={breadcrumbItems} homeHref="/admin" />
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <Link to="/admin/users">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">{user.fullname}</h1>
-            <p className="text-gray-600">{user.email}</p>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">{user.fullname}</h1>
+          <p className="text-gray-600">{user.email}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleOpenEditModal}>

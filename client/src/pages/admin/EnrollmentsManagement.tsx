@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   GraduationCap,
   Search,
@@ -21,9 +22,12 @@ import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { Modal } from '../../components/common/Modal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
+import { Breadcrumb } from '../../components/common/Breadcrumb';
+import { buildAdminBreadcrumb } from '../../utils/breadcrumbs';
 import { ManagedEnrollment } from '../../types';
 
 export const EnrollmentsManagement = () => {
+  const { t } = useTranslation(['admin', 'common', 'courses']);
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -101,28 +105,30 @@ export const EnrollmentsManagement = () => {
   if (error) {
     return (
       <div className="text-center py-12">
-        <p className="text-red-500">Error loading enrollments. Please try again.</p>
+        <p className="text-red-500">{t('error_loading_users')}</p>
       </div>
     );
   }
 
+  const breadcrumbItems = buildAdminBreadcrumb(t('enrollments'));
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Breadcrumb navigation */}
+      <div className="mb-6">
+        <Breadcrumb items={breadcrumbItems} homeHref="/admin" />
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Enrollments Management</h1>
-          <p className="text-gray-600 mt-1">Manage course enrollments</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('enrollments_management')}</h1>
+          <p className="text-gray-600 mt-1">{t('manage_enrollments')}</p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setIsAddModalOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Enrollment
-          </Button>
-          <Link to="/admin">
-            <Button variant="outline">Back to Admin</Button>
-          </Link>
-        </div>
+        <Button onClick={() => setIsAddModalOpen(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          {t('add_enrollment')}
+        </Button>
       </div>
 
       {/* Stats */}
@@ -132,28 +138,28 @@ export const EnrollmentsManagement = () => {
             <CardBody className="text-center py-4">
               <GraduationCap className="w-6 h-6 text-blue-500 mx-auto mb-2" />
               <p className="text-2xl font-bold text-gray-900">{stats.totalEnrollments}</p>
-              <p className="text-xs text-gray-500">Total Enrollments</p>
+              <p className="text-xs text-gray-500">{t('total_enrollments')}</p>
             </CardBody>
           </Card>
           <Card>
             <CardBody className="text-center py-4">
               <Users className="w-6 h-6 text-green-500 mx-auto mb-2" />
               <p className="text-2xl font-bold text-gray-900">{stats.activeEnrollments}</p>
-              <p className="text-xs text-gray-500">Active</p>
+              <p className="text-xs text-gray-500">{t('common:active')}</p>
             </CardBody>
           </Card>
           <Card>
             <CardBody className="text-center py-4">
               <CheckCircle className="w-6 h-6 text-purple-500 mx-auto mb-2" />
               <p className="text-2xl font-bold text-gray-900">{stats.completedEnrollments}</p>
-              <p className="text-xs text-gray-500">Completed</p>
+              <p className="text-xs text-gray-500">{t('common:completed')}</p>
             </CardBody>
           </Card>
           <Card>
             <CardBody className="text-center py-4">
               <TrendingUp className="w-6 h-6 text-cyan-500 mx-auto mb-2" />
               <p className="text-2xl font-bold text-gray-900">{stats.recentEnrollments}</p>
-              <p className="text-xs text-gray-500">Last 7 Days</p>
+              <p className="text-xs text-gray-500">{t('last_7_days')}</p>
             </CardBody>
           </Card>
         </div>
@@ -168,13 +174,13 @@ export const EnrollmentsManagement = () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search by user name, email, or course..."
+                  placeholder={t('search_by_user')}
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
-              <Button type="submit">Search</Button>
+              <Button type="submit">{t('common:search')}</Button>
             </form>
             <div className="flex gap-2 items-center">
               <Filter className="w-4 h-4 text-gray-400" />
@@ -186,10 +192,10 @@ export const EnrollmentsManagement = () => {
                 }}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
               >
-                <option value="">All Status</option>
-                <option value="active">Active</option>
-                <option value="completed">Completed</option>
-                <option value="dropped">Dropped</option>
+                <option value="">{t('all_status')}</option>
+                <option value="active">{t('common:active')}</option>
+                <option value="completed">{t('common:completed')}</option>
+                <option value="dropped">{t('common:inactive')}</option>
               </select>
               <select
                 value={courseFilter || ''}
@@ -199,7 +205,7 @@ export const EnrollmentsManagement = () => {
                 }}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 max-w-[200px]"
               >
-                <option value="">All Courses</option>
+                <option value="">{t('all_courses')}</option>
                 {coursesData?.courses?.map((course: any) => (
                   <option key={course.id} value={course.id}>
                     {course.title}
@@ -215,34 +221,34 @@ export const EnrollmentsManagement = () => {
       <Card>
         <CardHeader className="flex items-center justify-between">
           <h2 className="font-semibold text-gray-900">
-            Enrollments ({data?.pagination.total || 0})
+            {t('enrollments')} ({data?.pagination.total || 0})
           </h2>
         </CardHeader>
         <CardBody className="p-0">
           {isLoading ? (
-            <Loading text="Loading enrollments..." />
+            <Loading text={t('loading_enrollments')} />
           ) : (
             <>
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Student
+                      {t('student')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Course
+                      {t('courses:course')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Progress
+                      {t('courses:progress')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Status
+                      {t('common:status')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Enrolled
+                      {t('courses:enrolled')}
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                      Actions
+                      {t('common:actions')}
                     </th>
                   </tr>
                 </thead>
@@ -318,7 +324,7 @@ export const EnrollmentsManagement = () => {
               {data && data.pagination.totalPages > 1 && (
                 <div className="flex items-center justify-between px-6 py-4 border-t">
                   <p className="text-sm text-gray-500">
-                    Page {data.pagination.page} of {data.pagination.totalPages}
+                    {t('page_of_pages', { page: data.pagination.page, total: data.pagination.totalPages })}
                   </p>
                   <div className="flex gap-2">
                     <Button
@@ -342,7 +348,7 @@ export const EnrollmentsManagement = () => {
               )}
 
               {data?.enrollments.length === 0 && (
-                <div className="text-center py-12 text-gray-500">No enrollments found.</div>
+                <div className="text-center py-12 text-gray-500">{t('no_enrollments_found')}</div>
               )}
             </>
           )}
@@ -357,17 +363,17 @@ export const EnrollmentsManagement = () => {
           setSelectedUserId(null);
           setSelectedCourseId(null);
         }}
-        title="Add Enrollment"
+        title={t('add_enrollment')}
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Select User</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('user')}</label>
             <select
               value={selectedUserId || ''}
               onChange={(e) => setSelectedUserId(Number(e.target.value) || null)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
             >
-              <option value="">Choose a user...</option>
+              <option value="">{t('common:select')}...</option>
               {usersData?.users?.map((user: any) => (
                 <option key={user.id} value={user.id}>
                   {user.fullname} ({user.email})
@@ -376,13 +382,13 @@ export const EnrollmentsManagement = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Select Course</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('courses:course')}</label>
             <select
               value={selectedCourseId || ''}
               onChange={(e) => setSelectedCourseId(Number(e.target.value) || null)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
             >
-              <option value="">Choose a course...</option>
+              <option value="">{t('common:select')}...</option>
               {coursesData?.courses?.map((course: any) => (
                 <option key={course.id} value={course.id}>
                   {course.title}
@@ -392,7 +398,7 @@ export const EnrollmentsManagement = () => {
           </div>
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="outline" onClick={() => setIsAddModalOpen(false)}>
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button
               onClick={() =>
@@ -405,7 +411,7 @@ export const EnrollmentsManagement = () => {
               }
               disabled={!selectedUserId || !selectedCourseId || createEnrollmentMutation.isPending}
             >
-              {createEnrollmentMutation.isPending ? 'Adding...' : 'Add Enrollment'}
+              {createEnrollmentMutation.isPending ? t('common:loading') : t('add_enrollment')}
             </Button>
           </div>
         </div>
@@ -419,9 +425,9 @@ export const EnrollmentsManagement = () => {
           setEnrollmentToDelete(null);
         }}
         onConfirm={() => enrollmentToDelete && deleteEnrollmentMutation.mutate(enrollmentToDelete.id)}
-        title="Remove Enrollment"
-        message={`Are you sure you want to remove ${enrollmentToDelete?.user?.fullname} from "${enrollmentToDelete?.course?.title}"?`}
-        confirmText="Remove"
+        title={t('unenroll')}
+        message={t('confirm_unenroll', { user: enrollmentToDelete?.user?.fullname, course: enrollmentToDelete?.course?.title })}
+        confirmText={t('common:remove')}
         loading={deleteEnrollmentMutation.isPending}
       />
     </div>

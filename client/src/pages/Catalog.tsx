@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Search,
   GraduationCap,
@@ -34,6 +35,7 @@ const getThemeColors = (isDark: boolean) => ({
 });
 
 export const Catalog = () => {
+  const { t } = useTranslation(['courses', 'common']);
   const { isAuthenticated, isInstructor, isAdmin, viewAsRole } = useAuth();
   const { isDark } = useTheme();
   const colors = getThemeColors(isDark);
@@ -69,9 +71,9 @@ export const Catalog = () => {
 
   const categories = ['Research Methods', 'AI & Technology', 'Data Science', 'Academic Writing'];
   const difficulties = [
-    { value: 'beginner', label: 'Beginner' },
-    { value: 'intermediate', label: 'Intermediate' },
-    { value: 'advanced', label: 'Advanced' },
+    { value: 'beginner', label: t('beginner') },
+    { value: 'intermediate', label: t('intermediate') },
+    { value: 'advanced', label: t('advanced') },
   ];
 
   return (
@@ -79,16 +81,16 @@ export const Catalog = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>Courses</h1>
+          <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>{t('courses')}</h1>
           <p className="mt-1" style={{ color: colors.textSecondary }}>
             {canCreateCourses
-              ? 'Manage your courses and discover new ones'
-              : 'Discover AI-powered courses to enhance your learning'}
+              ? t('manage_discover_courses')
+              : t('discover_ai_courses')}
           </p>
         </div>
         {canCreateCourses && (
           <Link to="/teach/create">
-            <Button icon={<Plus className="w-4 h-4" />}>Create Course</Button>
+            <Button icon={<Plus className="w-4 h-4" />}>{t('create_course')}</Button>
           </Link>
         )}
       </div>
@@ -105,7 +107,7 @@ export const Catalog = () => {
             }`}
           >
             <GraduationCap className="w-4 h-4 inline mr-1.5" />
-            All Courses
+            {t('all_courses')}
           </button>
           <button
             onClick={() => setSearchParams({ filter: 'enrolled' })}
@@ -116,7 +118,7 @@ export const Catalog = () => {
             }`}
           >
             <PlayCircle className="w-4 h-4 inline mr-1.5" />
-            My Enrolled
+            {t('my_enrolled')}
           </button>
           <button
             onClick={() => setSearchParams({ filter: 'completed' })}
@@ -127,7 +129,7 @@ export const Catalog = () => {
             }`}
           >
             <CheckCircle className="w-4 h-4 inline mr-1.5" />
-            Completed
+            {t('completed')}
           </button>
         </div>
       )}
@@ -139,17 +141,17 @@ export const Catalog = () => {
             {filter === 'enrolled' ? (
               <>
                 <PlayCircle className="w-5 h-5 text-primary-500" />
-                My Enrolled Courses
+                {t('my_enrolled_courses')}
               </>
             ) : (
               <>
                 <CheckCircle className="w-5 h-5 text-green-500" />
-                Completed Courses
+                {t('completed_courses')}
               </>
             )}
           </h2>
           {enrollmentsLoading ? (
-            <Loading text="Loading your courses..." />
+            <Loading text={t('loading_courses')} />
           ) : enrollments && enrollments.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {enrollments
@@ -165,18 +167,18 @@ export const Catalog = () => {
               <CardBody className="text-center py-8">
                 <GraduationCap className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                 <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">
-                  {filter === 'completed' ? 'No completed courses yet' : 'No enrolled courses yet'}
+                  {filter === 'completed' ? t('no_completed_courses') : t('no_enrolled_courses')}
                 </h3>
                 <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
                   {filter === 'completed'
-                    ? 'Complete a course to see it here'
-                    : 'Browse the catalog and enroll in a course to get started'}
+                    ? t('complete_course_to_see')
+                    : t('browse_enroll_get_started')}
                 </p>
                 <button
                   onClick={() => setSearchParams({})}
                   className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium text-sm"
                 >
-                  Browse Catalog
+                  {t('browse_catalog')}
                 </button>
               </CardBody>
             </Card>
@@ -189,10 +191,10 @@ export const Catalog = () => {
         <div className="mb-12">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
             <BookOpen className="w-5 h-5 text-primary-500" />
-            My Courses
+            {t('my_courses')}
           </h2>
           {myCoursesLoading ? (
-            <Loading text="Loading your courses..." />
+            <Loading text={t('loading_courses')} />
           ) : myCourses && myCourses.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {myCourses.map((course: Course) => (
@@ -203,11 +205,11 @@ export const Catalog = () => {
             <Card>
               <CardBody className="text-center py-8">
                 <GraduationCap className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">No courses yet</h3>
-                <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">Create your first course to get started</p>
+                <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">{t('no_courses_yet')}</h3>
+                <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">{t('create_first_course')}</p>
                 <Link to="/teach/create">
                   <Button size="sm" icon={<Plus className="w-4 h-4" />}>
-                    Create Course
+                    {t('create_course')}
                   </Button>
                 </Link>
               </CardBody>
@@ -221,7 +223,7 @@ export const Catalog = () => {
       <div>
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
           <GraduationCap className="w-5 h-5 text-primary-500" />
-          Course Catalog
+          {t('course_catalog')}
         </h2>
 
         {/* Filters */}
@@ -230,7 +232,7 @@ export const Catalog = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <Input
               type="text"
-              placeholder="Search courses..."
+              placeholder={t('search_courses')}
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -248,7 +250,7 @@ export const Catalog = () => {
             }}
             className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
           >
-            <option value="">All Categories</option>
+            <option value="">{t('all_categories')}</option>
             {categories.map((cat) => (
               <option key={cat} value={cat}>
                 {cat}
@@ -264,7 +266,7 @@ export const Catalog = () => {
             }}
             className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
           >
-            <option value="">All Levels</option>
+            <option value="">{t('all_levels')}</option>
             {difficulties.map((diff) => (
               <option key={diff.value} value={diff.value}>
                 {diff.label}
@@ -275,7 +277,7 @@ export const Catalog = () => {
 
         {/* Course Grid */}
         {isLoading ? (
-          <Loading text="Loading courses..." />
+          <Loading text={t('loading_courses')} />
         ) : data?.courses && data.courses.length > 0 ? (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -307,8 +309,8 @@ export const Catalog = () => {
           <Card>
             <CardBody className="text-center py-12">
               <GraduationCap className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No courses found</h3>
-              <p className="text-gray-500 dark:text-gray-400">Try adjusting your search or filters</p>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">{t('no_courses')}</h3>
+              <p className="text-gray-500 dark:text-gray-400">{t('try_adjusting_search')}</p>
             </CardBody>
           </Card>
         )}
@@ -320,6 +322,7 @@ export const Catalog = () => {
 
 // Card for enrolled courses
 const EnrolledCourseCard = ({ enrollment }: { enrollment: Enrollment }) => {
+  const { t } = useTranslation(['courses']);
   const { isDark } = useTheme();
   const colors = getThemeColors(isDark);
   const course = enrollment.course;
@@ -350,7 +353,7 @@ const EnrolledCourseCard = ({ enrollment }: { enrollment: Enrollment }) => {
                 : 'bg-blue-100 text-blue-700'
             }`}
           >
-            {isCompleted ? 'Completed' : `${Math.round(progress)}% Complete`}
+            {isCompleted ? t('completed') : t('percent_complete', { percent: Math.round(progress) })}
           </span>
         </div>
 
@@ -372,7 +375,7 @@ const EnrolledCourseCard = ({ enrollment }: { enrollment: Enrollment }) => {
           <div className="flex items-center justify-between text-sm">
             <span style={{ color: colors.textSecondary }}>{course.instructor?.fullname}</span>
             <span className="text-primary-600 dark:text-primary-400 font-medium">
-              {isCompleted ? 'Review' : 'Continue'} →
+              {isCompleted ? t('review') : t('continue')} →
             </span>
           </div>
         </CardBody>
@@ -383,6 +386,7 @@ const EnrolledCourseCard = ({ enrollment }: { enrollment: Enrollment }) => {
 
 // Card for instructor's own courses with management options
 const InstructorCourseCard = ({ course }: { course: Course }) => {
+  const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
   const colors = getThemeColors(isDark);
   return (
@@ -406,7 +410,7 @@ const InstructorCourseCard = ({ course }: { course: Course }) => {
               : 'bg-yellow-100 text-yellow-700'
           }`}
         >
-          {course.status === 'published' ? 'Published' : 'Draft'}
+          {course.status === 'published' ? t('common:published') : t('common:draft')}
         </span>
       </div>
 
@@ -418,11 +422,11 @@ const InstructorCourseCard = ({ course }: { course: Course }) => {
         <div className="flex items-center gap-4 text-sm mb-4" style={{ color: colors.textSecondary }}>
           <span className="flex items-center gap-1">
             <Users className="w-4 h-4" />
-            {course._count?.enrollments || 0} students
+            {t('n_students', { count: course._count?.enrollments || 0 })}
           </span>
           <span className="flex items-center gap-1">
             <BookOpen className="w-4 h-4" />
-            {course._count?.modules || 0} modules
+            {t('n_modules', { count: course._count?.modules || 0 })}
           </span>
         </div>
 
@@ -430,15 +434,15 @@ const InstructorCourseCard = ({ course }: { course: Course }) => {
         <div className="mt-auto flex gap-2">
           <Link to={`/teach/courses/${course.id}/curriculum`} className="flex-1">
             <Button variant="outline" size="sm" className="w-full" icon={<Edit className="w-4 h-4" />}>
-              Edit
+              {t('common:edit')}
             </Button>
           </Link>
-          <Link to={`/teach/courses/${course.id}/edit`} title="Settings">
+          <Link to={`/teach/courses/${course.id}/edit`} title={t('settings:settings')}>
             <Button variant="ghost" size="sm">
               <Settings className="w-4 h-4" />
             </Button>
           </Link>
-          <Link to={`/courses/${course.id}`} title="View Course">
+          <Link to={`/courses/${course.id}`} title={t('view_course')}>
             <Button variant="ghost" size="sm">
               <BarChart3 className="w-4 h-4" />
             </Button>
@@ -451,12 +455,19 @@ const InstructorCourseCard = ({ course }: { course: Course }) => {
 
 // Card for catalog courses
 const CourseCard = ({ course }: { course: Course }) => {
+  const { t } = useTranslation(['courses']);
   const { isDark } = useTheme();
   const colors = getThemeColors(isDark);
   const difficultyColors: Record<string, string> = {
     beginner: 'bg-green-100 text-green-700',
     intermediate: 'bg-yellow-100 text-yellow-700',
     advanced: 'bg-red-100 text-red-700',
+  };
+
+  const difficultyLabels: Record<string, string> = {
+    beginner: t('beginner'),
+    intermediate: t('intermediate'),
+    advanced: t('advanced'),
   };
 
   return (
@@ -487,7 +498,7 @@ const CourseCard = ({ course }: { course: Course }) => {
               <span
                 className={`text-xs font-medium px-2 py-1 rounded ${difficultyColors[course.difficulty] || ''}`}
               >
-                {course.difficulty}
+                {difficultyLabels[course.difficulty] || course.difficulty}
               </span>
             )}
           </div>

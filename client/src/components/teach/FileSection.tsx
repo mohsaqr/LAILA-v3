@@ -3,6 +3,7 @@ import { Upload, File, FileText, Image, Film, Music, Archive, Download, X, Loade
 import { LectureSection, UpdateSectionData } from '../../types';
 import { Button } from '../common/Button';
 import { getAuthToken } from '../../utils/auth';
+import { resolveFileUrl } from '../../api/client';
 
 interface FileSectionProps {
   section: LectureSection;
@@ -53,6 +54,9 @@ export const FileSection = ({ section, onFileChange, onRemoveFile, readOnly = fa
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const hasFile = section.fileUrl && section.fileName;
+
+  // Debug: log section file data
+  console.log('FileSection render - id:', section.id, 'hasFile:', hasFile, 'fileName:', section.fileName, 'fileUrl:', section.fileUrl?.substring(0, 50));
   const FileIcon = getFileIcon(section.fileType);
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -143,7 +147,7 @@ export const FileSection = ({ section, onFileChange, onRemoveFile, readOnly = fa
           </p>
         </div>
         <a
-          href={section.fileUrl || '#'}
+          href={resolveFileUrl(section.fileUrl) || '#'}
           download={section.fileName}
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors"
         >
@@ -173,7 +177,7 @@ export const FileSection = ({ section, onFileChange, onRemoveFile, readOnly = fa
           </div>
           <div className="flex items-center gap-2">
             <a
-              href={section.fileUrl || '#'}
+              href={resolveFileUrl(section.fileUrl) || '#'}
               download={section.fileName}
               className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
               title="Download"

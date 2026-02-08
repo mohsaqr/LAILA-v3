@@ -20,6 +20,9 @@ import {
   LLMProviderCreateInput,
   LLMProviderUpdateInput,
   LLMModelCreateInput,
+  getParameterSupport,
+  ProviderParameterSupport,
+  PROVIDER_DISPLAY_NAMES,
 } from '../types/llm.types.js';
 
 // =============================================================================
@@ -410,11 +413,21 @@ export class LLMService {
       await client.models.list();
     } catch {
       // If model listing fails, try a simple completion
-      await client.chat.completions.create({
-        model: provider.defaultModel || 'gpt-4o-mini',
+      const testModel = provider.defaultModel || 'gpt-4o-mini';
+      const isO1Model = testModel.startsWith('o1-') || testModel.startsWith('o3-');
+
+      const testParams: any = {
+        model: testModel,
         messages: [{ role: 'user', content: 'Hi' }],
-        max_tokens: 5,
-      });
+      };
+
+      if (isO1Model) {
+        testParams.max_completion_tokens = 5;
+      } else {
+        testParams.max_tokens = 5;
+      }
+
+      await client.chat.completions.create(testParams);
     }
 
     const latency = Date.now() - startTime;
@@ -536,6 +549,117 @@ export class LLMService {
   }
 
   // ===========================================================================
+  // PARAMETER VALIDATION (Minimal Parameter Principle)
+  // ===========================================================================
+
+  /**
+   * Validates and filters request parameters based on provider support.
+   *
+   * Follows the Minimal Parameter Principle:
+   * 1. Trust defaults - don't send parameters if using default values
+   * 2. Send only overrides - only include parameters the user explicitly set
+   * 3. Reject unsupported overrides loudly - error when user sets an unsupported parameter
+   */
+  private validateAndFilterParams(
+    providerName: string,
+    model: string,
+    request: Partial<LLMCompletionRequest>
+  ): { params: Record<string, any>; errors: string[] } {
+    const support = getParameterSupport(providerName, model);
+    const params: Record<string, any> = {};
+    const errors: string[] = [];
+
+    // Temperature
+    if (request.temperature !== undefined) {
+      if (support.temperature) {
+        params.temperature = request.temperature;
+      } else {
+        errors.push('temperature');
+      }
+    }
+
+    // Max tokens
+    if (request.maxTokens !== undefined) {
+      if (support.maxTokens) {
+        params.maxTokens = request.maxTokens;
+      } else {
+        errors.push('maxTokens');
+      }
+    }
+
+    // Top P
+    if (request.topP !== undefined) {
+      if (support.topP) {
+        params.topP = request.topP;
+      } else {
+        errors.push('topP');
+      }
+    }
+
+    // Top K
+    if (request.topK !== undefined) {
+      if (support.topK) {
+        params.topK = request.topK;
+      } else {
+        errors.push('topK');
+      }
+    }
+
+    // Frequency Penalty
+    if (request.frequencyPenalty !== undefined) {
+      if (support.frequencyPenalty) {
+        params.frequencyPenalty = request.frequencyPenalty;
+      } else {
+        errors.push('frequencyPenalty');
+      }
+    }
+
+    // Presence Penalty
+    if (request.presencePenalty !== undefined) {
+      if (support.presencePenalty) {
+        params.presencePenalty = request.presencePenalty;
+      } else {
+        errors.push('presencePenalty');
+      }
+    }
+
+    // Repeat Penalty (Ollama-specific)
+    if (request.repeatPenalty !== undefined) {
+      if (support.repeatPenalty) {
+        params.repeatPenalty = request.repeatPenalty;
+      } else {
+        errors.push('repeatPenalty');
+      }
+    }
+
+    // Stop sequences
+    if (request.stop !== undefined && request.stop.length > 0) {
+      if (support.stop) {
+        params.stop = request.stop;
+      } else {
+        errors.push('stop');
+      }
+    }
+
+    // Stream (always allowed, handled separately)
+    if (request.stream !== undefined) {
+      params.stream = request.stream;
+    }
+
+    return { params, errors };
+  }
+
+  /**
+   * Get a human-readable provider name for error messages.
+   */
+  private getProviderDisplayName(providerName: string, model?: string): string {
+    if (model && (model.startsWith('o1-') || model.startsWith('o3-'))) {
+      return PROVIDER_DISPLAY_NAMES['openai-o1'] || 'OpenAI o1/o3 models';
+    }
+    return PROVIDER_DISPLAY_NAMES[providerName] || providerName;
+  }
+
+  // ===========================================================================
   // CHAT COMPLETION
   // ===========================================================================
 
@@ -564,18 +688,25 @@ export class LLMService {
       throw new LLMError('No model specified', 'MODEL_NOT_FOUND', provider.name as LLMProviderName);
     }
 
-    // Build parameters using defaults
-    const params = {
-      temperature: request.temperature ?? provider.defaultTemperature,
-      maxTokens: request.maxTokens ?? provider.defaultMaxTokens,
-      topP: request.topP ?? provider.defaultTopP,
-      topK: request.topK ?? provider.defaultTopK,
-      frequencyPenalty: request.frequencyPenalty ?? provider.defaultFrequencyPenalty,
-      presencePenalty: request.presencePenalty ?? provider.defaultPresencePenalty,
-      repeatPenalty: request.repeatPenalty ?? provider.defaultRepeatPenalty,
-      stop: request.stop || (provider.defaultStopSequences ? JSON.parse(provider.defaultStopSequences as unknown as string) : undefined),
-      stream: request.stream ?? provider.defaultStreaming,
-    };
+    // Validate and filter parameters (Minimal Parameter Principle)
+    const { params, errors } = this.validateAndFilterParams(provider.name, model, request);
+
+    // Reject unsupported parameters loudly
+    if (errors.length > 0) {
+      const displayName = this.getProviderDisplayName(provider.name, model);
+      throw new LLMError(
+        `Unsupported parameters for ${displayName}: ${errors.join(', ')}. ` +
+        `These parameters are not supported by this provider/model.`,
+        'UNSUPPORTED_PARAMETER',
+        provider.name as LLMProviderName,
+        400,
+        false,
+        { unsupportedParams: errors, provider: provider.name, model }
+      );
+    }
+
+    // params now only contains explicitly set parameters (Minimal Parameter Principle)
+    // Provider methods will use these directly without adding defaults
 
     let response: LLMCompletionResponse;
 
@@ -634,7 +765,7 @@ export class LLMService {
     provider: LLMProviderConfig,
     model: string,
     messages: LLMMessage[],
-    params: any
+    params: Record<string, any>
   ): Promise<LLMCompletionResponse> {
     const client = new OpenAI({
       apiKey: provider.apiKey || 'not-needed',
@@ -643,19 +774,47 @@ export class LLMService {
       organization: provider.organizationId,
     });
 
-    const response = await client.chat.completions.create({
+    // OpenAI's o1 models use max_completion_tokens instead of max_tokens
+    const isO1Model = model.startsWith('o1-') || model.startsWith('o3-');
+
+    // Build request params - only include explicitly provided parameters (Minimal Parameter Principle)
+    const requestParams: any = {
       model,
       messages: messages.map(m => ({
         role: m.role as 'system' | 'user' | 'assistant',
         content: m.content as string,
       })),
-      temperature: params.temperature,
-      max_tokens: params.maxTokens,
-      top_p: params.topP,
-      frequency_penalty: params.frequencyPenalty,
-      presence_penalty: params.presencePenalty,
-      stop: params.stop,
-    });
+    };
+
+    if (isO1Model) {
+      // o1 models only support max_completion_tokens
+      if (params.maxTokens !== undefined) {
+        requestParams.max_completion_tokens = params.maxTokens;
+      }
+      // DO NOT send temperature, top_p, frequency_penalty, presence_penalty, stop for o1/o3 models
+    } else {
+      // Standard OpenAI models - only add params if explicitly provided
+      if (params.maxTokens !== undefined) {
+        requestParams.max_tokens = params.maxTokens;
+      }
+      if (params.temperature !== undefined) {
+        requestParams.temperature = params.temperature;
+      }
+      if (params.topP !== undefined) {
+        requestParams.top_p = params.topP;
+      }
+      if (params.frequencyPenalty !== undefined) {
+        requestParams.frequency_penalty = params.frequencyPenalty;
+      }
+      if (params.presencePenalty !== undefined) {
+        requestParams.presence_penalty = params.presencePenalty;
+      }
+      if (params.stop !== undefined) {
+        requestParams.stop = params.stop;
+      }
+    }
+
+    const response = await client.chat.completions.create(requestParams);
 
     return {
       id: response.id,
@@ -684,18 +843,31 @@ export class LLMService {
     provider: LLMProviderConfig,
     model: string,
     messages: LLMMessage[],
-    params: any
+    params: Record<string, any>
   ): Promise<LLMCompletionResponse> {
     const client = new GoogleGenerativeAI(provider.apiKey!);
+
+    // Build generation config - only include explicitly provided parameters (Minimal Parameter Principle)
+    const generationConfig: any = {};
+    if (params.temperature !== undefined) {
+      generationConfig.temperature = params.temperature;
+    }
+    if (params.maxTokens !== undefined) {
+      generationConfig.maxOutputTokens = params.maxTokens;
+    }
+    if (params.topP !== undefined) {
+      generationConfig.topP = params.topP;
+    }
+    if (params.topK !== undefined) {
+      generationConfig.topK = params.topK;
+    }
+    if (params.stop !== undefined) {
+      generationConfig.stopSequences = params.stop;
+    }
+
     const genModel = client.getGenerativeModel({
       model,
-      generationConfig: {
-        temperature: params.temperature,
-        maxOutputTokens: params.maxTokens,
-        topP: params.topP,
-        topK: params.topK,
-        stopSequences: params.stop,
-      },
+      generationConfig: Object.keys(generationConfig).length > 0 ? generationConfig : undefined,
       safetySettings: [
         { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
         { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -752,9 +924,30 @@ export class LLMService {
     provider: LLMProviderConfig,
     model: string,
     messages: LLMMessage[],
-    params: any
+    params: Record<string, any>
   ): Promise<LLMCompletionResponse> {
     const baseUrl = provider.baseUrl || 'http://localhost:11434';
+
+    // Build options - only include explicitly provided parameters (Minimal Parameter Principle)
+    const options: any = {};
+    if (params.temperature !== undefined) {
+      options.temperature = params.temperature;
+    }
+    if (params.maxTokens !== undefined) {
+      options.num_predict = params.maxTokens;
+    }
+    if (params.topP !== undefined) {
+      options.top_p = params.topP;
+    }
+    if (params.topK !== undefined) {
+      options.top_k = params.topK;
+    }
+    if (params.repeatPenalty !== undefined) {
+      options.repeat_penalty = params.repeatPenalty;
+    }
+    if (params.stop !== undefined) {
+      options.stop = params.stop;
+    }
 
     const response = await fetch(`${baseUrl}/api/chat`, {
       method: 'POST',
@@ -766,14 +959,7 @@ export class LLMService {
           content: m.content,
         })),
         stream: false,
-        options: {
-          temperature: params.temperature,
-          num_predict: params.maxTokens,
-          top_p: params.topP,
-          top_k: params.topK,
-          repeat_penalty: params.repeatPenalty || 1.1,
-          stop: params.stop,
-        },
+        options: Object.keys(options).length > 0 ? options : undefined,
       }),
       signal: AbortSignal.timeout(provider.requestTimeout),
     });
@@ -812,11 +998,39 @@ export class LLMService {
     provider: LLMProviderConfig,
     model: string,
     messages: LLMMessage[],
-    params: any
+    params: Record<string, any>
   ): Promise<LLMCompletionResponse> {
     // Extract system message
     const systemMessage = messages.find(m => m.role === 'system');
     const chatMessages = messages.filter(m => m.role !== 'system');
+
+    // Build request body - only include explicitly provided parameters (Minimal Parameter Principle)
+    const requestBody: any = {
+      model,
+      messages: chatMessages.map(m => ({
+        role: m.role,
+        content: m.content,
+      })),
+    };
+
+    // max_tokens is required for Anthropic, so we need to provide a default if not specified
+    requestBody.max_tokens = params.maxTokens ?? 4096;
+
+    if (systemMessage?.content) {
+      requestBody.system = systemMessage.content;
+    }
+    if (params.temperature !== undefined) {
+      requestBody.temperature = params.temperature;
+    }
+    if (params.topP !== undefined) {
+      requestBody.top_p = params.topP;
+    }
+    if (params.topK !== undefined) {
+      requestBody.top_k = params.topK;
+    }
+    if (params.stop !== undefined) {
+      requestBody.stop_sequences = params.stop;
+    }
 
     const response = await fetch(`${provider.baseUrl || 'https://api.anthropic.com'}/v1/messages`, {
       method: 'POST',
@@ -825,19 +1039,7 @@ export class LLMService {
         'x-api-key': provider.apiKey!,
         'anthropic-version': '2023-06-01',
       },
-      body: JSON.stringify({
-        model,
-        max_tokens: params.maxTokens,
-        system: systemMessage?.content,
-        messages: chatMessages.map(m => ({
-          role: m.role,
-          content: m.content,
-        })),
-        temperature: params.temperature,
-        top_p: params.topP,
-        top_k: params.topK,
-        stop_sequences: params.stop,
-      }),
+      body: JSON.stringify(requestBody),
       signal: AbortSignal.timeout(provider.requestTimeout),
     });
 

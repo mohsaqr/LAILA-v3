@@ -33,6 +33,7 @@ export const LectureEditor = () => {
     isFree: false,
   });
   const [deleteSectionConfirm, setDeleteSectionConfirm] = useState<number | null>(null);
+  const [expandedSectionId, setExpandedSectionId] = useState<number | null>(null);
 
   // Query for lecture data
   const { data: lecture, isLoading } = useQuery({
@@ -74,8 +75,10 @@ export const LectureEditor = () => {
   const createSectionMutation = useMutation({
     mutationFn: (type: 'text' | 'file' | 'ai-generated' | 'chatbot' | 'assignment') =>
       coursesApi.createSection(lecId, { type }),
-    onSuccess: () => {
+    onSuccess: (newSection) => {
       queryClient.invalidateQueries({ queryKey: ['lecture', lecId] });
+      // Auto-expand the newly created section
+      setExpandedSectionId(newSection.id);
       toast.success('Section added');
     },
     onError: () => toast.error('Failed to add section'),
@@ -241,7 +244,7 @@ export const LectureEditor = () => {
             </CardHeader>
             <CardBody>
               {sections.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-2">
                   {sections.map((section, index) => (
                     <SectionEditor
                       key={section.id}
@@ -255,6 +258,8 @@ export const LectureEditor = () => {
                       lectureTitle={formData.title}
                       courseTitle={course?.title}
                       courseId={courseId}
+                      isExpanded={expandedSectionId === section.id}
+                      onToggleExpand={(id) => setExpandedSectionId(expandedSectionId === id ? null : id)}
                     />
                   ))}
                 </div>

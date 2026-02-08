@@ -3,8 +3,23 @@ import { AppError } from '../middleware/error.middleware.js';
 import { chatService } from './chat.service.js';
 import { createLogger } from '../utils/logger.js';
 import { llmService } from './llm.service.js';
+import { pdfExtractorService, PDFInfo } from './pdfExtractor.service.js';
 
 const logger = createLogger('lectureAIHelper');
+
+// PDF info for frontend page selection
+export interface LecturePDFInfo {
+  id: number;
+  fileName: string;
+  pageCount: number;
+  source: 'section' | 'attachment';
+  fileUrl: string;
+}
+
+// Page ranges for PDF extraction
+export interface PDFPageRanges {
+  [fileName: string]: string; // e.g., { "Chapter5.pdf": "1-5", "Notes.pdf": "all" }
+}
 
 export type LectureAIHelperMode = 'explain' | 'discuss';
 
@@ -36,6 +51,7 @@ interface LectureContext {
   }>;
   courseName: string;
   moduleName: string;
+  hasPdfContent?: boolean;
 }
 
 interface ChatResult {
@@ -48,17 +64,16 @@ interface ChatResult {
 export class LectureAIHelperService {
   /**
    * Build context from lecture content for AI prompts
+   * @param pdfPageRanges - Optional page ranges for PDF extraction
    */
-  async buildLectureContext(lectureId: number): Promise<LectureContext> {
+  async buildLectureContext(lectureId: number, pdfPageRanges?: PDFPageRanges): Promise<LectureContext> {
     const lecture = await prisma.lecture.findUnique({
       where: { id: lectureId },
       include: {
         sections: {
-          where: {
-            type: { in: ['text', 'ai-generated'] },
-          },
           orderBy: { order: 'asc' },
         },
+        attachments: true,
         module: {
           include: {
             course: {
@@ -79,13 +94,15 @@ export class LectureAIHelperService {
       content = this.stripHtml(lecture.content);
     }
 
-    const sections = lecture.sections.map(section => ({
+    // Filter text/ai-generated sections for the sections array
+    const textSections = lecture.sections.filter(s => s.type === 'text' || s.type === 'ai-generated');
+    const sections = textSections.map(section => ({
       title: section.title || undefined,
       content: section.content ? this.stripHtml(section.content) : undefined,
       type: section.type,
     }));
 
-    // Also add section content to main content
+    // Also add text section content to main content
     for (const section of sections) {
       if (section.content) {
         if (section.title) {
@@ -96,13 +113,161 @@ export class LectureAIHelperService {
       }
     }
 
+    // Extract PDF content from file sections
+    let hasPdfContent = false;
+
+    // Debug: Log all sections to understand what's available
+    logger.info({
+      lectureId,
+      sectionCount: lecture.sections.length,
+      sections: lecture.sections.map(s => ({
+        id: s.id,
+        type: s.type,
+        fileType: s.fileType,
+        fileName: s.fileName,
+        hasFileUrl: !!s.fileUrl
+      }))
+    }, 'Lecture sections for PDF extraction');
+
+    for (const section of lecture.sections) {
+      // Check for PDF files - be more flexible with fileType matching
+      const isPdf = section.type === 'file' &&
+        section.fileUrl &&
+        (section.fileType === 'application/pdf' ||
+         section.fileType?.toLowerCase().includes('pdf') ||
+         section.fileName?.toLowerCase().endsWith('.pdf'));
+
+      if (isPdf) {
+        const fileName = section.fileName || 'PDF Document';
+        const pageRange = pdfPageRanges?.[fileName] || 'all';
+
+        logger.info({ lectureId, fileName, fileUrl: section.fileUrl, pageRange }, 'Extracting PDF from section');
+
+        const pdfText = await pdfExtractorService.extractFromUrl(section.fileUrl!, pageRange);
+        if (pdfText) {
+          hasPdfContent = true;
+          const title = section.title || fileName;
+          const rangeInfo = pageRange !== 'all' ? ` (pages ${pageRange})` : '';
+          content += `\n\n## ${title}${rangeInfo} (PDF)\n${pdfText}`;
+          logger.info({ lectureId, fileName, pageRange, textLength: pdfText.length }, 'PDF text extracted from section');
+        } else {
+          logger.warn({ lectureId, fileName }, 'PDF extraction returned empty text');
+        }
+      }
+    }
+
+    // Extract PDF content from attachments
+    logger.info({
+      lectureId,
+      attachmentCount: lecture.attachments?.length || 0,
+      attachments: lecture.attachments?.map(a => ({
+        id: a.id,
+        fileType: a.fileType,
+        fileName: a.fileName,
+        hasFileUrl: !!a.fileUrl
+      }))
+    }, 'Lecture attachments for PDF extraction');
+
+    for (const attachment of lecture.attachments || []) {
+      // More flexible PDF detection for attachments
+      const isPdf = attachment.fileUrl &&
+        (attachment.fileType === 'application/pdf' ||
+         attachment.fileType?.toLowerCase().includes('pdf') ||
+         attachment.fileName?.toLowerCase().endsWith('.pdf'));
+
+      if (isPdf) {
+        const fileName = attachment.fileName;
+        const pageRange = pdfPageRanges?.[fileName] || 'all';
+
+        logger.info({ lectureId, fileName, fileUrl: attachment.fileUrl, pageRange }, 'Extracting PDF from attachment');
+
+        const pdfText = await pdfExtractorService.extractFromUrl(attachment.fileUrl, pageRange);
+        if (pdfText) {
+          hasPdfContent = true;
+          const rangeInfo = pageRange !== 'all' ? ` (pages ${pageRange})` : '';
+          content += `\n\n## ${fileName}${rangeInfo} (Attachment)\n${pdfText}`;
+          logger.info({ lectureId, fileName, pageRange, textLength: pdfText.length }, 'PDF text extracted from attachment');
+        } else {
+          logger.warn({ lectureId, fileName }, 'PDF extraction from attachment returned empty text');
+        }
+      }
+    }
+
+    logger.info({ lectureId, hasPdfContent, contentLength: content.length }, 'Lecture context built');
+
     return {
       title: lecture.title,
       content: content.trim(),
       sections,
       courseName: lecture.module.course.title,
       moduleName: lecture.module.title,
+      hasPdfContent,
     };
+  }
+
+  /**
+   * Get PDF information for a lecture (for page selection UI)
+   */
+  async getPdfInfo(lectureId: number, userId: number, isAdmin = false): Promise<LecturePDFInfo[]> {
+    // Verify access
+    await this.verifyAccess(lectureId, userId, isAdmin);
+
+    // Fetch all sections and attachments, filter in code for more flexibility
+    const lecture = await prisma.lecture.findUnique({
+      where: { id: lectureId },
+      include: {
+        sections: {
+          where: { type: 'file' },
+          orderBy: { order: 'asc' },
+        },
+        attachments: true,
+      },
+    });
+
+    if (!lecture) {
+      throw new AppError('Lecture not found', 404);
+    }
+
+    const pdfInfos: LecturePDFInfo[] = [];
+
+    // Helper to check if a file is a PDF
+    const isPdfFile = (fileType?: string | null, fileName?: string | null): boolean => {
+      if (fileType === 'application/pdf') return true;
+      if (fileType?.toLowerCase().includes('pdf')) return true;
+      if (fileName?.toLowerCase().endsWith('.pdf')) return true;
+      return false;
+    };
+
+    // Get info from PDF sections
+    for (const section of lecture.sections) {
+      if (section.fileUrl && isPdfFile(section.fileType, section.fileName)) {
+        const info = await pdfExtractorService.getPdfInfo(section.fileUrl);
+        pdfInfos.push({
+          id: section.id,
+          fileName: section.fileName || 'PDF Document',
+          pageCount: info.pageCount,
+          source: 'section',
+          fileUrl: section.fileUrl,
+        });
+      }
+    }
+
+    // Get info from PDF attachments
+    for (const attachment of lecture.attachments) {
+      if (attachment.fileUrl && isPdfFile(attachment.fileType, attachment.fileName)) {
+        const info = await pdfExtractorService.getPdfInfo(attachment.fileUrl);
+        pdfInfos.push({
+          id: attachment.id,
+          fileName: attachment.fileName,
+          pageCount: info.pageCount,
+          source: 'attachment',
+          fileUrl: attachment.fileUrl,
+        });
+      }
+    }
+
+    logger.info({ lectureId, pdfCount: pdfInfos.length }, 'PDF info retrieved for lecture');
+    return pdfInfos;
   }
 
   /**
@@ -401,13 +566,14 @@ ${lectureContent}`;
     lectureId: number,
     userId: number,
     question: string,
-    isAdmin = false
+    isAdmin = false,
+    pdfPageRanges?: PDFPageRanges
   ): Promise<ExplainThread> {
     // Verify access
     await this.verifyAccess(lectureId, userId, isAdmin);
 
-    // Build context
-    const context = await this.buildLectureContext(lectureId);
+    // Build context with optional PDF page ranges
+    const context = await this.buildLectureContext(lectureId, pdfPageRanges);
     const systemPrompt = this.getSystemPrompt('explain', context);
 
     // Get AI response
@@ -540,7 +706,8 @@ ${lectureContent}`;
     userId: number,
     question: string,
     parentPostId?: number,
-    isAdmin = false
+    isAdmin = false,
+    pdfPageRanges?: PDFPageRanges
   ): Promise<ExplainThread> {
     // Verify access
     await this.verifyAccess(lectureId, userId, isAdmin);
@@ -575,8 +742,8 @@ ${lectureContent}`;
       }
     }
 
-    // Build context for AI response
-    const context = await this.buildLectureContext(lectureId);
+    // Build context for AI response with optional PDF page ranges
+    const context = await this.buildLectureContext(lectureId, pdfPageRanges);
     const systemPrompt = this.getSystemPrompt('explain', context);
 
     // Build conversation history from thread posts

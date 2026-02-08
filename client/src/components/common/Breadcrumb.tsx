@@ -11,9 +11,11 @@ export interface BreadcrumbItem {
 interface BreadcrumbProps {
   items: BreadcrumbItem[];
   className?: string;
+  homeHref?: string;
+  showHome?: boolean;
 }
 
-export const Breadcrumb = ({ items, className = '' }: BreadcrumbProps) => {
+export const Breadcrumb = ({ items, className = '', homeHref = '/dashboard', showHome = true }: BreadcrumbProps) => {
   const { isDark } = useTheme();
 
   const colors = {
@@ -29,16 +31,18 @@ export const Breadcrumb = ({ items, className = '' }: BreadcrumbProps) => {
     <nav className={`flex items-center text-sm ${className}`} aria-label="Breadcrumb">
       <ol className="flex items-center flex-wrap gap-1">
         {/* Home link */}
-        <li>
-          <Link
-            to="/dashboard"
-            className="transition-colors"
-            style={{ color: colors.homeLink }}
-            title="Dashboard"
-          >
-            <Home className="w-4 h-4" />
-          </Link>
-        </li>
+        {showHome && (
+          <li>
+            <Link
+              to={homeHref}
+              className="transition-colors"
+              style={{ color: colors.homeLink }}
+              title="Dashboard"
+            >
+              <Home className="w-4 h-4" />
+            </Link>
+          </li>
+        )}
 
         {items.map((item, index) => {
           const isLast = index === items.length - 1;

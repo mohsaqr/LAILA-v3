@@ -2,6 +2,8 @@ import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { CreateAssignmentInput, UpdateAssignmentInput, CreateSubmissionInput, GradeSubmissionInput } from '../utils/validation.js';
 import { learningAnalyticsService } from './learningAnalytics.service.js';
+import { emailService } from './email.service.js';
+import { assignmentLogger } from '../utils/logger.js';
 
 // Context for event logging
 export interface EventContext {
@@ -282,7 +284,7 @@ export class AssignmentService {
         browserName: context?.browserName,
       }, context?.ipAddress);
     } catch (error) {
-      console.error('Failed to log assignment submit event:', error);
+      assignmentLogger.warn({ err: error, userId, assignmentId }, 'Failed to log assignment submit event');
     }
 
     return submission;
@@ -359,7 +361,7 @@ export class AssignmentService {
         feedbackLength: data.feedback?.length,
       });
     } catch (error) {
-      console.error('Failed to log grade event:', error);
+      assignmentLogger.warn({ err: error, submissionId }, 'Failed to log grade event');
     }
 
     // Log grading action as a system event
@@ -378,8 +380,19 @@ export class AssignmentService {
         newValues: { grade: data.grade, feedback: data.feedback },
       }, context?.ipAddress);
     } catch (error) {
-      console.error('Failed to log grading system event:', error);
+      assignmentLogger.warn({ err: error, submissionId, instructorId }, 'Failed to log grading system event');
     }
+
+    // Send grade notification email (non-blocking)
+    emailService.sendGradeNotification(
+      submission.userId,
+      submission.assignment.courseId,
+      submission.assignment.title,
+      data.grade,
+      submission.assignment.points
+    ).catch((err) => {
+      assignmentLogger.warn({ err, submissionId }, 'Failed to send grade notification');
+    });
 
     return updated;
   }

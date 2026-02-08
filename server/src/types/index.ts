@@ -7,6 +7,7 @@ export interface UserPayload {
   fullname: string;
   isAdmin: boolean;
   isInstructor: boolean;
+  tokenVersion?: number; // Used for token invalidation on password change
 }
 
 export interface AuthRequest extends Request {
@@ -126,6 +127,7 @@ export interface AIConfig {
   provider: AIProvider;
   model: string;
   apiKey: string;
+  baseURL?: string; // For OpenAI-compatible servers like LM Studio
   maxTokens?: number;
   temperature?: number;
 }

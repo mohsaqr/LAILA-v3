@@ -24,7 +24,7 @@ export const AISection = ({
   readOnly = false,
 }: AISectionProps) => {
   const [showPreview, setShowPreview] = useState(false);
-  const [showGenerateModal, setShowGenerateModal] = useState(!section.content);
+  const [showGenerateModal, setShowGenerateModal] = useState(false); // Don't auto-open modal
   const [prompt, setPrompt] = useState('');
   const content = section.content || '';
 

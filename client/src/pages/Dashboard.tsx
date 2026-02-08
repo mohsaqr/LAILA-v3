@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   BookOpen,
   GraduationCap,
@@ -21,6 +22,7 @@ import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 
 export const Dashboard = () => {
+  const { t } = useTranslation(['courses', 'navigation', 'settings']);
   const { user, isInstructor } = useAuth();
   const { isDark } = useTheme();
 
@@ -50,7 +52,7 @@ export const Dashboard = () => {
   });
 
   if (statsLoading) {
-    return <Loading fullScreen text="Loading dashboard..." />;
+    return <Loading fullScreen text={t('loading_dashboard')} />;
   }
 
   return (
@@ -61,10 +63,10 @@ export const Dashboard = () => {
           <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
             <div className="flex-1">
               <h1 className="text-3xl lg:text-4xl font-bold mb-3">
-                Welcome back, {user?.fullname?.split(' ')[0]}!
+                {t('welcome_back', { name: user?.fullname?.split(' ')[0] })}
               </h1>
               <p className="text-white/80 text-lg mb-6">
-                Explore courses, use AI tools, and enhance your learning experience.
+                {t('explore_description')}
               </p>
               <div className="flex flex-wrap gap-3">
                 <Link
@@ -72,14 +74,14 @@ export const Dashboard = () => {
                   className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-primary-700 rounded-lg font-medium hover:bg-gray-100 transition-colors"
                 >
                   <Sparkles className="w-5 h-5" />
-                  Explore Courses
+                  {t('explore_courses')}
                 </Link>
                 <Link
                   to="/ai-tools"
                   className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/20 text-white rounded-lg font-medium hover:bg-white/30 transition-colors"
                 >
                   <BrainCircuit className="w-5 h-5" />
-                  AI Tools
+                  {t('ai_tools')}
                 </Link>
               </div>
             </div>
@@ -102,7 +104,7 @@ export const Dashboard = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Quick Actions Grid */}
         <div className="mb-10">
-          <h2 className="text-xl font-bold mb-4" style={{ color: colors.textPrimary }}>Quick Actions</h2>
+          <h2 className="text-xl font-bold mb-4" style={{ color: colors.textPrimary }}>{t('quick_actions')}</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Link to="/catalog">
               <Card hover className="h-full">
@@ -110,7 +112,7 @@ export const Dashboard = () => {
                   <div className="w-12 h-12 rounded-xl bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center mx-auto mb-3">
                     <GraduationCap className="w-6 h-6 text-primary-600 dark:text-primary-400" />
                   </div>
-                  <p className="font-medium" style={{ color: colors.textPrimary }}>Browse Courses</p>
+                  <p className="font-medium" style={{ color: colors.textPrimary }}>{t('browse_courses')}</p>
                 </CardBody>
               </Card>
             </Link>
@@ -121,7 +123,7 @@ export const Dashboard = () => {
                   <div className="w-12 h-12 rounded-xl bg-secondary-100 dark:bg-secondary-900/30 flex items-center justify-center mx-auto mb-3">
                     <BrainCircuit className="w-6 h-6 text-secondary-600 dark:text-secondary-400" />
                   </div>
-                  <p className="font-medium" style={{ color: colors.textPrimary }}>AI Tools</p>
+                  <p className="font-medium" style={{ color: colors.textPrimary }}>{t('ai_tools')}</p>
                 </CardBody>
               </Card>
             </Link>
@@ -134,7 +136,7 @@ export const Dashboard = () => {
                       <div className="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center mx-auto mb-3">
                         <Briefcase className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
                       </div>
-                      <p className="font-medium" style={{ color: colors.textPrimary }}>Create Course</p>
+                      <p className="font-medium" style={{ color: colors.textPrimary }}>{t('create_course')}</p>
                     </CardBody>
                   </Card>
                 </Link>
@@ -145,7 +147,7 @@ export const Dashboard = () => {
                       <div className="w-12 h-12 rounded-xl bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center mx-auto mb-3">
                         <Users className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
                       </div>
-                      <p className="font-medium" style={{ color: colors.textPrimary }}>Manage Courses</p>
+                      <p className="font-medium" style={{ color: colors.textPrimary }}>{t('manage_courses')}</p>
                     </CardBody>
                   </Card>
                 </Link>
@@ -158,7 +160,7 @@ export const Dashboard = () => {
                       <div className="w-12 h-12 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center mx-auto mb-3">
                         <Sparkles className="w-6 h-6 text-violet-600 dark:text-violet-400" />
                       </div>
-                      <p className="font-medium" style={{ color: colors.textPrimary }}>AI Builder</p>
+                      <p className="font-medium" style={{ color: colors.textPrimary }}>{t('ai_builder')}</p>
                     </CardBody>
                   </Card>
                 </Link>
@@ -169,7 +171,7 @@ export const Dashboard = () => {
                       <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center mx-auto mb-3">
                         <Settings className="w-6 h-6 text-gray-600 dark:text-gray-400" />
                       </div>
-                      <p className="font-medium" style={{ color: colors.textPrimary }}>Settings</p>
+                      <p className="font-medium" style={{ color: colors.textPrimary }}>{t('settings:settings')}</p>
                     </CardBody>
                   </Card>
                 </Link>
@@ -181,7 +183,7 @@ export const Dashboard = () => {
         {/* Instructor Teaching Overview */}
         {isInstructor && instructorStats && (
           <div className="mb-10">
-            <h2 className="text-xl font-bold mb-4" style={{ color: colors.textPrimary }}>Teaching Overview</h2>
+            <h2 className="text-xl font-bold mb-4" style={{ color: colors.textPrimary }}>{t('teaching_overview')}</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Link to="/teach">
                 <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 hover:shadow-md transition-shadow cursor-pointer">
@@ -191,7 +193,7 @@ export const Dashboard = () => {
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-indigo-900">{instructorStats.totalCourses}</p>
-                      <p className="text-sm text-indigo-600">Your Courses</p>
+                      <p className="text-sm text-indigo-600">{t('your_courses')}</p>
                     </div>
                   </CardBody>
                 </Card>
@@ -204,7 +206,7 @@ export const Dashboard = () => {
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-cyan-900">{instructorStats.totalStudents}</p>
-                    <p className="text-sm text-cyan-600">Total Students</p>
+                    <p className="text-sm text-cyan-600">{t('total_students')}</p>
                   </div>
                 </CardBody>
               </Card>
@@ -216,7 +218,7 @@ export const Dashboard = () => {
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-pink-900">{instructorStats.totalAssignments}</p>
-                    <p className="text-sm text-pink-600">Assignments</p>
+                    <p className="text-sm text-pink-600">{t('assignments')}</p>
                   </div>
                 </CardBody>
               </Card>
@@ -228,7 +230,7 @@ export const Dashboard = () => {
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-yellow-900">{instructorStats.pendingGrading}</p>
-                    <p className="text-sm text-yellow-700">Pending Grading</p>
+                    <p className="text-sm text-yellow-700">{t('pending_grading')}</p>
                   </div>
                 </CardBody>
               </Card>
@@ -238,7 +240,7 @@ export const Dashboard = () => {
 
         {/* Stats Section - Bottom */}
         <div>
-          <h2 className="text-xl font-bold mb-4" style={{ color: colors.textPrimary }}>Your Progress</h2>
+          <h2 className="text-xl font-bold mb-4" style={{ color: colors.textPrimary }}>{t('your_progress')}</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Link to="/courses?filter=enrolled">
               <Card hover>
@@ -247,7 +249,7 @@ export const Dashboard = () => {
                     <BookOpen className="w-7 h-7 text-blue-600 dark:text-blue-400" />
                   </div>
                   <p className="text-3xl font-bold" style={{ color: colors.textPrimary }}>{stats?.enrolledCourses || 0}</p>
-                  <p className="text-sm" style={{ color: colors.textSecondary }}>Enrolled Courses</p>
+                  <p className="text-sm" style={{ color: colors.textSecondary }}>{t('enrolled_courses')}</p>
                 </CardBody>
               </Card>
             </Link>
@@ -259,7 +261,7 @@ export const Dashboard = () => {
                     <Award className="w-7 h-7 text-green-600 dark:text-green-400" />
                   </div>
                   <p className="text-3xl font-bold" style={{ color: colors.textPrimary }}>{stats?.completedCourses || 0}</p>
-                  <p className="text-sm" style={{ color: colors.textSecondary }}>Completed</p>
+                  <p className="text-sm" style={{ color: colors.textSecondary }}>{t('completed')}</p>
                 </CardBody>
               </Card>
             </Link>
@@ -272,7 +274,7 @@ export const Dashboard = () => {
                 <p className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
                   {Math.round((stats?.totalTimeSpent || 0) / 3600)}h
                 </p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>Learning Time</p>
+                <p className="text-sm" style={{ color: colors.textSecondary }}>{t('learning_time')}</p>
               </CardBody>
             </Card>
 
@@ -282,7 +284,7 @@ export const Dashboard = () => {
                   <FileText className="w-7 h-7 text-orange-600 dark:text-orange-400" />
                 </div>
                 <p className="text-3xl font-bold" style={{ color: colors.textPrimary }}>{stats?.submittedAssignments || 0}</p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>Submissions</p>
+                <p className="text-sm" style={{ color: colors.textSecondary }}>{t('submissions')}</p>
               </CardBody>
             </Card>
           </div>

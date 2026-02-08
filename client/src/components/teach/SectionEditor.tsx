@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronUp, ChevronDown, Trash2, FileText, Upload, Sparkles, Edit3, Check, X, MessageCircle, ClipboardList } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronRight, Trash2, FileText, Upload, Sparkles, Edit3, Check, X, MessageCircle, ClipboardList } from 'lucide-react';
 import { LectureSection, UpdateSectionData } from '../../types';
 import { TextSection } from './TextSection';
 import { FileSection } from './FileSection';
@@ -19,6 +19,8 @@ interface SectionEditorProps {
   courseTitle?: string;
   courseId?: number;
   readOnly?: boolean;
+  isExpanded?: boolean;
+  onToggleExpand?: (sectionId: number) => void;
 }
 
 const SECTION_TYPE_INFO: Record<string, {
@@ -77,9 +79,22 @@ export const SectionEditor = ({
   courseTitle,
   courseId,
   readOnly = false,
+  isExpanded = true,
+  onToggleExpand,
 }: SectionEditorProps) => {
   const typeInfo = SECTION_TYPE_INFO[section.type] || SECTION_TYPE_INFO.text;
   const TypeIcon = typeInfo.icon;
+
+  // Get a brief preview of content for collapsed state
+  const getContentPreview = () => {
+    if (section.content) {
+      const text = section.content.replace(/[#*`\[\]]/g, '').trim();
+      return text.length > 60 ? text.substring(0, 60) + '...' : text;
+    }
+    if (section.fileName) return `File: ${section.fileName}`;
+    if (section.type === 'chatbot') return section.chatbotTitle || 'Chatbot configured';
+    return 'No content yet';
+  };
 
   // Title editing state
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -199,13 +214,22 @@ export const SectionEditor = ({
 
   return (
     <div className={`rounded-lg border ${typeInfo.borderColor} overflow-hidden`}>
-      {/* Section Header */}
-      <div className={`flex items-center justify-between px-4 py-2 ${typeInfo.bgColor} border-b ${typeInfo.borderColor}`}>
+      {/* Section Header - Clickable to expand/collapse */}
+      <div
+        className={`flex items-center justify-between px-4 py-2 ${typeInfo.bgColor} ${isExpanded ? `border-b ${typeInfo.borderColor}` : ''} ${onToggleExpand ? 'cursor-pointer' : ''}`}
+        onClick={() => !isEditingTitle && onToggleExpand?.(section.id)}
+      >
         <div className={`flex items-center gap-2 text-sm ${typeInfo.color} flex-1 min-w-0`}>
+          {/* Expand/Collapse indicator */}
+          {onToggleExpand && (
+            <ChevronRight
+              className={`w-4 h-4 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+            />
+          )}
           <TypeIcon className="w-4 h-4 flex-shrink-0" />
 
           {isEditingTitle ? (
-            <div className="flex items-center gap-1 flex-1 min-w-0">
+            <div className="flex items-center gap-1 flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
               <input
                 type="text"
                 value={titleDraft}
@@ -231,11 +255,17 @@ export const SectionEditor = ({
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               <span className="font-medium truncate">{displayTitle}</span>
               <span className="text-gray-400 font-normal flex-shrink-0">#{index + 1}</span>
+              {/* Show preview when collapsed */}
+              {!isExpanded && (
+                <span className="text-gray-400 font-normal text-xs truncate ml-2 hidden sm:inline">
+                  — {getContentPreview()}
+                </span>
+              )}
               <button
-                onClick={() => setIsEditingTitle(true)}
+                onClick={(e) => { e.stopPropagation(); setIsEditingTitle(true); }}
                 className="p-1 rounded hover:bg-white/50 transition-colors text-gray-400 hover:text-gray-600 flex-shrink-0"
                 title="Edit title"
               >
@@ -245,7 +275,7 @@ export const SectionEditor = ({
           )}
         </div>
 
-        <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+        <div className="flex items-center gap-1 flex-shrink-0 ml-2" onClick={(e) => e.stopPropagation()}>
           {/* Reorder buttons */}
           <button
             onClick={() => onMoveUp(section.id)}
@@ -275,8 +305,10 @@ export const SectionEditor = ({
         </div>
       </div>
 
-      {/* Section Content */}
-      <div className="p-4 bg-white">{renderSectionContent()}</div>
+      {/* Section Content - Only shown when expanded */}
+      {isExpanded && (
+        <div className="p-4 bg-white">{renderSectionContent()}</div>
+      )}
     </div>
   );
 };

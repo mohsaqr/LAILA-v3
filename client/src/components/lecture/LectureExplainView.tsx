@@ -1,16 +1,19 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Loader2, Send, BookOpen } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
-import { lectureAIHelperApi, ExplainThread } from '../../api/lectureAIHelper';
+import { lectureAIHelperApi, ExplainThread, PDFPageRanges } from '../../api/lectureAIHelper';
 import { ExplainThreadCard } from './ExplainThreadCard';
 
 interface LectureExplainViewProps {
   lectureId: number;
+  pdfPageRanges?: PDFPageRanges;
 }
 
-export const LectureExplainView = ({ lectureId }: LectureExplainViewProps) => {
+export const LectureExplainView = ({ lectureId, pdfPageRanges }: LectureExplainViewProps) => {
   const { isDark } = useTheme();
+  const { t } = useTranslation(['tutors', 'common']);
   const queryClient = useQueryClient();
   const [showNewQuestion, setShowNewQuestion] = useState(false);
   const [newQuestion, setNewQuestion] = useState('');
@@ -34,7 +37,7 @@ export const LectureExplainView = ({ lectureId }: LectureExplainViewProps) => {
 
   // Create thread mutation
   const createThreadMutation = useMutation({
-    mutationFn: (question: string) => lectureAIHelperApi.createExplainThread(lectureId, question),
+    mutationFn: (question: string) => lectureAIHelperApi.createExplainThread(lectureId, question, pdfPageRanges),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['explainThreads', lectureId] });
       setNewQuestion('');
@@ -45,9 +48,12 @@ export const LectureExplainView = ({ lectureId }: LectureExplainViewProps) => {
   // Follow-up mutation (per thread)
   const followUpMutation = useMutation({
     mutationFn: ({ threadId, question }: { threadId: number; question: string }) =>
-      lectureAIHelperApi.addFollowUp(lectureId, threadId, question),
+      lectureAIHelperApi.addFollowUp(lectureId, threadId, question, undefined, pdfPageRanges),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['explainThreads', lectureId] });
+    },
+    onError: (error) => {
+      console.error('Follow-up failed:', error);
     },
   });
 
@@ -85,7 +91,7 @@ export const LectureExplainView = ({ lectureId }: LectureExplainViewProps) => {
             }}
           >
             <Plus className="w-4 h-4" />
-            New Question
+            {t('new_question')}
           </button>
         ) : (
           <div className="space-y-3">
@@ -93,7 +99,7 @@ export const LectureExplainView = ({ lectureId }: LectureExplainViewProps) => {
               value={newQuestion}
               onChange={(e) => setNewQuestion(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="What would you like to understand about this lecture?"
+              placeholder={t('question_placeholder')}
               disabled={createThreadMutation.isPending}
               rows={3}
               autoFocus
@@ -113,7 +119,7 @@ export const LectureExplainView = ({ lectureId }: LectureExplainViewProps) => {
                 className="text-sm"
                 style={{ color: colors.textSecondary }}
               >
-                Cancel
+                {t('cancel')}
               </button>
               <button
                 onClick={handleCreateThread}
@@ -123,12 +129,12 @@ export const LectureExplainView = ({ lectureId }: LectureExplainViewProps) => {
                 {createThreadMutation.isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Asking...
+                    {t('asking')}
                   </>
                 ) : (
                   <>
                     <Send className="w-4 h-4" />
-                    Ask Question
+                    {t('ask_question')}
                   </>
                 )}
               </button>
@@ -140,7 +146,7 @@ export const LectureExplainView = ({ lectureId }: LectureExplainViewProps) => {
       {/* Error display */}
       {createThreadMutation.isError && (
         <div className="px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm">
-          Failed to create question. Please try again.
+          {t('failed_create_question')}
         </div>
       )}
 
@@ -149,14 +155,14 @@ export const LectureExplainView = ({ lectureId }: LectureExplainViewProps) => {
         {threadsLoading ? (
           <div className="px-4 py-8 text-center" style={{ color: colors.textSecondary }}>
             <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-            Loading questions...
+            {t('loading_questions')}
           </div>
         ) : threads.length === 0 ? (
           <div className="px-4 py-8 text-center" style={{ color: colors.textSecondary }}>
             <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-50" />
-            <p className="font-medium mb-1">No questions yet</p>
+            <p className="font-medium mb-1">{t('no_questions_yet')}</p>
             <p className="text-xs">
-              Ask a question about the lecture content and get a detailed explanation
+              {t('ask_question_description')}
             </p>
           </div>
         ) : (

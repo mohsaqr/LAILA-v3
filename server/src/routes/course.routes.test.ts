@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vite
 import express from 'express';
 import request from 'supertest';
 import { ZodError } from 'zod';
-import { courseService } from '../services/course.service.js';
 import { AppError } from '../middleware/error.middleware.js';
 
 // Mock services
@@ -37,6 +36,7 @@ vi.mock('../services/lecture.service.js', () => ({
   lectureService: {
     getLecturesWithAccessCheck: vi.fn(),
     getLectureById: vi.fn(),
+    getLectureByIdWithAccessCheck: vi.fn(),
     createLecture: vi.fn(),
     updateLecture: vi.fn(),
     deleteLecture: vi.fn(),
@@ -104,8 +104,14 @@ vi.mock('../middleware/auth.middleware.js', () => ({
   }),
 }));
 
-// Import routes after mocks
+// Import routes and services after mocks
 import courseRoutes from './course.routes.js';
+import { courseService } from '../services/course.service.js';
+import { moduleService } from '../services/module.service.js';
+import { lectureService } from '../services/lecture.service.js';
+import { sectionService } from '../services/section.service.js';
+import { chatbotConversationService } from '../services/chatbotConversation.service.js';
+import { lectureAIHelperService } from '../services/lectureAIHelper.service.js';
 
 describe('Course Routes', () => {
   let app: express.Express;
@@ -577,6 +583,710 @@ describe('Course Routes', () => {
         .put('/api/courses/1/ai-settings')
         .send(aiSettings)
         .expect(403);
+
+      expect(response.body.success).toBe(false);
+    });
+  });
+
+  // ==========================================================================
+  // MODULE ENDPOINTS
+  // ==========================================================================
+
+  describe('GET /api/courses/:courseId/modules', () => {
+    it('should return modules for course', async () => {
+      const mockModules = [
+        { id: 1, title: 'Module 1', orderIndex: 0 },
+        { id: 2, title: 'Module 2', orderIndex: 1 },
+      ];
+
+      vi.mocked(moduleService.getModules).mockResolvedValue(mockModules as any);
+
+      const response = await request(app)
+        .get('/api/courses/1/modules')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveLength(2);
+    });
+  });
+
+  describe('POST /api/courses/:courseId/modules', () => {
+    it('should create module as instructor', async () => {
+      const mockModule = { id: 1, title: 'New Module', courseId: 1 };
+      vi.mocked(moduleService.createModule).mockResolvedValue(mockModule as any);
+
+      const response = await request(app)
+        .post('/api/courses/1/modules')
+        .send({ title: 'New Module' })
+        .expect(201);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.title).toBe('New Module');
+    });
+  });
+
+  describe('PUT /api/courses/modules/:moduleId', () => {
+    it('should update module', async () => {
+      const mockModule = { id: 1, title: 'Updated Module' };
+      vi.mocked(moduleService.updateModule).mockResolvedValue(mockModule as any);
+
+      const response = await request(app)
+        .put('/api/courses/modules/1')
+        .send({ title: 'Updated Module' })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.title).toBe('Updated Module');
+    });
+  });
+
+  describe('DELETE /api/courses/modules/:moduleId', () => {
+    it('should delete module', async () => {
+      vi.mocked(moduleService.deleteModule).mockResolvedValue(undefined);
+
+      const response = await request(app)
+        .delete('/api/courses/modules/1')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+    });
+  });
+
+  describe('PUT /api/courses/:courseId/modules/reorder', () => {
+    it('should reorder modules', async () => {
+      vi.mocked(moduleService.reorderModules).mockResolvedValue(undefined);
+
+      const response = await request(app)
+        .put('/api/courses/1/modules/reorder')
+        .send({ moduleIds: [2, 1, 3] })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+    });
+  });
+
+  // ==========================================================================
+  // LECTURE ENDPOINTS
+  // ==========================================================================
+
+  describe('GET /api/courses/modules/:moduleId/lectures', () => {
+    it('should return lectures for module', async () => {
+      const mockLectures = [
+        { id: 1, title: 'Lecture 1', orderIndex: 0 },
+        { id: 2, title: 'Lecture 2', orderIndex: 1 },
+      ];
+
+      vi.mocked(lectureService.getLecturesWithAccessCheck).mockResolvedValue(mockLectures as any);
+
+      const response = await request(app)
+        .get('/api/courses/modules/1/lectures')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveLength(2);
+    });
+  });
+
+  describe('GET /api/courses/lectures/:lectureId', () => {
+    it('should return lecture by ID', async () => {
+      const mockLecture = { id: 1, title: 'Lecture 1', moduleId: 1 };
+      vi.mocked(lectureService.getLectureById).mockResolvedValue(mockLecture as any);
+
+      const response = await request(app)
+        .get('/api/courses/lectures/1')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.title).toBe('Lecture 1');
+    });
+  });
+
+  describe('POST /api/courses/modules/:moduleId/lectures', () => {
+    it('should create lecture as instructor', async () => {
+      const mockLecture = { id: 1, title: 'New Lecture', moduleId: 1 };
+      vi.mocked(lectureService.createLecture).mockResolvedValue(mockLecture as any);
+
+      const response = await request(app)
+        .post('/api/courses/modules/1/lectures')
+        .send({ title: 'New Lecture' })
+        .expect(201);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.title).toBe('New Lecture');
+    });
+  });
+
+  describe('PUT /api/courses/lectures/:lectureId', () => {
+    it('should update lecture', async () => {
+      const mockLecture = { id: 1, title: 'Updated Lecture' };
+      vi.mocked(lectureService.updateLecture).mockResolvedValue(mockLecture as any);
+
+      const response = await request(app)
+        .put('/api/courses/lectures/1')
+        .send({ title: 'Updated Lecture' })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.title).toBe('Updated Lecture');
+    });
+  });
+
+  describe('DELETE /api/courses/lectures/:lectureId', () => {
+    it('should delete lecture', async () => {
+      vi.mocked(lectureService.deleteLecture).mockResolvedValue(undefined);
+
+      const response = await request(app)
+        .delete('/api/courses/lectures/1')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+    });
+  });
+
+  describe('PUT /api/courses/modules/:moduleId/lectures/reorder', () => {
+    it('should reorder lectures', async () => {
+      vi.mocked(lectureService.reorderLectures).mockResolvedValue(undefined);
+
+      const response = await request(app)
+        .put('/api/courses/modules/1/lectures/reorder')
+        .send({ lectureIds: [2, 1, 3] })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+    });
+  });
+
+  // ==========================================================================
+  // SECTION ENDPOINTS
+  // ==========================================================================
+
+  describe('GET /api/courses/lectures/:lectureId/sections', () => {
+    it('should return sections for lecture', async () => {
+      const mockSections = [
+        { id: 1, title: 'Section 1', order: 0 },
+        { id: 2, title: 'Section 2', order: 1 },
+      ];
+
+      vi.mocked(sectionService.getSections).mockResolvedValue(mockSections as any);
+
+      const response = await request(app)
+        .get('/api/courses/lectures/1/sections')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveLength(2);
+    });
+  });
+
+  describe('POST /api/courses/lectures/:lectureId/sections', () => {
+    it('should create section as instructor', async () => {
+      const mockSection = { id: 1, title: 'New Section', lectureId: 1 };
+      vi.mocked(sectionService.createSection).mockResolvedValue(mockSection as any);
+
+      const response = await request(app)
+        .post('/api/courses/lectures/1/sections')
+        .send({ title: 'New Section', type: 'text', content: 'Content' })
+        .expect(201);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.title).toBe('New Section');
+    });
+  });
+
+  describe('PUT /api/courses/sections/:sectionId', () => {
+    it('should update section', async () => {
+      const mockSection = { id: 1, title: 'Updated Section' };
+      vi.mocked(sectionService.updateSection).mockResolvedValue(mockSection as any);
+
+      const response = await request(app)
+        .put('/api/courses/sections/1')
+        .send({ title: 'Updated Section' })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.title).toBe('Updated Section');
+    });
+  });
+
+  describe('DELETE /api/courses/sections/:sectionId', () => {
+    it('should delete section', async () => {
+      vi.mocked(sectionService.deleteSection).mockResolvedValue(undefined);
+
+      const response = await request(app)
+        .delete('/api/courses/sections/1')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+    });
+  });
+
+  describe('PUT /api/courses/lectures/:lectureId/sections/reorder', () => {
+    it('should reorder sections', async () => {
+      vi.mocked(sectionService.reorderSections).mockResolvedValue(undefined);
+
+      const response = await request(app)
+        .put('/api/courses/lectures/1/sections/reorder')
+        .send({ sectionIds: [2, 1, 3] })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+    });
+  });
+
+  // ==========================================================================
+  // ATTACHMENT ENDPOINTS
+  // ==========================================================================
+
+  describe('POST /api/courses/lectures/:lectureId/attachments', () => {
+    it('should add attachment to lecture', async () => {
+      const mockAttachment = { id: 1, lectureId: 1, filename: 'file.pdf', url: '/uploads/file.pdf' };
+      vi.mocked(lectureService.addAttachment).mockResolvedValue(mockAttachment as any);
+
+      const response = await request(app)
+        .post('/api/courses/lectures/1/attachments')
+        .send({ filename: 'file.pdf', url: '/uploads/file.pdf' })
+        .expect(201);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.filename).toBe('file.pdf');
+    });
+
+    it('should return 403 for non-instructor', async () => {
+      currentUser = { id: 1, email: 'student@example.com', isAdmin: false, isInstructor: false };
+
+      const response = await request(app)
+        .post('/api/courses/lectures/1/attachments')
+        .send({ filename: 'file.pdf', url: '/uploads/file.pdf' })
+        .expect(403);
+
+      expect(response.body.success).toBe(false);
+    });
+  });
+
+  describe('DELETE /api/courses/attachments/:attachmentId', () => {
+    it('should delete attachment', async () => {
+      vi.mocked(lectureService.deleteAttachment).mockResolvedValue({ deleted: true } as any);
+
+      const response = await request(app)
+        .delete('/api/courses/attachments/1')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+    });
+  });
+
+  // ==========================================================================
+  // AI CONTENT GENERATION
+  // ==========================================================================
+
+  describe('POST /api/courses/sections/generate', () => {
+    it('should generate AI content', async () => {
+      vi.mocked(sectionService.generateAIContent).mockResolvedValue('Generated content here');
+
+      const response = await request(app)
+        .post('/api/courses/sections/generate')
+        .send({ prompt: 'Write about JavaScript', context: 'Programming course' })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.content).toBe('Generated content here');
+    });
+
+    it('should return 403 for non-instructor', async () => {
+      currentUser = { id: 1, email: 'student@example.com', isAdmin: false, isInstructor: false };
+
+      const response = await request(app)
+        .post('/api/courses/sections/generate')
+        .send({ prompt: 'Write about JavaScript', context: 'Programming course' })
+        .expect(403);
+
+      expect(response.body.success).toBe(false);
+    });
+  });
+
+  // ==========================================================================
+  // ASSIGNMENTS LIST FOR SECTION
+  // ==========================================================================
+
+  describe('GET /api/courses/:courseId/assignments/list', () => {
+    it('should return assignments list for section', async () => {
+      const mockAssignments = [
+        { id: 1, title: 'Assignment 1' },
+        { id: 2, title: 'Assignment 2' },
+      ];
+      vi.mocked(sectionService.getCourseAssignmentsForSection).mockResolvedValue(mockAssignments as any);
+
+      const response = await request(app)
+        .get('/api/courses/1/assignments/list')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveLength(2);
+    });
+  });
+
+  // ==========================================================================
+  // CHATBOT CONVERSATION ENDPOINTS (Student)
+  // ==========================================================================
+
+  describe('POST /api/courses/sections/:sectionId/chat', () => {
+    it('should send message to chatbot section', async () => {
+      const mockResult = { response: 'Hello, I can help you!', conversationId: 1 };
+      vi.mocked(chatbotConversationService.sendMessage).mockResolvedValue(mockResult as any);
+
+      const response = await request(app)
+        .post('/api/courses/sections/1/chat')
+        .send({ message: 'Hello' })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.response).toBe('Hello, I can help you!');
+    });
+
+    it('should return 400 for missing message', async () => {
+      const response = await request(app)
+        .post('/api/courses/sections/1/chat')
+        .send({})
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+    });
+  });
+
+  describe('GET /api/courses/sections/:sectionId/chat/history', () => {
+    it('should return conversation history', async () => {
+      const mockHistory = [
+        { role: 'user', content: 'Hello' },
+        { role: 'assistant', content: 'Hi!' },
+      ];
+      vi.mocked(chatbotConversationService.getConversationHistory).mockResolvedValue(mockHistory as any);
+
+      const response = await request(app)
+        .get('/api/courses/sections/1/chat/history')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveLength(2);
+    });
+  });
+
+  describe('DELETE /api/courses/sections/:sectionId/chat', () => {
+    it('should clear conversation history', async () => {
+      vi.mocked(chatbotConversationService.clearConversation).mockResolvedValue({ cleared: true } as any);
+
+      const response = await request(app)
+        .delete('/api/courses/sections/1/chat')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+    });
+  });
+
+  // ==========================================================================
+  // CHATBOT ANALYTICS (Instructor)
+  // ==========================================================================
+
+  describe('GET /api/courses/:courseId/chatbot-sections', () => {
+    it('should return chatbot sections for course', async () => {
+      const mockSections = [
+        { id: 1, title: 'Chatbot 1', conversationCount: 5 },
+        { id: 2, title: 'Chatbot 2', conversationCount: 3 },
+      ];
+      vi.mocked(chatbotConversationService.getChatbotSectionsForCourse).mockResolvedValue(mockSections as any);
+
+      const response = await request(app)
+        .get('/api/courses/1/chatbot-sections')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveLength(2);
+    });
+  });
+
+  describe('GET /api/courses/:courseId/chatbot-analytics', () => {
+    it('should return chatbot analytics for course', async () => {
+      const mockAnalytics = {
+        totalConversations: 100,
+        totalMessages: 500,
+        averageMessagesPerConversation: 5,
+      };
+      vi.mocked(chatbotConversationService.getChatbotAnalytics).mockResolvedValue(mockAnalytics as any);
+
+      const response = await request(app)
+        .get('/api/courses/1/chatbot-analytics')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.totalConversations).toBe(100);
+    });
+  });
+
+  describe('GET /api/courses/sections/:sectionId/conversations', () => {
+    it('should return conversations for section with pagination', async () => {
+      const mockResult = {
+        conversations: [
+          { id: 1, userId: 1 },
+          { id: 2, userId: 2 },
+        ],
+        total: 10,
+        page: 1,
+        limit: 20,
+      };
+      vi.mocked(chatbotConversationService.getConversationsForSection).mockResolvedValue(mockResult as any);
+
+      const response = await request(app)
+        .get('/api/courses/sections/1/conversations?page=1&limit=20')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.conversations).toHaveLength(2);
+    });
+  });
+
+  describe('GET /api/courses/chatbot-conversations/:conversationId', () => {
+    it('should return conversation messages for instructor', async () => {
+      const mockResult = {
+        conversation: { id: 1 },
+        messages: [
+          { role: 'user', content: 'Hello' },
+          { role: 'assistant', content: 'Hi!' },
+        ],
+      };
+      vi.mocked(chatbotConversationService.getConversationMessagesForInstructor).mockResolvedValue(mockResult as any);
+
+      const response = await request(app)
+        .get('/api/courses/chatbot-conversations/1')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.messages).toHaveLength(2);
+    });
+  });
+
+  // ==========================================================================
+  // LECTURE AI HELPER (Discuss mode)
+  // ==========================================================================
+
+  describe('POST /api/courses/lectures/:lectureId/ai-helper/chat', () => {
+    it('should chat with AI helper', async () => {
+      const mockResult = { response: 'Here is the explanation...', sessionId: 'sess-123' };
+      vi.mocked(lectureAIHelperService.chat).mockResolvedValue(mockResult as any);
+
+      const response = await request(app)
+        .post('/api/courses/lectures/1/ai-helper/chat')
+        .send({ mode: 'discuss', message: 'Explain this topic' })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.response).toBe('Here is the explanation...');
+    });
+
+    it('should return 400 for invalid mode', async () => {
+      const response = await request(app)
+        .post('/api/courses/lectures/1/ai-helper/chat')
+        .send({ mode: 'invalid', message: 'Hello' })
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+    });
+  });
+
+  describe('GET /api/courses/lectures/:lectureId/ai-helper/sessions', () => {
+    it('should return AI helper sessions', async () => {
+      const mockSessions = [
+        { id: 'sess-1', createdAt: new Date() },
+        { id: 'sess-2', createdAt: new Date() },
+      ];
+      vi.mocked(lectureAIHelperService.getSessions).mockResolvedValue(mockSessions as any);
+
+      const response = await request(app)
+        .get('/api/courses/lectures/1/ai-helper/sessions')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveLength(2);
+    });
+  });
+
+  describe('GET /api/courses/lectures/:lectureId/ai-helper/history/:sessionId', () => {
+    it('should return chat history for session', async () => {
+      const mockHistory = [
+        { role: 'user', content: 'Hello' },
+        { role: 'assistant', content: 'Hi!' },
+      ];
+      vi.mocked(lectureAIHelperService.getChatHistory).mockResolvedValue(mockHistory as any);
+
+      const response = await request(app)
+        .get('/api/courses/lectures/1/ai-helper/history/sess-123')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveLength(2);
+    });
+  });
+
+  // ==========================================================================
+  // LECTURE AI HELPER (Explain mode - Thread-based)
+  // ==========================================================================
+
+  describe('GET /api/courses/lectures/:lectureId/ai-helper/pdf-info', () => {
+    it('should return PDF info for lecture', async () => {
+      const mockPdfInfo = [
+        { attachmentId: 1, filename: 'lecture.pdf', pageCount: 10 },
+      ];
+      vi.mocked(lectureAIHelperService.getPdfInfo).mockResolvedValue(mockPdfInfo as any);
+
+      const response = await request(app)
+        .get('/api/courses/lectures/1/ai-helper/pdf-info')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.pdfs).toHaveLength(1);
+    });
+  });
+
+  describe('POST /api/courses/lectures/:lectureId/ai-helper/explain/threads', () => {
+    it('should create explain thread', async () => {
+      const mockThread = {
+        id: 1,
+        question: 'What is recursion?',
+        answer: 'Recursion is...',
+        createdAt: new Date(),
+      };
+      vi.mocked(lectureAIHelperService.createExplainThread).mockResolvedValue(mockThread as any);
+
+      const response = await request(app)
+        .post('/api/courses/lectures/1/ai-helper/explain/threads')
+        .send({ question: 'What is recursion?' })
+        .expect(201);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.question).toBe('What is recursion?');
+    });
+
+    it('should return 400 for missing question', async () => {
+      const response = await request(app)
+        .post('/api/courses/lectures/1/ai-helper/explain/threads')
+        .send({})
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+    });
+  });
+
+  describe('GET /api/courses/lectures/:lectureId/ai-helper/explain/threads', () => {
+    it('should return explain threads for lecture', async () => {
+      const mockThreads = [
+        { id: 1, question: 'Q1', createdAt: new Date() },
+        { id: 2, question: 'Q2', createdAt: new Date() },
+      ];
+      vi.mocked(lectureAIHelperService.getExplainThreads).mockResolvedValue(mockThreads as any);
+
+      const response = await request(app)
+        .get('/api/courses/lectures/1/ai-helper/explain/threads')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveLength(2);
+    });
+  });
+
+  describe('GET /api/courses/lectures/:lectureId/ai-helper/explain/threads/:threadId', () => {
+    it('should return specific explain thread', async () => {
+      const mockThread = {
+        id: 1,
+        question: 'What is recursion?',
+        answer: 'Recursion is...',
+        followUps: [],
+      };
+      vi.mocked(lectureAIHelperService.getExplainThread).mockResolvedValue(mockThread as any);
+
+      const response = await request(app)
+        .get('/api/courses/lectures/1/ai-helper/explain/threads/1')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.id).toBe(1);
+    });
+
+    it('should return 404 for non-existent thread', async () => {
+      vi.mocked(lectureAIHelperService.getExplainThread).mockRejectedValue(
+        new AppError('Thread not found', 404)
+      );
+
+      const response = await request(app)
+        .get('/api/courses/lectures/1/ai-helper/explain/threads/999')
+        .expect(404);
+
+      expect(response.body.success).toBe(false);
+    });
+  });
+
+  // ===========================================================================
+  // EXPLAIN THREAD FOLLOW-UP
+  // ===========================================================================
+
+  describe('POST /lectures/:lectureId/ai-helper/explain/threads/:threadId/follow-up', () => {
+    it('should add follow-up to explain thread', async () => {
+      const mockThread = {
+        id: 1,
+        lectureId: 1,
+        userId: 1,
+        topic: 'Machine Learning',
+        initialQuestion: 'Explain ML',
+        aiResponse: 'ML is...',
+        followUps: [
+          { id: 1, question: 'What about deep learning?', response: 'Deep learning is...' },
+        ],
+      };
+      vi.mocked(lectureAIHelperService.addFollowUp).mockResolvedValue(mockThread as any);
+
+      const response = await request(app)
+        .post('/api/courses/lectures/1/ai-helper/explain/threads/1/follow-up')
+        .send({ question: 'What about deep learning?' })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.followUps).toHaveLength(1);
+      expect(lectureAIHelperService.addFollowUp).toHaveBeenCalledWith(
+        1, 1, 1, 'What about deep learning?', undefined, false, undefined
+      );
+    });
+
+    it('should add follow-up with parentPostId', async () => {
+      const mockThread = { id: 1, followUps: [] };
+      vi.mocked(lectureAIHelperService.addFollowUp).mockResolvedValue(mockThread as any);
+
+      await request(app)
+        .post('/api/courses/lectures/1/ai-helper/explain/threads/1/follow-up')
+        .send({ question: 'Follow-up question', parentPostId: 5 })
+        .expect(200);
+
+      expect(lectureAIHelperService.addFollowUp).toHaveBeenCalledWith(
+        1, 1, 1, 'Follow-up question', 5, false, undefined
+      );
+    });
+
+    it('should add follow-up with pdfPageRanges', async () => {
+      const mockThread = { id: 1, followUps: [] };
+      vi.mocked(lectureAIHelperService.addFollowUp).mockResolvedValue(mockThread as any);
+      const pdfPageRanges = { 'doc1.pdf': '5-7' };
+
+      await request(app)
+        .post('/api/courses/lectures/1/ai-helper/explain/threads/1/follow-up')
+        .send({ question: 'Explain page 5', pdfPageRanges })
+        .expect(200);
+
+      expect(lectureAIHelperService.addFollowUp).toHaveBeenCalledWith(
+        1, 1, 1, 'Explain page 5', undefined, false, pdfPageRanges
+      );
+    });
+
+    it('should return 400 for missing question', async () => {
+      const response = await request(app)
+        .post('/api/courses/lectures/1/ai-helper/explain/threads/1/follow-up')
+        .send({})
+        .expect(400);
 
       expect(response.body.success).toBe(false);
     });

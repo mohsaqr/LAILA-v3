@@ -9,6 +9,7 @@ import {
   MousePointer,
   MessagesSquare,
   Bot,
+  MessageSquare,
 } from 'lucide-react';
 import { AdminLayout } from '../../components/admin';
 import { useTheme } from '../../hooks/useTheme';
@@ -17,6 +18,7 @@ import { ActivityLogsTab } from './logs/ActivityLogsTab';
 import { InteractionsTab } from './logs/InteractionsTab';
 import { MessagesTab } from './logs/MessagesTab';
 import { ChatbotRegistryTab } from './logs/ChatbotRegistryTab';
+import { ForumLogsTab } from './logs/ForumLogsTab';
 
 export const LogsDashboard = () => {
   const [activeTab, setActiveTab] = useState<TabType>('activity');
@@ -35,6 +37,7 @@ export const LogsDashboard = () => {
     { id: 'messages', label: 'Messages', icon: <MessagesSquare className="w-4 h-4" /> },
     { id: 'interactions', label: 'User Interactions', icon: <MousePointer className="w-4 h-4" /> },
     { id: 'chatbots', label: 'Chatbot Registry', icon: <Bot className="w-4 h-4" /> },
+    { id: 'forums', label: 'Forum Logs', icon: <MessageSquare className="w-4 h-4" /> },
   ];
 
   return (
@@ -89,6 +92,13 @@ export const LogsDashboard = () => {
 
       {activeTab === 'chatbots' && (
         <ChatbotRegistryTab
+          exportStatus={exportStatus}
+          setExportStatus={setExportStatus}
+        />
+      )}
+
+      {activeTab === 'forums' && (
+        <ForumLogsTab
           exportStatus={exportStatus}
           setExportStatus={setExportStatus}
         />

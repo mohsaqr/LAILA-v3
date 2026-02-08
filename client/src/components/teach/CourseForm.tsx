@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Input, TextArea, Select } from '../common/Input';
 import { Button } from '../common/Button';
-import { Course } from '../../types';
+import { Course, CurriculumViewMode } from '../../types';
 
 export interface CourseFormData {
   title: string;
@@ -10,6 +10,7 @@ export interface CourseFormData {
   difficulty: 'beginner' | 'intermediate' | 'advanced' | '';
   thumbnail: string;
   isPublic: boolean;
+  curriculumViewMode: CurriculumViewMode;
 }
 
 interface CourseFormProps {
@@ -38,6 +39,13 @@ const difficultyOptions = [
   { value: 'advanced', label: 'Advanced' },
 ];
 
+const viewModeOptions = [
+  { value: 'mini-cards', label: 'Mini Cards (compact tiles)' },
+  { value: 'icons', label: 'Icon Grid' },
+  { value: 'list', label: 'Compact List' },
+  { value: 'accordion', label: 'Accordion' },
+];
+
 export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: CourseFormProps) => {
   const [formData, setFormData] = useState<CourseFormData>({
     title: '',
@@ -46,6 +54,7 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
     difficulty: '' as CourseFormData['difficulty'],
     thumbnail: '',
     isPublic: true,
+    curriculumViewMode: 'mini-cards',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -58,6 +67,7 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
         difficulty: (initialData.difficulty || '') as CourseFormData['difficulty'],
         thumbnail: initialData.thumbnail || '',
         isPublic: initialData.isPublic ?? true,
+        curriculumViewMode: initialData.curriculumViewMode || 'mini-cards',
       });
     }
   }, [initialData]);
@@ -129,6 +139,14 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
         onChange={e => handleChange('thumbnail', e.target.value)}
         placeholder="https://example.com/image.jpg"
         helpText="Enter a URL for the course thumbnail image"
+      />
+
+      <Select
+        label="Curriculum View Mode"
+        value={formData.curriculumViewMode}
+        onChange={e => handleChange('curriculumViewMode', e.target.value)}
+        options={viewModeOptions}
+        helpText="Choose how content items are displayed to students"
       />
 
       <div className="flex items-center gap-3">

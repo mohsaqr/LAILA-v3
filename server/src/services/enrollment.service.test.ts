@@ -253,6 +253,72 @@ describe('EnrollmentService', () => {
       await expect(enrollmentService.enroll(10, 1)).rejects.toThrow('Course is not available for enrollment');
     });
 
+    it('should still enroll when logging fails', async () => {
+      const { learningAnalyticsService } = await import('./learningAnalytics.service.js');
+
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        isAdmin: false,
+        isInstructor: false,
+      } as any);
+
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({
+        id: 1,
+        title: 'Test Course',
+        status: 'published',
+      } as any);
+
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null);
+
+      vi.mocked(prisma.enrollment.create).mockResolvedValue({
+        id: 1,
+        userId: 10,
+        courseId: 1,
+        status: 'active',
+        course: { id: 1, title: 'Test Course', slug: 'test-course' },
+        user: { id: 10, fullname: 'Student', email: 'student@test.com' },
+      } as any);
+
+      vi.mocked(learningAnalyticsService.logSystemEvent).mockRejectedValueOnce(new Error('Log failed'));
+
+      const result = await enrollmentService.enroll(10, 1);
+
+      expect(result.userId).toBe(10);
+      expect(result.courseId).toBe(1);
+    });
+
+    it('should still enroll when email notification fails', async () => {
+      const { emailService } = await import('./email.service.js');
+
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        isAdmin: false,
+        isInstructor: false,
+      } as any);
+
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({
+        id: 1,
+        title: 'Test Course',
+        status: 'published',
+      } as any);
+
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null);
+
+      vi.mocked(prisma.enrollment.create).mockResolvedValue({
+        id: 1,
+        userId: 10,
+        courseId: 1,
+        status: 'active',
+        course: { id: 1, title: 'Test Course', slug: 'test-course' },
+        user: { id: 10, fullname: 'Student', email: 'student@test.com' },
+      } as any);
+
+      vi.mocked(emailService.sendEnrollmentNotification).mockRejectedValueOnce(new Error('Email failed'));
+
+      const result = await enrollmentService.enroll(10, 1);
+
+      expect(result.userId).toBe(10);
+      expect(result.courseId).toBe(1);
+    });
+
     it('should throw error if already enrolled', async () => {
       vi.mocked(prisma.user.findUnique).mockResolvedValue({
         isAdmin: false,
@@ -301,6 +367,26 @@ describe('EnrollmentService', () => {
 
       await expect(enrollmentService.unenroll(10, 1)).rejects.toThrow(AppError);
       await expect(enrollmentService.unenroll(10, 1)).rejects.toThrow('Not enrolled in this course');
+    });
+
+    it('should still unenroll when logging fails', async () => {
+      const { learningAnalyticsService } = await import('./learningAnalytics.service.js');
+
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue({
+        id: 1,
+        userId: 10,
+        courseId: 1,
+        status: 'active',
+        progress: 25,
+        course: { id: 1, title: 'Test Course' },
+      } as any);
+
+      vi.mocked(prisma.enrollment.delete).mockResolvedValue({} as any);
+      vi.mocked(learningAnalyticsService.logSystemEvent).mockRejectedValueOnce(new Error('Log failed'));
+
+      const result = await enrollmentService.unenroll(10, 1);
+
+      expect(result.message).toBe('Successfully unenrolled from course');
     });
   });
 
@@ -478,6 +564,256 @@ describe('EnrollmentService', () => {
       const result = await enrollmentService.getEnrollment(10, 999);
 
       expect(result).toBeNull();
+    });
+  });
+
+  // ===========================================================================
+  // updateLectureTime
+  // ===========================================================================
+
+  describe('updateLectureTime', () => {
+    it('should update time spent on lecture', async () => {
+      const mockEnrollment = { id: 1, userId: 10, courseId: 1 };
+      const mockProgress = { id: 1, enrollmentId: 1, lectureId: 5, timeSpent: 100 };
+
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(mockEnrollment as any);
+      vi.mocked(prisma.lectureProgress.upsert).mockResolvedValue({ ...mockProgress, timeSpent: 150 } as any);
+
+      const result = await enrollmentService.updateLectureTime(10, 1, 5, 50);
+
+      expect(result.timeSpent).toBe(150);
+      expect(prisma.lectureProgress.upsert).toHaveBeenCalled();
+    });
+
+    it('should skip update for admin users', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({ isAdmin: true } as any);
+
+      const result = await enrollmentService.updateLectureTime(1, 1, 5, 50);
+
+      expect(result).toEqual({ message: 'Viewing as admin/instructor - time not tracked' });
+      expect(prisma.lectureProgress.upsert).not.toHaveBeenCalled();
+    });
+
+    it('should throw error if not enrolled', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({ isAdmin: false } as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null);
+
+      await expect(enrollmentService.updateLectureTime(10, 1, 5, 50)).rejects.toThrow('Not enrolled');
+    });
+  });
+
+  // ===========================================================================
+  // getProgress
+  // ===========================================================================
+
+  describe('getProgress', () => {
+    it('should return progress for enrolled student', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({ isAdmin: false, isInstructor: false } as any);
+
+      const mockEnrollment = {
+        id: 1,
+        userId: 10,
+        courseId: 1,
+        progress: 50,
+        status: 'active',
+        enrolledAt: new Date(),
+        completedAt: null,
+        lastAccessAt: new Date(),
+        course: {
+          id: 1,
+          title: 'Test Course',
+          modules: [
+            {
+              id: 1,
+              title: 'Module 1',
+              lectures: [
+                { id: 1, title: 'Lecture 1' },
+                { id: 2, title: 'Lecture 2' },
+              ],
+            },
+          ],
+        },
+        lectureProgress: [
+          { lectureId: 1, isCompleted: true, timeSpent: 300, lecture: { id: 1, title: 'Lecture 1', moduleId: 1 } },
+          { lectureId: 2, isCompleted: false, timeSpent: 100, lecture: { id: 2, title: 'Lecture 2', moduleId: 1 } },
+        ],
+      };
+
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(mockEnrollment as any);
+
+      const result = await enrollmentService.getProgress(10, 1);
+
+      expect(result.progress).toBe(50);
+      expect(result.moduleProgress).toHaveLength(1);
+    });
+
+    it('should throw error if not enrolled', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({ isAdmin: false, isInstructor: false } as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null);
+
+      await expect(enrollmentService.getProgress(10, 1)).rejects.toThrow('Not enrolled');
+    });
+
+    it('should return virtual progress for admin user', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({ isAdmin: true, isInstructor: false } as any);
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({
+        id: 1,
+        createdAt: new Date(),
+        modules: [
+          {
+            id: 1,
+            title: 'Module 1',
+            lectures: [{ id: 1, title: 'Lecture 1' }],
+          },
+        ],
+      } as any);
+
+      const result = await enrollmentService.getProgress(1, 1);
+
+      expect(result.isVirtualEnrollment).toBe(true);
+      expect(result.progress).toBe(0);
+      expect(result.enrollmentId).toBe(-1); // Virtual enrollment ID
+    });
+
+    it('should return virtual progress for instructor user', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({ isAdmin: false, isInstructor: true } as any);
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({
+        id: 2,
+        createdAt: new Date(),
+        modules: [
+          {
+            id: 1,
+            title: 'Module 1',
+            lectures: [
+              { id: 1, title: 'Lecture 1' },
+              { id: 2, title: 'Lecture 2' },
+            ],
+          },
+        ],
+      } as any);
+
+      const result = await enrollmentService.getProgress(2, 2);
+
+      expect(result.isVirtualEnrollment).toBe(true);
+      expect(result.moduleProgress[0].completedCount).toBe(0);
+      expect(result.moduleProgress[0].totalCount).toBe(2);
+    });
+
+    it('should throw 404 for admin when course not found', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({ isAdmin: true, isInstructor: false } as any);
+      vi.mocked(prisma.course.findUnique).mockResolvedValue(null);
+
+      await expect(enrollmentService.getProgress(1, 999)).rejects.toThrow('Course not found');
+    });
+  });
+
+  // ===========================================================================
+  // updateEnrollmentProgress
+  // ===========================================================================
+
+  describe('updateEnrollmentProgress', () => {
+    it('should mark course as completed when progress reaches 100%', async () => {
+      const mockEnrollment = {
+        id: 1,
+        userId: 10,
+        courseId: 1,
+        lectureProgress: [
+          { lectureId: 1, isCompleted: true },
+          { lectureId: 2, isCompleted: true },
+        ],
+        course: {
+          modules: [
+            {
+              lectures: [{ id: 1 }, { id: 2 }],
+            },
+          ],
+        },
+      };
+
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(mockEnrollment as any);
+      vi.mocked(prisma.enrollment.update).mockResolvedValue({
+        ...mockEnrollment,
+        progress: 100,
+        status: 'completed',
+        completedAt: new Date(),
+      } as any);
+
+      await enrollmentService.updateEnrollmentProgress(1);
+
+      expect(prisma.enrollment.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: expect.objectContaining({
+          progress: 100,
+          status: 'completed',
+          completedAt: expect.any(Date),
+        }),
+      });
+    });
+
+    it('should not mark as completed when progress is less than 100%', async () => {
+      const mockEnrollment = {
+        id: 1,
+        userId: 10,
+        courseId: 1,
+        lectureProgress: [
+          { lectureId: 1, isCompleted: true },
+        ],
+        course: {
+          modules: [
+            {
+              lectures: [{ id: 1 }, { id: 2 }],
+            },
+          ],
+        },
+      };
+
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(mockEnrollment as any);
+      vi.mocked(prisma.enrollment.update).mockResolvedValue({
+        ...mockEnrollment,
+        progress: 50,
+      } as any);
+
+      await enrollmentService.updateEnrollmentProgress(1);
+
+      expect(prisma.enrollment.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: expect.objectContaining({
+          progress: 50,
+        }),
+      });
+      // Should not include status: 'completed'
+      expect(prisma.enrollment.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'completed' }),
+        })
+      );
+    });
+
+    it('should return early when enrollment not found', async () => {
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null);
+
+      // Method returns early without error if enrollment not found
+      await enrollmentService.updateEnrollmentProgress(999);
+
+      expect(prisma.enrollment.update).not.toHaveBeenCalled();
+    });
+
+    it('should return early when no lectures in course', async () => {
+      const mockEnrollment = {
+        id: 1,
+        userId: 10,
+        courseId: 1,
+        lectureProgress: [],
+        course: {
+          modules: [],
+        },
+      };
+
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(mockEnrollment as any);
+
+      await enrollmentService.updateEnrollmentProgress(1);
+
+      expect(prisma.enrollment.update).not.toHaveBeenCalled();
     });
   });
 });

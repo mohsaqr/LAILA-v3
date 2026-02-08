@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { forumService } from '../services/forum.service.js';
 import { authenticateToken, requireInstructor } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
+import { forumAiLimiter } from '../middleware/rateLimit.middleware.js';
 import { z } from 'zod';
 
 const router = Router();
@@ -13,6 +14,7 @@ const createForumSchema = z.object({
   isPublished: z.boolean().optional(),
   allowAnonymous: z.boolean().optional(),
   orderIndex: z.number().min(0).optional(),
+  moduleId: z.number().positive().optional(),
 });
 
 const createThreadSchema = z.object({
@@ -45,6 +47,21 @@ router.get('/course/:courseId', authenticateToken, asyncHandler(async (req, res)
 
   const forums = await forumService.getForums(
     courseId,
+    user.id,
+    user.isInstructor,
+    user.isAdmin
+  );
+
+  res.json({ success: true, data: forums });
+}));
+
+// Get forums for a specific module
+router.get('/module/:moduleId', authenticateToken, asyncHandler(async (req, res) => {
+  const moduleId = parseInt(req.params.moduleId);
+  const user = (req as any).user;
+
+  const forums = await forumService.getModuleForums(
+    moduleId,
     user.id,
     user.isInstructor,
     user.isAdmin
@@ -201,6 +218,33 @@ router.delete('/posts/:postId', authenticateToken, asyncHandler(async (req, res)
 
   const result = await forumService.deletePost(postId, user.id, user.isAdmin);
   res.json({ success: true, ...result });
+}));
+
+// =========================================================================
+// AI AGENT ROUTES
+// =========================================================================
+
+// Get available AI agents for a course's forums
+router.get('/course/:courseId/agents', authenticateToken, asyncHandler(async (req, res) => {
+  const courseId = parseInt(req.params.courseId);
+
+  const agents = await forumService.getAvailableAgents(courseId);
+  res.json({ success: true, data: agents });
+}));
+
+// Request AI agent to post in thread
+const createAiPostSchema = z.object({
+  agentId: z.number().positive(),
+  parentId: z.number().positive().optional(),
+});
+
+router.post('/threads/:threadId/ai-post', authenticateToken, forumAiLimiter, asyncHandler(async (req, res) => {
+  const threadId = parseInt(req.params.threadId);
+  const user = (req as any).user;
+  const { agentId, parentId } = createAiPostSchema.parse(req.body);
+
+  const post = await forumService.createAiPost(threadId, user.id, agentId, parentId);
+  res.status(201).json({ success: true, data: post });
 }));
 
 export default router;

@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
   MessageCircle,
   Users,
   MessageSquare,
@@ -17,6 +16,8 @@ import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { EmptyState } from '../../components/common/EmptyState';
+import { Breadcrumb } from '../../components/common/Breadcrumb';
+import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { ChatbotConversationMessage } from '../../types';
 
 export const ChatbotLogs = () => {
@@ -100,18 +101,13 @@ export const ChatbotLogs = () => {
     );
   }
 
+  const breadcrumbItems = buildTeachingBreadcrumb(id, course?.title || 'Course', 'Chatbot Logs');
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
+      {/* Breadcrumb navigation */}
       <div className="mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(`/teach/courses/${courseId}/curriculum`)}
-          icon={<ArrowLeft className="w-4 h-4" />}
-        >
-          Back to Curriculum
-        </Button>
+        <Breadcrumb items={breadcrumbItems} />
       </div>
 
       {/* Course Header */}

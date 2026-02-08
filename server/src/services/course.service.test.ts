@@ -320,6 +320,20 @@ describe('CourseService', () => {
         })
       );
     });
+
+    it('should still create course when logging fails', async () => {
+      const { learningAnalyticsService } = await import('./learningAnalytics.service.js');
+
+      vi.mocked(prisma.course.create).mockResolvedValue(mockCourse as any);
+      vi.mocked(learningAnalyticsService.logSystemEvent).mockRejectedValueOnce(new Error('Log failed'));
+
+      const course = await courseService.createCourse(10, {
+        title: 'New Course',
+        description: 'Description',
+      });
+
+      expect(course.title).toBe('Introduction to Programming');
+    });
   });
 
   // ===========================================================================
@@ -372,6 +386,21 @@ describe('CourseService', () => {
         courseService.updateCourse(1, 99, { title: 'Unauthorized Update' }, false)
       ).rejects.toThrow('Not authorized');
     });
+
+    it('should still update course when logging fails', async () => {
+      const { learningAnalyticsService } = await import('./learningAnalytics.service.js');
+
+      vi.mocked(prisma.course.findUnique).mockResolvedValue(mockCourse as any);
+      vi.mocked(prisma.course.update).mockResolvedValue({
+        ...mockCourse,
+        title: 'Updated Title',
+      } as any);
+      vi.mocked(learningAnalyticsService.logSystemEvent).mockRejectedValueOnce(new Error('Log failed'));
+
+      const course = await courseService.updateCourse(1, 10, { title: 'Updated Title' });
+
+      expect(course.title).toBe('Updated Title');
+    });
   });
 
   // ===========================================================================
@@ -410,6 +439,18 @@ describe('CourseService', () => {
 
       await expect(courseService.deleteCourse(1, 99, false)).rejects.toThrow(AppError);
       await expect(courseService.deleteCourse(1, 99, false)).rejects.toThrow('Not authorized');
+    });
+
+    it('should still delete course when logging fails', async () => {
+      const { learningAnalyticsService } = await import('./learningAnalytics.service.js');
+
+      vi.mocked(prisma.course.findUnique).mockResolvedValue(mockCourse as any);
+      vi.mocked(prisma.course.delete).mockResolvedValue(mockCourse as any);
+      vi.mocked(learningAnalyticsService.logSystemEvent).mockRejectedValueOnce(new Error('Log failed'));
+
+      const result = await courseService.deleteCourse(1, 10);
+
+      expect(result.message).toBe('Course deleted successfully');
     });
   });
 
@@ -746,6 +787,127 @@ describe('CourseService', () => {
       await expect(
         courseService.getCourseBySlugWithOwnerCheck('test-slug', 20, false, false)
       ).rejects.toThrow('Course not found');
+    });
+
+    it('should throw 404 when course not found by slug', async () => {
+      vi.mocked(prisma.course.findUnique).mockResolvedValue(null);
+
+      await expect(
+        courseService.getCourseBySlugWithOwnerCheck('nonexistent-slug', 10, false, true)
+      ).rejects.toThrow(AppError);
+      await expect(
+        courseService.getCourseBySlugWithOwnerCheck('nonexistent-slug', 10, false, true)
+      ).rejects.toThrow('Course not found');
+    });
+
+    it('should return published course for regular user via getCourseBySlug', async () => {
+      const publishedCourse = { ...mockCourse, status: 'published' };
+      vi.mocked(prisma.course.findUnique).mockResolvedValue(publishedCourse as any);
+
+      const course = await courseService.getCourseBySlugWithOwnerCheck(
+        'introduction-to-programming-abc123',
+        20,
+        false,
+        false
+      );
+
+      expect(course).toBeDefined();
+      // This path should call getCourseBySlug for published courses when user is not admin/owner
+      expect(prisma.course.findUnique).toHaveBeenCalled();
+    });
+  });
+
+  // ===========================================================================
+  // Logging failure handling
+  // ===========================================================================
+
+  describe('publishCourse - logging failure', () => {
+    it('should still publish when logging fails', async () => {
+      const { learningAnalyticsService } = await import('./learningAnalytics.service.js');
+
+      const courseWithLectures = {
+        ...mockCourse,
+        status: 'draft',
+        modules: [{ lectures: [{ id: 1 }] }],
+      };
+      vi.mocked(prisma.course.findUnique).mockResolvedValue(courseWithLectures as any);
+      vi.mocked(prisma.course.update).mockResolvedValue({ ...courseWithLectures, status: 'published' } as any);
+      vi.mocked(learningAnalyticsService.logSystemEvent).mockRejectedValueOnce(new Error('Log failed'));
+
+      const result = await courseService.publishCourse(1, 10);
+
+      expect(result.status).toBe('published');
+    });
+  });
+
+  describe('unpublishCourse - logging failure', () => {
+    it('should still unpublish when logging fails', async () => {
+      const { learningAnalyticsService } = await import('./learningAnalytics.service.js');
+
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({ ...mockCourse, status: 'published' } as any);
+      vi.mocked(prisma.course.update).mockResolvedValue({ ...mockCourse, status: 'draft' } as any);
+      vi.mocked(learningAnalyticsService.logSystemEvent).mockRejectedValueOnce(new Error('Log failed'));
+
+      const result = await courseService.unpublishCourse(1, 10);
+
+      expect(result.status).toBe('draft');
+    });
+  });
+
+  describe('updateAISettings - additional tests', () => {
+    it('should update collaborativeModuleName setting', async () => {
+      vi.mocked(prisma.course.findUnique).mockResolvedValue(mockCourse as any);
+      vi.mocked(prisma.course.update).mockResolvedValue({
+        ...mockCourse,
+        collaborativeModuleName: 'Study Group',
+      } as any);
+
+      await courseService.updateAISettings(1, 10, {
+        collaborativeModuleName: 'Study Group',
+      });
+
+      expect(prisma.course.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: {
+          collaborativeModuleName: 'Study Group',
+        },
+      });
+    });
+
+    it('should clear collaborativeModuleName when set to empty string', async () => {
+      vi.mocked(prisma.course.findUnique).mockResolvedValue(mockCourse as any);
+      vi.mocked(prisma.course.update).mockResolvedValue({
+        ...mockCourse,
+        collaborativeModuleName: null,
+      } as any);
+
+      await courseService.updateAISettings(1, 10, {
+        collaborativeModuleName: '',
+      });
+
+      expect(prisma.course.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: {
+          collaborativeModuleName: null,
+        },
+      });
+    });
+
+    it('should still update when logging fails', async () => {
+      const { learningAnalyticsService } = await import('./learningAnalytics.service.js');
+
+      vi.mocked(prisma.course.findUnique).mockResolvedValue(mockCourse as any);
+      vi.mocked(prisma.course.update).mockResolvedValue({
+        ...mockCourse,
+        collaborativeModuleEnabled: true,
+      } as any);
+      vi.mocked(learningAnalyticsService.logSystemEvent).mockRejectedValueOnce(new Error('Log failed'));
+
+      const result = await courseService.updateAISettings(1, 10, {
+        collaborativeModuleEnabled: true,
+      });
+
+      expect(result.collaborativeModuleEnabled).toBe(true);
     });
   });
 });

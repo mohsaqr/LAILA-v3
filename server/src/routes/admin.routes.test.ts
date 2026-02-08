@@ -55,6 +55,7 @@ vi.mock('../services/chatbotRegistry.service.js', () => ({
     getStats: vi.fn(),
     generateCSV: vi.fn(),
     exportChatbots: vi.fn(),
+    generateExcelWorkbook: vi.fn(),
   },
 }));
 
@@ -213,6 +214,27 @@ describe('Admin Routes', () => {
           where: { courseId: 5 },
         })
       );
+    });
+
+    it('should return correct pagination with large dataset', async () => {
+      const mockEnrollments = Array.from({ length: 10 }, (_, i) => ({
+        id: i + 1,
+        user: { id: i + 1, fullname: `User ${i}`, email: `user${i}@test.com` },
+        course: { id: 1, title: 'Course' },
+      }));
+      vi.mocked(prisma.enrollment.findMany).mockResolvedValue(mockEnrollments as any);
+      vi.mocked(prisma.enrollment.count).mockResolvedValue(100);
+
+      const response = await request(app)
+        .get('/api/admin/enrollments?page=2&limit=10')
+        .expect(200);
+
+      expect(response.body.pagination).toEqual({
+        page: 2,
+        limit: 10,
+        total: 100,
+        totalPages: 10,
+      });
     });
   });
 
@@ -498,6 +520,217 @@ describe('Admin Routes', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.data.totalThreads).toBe(50);
       expect(response.body.data.totalPosts).toBe(200);
+    });
+  });
+
+  // ===========================================================================
+  // CHATBOT REGISTRY EXPORTS
+  // ===========================================================================
+
+  describe('GET /api/admin/chatbot-registry/export/csv', () => {
+    it('should export chatbot registry as CSV', async () => {
+      vi.mocked(chatbotRegistryService.generateCSV).mockResolvedValue('id,name\n1,Test');
+
+      const response = await request(app)
+        .get('/api/admin/chatbot-registry/export/csv')
+        .expect(200);
+
+      expect(response.headers['content-type']).toContain('text/csv');
+    });
+  });
+
+  describe('GET /api/admin/chatbot-registry/export/excel', () => {
+    it('should export chatbot registry as Excel', async () => {
+      const mockWorkbook = {
+        xlsx: {
+          write: vi.fn().mockImplementation((stream: any) => {
+            stream.end(Buffer.from('mock excel data'));
+            return Promise.resolve();
+          }),
+        },
+      };
+      vi.mocked(chatbotRegistryService.generateExcelWorkbook).mockResolvedValue(mockWorkbook as any);
+
+      const response = await request(app)
+        .get('/api/admin/chatbot-registry/export/excel')
+        .expect(200);
+
+      expect(response.headers['content-type']).toContain('spreadsheetml');
+    });
+  });
+
+  describe('GET /api/admin/chatbot-registry/export/json', () => {
+    it('should export chatbot registry as JSON', async () => {
+      vi.mocked(chatbotRegistryService.exportChatbots).mockResolvedValue([
+        { id: 1, module: 'test', sectionId: 1 },
+      ] as any);
+
+      const response = await request(app)
+        .get('/api/admin/chatbot-registry/export/json')
+        .expect(200);
+
+      expect(response.headers['content-type']).toContain('application/json');
+    });
+  });
+
+  // ===========================================================================
+  // FORUM EXPORTS
+  // ===========================================================================
+
+  describe('GET /api/admin/forum-export/csv', () => {
+    it('should export forum data as CSV', async () => {
+      vi.mocked(prisma.forumThread.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.forumPost.findMany).mockResolvedValue([]);
+
+      const response = await request(app)
+        .get('/api/admin/forum-export/csv')
+        .expect(200);
+
+      expect(response.headers['content-type']).toContain('text/csv');
+    });
+  });
+
+  describe('GET /api/admin/forum-export/excel', () => {
+    it('should export forum data as Excel with empty data', async () => {
+      vi.mocked(prisma.forumThread.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.forumPost.findMany).mockResolvedValue([]);
+
+      const response = await request(app)
+        .get('/api/admin/forum-export/excel')
+        .expect(200);
+
+      expect(response.headers['content-type']).toContain('spreadsheetml');
+    });
+
+    it('should export forum data as Excel with threads and posts', async () => {
+      // Mock threads - need all properties for Excel export
+      vi.mocked(prisma.forumThread.findMany).mockResolvedValue([
+        {
+          id: 1,
+          title: 'Test Thread',
+          content: 'Thread content',
+          authorId: 1,
+          createdAt: new Date(),
+          isAnonymous: false,
+          isPinned: false,
+          isLocked: false,
+          forum: { id: 1, title: 'Test Forum', course: { id: 1, title: 'Test Course' } },
+          _count: { posts: 2 },
+        },
+        {
+          id: 2,
+          title: 'Another Thread',
+          content: 'More content',
+          authorId: 2,
+          createdAt: new Date(),
+          isAnonymous: true,
+          isPinned: true,
+          isLocked: false,
+          forum: { id: 1, title: 'Test Forum', course: { id: 1, title: 'Test Course' } },
+          _count: { posts: 1 },
+        },
+      ] as any);
+
+      // Mock posts - need variety for user activity tracking
+      vi.mocked(prisma.forumPost.findMany).mockResolvedValue([
+        {
+          id: 1,
+          content: 'Post content',
+          authorId: 1,
+          createdAt: new Date(),
+          isAnonymous: false,
+          parentId: null,
+          isAiGenerated: false,
+          thread: { title: 'Test Thread', forum: { title: 'Test Forum', course: { title: 'Test Course' } } },
+        },
+        {
+          id: 2,
+          content: 'Reply content',
+          authorId: 2,
+          createdAt: new Date(),
+          isAnonymous: true,
+          parentId: 1,
+          isAiGenerated: false,
+          thread: { title: 'Test Thread', forum: { title: 'Test Forum', course: { title: 'Test Course' } } },
+        },
+        {
+          id: 3,
+          content: 'Second post from user 1',
+          authorId: 1,
+          createdAt: new Date(),
+          isAnonymous: false,
+          parentId: null,
+          isAiGenerated: false,
+          thread: { title: 'Test Thread', forum: { title: 'Test Forum', course: { title: 'Test Course' } } },
+        },
+      ] as any);
+
+      // Mock users
+      vi.mocked(prisma.user.findMany).mockResolvedValue([
+        { id: 1, fullname: 'User One', email: 'user1@test.com' },
+        { id: 2, fullname: 'User Two', email: 'user2@test.com' },
+      ] as any);
+
+      const response = await request(app)
+        .get('/api/admin/forum-export/excel')
+        .expect(200);
+
+      expect(response.headers['content-type']).toContain('spreadsheetml');
+    });
+
+    it('should export forum data as CSV with actual data', async () => {
+      vi.mocked(prisma.forumThread.findMany).mockResolvedValue([
+        {
+          id: 1,
+          title: 'Test Thread',
+          content: 'Thread content',
+          authorId: 1,
+          createdAt: new Date(),
+          isAnonymous: false,
+          forum: { title: 'Test Forum', course: { title: 'Test Course' } },
+        },
+        {
+          id: 2,
+          title: 'Another Thread',
+          content: 'More content',
+          authorId: 2,
+          createdAt: new Date(),
+          isAnonymous: true,
+          forum: { title: 'Test Forum', course: { title: 'Test Course' } },
+        },
+      ] as any);
+      vi.mocked(prisma.forumPost.findMany).mockResolvedValue([
+        {
+          id: 1,
+          content: 'Post content',
+          authorId: 1,
+          createdAt: new Date(),
+          isAnonymous: false,
+          parentId: null,
+          isAiGenerated: false,
+          thread: { title: 'Test Thread', forum: { title: 'Test Forum', course: { title: 'Test Course' } } },
+        },
+        {
+          id: 2,
+          content: 'Reply content',
+          authorId: 2,
+          createdAt: new Date(),
+          isAnonymous: true,
+          parentId: 1,
+          isAiGenerated: false,
+          thread: { title: 'Test Thread', forum: { title: 'Test Forum', course: { title: 'Test Course' } } },
+        },
+      ] as any);
+      vi.mocked(prisma.user.findMany).mockResolvedValue([
+        { id: 1, fullname: 'User One', email: 'user1@test.com' },
+        { id: 2, fullname: 'User Two', email: 'user2@test.com' },
+      ] as any);
+
+      const response = await request(app)
+        .get('/api/admin/forum-export/csv')
+        .expect(200);
+
+      expect(response.headers['content-type']).toContain('text/csv');
     });
   });
 });

@@ -225,6 +225,18 @@ describe('ChatService', () => {
       expect(response.reply).toBe('Hello from Gemini!');
     });
 
+    it('should chat with Gemini using temperature', async () => {
+      vi.mocked(prisma.apiConfiguration.findMany).mockResolvedValue([mockGeminiConfig] as any);
+
+      const response = await chatService.chat({
+        message: 'Hello',
+        module: 'test',
+        temperature: 0.5,
+      });
+
+      expect(response.reply).toBe('Hello from Gemini!');
+    });
+
     it('should include system prompt in messages', async () => {
       vi.mocked(prisma.apiConfiguration.findMany).mockResolvedValue([mockOpenAIConfig] as any);
 

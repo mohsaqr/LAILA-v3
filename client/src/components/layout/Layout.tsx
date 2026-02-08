@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Navbar } from './Navbar';
 import { DashboardSidebar } from './DashboardSidebar';
 import { SkipLinks } from '../common/SkipLinks';
@@ -12,7 +12,20 @@ export const Layout = () => {
   const { isViewingAs, viewAsRole, setViewAs, isActualAdmin, isAuthenticated } = useAuth();
   const { isDark } = useTheme();
   const location = useLocation();
+  const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Handler for exiting test mode that preserves the current URL
+  const handleExitTestMode = () => {
+    const currentPath = location.pathname + location.search;
+    setViewAs(null);
+    // Force navigation back to current path after state change settles
+    setTimeout(() => {
+      if (window.location.pathname !== location.pathname) {
+        navigate(currentPath, { replace: true });
+      }
+    }, 0);
+  };
 
   // Pages where sidebar should be shown (authenticated main dashboard pages)
   const sidebarPages = ['/dashboard', '/courses', '/ai-tools', '/ai-tutors', '/settings', '/profile', '/teach'];
@@ -57,7 +70,7 @@ export const Layout = () => {
             {' '}(Logs marked as test_{viewAsRole})
           </span>
           <button
-            onClick={() => setViewAs(null)}
+            onClick={handleExitTestMode}
             className="ml-4 px-2 py-0.5 bg-amber-600 hover:bg-amber-700 rounded text-xs"
           >
             Exit Test Mode

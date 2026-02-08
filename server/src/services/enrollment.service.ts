@@ -1,6 +1,8 @@
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { learningAnalyticsService } from './learningAnalytics.service.js';
+import { emailService } from './email.service.js';
+import { enrollmentLogger } from '../utils/logger.js';
 
 // Context for event logging
 export interface EventContext {
@@ -278,8 +280,13 @@ export class EnrollmentService {
         newValues: { courseId, userId, status: 'active' },
       }, context?.ipAddress);
     } catch (error) {
-      console.error('Failed to log enrollment event:', error);
+      enrollmentLogger.warn({ err: error, userId, courseId }, 'Failed to log enrollment event');
     }
+
+    // Send enrollment notification email (non-blocking)
+    emailService.sendEnrollmentNotification(userId, courseId, course.title).catch((err) => {
+      enrollmentLogger.warn({ err, userId, courseId }, 'Failed to send enrollment notification');
+    });
 
     return enrollment;
   }
@@ -319,7 +326,7 @@ export class EnrollmentService {
         previousValues: { courseId, userId, status: enrollment.status, progress: enrollment.progress },
       }, context?.ipAddress);
     } catch (error) {
-      console.error('Failed to log unenrollment event:', error);
+      enrollmentLogger.warn({ err: error, userId, courseId }, 'Failed to log unenrollment event');
     }
 
     return { message: 'Successfully unenrolled from course' };

@@ -9,6 +9,7 @@ import type {
   TutorAgent,
   TutorStats,
   TutorInteractionLog,
+  CollaborativeSettings,
 } from '../types/tutor';
 
 // =============================================================================
@@ -80,10 +81,12 @@ export const tutorsApi = {
    */
   sendMessage: async (
     chatbotId: number,
-    message: string
+    message: string,
+    collaborativeSettings?: CollaborativeSettings
   ): Promise<TutorMessageResponse> => {
     const response = await apiClient.post(`/tutors/conversations/${chatbotId}/message`, {
       message,
+      collaborativeSettings,
     });
     return response.data.data;
   },

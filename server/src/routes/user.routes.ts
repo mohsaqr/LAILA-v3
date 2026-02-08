@@ -107,4 +107,24 @@ router.get('/:id/instructor-stats', authenticateToken, asyncHandler(async (req: 
   res.json({ success: true, data: stats });
 }));
 
+// Update language preference (for authenticated user)
+router.put('/settings/language', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { language } = req.body;
+  const supportedLanguages = ['en', 'fi', 'es', 'ar'];
+
+  if (!language || !supportedLanguages.includes(language)) {
+    res.status(400).json({ success: false, error: 'Invalid language. Supported: en, fi, es, ar' });
+    return;
+  }
+
+  await userService.updateLanguagePreference(req.user!.id, language);
+  res.json({ success: true, data: { language } });
+}));
+
+// Get language preference (for authenticated user)
+router.get('/settings/language', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const language = await userService.getLanguagePreference(req.user!.id);
+  res.json({ success: true, data: { language: language || 'en' } });
+}));
+
 export default router;

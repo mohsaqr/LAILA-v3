@@ -236,6 +236,11 @@ export const analyticsApi = {
     const response = await apiClient.get<any>('/analytics/export/chatbot');
     return response.data;
   },
+
+  getForumSummary: async () => {
+    const response = await apiClient.get<ApiResponse<any>>('/admin/forum-summary');
+    return response.data.data!;
+  },
 };
 
 // Analytics Export API (Research-Grade Logging)

@@ -14,12 +14,16 @@ vi.mock('../services/tutor.service.js', () => ({
     sendMessage: vi.fn(),
     getAvailableAgents: vi.fn(),
     getInteractionLogs: vi.fn(),
+    getStats: vi.fn(),
   },
 }));
 
+// Track current user for tests
+let currentTestUser = { id: 1, email: 'test@test.com', fullname: 'Test User', isAdmin: false, isInstructor: false };
+
 vi.mock('../middleware/auth.middleware.js', () => ({
   authenticateToken: (req: any, res: any, next: any) => {
-    req.user = { id: 1, email: 'test@test.com', fullname: 'Test User', isAdmin: false, isInstructor: false };
+    req.user = currentTestUser;
     next();
   },
   requireAdmin: (req: any, res: any, next: any) => {
@@ -35,18 +39,9 @@ import { tutorService } from '../services/tutor.service.js';
 import tutorRoutes from './tutor.routes.js';
 
 // Create test app
-const createTestApp = (isAdmin = false) => {
+const createTestApp = () => {
   const app = express();
   app.use(express.json());
-
-  // Override auth middleware for admin tests
-  if (isAdmin) {
-    app.use((req: any, res, next) => {
-      req.user = { id: 1, email: 'admin@test.com', fullname: 'Admin User', isAdmin: true, isInstructor: true };
-      next();
-    });
-  }
-
   app.use('/api/tutors', tutorRoutes);
 
   // Error handler
@@ -66,6 +61,7 @@ describe('Tutor Routes', () => {
 
   beforeEach(() => {
     app = createTestApp();
+    currentTestUser = { id: 1, email: 'test@test.com', fullname: 'Test User', isAdmin: false, isInstructor: false };
     vi.clearAllMocks();
   });
 
@@ -260,6 +256,107 @@ describe('Tutor Routes', () => {
 
       expect(response.body.success).toBe(false);
     });
+
+    it('should reject invalid chatbotId', async () => {
+      const response = await request(app)
+        .post('/api/tutors/conversations/invalid/message')
+        .send({ message: 'Hello' })
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('Invalid chatbotId');
+    });
+
+    it('should pass collaborativeSettings to service', async () => {
+      const mockResponse = {
+        userMessage: { id: 1, role: 'user', content: 'Hello' },
+        assistantMessage: { id: 2, role: 'assistant', content: 'Team response' },
+        collaborativeInfo: { style: 'parallel' },
+      };
+      vi.mocked(tutorService.sendMessage).mockResolvedValue(mockResponse);
+
+      await request(app)
+        .post('/api/tutors/conversations/5/message')
+        .send({
+          message: 'Hello',
+          collaborativeSettings: { style: 'parallel', maxAgents: 3 },
+        })
+        .expect(200);
+
+      expect(tutorService.sendMessage).toHaveBeenCalledWith(
+        1,
+        5,
+        'Hello',
+        expect.any(Object),
+        { style: 'parallel', maxAgents: 3 }
+      );
+    });
+
+    it('should detect mobile device type from user-agent', async () => {
+      const mockResponse = {
+        userMessage: { id: 1, role: 'user', content: 'Hello' },
+        assistantMessage: { id: 2, role: 'assistant', content: 'Hi!' },
+      };
+      vi.mocked(tutorService.sendMessage).mockResolvedValue(mockResponse);
+
+      await request(app)
+        .post('/api/tutors/conversations/5/message')
+        .set('User-Agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)')
+        .send({ message: 'Hello' })
+        .expect(200);
+
+      expect(tutorService.sendMessage).toHaveBeenCalledWith(
+        1,
+        5,
+        'Hello',
+        expect.objectContaining({ deviceType: 'mobile' }),
+        undefined
+      );
+    });
+
+    it('should detect tablet device type from user-agent', async () => {
+      const mockResponse = {
+        userMessage: { id: 1, role: 'user', content: 'Hello' },
+        assistantMessage: { id: 2, role: 'assistant', content: 'Hi!' },
+      };
+      vi.mocked(tutorService.sendMessage).mockResolvedValue(mockResponse);
+
+      await request(app)
+        .post('/api/tutors/conversations/5/message')
+        .set('User-Agent', 'Mozilla/5.0 (iPad; CPU OS 14_0 like Mac OS X)')
+        .send({ message: 'Hello' })
+        .expect(200);
+
+      expect(tutorService.sendMessage).toHaveBeenCalledWith(
+        1,
+        5,
+        'Hello',
+        expect.objectContaining({ deviceType: 'tablet' }),
+        undefined
+      );
+    });
+
+    it('should detect desktop device type from user-agent', async () => {
+      const mockResponse = {
+        userMessage: { id: 1, role: 'user', content: 'Hello' },
+        assistantMessage: { id: 2, role: 'assistant', content: 'Hi!' },
+      };
+      vi.mocked(tutorService.sendMessage).mockResolvedValue(mockResponse);
+
+      await request(app)
+        .post('/api/tutors/conversations/5/message')
+        .set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
+        .send({ message: 'Hello' })
+        .expect(200);
+
+      expect(tutorService.sendMessage).toHaveBeenCalledWith(
+        1,
+        5,
+        'Hello',
+        expect.objectContaining({ deviceType: 'desktop' }),
+        undefined
+      );
+    });
   });
 
   // ==========================================================================
@@ -298,6 +395,94 @@ describe('Tutor Routes', () => {
       expect(response.body.success).toBe(false);
       expect(response.body.error).toContain('Admin');
     });
+
+    it('should return interaction logs for admin', async () => {
+      currentTestUser = { id: 1, email: 'admin@test.com', fullname: 'Admin User', isAdmin: true, isInstructor: true };
+      const mockLogs = [
+        { id: 1, userId: 1, sessionId: 1, message: 'Hello', responseTimeMs: 100 },
+        { id: 2, userId: 2, sessionId: 1, message: 'Hi there', responseTimeMs: 150 },
+      ];
+      vi.mocked(tutorService.getInteractionLogs).mockResolvedValue(mockLogs);
+
+      const response = await request(app)
+        .get('/api/tutors/logs')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveLength(2);
+      expect(tutorService.getInteractionLogs).toHaveBeenCalledWith({
+        userId: undefined,
+        sessionId: undefined,
+        eventType: undefined,
+        startDate: undefined,
+        endDate: undefined,
+        limit: 100,
+      });
+    });
+
+    it('should apply query filters for logs', async () => {
+      currentTestUser = { id: 1, email: 'admin@test.com', fullname: 'Admin User', isAdmin: true, isInstructor: true };
+      vi.mocked(tutorService.getInteractionLogs).mockResolvedValue([]);
+
+      const response = await request(app)
+        .get('/api/tutors/logs?userId=5&sessionId=3&eventType=message&startDate=2024-01-01&endDate=2024-12-31&limit=50')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(tutorService.getInteractionLogs).toHaveBeenCalledWith({
+        userId: 5,
+        sessionId: 3,
+        eventType: 'message',
+        startDate: expect.any(Date),
+        endDate: expect.any(Date),
+        limit: 50,
+      });
+    });
+  });
+
+  describe('GET /api/tutors/logs/stats (Admin)', () => {
+    it('should reject non-admin user', async () => {
+      const response = await request(app)
+        .get('/api/tutors/logs/stats')
+        .expect(403);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain('Admin');
+    });
+
+    it('should return stats for admin', async () => {
+      currentTestUser = { id: 1, email: 'admin@test.com', fullname: 'Admin User', isAdmin: true, isInstructor: true };
+      const mockStats = {
+        totalSessions: 100,
+        totalMessages: 500,
+        averageResponseTime: 1500,
+        activeUsers: 25,
+      };
+      vi.mocked(tutorService.getStats).mockResolvedValue(mockStats);
+
+      const response = await request(app)
+        .get('/api/tutors/logs/stats')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.totalSessions).toBe(100);
+      expect(tutorService.getStats).toHaveBeenCalledWith(undefined, undefined);
+    });
+
+    it('should apply date filters for stats', async () => {
+      currentTestUser = { id: 1, email: 'admin@test.com', fullname: 'Admin User', isAdmin: true, isInstructor: true };
+      vi.mocked(tutorService.getStats).mockResolvedValue({});
+
+      const response = await request(app)
+        .get('/api/tutors/logs/stats?startDate=2024-01-01&endDate=2024-12-31')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(tutorService.getStats).toHaveBeenCalledWith(
+        expect.any(Date),
+        expect.any(Date)
+      );
+    });
   });
 
   // ==========================================================================
@@ -313,6 +498,15 @@ describe('Tutor Routes', () => {
 
       expect(response.body.success).toBe(false);
       expect(response.body.error).toContain('Invalid');
+    });
+
+    it('should handle invalid chatbotId on DELETE conversation', async () => {
+      const response = await request(app)
+        .delete('/api/tutors/conversations/notanumber')
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('Invalid chatbotId');
     });
   });
 });

@@ -6,6 +6,7 @@ import { AppError } from '../middleware/error.middleware.js';
 import { UserPayload } from '../types/index.js';
 import { learningAnalyticsService, AuthEventData } from './learningAnalytics.service.js';
 import { authLogger } from '../utils/logger.js';
+import { userService } from './user.service.js';
 
 // Context for auth logging
 export interface AuthContext {
@@ -245,6 +246,9 @@ export class AuthService {
       authLogger.warn({ err: error, userId: user.id }, 'Failed to log login success event');
     }
 
+    // Fetch user's language preference
+    const languagePreference = await userService.getLanguagePreference(user.id);
+
     return {
       user: {
         id: user.id,
@@ -252,6 +256,7 @@ export class AuthService {
         email: user.email,
         isAdmin: user.isAdmin,
         isInstructor: user.isInstructor,
+        language: languagePreference,
       },
       token,
     };

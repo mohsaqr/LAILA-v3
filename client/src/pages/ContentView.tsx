@@ -1,18 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 import { coursesApi } from '../api/courses';
 import { useTheme } from '../hooks/useTheme';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
+import { buildContentBreadcrumb } from '../utils/breadcrumbs';
 import { sanitizeHtml } from '../utils/sanitize';
 
 interface LocationState {
   title?: string;
   content?: string;
   type?: string;
+  courseId?: number;
+  courseName?: string;
+  moduleName?: string;
+  lectureName?: string;
 }
 
 export const ContentView = () => {
@@ -21,6 +27,7 @@ export const ContentView = () => {
   const location = useLocation();
   const state = location.state as LocationState | null;
   const { isDark } = useTheme();
+  const { t } = useTranslation(['courses', 'common']);
 
   // Theme colors
   const colors = {
@@ -56,6 +63,10 @@ export const ContentView = () => {
   const passedContent = state?.content || storedContent?.content;
   const passedTitle = state?.title || storedContent?.title;
   const passedType = state?.type || storedContent?.type;
+  const passedCourseId = state?.courseId || storedContent?.courseId;
+  const passedCourseName = state?.courseName || storedContent?.courseName;
+  const passedModuleName = state?.moduleName || storedContent?.moduleName;
+  const passedLectureName = state?.lectureName || storedContent?.lectureName;
 
   // If type is 'section', we need to fetch the lecture containing that section
   // For now, sections are passed via state for simplicity
@@ -74,7 +85,7 @@ export const ContentView = () => {
   };
 
   if (isLoading) {
-    return <Loading fullScreen text="Loading content..." />;
+    return <Loading fullScreen text={t('loading_content')} />;
   }
 
   // Determine content source
@@ -87,15 +98,24 @@ export const ContentView = () => {
     content = lecture.content || '';
   }
 
+  // Build breadcrumb with context if available
+  const breadcrumbItems = buildContentBreadcrumb(
+    passedCourseId,
+    passedCourseName,
+    passedModuleName,
+    passedLectureName,
+    title
+  );
+
   if (!content) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: colors.bg }}>
         <Card>
           <CardBody className="text-center py-8 px-12">
-            <h2 className="text-xl font-bold mb-2" style={{ color: colors.textPrimary }}>Content Not Found</h2>
-            <p className="mb-4" style={{ color: colors.textSecondary }}>The requested content could not be found.</p>
+            <h2 className="text-xl font-bold mb-2" style={{ color: colors.textPrimary }}>{t('content_not_found')}</h2>
+            <p className="mb-4" style={{ color: colors.textSecondary }}>{t('content_not_found_description')}</p>
             <button onClick={handleBack} className="btn btn-primary">
-              Go Back
+              {t('go_back')}
             </button>
           </CardBody>
         </Card>
@@ -111,17 +131,12 @@ export const ContentView = () => {
           <button
             onClick={handleBack}
             className="p-2 rounded-lg transition-colors flex-shrink-0"
-            title="Go back"
+            title={t('go_back')}
             style={{ color: colors.textSecondary }}
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <Breadcrumb
-            items={[
-              { label: 'Courses', href: '/courses' },
-              { label: title || 'Content' },
-            ]}
-          />
+          <Breadcrumb items={breadcrumbItems} />
         </div>
       </div>
 

@@ -1,10 +1,15 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bot, Minus, Plus, BookOpen, MessageCircle, Clock, ChevronRight, ArrowLeft } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Bot, Minus, Plus, BookOpen, MessageCircle, Clock, ChevronRight, ArrowLeft, Loader2 } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
-import { lectureAIHelperApi, LectureAIHelperMode, LectureAISession, LectureAIMessage } from '../../api/lectureAIHelper';
+import { lectureAIHelperApi, LectureAIHelperMode, LectureAISession, LectureAIMessage, PDFPageRanges } from '../../api/lectureAIHelper';
 import { LectureAIHelperChat } from './LectureAIHelperChat';
 import { LectureExplainView } from './LectureExplainView';
+import { PDFPageSelector } from './PDFPageSelector';
+
+// Threshold for showing page selector (PDFs with more than this many pages require selection)
+const LARGE_PDF_THRESHOLD = 5;
 
 interface Message {
   role: 'user' | 'assistant';
@@ -19,43 +24,46 @@ interface LectureAIHelperProps {
 }
 
 const MODE_CONFIG: Record<LectureAIHelperMode, {
-  label: string;
+  labelKey: string;
   icon: typeof BookOpen;
-  description: string;
-  placeholder: string;
-  welcomeMessage: string;
-  newSessionLabel: string;
+  descriptionKey: string;
+  placeholderKey: string;
+  welcomeMessageKey: string;
+  newSessionLabelKey: string;
 }> = {
   explain: {
-    label: 'Explain',
+    labelKey: 'explain',
     icon: BookOpen,
-    description: 'Get clear explanations of lecture concepts',
-    placeholder: 'Ask me to explain any concept from the lecture...',
-    welcomeMessage: "Hi! I'm here to help you understand the lecture content. Ask me about any concept, term, or topic from this lecture, and I'll explain it clearly with examples.",
-    newSessionLabel: 'New Explanation Thread',
+    descriptionKey: 'get_clear_explanations',
+    placeholderKey: 'explain_placeholder',
+    welcomeMessageKey: 'explain_welcome',
+    newSessionLabelKey: 'new_explanation_thread',
   },
   discuss: {
-    label: 'Discuss',
+    labelKey: 'discuss',
     icon: MessageCircle,
-    description: 'Engage in Socratic discussion',
-    placeholder: 'Share your thoughts or ask a discussion question...',
-    welcomeMessage: "Let's discuss the lecture material together! I'll ask thought-provoking questions to help you think critically about the content. What aspect would you like to explore?",
-    newSessionLabel: 'New Discussion',
+    descriptionKey: 'engage_socratic_discussion',
+    placeholderKey: 'discuss_placeholder',
+    welcomeMessageKey: 'discuss_welcome',
+    newSessionLabelKey: 'new_discussion',
   },
 };
 
-// Explain mode: shows thread list directly
+// Explain mode: shows thread list directly (or PDF selector first if large PDFs exist)
 // Discuss mode: shows sessions -> chat flow
-type ViewState = 'collapsed' | 'explain' | 'sessions' | 'chat';
+type ViewState = 'collapsed' | 'pdf-select' | 'explain' | 'sessions' | 'chat';
 
 export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProps) => {
   const { isDark } = useTheme();
+  const { t } = useTranslation(['tutors', 'common']);
   const queryClient = useQueryClient();
   const [viewState, setViewState] = useState<ViewState>('collapsed');
   const [mode, setMode] = useState<LectureAIHelperMode>('explain');
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [sessionId, setSessionId] = useState<string | undefined>();
+  const [pdfPageRanges, setPdfPageRanges] = useState<PDFPageRanges | undefined>();
+  const [pdfSelectDismissed, setPdfSelectDismissed] = useState(false);
 
   // Theme colors
   const colors = {
@@ -68,6 +76,22 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
     accent: '#3b82f6',
     accentLight: isDark ? 'rgba(59, 130, 246, 0.2)' : '#dbeafe',
   };
+
+  // Fetch PDF info for this lecture
+  const { data: pdfInfoData, isLoading: pdfInfoLoading } = useQuery({
+    queryKey: ['lecturePdfInfo', lectureId],
+    queryFn: () => lectureAIHelperApi.getPdfInfo(lectureId),
+    enabled: viewState !== 'collapsed',
+  });
+
+  // Check if there are large PDFs that need page selection
+  const hasLargePdfs = useMemo(() => {
+    if (!pdfInfoData?.pdfs) return false;
+    return pdfInfoData.pdfs.some(pdf => pdf.pageCount > LARGE_PDF_THRESHOLD);
+  }, [pdfInfoData]);
+
+  // Check if we need to show PDF selector (has large PDFs and hasn't been dismissed)
+  const needsPdfSelection = hasLargePdfs && !pdfSelectDismissed && !pdfPageRanges;
 
   // Fetch sessions for this lecture (only for Discuss mode)
   const { data: sessions = [], isLoading: sessionsLoading } = useQuery({
@@ -119,12 +143,23 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
   const handleModeClick = useCallback((selectedMode: LectureAIHelperMode) => {
     setMode(selectedMode);
     if (selectedMode === 'explain') {
-      // Explain mode: show thread list directly
-      setViewState('explain');
+      // Explain mode: show PDF selector if needed, otherwise show thread list
+      if (needsPdfSelection) {
+        setViewState('pdf-select');
+      } else {
+        setViewState('explain');
+      }
     } else {
       // Discuss mode: show sessions list
       setViewState('sessions');
     }
+  }, [needsPdfSelection]);
+
+  // Handle PDF page selection complete
+  const handlePdfSelectionComplete = useCallback((ranges: PDFPageRanges) => {
+    setPdfPageRanges(ranges);
+    setPdfSelectDismissed(true);
+    setViewState('explain');
   }, []);
 
   // Start new session
@@ -132,13 +167,13 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
     setMessages([
       {
         role: 'assistant',
-        content: MODE_CONFIG[mode].welcomeMessage,
+        content: t(MODE_CONFIG[mode].welcomeMessageKey),
         timestamp: new Date().toISOString(),
       },
     ]);
     setSessionId(undefined);
     setViewState('chat');
-  }, [mode]);
+  }, [mode, t]);
 
   // Handle send message
   const handleSend = useCallback(() => {
@@ -169,10 +204,10 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffMins < 1) return t('just_now');
+    if (diffMins < 60) return t('minutes_ago', { count: diffMins });
+    if (diffHours < 24) return t('hours_ago', { count: diffHours });
+    if (diffDays < 7) return t('days_ago', { count: diffDays });
     return date.toLocaleDateString();
   };
 
@@ -195,7 +230,7 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
               onClick={handleBackToSessions}
               className="p-1.5 rounded-lg transition-colors hover:bg-opacity-80"
               style={{ backgroundColor: colors.bgHover, color: colors.textSecondary }}
-              title="Back to sessions"
+              title={t('back_to_sessions')}
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
@@ -208,16 +243,16 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
           </div>
           <div>
             <h3 className="font-medium text-sm" style={{ color: colors.textPrimary }}>
-              AI Study Helper
-              {(viewState === 'explain' || viewState === 'sessions' || viewState === 'chat') && (
+              {t('ai_study_helper')}
+              {(viewState === 'explain' || viewState === 'sessions' || viewState === 'chat' || viewState === 'pdf-select') && (
                 <span className="ml-2 text-xs font-normal" style={{ color: colors.textSecondary }}>
-                  - {currentConfig.label}
+                  - {viewState === 'pdf-select' ? t('select_pdf_pages') : t(currentConfig.labelKey)}
                 </span>
               )}
             </h3>
             {viewState === 'collapsed' && (
               <p className="text-xs" style={{ color: colors.textSecondary }}>
-                Get help understanding "{lectureTitle}"
+                {t('get_help_understanding', { title: lectureTitle })}
               </p>
             )}
           </div>
@@ -230,7 +265,7 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
               onClick={() => setViewState('collapsed')}
               className="p-2 rounded-lg transition-colors hover:bg-opacity-80"
               style={{ color: colors.textSecondary }}
-              title="Minimize"
+              title={t('minimize')}
             >
               <Minus className="w-4 h-4" />
             </button>
@@ -254,13 +289,41 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
                   backgroundColor: colors.bgHover,
                   color: colors.textSecondary,
                 }}
-                title={config.description}
+                title={t(config.descriptionKey)}
               >
                 <ModeIcon className="w-4 h-4" />
-                {config.label}
+                {t(config.labelKey)}
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* PDF Page Selection view */}
+      {viewState === 'pdf-select' && (
+        <div className="border-t" style={{ borderColor: colors.border }}>
+          {pdfInfoLoading ? (
+            <div className="px-4 py-8 text-center" style={{ color: colors.textSecondary }}>
+              <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+              {t('loading_pdf_info')}
+            </div>
+          ) : pdfInfoData?.pdfs && pdfInfoData.pdfs.length > 0 ? (
+            <PDFPageSelector
+              pdfs={pdfInfoData.pdfs}
+              onContinue={handlePdfSelectionComplete}
+            />
+          ) : (
+            <div className="px-4 py-8 text-center" style={{ color: colors.textSecondary }}>
+              {t('no_pdfs_found')}
+              <button
+                onClick={() => setViewState('explain')}
+                className="block mx-auto mt-3 px-4 py-2 rounded-lg text-sm font-medium"
+                style={{ backgroundColor: colors.accent, color: '#ffffff' }}
+              >
+                {t('common:continue')}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -286,12 +349,12 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
                   }}
                 >
                   <ModeIcon className="w-4 h-4" />
-                  {config.label}
+                  {t(config.labelKey)}
                 </button>
               );
             })}
           </div>
-          <LectureExplainView lectureId={lectureId} />
+          <LectureExplainView lectureId={lectureId} pdfPageRanges={pdfPageRanges} />
         </>
       )}
 
@@ -317,7 +380,7 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
                   }}
                 >
                   <ModeIcon className="w-4 h-4" />
-                  {config.label}
+                  {t(config.labelKey)}
                 </button>
               );
             })}
@@ -334,19 +397,19 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
             }}
           >
             <Plus className="w-4 h-4" />
-            {currentConfig.newSessionLabel}
+            {t(currentConfig.newSessionLabelKey)}
           </button>
 
           {/* Sessions list */}
           <div className="max-h-64 overflow-y-auto">
             {sessionsLoading ? (
               <div className="px-4 py-8 text-center" style={{ color: colors.textSecondary }}>
-                Loading sessions...
+                {t('loading_sessions')}
               </div>
             ) : filteredSessions.length === 0 ? (
               <div className="px-4 py-8 text-center" style={{ color: colors.textSecondary }}>
-                <p className="mb-2">No previous sessions</p>
-                <p className="text-xs">Start a new discussion above</p>
+                <p className="mb-2">{t('no_previous_sessions')}</p>
+                <p className="text-xs">{t('start_new_discussion')}</p>
               </div>
             ) : (
               filteredSessions.map((session: LectureAISession) => (
@@ -371,13 +434,13 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
                       className="text-sm font-medium truncate"
                       style={{ color: colors.textPrimary }}
                     >
-                      {session.firstMessage || 'New conversation'}
+                      {session.firstMessage || t('new_conversation')}
                     </p>
                     <div className="flex items-center gap-2 text-xs" style={{ color: colors.textSecondary }}>
                       <Clock className="w-3 h-3" />
                       <span>{formatTimeAgo(session.lastActivity)}</span>
                       <span>•</span>
-                      <span>{session.messageCount} messages</span>
+                      <span>{t('n_messages', { count: session.messageCount })}</span>
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: colors.textSecondary }} />
@@ -397,13 +460,13 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
             inputValue={inputValue}
             onInputChange={setInputValue}
             onSend={handleSend}
-            placeholder={currentConfig.placeholder}
+            placeholder={t(currentConfig.placeholderKey)}
           />
 
           {/* Error display */}
           {chatMutation.isError && (
             <div className="px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm">
-              Failed to get response. Please try again.
+              {t('failed_get_response')}
             </div>
           )}
         </>

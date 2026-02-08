@@ -431,14 +431,19 @@ export const lectureAIHelperChatSchema = z.object({
 
 export type LectureAIHelperChatInput = z.infer<typeof lectureAIHelperChatSchema>;
 
+// PDF page ranges schema for selecting specific pages from PDFs
+const pdfPageRangesSchema = z.record(z.string(), z.string()).optional();
+
 // Explain mode thread schemas
 export const createExplainThreadSchema = z.object({
   question: z.string().min(1, 'Question is required').max(2000, 'Question too long'),
+  pdfPageRanges: pdfPageRangesSchema,
 });
 
 export const addExplainFollowUpSchema = z.object({
   question: z.string().min(1, 'Question is required').max(2000, 'Question too long'),
   parentPostId: z.number().optional(),
+  pdfPageRanges: pdfPageRangesSchema,
 });
 
 export type CreateExplainThreadInput = z.infer<typeof createExplainThreadSchema>;

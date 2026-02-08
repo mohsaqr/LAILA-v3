@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Users,
   Search,
@@ -21,9 +22,12 @@ import { Loading } from '../../components/common/Loading';
 import { Input } from '../../components/common/Input';
 import { Modal } from '../../components/common/Modal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
+import { Breadcrumb } from '../../components/common/Breadcrumb';
+import { buildAdminBreadcrumb } from '../../utils/breadcrumbs';
 import { ManagedUser, UpdateUserData } from '../../types';
 
 export const UsersManagement = () => {
+  const { t } = useTranslation(['admin', 'common']);
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState('');
@@ -121,21 +125,21 @@ export const UsersManagement = () => {
     if (user.isAdmin) {
       badges.push(
         <span key="admin" className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded">
-          Admin
+          {t('admin')}
         </span>
       );
     }
     if (user.isInstructor) {
       badges.push(
         <span key="instructor" className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded">
-          Instructor
+          {t('instructor')}
         </span>
       );
     }
     if (!user.isAdmin && !user.isInstructor) {
       badges.push(
         <span key="student" className="px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded">
-          Student
+          {t('student')}
         </span>
       );
     }
@@ -145,22 +149,26 @@ export const UsersManagement = () => {
   if (error) {
     return (
       <div className="text-center py-12">
-        <p className="text-red-500">Error loading users. Please try again.</p>
+        <p className="text-red-500">{t('error_loading_users')}</p>
       </div>
     );
   }
 
+  const breadcrumbItems = buildAdminBreadcrumb('Users');
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Breadcrumb navigation */}
+      <div className="mb-6">
+        <Breadcrumb items={breadcrumbItems} homeHref="/admin" />
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Users Management</h1>
-          <p className="text-gray-600 mt-1">Manage user accounts and roles</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('users_management')}</h1>
+          <p className="text-gray-600 mt-1">{t('manage_user_accounts')}</p>
         </div>
-        <Link to="/admin">
-          <Button variant="outline">Back to Admin</Button>
-        </Link>
       </div>
 
       {/* Stats */}
@@ -170,35 +178,35 @@ export const UsersManagement = () => {
             <CardBody className="text-center py-4">
               <Users className="w-6 h-6 text-blue-500 mx-auto mb-2" />
               <p className="text-2xl font-bold text-gray-900">{stats.totalUsers}</p>
-              <p className="text-xs text-gray-500">Total Users</p>
+              <p className="text-xs text-gray-500">{t('total_users')}</p>
             </CardBody>
           </Card>
           <Card>
             <CardBody className="text-center py-4">
               <Users className="w-6 h-6 text-green-500 mx-auto mb-2" />
               <p className="text-2xl font-bold text-gray-900">{stats.activeUsers}</p>
-              <p className="text-xs text-gray-500">Active</p>
+              <p className="text-xs text-gray-500">{t('common:active')}</p>
             </CardBody>
           </Card>
           <Card>
             <CardBody className="text-center py-4">
               <ShieldCheck className="w-6 h-6 text-red-500 mx-auto mb-2" />
               <p className="text-2xl font-bold text-gray-900">{stats.admins}</p>
-              <p className="text-xs text-gray-500">Admins</p>
+              <p className="text-xs text-gray-500">{t('admin')}</p>
             </CardBody>
           </Card>
           <Card>
             <CardBody className="text-center py-4">
               <Shield className="w-6 h-6 text-purple-500 mx-auto mb-2" />
               <p className="text-2xl font-bold text-gray-900">{stats.instructors}</p>
-              <p className="text-xs text-gray-500">Instructors</p>
+              <p className="text-xs text-gray-500">{t('instructor')}</p>
             </CardBody>
           </Card>
           <Card>
             <CardBody className="text-center py-4">
               <Users className="w-6 h-6 text-gray-500 mx-auto mb-2" />
               <p className="text-2xl font-bold text-gray-900">{stats.students}</p>
-              <p className="text-xs text-gray-500">Students</p>
+              <p className="text-xs text-gray-500">{t('student')}</p>
             </CardBody>
           </Card>
         </div>
@@ -212,7 +220,7 @@ export const UsersManagement = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Filter by name or email..."
+                placeholder={t('filter_by_name_email')}
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
@@ -236,10 +244,10 @@ export const UsersManagement = () => {
                 }}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
               >
-                <option value="">All Roles</option>
-                <option value="admin">Admin</option>
-                <option value="instructor">Instructor</option>
-                <option value="student">Student</option>
+                <option value="">{t('all_roles')}</option>
+                <option value="admin">{t('admin')}</option>
+                <option value="instructor">{t('instructor')}</option>
+                <option value="student">{t('student')}</option>
               </select>
               <select
                 value={activeFilter === undefined ? '' : activeFilter.toString()}
@@ -249,9 +257,9 @@ export const UsersManagement = () => {
                 }}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
               >
-                <option value="">All Status</option>
-                <option value="true">Active</option>
-                <option value="false">Inactive</option>
+                <option value="">{t('all_status')}</option>
+                <option value="true">{t('common:active')}</option>
+                <option value="false">{t('common:inactive')}</option>
               </select>
             </div>
           </div>
@@ -262,34 +270,34 @@ export const UsersManagement = () => {
       <Card>
         <CardHeader className="flex items-center justify-between">
           <h2 className="font-semibold text-gray-900">
-            Users ({data?.pagination.total || 0})
+            {t('users')} ({data?.pagination.total || 0})
           </h2>
         </CardHeader>
         <CardBody className="p-0">
           {isLoading ? (
-            <Loading text="Loading users..." />
+            <Loading text={t('loading_users')} />
           ) : (
             <>
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      User
+                      {t('user')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Role
+                      {t('role')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Status
+                      {t('common:status')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Enrollments
+                      {t('enrollments')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Joined
+                      {t('joined')}
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                      Actions
+                      {t('common:actions')}
                     </th>
                   </tr>
                 </thead>
@@ -313,14 +321,14 @@ export const UsersManagement = () => {
                               : 'bg-gray-100 text-gray-700'
                           }`}
                         >
-                          {user.isActive ? 'Active' : 'Inactive'}
+                          {user.isActive ? t('common:active') : t('common:inactive')}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {user._count.enrollments}
                         {user._count.taughtCourses > 0 && (
                           <span className="text-xs text-gray-400 ml-2">
-                            ({user._count.taughtCourses} teaching)
+                            ({t('n_teaching', { count: user._count.taughtCourses })})
                           </span>
                         )}
                       </td>
@@ -330,7 +338,7 @@ export const UsersManagement = () => {
                       <td className="px-6 py-4">
                         <div className="flex justify-end gap-2">
                           <Link to={`/admin/users/${user.id}`}>
-                            <Button variant="ghost" size="sm" title="View details">
+                            <Button variant="ghost" size="sm" title={t('view_details')}>
                               <Eye className="w-4 h-4" />
                             </Button>
                           </Link>
@@ -338,7 +346,7 @@ export const UsersManagement = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleEditUser(user)}
-                            title="Edit user"
+                            title={t('edit_user')}
                           >
                             <Edit2 className="w-4 h-4" />
                           </Button>
@@ -346,7 +354,7 @@ export const UsersManagement = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDeleteClick(user)}
-                            title="Delete user"
+                            title={t('delete_user')}
                             className="text-red-500 hover:text-red-700"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -362,7 +370,7 @@ export const UsersManagement = () => {
               {data && data.pagination.totalPages > 1 && (
                 <div className="flex items-center justify-between px-6 py-4 border-t">
                   <p className="text-sm text-gray-500">
-                    Page {data.pagination.page} of {data.pagination.totalPages}
+                    {t('page_of_pages', { page: data.pagination.page, total: data.pagination.totalPages })}
                   </p>
                   <div className="flex gap-2">
                     <Button
@@ -387,7 +395,7 @@ export const UsersManagement = () => {
 
               {data?.users.length === 0 && (
                 <div className="text-center py-12 text-gray-500">
-                  No users found.
+                  {t('no_users_found')}
                 </div>
               )}
             </>
@@ -403,22 +411,22 @@ export const UsersManagement = () => {
           setSelectedUser(null);
           setEditForm({});
         }}
-        title={`Edit User: ${selectedUser?.fullname}`}
+        title={`${t('edit_user')}: ${selectedUser?.fullname}`}
       >
         <div className="space-y-4">
           <Input
-            label="Full Name"
+            label={t('full_name')}
             value={editForm.fullname || ''}
             onChange={(e) => setEditForm({ ...editForm, fullname: e.target.value })}
           />
           <Input
-            label="Email"
+            label={t('email')}
             type="email"
             value={editForm.email || ''}
             onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
           />
           <Input
-            label="New Password (leave blank to keep current)"
+            label={t('new_password')}
             type="password"
             value={editForm.password || ''}
             onChange={(e) => setEditForm({ ...editForm, password: e.target.value || undefined })}
@@ -431,7 +439,7 @@ export const UsersManagement = () => {
                 onChange={(e) => setEditForm({ ...editForm, isActive: e.target.checked })}
                 className="rounded border-gray-300"
               />
-              <span className="text-sm">Active</span>
+              <span className="text-sm">{t('common:active')}</span>
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -440,7 +448,7 @@ export const UsersManagement = () => {
                 onChange={(e) => setEditForm({ ...editForm, isInstructor: e.target.checked })}
                 className="rounded border-gray-300"
               />
-              <span className="text-sm">Instructor</span>
+              <span className="text-sm">{t('instructor')}</span>
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -449,15 +457,15 @@ export const UsersManagement = () => {
                 onChange={(e) => setEditForm({ ...editForm, isAdmin: e.target.checked })}
                 className="rounded border-gray-300"
               />
-              <span className="text-sm">Admin</span>
+              <span className="text-sm">{t('admin')}</span>
             </label>
           </div>
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
-              Cancel
+              {t('common:cancel')}
             </Button>
             <Button onClick={handleSaveUser} disabled={updateUserMutation.isPending}>
-              {updateUserMutation.isPending ? 'Saving...' : 'Save Changes'}
+              {updateUserMutation.isPending ? t('saving') : t('save_changes')}
             </Button>
           </div>
         </div>
@@ -471,9 +479,9 @@ export const UsersManagement = () => {
           setUserToDelete(null);
         }}
         onConfirm={handleConfirmDelete}
-        title="Delete User"
-        message={`Are you sure you want to delete "${userToDelete?.fullname}"? This action cannot be undone and will remove all their enrollments and data.`}
-        confirmText="Delete"
+        title={t('delete_user')}
+        message={t('confirm_delete_user', { name: userToDelete?.fullname })}
+        confirmText={t('common:delete')}
         loading={deleteUserMutation.isPending}
       />
     </div>

@@ -1,6 +1,7 @@
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { createLogger } from '../utils/logger.js';
+import { chatService } from './chat.service.js';
 
 const logger = createLogger('forum');
 
@@ -10,6 +11,7 @@ export interface CreateForumInput {
   isPublished?: boolean;
   allowAnonymous?: boolean;
   orderIndex?: number;
+  moduleId?: number;
 }
 
 export interface CreateThreadInput {
@@ -124,6 +126,44 @@ class ForumService {
     return forums;
   }
 
+  /**
+   * Get forums for a specific module
+   */
+  async getModuleForums(moduleId: number, userId: number, isInstructor = false, isAdmin = false) {
+    const module = await prisma.courseModule.findUnique({
+      where: { id: moduleId },
+      include: { course: { select: { id: true, instructorId: true } } },
+    });
+
+    if (!module) {
+      throw new AppError('Module not found', 404);
+    }
+
+    // Verify access
+    const isCourseInstructor = module.course.instructorId === userId;
+    if (!isAdmin && !isCourseInstructor && !isInstructor) {
+      const enrollment = await prisma.enrollment.findUnique({
+        where: { userId_courseId: { userId, courseId: module.course.id } },
+      });
+      if (!enrollment) {
+        throw new AppError('Not enrolled in this course', 403);
+      }
+    }
+
+    const forums = await prisma.forum.findMany({
+      where: {
+        moduleId,
+        ...(isAdmin || isCourseInstructor || isInstructor ? {} : { isPublished: true }),
+      },
+      include: {
+        _count: { select: { threads: true } },
+      },
+      orderBy: [{ orderIndex: 'asc' }],
+    });
+
+    return forums;
+  }
+
   async getForum(forumId: number, userId: number, isInstructor = false, isAdmin = false) {
     const forum = await prisma.forum.findUnique({
       where: { id: forumId },
@@ -181,9 +221,20 @@ class ForumService {
       throw new AppError('Not authorized', 403);
     }
 
+    // Validate moduleId belongs to this course if provided
+    if (data.moduleId) {
+      const module = await prisma.courseModule.findUnique({
+        where: { id: data.moduleId },
+      });
+      if (!module || module.courseId !== courseId) {
+        throw new AppError('Module does not belong to this course', 400);
+      }
+    }
+
     const forum = await prisma.forum.create({
       data: {
         courseId,
+        moduleId: data.moduleId || null,
         title: data.title,
         description: data.description,
         isPublished: data.isPublished ?? true,
@@ -198,12 +249,13 @@ class ForumService {
       forumTitle: data.title,
       courseId,
       courseName: course.title,
+      moduleId: data.moduleId || null,
       instructorId,
       isPublished: data.isPublished ?? true,
       allowAnonymous: data.allowAnonymous ?? false,
       description: data.description || null,
       timestamp: new Date().toISOString(),
-    }, `Forum created: "${data.title}" in course "${course.title}"`);
+    }, `Forum created: "${data.title}" in course "${course.title}"${data.moduleId ? ` (module ${data.moduleId})` : ''}`);
 
     return forum;
   }
@@ -340,11 +392,14 @@ class ForumService {
       where: { id: threadId },
       include: {
         forum: {
-          select: { id: true, title: true, allowAnonymous: true, courseId: true },
-          include: { course: { select: { instructorId: true } } },
+          include: { course: { select: { id: true, title: true, instructorId: true } } },
         },
         posts: {
           orderBy: { createdAt: 'asc' },
+          include: {
+            aiAgent: { select: { id: true, name: true, displayName: true, avatarUrl: true } },
+            requester: { select: { id: true, fullname: true } },
+          },
         },
       },
     });
@@ -873,6 +928,361 @@ class ForumService {
     }, `Post deleted: ${user?.fullname || 'Unknown'} deleted post #${postId} by ${postAuthorName} in thread "${post.thread.title}"`);
 
     return { message: 'Post deleted' };
+  }
+
+  // =========================================================================
+  // AI AGENT INTEGRATION
+  // =========================================================================
+
+  /**
+   * Get available AI agents (tutor-category chatbots) for forum integration
+   */
+  async getAvailableAgents(courseId: number) {
+    // Get active chatbots with tutor category
+    const chatbots = await prisma.chatbot.findMany({
+      where: {
+        isActive: true,
+        category: 'tutor',
+      },
+      select: {
+        id: true,
+        name: true,
+        displayName: true,
+        description: true,
+        avatarUrl: true,
+        personality: true,
+      },
+      orderBy: { displayName: 'asc' },
+    });
+
+    // Also check for course-specific tutors
+    const courseTutors = await prisma.courseTutor.findMany({
+      where: {
+        courseId,
+        isActive: true,
+      },
+      include: {
+        chatbot: {
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
+            description: true,
+            avatarUrl: true,
+            personality: true,
+          },
+        },
+      },
+      orderBy: { displayOrder: 'asc' },
+    });
+
+    // Combine global tutors with course-specific ones
+    const agentMap = new Map();
+
+    // Add course tutors first (with custom names if set)
+    for (const ct of courseTutors) {
+      agentMap.set(ct.chatbot.id, {
+        id: ct.chatbot.id,
+        name: ct.chatbot.name,
+        displayName: ct.customName || ct.chatbot.displayName,
+        description: ct.customDescription || ct.chatbot.description,
+        avatarUrl: ct.chatbot.avatarUrl,
+        personality: ct.customPersonality || ct.chatbot.personality,
+        isCourseSpecific: true,
+      });
+    }
+
+    // Add global tutors if not already added
+    for (const bot of chatbots) {
+      if (!agentMap.has(bot.id)) {
+        agentMap.set(bot.id, {
+          ...bot,
+          isCourseSpecific: false,
+        });
+      }
+    }
+
+    return Array.from(agentMap.values());
+  }
+
+  /**
+   * Build conversation context from thread and posts for AI
+   */
+  private buildForumContext(
+    thread: {
+      title: string;
+      content: string;
+      author?: { fullname: string } | null;
+      isAnonymous: boolean;
+      posts: Array<{
+        id: number;
+        content: string;
+        author?: { fullname: string } | null;
+        isAnonymous: boolean;
+        isAiGenerated: boolean;
+        aiAgentName?: string | null;
+        createdAt: Date;
+      }>;
+    },
+    parentPost?: {
+      id: number;
+      content: string;
+      author?: { fullname: string } | null;
+      isAnonymous: boolean;
+    } | null,
+    courseContext?: { title: string } | null
+  ): string {
+    const lines: string[] = [];
+
+    // Course context
+    if (courseContext?.title) {
+      lines.push(`Course: ${courseContext.title}`);
+      lines.push('');
+    }
+
+    // Thread information
+    const threadAuthor = thread.isAnonymous ? 'Anonymous Student' : (thread.author?.fullname || 'Unknown');
+    lines.push(`Discussion Thread: "${thread.title}"`);
+    lines.push(`Started by: ${threadAuthor}`);
+    lines.push(`Original question/topic:`);
+    lines.push(thread.content);
+    lines.push('');
+
+    // Previous posts (chronological)
+    if (thread.posts.length > 0) {
+      lines.push('--- Discussion so far ---');
+      for (const post of thread.posts) {
+        let authorName: string;
+        if (post.isAiGenerated && post.aiAgentName) {
+          authorName = `${post.aiAgentName} (AI Tutor)`;
+        } else if (post.isAnonymous) {
+          authorName = 'Anonymous Student';
+        } else {
+          authorName = post.author?.fullname || 'Unknown';
+        }
+        lines.push(`\n[${authorName}]:`);
+        lines.push(post.content);
+      }
+      lines.push('');
+    }
+
+    // Specific post being replied to
+    if (parentPost) {
+      const parentAuthor = parentPost.isAnonymous ? 'Anonymous Student' : (parentPost.author?.fullname || 'Unknown');
+      lines.push('--- You are specifically replying to this post ---');
+      lines.push(`[${parentAuthor}]:`);
+      lines.push(parentPost.content);
+      lines.push('');
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Create an AI-generated forum post
+   */
+  async createAiPost(
+    threadId: number,
+    requestingUserId: number,
+    agentId: number,
+    parentId?: number
+  ) {
+    // 1. Get thread with all posts for context
+    const thread = await prisma.forumThread.findUnique({
+      where: { id: threadId },
+      include: {
+        forum: {
+          include: { course: { select: { id: true, title: true, instructorId: true } } },
+        },
+        posts: {
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    if (!thread) {
+      throw new AppError('Thread not found', 404);
+    }
+
+    if (thread.isLocked) {
+      throw new AppError('Thread is locked', 400);
+    }
+
+    // 2. Verify user enrollment/access
+    const user = await prisma.user.findUnique({
+      where: { id: requestingUserId },
+      select: { id: true, fullname: true, email: true, isAdmin: true, isInstructor: true },
+    });
+
+    if (!user?.isAdmin && thread.forum.course.instructorId !== requestingUserId) {
+      const enrollment = await prisma.enrollment.findUnique({
+        where: { userId_courseId: { userId: requestingUserId, courseId: thread.forum.courseId } },
+      });
+      if (!enrollment) {
+        throw new AppError('Not enrolled in this course', 403);
+      }
+    }
+
+    // 3. Get agent (chatbot) details
+    const agent = await prisma.chatbot.findUnique({
+      where: { id: agentId },
+    });
+
+    if (!agent || !agent.isActive) {
+      throw new AppError('AI agent not available', 404);
+    }
+
+    // 4. Get thread author for context
+    const threadAuthor = await prisma.user.findUnique({
+      where: { id: thread.authorId },
+      select: { fullname: true },
+    });
+
+    // 5. Get parent post if replying to specific post
+    let parentPost: {
+      id: number;
+      content: string;
+      author?: { fullname: string } | null;
+      isAnonymous: boolean;
+    } | null = null;
+
+    if (parentId) {
+      const fetchedParent = await prisma.forumPost.findUnique({
+        where: { id: parentId },
+      });
+      if (!fetchedParent || fetchedParent.threadId !== threadId) {
+        throw new AppError('Invalid parent post', 400);
+      }
+      // Get author info separately
+      const parentAuthor = await prisma.user.findUnique({
+        where: { id: fetchedParent.authorId },
+        select: { fullname: true },
+      });
+      parentPost = {
+        id: fetchedParent.id,
+        content: fetchedParent.content,
+        author: parentAuthor,
+        isAnonymous: fetchedParent.isAnonymous,
+      };
+    }
+
+    // 6. Fetch authors for all posts
+    const postAuthorIds = [...new Set(thread.posts.map(p => p.authorId))];
+    const postAuthors = await prisma.user.findMany({
+      where: { id: { in: postAuthorIds } },
+      select: { id: true, fullname: true },
+    });
+    const postAuthorMap = new Map(postAuthors.map(a => [a.id, a]));
+
+    // 7. Build conversation context
+    const forumContext = this.buildForumContext(
+      {
+        title: thread.title,
+        content: thread.content,
+        author: thread.isAnonymous ? null : threadAuthor,
+        isAnonymous: thread.isAnonymous,
+        posts: thread.posts.map(p => ({
+          id: p.id,
+          content: p.content,
+          author: postAuthorMap.get(p.authorId) || null,
+          isAnonymous: p.isAnonymous,
+          isAiGenerated: p.isAiGenerated,
+          aiAgentName: p.aiAgentName,
+          createdAt: p.createdAt,
+        })),
+      },
+      parentPost,
+      thread.forum.course
+    );
+
+    // 8. Build AI prompt
+    const systemPrompt = `${agent.systemPrompt}
+
+You are participating in a student forum discussion. Your role is to help students learn by providing thoughtful, educational responses.
+
+Guidelines:
+- Be supportive and encouraging
+- Ask follow-up questions to deepen understanding
+- Connect concepts to course material when relevant
+- Keep responses focused and not too long (2-4 paragraphs typically)
+- If you're unsure about specific course content, acknowledge this
+- Remember you're visible to all students in the course
+
+${agent.knowledgeContext ? `Additional context: ${agent.knowledgeContext}` : ''}`;
+
+    const userMessage = parentPost
+      ? `Please respond to this specific post in the discussion. Consider the full thread context above.`
+      : `Please contribute to this discussion thread. Consider what has been said so far and add something helpful.`;
+
+    // 9. Call chatService to generate response
+    const aiResponse = await chatService.chat({
+      message: userMessage,
+      module: 'forum-ai-agent',
+      systemPrompt,
+      context: forumContext,
+      temperature: agent.temperature ?? 0.7,
+    }, requestingUserId);
+
+    // 10. Create ForumPost with isAiGenerated=true
+    // For AI posts, we use a system user ID or the agent's associated user
+    // Using the requesting user as authorId but marking it as AI generated
+    const post = await prisma.forumPost.create({
+      data: {
+        threadId,
+        authorId: requestingUserId, // Track who requested, but content is AI
+        content: aiResponse.reply,
+        parentId,
+        isAnonymous: false,
+        isAiGenerated: true,
+        aiAgentId: agent.id,
+        aiAgentName: agent.displayName,
+        aiRequestedBy: requestingUserId,
+      },
+      include: {
+        aiAgent: { select: { id: true, name: true, displayName: true, avatarUrl: true } },
+        requester: { select: { id: true, fullname: true } },
+      },
+    });
+
+    // Get author info for response
+    const postAuthor = await prisma.user.findUnique({
+      where: { id: post.authorId },
+      select: { id: true, fullname: true },
+    });
+
+    // Create response object with author info
+    const responsePost = {
+      ...post,
+      author: postAuthor,
+    };
+
+    // 11. Comprehensive logging
+    logger.info({
+      action: 'AI_POST_CREATED',
+      postId: responsePost.id,
+      threadId,
+      threadTitle: thread.title,
+      forumId: thread.forumId,
+      forumTitle: thread.forum.title,
+      courseId: thread.forum.courseId,
+      courseName: thread.forum.course.title,
+      aiAgent: {
+        id: agent.id,
+        name: agent.name,
+        displayName: agent.displayName,
+      },
+      requestedBy: {
+        userId: requestingUserId,
+        name: user?.fullname || 'Unknown',
+        email: user?.email || 'Unknown',
+      },
+      parentPostId: parentId || null,
+      responseTime: aiResponse.responseTime,
+      model: aiResponse.model,
+      timestamp: new Date().toISOString(),
+    }, `AI post created: ${agent.displayName} replied in thread "${thread.title}" (requested by ${user?.fullname})`);
+
+    return responsePost;
   }
 }
 

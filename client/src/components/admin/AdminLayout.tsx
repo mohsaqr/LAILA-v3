@@ -1,12 +1,15 @@
 import { ReactNode, useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import { AdminSidebar } from './AdminSidebar';
+import { Breadcrumb, BreadcrumbItem } from '../common/Breadcrumb';
+import { buildAdminBreadcrumb } from '../../utils/breadcrumbs';
 
 interface AdminLayoutProps {
   title: string;
   description?: string;
   children: ReactNode;
   headerActions?: ReactNode;
+  breadcrumbs?: BreadcrumbItem[];
 }
 
 export const AdminLayout = ({
@@ -14,12 +17,22 @@ export const AdminLayout = ({
   description,
   children,
   headerActions,
+  breadcrumbs,
 }: AdminLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Default breadcrumbs for admin pages
+  const defaultBreadcrumbs = buildAdminBreadcrumb(title);
+  const breadcrumbItems = breadcrumbs || defaultBreadcrumbs;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Breadcrumb navigation */}
+        <div className="mb-4">
+          <Breadcrumb items={breadcrumbItems} homeHref="/admin" />
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
