@@ -111,8 +111,9 @@ import {
   EnrollmentsManagement,
   BatchEnrollment,
   ChatbotRegistry,
+  AnalyticsDashboard,
+  LLMSettings,
 } from './pages/admin';
-import { LLMSettings } from './pages/admin/LLMSettings';
 import { PromptBlocksManagement } from './pages/admin/PromptBlocksManagement';
 
 // User pages
@@ -763,6 +764,14 @@ function App() {
           element={
             <ProtectedRoute requireAdmin>
               <ChatbotRegistry />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/llm"
+          element={
+            <ProtectedRoute requireAdmin>
+              <LLMSettings />
             </ProtectedRoute>
           }
         />

@@ -283,6 +283,19 @@ model LLMModel {
   @@map("llm_models")
 }
 
+// Global LLM settings
+model LLMSettings {
+  id                    Int      @id @default(autoincrement())
+  settingKey            String   @unique @map("setting_key")
+  settingValue          String?  @map("setting_value")
+  settingType           String   @default("string") @map("setting_type")  // 'string', 'number', 'boolean', 'json'
+  description           String?
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("llm_settings")
+}
+
 // =============================================================================
 // LOGGING & ANALYTICS
 // =============================================================================

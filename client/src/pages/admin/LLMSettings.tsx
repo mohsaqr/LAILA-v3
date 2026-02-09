@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
 import {
   Bot,
   Settings,
@@ -29,8 +28,6 @@ import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { Loading } from '../../components/common/Loading';
 import { Modal } from '../../components/common/Modal';
-import { Breadcrumb } from '../../components/common/Breadcrumb';
-import { buildAdminBreadcrumb } from '../../utils/breadcrumbs';
 import toast from 'react-hot-toast';
 
 interface ProviderFormData {
@@ -70,7 +67,6 @@ const PROVIDER_OPTIONS = [
 ];
 
 export const LLMSettings = () => {
-  const { t } = useTranslation(['admin', 'common']);
   const queryClient = useQueryClient();
   const [expandedProvider, setExpandedProvider] = useState<number | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -306,28 +302,21 @@ export const LLMSettings = () => {
     }
   };
 
-  const breadcrumbItems = buildAdminBreadcrumb(t('llm_settings'));
-
   if (isLoading) {
-    return <Loading fullScreen text={t('common:loading')} />;
+    return <Loading fullScreen text="Loading LLM settings..." />;
   }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Breadcrumb navigation */}
-      <div className="mb-6">
-        <Breadcrumb items={breadcrumbItems} homeHref="/admin" />
-      </div>
-
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
             <Bot className="w-8 h-8 text-primary-500" />
-            {t('llm_provider_settings')}
+            LLM Provider Settings
           </h1>
           <p className="text-gray-600 mt-1">
-            {t('configure_ai_providers')}
+            Configure AI providers including OpenAI, Gemini, Ollama, and LM Studio
           </p>
         </div>
         <div className="flex gap-2">
@@ -337,7 +326,7 @@ export const LLMSettings = () => {
             onClick={() => seedMutation.mutate()}
             loading={seedMutation.isPending}
           >
-            {t('seed_defaults')}
+            Seed Defaults
           </Button>
           <Button
             icon={<Plus className="w-4 h-4" />}
@@ -347,7 +336,7 @@ export const LLMSettings = () => {
               setShowAddModal(true);
             }}
           >
-            {t('add_provider')}
+            Add Provider
           </Button>
         </div>
       </div>
@@ -358,15 +347,15 @@ export const LLMSettings = () => {
           <Card>
             <CardBody className="text-center py-12">
               <Bot className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">{t('no_providers_configured')}</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No providers configured</h3>
               <p className="text-gray-500 mb-4">
-                {t('configure_ai_providers')}
+                Get started by adding an LLM provider or seeding the defaults.
               </p>
               <div className="flex gap-2 justify-center">
                 <Button variant="outline" onClick={() => seedMutation.mutate()}>
-                  {t('seed_defaults')}
+                  Seed Defaults
                 </Button>
-                <Button onClick={() => setShowAddModal(true)}>{t('add_provider')}</Button>
+                <Button onClick={() => setShowAddModal(true)}>Add Provider</Button>
               </div>
             </CardBody>
           </Card>
@@ -685,7 +674,7 @@ export const LLMSettings = () => {
           setEditingProvider(null);
           setFormData(initialFormData);
         }}
-        title={editingProvider ? t('edit_provider') : t('add_provider')}
+        title={editingProvider ? 'Edit Provider' : 'Add Provider'}
         size="lg"
       >
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -822,14 +811,14 @@ export const LLMSettings = () => {
                 setFormData(initialFormData);
               }}
             >
-              {t('common:cancel')}
+              Cancel
             </Button>
             <Button
               type="submit"
               loading={createMutation.isPending || updateMutation.isPending}
               disabled={!formData.name}
             >
-              {editingProvider ? t('save_provider') : t('save_provider')}
+              {editingProvider ? 'Update Provider' : 'Create Provider'}
             </Button>
           </div>
         </form>

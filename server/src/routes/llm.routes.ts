@@ -135,12 +135,11 @@ router.get('/providers', asyncHandler(async (req: AuthRequest, res: Response) =>
   const includeDisabled = req.query.includeDisabled === 'true';
   const providers = await llmService.getProviders(includeDisabled);
 
-  // Mask sensitive fields in response
+  // Mask API keys in response
   const maskedProviders = providers.map(p => ({
     ...p,
     apiKey: p.apiKey ? '••••••••' : null,
     proxyPassword: p.proxyPassword ? '••••••••' : null,
-    customCaCert: p.customCaCert ? '••••••••' : null,
   }));
 
   res.json({ success: true, data: maskedProviders });
@@ -164,7 +163,6 @@ router.get('/providers/:nameOrId', asyncHandler(async (req: AuthRequest, res: Re
       ...provider,
       apiKey: provider.apiKey ? '••••••••' : null,
       proxyPassword: provider.proxyPassword ? '••••••••' : null,
-      customCaCert: provider.customCaCert ? '••••••••' : null,
     },
   });
 }));
@@ -179,8 +177,6 @@ router.post('/providers', asyncHandler(async (req: AuthRequest, res: Response) =
     data: {
       ...provider,
       apiKey: provider.apiKey ? '••••••••' : null,
-      proxyPassword: provider.proxyPassword ? '••••••••' : null,
-      customCaCert: provider.customCaCert ? '••••••••' : null,
     },
   });
 }));
@@ -196,8 +192,6 @@ router.put('/providers/:id', asyncHandler(async (req: AuthRequest, res: Response
     data: {
       ...provider,
       apiKey: provider.apiKey ? '••••••••' : null,
-      proxyPassword: provider.proxyPassword ? '••••••••' : null,
-      customCaCert: provider.customCaCert ? '••••••••' : null,
     },
   });
 }));
@@ -229,8 +223,6 @@ router.post('/providers/:id/set-default', asyncHandler(async (req: AuthRequest, 
     data: {
       ...provider,
       apiKey: provider.apiKey ? '••••••••' : null,
-      proxyPassword: provider.proxyPassword ? '••••••••' : null,
-      customCaCert: provider.customCaCert ? '••••••••' : null,
     },
   });
 }));
@@ -254,8 +246,6 @@ router.post('/providers/:id/toggle', asyncHandler(async (req: AuthRequest, res: 
     data: {
       ...provider,
       apiKey: provider.apiKey ? '••••••••' : null,
-      proxyPassword: provider.proxyPassword ? '••••••••' : null,
-      customCaCert: provider.customCaCert ? '••••••••' : null,
     },
   });
 }));
@@ -320,15 +310,6 @@ router.get('/defaults/:providerName/models', asyncHandler(async (req: AuthReques
 // LOCAL PROVIDER UTILITIES
 // =============================================================================
 
-// Helper to sanitize error messages for production
-const sanitizeErrorMessage = (error: any, defaultMessage: string): string => {
-  // In production, don't expose internal error details
-  if (process.env.NODE_ENV === 'production') {
-    return defaultMessage;
-  }
-  return error.message || defaultMessage;
-};
-
 // Get Ollama models
 router.get('/ollama/models', asyncHandler(async (req: AuthRequest, res: Response) => {
   const baseUrl = req.query.baseUrl as string | undefined;
@@ -339,7 +320,7 @@ router.get('/ollama/models', asyncHandler(async (req: AuthRequest, res: Response
   } catch (error: any) {
     res.json({
       success: false,
-      error: sanitizeErrorMessage(error, 'Failed to connect to Ollama. Please check if the service is running.'),
+      error: error.message || 'Failed to fetch Ollama models',
       data: [],
     });
   }
@@ -359,7 +340,7 @@ router.post('/ollama/pull', asyncHandler(async (req: AuthRequest, res: Response)
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      error: sanitizeErrorMessage(error, 'Failed to pull model. Please check if Ollama is running.'),
+      error: error.message || 'Failed to pull model',
     });
   }
 }));
@@ -374,7 +355,7 @@ router.get('/lmstudio/models', asyncHandler(async (req: AuthRequest, res: Respon
   } catch (error: any) {
     res.json({
       success: false,
-      error: sanitizeErrorMessage(error, 'Failed to connect to LM Studio. Please check if the service is running.'),
+      error: error.message || 'Failed to fetch LM Studio models',
       data: [],
     });
   }
@@ -395,8 +376,6 @@ router.post('/seed', asyncHandler(async (req: AuthRequest, res: Response) => {
     data: providers.map(p => ({
       ...p,
       apiKey: p.apiKey ? '••••••••' : null,
-      proxyPassword: p.proxyPassword ? '••••••••' : null,
-      customCaCert: p.customCaCert ? '••••••••' : null,
     })),
   });
 }));
