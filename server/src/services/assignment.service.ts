@@ -3,6 +3,7 @@ import { AppError } from '../middleware/error.middleware.js';
 import { CreateAssignmentInput, UpdateAssignmentInput, CreateSubmissionInput, GradeSubmissionInput } from '../utils/validation.js';
 import { learningAnalyticsService } from './learningAnalytics.service.js';
 import { emailService } from './email.service.js';
+import { notificationService } from './notification.service.js';
 import { assignmentLogger } from '../utils/logger.js';
 
 // Context for event logging
@@ -392,6 +393,18 @@ export class AssignmentService {
       submission.assignment.points
     ).catch((err) => {
       assignmentLogger.warn({ err, submissionId }, 'Failed to send grade notification');
+    });
+
+    // Send in-app notification (non-blocking)
+    notificationService.notifyGradePosted({
+      userId: submission.userId,
+      courseId: submission.assignment.courseId,
+      courseName: submission.assignment.course.title,
+      assignmentTitle: submission.assignment.title,
+      score: data.grade,
+      maxScore: submission.assignment.points,
+    }).catch((err) => {
+      assignmentLogger.warn({ err, submissionId }, 'Failed to send grade in-app notification');
     });
 
     return updated;

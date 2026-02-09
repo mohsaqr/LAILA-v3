@@ -2,6 +2,7 @@ import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { createLogger } from '../utils/logger.js';
 import { chatService } from './chat.service.js';
+import { notificationService } from './notification.service.js';
 
 const logger = createLogger('forum');
 
@@ -796,6 +797,34 @@ class ForumService {
       contentLength: data.content.length,
       timestamp: new Date().toISOString(),
     }, `Post created: ${user?.fullname || 'Unknown'} ${isReplyToPost ? `replied to ${parentPostInfo?.authorName}'s post` : `replied to thread "${thread.title}"`} in forum "${thread.forum.title}"`);
+
+    // Send notification to thread author (if not self-reply and not anonymous)
+    if (thread.authorId !== userId && !thread.isAnonymous) {
+      notificationService.notifyForumReply({
+        userId: thread.authorId,
+        courseId: thread.forum.courseId,
+        forumId: thread.forumId,
+        threadId: thread.id,
+        threadTitle: thread.title,
+        replierName: data.isAnonymous ? 'Someone' : (user?.fullname || 'A user'),
+      }).catch(err => {
+        logger.warn({ err, threadId, userId }, 'Failed to send forum reply notification');
+      });
+    }
+
+    // If replying to a specific post, also notify the post author (if different from thread author and self)
+    if (parentPostInfo && parentPostInfo.authorId !== userId && parentPostInfo.authorId !== thread.authorId) {
+      notificationService.notifyForumReply({
+        userId: parentPostInfo.authorId,
+        courseId: thread.forum.courseId,
+        forumId: thread.forumId,
+        threadId: thread.id,
+        threadTitle: thread.title,
+        replierName: data.isAnonymous ? 'Someone' : (user?.fullname || 'A user'),
+      }).catch(err => {
+        logger.warn({ err, threadId, postId: parentPostInfo.id, userId }, 'Failed to send forum reply notification to post author');
+      });
+    }
 
     return post;
   }

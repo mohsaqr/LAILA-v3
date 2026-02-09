@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Moon, Globe, Shield, Trash2, Mail } from 'lucide-react';
+import { Moon, Globe, Shield, Trash2, Mail, Bell } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
@@ -17,6 +17,7 @@ interface SettingToggleProps {
   description: string;
   enabled: boolean;
   onChange: (enabled: boolean) => void;
+  disabled?: boolean;
   colors: {
     textPrimary: string;
     textSecondary: string;
@@ -24,14 +25,15 @@ interface SettingToggleProps {
   };
 }
 
-const SettingToggle = ({ label, description, enabled, onChange, colors }: SettingToggleProps) => (
-  <div className="flex items-center justify-between py-3">
+const SettingToggle = ({ label, description, enabled, onChange, disabled, colors }: SettingToggleProps) => (
+  <div className={`flex items-center justify-between py-3 ${disabled ? 'opacity-50' : ''}`}>
     <div>
       <p className="font-medium" style={{ color: colors.textPrimary }}>{label}</p>
       <p className="text-sm" style={{ color: colors.textSecondary }}>{description}</p>
     </div>
     <button
-      onClick={() => onChange(!enabled)}
+      onClick={() => !disabled && onChange(!enabled)}
+      disabled={disabled}
       className="relative w-11 h-6 rounded-full transition-colors"
       style={{ backgroundColor: enabled ? '#088F8F' : colors.toggleOff }}
     >
@@ -45,7 +47,7 @@ const SettingToggle = ({ label, description, enabled, onChange, colors }: Settin
 );
 
 export const Settings = () => {
-  const { t } = useTranslation(['settings', 'common']);
+  const { t } = useTranslation(['settings', 'notifications', 'common']);
   const { user, logout } = useAuth();
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
@@ -79,9 +81,9 @@ export const Settings = () => {
     mutationFn: (data: Partial<NotificationPreferences>) => notificationsApi.updatePreferences(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notificationPreferences'] });
-      toast.success('Notification preferences updated');
+      toast.success(t('setting_updated'));
     },
-    onError: () => toast.error('Failed to update notification preferences'),
+    onError: () => toast.error(t('setting_update_failed')),
   });
 
   const [settings, setSettings] = useState({
@@ -92,10 +94,20 @@ export const Settings = () => {
   });
 
   const [notifSettings, setNotifSettings] = useState({
+    // Email preferences
     emailEnrollment: true,
     emailAssignmentDue: true,
     emailGradePosted: true,
     emailAnnouncement: true,
+    emailForumReply: true,
+    emailCertificate: true,
+    // In-app preferences
+    inAppEnabled: true,
+    inAppGradePosted: true,
+    inAppDeadline: true,
+    inAppAnnouncement: true,
+    inAppForumReply: true,
+    inAppCertificate: true,
   });
 
   // Sync notification settings when data loads
@@ -106,6 +118,14 @@ export const Settings = () => {
         emailAssignmentDue: notificationPrefs.emailAssignmentDue,
         emailGradePosted: notificationPrefs.emailGradePosted,
         emailAnnouncement: notificationPrefs.emailAnnouncement,
+        emailForumReply: notificationPrefs.emailForumReply,
+        emailCertificate: notificationPrefs.emailCertificate,
+        inAppEnabled: notificationPrefs.inAppEnabled,
+        inAppGradePosted: notificationPrefs.inAppGradePosted,
+        inAppDeadline: notificationPrefs.inAppDeadline,
+        inAppAnnouncement: notificationPrefs.inAppAnnouncement,
+        inAppForumReply: notificationPrefs.inAppForumReply,
+        inAppCertificate: notificationPrefs.inAppCertificate,
       });
     }
   }, [notificationPrefs]);
@@ -166,6 +186,67 @@ export const Settings = () => {
       <h1 className="text-3xl font-bold mb-8" style={{ color: colors.textPrimary }}>{t('settings')}</h1>
 
       <div className="space-y-6">
+        {/* In-App Notifications */}
+        <Card>
+          <CardHeader className="flex items-center gap-3">
+            <Bell className="w-5 h-5" style={{ color: colors.textMuted }} />
+            <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
+              {t('notifications:preferences.in_app_section')}
+            </h2>
+          </CardHeader>
+          <CardBody>
+            <div className="divide-y" style={{ borderColor: colors.border }}>
+              <SettingToggle
+                label={t('notifications:preferences.in_app_enabled')}
+                description={t('notifications:preferences.in_app_enabled_description')}
+                enabled={notifSettings.inAppEnabled}
+                onChange={() => handleNotificationToggle('inAppEnabled')}
+                colors={colors}
+              />
+              <SettingToggle
+                label={t('notifications:preferences.in_app_grade_posted')}
+                description={t('notifications:preferences.in_app_grade_posted_description')}
+                enabled={notifSettings.inAppGradePosted}
+                onChange={() => handleNotificationToggle('inAppGradePosted')}
+                disabled={!notifSettings.inAppEnabled}
+                colors={colors}
+              />
+              <SettingToggle
+                label={t('notifications:preferences.in_app_deadline')}
+                description={t('notifications:preferences.in_app_deadline_description')}
+                enabled={notifSettings.inAppDeadline}
+                onChange={() => handleNotificationToggle('inAppDeadline')}
+                disabled={!notifSettings.inAppEnabled}
+                colors={colors}
+              />
+              <SettingToggle
+                label={t('notifications:preferences.in_app_announcement')}
+                description={t('notifications:preferences.in_app_announcement_description')}
+                enabled={notifSettings.inAppAnnouncement}
+                onChange={() => handleNotificationToggle('inAppAnnouncement')}
+                disabled={!notifSettings.inAppEnabled}
+                colors={colors}
+              />
+              <SettingToggle
+                label={t('notifications:preferences.in_app_forum_reply')}
+                description={t('notifications:preferences.in_app_forum_reply_description')}
+                enabled={notifSettings.inAppForumReply}
+                onChange={() => handleNotificationToggle('inAppForumReply')}
+                disabled={!notifSettings.inAppEnabled}
+                colors={colors}
+              />
+              <SettingToggle
+                label={t('notifications:preferences.in_app_certificate')}
+                description={t('notifications:preferences.in_app_certificate_description')}
+                enabled={notifSettings.inAppCertificate}
+                onChange={() => handleNotificationToggle('inAppCertificate')}
+                disabled={!notifSettings.inAppEnabled}
+                colors={colors}
+              />
+            </div>
+          </CardBody>
+        </Card>
+
         {/* Email Notifications */}
         <Card>
           <CardHeader className="flex items-center gap-3">

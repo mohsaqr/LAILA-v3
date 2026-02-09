@@ -1,0 +1,43 @@
+{
+  "title": "الإشعارات",
+  "empty": "لا توجد إشعارات بعد",
+  "mark_all_read": "تحديد الكل كمقروء",
+  "load_more": "تحميل المزيد",
+  "loading": "جاري التحميل...",
+  "manage_preferences": "إدارة تفضيلات الإشعارات",
+  "view_all": "عرض جميع الإشعارات",
+
+  "types": {
+    "grade_posted": "تم نشر الدرجة",
+    "deadline_approaching": "اقتراب الموعد النهائي",
+    "announcement": "إعلان",
+    "forum_reply": "رد في المنتدى",
+    "enrollment": "التسجيل",
+    "certificate": "شهادة"
+  },
+
+  "preferences": {
+    "title": "تفضيلات الإشعارات",
+    "in_app_section": "إشعارات التطبيق",
+    "email_section": "إشعارات البريد الإلكتروني",
+    "in_app_enabled": "تفعيل إشعارات التطبيق",
+    "in_app_enabled_description": "استلام الإشعارات في أيقونة الجرس",
+    "in_app_grade_posted": "إشعارات الدرجات",
+    "in_app_grade_posted_description": "عند تصحيح واجباتك",
+    "in_app_deadline": "تذكيرات المواعيد النهائية",
+    "in_app_deadline_description": "عند اقتراب موعد تسليم الواجبات",
+    "in_app_announcement": "إعلانات المقررات",
+    "in_app_announcement_description": "عند نشر المدرسين للإعلانات",
+    "in_app_forum_reply": "ردود المنتدى",
+    "in_app_forum_reply_description": "عندما يرد شخص ما على منشوراتك",
+    "in_app_certificate": "الشهادات",
+    "in_app_certificate_description": "عند حصولك على شهادة"
+  },
+
+  "time": {
+    "just_now": "الآن",
+    "minutes_ago": "منذ {{count}} دقيقة",
+    "hours_ago": "منذ {{count}} ساعة",
+    "days_ago": "منذ {{count}} يوم"
+  }
+}

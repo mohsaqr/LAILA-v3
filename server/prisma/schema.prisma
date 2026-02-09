@@ -2294,12 +2294,34 @@ model Certificate {
 }
 
 // =============================================================================
-// EMAIL NOTIFICATION PREFERENCES
+// NOTIFICATIONS
+// =============================================================================
+
+model Notification {
+  id          Int       @id @default(autoincrement())
+  userId      Int       @map("user_id")
+  type        String    // grade_posted, deadline_approaching, announcement, forum_reply, enrollment, certificate
+  title       String
+  message     String
+  link        String?
+  data        String?   // JSON for extra context
+  isRead      Boolean   @default(false) @map("is_read")
+  readAt      DateTime? @map("read_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+// =============================================================================
+// NOTIFICATION PREFERENCES
 // =============================================================================
 
 model NotificationPreference {
   id                    Int      @id @default(autoincrement())
   userId                Int      @unique @map("user_id")
+  // Email preferences
   emailEnrollment       Boolean  @default(true) @map("email_enrollment")
   emailAssignmentDue    Boolean  @default(true) @map("email_assignment_due")
   emailGradePosted      Boolean  @default(true) @map("email_grade_posted")
@@ -2307,6 +2329,13 @@ model NotificationPreference {
   emailForumReply       Boolean  @default(true) @map("email_forum_reply")
   emailCertificate      Boolean  @default(true) @map("email_certificate")
   emailDigestFrequency  String   @default("daily") @map("email_digest_frequency") // none, daily, weekly
+  // In-app preferences
+  inAppEnabled          Boolean  @default(true) @map("in_app_enabled")
+  inAppGradePosted      Boolean  @default(true) @map("in_app_grade_posted")
+  inAppDeadline         Boolean  @default(true) @map("in_app_deadline")
+  inAppAnnouncement     Boolean  @default(true) @map("in_app_announcement")
+  inAppForumReply       Boolean  @default(true) @map("in_app_forum_reply")
+  inAppCertificate      Boolean  @default(true) @map("in_app_certificate")
   createdAt             DateTime @default(now()) @map("created_at")
   updatedAt             DateTime @updatedAt @map("updated_at")
 

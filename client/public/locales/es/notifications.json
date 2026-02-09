@@ -1,0 +1,43 @@
+{
+  "title": "Notificaciones",
+  "empty": "No hay notificaciones todavía",
+  "mark_all_read": "Marcar todo como leído",
+  "load_more": "Cargar más",
+  "loading": "Cargando...",
+  "manage_preferences": "Gestionar preferencias de notificación",
+  "view_all": "Ver todas las notificaciones",
+
+  "types": {
+    "grade_posted": "Calificación publicada",
+    "deadline_approaching": "Fecha límite próxima",
+    "announcement": "Anuncio",
+    "forum_reply": "Respuesta en el foro",
+    "enrollment": "Inscripción",
+    "certificate": "Certificado"
+  },
+
+  "preferences": {
+    "title": "Preferencias de notificación",
+    "in_app_section": "Notificaciones en la aplicación",
+    "email_section": "Notificaciones por correo",
+    "in_app_enabled": "Habilitar notificaciones en la aplicación",
+    "in_app_enabled_description": "Recibir notificaciones en el ícono de campana",
+    "in_app_grade_posted": "Notificaciones de calificaciones",
+    "in_app_grade_posted_description": "Cuando se califican tus tareas",
+    "in_app_deadline": "Recordatorios de fechas límite",
+    "in_app_deadline_description": "Cuando las tareas están por vencer",
+    "in_app_announcement": "Anuncios del curso",
+    "in_app_announcement_description": "Cuando los instructores publican anuncios",
+    "in_app_forum_reply": "Respuestas del foro",
+    "in_app_forum_reply_description": "Cuando alguien responde a tus publicaciones",
+    "in_app_certificate": "Certificados",
+    "in_app_certificate_description": "Cuando obtienes un certificado"
+  },
+
+  "time": {
+    "just_now": "ahora mismo",
+    "minutes_ago": "hace {{count}}m",
+    "hours_ago": "hace {{count}}h",
+    "days_ago": "hace {{count}}d"
+  }
+}

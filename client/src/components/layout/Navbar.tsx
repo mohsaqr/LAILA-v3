@@ -21,6 +21,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
 import { ViewAsRole } from '../../store/authStore';
 import { ThemeToggle } from '../common/ThemeToggle';
+import { NotificationBell } from '../notifications/NotificationBell';
 import { useLanguageStore } from '../../store/languageStore';
 import { supportedLanguages, SupportedLanguage } from '../../i18n/config';
 
@@ -141,6 +142,9 @@ export const Navbar = () => {
 
           {/* User Menu */}
           <div className="flex items-center gap-2">
+            {/* Notification Bell - only when authenticated */}
+            {isAuthenticated && <NotificationBell />}
+
             {/* Language Selector */}
             <div className="relative">
               <button

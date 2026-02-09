@@ -1,6 +1,7 @@
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { createLogger } from '../utils/logger.js';
+import { notificationService } from './notification.service.js';
 import crypto from 'crypto';
 
 const logger = createLogger('certificate');
@@ -454,6 +455,17 @@ class CertificateService {
     });
 
     logger.info({ certificateId: certificate.id, userId: data.userId, courseId: data.courseId }, 'Certificate issued');
+
+    // Send in-app notification (non-blocking)
+    notificationService.notifyCertificateEarned({
+      userId: data.userId,
+      courseId: data.courseId,
+      courseName: enrollment.course.title,
+      certificateId: certificate.id,
+    }).catch(err => {
+      logger.warn({ err, certificateId: certificate.id }, 'Failed to send certificate notification');
+    });
+
     return certificate;
   }
 
