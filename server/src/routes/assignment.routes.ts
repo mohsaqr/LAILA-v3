@@ -14,13 +14,14 @@ const router = Router();
 
 // ============= ASSIGNMENTS =============
 
-// Get assignments for a course
+// Get assignments for a course (requires enrollment or instructor/admin access)
 router.get('/course/:courseId', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const courseId = parseInt(req.params.courseId);
   const assignments = await assignmentService.getAssignments(
     courseId,
     req.user!.id,
-    req.user!.isInstructor || req.user!.isAdmin
+    req.user!.isInstructor,
+    req.user!.isAdmin
   );
   res.json({ success: true, data: assignments });
 }));

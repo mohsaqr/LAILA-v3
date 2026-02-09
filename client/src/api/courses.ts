@@ -260,4 +260,22 @@ export const coursesApi = {
     );
     return response.data.data!;
   },
+
+  // AI Settings (Collaborative Module)
+  updateCourseAISettings: async (
+    courseId: number,
+    settings: {
+      collaborativeModuleName?: string;
+      collaborativeModuleEnabled?: boolean;
+      emotionalPulseEnabled?: boolean;
+      tutorRoutingMode?: 'free' | 'all' | 'single' | 'smart' | 'collaborative' | 'random';
+      defaultTutorId?: number | null;
+    }
+  ) => {
+    const response = await apiClient.put<ApiResponse<Course>>(
+      `/courses/${courseId}/ai-settings`,
+      settings
+    );
+    return response.data.data!;
+  },
 };

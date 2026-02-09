@@ -3,7 +3,10 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import prisma from '../utils/prisma.js';
 import { ChatMessage, ChatRequest, ChatResponse, AIConfig } from '../types/index.js';
 import { AppError } from '../middleware/error.middleware.js';
+import { createLogger } from '../utils/logger.js';
 import { llmService } from './llm.service.js';
+
+const logger = createLogger('chat');
 
 export class ChatService {
   private openai: OpenAI | null = null;
@@ -77,6 +80,7 @@ export class ChatService {
         provider: 'openai',
         model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
         apiKey: process.env.OPENAI_API_KEY,
+        baseURL: process.env.OPENAI_BASE_URL, // For LM Studio or other OpenAI-compatible servers
       };
     }
 
@@ -161,16 +165,29 @@ export class ChatService {
       messages.push({ role: 'system', content: `Context: ${request.context}` });
     }
 
+    // Add conversation history if provided (for multi-turn conversations)
+    if (request.conversationHistory && request.conversationHistory.length > 0) {
+      for (const msg of request.conversationHistory) {
+        if (msg.role === 'user' || msg.role === 'assistant') {
+          messages.push(msg);
+        }
+      }
+    }
+
     messages.push({ role: 'user', content: request.message });
 
     try {
+      // Only pass temperature if explicitly set by user (not the default 0.7)
+      // This follows the Minimal Parameter Principle - let providers use their defaults
+      const explicitTemperature = request.temperature !== undefined ? request.temperature : undefined;
+
       if (config.provider === 'openai') {
-        reply = await this.chatWithOpenAI(messages, model, config.apiKey);
+        reply = await this.chatWithOpenAI(messages, model, config.apiKey, explicitTemperature, config.baseURL);
       } else {
-        reply = await this.chatWithGemini(messages, model, config.apiKey);
+        reply = await this.chatWithGemini(messages, model, config.apiKey, explicitTemperature);
       }
     } catch (error: any) {
-      console.error('AI Chat Error:', error);
+      logger.error({ err: error, provider: config.provider }, 'AI Chat Error');
       throw new AppError(error.message || 'Failed to get AI response', 500);
     }
 
@@ -194,25 +211,52 @@ export class ChatService {
     };
   }
 
-  private async chatWithOpenAI(messages: ChatMessage[], model: string, apiKey: string): Promise<string> {
-    const client = new OpenAI({ apiKey });
+  private async chatWithOpenAI(messages: ChatMessage[], model: string, apiKey: string, temperature?: number, baseURL?: string): Promise<string> {
+    const client = new OpenAI({ apiKey, baseURL });
 
-    const response = await client.chat.completions.create({
+    // OpenAI's o1/o3 models use max_completion_tokens instead of max_tokens
+    // and don't support temperature parameter
+    const isO1Model = model.startsWith('o1-') || model.startsWith('o3-');
+
+    // Build request params - only include explicitly provided parameters (Minimal Parameter Principle)
+    const requestParams: any = {
       model,
       messages: messages.map(m => ({
         role: m.role as 'system' | 'user' | 'assistant',
         content: m.content,
       })),
-      max_tokens: 2000,
-      temperature: 0.7,
-    });
+    };
+
+    if (isO1Model) {
+      // o1 models only support max_completion_tokens, no temperature/top_p etc.
+      requestParams.max_completion_tokens = 800;
+      // DO NOT send temperature - will cause an error
+    } else {
+      requestParams.max_tokens = 800;
+      // Only add temperature if explicitly provided
+      if (temperature !== undefined) {
+        requestParams.temperature = temperature;
+      }
+    }
+
+    const response = await client.chat.completions.create(requestParams);
 
     return response.choices[0]?.message?.content || 'No response generated';
   }
 
-  private async chatWithGemini(messages: ChatMessage[], model: string, apiKey: string): Promise<string> {
+  private async chatWithGemini(messages: ChatMessage[], model: string, apiKey: string, temperature?: number): Promise<string> {
     const client = new GoogleGenerativeAI(apiKey);
-    const genModel = client.getGenerativeModel({ model });
+
+    // Build generation config - only include explicitly provided parameters (Minimal Parameter Principle)
+    const generationConfig: any = {};
+    if (temperature !== undefined) {
+      generationConfig.temperature = temperature;
+    }
+
+    const genModel = client.getGenerativeModel({
+      model,
+      generationConfig: Object.keys(generationConfig).length > 0 ? generationConfig : undefined,
+    });
 
     // Format messages for Gemini
     const systemMessage = messages.find(m => m.role === 'system');
@@ -277,7 +321,22 @@ export class ChatService {
     });
   }
 
-  async getChatHistory(sessionId: string, limit = 50) {
+  async getChatHistory(sessionId: string, userId: number, limit = 50) {
+    // First verify user owns this session
+    const sessionCheck = await prisma.chatLog.findFirst({
+      where: { sessionId },
+      select: { userId: true },
+    });
+
+    if (!sessionCheck) {
+      throw new AppError('Session not found', 404);
+    }
+
+    // Only allow access to own sessions (null userId means legacy data, allow access)
+    if (sessionCheck.userId !== null && sessionCheck.userId !== userId) {
+      throw new AppError('Not authorized to access this session', 403);
+    }
+
     const logs = await prisma.chatLog.findMany({
       where: { sessionId },
       orderBy: { timestamp: 'asc' },

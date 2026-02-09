@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FileText, Eye, Edit2 } from 'lucide-react';
 import { LectureSection } from '../../types';
 import { Button } from '../common/Button';
+import { sanitizeHtml } from '../../utils/sanitize';
 
 interface TextSectionProps {
   section: LectureSection;
@@ -10,6 +12,7 @@ interface TextSectionProps {
 }
 
 export const TextSection = ({ section, onChange, readOnly = false }: TextSectionProps) => {
+  const { t } = useTranslation(['teaching']);
   const [showPreview, setShowPreview] = useState(false);
   const content = section.content || '';
 
@@ -55,7 +58,7 @@ export const TextSection = ({ section, onChange, readOnly = false }: TextSection
     return (
       <div
         className="prose prose-sm max-w-none p-4 bg-gray-50 rounded-lg"
-        dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+        dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMarkdown(content)) }}
       />
     );
   }
@@ -65,7 +68,7 @@ export const TextSection = ({ section, onChange, readOnly = false }: TextSection
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <FileText className="w-4 h-4" />
-          <span>Text Section</span>
+          <span>{t('text_section')}</span>
         </div>
         <Button
           variant="ghost"
@@ -73,43 +76,26 @@ export const TextSection = ({ section, onChange, readOnly = false }: TextSection
           onClick={() => setShowPreview(!showPreview)}
           icon={showPreview ? <Edit2 className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
         >
-          {showPreview ? 'Edit' : 'Preview'}
+          {showPreview ? t('edit') : t('preview')}
         </Button>
       </div>
 
       {showPreview ? (
         <div
           className="prose prose-sm max-w-none p-4 border border-gray-200 rounded-lg min-h-[200px] bg-gray-50"
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMarkdown(content)) }}
         />
       ) : (
         <div>
           <textarea
             value={content}
             onChange={(e) => onChange(e.target.value)}
-            placeholder="Write your content here...
-
-# Heading 1
-## Heading 2
-
-**Bold text** and *italic text*
-
-- List item 1
-- List item 2
-
-`inline code`
-
-```javascript
-// Code block
-const hello = 'world';
-```
-
-[Link text](https://example.com)"
+            placeholder={t('text_section_placeholder')}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none transition-all focus:ring-2 focus:ring-primary-500 focus:border-primary-500 font-mono text-sm"
             rows={12}
           />
           <p className="text-xs text-gray-500 mt-1">
-            Supports Markdown: # headings, **bold**, *italic*, `code`, lists, links
+            {t('markdown_help')}
           </p>
         </div>
       )}

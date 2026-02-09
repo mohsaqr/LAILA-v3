@@ -1,5 +1,6 @@
 import apiClient from './client';
 import { Enrollment, CourseProgress, LectureProgress, ApiResponse } from '../types';
+import activityLogger from '../services/activityLogger';
 
 export const enrollmentsApi = {
   getMyEnrollments: async () => {
@@ -17,15 +18,25 @@ export const enrollmentsApi = {
     };
   },
 
-  enroll: async (courseId: number) => {
+  enroll: async (courseId: number, courseTitle?: string) => {
     const response = await apiClient.post<ApiResponse<Enrollment>>('/enrollments', { courseId });
+    // Log enrollment activity
+    activityLogger.logCourseEnrolled(courseId, courseTitle).catch(() => {});
     return response.data.data!;
   },
 
-  unenroll: async (courseId: number) => {
+  unenroll: async (courseId: number, courseTitle?: string) => {
     const response = await apiClient.delete<ApiResponse<{ message: string }>>(
       `/enrollments/course/${courseId}`
     );
+    // Log unenrollment activity
+    activityLogger.log({
+      verb: 'unenrolled',
+      objectType: 'course',
+      objectId: courseId,
+      objectTitle: courseTitle,
+      courseId,
+    }).catch(() => {});
     return response.data;
   },
 
@@ -36,10 +47,12 @@ export const enrollmentsApi = {
     return response.data.data!;
   },
 
-  markLectureComplete: async (courseId: number, lectureId: number) => {
+  markLectureComplete: async (courseId: number, lectureId: number, lectureTitle?: string, moduleId?: number) => {
     const response = await apiClient.post<ApiResponse<LectureProgress>>(
       `/enrollments/course/${courseId}/lectures/${lectureId}/complete`
     );
+    // Log lecture completion activity
+    activityLogger.logLectureCompleted(lectureId, lectureTitle, courseId, moduleId).catch(() => {});
     return response.data.data!;
   },
 

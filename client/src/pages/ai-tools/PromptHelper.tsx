@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Wand2, Copy, Check, Sparkles, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { chatApi } from '../../api/chat';
@@ -49,6 +50,7 @@ Focus on:
 };
 
 export const PromptHelper = () => {
+  const { t } = useTranslation(['courses', 'common']);
   const [promptType, setPromptType] = useState<keyof typeof PROMPT_TEMPLATES>('research');
   const [userInput, setUserInput] = useState('');
   const [generatedPrompt, setGeneratedPrompt] = useState('');
@@ -101,7 +103,7 @@ export const PromptHelper = () => {
   const handleCopy = async (text: string) => {
     await navigator.clipboard.writeText(text);
     setCopied(true);
-    toast.success('Copied to clipboard');
+    toast.success(t('copied_to_clipboard'));
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -111,7 +113,7 @@ export const PromptHelper = () => {
       <div className="mb-6">
         <Link to="/ai-tools">
           <Button variant="ghost" size="sm" icon={<ArrowLeft className="w-4 h-4" />}>
-            Back to AI Tools
+            {t('back_to_ai_tools')}
           </Button>
         </Link>
       </div>
@@ -121,8 +123,8 @@ export const PromptHelper = () => {
           <Wand2 className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Prompt Engineering Helper</h1>
-          <p className="text-gray-600">Create effective AI prompts using the PCTFT framework</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('prompt_engineering_helper')}</h1>
+          <p className="text-gray-600">{t('prompt_helper_desc')}</p>
         </div>
       </div>
 
@@ -130,11 +132,11 @@ export const PromptHelper = () => {
         {/* Input Section */}
         <Card>
           <CardHeader>
-            <h2 className="font-semibold text-gray-900">1. Define Your Task</h2>
+            <h2 className="font-semibold text-gray-900">{t('define_your_task')}</h2>
           </CardHeader>
           <CardBody className="space-y-4">
             <Select
-              label="Prompt Type"
+              label={t('prompt_type')}
               value={promptType}
               onChange={e => setPromptType(e.target.value as keyof typeof PROMPT_TEMPLATES)}
               options={Object.entries(PROMPT_TEMPLATES).map(([key, val]) => ({
@@ -144,7 +146,7 @@ export const PromptHelper = () => {
             />
 
             <TextArea
-              label={promptType === 'custom' ? 'Your Custom Prompt' : 'Your Input'}
+              label={promptType === 'custom' ? 'Your Custom Prompt' : t('your_input')}
               value={userInput}
               onChange={e => setUserInput(e.target.value)}
               placeholder={
@@ -160,7 +162,7 @@ export const PromptHelper = () => {
             />
 
             <Button onClick={handleGeneratePrompt} icon={<Sparkles className="w-4 h-4" />}>
-              Generate Prompt
+              {t('generate_prompt')}
             </Button>
           </CardBody>
         </Card>
@@ -169,14 +171,14 @@ export const PromptHelper = () => {
         {generatedPrompt && (
           <Card>
             <CardHeader className="flex items-center justify-between">
-              <h2 className="font-semibold text-gray-900">2. Generated Prompt</h2>
+              <h2 className="font-semibold text-gray-900">{t('generated_prompt')}</h2>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => handleCopy(generatedPrompt)}
                 icon={copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
               >
-                {copied ? 'Copied' : 'Copy'}
+                {copied ? t('copied') : t('common:copy')}
               </Button>
             </CardHeader>
             <CardBody>
@@ -189,7 +191,7 @@ export const PromptHelper = () => {
                   loading={isLoading}
                   icon={<RefreshCw className="w-4 h-4" />}
                 >
-                  Run with AI
+                  {t('run_with_ai')}
                 </Button>
               </div>
             </CardBody>
@@ -200,14 +202,14 @@ export const PromptHelper = () => {
         {aiResponse && (
           <Card>
             <CardHeader className="flex items-center justify-between">
-              <h2 className="font-semibold text-gray-900">3. AI Response</h2>
+              <h2 className="font-semibold text-gray-900">{t('ai_response')}</h2>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => handleCopy(aiResponse)}
                 icon={<Copy className="w-4 h-4" />}
               >
-                Copy
+                {t('common:copy')}
               </Button>
             </CardHeader>
             <CardBody>
@@ -221,29 +223,29 @@ export const PromptHelper = () => {
         {/* Tips */}
         <Card>
           <CardHeader>
-            <h2 className="font-semibold text-gray-900">PCTFT Framework Tips</h2>
+            <h2 className="font-semibold text-gray-900">{t('pctft_tips')}</h2>
           </CardHeader>
           <CardBody>
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4 text-sm">
               <div className="p-3 bg-blue-50 rounded-lg">
-                <p className="font-semibold text-blue-700">P - Persona</p>
-                <p className="text-blue-600">Define who the AI should act as</p>
+                <p className="font-semibold text-blue-700">{t('persona')}</p>
+                <p className="text-blue-600">{t('persona_desc')}</p>
               </div>
               <div className="p-3 bg-green-50 rounded-lg">
-                <p className="font-semibold text-green-700">C - Context</p>
-                <p className="text-green-600">Provide relevant background</p>
+                <p className="font-semibold text-green-700">{t('context')}</p>
+                <p className="text-green-600">{t('context_desc')}</p>
               </div>
               <div className="p-3 bg-purple-50 rounded-lg">
-                <p className="font-semibold text-purple-700">T - Task</p>
-                <p className="text-purple-600">Clearly state what you need</p>
+                <p className="font-semibold text-purple-700">{t('task')}</p>
+                <p className="text-purple-600">{t('task_desc')}</p>
               </div>
               <div className="p-3 bg-orange-50 rounded-lg">
-                <p className="font-semibold text-orange-700">F - Format</p>
-                <p className="text-orange-600">Specify output structure</p>
+                <p className="font-semibold text-orange-700">{t('format')}</p>
+                <p className="text-orange-600">{t('format_desc')}</p>
               </div>
               <div className="p-3 bg-pink-50 rounded-lg">
-                <p className="font-semibold text-pink-700">T - Tone</p>
-                <p className="text-pink-600">Set the communication style</p>
+                <p className="font-semibold text-pink-700">{t('tone')}</p>
+                <p className="text-pink-600">{t('tone_desc')}</p>
               </div>
             </div>
           </CardBody>

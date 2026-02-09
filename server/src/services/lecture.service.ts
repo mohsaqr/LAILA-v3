@@ -1,6 +1,7 @@
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { CreateLectureInput, UpdateLectureInput } from '../utils/validation.js';
+import { activityLogService } from './activityLog.service.js';
 
 export class LectureService {
   private async verifyModuleOwnership(moduleId: number, instructorId: number, isAdmin = false) {
@@ -23,6 +24,68 @@ export class LectureService {
   async getLectures(moduleId: number) {
     const lectures = await prisma.lecture.findMany({
       where: { moduleId },
+      orderBy: { orderIndex: 'asc' },
+      include: {
+        attachments: true,
+        sections: {
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    return lectures;
+  }
+
+  /**
+   * Get lectures with access check - verifies user is enrolled, instructor, or admin.
+   */
+  async getLecturesWithAccessCheck(moduleId: number, userId: number, isInstructor: boolean, isAdmin: boolean) {
+    // Get the module to find the course
+    const module = await prisma.courseModule.findUnique({
+      where: { id: moduleId },
+      include: {
+        course: {
+          select: { id: true, instructorId: true, status: true },
+        },
+      },
+    });
+
+    if (!module) {
+      throw new AppError('Module not found', 404);
+    }
+
+    // Check if user has access
+    const isCourseInstructor = module.course.instructorId === userId;
+
+    if (!isAdmin && !isCourseInstructor) {
+      // Check enrollment for students
+      const enrollment = await prisma.enrollment.findUnique({
+        where: {
+          userId_courseId: {
+            userId,
+            courseId: module.course.id,
+          },
+        },
+      });
+
+      if (!enrollment) {
+        throw new AppError('You must be enrolled to access this content', 403);
+      }
+
+      // If course is unpublished and user is just a student, deny access
+      if (module.course.status !== 'published') {
+        throw new AppError('Course content is not available', 403);
+      }
+    }
+
+    // Return lectures - instructors and admins see all, students see published only
+    const showUnpublished = isAdmin || isCourseInstructor;
+
+    const lectures = await prisma.lecture.findMany({
+      where: {
+        moduleId,
+        ...(showUnpublished ? {} : { isPublished: true }),
+      },
       orderBy: { orderIndex: 'asc' },
       include: {
         attachments: true,
@@ -73,6 +136,20 @@ export class LectureService {
       if (!enrollment && !isInstructor) {
         throw new AppError('You must be enrolled to access this lecture', 403);
       }
+    }
+
+    // Log lecture view activity (only for authenticated users)
+    if (userId) {
+      activityLogService.logActivity({
+        userId,
+        verb: 'viewed',
+        objectType: 'lecture',
+        objectId: lectureId,
+        objectTitle: lecture.title,
+        lectureId,
+        moduleId: lecture.module.id,
+        courseId: lecture.module.course.id,
+      }).catch(() => {}); // Non-blocking
     }
 
     return lecture;

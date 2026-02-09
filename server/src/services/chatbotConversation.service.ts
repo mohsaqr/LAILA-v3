@@ -1,6 +1,7 @@
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { chatService } from './chat.service.js';
+import { activityLogService } from './activityLog.service.js';
 
 export interface SendMessageData {
   message: string;
@@ -168,6 +169,39 @@ ${conversationContext}`;
         data: { updatedAt: new Date() },
       });
 
+      // Log chatbot message activity with full message content
+      console.log('[ChatbotConversation] Logging message activity to LearningActivityLog:', {
+        userId,
+        verb: 'messaged',
+        objectType: 'chatbot',
+        sectionId,
+        courseId: section.lecture.module.course.id,
+        hasUserMessage: !!data.message,
+        hasAssistantMessage: !!response.reply,
+      });
+
+      activityLogService.logActivity({
+        userId,
+        verb: 'messaged',
+        objectType: 'chatbot',
+        objectId: sectionId,
+        objectTitle: section.chatbotTitle || 'Chatbot',
+        sectionId,
+        lectureId: section.lectureId,
+        courseId: section.lecture.module.course.id,
+        extensions: {
+          conversationId: conversation.id,
+          userMessage: data.message,
+          assistantMessage: response.reply,
+          messageLength: data.message.length,
+          responseLength: response.reply.length,
+          aiModel: response.model,
+          responseTime: response.responseTime,
+        },
+      }).then(() => {
+        console.log('[ChatbotConversation] Activity logged successfully');
+      }).catch((err) => console.error('[ChatbotConversation] Failed to log activity:', err)); // Non-blocking
+
       return {
         userMessage: {
           role: 'user' as const,
@@ -188,7 +222,7 @@ ${conversationContext}`;
   }
 
   async clearConversation(sectionId: number, userId: number) {
-    await this.verifyEnrollment(sectionId, userId);
+    const section = await this.verifyEnrollment(sectionId, userId);
 
     const conversation = await prisma.chatbotConversation.findUnique({
       where: {
@@ -199,11 +233,29 @@ ${conversationContext}`;
       },
     });
 
+    let messageCount = 0;
     if (conversation) {
-      await prisma.chatbotConversationMessage.deleteMany({
+      const result = await prisma.chatbotConversationMessage.deleteMany({
         where: { conversationId: conversation.id },
       });
+      messageCount = result.count;
     }
+
+    // Log conversation cleared activity
+    activityLogService.logActivity({
+      userId,
+      verb: 'cleared',
+      objectType: 'chatbot',
+      objectId: sectionId,
+      objectTitle: section.chatbotTitle || 'Chatbot',
+      sectionId,
+      lectureId: section.lectureId,
+      courseId: section.lecture.module.course.id,
+      extensions: {
+        conversationId: conversation?.id,
+        messagesCleared: messageCount,
+      },
+    }).catch((err) => console.error('[ChatbotConversation] Failed to log clear activity:', err)); // Non-blocking
 
     return { message: 'Conversation cleared successfully' };
   }

@@ -2,6 +2,9 @@ import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { CreateAssignmentInput, UpdateAssignmentInput, CreateSubmissionInput, GradeSubmissionInput } from '../utils/validation.js';
 import { learningAnalyticsService } from './learningAnalytics.service.js';
+import { emailService } from './email.service.js';
+import { notificationService } from './notification.service.js';
+import { assignmentLogger } from '../utils/logger.js';
 
 // Context for event logging
 export interface EventContext {
@@ -13,10 +16,23 @@ export interface EventContext {
 }
 
 export class AssignmentService {
-  async getAssignments(courseId: number, userId?: number, isInstructor = false) {
+  async getAssignments(courseId: number, userId?: number, isInstructor = false, isAdmin = false) {
+    // Verify authorization: instructors/admins can access any course, students need enrollment
+    if (userId && !isInstructor && !isAdmin) {
+      const enrollment = await prisma.enrollment.findUnique({
+        where: {
+          userId_courseId: { userId, courseId },
+        },
+      });
+
+      if (!enrollment) {
+        throw new AppError('You must be enrolled in this course to view assignments', 403);
+      }
+    }
+
     const where: any = { courseId };
 
-    if (!isInstructor) {
+    if (!isInstructor && !isAdmin) {
       where.isPublished = true;
     }
 
@@ -34,7 +50,7 @@ export class AssignmentService {
     });
 
     // If student, include their submission status
-    if (userId && !isInstructor) {
+    if (userId && !isInstructor && !isAdmin) {
       const submissions = await prisma.assignmentSubmission.findMany({
         where: {
           userId,
@@ -269,7 +285,7 @@ export class AssignmentService {
         browserName: context?.browserName,
       }, context?.ipAddress);
     } catch (error) {
-      console.error('Failed to log assignment submit event:', error);
+      assignmentLogger.warn({ err: error, userId, assignmentId }, 'Failed to log assignment submit event');
     }
 
     return submission;
@@ -346,7 +362,7 @@ export class AssignmentService {
         feedbackLength: data.feedback?.length,
       });
     } catch (error) {
-      console.error('Failed to log grade event:', error);
+      assignmentLogger.warn({ err: error, submissionId }, 'Failed to log grade event');
     }
 
     // Log grading action as a system event
@@ -365,8 +381,31 @@ export class AssignmentService {
         newValues: { grade: data.grade, feedback: data.feedback },
       }, context?.ipAddress);
     } catch (error) {
-      console.error('Failed to log grading system event:', error);
+      assignmentLogger.warn({ err: error, submissionId, instructorId }, 'Failed to log grading system event');
     }
+
+    // Send grade notification email (non-blocking)
+    emailService.sendGradeNotification(
+      submission.userId,
+      submission.assignment.courseId,
+      submission.assignment.title,
+      data.grade,
+      submission.assignment.points
+    ).catch((err) => {
+      assignmentLogger.warn({ err, submissionId }, 'Failed to send grade notification');
+    });
+
+    // Send in-app notification (non-blocking)
+    notificationService.notifyGradePosted({
+      userId: submission.userId,
+      courseId: submission.assignment.courseId,
+      courseName: submission.assignment.course.title,
+      assignmentTitle: submission.assignment.title,
+      score: data.grade,
+      maxScore: submission.assignment.points,
+    }).catch((err) => {
+      assignmentLogger.warn({ err, submissionId }, 'Failed to send grade in-app notification');
+    });
 
     return updated;
   }

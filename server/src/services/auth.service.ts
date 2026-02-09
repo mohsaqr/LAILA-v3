@@ -1,10 +1,12 @@
 import bcrypt from 'bcryptjs';
 import prisma from '../utils/prisma.js';
-import { generateToken } from '../middleware/auth.middleware.js';
+import { generateToken, invalidateUserStatusCache } from '../middleware/auth.middleware.js';
 import { RegisterInput, LoginInput } from '../utils/validation.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { UserPayload } from '../types/index.js';
 import { learningAnalyticsService, AuthEventData } from './learningAnalytics.service.js';
+import { authLogger } from '../utils/logger.js';
+import { userService } from './user.service.js';
 
 // Context for auth logging
 export interface AuthContext {
@@ -46,17 +48,19 @@ export class AuthService {
         email: true,
         isAdmin: true,
         isInstructor: true,
+        tokenVersion: true,
         createdAt: true,
       },
     });
 
-    // Generate token
+    // Generate token with tokenVersion for invalidation support
     const payload: UserPayload = {
       id: user.id,
       email: user.email,
       fullname: user.fullname,
       isAdmin: user.isAdmin,
       isInstructor: user.isInstructor,
+      tokenVersion: user.tokenVersion,
     };
     const token = generateToken(payload);
 
@@ -75,11 +79,15 @@ export class AuthService {
         osVersion: context?.osVersion,
       }, context?.ipAddress);
     } catch (error) {
-      console.error('Failed to log registration event:', error);
+      authLogger.warn({ err: error, userId: user.id }, 'Failed to log registration event');
     }
 
     return { user, token };
   }
+
+  // Account lockout settings
+  private static readonly MAX_FAILED_ATTEMPTS = 5;
+  private static readonly LOCKOUT_DURATION_MINUTES = 15;
 
   async login(data: LoginInput, context?: AuthContext) {
     // Find user
@@ -103,9 +111,32 @@ export class AuthService {
           osVersion: context?.osVersion,
         }, context?.ipAddress);
       } catch (error) {
-        console.error('Failed to log login failure event:', error);
+        authLogger.warn({ err: error, email: data.email }, 'Failed to log login failure event');
       }
       throw new AppError('Invalid credentials', 401);
+    }
+
+    // Check if account is locked
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      const remainingMinutes = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
+      try {
+        await learningAnalyticsService.logAuthEvent({
+          userId: user.id,
+          userEmail: user.email,
+          eventType: 'login_failure',
+          failureReason: 'account_locked',
+          sessionId: context?.sessionId,
+          userAgent: context?.userAgent,
+          deviceType: context?.deviceType,
+          browserName: context?.browserName,
+          browserVersion: context?.browserVersion,
+          osName: context?.osName,
+          osVersion: context?.osVersion,
+        }, context?.ipAddress);
+      } catch (error) {
+        authLogger.warn({ err: error, email: data.email }, 'Failed to log login failure event');
+      }
+      throw new AppError(`Account is locked. Please try again in ${remainingMinutes} minute(s).`, 423);
     }
 
     if (!user.isActive) {
@@ -125,7 +156,7 @@ export class AuthService {
           osVersion: context?.osVersion,
         }, context?.ipAddress);
       } catch (error) {
-        console.error('Failed to log login failure event:', error);
+        authLogger.warn({ err: error, email: data.email }, 'Failed to log login failure event');
       }
       throw new AppError('Account is deactivated', 403);
     }
@@ -133,13 +164,30 @@ export class AuthService {
     // Check password
     const isValidPassword = await bcrypt.compare(data.password, user.passwordHash);
     if (!isValidPassword) {
+      // Increment failed login attempts
+      const newFailedAttempts = user.failedLoginAttempts + 1;
+      const updateData: { failedLoginAttempts: number; lockedUntil?: Date } = {
+        failedLoginAttempts: newFailedAttempts,
+      };
+
+      // Lock account if max attempts reached
+      if (newFailedAttempts >= AuthService.MAX_FAILED_ATTEMPTS) {
+        updateData.lockedUntil = new Date(Date.now() + AuthService.LOCKOUT_DURATION_MINUTES * 60000);
+      }
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: updateData,
+      });
+
       // Log failed login attempt - invalid password
       try {
         await learningAnalyticsService.logAuthEvent({
           userId: user.id,
           userEmail: user.email,
           eventType: 'login_failure',
-          failureReason: 'invalid_password',
+          failureReason: newFailedAttempts >= AuthService.MAX_FAILED_ATTEMPTS ? 'account_locked' : 'invalid_password',
+          attemptCount: newFailedAttempts,
           sessionId: context?.sessionId,
           userAgent: context?.userAgent,
           deviceType: context?.deviceType,
@@ -149,24 +197,34 @@ export class AuthService {
           osVersion: context?.osVersion,
         }, context?.ipAddress);
       } catch (error) {
-        console.error('Failed to log login failure event:', error);
+        authLogger.warn({ err: error, email: data.email }, 'Failed to log login failure event');
       }
+
+      if (newFailedAttempts >= AuthService.MAX_FAILED_ATTEMPTS) {
+        throw new AppError(`Account locked due to too many failed attempts. Please try again in ${AuthService.LOCKOUT_DURATION_MINUTES} minutes.`, 423);
+      }
+
       throw new AppError('Invalid credentials', 401);
     }
 
-    // Update last login
+    // Successful login - reset failed attempts and lockout
     await prisma.user.update({
       where: { id: user.id },
-      data: { lastLogin: new Date() },
+      data: {
+        lastLogin: new Date(),
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      },
     });
 
-    // Generate token
+    // Generate token with tokenVersion for invalidation support
     const payload: UserPayload = {
       id: user.id,
       email: user.email,
       fullname: user.fullname,
       isAdmin: user.isAdmin,
       isInstructor: user.isInstructor,
+      tokenVersion: user.tokenVersion,
     };
     const token = generateToken(payload);
 
@@ -185,8 +243,11 @@ export class AuthService {
         osVersion: context?.osVersion,
       }, context?.ipAddress);
     } catch (error) {
-      console.error('Failed to log login success event:', error);
+      authLogger.warn({ err: error, userId: user.id }, 'Failed to log login success event');
     }
+
+    // Fetch user's language preference
+    const languagePreference = await userService.getLanguagePreference(user.id);
 
     return {
       user: {
@@ -195,6 +256,7 @@ export class AuthService {
         email: user.email,
         isAdmin: user.isAdmin,
         isInstructor: user.isInstructor,
+        language: languagePreference,
       },
       token,
     };
@@ -238,10 +300,17 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
+    // Increment tokenVersion to invalidate all existing tokens
     await prisma.user.update({
       where: { id: userId },
-      data: { passwordHash },
+      data: {
+        passwordHash,
+        tokenVersion: { increment: 1 },
+      },
     });
+
+    // Invalidate user status cache so new tokenVersion takes effect immediately
+    invalidateUserStatusCache(userId);
 
     // Log password change event
     try {
@@ -258,7 +327,7 @@ export class AuthService {
         osVersion: context?.osVersion,
       }, context?.ipAddress);
     } catch (error) {
-      console.error('Failed to log password change event:', error);
+      authLogger.warn({ err: error, userId: user.id }, 'Failed to log password change event');
     }
 
     return { message: 'Password updated successfully' };
@@ -283,7 +352,7 @@ export class AuthService {
         osVersion: context?.osVersion,
       }, context?.ipAddress);
     } catch (error) {
-      console.error('Failed to log logout event:', error);
+      authLogger.warn({ err: error, userId }, 'Failed to log logout event');
     }
   }
 }

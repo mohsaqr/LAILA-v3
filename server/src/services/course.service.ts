@@ -97,6 +97,17 @@ export class CourseService {
                 isFree: true,
               },
             },
+            codeLabs: {
+              where: includeUnpublished ? {} : { isPublished: true },
+              orderBy: { orderIndex: 'asc' },
+              select: {
+                id: true,
+                title: true,
+                description: true,
+                orderIndex: true,
+                isPublished: true,
+              },
+            },
           },
         },
         _count: {
@@ -110,6 +121,40 @@ export class CourseService {
     }
 
     return course;
+  }
+
+  /**
+   * Get course by ID with ownership check for unpublished content.
+   * Admins can see all unpublished courses.
+   * Instructors can only see their own unpublished courses.
+   */
+  async getCourseByIdWithOwnerCheck(id: number, userId?: number, isAdmin = false, isInstructor = false) {
+    // First, get the course without status filter to check ownership
+    const course = await prisma.course.findUnique({
+      where: { id },
+      select: { id: true, instructorId: true, status: true },
+    });
+
+    if (!course) {
+      throw new AppError('Course not found', 404);
+    }
+
+    // Determine if we should include unpublished content
+    let includeUnpublished = false;
+    if (isAdmin) {
+      // Admins can see all unpublished content
+      includeUnpublished = true;
+    } else if (isInstructor && course.instructorId === userId) {
+      // Instructors can only see unpublished content for their own courses
+      includeUnpublished = true;
+    }
+
+    // If course is unpublished and user doesn't have access, throw 404
+    if (course.status !== 'published' && !includeUnpublished) {
+      throw new AppError('Course not found', 404);
+    }
+
+    return this.getCourseById(id, includeUnpublished);
   }
 
   async getCourseBySlug(slug: string) {
@@ -147,6 +192,71 @@ export class CourseService {
     }
 
     return course;
+  }
+
+  /**
+   * Get course by slug with ownership check for unpublished content.
+   * Admins can see all unpublished courses.
+   * Instructors can only see their own unpublished courses.
+   */
+  async getCourseBySlugWithOwnerCheck(slug: string, userId?: number, isAdmin = false, isInstructor = false) {
+    // First, get the course without status filter to check ownership
+    const course = await prisma.course.findUnique({
+      where: { slug },
+      select: { id: true, instructorId: true, status: true },
+    });
+
+    if (!course) {
+      throw new AppError('Course not found', 404);
+    }
+
+    // Determine if we should include unpublished content
+    let includeUnpublished = false;
+    if (isAdmin) {
+      // Admins can see all unpublished content
+      includeUnpublished = true;
+    } else if (isInstructor && course.instructorId === userId) {
+      // Instructors can only see unpublished content for their own courses
+      includeUnpublished = true;
+    }
+
+    // If course is unpublished and user doesn't have access, throw 404
+    if (course.status !== 'published' && !includeUnpublished) {
+      throw new AppError('Course not found', 404);
+    }
+
+    // Return full course with appropriate visibility
+    if (includeUnpublished) {
+      return prisma.course.findUnique({
+        where: { slug },
+        include: {
+          instructor: {
+            select: { id: true, fullname: true },
+          },
+          modules: {
+            orderBy: { orderIndex: 'asc' },
+            include: {
+              lectures: {
+                orderBy: { orderIndex: 'asc' },
+                select: {
+                  id: true,
+                  title: true,
+                  contentType: true,
+                  duration: true,
+                  isFree: true,
+                  isPublished: true,
+                },
+              },
+            },
+          },
+          _count: {
+            select: { enrollments: true },
+          },
+        },
+      });
+    }
+
+    return this.getCourseBySlug(slug);
   }
 
   async createCourse(instructorId: number, data: CreateCourseInput, context?: SystemEventContext) {
@@ -368,10 +478,16 @@ export class CourseService {
     return updated;
   }
 
-  async getInstructorCourses(instructorId: number) {
+  async getInstructorCourses(instructorId: number, isAdmin = false) {
+    // Admins see all courses, instructors see only their own
+    const where = isAdmin ? {} : { instructorId };
+
     const courses = await prisma.course.findMany({
-      where: { instructorId },
+      where,
       include: {
+        instructor: {
+          select: { id: true, fullname: true },
+        },
         _count: {
           select: { enrollments: true, modules: true },
         },
@@ -406,6 +522,84 @@ export class CourseService {
     });
 
     return enrollments;
+  }
+
+  async updateAISettings(
+    courseId: number,
+    instructorId: number,
+    settings: {
+      collaborativeModuleName?: string;
+      collaborativeModuleEnabled?: boolean;
+      emotionalPulseEnabled?: boolean;
+      tutorRoutingMode?: 'free' | 'all' | 'single' | 'smart' | 'collaborative' | 'random';
+      defaultTutorId?: number | null;
+    },
+    isAdmin = false,
+    context?: SystemEventContext
+  ) {
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+    });
+
+    if (!course) {
+      throw new AppError('Course not found', 404);
+    }
+
+    if (course.instructorId !== instructorId && !isAdmin) {
+      throw new AppError('Not authorized to update this course', 403);
+    }
+
+    // Store previous values for logging
+    const previousValues = {
+      collaborativeModuleName: (course as any).collaborativeModuleName,
+      collaborativeModuleEnabled: (course as any).collaborativeModuleEnabled,
+      emotionalPulseEnabled: (course as any).emotionalPulseEnabled,
+      tutorRoutingMode: (course as any).tutorRoutingMode,
+      defaultTutorId: (course as any).defaultTutorId,
+    };
+
+    // Build update data only with defined values
+    const updateData: Record<string, any> = {};
+    if (settings.collaborativeModuleName !== undefined) {
+      updateData.collaborativeModuleName = settings.collaborativeModuleName || null;
+    }
+    if (settings.collaborativeModuleEnabled !== undefined) {
+      updateData.collaborativeModuleEnabled = settings.collaborativeModuleEnabled;
+    }
+    if (settings.emotionalPulseEnabled !== undefined) {
+      updateData.emotionalPulseEnabled = settings.emotionalPulseEnabled;
+    }
+    if (settings.tutorRoutingMode !== undefined) {
+      updateData.tutorRoutingMode = settings.tutorRoutingMode;
+    }
+    if (settings.defaultTutorId !== undefined) {
+      updateData.defaultTutorId = settings.defaultTutorId;
+    }
+
+    const updated = await prisma.course.update({
+      where: { id: courseId },
+      data: updateData,
+    });
+
+    // Log AI settings update event
+    try {
+      await learningAnalyticsService.logSystemEvent({
+        actorId: context?.actorId || instructorId,
+        eventType: 'course_ai_settings_update',
+        eventCategory: 'content_mgmt',
+        changeType: 'update',
+        targetType: 'course',
+        targetId: course.id,
+        targetTitle: course.title,
+        courseId: course.id,
+        previousValues,
+        newValues: settings,
+      }, context?.ipAddress);
+    } catch (error) {
+      console.error('Failed to log AI settings update event:', error);
+    }
+
+    return updated;
   }
 }
 

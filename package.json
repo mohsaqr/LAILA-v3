@@ -4,6 +4,7 @@
   "description": "LAILA - AI-powered Learning Management System",
   "private": true,
   "scripts": {
+    "setup": "bash setup.sh || setup.bat",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",

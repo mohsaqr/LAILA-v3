@@ -1,56 +1,46 @@
-type Status = 'draft' | 'published' | 'archived' | 'submitted' | 'graded' | 'returned' | 'active' | 'completed' | 'pending';
+import { useTranslation } from 'react-i18next';
+
+type Status = 'draft' | 'published' | 'archived' | 'submitted' | 'graded' | 'returned' | 'active' | 'completed' | 'pending' | 'not_started';
 
 interface StatusBadgeProps {
   status: Status;
   size?: 'sm' | 'md';
 }
 
-const statusConfig: Record<Status, { label: string; className: string }> = {
-  draft: {
-    label: 'Draft',
-    className: 'bg-gray-100 text-gray-700',
-  },
-  published: {
-    label: 'Published',
-    className: 'bg-green-100 text-green-700',
-  },
-  archived: {
-    label: 'Archived',
-    className: 'bg-yellow-100 text-yellow-700',
-  },
-  submitted: {
-    label: 'Submitted',
-    className: 'bg-blue-100 text-blue-700',
-  },
-  graded: {
-    label: 'Graded',
-    className: 'bg-purple-100 text-purple-700',
-  },
-  returned: {
-    label: 'Returned',
-    className: 'bg-orange-100 text-orange-700',
-  },
-  active: {
-    label: 'Active',
-    className: 'bg-green-100 text-green-700',
-  },
-  completed: {
-    label: 'Completed',
-    className: 'bg-blue-100 text-blue-700',
-  },
-  pending: {
-    label: 'Pending',
-    className: 'bg-yellow-100 text-yellow-700',
-  },
+const statusStyles: Record<Status, string> = {
+  draft: 'bg-gray-100 text-gray-700',
+  published: 'bg-green-100 text-green-700',
+  archived: 'bg-yellow-100 text-yellow-700',
+  submitted: 'bg-blue-100 text-blue-700',
+  graded: 'bg-purple-100 text-purple-700',
+  returned: 'bg-orange-100 text-orange-700',
+  active: 'bg-green-100 text-green-700',
+  completed: 'bg-blue-100 text-blue-700',
+  pending: 'bg-yellow-100 text-yellow-700',
+  not_started: 'bg-gray-100 text-gray-500',
 };
 
 export const StatusBadge = ({ status, size = 'sm' }: StatusBadgeProps) => {
-  const config = statusConfig[status] || statusConfig.draft;
+  const { t } = useTranslation(['common']);
+  const className = statusStyles[status] || statusStyles.draft;
   const sizeClasses = size === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm';
 
+  const statusLabels: Record<Status, string> = {
+    draft: t('status_draft'),
+    published: t('status_published'),
+    archived: t('status_archived'),
+    submitted: t('status_submitted'),
+    graded: t('status_graded'),
+    returned: t('status_returned'),
+    active: t('status_active'),
+    completed: t('status_completed'),
+    pending: t('status_pending'),
+    not_started: t('status_not_started'),
+  };
+
   return (
-    <span className={`inline-flex items-center rounded-full font-medium ${sizeClasses} ${config.className}`}>
-      {config.label}
+    <span className={`inline-flex items-center rounded-full font-medium ${sizeClasses} ${className}`}>
+      {statusLabels[status] || statusLabels.draft}
     </span>
   );
 };

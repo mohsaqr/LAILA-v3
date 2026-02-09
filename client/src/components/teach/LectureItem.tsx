@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import {
   FileText,
@@ -31,6 +32,8 @@ export const LectureItem = ({
   onMoveUp,
   onMoveDown,
 }: LectureItemProps) => {
+  const { t } = useTranslation(['teaching']);
+
   const getIcon = () => {
     switch (lecture.contentType) {
       case 'video':
@@ -58,26 +61,26 @@ export const LectureItem = ({
           {lecture.duration && (
             <>
               <span>•</span>
-              <span>{lecture.duration} min</span>
+              <span>{lecture.duration} {t('min')}</span>
             </>
           )}
           {lecture.isFree && (
             <>
               <span>•</span>
-              <span className="text-green-600">Free Preview</span>
+              <span className="text-green-600">{t('free_preview')}</span>
             </>
           )}
         </div>
       </div>
 
-      {/* Edit Content Button - prominent */}
+      {/* Manage Content Button - opens lesson editor */}
       <Link
         to={`/teach/courses/${courseId}/lectures/${lecture.id}`}
         className="px-3 py-1.5 text-xs font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors flex items-center gap-1.5"
-        title="Edit lesson content"
+        title={t('manage_lesson_sections')}
       >
         <FileEdit className="w-3.5 h-3.5" />
-        Edit Content
+        {t('manage_content')}
       </Link>
 
       {/* Reorder buttons */}
@@ -86,7 +89,7 @@ export const LectureItem = ({
           onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
           disabled={isFirst}
           className="p-1 rounded hover:bg-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Move up"
+          title={t('move_up')}
         >
           <ChevronUp className="w-4 h-4 text-gray-500" />
         </button>
@@ -94,7 +97,7 @@ export const LectureItem = ({
           onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
           disabled={isLast}
           className="p-1 rounded hover:bg-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Move down"
+          title={t('move_down')}
         >
           <ChevronDown className="w-4 h-4 text-gray-500" />
         </button>
@@ -105,14 +108,14 @@ export const LectureItem = ({
         <button
           onClick={(e) => { e.stopPropagation(); onEdit(lecture); }}
           className="p-1.5 rounded hover:bg-gray-200 transition-colors"
-          title="Edit lesson details"
+          title={t('edit_lesson_details')}
         >
           <Edit2 className="w-4 h-4 text-gray-500" />
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(lecture); }}
           className="p-1.5 rounded hover:bg-red-100 transition-colors"
-          title="Delete lesson"
+          title={t('delete_lesson')}
         >
           <Trash2 className="w-4 h-4 text-red-500" />
         </button>

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
+import { logger, logError } from '../utils/logger.js';
 
 export class AppError extends Error {
   statusCode: number;
@@ -21,7 +22,17 @@ export const errorHandler = (
   res: Response,
   next: NextFunction
 ): void => {
-  console.error('Error:', err);
+  // Build error context
+  const errorContext = {
+    requestId: (req as any).requestId,
+    method: req.method,
+    url: req.originalUrl,
+    userId: (req as any).user?.id,
+    ip: req.ip || req.socket.remoteAddress,
+  };
+
+  // Log the error with context
+  logError(err, errorContext, logger);
 
   // Zod validation error
   if (err instanceof ZodError) {

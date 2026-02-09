@@ -45,6 +45,7 @@ const bulkInteractionSchema = z.object({
   sessionId: z.string(),
   sessionStartTime: z.number().optional(),
   events: z.array(interactionEventSchema),
+  testMode: z.string().nullable().optional(), // 'test_instructor', 'test_student' for admin "View As" feature
   // Client info
   userAgent: z.string().optional(),
   browserName: z.string().optional(),
@@ -87,6 +88,7 @@ const chatbotInteractionSchema = z.object({
   errorStack: z.string().optional(),
   metadata: z.record(z.unknown()).optional(),
   timestamp: z.number().optional(),
+  testMode: z.string().nullable().optional(), // 'test_instructor', 'test_student' for admin "View As" feature
   // Client info
   userAgent: z.string().optional(),
   browserName: z.string().optional(),
@@ -116,12 +118,12 @@ function getClientIp(req: Request): string | undefined {
 // USER INTERACTION LOGGING
 // ============================================================================
 
-// Store bulk interaction events (with optional auth for non-logged-in tracking)
-router.post('/interactions', optionalAuth, asyncHandler(async (req: AuthRequest, res: Response) => {
+// Store bulk interaction events (requires authentication to prevent spam)
+router.post('/interactions', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const data = bulkInteractionSchema.parse(req.body);
   const result = await analyticsService.storeInteractions(
     data,
-    req.user?.id,
+    req.user!.id,
     getClientIp(req)
   );
   res.json({ success: true, data: result });
@@ -131,12 +133,12 @@ router.post('/interactions', optionalAuth, asyncHandler(async (req: AuthRequest,
 // CHATBOT INTERACTION LOGGING
 // ============================================================================
 
-// Store chatbot interaction with full params and context
-router.post('/chatbot-interaction', optionalAuth, asyncHandler(async (req: AuthRequest, res: Response) => {
+// Store chatbot interaction with full params and context (requires authentication)
+router.post('/chatbot-interaction', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const data = chatbotInteractionSchema.parse(req.body);
   const result = await analyticsService.storeChatbotInteraction(
     data,
-    req.user?.id,
+    req.user!.id,
     getClientIp(req)
   );
   res.json({ success: true, data: { id: result.id } });
@@ -159,6 +161,49 @@ router.get('/interactions/summary', authenticateToken, requireAdmin, asyncHandle
 
   const summary = await analyticsService.getInteractionSummary(filters);
   res.json({ success: true, data: summary });
+}));
+
+// Query interactions with filters, pagination, search, and sorting (admin only)
+router.get('/interactions/query', authenticateToken, requireAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const filters = {
+    userId: req.query.userId ? parseInt(req.query.userId as string) : undefined,
+    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    eventType: req.query.eventType as string | undefined,
+    pagePath: req.query.pagePath as string | undefined,
+    startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+    endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+    search: req.query.search as string | undefined,
+    page: req.query.page ? parseInt(req.query.page as string) : 1,
+    limit: req.query.limit ? Math.min(parseInt(req.query.limit as string), 100) : 50,
+    sortBy: req.query.sortBy as string | undefined,
+    sortOrder: (req.query.sortOrder as 'asc' | 'desc') || 'desc',
+  };
+
+  const result = await analyticsService.queryInteractions(filters);
+  res.json({ success: true, ...result });
+}));
+
+// Get filter options for interactions dropdowns (admin only)
+router.get('/interactions/filter-options', authenticateToken, requireAdmin, asyncHandler(async (_req: AuthRequest, res: Response) => {
+  const options = await analyticsService.getInteractionFilterOptions();
+  res.json({ success: true, data: options });
+}));
+
+// Export interactions as CSV (admin only)
+router.get('/interactions/export/csv', authenticateToken, requireAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const filters = {
+    userId: req.query.userId ? parseInt(req.query.userId as string) : undefined,
+    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    eventType: req.query.eventType as string | undefined,
+    startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+    endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+    search: req.query.search as string | undefined,
+  };
+
+  const csv = await analyticsService.exportInteractionsToCsv(filters);
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename="interactions-${new Date().toISOString().split('T')[0]}.csv"`);
+  res.send(csv);
 }));
 
 // Get chatbot interaction summary (admin only)
@@ -189,7 +234,7 @@ router.get('/chatbot/section/:sectionId', authenticateToken, requireAdmin, async
 // EXPORT ENDPOINTS
 // ============================================================================
 
-// Export interaction logs (admin only)
+// Export interaction logs (admin only - contains sensitive user data)
 router.get('/export/interactions', authenticateToken, requireAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
   const summary = await analyticsService.getInteractionSummary({});
 
@@ -198,7 +243,7 @@ router.get('/export/interactions', authenticateToken, requireAdmin, asyncHandler
   res.json(summary.recentInteractions);
 }));
 
-// Export chatbot logs (admin only)
+// Export chatbot logs (admin only - contains sensitive user data)
 router.get('/export/chatbot', authenticateToken, requireAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
   const summary = await analyticsService.getChatbotInteractionSummary({});
 

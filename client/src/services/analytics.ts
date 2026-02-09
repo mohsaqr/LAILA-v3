@@ -275,10 +275,23 @@ class AnalyticsService {
   private clientInfo: ClientInfo | null = null;
   private pageLoadTime: number = Date.now();
   private eventSequence: number = 0;
+  private testMode: string | null = null; // 'test_instructor', 'test_student', etc.
 
   constructor() {
     this.sessionId = this.generateSessionId();
     this.sessionStartTime = Date.now();
+  }
+
+  // Set test mode for "View As" feature (admin testing roles)
+  setTestMode(mode: string | null) {
+    this.testMode = mode;
+    if (this.debugMode) {
+      console.log('[Analytics] Test mode set:', mode || 'disabled');
+    }
+  }
+
+  getTestMode(): string | null {
+    return this.testMode;
   }
 
   private generateSessionId(): string {
@@ -585,6 +598,7 @@ class AnalyticsService {
       sessionId: this.sessionId,
       sessionStartTime: this.sessionStartTime,
       events: eventsToSend,
+      testMode: this.testMode, // Include test mode flag for "View As" feature
       ...this.clientInfo,
     };
 
@@ -613,15 +627,28 @@ class AnalyticsService {
   async trackChatbotInteraction(event: ChatbotInteractionEvent) {
     const sequence = this.getNextEventSequence();
 
+    // Always log chatbot events for debugging
+    console.log('[Analytics] Sending chatbot event:', event.eventType, {
+      sectionId: event.sectionId,
+      hasMessageContent: !!event.messageContent,
+      hasResponseContent: !!event.responseContent,
+    });
+
     try {
-      await apiClient.post('/analytics/chatbot-interaction', {
+      const response = await apiClient.post('/analytics/chatbot-interaction', {
         sessionId: this.sessionId,
         sessionStartTime: this.sessionStartTime,
         eventSequence: sequence,
         ...event,
         timestamp: Date.now(),
+        testMode: this.testMode, // Include test mode flag for "View As" feature
         // Include all client info
         ...this.clientInfo,
+      });
+
+      console.log('[Analytics] Chatbot event saved successfully:', {
+        eventType: event.eventType,
+        responseId: response?.data?.id,
       });
 
       if (this.debugMode) {
@@ -632,9 +659,8 @@ class AnalyticsService {
         });
       }
     } catch (error) {
-      if (this.debugMode) {
-        console.error('[Analytics] Failed to track chatbot interaction:', error);
-      }
+      // Always log errors for chatbot interactions
+      console.error('[Analytics] Failed to track chatbot interaction:', error);
     }
   }
 

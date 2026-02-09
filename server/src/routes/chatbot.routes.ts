@@ -7,21 +7,21 @@ import { AuthRequest } from '../types/index.js';
 
 const router = Router();
 
-// Get all chatbots
-router.get('/', asyncHandler(async (req: AuthRequest, res: Response) => {
+// Get all chatbots (authenticated - protects system prompts)
+router.get('/', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const includeInactive = req.query.includeInactive === 'true';
   const chatbots = await chatbotService.getChatbots(includeInactive);
   res.json({ success: true, data: chatbots });
 }));
 
-// Get chatbot by name
-router.get('/name/:name', asyncHandler(async (req: AuthRequest, res: Response) => {
+// Get chatbot by name (authenticated - protects system prompts)
+router.get('/name/:name', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const chatbot = await chatbotService.getChatbotByName(req.params.name);
   res.json({ success: true, data: chatbot });
 }));
 
-// Get chatbot by ID
-router.get('/:id', asyncHandler(async (req: AuthRequest, res: Response) => {
+// Get chatbot by ID (authenticated - protects system prompts)
+router.get('/:id', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = parseInt(req.params.id);
   const chatbot = await chatbotService.getChatbotById(id);
   res.json({ success: true, data: chatbot });

@@ -4,6 +4,7 @@ import { moduleService } from '../services/module.service.js';
 import { lectureService } from '../services/lecture.service.js';
 import { sectionService } from '../services/section.service.js';
 import { chatbotConversationService } from '../services/chatbotConversation.service.js';
+import { lectureAIHelperService } from '../services/lectureAIHelper.service.js';
 import { authenticateToken, requireInstructor, optionalAuth } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import {
@@ -19,6 +20,10 @@ import {
   reorderSectionsSchema,
   generateAIContentSchema,
   chatbotMessageSchema,
+  lectureAIHelperChatSchema,
+  createExplainThreadSchema,
+  addExplainFollowUpSchema,
+  parsePaginationLimit,
 } from '../utils/validation.js';
 import { AuthRequest } from '../types/index.js';
 
@@ -29,7 +34,7 @@ const router = Router();
 // Get all published courses (catalog)
 router.get('/', asyncHandler(async (req: AuthRequest, res: Response) => {
   const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 10;
+  const limit = parsePaginationLimit(req.query.limit as string, 10);
   const filters = {
     category: req.query.category as string,
     difficulty: req.query.difficulty as string,
@@ -40,23 +45,34 @@ router.get('/', asyncHandler(async (req: AuthRequest, res: Response) => {
   res.json({ success: true, ...result });
 }));
 
-// Get instructor's courses
+// Get instructor's courses (admins see all courses)
 router.get('/my-courses', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const courses = await courseService.getInstructorCourses(req.user!.id);
+  const courses = await courseService.getInstructorCourses(req.user!.id, req.user!.isAdmin);
   res.json({ success: true, data: courses });
 }));
 
 // Get course by ID
 router.get('/:id', optionalAuth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = parseInt(req.params.id);
-  const includeUnpublished = req.user?.isAdmin || req.user?.isInstructor;
-  const course = await courseService.getCourseById(id, includeUnpublished);
+  // Only admins can see ALL unpublished courses
+  // Instructors can only see their own unpublished courses
+  const course = await courseService.getCourseByIdWithOwnerCheck(
+    id,
+    req.user?.id,
+    req.user?.isAdmin || false,
+    req.user?.isInstructor || false
+  );
   res.json({ success: true, data: course });
 }));
 
-// Get course by slug
-router.get('/slug/:slug', asyncHandler(async (req: AuthRequest, res: Response) => {
-  const course = await courseService.getCourseBySlug(req.params.slug);
+// Get course by slug (requires auth to see unpublished courses)
+router.get('/slug/:slug', optionalAuth, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const course = await courseService.getCourseBySlugWithOwnerCheck(
+    req.params.slug,
+    req.user?.id,
+    req.user?.isAdmin || false,
+    req.user?.isInstructor || false
+  );
   res.json({ success: true, data: course });
 }));
 
@@ -103,12 +119,20 @@ router.get('/:id/students', authenticateToken, requireInstructor, asyncHandler(a
   res.json({ success: true, data: students });
 }));
 
+// Update course AI settings (Collaborative Module)
+router.put('/:id/ai-settings', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const id = parseInt(req.params.id);
+  const settings = req.body;
+  const course = await courseService.updateAISettings(id, req.user!.id, settings, req.user!.isAdmin);
+  res.json({ success: true, data: course });
+}));
+
 // ============= MODULES =============
 
-// Get course modules
-router.get('/:courseId/modules', asyncHandler(async (req: AuthRequest, res: Response) => {
+// Get course modules (requires authentication)
+router.get('/:courseId/modules', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const courseId = parseInt(req.params.courseId);
-  const modules = await moduleService.getModules(courseId);
+  const modules = await moduleService.getModules(courseId, req.user!.id, req.user!.isInstructor, req.user!.isAdmin);
   res.json({ success: true, data: modules });
 }));
 
@@ -145,10 +169,10 @@ router.put('/:courseId/modules/reorder', authenticateToken, requireInstructor, a
 
 // ============= LECTURES =============
 
-// Get module lectures
-router.get('/modules/:moduleId/lectures', asyncHandler(async (req: AuthRequest, res: Response) => {
+// Get module lectures (requires authentication for enrollment verification)
+router.get('/modules/:moduleId/lectures', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const moduleId = parseInt(req.params.moduleId);
-  const lectures = await lectureService.getLectures(moduleId);
+  const lectures = await lectureService.getLecturesWithAccessCheck(moduleId, req.user!.id, req.user!.isInstructor, req.user!.isAdmin);
   res.json({ success: true, data: lectures });
 }));
 
@@ -303,7 +327,7 @@ router.get('/:courseId/chatbot-analytics', authenticateToken, requireInstructor,
 router.get('/sections/:sectionId/conversations', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
   const sectionId = parseInt(req.params.sectionId);
   const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 20;
+  const limit = parsePaginationLimit(req.query.limit as string, 20);
   const result = await chatbotConversationService.getConversationsForSection(sectionId, req.user!.id, req.user!.isAdmin, page, limit);
   res.json({ success: true, data: result });
 }));
@@ -313,6 +337,72 @@ router.get('/chatbot-conversations/:conversationId', authenticateToken, requireI
   const conversationId = parseInt(req.params.conversationId);
   const result = await chatbotConversationService.getConversationMessagesForInstructor(conversationId, req.user!.id, req.user!.isAdmin);
   res.json({ success: true, data: result });
+}));
+
+// ============= LECTURE AI HELPER =============
+
+// Chat with AI helper for lecture (Discuss mode - chat-based)
+router.post('/lectures/:lectureId/ai-helper/chat', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const lectureId = parseInt(req.params.lectureId);
+  const { mode, message, sessionId } = lectureAIHelperChatSchema.parse(req.body);
+  const result = await lectureAIHelperService.chat(lectureId, mode, message, req.user!.id, sessionId, req.user!.isAdmin);
+  res.json({ success: true, data: result });
+}));
+
+// Get all AI helper sessions for lecture (Discuss mode)
+router.get('/lectures/:lectureId/ai-helper/sessions', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const lectureId = parseInt(req.params.lectureId);
+  const sessions = await lectureAIHelperService.getSessions(lectureId, req.user!.id, req.user!.isAdmin);
+  res.json({ success: true, data: sessions });
+}));
+
+// Get AI helper chat history for session (Discuss mode)
+router.get('/lectures/:lectureId/ai-helper/history/:sessionId', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const lectureId = parseInt(req.params.lectureId);
+  const { sessionId } = req.params;
+  const history = await lectureAIHelperService.getChatHistory(lectureId, sessionId, req.user!.id, req.user!.isAdmin);
+  res.json({ success: true, data: history });
+}));
+
+// ============= LECTURE AI HELPER - EXPLAIN MODE (Thread-based) =============
+
+// Get PDF info for a lecture (page counts for page selection UI)
+router.get('/lectures/:lectureId/ai-helper/pdf-info', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const lectureId = parseInt(req.params.lectureId);
+  const pdfInfo = await lectureAIHelperService.getPdfInfo(lectureId, req.user!.id, req.user!.isAdmin);
+  res.json({ success: true, data: { pdfs: pdfInfo } });
+}));
+
+// Create new explain thread
+router.post('/lectures/:lectureId/ai-helper/explain/threads', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const lectureId = parseInt(req.params.lectureId);
+  const { question, pdfPageRanges } = createExplainThreadSchema.parse(req.body);
+  const thread = await lectureAIHelperService.createExplainThread(lectureId, req.user!.id, question, req.user!.isAdmin, pdfPageRanges);
+  res.status(201).json({ success: true, data: thread });
+}));
+
+// Get all explain threads for lecture
+router.get('/lectures/:lectureId/ai-helper/explain/threads', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const lectureId = parseInt(req.params.lectureId);
+  const threads = await lectureAIHelperService.getExplainThreads(lectureId, req.user!.id, req.user!.isAdmin);
+  res.json({ success: true, data: threads });
+}));
+
+// Get specific explain thread
+router.get('/lectures/:lectureId/ai-helper/explain/threads/:threadId', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const lectureId = parseInt(req.params.lectureId);
+  const threadId = parseInt(req.params.threadId);
+  const thread = await lectureAIHelperService.getExplainThread(lectureId, threadId, req.user!.id, req.user!.isAdmin);
+  res.json({ success: true, data: thread });
+}));
+
+// Add follow-up to explain thread
+router.post('/lectures/:lectureId/ai-helper/explain/threads/:threadId/follow-up', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const lectureId = parseInt(req.params.lectureId);
+  const threadId = parseInt(req.params.threadId);
+  const { question, parentPostId, pdfPageRanges } = addExplainFollowUpSchema.parse(req.body);
+  const thread = await lectureAIHelperService.addFollowUp(lectureId, threadId, req.user!.id, question, parentPostId, req.user!.isAdmin, pdfPageRanges);
+  res.json({ success: true, data: thread });
 }));
 
 export default router;

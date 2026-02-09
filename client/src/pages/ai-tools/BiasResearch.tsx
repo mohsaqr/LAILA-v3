@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Scale, AlertTriangle, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { chatApi } from '../../api/chat';
@@ -24,6 +25,7 @@ interface BiasResult {
 }
 
 export const BiasResearch = () => {
+  const { t } = useTranslation(['courses', 'common']);
   const [text, setText] = useState('');
   const [biasType, setBiasType] = useState('general');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -109,7 +111,7 @@ If no significant bias is detected, return an empty biases array with an appropr
       <div className="mb-6">
         <Link to="/ai-tools">
           <Button variant="ghost" size="sm" icon={<ArrowLeft className="w-4 h-4" />}>
-            Back to AI Tools
+            {t('back_to_ai_tools')}
           </Button>
         </Link>
       </div>
@@ -119,8 +121,8 @@ If no significant bias is detected, return an empty biases array with an appropr
           <Scale className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Bias Research Platform</h1>
-          <p className="text-gray-600">Analyze text for potential biases in academic research</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('bias_research_platform')}</h1>
+          <p className="text-gray-600">{t('bias_research_desc')}</p>
         </div>
       </div>
 
@@ -128,18 +130,18 @@ If no significant bias is detected, return an empty biases array with an appropr
         {/* Input Section */}
         <Card>
           <CardHeader>
-            <h2 className="font-semibold text-gray-900">Text Analysis</h2>
+            <h2 className="font-semibold text-gray-900">{t('text_analysis')}</h2>
           </CardHeader>
           <CardBody className="space-y-4">
             <Select
-              label="Bias Type to Detect"
+              label={t('bias_type_detect')}
               value={biasType}
               onChange={e => setBiasType(e.target.value)}
               options={BIAS_TYPES}
             />
 
             <TextArea
-              label="Text to Analyze"
+              label={t('text_to_analyze')}
               value={text}
               onChange={e => setText(e.target.value)}
               placeholder="Paste your research text, vignette, or survey question here..."
@@ -151,7 +153,7 @@ If no significant bias is detected, return an empty biases array with an appropr
               loading={isAnalyzing}
               icon={<Scale className="w-4 h-4" />}
             >
-              Analyze for Bias
+              {t('analyze_for_bias')}
             </Button>
           </CardBody>
         </Card>
@@ -160,13 +162,13 @@ If no significant bias is detected, return an empty biases array with an appropr
         {(summary || results.length > 0) && (
           <Card>
             <CardHeader>
-              <h2 className="font-semibold text-gray-900">Analysis Results</h2>
+              <h2 className="font-semibold text-gray-900">{t('analysis_results')}</h2>
             </CardHeader>
             <CardBody className="space-y-4">
               {/* Summary */}
               {summary && (
                 <div className="p-4 bg-blue-50 rounded-lg">
-                  <h3 className="font-medium text-blue-900 mb-2">Summary</h3>
+                  <h3 className="font-medium text-blue-900 mb-2">{t('summary')}</h3>
                   <p className="text-blue-800">{summary}</p>
                 </div>
               )}
@@ -174,7 +176,7 @@ If no significant bias is detected, return an empty biases array with an appropr
               {/* Individual Bias Results */}
               {results.length > 0 ? (
                 <div className="space-y-3">
-                  <h3 className="font-medium text-gray-900">Detected Issues</h3>
+                  <h3 className="font-medium text-gray-900">{t('detected_issues')}</h3>
                   {results.map((result, idx) => (
                     <div
                       key={idx}
@@ -202,7 +204,7 @@ If no significant bias is detected, return an empty biases array with an appropr
                 summary && (
                   <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg">
                     <CheckCircle className="w-6 h-6 text-green-600" />
-                    <p className="text-green-800">No significant bias detected in the text.</p>
+                    <p className="text-green-800">{t('no_bias_detected')}</p>
                   </div>
                 )
               )}
@@ -213,19 +215,17 @@ If no significant bias is detected, return an empty biases array with an appropr
         {/* Info */}
         <Card>
           <CardHeader>
-            <h2 className="font-semibold text-gray-900">About Bias Detection</h2>
+            <h2 className="font-semibold text-gray-900">{t('about_bias_detection')}</h2>
           </CardHeader>
           <CardBody>
             <div className="flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
               <div className="text-sm text-gray-600">
                 <p className="mb-2">
-                  This tool uses AI to help identify potential biases in text. It's designed to
-                  assist researchers in creating more inclusive and balanced content.
+                  {t('bias_detection_note')}
                 </p>
                 <p>
-                  <strong>Note:</strong> AI analysis should be used as a starting point for review,
-                  not as a definitive assessment. Always apply human judgment and domain expertise.
+                  <strong>{t('common:info')}:</strong> {t('bias_detection_warning')}
                 </p>
               </div>
             </div>

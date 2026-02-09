@@ -42,6 +42,7 @@ export interface BulkInteractionData {
   sessionId: string;
   sessionStartTime?: number;
   events: InteractionEventData[];
+  testMode?: string | null; // 'test_instructor', 'test_student' for admin "View As" feature
   userAgent?: string;
   // Client info
   browserName?: string;
@@ -84,6 +85,7 @@ export interface ChatbotInteractionData {
   errorStack?: string;
   metadata?: Record<string, unknown>;
   timestamp?: number;
+  testMode?: string | null; // 'test_instructor', 'test_student' for admin "View As" feature
   // Client info
   userAgent?: string;
   browserName?: string;
@@ -244,6 +246,9 @@ export class AnalyticsService {
 
         // Additional data
         metadata: event.metadata ? JSON.stringify(event.metadata) : null,
+
+        // Test mode for admin "View As" feature
+        testMode: data.testMode || null,
       };
     });
 
@@ -373,6 +378,9 @@ export class AnalyticsService {
 
         // ===== ADDITIONAL DATA =====
         metadata: data.metadata ? JSON.stringify(data.metadata) : null,
+
+        // ===== TEST MODE (Admin "View As" feature) =====
+        testMode: data.testMode || null,
       },
     });
 
@@ -935,6 +943,261 @@ export class AnalyticsService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  /**
+   * Query user interactions with filters, pagination, search, and sorting
+   */
+  async queryInteractions(filters: {
+    userId?: number;
+    courseId?: number;
+    eventType?: string;
+    pagePath?: string;
+    startDate?: Date;
+    endDate?: Date;
+    search?: string;
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }) {
+    const {
+      userId,
+      courseId,
+      eventType,
+      pagePath,
+      startDate,
+      endDate,
+      search,
+      page = 1,
+      limit = 50,
+      sortBy = 'timestamp',
+      sortOrder = 'desc',
+    } = filters;
+
+    const where: Record<string, unknown> = {};
+
+    if (userId) where.userId = userId;
+    if (courseId) where.courseId = courseId;
+    if (eventType) where.eventType = eventType;
+    if (pagePath) where.pagePath = { contains: pagePath };
+    if (startDate || endDate) {
+      where.timestamp = {};
+      if (startDate) (where.timestamp as Record<string, unknown>).gte = startDate;
+      if (endDate) (where.timestamp as Record<string, unknown>).lte = endDate;
+    }
+
+    // Search across multiple fields
+    if (search) {
+      where.OR = [
+        { userEmail: { contains: search } },
+        { userFullname: { contains: search } },
+        { pagePath: { contains: search } },
+        { pageTitle: { contains: search } },
+        { courseTitle: { contains: search } },
+        { eventAction: { contains: search } },
+        { elementText: { contains: search } },
+      ];
+    }
+
+    // Valid sort fields
+    const validSortFields = [
+      'timestamp', 'userFullname', 'eventType', 'pagePath', 'courseTitle',
+      'deviceType', 'browserName', 'scrollDepth', 'timeOnPage',
+    ];
+    const orderByField = validSortFields.includes(sortBy) ? sortBy : 'timestamp';
+    const orderBy = { [orderByField]: sortOrder };
+
+    const [logs, total] = await Promise.all([
+      prisma.userInteractionLog.findMany({
+        where,
+        orderBy,
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          user: { select: { id: true, fullname: true, email: true } },
+        },
+      }),
+      prisma.userInteractionLog.count({ where }),
+    ]);
+
+    return {
+      logs: logs.map(i => ({
+        id: i.id,
+        timestamp: i.timestamp,
+        timestampMs: i.timestampMs?.toString(),
+        sessionId: i.sessionId,
+        sessionDuration: i.sessionDuration,
+        timeOnPage: i.timeOnPage,
+
+        // User
+        userId: i.userId,
+        userFullname: i.userFullname,
+        userEmail: i.userEmail,
+
+        // Event
+        eventType: i.eventType,
+        eventCategory: i.eventCategory,
+        eventAction: i.eventAction,
+        eventLabel: i.eventLabel,
+        eventValue: i.eventValue,
+        eventSequence: i.eventSequence,
+
+        // Page
+        pagePath: i.pagePath,
+        pageUrl: i.pageUrl,
+        pageTitle: i.pageTitle,
+        referrerUrl: i.referrerUrl,
+
+        // Course context
+        courseId: i.courseId,
+        courseTitle: i.courseTitle,
+        moduleId: i.moduleId,
+        moduleTitle: i.moduleTitle,
+        lectureId: i.lectureId,
+        lectureTitle: i.lectureTitle,
+
+        // Element
+        elementId: i.elementId,
+        elementType: i.elementType,
+        elementText: i.elementText,
+        elementHref: i.elementHref,
+        elementClasses: i.elementClasses,
+        elementName: i.elementName,
+        elementValue: i.elementValue,
+
+        // Scroll/viewport
+        scrollDepth: i.scrollDepth,
+        viewportWidth: i.viewportWidth,
+        viewportHeight: i.viewportHeight,
+
+        // Client
+        deviceType: i.deviceType,
+        browserName: i.browserName,
+        browserVersion: i.browserVersion,
+        osName: i.osName,
+        osVersion: i.osVersion,
+        screenWidth: i.screenWidth,
+        screenHeight: i.screenHeight,
+        language: i.language,
+        timezone: i.timezone,
+        ipAddress: i.ipAddress,
+        userAgent: i.userAgent,
+
+        metadata: i.metadata ? JSON.parse(i.metadata) : null,
+        testMode: i.testMode,
+      })),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  /**
+   * Get filter options for interactions dropdowns
+   */
+  async getInteractionFilterOptions() {
+    const [users, courses, eventTypes, pages] = await Promise.all([
+      prisma.userInteractionLog.findMany({
+        select: { userId: true, userFullname: true, userEmail: true },
+        distinct: ['userId'],
+        where: { userId: { not: null } },
+        orderBy: { userFullname: 'asc' },
+      }),
+      prisma.userInteractionLog.findMany({
+        select: { courseId: true, courseTitle: true },
+        distinct: ['courseId'],
+        where: { courseId: { not: null } },
+        orderBy: { courseTitle: 'asc' },
+      }),
+      prisma.userInteractionLog.groupBy({
+        by: ['eventType'],
+        _count: { id: true },
+        orderBy: { eventType: 'asc' },
+      }),
+      prisma.userInteractionLog.groupBy({
+        by: ['pagePath'],
+        _count: { id: true },
+        orderBy: { _count: { pagePath: 'desc' } },
+        take: 50,
+      }),
+    ]);
+
+    return {
+      users: users.filter(u => u.userId).map(u => ({
+        id: u.userId!,
+        fullname: u.userFullname,
+        email: u.userEmail,
+      })),
+      courses: courses.filter(c => c.courseId).map(c => ({
+        id: c.courseId!,
+        title: c.courseTitle,
+      })),
+      eventTypes: eventTypes.map(e => ({ eventType: e.eventType, count: e._count.id })),
+      pages: pages.filter(p => p.pagePath).map(p => ({ path: p.pagePath!, count: p._count.id })),
+    };
+  }
+
+  /**
+   * Export interactions to CSV
+   */
+  async exportInteractionsToCsv(filters: {
+    userId?: number;
+    courseId?: number;
+    eventType?: string;
+    startDate?: Date;
+    endDate?: Date;
+    search?: string;
+  }): Promise<string> {
+    const where: Record<string, unknown> = {};
+    if (filters.userId) where.userId = filters.userId;
+    if (filters.courseId) where.courseId = filters.courseId;
+    if (filters.eventType) where.eventType = filters.eventType;
+    if (filters.startDate || filters.endDate) {
+      where.timestamp = {};
+      if (filters.startDate) (where.timestamp as Record<string, unknown>).gte = filters.startDate;
+      if (filters.endDate) (where.timestamp as Record<string, unknown>).lte = filters.endDate;
+    }
+    if (filters.search) {
+      where.OR = [
+        { userEmail: { contains: filters.search } },
+        { userFullname: { contains: filters.search } },
+        { pagePath: { contains: filters.search } },
+        { courseTitle: { contains: filters.search } },
+      ];
+    }
+
+    const logs = await prisma.userInteractionLog.findMany({
+      where,
+      orderBy: { timestamp: 'desc' },
+      take: 10000,
+    });
+
+    if (logs.length === 0) return 'No data to export';
+
+    const headers = [
+      'id', 'timestamp', 'userId', 'userEmail', 'userFullname', 'sessionId',
+      'eventType', 'eventCategory', 'eventAction', 'eventLabel', 'eventValue',
+      'pagePath', 'pageUrl', 'pageTitle', 'referrerUrl',
+      'courseId', 'courseTitle', 'moduleId', 'moduleTitle', 'lectureId', 'lectureTitle',
+      'elementId', 'elementType', 'elementText', 'elementHref',
+      'scrollDepth', 'viewportWidth', 'viewportHeight', 'timeOnPage',
+      'deviceType', 'browserName', 'browserVersion', 'osName', 'osVersion',
+      'screenWidth', 'screenHeight', 'language', 'timezone',
+    ];
+
+    const escapeCSV = (value: unknown): string => {
+      if (value === null || value === undefined) return '';
+      const str = String(value);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const rows = logs.map(log =>
+      headers.map(h => escapeCSV((log as Record<string, unknown>)[h])).join(',')
+    );
+
+    return [headers.join(','), ...rows].join('\n');
   }
 }
 

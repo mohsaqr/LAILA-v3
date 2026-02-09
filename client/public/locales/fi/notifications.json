@@ -1,0 +1,43 @@
+{
+  "title": "Ilmoitukset",
+  "empty": "Ei ilmoituksia vielä",
+  "mark_all_read": "Merkitse kaikki luetuiksi",
+  "load_more": "Lataa lisää",
+  "loading": "Ladataan...",
+  "manage_preferences": "Hallitse ilmoitusasetuksia",
+  "view_all": "Näytä kaikki ilmoitukset",
+
+  "types": {
+    "grade_posted": "Arvosana julkaistu",
+    "deadline_approaching": "Määräaika lähestyy",
+    "announcement": "Ilmoitus",
+    "forum_reply": "Foorumivastaus",
+    "enrollment": "Ilmoittautuminen",
+    "certificate": "Todistus"
+  },
+
+  "preferences": {
+    "title": "Ilmoitusasetukset",
+    "in_app_section": "Sovelluksen sisäiset ilmoitukset",
+    "email_section": "Sähköposti-ilmoitukset",
+    "in_app_enabled": "Ota sovelluksen sisäiset ilmoitukset käyttöön",
+    "in_app_enabled_description": "Vastaanota ilmoituksia kellokuvakkeessa",
+    "in_app_grade_posted": "Arvosanailmoitukset",
+    "in_app_grade_posted_description": "Kun tehtäväsi arvostellaan",
+    "in_app_deadline": "Määräaikamuistutukset",
+    "in_app_deadline_description": "Kun tehtävien määräaika lähestyy",
+    "in_app_announcement": "Kurssitiedotteet",
+    "in_app_announcement_description": "Kun opettajat julkaisevat tiedotteita",
+    "in_app_forum_reply": "Foorumivastaukset",
+    "in_app_forum_reply_description": "Kun joku vastaa viesteihisi",
+    "in_app_certificate": "Todistukset",
+    "in_app_certificate_description": "Kun ansaitset todistuksen"
+  },
+
+  "time": {
+    "just_now": "juuri nyt",
+    "minutes_ago": "{{count}} min sitten",
+    "hours_ago": "{{count}} h sitten",
+    "days_ago": "{{count}} pv sitten"
+  }
+}

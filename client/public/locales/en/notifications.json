@@ -1,0 +1,43 @@
+{
+  "title": "Notifications",
+  "empty": "No notifications yet",
+  "mark_all_read": "Mark all as read",
+  "load_more": "Load more",
+  "loading": "Loading...",
+  "manage_preferences": "Manage notification preferences",
+  "view_all": "View all notifications",
+
+  "types": {
+    "grade_posted": "Grade Posted",
+    "deadline_approaching": "Deadline Approaching",
+    "announcement": "Announcement",
+    "forum_reply": "Forum Reply",
+    "enrollment": "Enrollment",
+    "certificate": "Certificate"
+  },
+
+  "preferences": {
+    "title": "Notification Preferences",
+    "in_app_section": "In-App Notifications",
+    "email_section": "Email Notifications",
+    "in_app_enabled": "Enable in-app notifications",
+    "in_app_enabled_description": "Receive notifications in the bell icon",
+    "in_app_grade_posted": "Grade notifications",
+    "in_app_grade_posted_description": "When your assignments are graded",
+    "in_app_deadline": "Deadline reminders",
+    "in_app_deadline_description": "When assignments are due soon",
+    "in_app_announcement": "Course announcements",
+    "in_app_announcement_description": "When instructors post announcements",
+    "in_app_forum_reply": "Forum replies",
+    "in_app_forum_reply_description": "When someone replies to your posts",
+    "in_app_certificate": "Certificates",
+    "in_app_certificate_description": "When you earn a certificate"
+  },
+
+  "time": {
+    "just_now": "just now",
+    "minutes_ago": "{{count}}m ago",
+    "hours_ago": "{{count}}h ago",
+    "days_ago": "{{count}}d ago"
+  }
+}

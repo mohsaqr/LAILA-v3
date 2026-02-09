@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   BookOpen,
   GraduationCap,
@@ -9,18 +10,28 @@ import {
   Users,
   FileText,
   AlertCircle,
-  ArrowRight,
   BrainCircuit,
+  Sparkles,
+  Settings,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../hooks/useTheme';
 import { usersApi } from '../api/users';
-import { enrollmentsApi } from '../api/enrollments';
 import { coursesApi } from '../api/courses';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 
 export const Dashboard = () => {
+  const { t } = useTranslation(['courses', 'navigation', 'settings']);
   const { user, isInstructor } = useAuth();
+  const { isDark } = useTheme();
+
+  // Theme colors
+  const colors = {
+    textPrimary: isDark ? '#f3f4f6' : '#111827',
+    textSecondary: isDark ? '#9ca3af' : '#6b7280',
+    bg: isDark ? '#111827' : '#f9fafb',
+  };
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['userStats', user?.id],
@@ -34,12 +45,6 @@ export const Dashboard = () => {
     enabled: !!user && isInstructor,
   });
 
-  const { data: enrollments, isLoading: enrollmentsLoading } = useQuery({
-    queryKey: ['enrollments'],
-    queryFn: () => enrollmentsApi.getMyEnrollments(),
-    enabled: !!user,
-  });
-
   useQuery({
     queryKey: ['teachingCourses'],
     queryFn: () => coursesApi.getMyCourses(),
@@ -47,250 +52,241 @@ export const Dashboard = () => {
   });
 
   if (statsLoading) {
-    return <Loading fullScreen text="Loading dashboard..." />;
+    return <Loading fullScreen text={t('loading_dashboard')} />;
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Welcome Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">
-          Welcome back, {user?.fullname?.split(' ')[0]}!
-        </h1>
-        <p className="text-gray-600 mt-1">Here's what's happening with your learning journey.</p>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card>
-          <CardBody className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-              <BookOpen className="w-6 h-6 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{stats?.enrolledCourses || 0}</p>
-              <p className="text-sm text-gray-500">Enrolled Courses</p>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardBody className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-              <Award className="w-6 h-6 text-green-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{stats?.completedCourses || 0}</p>
-              <p className="text-sm text-gray-500">Completed</p>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardBody className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
-              <Clock className="w-6 h-6 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">
-                {Math.round((stats?.totalTimeSpent || 0) / 3600)}h
+    <div className="min-h-screen" style={{ backgroundColor: colors.bg }}>
+      {/* Hero Banner */}
+      <div className="bg-gradient-to-br from-primary-600 via-primary-700 to-secondary-600 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
+            <div className="flex-1">
+              <h1 className="text-3xl lg:text-4xl font-bold mb-3">
+                {t('welcome_back', { name: user?.fullname?.split(' ')[0] })}
+              </h1>
+              <p className="text-white/80 text-lg mb-6">
+                {t('explore_description')}
               </p>
-              <p className="text-sm text-gray-500">Learning Time</p>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  to="/catalog"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-primary-700 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+                >
+                  <Sparkles className="w-5 h-5" />
+                  {t('explore_courses')}
+                </Link>
+                <Link
+                  to="/ai-tools"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/20 text-white rounded-lg font-medium hover:bg-white/30 transition-colors"
+                >
+                  <BrainCircuit className="w-5 h-5" />
+                  {t('ai_tools')}
+                </Link>
+              </div>
             </div>
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardBody className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
-              <FileText className="w-6 h-6 text-orange-600" />
+            <div className="hidden lg:block">
+              <div className="relative">
+                <div className="w-64 h-64 bg-white/10 rounded-full flex items-center justify-center">
+                  <div className="w-48 h-48 bg-white/10 rounded-full flex items-center justify-center">
+                    <GraduationCap className="w-24 h-24 text-white/80" />
+                  </div>
+                </div>
+                <div className="absolute -top-2 -right-2 w-16 h-16 bg-yellow-400 rounded-full flex items-center justify-center shadow-lg">
+                  <Sparkles className="w-8 h-8 text-yellow-800" />
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{stats?.submittedAssignments || 0}</p>
-              <p className="text-sm text-gray-500">Submissions</p>
-            </div>
-          </CardBody>
-        </Card>
+          </div>
+        </div>
       </div>
 
-      {/* Instructor Stats */}
-      {isInstructor && instructorStats && (
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Teaching Overview</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card>
-              <CardBody className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
-                  <Briefcase className="w-6 h-6 text-indigo-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{instructorStats.totalCourses}</p>
-                  <p className="text-sm text-gray-500">Your Courses</p>
-                </div>
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardBody className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-cyan-100 flex items-center justify-center">
-                  <Users className="w-6 h-6 text-cyan-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{instructorStats.totalStudents}</p>
-                  <p className="text-sm text-gray-500">Total Students</p>
-                </div>
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardBody className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-pink-100 flex items-center justify-center">
-                  <FileText className="w-6 h-6 text-pink-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{instructorStats.totalAssignments}</p>
-                  <p className="text-sm text-gray-500">Assignments</p>
-                </div>
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardBody className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
-                  <AlertCircle className="w-6 h-6 text-yellow-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{instructorStats.pendingGrading}</p>
-                  <p className="text-sm text-gray-500">Pending Grading</p>
-                </div>
-              </CardBody>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Current Courses */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">Continue Learning</h2>
-            <Link to="/learn" className="text-primary-600 hover:text-primary-700 text-sm font-medium">
-              View all
-            </Link>
-          </div>
-
-          {enrollmentsLoading ? (
-            <Loading />
-          ) : enrollments && enrollments.length > 0 ? (
-            <div className="space-y-4">
-              {enrollments.slice(0, 3).map(enrollment => (
-                <Link key={enrollment.id} to={`/learn/${enrollment.courseId}`}>
-                  <Card hover>
-                    <CardBody className="flex items-center gap-4">
-                      <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center flex-shrink-0">
-                        <GraduationCap className="w-8 h-8 text-white" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-gray-900 truncate">
-                          {enrollment.course?.title}
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          {enrollment.course?.instructor?.fullname}
-                        </p>
-                        <div className="mt-2 flex items-center gap-2">
-                          <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-primary-500 to-secondary-500"
-                              style={{ width: `${enrollment.progress}%` }}
-                            />
-                          </div>
-                          <span className="text-xs text-gray-500">{enrollment.progress}%</span>
-                        </div>
-                      </div>
-                      <ArrowRight className="w-5 h-5 text-gray-400" />
-                    </CardBody>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <Card>
-              <CardBody className="text-center py-8">
-                <GraduationCap className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500 mb-4">You haven't enrolled in any courses yet</p>
-                <Link to="/catalog" className="btn btn-primary">
-                  Browse Courses
-                </Link>
-              </CardBody>
-            </Card>
-          )}
-        </div>
-
-        {/* Quick Actions */}
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-2 gap-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Quick Actions Grid */}
+        <div className="mb-10">
+          <h2 className="text-xl font-bold mb-4" style={{ color: colors.textPrimary }}>{t('quick_actions')}</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Link to="/catalog">
-              <Card hover>
+              <Card hover className="h-full">
                 <CardBody className="text-center py-6">
-                  <GraduationCap className="w-8 h-8 text-primary-500 mx-auto mb-2" />
-                  <p className="font-medium text-gray-900">Browse Courses</p>
+                  <div className="w-12 h-12 rounded-xl bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center mx-auto mb-3">
+                    <GraduationCap className="w-6 h-6 text-primary-600 dark:text-primary-400" />
+                  </div>
+                  <p className="font-medium" style={{ color: colors.textPrimary }}>{t('browse_courses')}</p>
                 </CardBody>
               </Card>
             </Link>
 
             <Link to="/ai-tools">
-              <Card hover>
+              <Card hover className="h-full">
                 <CardBody className="text-center py-6">
-                  <BrainCircuit className="w-8 h-8 text-secondary-500 mx-auto mb-2" />
-                  <p className="font-medium text-gray-900">AI Tools</p>
+                  <div className="w-12 h-12 rounded-xl bg-secondary-100 dark:bg-secondary-900/30 flex items-center justify-center mx-auto mb-3">
+                    <BrainCircuit className="w-6 h-6 text-secondary-600 dark:text-secondary-400" />
+                  </div>
+                  <p className="font-medium" style={{ color: colors.textPrimary }}>{t('ai_tools')}</p>
                 </CardBody>
               </Card>
             </Link>
 
-            {isInstructor && (
+            {isInstructor ? (
               <>
                 <Link to="/teach/create">
-                  <Card hover>
+                  <Card hover className="h-full">
                     <CardBody className="text-center py-6">
-                      <Briefcase className="w-8 h-8 text-indigo-500 mx-auto mb-2" />
-                      <p className="font-medium text-gray-900">Create Course</p>
+                      <div className="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center mx-auto mb-3">
+                        <Briefcase className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                      </div>
+                      <p className="font-medium" style={{ color: colors.textPrimary }}>{t('create_course')}</p>
                     </CardBody>
                   </Card>
                 </Link>
 
                 <Link to="/teach">
-                  <Card hover>
+                  <Card hover className="h-full">
                     <CardBody className="text-center py-6">
-                      <Users className="w-8 h-8 text-cyan-500 mx-auto mb-2" />
-                      <p className="font-medium text-gray-900">Manage Courses</p>
+                      <div className="w-12 h-12 rounded-xl bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center mx-auto mb-3">
+                        <Users className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
+                      </div>
+                      <p className="font-medium" style={{ color: colors.textPrimary }}>{t('manage_courses')}</p>
                     </CardBody>
                   </Card>
                 </Link>
               </>
-            )}
-
-            {!isInstructor && (
+            ) : (
               <>
-                <Link to="/learn">
-                  <Card hover>
+                <Link to="/ai-tools/builder">
+                  <Card hover className="h-full">
                     <CardBody className="text-center py-6">
-                      <BookOpen className="w-8 h-8 text-green-500 mx-auto mb-2" />
-                      <p className="font-medium text-gray-900">My Learning</p>
+                      <div className="w-12 h-12 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center mx-auto mb-3">
+                        <Sparkles className="w-6 h-6 text-violet-600 dark:text-violet-400" />
+                      </div>
+                      <p className="font-medium" style={{ color: colors.textPrimary }}>{t('ai_builder')}</p>
                     </CardBody>
                   </Card>
                 </Link>
 
                 <Link to="/settings">
-                  <Card hover>
+                  <Card hover className="h-full">
                     <CardBody className="text-center py-6">
-                      <Award className="w-8 h-8 text-orange-500 mx-auto mb-2" />
-                      <p className="font-medium text-gray-900">My Progress</p>
+                      <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center mx-auto mb-3">
+                        <Settings className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+                      </div>
+                      <p className="font-medium" style={{ color: colors.textPrimary }}>{t('settings:settings')}</p>
                     </CardBody>
                   </Card>
                 </Link>
               </>
             )}
+          </div>
+        </div>
+
+        {/* Instructor Teaching Overview */}
+        {isInstructor && instructorStats && (
+          <div className="mb-10">
+            <h2 className="text-xl font-bold mb-4" style={{ color: colors.textPrimary }}>{t('teaching_overview')}</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Link to="/teach">
+                <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 hover:shadow-md transition-shadow cursor-pointer">
+                  <CardBody className="flex items-center gap-4 py-5">
+                    <div className="w-12 h-12 rounded-full bg-indigo-500 flex items-center justify-center">
+                      <Briefcase className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-indigo-900">{instructorStats.totalCourses}</p>
+                      <p className="text-sm text-indigo-600">{t('your_courses')}</p>
+                    </div>
+                  </CardBody>
+                </Card>
+              </Link>
+
+              <Card className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-cyan-200">
+                <CardBody className="flex items-center gap-4 py-5">
+                  <div className="w-12 h-12 rounded-full bg-cyan-500 flex items-center justify-center">
+                    <Users className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-cyan-900">{instructorStats.totalStudents}</p>
+                    <p className="text-sm text-cyan-600">{t('total_students')}</p>
+                  </div>
+                </CardBody>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-pink-50 to-pink-100 border-pink-200">
+                <CardBody className="flex items-center gap-4 py-5">
+                  <div className="w-12 h-12 rounded-full bg-pink-500 flex items-center justify-center">
+                    <FileText className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-pink-900">{instructorStats.totalAssignments}</p>
+                    <p className="text-sm text-pink-600">{t('assignments')}</p>
+                  </div>
+                </CardBody>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
+                <CardBody className="flex items-center gap-4 py-5">
+                  <div className="w-12 h-12 rounded-full bg-yellow-500 flex items-center justify-center">
+                    <AlertCircle className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-yellow-900">{instructorStats.pendingGrading}</p>
+                    <p className="text-sm text-yellow-700">{t('pending_grading')}</p>
+                  </div>
+                </CardBody>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {/* Stats Section - Bottom */}
+        <div>
+          <h2 className="text-xl font-bold mb-4" style={{ color: colors.textPrimary }}>{t('your_progress')}</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Link to="/courses?filter=enrolled">
+              <Card hover>
+                <CardBody className="text-center py-5">
+                  <div className="w-14 h-14 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mx-auto mb-3">
+                    <BookOpen className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <p className="text-3xl font-bold" style={{ color: colors.textPrimary }}>{stats?.enrolledCourses || 0}</p>
+                  <p className="text-sm" style={{ color: colors.textSecondary }}>{t('enrolled_courses')}</p>
+                </CardBody>
+              </Card>
+            </Link>
+
+            <Link to="/courses?filter=completed">
+              <Card hover>
+                <CardBody className="text-center py-5">
+                  <div className="w-14 h-14 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-3">
+                    <Award className="w-7 h-7 text-green-600 dark:text-green-400" />
+                  </div>
+                  <p className="text-3xl font-bold" style={{ color: colors.textPrimary }}>{stats?.completedCourses || 0}</p>
+                  <p className="text-sm" style={{ color: colors.textSecondary }}>{t('completed')}</p>
+                </CardBody>
+              </Card>
+            </Link>
+
+            <Card>
+              <CardBody className="text-center py-5">
+                <div className="w-14 h-14 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mx-auto mb-3">
+                  <Clock className="w-7 h-7 text-purple-600 dark:text-purple-400" />
+                </div>
+                <p className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
+                  {Math.round((stats?.totalTimeSpent || 0) / 3600)}h
+                </p>
+                <p className="text-sm" style={{ color: colors.textSecondary }}>{t('learning_time')}</p>
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardBody className="text-center py-5">
+                <div className="w-14 h-14 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center mx-auto mb-3">
+                  <FileText className="w-7 h-7 text-orange-600 dark:text-orange-400" />
+                </div>
+                <p className="text-3xl font-bold" style={{ color: colors.textPrimary }}>{stats?.submittedAssignments || 0}</p>
+                <p className="text-sm" style={{ color: colors.textSecondary }}>{t('submissions')}</p>
+              </CardBody>
+            </Card>
           </div>
         </div>
       </div>

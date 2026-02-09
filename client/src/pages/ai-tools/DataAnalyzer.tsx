@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, BarChart3, Upload, FileSpreadsheet, TrendingUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { chatApi } from '../../api/chat';
@@ -16,6 +17,7 @@ const ANALYSIS_TYPES = [
 ];
 
 export const DataAnalyzer = () => {
+  const { t } = useTranslation(['courses', 'common']);
   const [data, setData] = useState('');
   const [analysisType, setAnalysisType] = useState('descriptive');
   const [question, setQuestion] = useState('');
@@ -88,7 +90,7 @@ Format your response clearly with sections and bullet points.`;
       <div className="mb-6">
         <Link to="/ai-tools">
           <Button variant="ghost" size="sm" icon={<ArrowLeft className="w-4 h-4" />}>
-            Back to AI Tools
+            {t('back_to_ai_tools')}
           </Button>
         </Link>
       </div>
@@ -98,8 +100,8 @@ Format your response clearly with sections and bullet points.`;
           <BarChart3 className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Data Interpreter</h1>
-          <p className="text-gray-600">AI-powered statistical analysis for educational research</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('data_interpreter')}</h1>
+          <p className="text-gray-600">{t('data_interpreter_desc')}</p>
         </div>
       </div>
 
@@ -107,14 +109,14 @@ Format your response clearly with sections and bullet points.`;
         {/* Input Section */}
         <Card>
           <CardHeader className="flex items-center justify-between">
-            <h2 className="font-semibold text-gray-900">Data Input</h2>
+            <h2 className="font-semibold text-gray-900">{t('data_input')}</h2>
             <Button variant="ghost" size="sm" onClick={handlePasteSample}>
-              Load Sample Data
+              {t('load_sample_data')}
             </Button>
           </CardHeader>
           <CardBody className="space-y-4">
             <TextArea
-              label="Paste Your Data (CSV format or tabular data)"
+              label={t('paste_your_data')}
               value={data}
               onChange={e => setData(e.target.value)}
               placeholder="Paste your data here in CSV format...
@@ -129,14 +131,14 @@ Student, Score, Group
             />
 
             <Select
-              label="Analysis Type"
+              label={t('analysis_type')}
               value={analysisType}
               onChange={e => setAnalysisType(e.target.value)}
               options={ANALYSIS_TYPES}
             />
 
             <TextArea
-              label="Specific Question (optional)"
+              label={t('specific_question')}
               value={question}
               onChange={e => setQuestion(e.target.value)}
               placeholder="Any specific question about your data?"
@@ -148,7 +150,7 @@ Student, Score, Group
               loading={isAnalyzing}
               icon={<TrendingUp className="w-4 h-4" />}
             >
-              Analyze Data
+              {t('analyze_data')}
             </Button>
           </CardBody>
         </Card>
@@ -157,7 +159,7 @@ Student, Score, Group
         {result && (
           <Card>
             <CardHeader>
-              <h2 className="font-semibold text-gray-900">Analysis Results</h2>
+              <h2 className="font-semibold text-gray-900">{t('analysis_results')}</h2>
             </CardHeader>
             <CardBody>
               <div className="prose prose-sm max-w-none">
@@ -172,22 +174,22 @@ Student, Score, Group
         {/* Help */}
         <Card>
           <CardHeader>
-            <h2 className="font-semibold text-gray-900">Data Format Tips</h2>
+            <h2 className="font-semibold text-gray-900">{t('data_format_tips')}</h2>
           </CardHeader>
           <CardBody>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-start gap-3">
                 <FileSpreadsheet className="w-5 h-5 text-green-500 mt-0.5" />
                 <div className="text-sm">
-                  <p className="font-medium text-gray-900">CSV Format</p>
-                  <p className="text-gray-600">Comma-separated values with headers</p>
+                  <p className="font-medium text-gray-900">{t('csv_format')}</p>
+                  <p className="text-gray-600">{t('csv_format_desc')}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <Upload className="w-5 h-5 text-blue-500 mt-0.5" />
                 <div className="text-sm">
-                  <p className="font-medium text-gray-900">Copy from Excel</p>
-                  <p className="text-gray-600">Tab-separated data works too</p>
+                  <p className="font-medium text-gray-900">{t('copy_from_excel')}</p>
+                  <p className="text-gray-600">{t('copy_from_excel_desc')}</p>
                 </div>
               </div>
             </div>

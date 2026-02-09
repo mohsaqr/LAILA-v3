@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ClipboardList, Calendar, Award, AlertCircle, Plus, X } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -44,6 +45,7 @@ export const AssignmentSectionEditor = ({
   onChange,
   readOnly = false,
 }: AssignmentSectionEditorProps) => {
+  const { t } = useTranslation(['teaching']);
   const queryClient = useQueryClient();
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<number | null>(
     section.assignmentId || null
@@ -76,13 +78,13 @@ export const AssignmentSectionEditor = ({
       }),
     onSuccess: (newAssignment) => {
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
-      toast.success('Assignment created');
+      toast.success(t('assignment_created'));
       // Auto-select the newly created assignment
       setSelectedAssignmentId(newAssignment.id);
       onChange({ assignmentId: newAssignment.id });
       closeModal();
     },
-    onError: () => toast.error('Failed to create assignment'),
+    onError: () => toast.error(t('failed_to_create_assignment')),
   });
 
   // Sync with external changes
@@ -124,7 +126,7 @@ export const AssignmentSectionEditor = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title.trim()) {
-      toast.error('Title is required');
+      toast.error(t('title_required'));
       return;
     }
     createMutation.mutate(formData);
@@ -150,7 +152,7 @@ export const AssignmentSectionEditor = ({
       return (
         <div className="text-center py-6 text-gray-500">
           <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-50" />
-          <p>No assignment selected</p>
+          <p>{t('no_assignment_selected')}</p>
         </div>
       );
     }
@@ -176,7 +178,7 @@ export const AssignmentSectionEditor = ({
               {showPoints && (
                 <span className="flex items-center gap-1">
                   <Award className="w-4 h-4" />
-                  {selectedAssignment.points} points
+                  {selectedAssignment.points} {t('points')}
                 </span>
               )}
             </div>
@@ -187,11 +189,11 @@ export const AssignmentSectionEditor = ({
   }
 
   if (isLoading) {
-    return <Loading text="Loading assignments..." />;
+    return <Loading text={t('loading_assignments')} />;
   }
 
   const assignmentOptions = [
-    { value: '', label: 'Select an assignment...' },
+    { value: '', label: t('select_an_assignment') },
     ...(assignments || []).map(a => ({
       value: a.id.toString(),
       label: a.module ? `${a.title} (${a.module.title})` : a.title,
@@ -204,11 +206,11 @@ export const AssignmentSectionEditor = ({
       <div className="flex items-end gap-3">
         <div className="flex-1">
           <Select
-            label="Assignment"
+            label={t('assignment')}
             value={selectedAssignmentId?.toString() || ''}
             onChange={e => handleAssignmentChange(e.target.value ? parseInt(e.target.value) : null)}
             options={assignmentOptions}
-            helpText="Select an existing assignment or create a new one"
+            helpText={t('select_assignment_help')}
           />
         </div>
         <Button
@@ -218,7 +220,7 @@ export const AssignmentSectionEditor = ({
           icon={<Plus className="w-4 h-4" />}
           className="mb-6"
         >
-          Create New
+          {t('create_new')}
         </Button>
       </div>
 
@@ -233,7 +235,7 @@ export const AssignmentSectionEditor = ({
                 onChange={e => handleShowDeadlineChange(e.target.checked)}
                 className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
-              <span className="text-sm text-gray-700">Show deadline</span>
+              <span className="text-sm text-gray-700">{t('show_deadline')}</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -242,13 +244,13 @@ export const AssignmentSectionEditor = ({
                 onChange={e => handleShowPointsChange(e.target.checked)}
                 className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
-              <span className="text-sm text-gray-700">Show points</span>
+              <span className="text-sm text-gray-700">{t('show_points')}</span>
             </label>
           </div>
 
           {/* Preview */}
           <div className="border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
-            <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Student Preview</p>
+            <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">{t('student_preview')}</p>
             {selectedAssignment ? (
               <div className="bg-white rounded-lg p-4 shadow-sm">
                 <div className="flex items-start gap-4">
@@ -270,12 +272,12 @@ export const AssignmentSectionEditor = ({
                       {showPoints && (
                         <span className="flex items-center gap-1">
                           <Award className="w-4 h-4" />
-                          {selectedAssignment.points} points
+                          {selectedAssignment.points} {t('points')}
                         </span>
                       )}
                     </div>
                     <button className="mt-3 px-4 py-2 text-sm font-medium text-white bg-rose-600 rounded-lg hover:bg-rose-700 transition-colors">
-                      View Assignment
+                      {t('view_assignment')}
                     </button>
                   </div>
                 </div>
@@ -283,7 +285,7 @@ export const AssignmentSectionEditor = ({
             ) : (
               <div className="text-center py-4 text-gray-500">
                 <AlertCircle className="w-6 h-6 mx-auto mb-1" />
-                <p className="text-sm">Assignment not found</p>
+                <p className="text-sm">{t('assignment_not_found')}</p>
               </div>
             )}
           </div>
@@ -294,9 +296,9 @@ export const AssignmentSectionEditor = ({
       {!isLoading && (!assignments || assignments.length === 0) && !selectedAssignmentId && (
         <div className="text-center py-6 bg-gray-50 rounded-lg">
           <AlertCircle className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-          <p className="text-gray-600">No assignments found in this course</p>
+          <p className="text-gray-600">{t('no_assignments_in_course')}</p>
           <p className="text-sm text-gray-500 mt-1 mb-3">
-            Create a new assignment to embed it in this lesson
+            {t('create_assignment_to_embed')}
           </p>
           <Button
             type="button"
@@ -304,7 +306,7 @@ export const AssignmentSectionEditor = ({
             onClick={openCreateModal}
             icon={<Plus className="w-4 h-4" />}
           >
-            Create Assignment
+            {t('create_assignment')}
           </Button>
         </div>
       )}
@@ -314,7 +316,7 @@ export const AssignmentSectionEditor = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b">
-              <h3 className="text-lg font-semibold text-gray-900">Create Assignment</h3>
+              <h3 className="text-lg font-semibold text-gray-900">{t('create_assignment')}</h3>
               <button
                 onClick={closeModal}
                 className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
@@ -325,38 +327,38 @@ export const AssignmentSectionEditor = ({
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <Input
-                label="Title"
+                label={t('title')}
                 value={formData.title}
                 onChange={e => handleFormChange('title', e.target.value)}
-                placeholder="e.g., Week 1 Lab Assignment"
+                placeholder={t('assignment_title_placeholder')}
                 required
               />
 
               <TextArea
-                label="Description"
+                label={t('description')}
                 value={formData.description}
                 onChange={e => handleFormChange('description', e.target.value)}
-                placeholder="Brief description of the assignment"
+                placeholder={t('assignment_description_placeholder')}
                 rows={2}
               />
 
               <TextArea
-                label="Instructions"
+                label={t('instructions')}
                 value={formData.instructions}
                 onChange={e => handleFormChange('instructions', e.target.value)}
-                placeholder="Detailed instructions for students"
+                placeholder={t('assignment_instructions_placeholder')}
                 rows={4}
               />
 
               <div className="grid grid-cols-2 gap-4">
                 <Select
-                  label="Module (optional)"
+                  label={t('module_optional')}
                   value={formData.moduleId?.toString() || ''}
                   onChange={e =>
                     handleFormChange('moduleId', e.target.value ? parseInt(e.target.value) : null)
                   }
                   options={[
-                    { value: '', label: 'No specific module' },
+                    { value: '', label: t('no_specific_module') },
                     ...(modules || []).map((m: CourseModule) => ({
                       value: m.id.toString(),
                       label: m.title,
@@ -365,29 +367,29 @@ export const AssignmentSectionEditor = ({
                 />
 
                 <Select
-                  label="Submission Type"
+                  label={t('submission_type')}
                   value={formData.submissionType}
                   onChange={e =>
                     handleFormChange('submissionType', e.target.value as 'text' | 'file' | 'mixed')
                   }
                   options={[
-                    { value: 'text', label: 'Text Entry' },
-                    { value: 'file', label: 'File Upload' },
-                    { value: 'mixed', label: 'Text and File' },
+                    { value: 'text', label: t('text_entry') },
+                    { value: 'file', label: t('file_upload') },
+                    { value: 'mixed', label: t('text_and_file') },
                   ]}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <Input
-                  label="Due Date"
+                  label={t('due_date')}
                   type="datetime-local"
                   value={formData.dueDate}
                   onChange={e => handleFormChange('dueDate', e.target.value)}
                 />
 
                 <Input
-                  label="Points"
+                  label={t('points')}
                   type="number"
                   value={formData.points}
                   onChange={e => handleFormChange('points', parseInt(e.target.value) || 0)}
@@ -404,16 +406,16 @@ export const AssignmentSectionEditor = ({
                   className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                 />
                 <label htmlFor="isPublished" className="text-sm text-gray-700">
-                  Publish immediately (students can see and submit)
+                  {t('publish_immediately')}
                 </label>
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <Button type="button" variant="secondary" onClick={closeModal}>
-                  Cancel
+                  {t('cancel')}
                 </Button>
                 <Button type="submit" loading={createMutation.isPending}>
-                  Create & Select
+                  {t('create_and_select')}
                 </Button>
               </div>
             </form>

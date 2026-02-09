@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Sparkles, Eye, Edit2, RefreshCw } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -6,6 +7,7 @@ import { LectureSection } from '../../types';
 import { coursesApi } from '../../api/courses';
 import { Button } from '../common/Button';
 import { Modal } from '../common/Modal';
+import { sanitizeHtml } from '../../utils/sanitize';
 
 interface AISectionProps {
   section: LectureSection;
@@ -22,8 +24,9 @@ export const AISection = ({
   courseTitle,
   readOnly = false,
 }: AISectionProps) => {
+  const { t } = useTranslation(['teaching']);
   const [showPreview, setShowPreview] = useState(false);
-  const [showGenerateModal, setShowGenerateModal] = useState(!section.content);
+  const [showGenerateModal, setShowGenerateModal] = useState(false); // Don't auto-open modal
   const [prompt, setPrompt] = useState('');
   const content = section.content || '';
 
@@ -39,20 +42,20 @@ export const AISection = ({
       onChange(data.content);
       setShowGenerateModal(false);
       setPrompt('');
-      toast.success('Content generated successfully');
+      toast.success(t('content_generated_success'));
     },
     onError: () => {
-      toast.error('Failed to generate content. Please try again.');
+      toast.error(t('content_generation_failed'));
     },
   });
 
   const handleGenerate = () => {
     if (!prompt.trim()) {
-      toast.error('Please enter a prompt');
+      toast.error(t('please_enter_prompt'));
       return;
     }
     if (prompt.trim().length < 10) {
-      toast.error('Prompt must be at least 10 characters');
+      toast.error(t('prompt_min_length'));
       return;
     }
     generateMutation.mutate(prompt);
@@ -101,11 +104,11 @@ export const AISection = ({
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-sm text-purple-600">
           <Sparkles className="w-4 h-4" />
-          <span>AI Generated Content</span>
+          <span>{t('ai_generated_content')}</span>
         </div>
         <div
           className="prose prose-sm max-w-none p-4 bg-purple-50 rounded-lg border border-purple-100"
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMarkdown(content)) }}
         />
       </div>
     );
@@ -118,12 +121,12 @@ export const AISection = ({
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-sm text-purple-600">
             <Sparkles className="w-4 h-4" />
-            <span>AI Generated Section</span>
+            <span>{t('ai_generated_section')}</span>
           </div>
           <div className="border-2 border-dashed border-purple-200 rounded-lg p-8 text-center bg-purple-50">
             <Sparkles className="w-10 h-10 text-purple-400 mx-auto mb-3" />
             <p className="text-gray-600 mb-4">
-              Generate educational content using AI
+              {t('generate_content_description')}
             </p>
             <Button
               variant="primary"
@@ -131,7 +134,7 @@ export const AISection = ({
               onClick={() => setShowGenerateModal(true)}
               icon={<Sparkles className="w-4 h-4" />}
             >
-              Generate Content
+              {t('generate_content')}
             </Button>
           </div>
         </div>
@@ -139,33 +142,29 @@ export const AISection = ({
         <Modal
           isOpen={showGenerateModal}
           onClose={() => setShowGenerateModal(false)}
-          title="Generate AI Content"
+          title={t('generate_ai_content')}
           size="lg"
         >
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                What would you like to generate?
+                {t('what_to_generate')}
               </label>
               <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="e.g., Generate an introduction to machine learning that covers:
-- What is machine learning?
-- Types of machine learning (supervised, unsupervised, reinforcement)
-- Real-world applications
-- Basic terminology students should know"
+                placeholder={t('generate_prompt_placeholder')}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none transition-all focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 rows={6}
               />
               <p className="text-xs text-gray-500 mt-1">
-                Be specific about what topics to cover, the tone, and any examples you want included.
+                {t('generate_prompt_help')}
               </p>
             </div>
 
             {courseTitle && (
               <div className="text-sm text-gray-500 bg-gray-50 rounded-lg p-3">
-                <span className="font-medium">Context:</span> {courseTitle}
+                <span className="font-medium">{t('context')}:</span> {courseTitle}
                 {lectureTitle && ` / ${lectureTitle}`}
               </div>
             )}
@@ -176,14 +175,14 @@ export const AISection = ({
                 onClick={() => setShowGenerateModal(false)}
                 disabled={generateMutation.isPending}
               >
-                Cancel
+                {t('cancel')}
               </Button>
               <Button
                 onClick={handleGenerate}
                 loading={generateMutation.isPending}
                 icon={<Sparkles className="w-4 h-4" />}
               >
-                {generateMutation.isPending ? 'Generating...' : 'Generate'}
+                {generateMutation.isPending ? t('generating') : t('generate')}
               </Button>
             </div>
           </div>
@@ -197,7 +196,7 @@ export const AISection = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm text-purple-600">
           <Sparkles className="w-4 h-4" />
-          <span>AI Generated Section</span>
+          <span>{t('ai_generated_section')}</span>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -206,7 +205,7 @@ export const AISection = ({
             onClick={() => setShowGenerateModal(true)}
             icon={<RefreshCw className="w-4 h-4" />}
           >
-            Regenerate
+            {t('regenerate')}
           </Button>
           <Button
             variant="ghost"
@@ -214,7 +213,7 @@ export const AISection = ({
             onClick={() => setShowPreview(!showPreview)}
             icon={showPreview ? <Edit2 className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           >
-            {showPreview ? 'Edit' : 'Preview'}
+            {showPreview ? t('edit') : t('preview')}
           </Button>
         </div>
       </div>
@@ -222,7 +221,7 @@ export const AISection = ({
       {showPreview ? (
         <div
           className="prose prose-sm max-w-none p-4 border border-purple-200 rounded-lg min-h-[200px] bg-purple-50"
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMarkdown(content)) }}
         />
       ) : (
         <div>
@@ -233,7 +232,7 @@ export const AISection = ({
             rows={12}
           />
           <p className="text-xs text-gray-500 mt-1">
-            You can edit the AI-generated content. It supports Markdown formatting.
+            {t('ai_content_edit_help')}
           </p>
         </div>
       )}
@@ -241,22 +240,22 @@ export const AISection = ({
       <Modal
         isOpen={showGenerateModal}
         onClose={() => setShowGenerateModal(false)}
-        title="Regenerate AI Content"
+        title={t('regenerate_ai_content')}
         size="lg"
       >
         <div className="space-y-4">
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
-            This will replace the current content. Make sure to save any changes you want to keep.
+            {t('regenerate_warning')}
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              What would you like to generate?
+              {t('what_to_generate')}
             </label>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Describe what content you want to generate..."
+              placeholder={t('describe_content_placeholder')}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none transition-all focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               rows={6}
             />
@@ -268,14 +267,14 @@ export const AISection = ({
               onClick={() => setShowGenerateModal(false)}
               disabled={generateMutation.isPending}
             >
-              Cancel
+              {t('cancel')}
             </Button>
             <Button
               onClick={handleGenerate}
               loading={generateMutation.isPending}
               icon={<Sparkles className="w-4 h-4" />}
             >
-              {generateMutation.isPending ? 'Generating...' : 'Regenerate'}
+              {generateMutation.isPending ? t('generating') : t('regenerate')}
             </Button>
           </div>
         </div>

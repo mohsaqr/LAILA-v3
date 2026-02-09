@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Input, TextArea, Select } from '../common/Input';
 import { Button } from '../common/Button';
-import { Course } from '../../types';
+import { Course, CurriculumViewMode } from '../../types';
 
 export interface CourseFormData {
   title: string;
@@ -10,6 +11,7 @@ export interface CourseFormData {
   difficulty: 'beginner' | 'intermediate' | 'advanced' | '';
   thumbnail: string;
   isPublic: boolean;
+  curriculumViewMode: CurriculumViewMode;
 }
 
 interface CourseFormProps {
@@ -19,26 +21,34 @@ interface CourseFormProps {
   loading?: boolean;
 }
 
-const categoryOptions = [
-  { value: '', label: 'Select category' },
-  { value: 'programming', label: 'Programming' },
-  { value: 'data-science', label: 'Data Science' },
-  { value: 'design', label: 'Design' },
-  { value: 'business', label: 'Business' },
-  { value: 'marketing', label: 'Marketing' },
-  { value: 'language', label: 'Language' },
-  { value: 'education', label: 'Education' },
-  { value: 'other', label: 'Other' },
-];
-
-const difficultyOptions = [
-  { value: '', label: 'Select difficulty' },
-  { value: 'beginner', label: 'Beginner' },
-  { value: 'intermediate', label: 'Intermediate' },
-  { value: 'advanced', label: 'Advanced' },
-];
-
 export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: CourseFormProps) => {
+  const { t } = useTranslation(['teaching']);
+
+  const categoryOptions = [
+    { value: '', label: t('select_category') },
+    { value: 'programming', label: t('category_programming') },
+    { value: 'data-science', label: t('category_data_science') },
+    { value: 'design', label: t('category_design') },
+    { value: 'business', label: t('category_business') },
+    { value: 'marketing', label: t('category_marketing') },
+    { value: 'language', label: t('category_language') },
+    { value: 'education', label: t('category_education') },
+    { value: 'other', label: t('category_other') },
+  ];
+
+  const difficultyOptions = [
+    { value: '', label: t('select_difficulty') },
+    { value: 'beginner', label: t('difficulty_beginner') },
+    { value: 'intermediate', label: t('difficulty_intermediate') },
+    { value: 'advanced', label: t('difficulty_advanced') },
+  ];
+
+  const viewModeOptions = [
+    { value: 'mini-cards', label: t('view_mode_mini_cards') },
+    { value: 'icons', label: t('view_mode_icons') },
+    { value: 'list', label: t('view_mode_list') },
+    { value: 'accordion', label: t('view_mode_accordion') },
+  ];
   const [formData, setFormData] = useState<CourseFormData>({
     title: '',
     description: '',
@@ -46,6 +56,7 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
     difficulty: '' as CourseFormData['difficulty'],
     thumbnail: '',
     isPublic: true,
+    curriculumViewMode: 'mini-cards',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -58,6 +69,7 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
         difficulty: (initialData.difficulty || '') as CourseFormData['difficulty'],
         thumbnail: initialData.thumbnail || '',
         isPublic: initialData.isPublic ?? true,
+        curriculumViewMode: initialData.curriculumViewMode || 'mini-cards',
       });
     }
   }, [initialData]);
@@ -66,9 +78,9 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
     const newErrors: Record<string, string> = {};
 
     if (!formData.title.trim()) {
-      newErrors.title = 'Title is required';
+      newErrors.title = t('title_required');
     } else if (formData.title.length < 3) {
-      newErrors.title = 'Title must be at least 3 characters';
+      newErrors.title = t('title_min_length');
     }
 
     setErrors(newErrors);
@@ -91,32 +103,32 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <Input
-        label="Course Title"
+        label={t('course_title')}
         value={formData.title}
         onChange={e => handleChange('title', e.target.value)}
-        placeholder="e.g., Introduction to Machine Learning"
+        placeholder={t('course_title_placeholder')}
         error={errors.title}
         required
       />
 
       <TextArea
-        label="Description"
+        label={t('description')}
         value={formData.description}
         onChange={e => handleChange('description', e.target.value)}
-        placeholder="Describe what students will learn in this course..."
+        placeholder={t('course_description_placeholder')}
         rows={4}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Select
-          label="Category"
+          label={t('category')}
           value={formData.category}
           onChange={e => handleChange('category', e.target.value)}
           options={categoryOptions}
         />
 
         <Select
-          label="Difficulty Level"
+          label={t('difficulty_level')}
           value={formData.difficulty}
           onChange={e => handleChange('difficulty', e.target.value)}
           options={difficultyOptions}
@@ -124,11 +136,19 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
       </div>
 
       <Input
-        label="Thumbnail URL"
+        label={t('thumbnail_url')}
         value={formData.thumbnail}
         onChange={e => handleChange('thumbnail', e.target.value)}
         placeholder="https://example.com/image.jpg"
-        helpText="Enter a URL for the course thumbnail image"
+        helpText={t('thumbnail_help')}
+      />
+
+      <Select
+        label={t('curriculum_view_mode')}
+        value={formData.curriculumViewMode}
+        onChange={e => handleChange('curriculumViewMode', e.target.value)}
+        options={viewModeOptions}
+        helpText={t('curriculum_view_mode_help')}
       />
 
       <div className="flex items-center gap-3">
@@ -140,7 +160,7 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
           className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
         />
         <label htmlFor="isPublic" className="text-sm text-gray-700">
-          Make this course publicly visible in the catalog
+          {t('make_public')}
         </label>
       </div>
 

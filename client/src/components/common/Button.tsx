@@ -22,10 +22,10 @@ export const Button = ({
 
   const variantClasses = {
     primary: 'bg-gradient-to-r from-primary-500 to-secondary-600 text-white hover:from-primary-600 hover:to-secondary-700 shadow-md hover:shadow-lg disabled:opacity-50',
-    secondary: 'bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50',
-    outline: 'border-2 border-primary-500 text-primary-600 hover:bg-primary-50 disabled:opacity-50',
-    danger: 'bg-red-500 text-white hover:bg-red-600 disabled:opacity-50',
-    ghost: 'text-gray-600 hover:bg-gray-100 disabled:opacity-50',
+    secondary: 'bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600',
+    outline: 'border-2 border-primary-500 text-primary-600 hover:bg-primary-50 disabled:opacity-50 dark:text-primary-400 dark:hover:bg-primary-900/30',
+    danger: 'bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 dark:bg-red-600 dark:hover:bg-red-700',
+    ghost: 'text-gray-600 hover:bg-gray-100 disabled:opacity-50 dark:text-gray-300 dark:hover:bg-gray-700',
   };
 
   const sizeClasses = {

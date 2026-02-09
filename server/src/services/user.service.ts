@@ -240,6 +240,27 @@ export class UserService {
       pendingGrading,
     };
   }
+
+  /**
+   * Get user's language preference
+   */
+  async getLanguagePreference(userId: number): Promise<string | null> {
+    const setting = await prisma.userSetting.findUnique({
+      where: { userId_settingKey: { userId, settingKey: 'language' } },
+    });
+    return setting?.settingValue || null;
+  }
+
+  /**
+   * Update user's language preference
+   */
+  async updateLanguagePreference(userId: number, language: string): Promise<void> {
+    await prisma.userSetting.upsert({
+      where: { userId_settingKey: { userId, settingKey: 'language' } },
+      update: { settingValue: language },
+      create: { userId, settingKey: 'language', settingValue: language },
+    });
+  }
 }
 
 export const userService = new UserService();
