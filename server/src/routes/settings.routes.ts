@@ -1,9 +1,11 @@
 import { Router, Response } from 'express';
 import { settingsService } from '../services/settings.service.js';
+import { mcqGenerationService } from '../services/mcqGeneration.service.js';
 import { authenticateToken, requireAdmin } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import { updateApiConfigSchema } from '../utils/validation.js';
 import { AuthRequest } from '../types/index.js';
+import { z } from 'zod';
 
 const router = Router();
 
@@ -80,6 +82,46 @@ router.post('/api/configs/:serviceName/test', asyncHandler(async (req: AuthReque
 router.post('/seed', asyncHandler(async (req: AuthRequest, res: Response) => {
   const result = await settingsService.seedDefaultSettings();
   res.json({ success: true, ...result });
+}));
+
+// ============= MCQ GENERATION SETTINGS =============
+
+const mcqSettingsUpdateSchema = z.object({
+  systemPrompt: z.string().optional(),
+  formatInstructions: z.string().optional(),
+  defaults: z.object({
+    optionCount: z.number().min(3).max(5).optional(),
+    maxQuestions: z.number().min(1).max(20).optional(),
+    defaultDifficulty: z.enum(['easy', 'medium', 'hard']).optional(),
+    includeExplanations: z.boolean().optional(),
+    temperature: z.number().min(0).max(1).optional(),
+  }).optional(),
+});
+
+// Get MCQ generation settings
+router.get('/mcq-generation', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const settings = await mcqGenerationService.getGenerationSettings();
+  res.json({ success: true, data: settings });
+}));
+
+// Update MCQ generation settings
+router.put('/mcq-generation', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const data = mcqSettingsUpdateSchema.parse(req.body);
+  const settings = await mcqGenerationService.updateGenerationSettings(data);
+  res.json({ success: true, data: settings });
+}));
+
+// Test MCQ generation with current settings
+router.post('/mcq-generation/test', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const testInput = {
+    topic: req.body.topic || 'General knowledge',
+    questionCount: 2,
+    difficulty: 'medium' as const,
+    includeExplanations: true,
+  };
+
+  const result = await mcqGenerationService.generateQuestions(testInput);
+  res.json({ success: true, data: result });
 }));
 
 export default router;

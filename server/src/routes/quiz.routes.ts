@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { quizService } from '../services/quiz.service.js';
+import { mcqGenerationService } from '../services/mcqGeneration.service.js';
 import { authenticateToken, requireInstructor, requireAdmin } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import { z } from 'zod';
@@ -36,6 +37,49 @@ const submitAnswerSchema = z.object({
   questionId: z.number().positive(),
   answer: z.string(),
 });
+
+// MCQ Generation schemas
+const generateMCQSchema = z.object({
+  topic: z.string().min(1).max(500),
+  content: z.string().optional(),
+  questionCount: z.number().min(1).max(10),
+  difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
+  optionCount: z.number().min(3).max(5).optional(),
+  includeExplanations: z.boolean().optional(),
+  courseContext: z.string().optional(),
+});
+
+const bulkQuestionsSchema = z.object({
+  questions: z.array(createQuestionSchema).min(1).max(20),
+});
+
+const generatePracticeSchema = z.object({
+  lectureId: z.number().positive(),
+  questionCount: z.number().min(1).max(10),
+  difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
+});
+
+// =========================================================================
+// PRACTICE MCQ GENERATION (must be before parameterized routes)
+// =========================================================================
+
+// Generate practice MCQs for a lecture (student self-study)
+// NOTE: This route MUST be before /:quizId routes to avoid matching "practice" as quizId
+router.post('/practice/generate', authenticateToken, asyncHandler(async (req, res) => {
+  const user = (req as any).user;
+  const data = generatePracticeSchema.parse(req.body);
+
+  const questions = await mcqGenerationService.generatePracticeQuestions(
+    data.lectureId,
+    user.id,
+    {
+      questionCount: data.questionCount,
+      difficulty: data.difficulty,
+    }
+  );
+
+  res.json({ success: true, data: { questions } });
+}));
 
 // =========================================================================
 // QUIZ CRUD ROUTES
@@ -163,6 +207,36 @@ router.put('/:quizId/questions/reorder', authenticateToken, requireInstructor, a
 
   const result = await quizService.reorderQuestions(quizId, user.id, questionIds, user.isAdmin);
   res.json({ success: true, ...result });
+}));
+
+// =========================================================================
+// MCQ GENERATION ROUTES
+// =========================================================================
+
+// Generate MCQs using AI for a quiz (instructor only)
+router.post('/:quizId/generate', authenticateToken, requireInstructor, asyncHandler(async (req, res) => {
+  const quizId = parseInt(req.params.quizId);
+  const user = (req as any).user;
+  const data = generateMCQSchema.parse(req.body);
+
+  // Verify quiz ownership
+  const quiz = await quizService.getQuizById(quizId, user.id, true);
+  if (quiz.course?.instructorId !== user.id && !user.isAdmin) {
+    return res.status(403).json({ success: false, error: 'Not authorized' });
+  }
+
+  const result = await mcqGenerationService.generateQuestions(data);
+  res.json({ success: true, data: result });
+}));
+
+// Add multiple questions to a quiz at once (bulk)
+router.post('/:quizId/questions/bulk', authenticateToken, requireInstructor, asyncHandler(async (req, res) => {
+  const quizId = parseInt(req.params.quizId);
+  const user = (req as any).user;
+  const { questions } = bulkQuestionsSchema.parse(req.body);
+
+  const createdQuestions = await quizService.addQuestionsBulk(quizId, user.id, questions, user.isAdmin);
+  res.status(201).json({ success: true, data: createdQuestions });
 }));
 
 // =========================================================================

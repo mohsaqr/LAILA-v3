@@ -434,6 +434,55 @@ export class QuizService {
     return { message: 'Questions reordered successfully' };
   }
 
+  /**
+   * Add multiple questions to a quiz at once (bulk operation)
+   */
+  async addQuestionsBulk(
+    quizId: number,
+    instructorId: number,
+    questions: CreateQuestionInput[],
+    isAdmin = false
+  ) {
+    const quiz = await prisma.quiz.findUnique({
+      where: { id: quizId },
+      include: { course: true, _count: { select: { questions: true } } },
+    });
+
+    if (!quiz) throw new AppError('Quiz not found', 404);
+    if (quiz.course.instructorId !== instructorId && !isAdmin) {
+      throw new AppError('Not authorized', 403);
+    }
+
+    // Get the starting order index
+    let orderIndex = quiz._count.questions;
+
+    // Create all questions
+    const createdQuestions = await Promise.all(
+      questions.map(async (data, idx) => {
+        const question = await prisma.quizQuestion.create({
+          data: {
+            quizId,
+            questionType: data.questionType,
+            questionText: data.questionText,
+            options: data.options ? JSON.stringify(data.options) : null,
+            correctAnswer: data.correctAnswer,
+            explanation: data.explanation,
+            points: data.points ?? 1,
+            orderIndex: orderIndex + idx,
+          },
+        });
+
+        return {
+          ...question,
+          options: question.options ? JSON.parse(question.options) : null,
+        };
+      })
+    );
+
+    logger.info({ quizId, count: createdQuestions.length }, 'Questions added in bulk');
+    return createdQuestions;
+  }
+
   // =========================================================================
   // QUIZ ATTEMPTS & SUBMISSIONS
   // =========================================================================

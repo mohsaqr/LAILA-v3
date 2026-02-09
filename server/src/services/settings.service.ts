@@ -173,6 +173,57 @@ export class SettingsService {
         settingType: 'number',
         description: 'Maximum file upload size in MB',
       },
+      // MCQ Generation Settings
+      {
+        settingKey: 'mcq_generation_system_prompt',
+        settingValue: `You are an expert educational assessment designer. Generate high-quality multiple choice questions (MCQs).
+
+GUIDELINES:
+1. Test comprehension and application, not just recall
+2. All distractors should be plausible but clearly wrong
+3. Avoid "all/none of the above" options
+4. Keep questions clear and unambiguous
+5. Ensure only one option is definitively correct
+6. Match the difficulty level requested
+7. For 'easy' questions: test basic understanding and recall
+8. For 'medium' questions: test application and comprehension
+9. For 'hard' questions: test analysis, synthesis, and evaluation`,
+        settingType: 'text',
+        description: 'System prompt for MCQ generation AI',
+      },
+      {
+        settingKey: 'mcq_generation_format_instructions',
+        settingValue: `OUTPUT FORMAT (JSON):
+{
+  "questions": [{
+    "questionText": "Question text?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correctAnswer": "Option A",
+    "explanation": "Brief explanation of why this is correct",
+    "difficulty": "medium"
+  }]
+}
+
+IMPORTANT RULES:
+- correctAnswer must EXACTLY match one of the options strings
+- Each question must have the specified number of options
+- All options must be unique and plausible
+- Return ONLY valid JSON, no markdown formatting`,
+        settingType: 'text',
+        description: 'Format instructions for MCQ generation AI output',
+      },
+      {
+        settingKey: 'mcq_generation_defaults',
+        settingValue: JSON.stringify({
+          optionCount: 4,
+          maxQuestions: 10,
+          defaultDifficulty: 'medium',
+          includeExplanations: true,
+          temperature: 0.4,
+        }),
+        settingType: 'json',
+        description: 'Default settings for MCQ generation',
+      },
     ];
 
     const defaultApiConfigs = [

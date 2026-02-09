@@ -12,6 +12,7 @@ import {
   Settings,
   Eye,
   EyeOff,
+  Sparkles,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { quizzesApi, Quiz, QuizQuestion, CreateQuestionInput } from '../../api/quizzes';
@@ -23,6 +24,7 @@ import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
+import { MCQGenerator } from '../../components/teaching/MCQGenerator';
 
 interface QuestionFormData {
   questionType: 'multiple_choice' | 'true_false' | 'short_answer' | 'fill_in_blank';
@@ -52,6 +54,7 @@ export const QuizEditor = () => {
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false);
+  const [isAIGeneratorOpen, setIsAIGeneratorOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<QuizQuestion | null>(null);
   const [questionForm, setQuestionForm] = useState<QuestionFormData>(defaultQuestionForm);
 
@@ -294,10 +297,16 @@ export const QuizEditor = () => {
           <h2 className="text-xl font-semibold" style={{ color: colors.textPrimary }}>
             {t('questions_label')}
           </h2>
-          <Button onClick={() => handleOpenQuestionModal()}>
-            <Plus size={18} />
-            {t('add_question')}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={() => setIsAIGeneratorOpen(true)}>
+              <Sparkles size={18} />
+              {t('generate_with_ai')}
+            </Button>
+            <Button onClick={() => handleOpenQuestionModal()}>
+              <Plus size={18} />
+              {t('add_question')}
+            </Button>
+          </div>
         </div>
 
         {quiz.questions && quiz.questions.length > 0 ? (
@@ -526,6 +535,16 @@ export const QuizEditor = () => {
           </div>
         </form>
       </Modal>
+
+      {/* AI MCQ Generator Modal */}
+      <MCQGenerator
+        quizId={parsedQuizId}
+        isOpen={isAIGeneratorOpen}
+        onClose={() => setIsAIGeneratorOpen(false)}
+        onQuestionsAdded={() => {
+          queryClient.invalidateQueries({ queryKey: ['quiz', parsedQuizId] });
+        }}
+      />
 
       {/* Question Modal */}
       <Modal

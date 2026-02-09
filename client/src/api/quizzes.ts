@@ -112,6 +112,43 @@ export interface CreateQuestionInput {
   orderIndex?: number;
 }
 
+// MCQ Generation Types
+export interface MCQGenerationInput {
+  topic: string;
+  content?: string;
+  questionCount: number;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  optionCount?: number;
+  includeExplanations?: boolean;
+  courseContext?: string;
+}
+
+export interface GeneratedMCQ {
+  questionText: string;
+  options: string[];
+  correctAnswer: string;
+  explanation?: string;
+  difficulty: string;
+}
+
+export interface MCQGenerationResult {
+  questions: GeneratedMCQ[];
+  metadata: {
+    topic: string;
+    requestedCount: number;
+    generatedCount: number;
+    difficulty: string;
+    provider?: string;
+    model?: string;
+  };
+}
+
+export interface PracticeQuizInput {
+  lectureId: number;
+  questionCount: number;
+  difficulty?: 'easy' | 'medium' | 'hard';
+}
+
 export const quizzesApi = {
   // Quiz CRUD
   getQuizzes: async (courseId: number): Promise<Quiz[]> => {
@@ -180,6 +217,23 @@ export const quizzesApi = {
   // Instructor view
   getQuizAttempts: async (quizId: number): Promise<(QuizAttempt & { user: { id: number; fullname: string; email: string } })[]> => {
     const response = await apiClient.get<ApiResponse<any[]>>(`/quizzes/${quizId}/attempts`);
+    return response.data.data!;
+  },
+
+  // MCQ Generation
+  generateMCQ: async (quizId: number, input: MCQGenerationInput): Promise<MCQGenerationResult> => {
+    const response = await apiClient.post<ApiResponse<MCQGenerationResult>>(`/quizzes/${quizId}/generate`, input);
+    return response.data.data!;
+  },
+
+  addQuestionsBulk: async (quizId: number, questions: CreateQuestionInput[]): Promise<QuizQuestion[]> => {
+    const response = await apiClient.post<ApiResponse<QuizQuestion[]>>(`/quizzes/${quizId}/questions/bulk`, { questions });
+    return response.data.data!;
+  },
+
+  // Practice Quiz (student self-study)
+  generatePracticeQuiz: async (input: PracticeQuizInput): Promise<{ questions: GeneratedMCQ[] }> => {
+    const response = await apiClient.post<ApiResponse<{ questions: GeneratedMCQ[] }>>('/quizzes/practice/generate', input);
     return response.data.data!;
   },
 };

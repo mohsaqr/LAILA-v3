@@ -1,12 +1,13 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Bot, Minus, Plus, BookOpen, MessageCircle, Clock, ChevronRight, ArrowLeft, Loader2 } from 'lucide-react';
+import { Bot, Minus, Plus, BookOpen, MessageCircle, Clock, ChevronRight, ArrowLeft, Loader2, HelpCircle } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { lectureAIHelperApi, LectureAIHelperMode, LectureAISession, LectureAIMessage, PDFPageRanges } from '../../api/lectureAIHelper';
 import { LectureAIHelperChat } from './LectureAIHelperChat';
 import { LectureExplainView } from './LectureExplainView';
 import { PDFPageSelector } from './PDFPageSelector';
+import { LecturePracticeMode } from './LecturePracticeMode';
 
 // Threshold for showing page selector (PDFs with more than this many pages require selection)
 const LARGE_PDF_THRESHOLD = 5;
@@ -23,7 +24,10 @@ interface LectureAIHelperProps {
   courseId: number;
 }
 
-const MODE_CONFIG: Record<LectureAIHelperMode, {
+// Extended mode type to include 'practice'
+type ExtendedMode = LectureAIHelperMode | 'practice';
+
+const MODE_CONFIG: Record<ExtendedMode, {
   labelKey: string;
   icon: typeof BookOpen;
   descriptionKey: string;
@@ -47,18 +51,27 @@ const MODE_CONFIG: Record<LectureAIHelperMode, {
     welcomeMessageKey: 'discuss_welcome',
     newSessionLabelKey: 'new_discussion',
   },
+  practice: {
+    labelKey: 'practice',
+    icon: HelpCircle,
+    descriptionKey: 'test_your_understanding',
+    placeholderKey: '',
+    welcomeMessageKey: '',
+    newSessionLabelKey: '',
+  },
 };
 
 // Explain mode: shows thread list directly (or PDF selector first if large PDFs exist)
 // Discuss mode: shows sessions -> chat flow
-type ViewState = 'collapsed' | 'pdf-select' | 'explain' | 'sessions' | 'chat';
+// Practice mode: shows practice quiz UI
+type ViewState = 'collapsed' | 'pdf-select' | 'explain' | 'sessions' | 'chat' | 'practice';
 
 export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProps) => {
   const { isDark } = useTheme();
-  const { t } = useTranslation(['tutors', 'common']);
+  const { t } = useTranslation(['tutors', 'common', 'courses']);
   const queryClient = useQueryClient();
   const [viewState, setViewState] = useState<ViewState>('collapsed');
-  const [mode, setMode] = useState<LectureAIHelperMode>('explain');
+  const [mode, setMode] = useState<ExtendedMode>('explain');
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [sessionId, setSessionId] = useState<string | undefined>();
@@ -140,7 +153,7 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
   }, [lectureId]);
 
   // Handle mode button click - different behavior for each mode
-  const handleModeClick = useCallback((selectedMode: LectureAIHelperMode) => {
+  const handleModeClick = useCallback((selectedMode: ExtendedMode) => {
     setMode(selectedMode);
     if (selectedMode === 'explain') {
       // Explain mode: show PDF selector if needed, otherwise show thread list
@@ -149,6 +162,9 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
       } else {
         setViewState('explain');
       }
+    } else if (selectedMode === 'practice') {
+      // Practice mode: show practice quiz UI
+      setViewState('practice');
     } else {
       // Discuss mode: show sessions list
       setViewState('sessions');
@@ -191,6 +207,10 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
 
   // Filter sessions for Discuss mode only
   const filteredSessions = sessions.filter((s: LectureAISession) => s.mode === 'discuss');
+
+  // Get mode configs excluding 'practice' for original LectureAIHelperMode
+  const originalModes: LectureAIHelperMode[] = ['explain', 'discuss'];
+  const allModes: ExtendedMode[] = ['explain', 'discuss', 'practice'];
 
   const currentConfig = MODE_CONFIG[mode];
   const Icon = currentConfig.icon;
@@ -276,7 +296,7 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
       {/* Collapsed state - mode buttons */}
       {viewState === 'collapsed' && (
         <div className="px-4 py-3 flex items-center gap-2 border-t" style={{ borderColor: colors.border }}>
-          {(Object.keys(MODE_CONFIG) as LectureAIHelperMode[]).map((modeKey) => {
+          {allModes.map((modeKey) => {
             const config = MODE_CONFIG[modeKey];
             const ModeIcon = config.icon;
 
@@ -292,7 +312,7 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
                 title={t(config.descriptionKey)}
               >
                 <ModeIcon className="w-4 h-4" />
-                {t(config.labelKey)}
+                {modeKey === 'practice' ? t('courses:practice_mode') : t(config.labelKey)}
               </button>
             );
           })}
@@ -332,7 +352,7 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
         <>
           {/* Mode tabs */}
           <div className="flex border-t border-b" style={{ borderColor: colors.border }}>
-            {(Object.keys(MODE_CONFIG) as LectureAIHelperMode[]).map((modeKey) => {
+            {allModes.map((modeKey) => {
               const config = MODE_CONFIG[modeKey];
               const ModeIcon = config.icon;
               const isActive = mode === modeKey;
@@ -349,7 +369,7 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
                   }}
                 >
                   <ModeIcon className="w-4 h-4" />
-                  {t(config.labelKey)}
+                  {modeKey === 'practice' ? t('courses:practice_mode') : t(config.labelKey)}
                 </button>
               );
             })}
@@ -358,12 +378,12 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
         </>
       )}
 
-      {/* Sessions list view (Discuss mode only) */}
-      {viewState === 'sessions' && (
+      {/* Practice mode */}
+      {viewState === 'practice' && (
         <div className="border-t" style={{ borderColor: colors.border }}>
           {/* Mode tabs */}
           <div className="flex border-b" style={{ borderColor: colors.border }}>
-            {(Object.keys(MODE_CONFIG) as LectureAIHelperMode[]).map((modeKey) => {
+            {allModes.map((modeKey) => {
               const config = MODE_CONFIG[modeKey];
               const ModeIcon = config.icon;
               const isActive = mode === modeKey;
@@ -380,7 +400,42 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
                   }}
                 >
                   <ModeIcon className="w-4 h-4" />
-                  {t(config.labelKey)}
+                  {modeKey === 'practice' ? t('courses:practice_mode') : t(config.labelKey)}
+                </button>
+              );
+            })}
+          </div>
+          <LecturePracticeMode
+            lectureId={lectureId}
+            lectureTitle={lectureTitle}
+            onBack={() => setViewState('collapsed')}
+          />
+        </div>
+      )}
+
+      {/* Sessions list view (Discuss mode only) */}
+      {viewState === 'sessions' && (
+        <div className="border-t" style={{ borderColor: colors.border }}>
+          {/* Mode tabs */}
+          <div className="flex border-b" style={{ borderColor: colors.border }}>
+            {allModes.map((modeKey) => {
+              const config = MODE_CONFIG[modeKey];
+              const ModeIcon = config.icon;
+              const isActive = mode === modeKey;
+
+              return (
+                <button
+                  key={modeKey}
+                  onClick={() => handleModeClick(modeKey)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors"
+                  style={{
+                    backgroundColor: isActive ? colors.bg : colors.bgHeader,
+                    color: isActive ? colors.accent : colors.textSecondary,
+                    borderBottom: isActive ? `2px solid ${colors.accent}` : '2px solid transparent',
+                  }}
+                >
+                  <ModeIcon className="w-4 h-4" />
+                  {modeKey === 'practice' ? t('courses:practice_mode') : t(config.labelKey)}
                 </button>
               );
             })}
