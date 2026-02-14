@@ -1076,5 +1076,21 @@
   "failed_add_questions": "Kysymysten lisääminen epäonnistui",
   "regenerate": "Luo uudelleen",
   "explanation": "Selitys",
-  "remove": "Poista"
+  "remove": "Poista",
+
+  "generate_survey_title": "Luo kysely tekoälyllä",
+  "survey_topic_label": "Aihe",
+  "survey_topic_placeholder": "esim., Lukukauden lopun kurssiarviointi",
+  "survey_type_label": "Kyselyn tyyppi",
+  "survey_type_general_feedback": "Yleinen palaute",
+  "survey_type_course_evaluation": "Kurssiarviointi",
+  "survey_type_likert_scale": "Likert-asteikko (samanmielisyys)",
+  "survey_type_learning_strategies": "Oppimisstrategiat",
+  "survey_type_custom": "Mukautettu",
+  "additional_instructions_label": "Lisäohjeet",
+  "additional_instructions_placeholder": "Erityisvaatimukset kyselyn kysymyksille...",
+  "generating_survey": "Luodaan...",
+  "generate_survey_button": "Luo kysely",
+  "survey_generated_success": "Kysely luotu {{count}} kysymyksellä",
+  "survey_generation_failed": "Kyselyn luonti epäonnistui"
 }

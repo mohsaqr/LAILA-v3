@@ -1075,5 +1075,21 @@
   "question_text_label": "نص السؤال",
   "options_label": "الخيارات",
   "correct_answer_label": "الإجابة الصحيحة",
-  "explanation_label": "الشرح"
+  "explanation_label": "الشرح",
+
+  "generate_survey_title": "إنشاء استبيان بالذكاء الاصطناعي",
+  "survey_topic_label": "الموضوع",
+  "survey_topic_placeholder": "مثال: تقييم الدورة في نهاية الفصل الدراسي",
+  "survey_type_label": "نوع الاستبيان",
+  "survey_type_general_feedback": "ملاحظات عامة",
+  "survey_type_course_evaluation": "تقييم الدورة",
+  "survey_type_likert_scale": "مقياس ليكرت (الموافقة)",
+  "survey_type_learning_strategies": "استراتيجيات التعلم",
+  "survey_type_custom": "مخصص",
+  "additional_instructions_label": "تعليمات إضافية",
+  "additional_instructions_placeholder": "متطلبات محددة لأسئلة الاستبيان...",
+  "generating_survey": "جاري الإنشاء...",
+  "generate_survey_button": "إنشاء الاستبيان",
+  "survey_generated_success": "تم إنشاء استبيان يحتوي على {{count}} أسئلة",
+  "survey_generation_failed": "فشل في إنشاء الاستبيان"
 }

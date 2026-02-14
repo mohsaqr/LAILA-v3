@@ -1075,5 +1075,21 @@
   "question_text_label": "Texto de la Pregunta",
   "options_label": "Opciones",
   "correct_answer_label": "Respuesta Correcta",
-  "explanation_label": "Explicación"
+  "explanation_label": "Explicación",
+
+  "generate_survey_title": "Generar Encuesta con IA",
+  "survey_topic_label": "Tema",
+  "survey_topic_placeholder": "ej., Evaluación del curso de fin de semestre",
+  "survey_type_label": "Tipo de Encuesta",
+  "survey_type_general_feedback": "Retroalimentación General",
+  "survey_type_course_evaluation": "Evaluación del Curso",
+  "survey_type_likert_scale": "Escala Likert (Acuerdo)",
+  "survey_type_learning_strategies": "Estrategias de Aprendizaje",
+  "survey_type_custom": "Personalizado",
+  "additional_instructions_label": "Instrucciones Adicionales",
+  "additional_instructions_placeholder": "Requisitos específicos para las preguntas de la encuesta...",
+  "generating_survey": "Generando...",
+  "generate_survey_button": "Generar Encuesta",
+  "survey_generated_success": "Encuesta generada con {{count}} preguntas",
+  "survey_generation_failed": "Error al generar la encuesta"
 }

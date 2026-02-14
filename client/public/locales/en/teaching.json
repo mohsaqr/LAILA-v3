@@ -1076,5 +1076,21 @@
   "failed_add_questions": "Failed to add questions",
   "regenerate": "Regenerate",
   "explanation": "Explanation",
-  "remove": "Remove"
+  "remove": "Remove",
+
+  "generate_survey_title": "Generate Survey with AI",
+  "survey_topic_label": "Topic",
+  "survey_topic_placeholder": "e.g., End of semester course evaluation",
+  "survey_type_label": "Survey Type",
+  "survey_type_general_feedback": "General Feedback",
+  "survey_type_course_evaluation": "Course Evaluation",
+  "survey_type_likert_scale": "Likert Scale (Agreement)",
+  "survey_type_learning_strategies": "Learning Strategies",
+  "survey_type_custom": "Custom",
+  "additional_instructions_label": "Additional Instructions",
+  "additional_instructions_placeholder": "Specific requirements for the survey questions...",
+  "generating_survey": "Generating...",
+  "generate_survey_button": "Generate Survey",
+  "survey_generated_success": "Survey generated with {{count}} questions",
+  "survey_generation_failed": "Failed to generate survey"
 }

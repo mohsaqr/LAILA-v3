@@ -11,6 +11,7 @@ import {
   GripVertical,
   ChevronDown,
   ChevronUp,
+  Sparkles,
 } from 'lucide-react';
 import {
   Survey,
@@ -25,6 +26,7 @@ import { Modal } from '../../components/common/Modal';
 import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { useTheme } from '../../hooks/useTheme';
+import { SurveyGenerator } from '../../components/teaching/SurveyGenerator';
 
 export const SurveyManager = () => {
   const { t } = useTranslation(['teaching', 'common']);
@@ -40,6 +42,7 @@ export const SurveyManager = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showQuestionModal, setShowQuestionModal] = useState(false);
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [selectedSurvey, setSelectedSurvey] = useState<Survey | null>(null);
   const [editingQuestion, setEditingQuestion] = useState<SurveyQuestionType | null>(null);
   const [expandedSurveyId, setExpandedSurveyId] = useState<number | null>(null);
@@ -72,6 +75,11 @@ export const SurveyManager = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSurveyGenerated = (survey: Survey) => {
+    setSurveys(prev => [survey, ...prev]);
+    setExpandedSurveyId(survey.id);
   };
 
   const handleCreateSurvey = async () => {
@@ -337,10 +345,16 @@ export const SurveyManager = () => {
             {t('create_manage_surveys')}
           </p>
         </div>
-        <Button onClick={() => setShowCreateModal(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          {t('create_survey')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={() => setShowGenerateModal(true)}>
+            <Sparkles className="w-4 h-4 mr-2" />
+            {t('generate_with_ai')}
+          </Button>
+          <Button onClick={() => setShowCreateModal(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            {t('create_survey')}
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -720,6 +734,14 @@ export const SurveyManager = () => {
           </Button>
         </div>
       </Modal>
+
+      {/* AI Survey Generator Modal */}
+      <SurveyGenerator
+        courseId={courseId ? parseInt(courseId) : undefined}
+        isOpen={showGenerateModal}
+        onClose={() => setShowGenerateModal(false)}
+        onSurveyGenerated={handleSurveyGenerated}
+      />
 
       {/* Question Modal */}
       <Modal

@@ -1363,6 +1363,22 @@ export interface CreateSurveyData {
   isAnonymous?: boolean;
 }
 
+export type SurveyGenerationType =
+  | 'general_feedback'
+  | 'course_evaluation'
+  | 'likert_scale'
+  | 'learning_strategies'
+  | 'custom';
+
+export interface GenerateSurveyData {
+  topic: string;
+  questionCount: number;
+  surveyType: SurveyGenerationType;
+  courseId?: number;
+  isAnonymous?: boolean;
+  additionalInstructions?: string;
+}
+
 export interface CreateSurveyQuestionData {
   questionText: string;
   questionType: SurveyQuestionType;

@@ -7,6 +7,7 @@ import {
   CreateSurveyQuestionData,
   SubmitSurveyResponseData,
   SurveyResponsesData,
+  GenerateSurveyData,
   ApiResponse,
 } from '../types';
 
@@ -83,6 +84,15 @@ export const surveysApi = {
       { questionIds }
     );
     return response.data;
+  },
+
+  // =============================================================================
+  // AI GENERATION
+  // =============================================================================
+
+  generateSurvey: async (data: GenerateSurveyData) => {
+    const response = await apiClient.post<ApiResponse<Survey>>('/surveys/generate', data);
+    return response.data.data!;
   },
 
   // =============================================================================

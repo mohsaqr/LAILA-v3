@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { surveyService } from '../services/survey.service.js';
+import { surveyGenerationService } from '../services/surveyGeneration.service.js';
 import { authenticateToken, requireInstructor, optionalAuth } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import {
@@ -9,10 +10,26 @@ import {
   updateSurveyQuestionSchema,
   reorderQuestionsSchema,
   submitSurveyResponseSchema,
+  generateSurveySchema,
 } from '../utils/validation.js';
 import { AuthRequest } from '../types/index.js';
 
 const router = Router();
+
+// =============================================================================
+// AI GENERATION
+// =============================================================================
+
+// Generate survey with AI
+router.post('/generate', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const data = generateSurveySchema.parse(req.body);
+  const survey = await surveyGenerationService.generateAndCreateSurvey(
+    req.user!.id,
+    data,
+    req.user!.isAdmin
+  );
+  res.status(201).json({ success: true, data: survey });
+}));
 
 // =============================================================================
 // SURVEY CRUD (Instructor)
@@ -21,7 +38,7 @@ const router = Router();
 // Get surveys (for a course or all user's surveys)
 router.get('/', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
   const courseId = req.query.courseId ? parseInt(req.query.courseId as string) : undefined;
-  const surveys = await surveyService.getSurveys(courseId, req.user!.id, true);
+  const surveys = await surveyService.getSurveys(courseId, req.user!.id, true, req.user!.isAdmin);
   res.json({ success: true, data: surveys });
 }));
 

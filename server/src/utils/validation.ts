@@ -420,6 +420,21 @@ export type UpdateSurveyQuestionInput = z.infer<typeof updateSurveyQuestionSchem
 export type SubmitSurveyResponseInput = z.infer<typeof submitSurveyResponseSchema>;
 
 // =============================================================================
+// SURVEY GENERATION VALIDATION SCHEMAS
+// =============================================================================
+
+export const generateSurveySchema = z.object({
+  topic: z.string().min(3, 'Topic must be at least 3 characters').max(500),
+  questionCount: z.number().int().min(1).max(15),
+  surveyType: z.enum(['general_feedback', 'course_evaluation', 'likert_scale', 'learning_strategies', 'custom']),
+  courseId: z.number().int().positive().optional(),
+  isAnonymous: z.boolean().optional(),
+  additionalInstructions: z.string().max(1000).optional(),
+});
+
+export type GenerateSurveyInput = z.infer<typeof generateSurveySchema>;
+
+// =============================================================================
 // LECTURE AI HELPER VALIDATION SCHEMAS
 // =============================================================================
 
