@@ -159,6 +159,14 @@ cd server && npm test -- --run -t "test name"        # Run specific test by name
 
 See [LAILA-Multi-Agent-System-Report.html](LAILA-Multi-Agent-System-Report.html) for the full technical report covering agent architecture, persona design, routing strategies, prompt construction, and learning analytics.
 
+## Author & Maintainer
+
+**Mohammed Saqr**
+Professor of Computer Science, University of Eastern Finland
+
+- Website: [www.saqr.me](https://www.saqr.me)
+- Email: mohammed.saqr@uef.fi
+
 ## License
 
 MIT
