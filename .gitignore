@@ -45,7 +45,15 @@ tmp/
 temp/
 .cache/
 
-# Project-local notes (Claude, learnings, session notes)
+# Project-local notes, plans, and reports
 CLAUDE.md
 CLAUDE_SESSION_NOTES.md
 LEARNINGS.md
+AGENT_CONTEXT.md
+ARCHITECTURE.md
+CODE_LAB_PLAN.md
+COURSE_STRUCTURE_PROPOSAL.md
+DEPLOYMENT.md
+FEATURES.md
+TODO-collaborative-module.md
+LAILA-Technical-Report.html
