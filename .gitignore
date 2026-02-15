@@ -44,3 +44,8 @@ coverage/
 tmp/
 temp/
 .cache/
+
+# Project-local notes (Claude, learnings, session notes)
+CLAUDE.md
+CLAUDE_SESSION_NOTES.md
+LEARNINGS.md
