@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LAILA — Technical Report</title>
+<style>
+  :root {
+    --primary: #0f766e;
+    --primary-light: #14b8a6;
+    --primary-bg: #f0fdfa;
+    --accent: #7c3aed;
+    --accent-bg: #f5f3ff;
+    --dark: #1e293b;
+    --mid: #475569;
+    --light: #94a3b8;
+    --bg: #ffffff;
+    --border: #e2e8f0;
+    --code-bg: #f8fafc;
+    --warn: #f59e0b;
+    --err: #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: var(--dark);
+    line-height: 1.7;
+    background: #f8fafc;
+  }
+  .page-wrapper {
+    max-width: 960px;
+    margin: 0 auto;
+    background: var(--bg);
+    box-shadow: 0 0 60px rgba(0,0,0,.06);
+    min-height: 100vh;
+  }
+  header {
+    background: linear-gradient(135deg, #0f766e 0%, #065f46 100%);
+    color: white;
+    padding: 60px 48px 48px;
+  }
+  header h1 { font-size: 2.3em; font-weight: 800; letter-spacing: -.02em; margin-bottom: 8px; }
+  header .subtitle { font-size: 1.1em; opacity: .85; font-weight: 400; margin-bottom: 24px; }
+  header .meta { font-size: .85em; opacity: .7; line-height: 1.5; }
+  header .meta a { color: #a7f3d0; }
+  main { padding: 48px; }
+  h2 {
+    font-size: 1.55em;
+    font-weight: 700;
+    color: var(--primary);
+    margin: 48px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--primary-bg);
+  }
+  h2:first-child { margin-top: 0; }
+  h3 {
+    font-size: 1.15em;
+    font-weight: 700;
+    color: var(--dark);
+    margin: 32px 0 10px;
+  }
+  h4 {
+    font-size: 1em;
+    font-weight: 600;
+    color: var(--mid);
+    margin: 20px 0 8px;
+  }
+  p, li { color: var(--mid); }
+  p { margin-bottom: 12px; }
+  ul, ol { margin: 8px 0 16px 24px; }
+  li { margin-bottom: 4px; }
+  strong { color: var(--dark); }
+  a { color: var(--primary); }
+  code {
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: .88em;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--accent);
+  }
+  pre {
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 20px 24px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: .85em;
+    line-height: 1.6;
+    margin: 12px 0 20px;
+  }
+  pre code { background: none; color: inherit; padding: 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 24px;
+    font-size: .9em;
+  }
+  th {
+    background: var(--primary);
+    color: white;
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 14px;
+  }
+  th:first-child { border-radius: 6px 0 0 0; }
+  th:last-child { border-radius: 0 6px 0 0; }
+  td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--mid);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #f8fafc; }
+  tr:hover td { background: var(--primary-bg); }
+  .info-box {
+    background: var(--primary-bg);
+    border-left: 4px solid var(--primary);
+    padding: 16px 20px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0 24px;
+  }
+  .accent-box {
+    background: var(--accent-bg);
+    border-left: 4px solid var(--accent);
+    padding: 16px 20px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0 24px;
+  }
+  .diagram {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin: 16px 0 24px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: .82em;
+    line-height: 1.5;
+    white-space: pre;
+    overflow-x: auto;
+    color: var(--dark);
+  }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin: 16px 0 24px;
+  }
+  .stat-card {
+    background: var(--primary-bg);
+    border-radius: 10px;
+    padding: 16px 20px;
+    text-align: center;
+  }
+  .stat-card .number {
+    font-size: 2em;
+    font-weight: 800;
+    color: var(--primary);
+    display: block;
+  }
+  .stat-card .label {
+    font-size: .82em;
+    color: var(--mid);
+    margin-top: 2px;
+  }
+  .toc {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px 32px;
+    margin: 0 0 36px;
+  }
+  .toc h3 { margin-top: 0; color: var(--primary); }
+  .toc ol { margin: 12px 0 0 20px; }
+  .toc li { margin-bottom: 4px; font-size: .92em; }
+  .toc a { text-decoration: none; color: var(--mid); }
+  .toc a:hover { color: var(--primary); }
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: .78em;
+    font-weight: 600;
+  }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .badge-purple { background: #ede9fe; color: #5b21b6; }
+  .badge-amber { background: #fef3c7; color: #92400e; }
+  .badge-gray { background: #f1f5f9; color: #475569; }
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 32px 48px;
+    text-align: center;
+    color: var(--light);
+    font-size: .85em;
+  }
+  @media print {
+    body { background: white; }
+    .page-wrapper { box-shadow: none; }
+    header { break-after: page; }
+    h2 { break-after: avoid; }
+    table { break-inside: auto; }
+    tr { break-inside: avoid; }
+  }
+  @media (max-width: 640px) {
+    header, main, footer { padding-left: 20px; padding-right: 20px; }
+    header h1 { font-size: 1.6em; }
+  }
+</style>
+</head>
+<body>
+<div class="page-wrapper">
+<header>
+  <h1>LAILA</h1>
+  <div class="subtitle">Learning Analytics and Intelligent Learning Assistant &mdash; Technical Report</div>
+  <div class="meta">
+    <strong>Author:</strong> Mohammed Saqr &middot; Professor of Computer Science, University of Eastern Finland<br>
+    <strong>Contact:</strong> <a href="mailto:mohammed.saqr@uef.fi">mohammed.saqr@uef.fi</a> &middot; <a href="https://www.saqr.me">www.saqr.me</a><br>
+    <strong>Version:</strong> 3.0 &middot; February 2025
+  </div>
+</header>
+
+<main>
+
+<!-- KEY NUMBERS -->
+<div class="stat-grid">
+  <div class="stat-card"><span class="number">7</span><span class="label">Built-in AI Agents</span></div>
+  <div class="stat-card"><span class="number">5</span><span class="label">Deployment Surfaces</span></div>
+  <div class="stat-card"><span class="number">400+</span><span class="label">API Endpoints</span></div>
+  <div class="stat-card"><span class="number">60+</span><span class="label">Database Models</span></div>
+  <div class="stat-card"><span class="number">44</span><span class="label">Backend Services</span></div>
+  <div class="stat-card"><span class="number">900+</span><span class="label">Automated Tests</span></div>
+</div>
+
+<!-- TABLE OF CONTENTS -->
+<div class="toc">
+<h3>Contents</h3>
+<ol>
+  <li><a href="#s1">Introduction</a></li>
+  <li><a href="#s2">System Architecture</a></li>
+  <li><a href="#s3">Technology Stack</a></li>
+  <li><a href="#s4">Database Schema</a></li>
+  <li><a href="#s5">Multi-Agent Tutoring System</a></li>
+  <li><a href="#s6">Student Agent Builder</a></li>
+  <li><a href="#s7">Tutor Routing &amp; Collaboration</a></li>
+  <li><a href="#s8">AI Content Generation</a></li>
+  <li><a href="#s9">Assessment Engine</a></li>
+  <li><a href="#s10">Custom Labs &amp; Code Execution</a></li>
+  <li><a href="#s11">Multi-Provider LLM Infrastructure</a></li>
+  <li><a href="#s12">Course Management System</a></li>
+  <li><a href="#s13">Discussion Forums</a></li>
+  <li><a href="#s14">Survey System</a></li>
+  <li><a href="#s15">Learning Analytics</a></li>
+  <li><a href="#s16">Authentication &amp; Security</a></li>
+  <li><a href="#s17">API Architecture</a></li>
+  <li><a href="#s18">Frontend Architecture</a></li>
+  <li><a href="#s19">Internationalization</a></li>
+  <li><a href="#s20">Notifications &amp; Certificates</a></li>
+</ol>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="s1">1. Introduction</h2>
+
+<p>LAILA is a multi-agent tutoring platform built around pedagogically distinct AI personas. It combines a full learning management system with AI-powered content generation, multi-provider LLM orchestration, and research-grade learning analytics. The platform serves three user roles&mdash;students, instructors, and administrators&mdash;across 71 page views, backed by 400+ API endpoints and 60+ database models.</p>
+
+<p>The platform's distinguishing features:</p>
+<ul>
+  <li><strong>Seven built-in AI tutor agents</strong> with distinct pedagogical styles (Socratic, direct, peer) deployed across five interaction surfaces</li>
+  <li><strong>Student Agent Builder</strong> that lets students design their own AI tutors as a graded learning activity</li>
+  <li><strong>Four routing modes</strong> for agent selection: manual, keyword-based router, multi-agent collaboration, and random</li>
+  <li><strong>Multi-provider LLM infrastructure</strong> supporting OpenAI, Anthropic, Google Gemini, Ollama, LM Studio, and Groq with 50+ configuration parameters per provider</li>
+  <li><strong>AI-powered content generation</strong> for MCQs, practice questions, and surveys</li>
+  <li><strong>Browser-based R execution</strong> via WebR for computational labs</li>
+  <li><strong>Research-grade analytics</strong> with xAPI-inspired activity logging, per-message interaction tracking, design process analytics, and multi-format export</li>
+</ul>
+
+<!-- ================================================================== -->
+<h2 id="s2">2. System Architecture</h2>
+
+<div class="diagram">┌─────────────────────────────────────────────────────────────┐
+│                        CLIENT (React)                       │
+│  React 18 · TypeScript · Vite · Tailwind · Zustand          │
+│  71 pages · 90+ components · React Router v6 · i18next      │
+│  WebR (R in browser) · Monaco Editor · React Query          │
+├─────────────────────────────────────────────────────────────┤
+│                     Vite Dev Proxy (:5174 → :5001)          │
+├─────────────────────────────────────────────────────────────┤
+│                       SERVER (Express)                      │
+│  Express.js · TypeScript · Prisma ORM · 44 Services         │
+│  JWT Auth · Rate Limiting · Helmet · Zod Validation         │
+│  400+ REST endpoints · 34 Route Files                       │
+├──────────────────┬──────────────────┬───────────────────────┤
+│    PostgreSQL    │   File Storage   │    LLM Providers      │
+│    (Prisma)      │   (/uploads)     │  ┌──────────────────┐ │
+│    60+ Models    │   50MB max       │  │ OpenAI           │ │
+│                  │                  │  │ Anthropic        │ │
+│                  │                  │  │ Google Gemini    │ │
+│                  │                  │  │ Ollama (local)   │ │
+│                  │                  │  │ LM Studio        │ │
+│                  │                  │  │ Groq             │ │
+│                  │                  │  │ OpenRouter       │ │
+│                  │                  │  └──────────────────┘ │
+└──────────────────┴──────────────────┴───────────────────────┘</div>
+
+<h3>Request Lifecycle</h3>
+<p>Every HTTP request passes through a layered middleware pipeline before reaching route handlers:</p>
+
+<div class="diagram">Request → CORS → Helmet → Compression → JSON Parser
+       → Request Logging (UUID) → Slow Request Logger (>2s)
+       → Rate Limiter (per-route) → Authentication (JWT)
+       → Zod Validation → Route Handler → Error Handler</div>
+
+<!-- ================================================================== -->
+<h2 id="s3">3. Technology Stack</h2>
+
+<table>
+  <tr><th>Layer</th><th>Technology</th><th>Purpose</th></tr>
+  <tr><td>Frontend Framework</td><td>React 18 + TypeScript</td><td>Component-based UI with strict typing</td></tr>
+  <tr><td>Build Tool</td><td>Vite 5</td><td>Fast HMR, dev proxy, production bundling</td></tr>
+  <tr><td>CSS</td><td>Tailwind CSS 3</td><td>Utility-first styling with dark mode</td></tr>
+  <tr><td>State Management</td><td>Zustand 4</td><td>4 global stores (auth, theme, language, notifications)</td></tr>
+  <tr><td>Data Fetching</td><td>Axios + React Query</td><td>HTTP client with caching and dedup</td></tr>
+  <tr><td>Routing</td><td>React Router v6</td><td>Client-side routing with role guards</td></tr>
+  <tr><td>Code Editor</td><td>Monaco Editor</td><td>VS Code editor for R code labs</td></tr>
+  <tr><td>R Runtime</td><td>WebR 0.5 (WebAssembly)</td><td>Browser-based R execution</td></tr>
+  <tr><td>i18n</td><td>i18next</td><td>4-language support (en, fi, es, ar) with RTL</td></tr>
+  <tr><td>Icons</td><td>Lucide React</td><td>SVG icon library</td></tr>
+  <tr><td>Sanitization</td><td>DOMPurify</td><td>HTML/XSS protection</td></tr>
+  <tr><td>Backend</td><td>Express.js + TypeScript</td><td>REST API server</td></tr>
+  <tr><td>ORM</td><td>Prisma</td><td>Type-safe database access with migrations</td></tr>
+  <tr><td>Database</td><td>PostgreSQL</td><td>Primary data store</td></tr>
+  <tr><td>Auth</td><td>JWT + bcrypt</td><td>Stateless auth with password hashing</td></tr>
+  <tr><td>Validation</td><td>Zod</td><td>Runtime schema validation</td></tr>
+  <tr><td>Security</td><td>Helmet + express-rate-limit</td><td>HTTP headers + request throttling</td></tr>
+  <tr><td>Testing</td><td>Vitest</td><td>900+ unit tests with mocking</td></tr>
+  <tr><td>Export</td><td>ExcelJS</td><td>CSV, Excel, and JSON data export</td></tr>
+</table>
+
+<h3>Frontend Dependencies</h3>
+<p>15 production dependencies. Key additions beyond the core stack: <code>react-markdown</code> (markdown rendering), <code>react-hot-toast</code> (toast notifications), <code>dompurify</code> (XSS sanitization), <code>webr</code> (R runtime).</p>
+
+<h3>Backend Services</h3>
+<p>44 service files handle all business logic, organized by domain: auth, user, course, module, lecture, enrollment, assignment, quiz, survey, forum, chat, tutor, LLM, MCQ generation, survey generation, custom labs, certificates, notifications, analytics (5 services), export (2 services), and agent-related services (5 services).</p>
+
+<!-- ================================================================== -->
+<h2 id="s4">4. Database Schema</h2>
+
+<p>The Prisma schema defines 60+ models organized into functional domains. Below is the model inventory by domain.</p>
+
+<table>
+  <tr><th>Domain</th><th>Models</th><th>Description</th></tr>
+  <tr><td>Users &amp; Auth</td><td>User, UserSetting</td><td>User accounts, roles (admin/instructor/student), settings, login tracking, account lockout</td></tr>
+  <tr><td>Configuration</td><td>SystemSetting, ApiConfiguration, LLMProvider, LLMModel, LLMSettings</td><td>System config, API keys, LLM provider registry with 50+ fields per provider</td></tr>
+  <tr><td>Courses</td><td>Course, CourseModule, Lecture, LectureSection, LectureAttachment</td><td>Course hierarchy: Course → Module → Lecture → Section. Sections support text, files, chatbots, assignments</td></tr>
+  <tr><td>Enrollment</td><td>Enrollment, LectureProgress, CoursePrerequisite</td><td>Student enrollment, per-lecture progress, prerequisite chains</td></tr>
+  <tr><td>Assignments</td><td>Assignment, AssignmentSubmission</td><td>Assignments with text/file submissions, auto and manual grading, AI feedback</td></tr>
+  <tr><td>Quizzes</td><td>Quiz, QuizQuestion, QuizAttempt, QuizAnswer</td><td>Timed quizzes with MCQ/true-false/short-answer/fill-blank, auto-grading, attempt tracking</td></tr>
+  <tr><td>Surveys</td><td>Survey, SurveyQuestion, SurveyResponse, SurveyAnswer</td><td>Instructor surveys with single/multiple choice and free text</td></tr>
+  <tr><td>Forums</td><td>Forum, ForumThread, ForumPost</td><td>Threaded forums with AI agent participation, pinning, locking</td></tr>
+  <tr><td>Multi-Agent Tutoring</td><td>Chatbot, TutorSession, TutorConversation, TutorMessage, TutorInteractionLog</td><td>7 tutor agents, session routing, per-message logging with token/latency metrics</td></tr>
+  <tr><td>Course Tutors</td><td>CourseTutor, CourseTutorConversation, CourseTutorMessage</td><td>Course-level tutor deployment with custom prompts and personalities</td></tr>
+  <tr><td>Lecture Chatbots</td><td>ChatbotConversation, ChatbotConversationMessage, ChatbotInteractionLog</td><td>Embedded chatbots in lecture sections with full interaction logging</td></tr>
+  <tr><td>Lecture AI Helper</td><td>LectureExplainThread, LectureExplainPost</td><td>Explain &amp; Discuss mode for lectures</td></tr>
+  <tr><td>Agent Builder</td><td>StudentAgentConfig, AgentConfigurationLog, AgentTestConversation, AgentTestMessage, AgentTestInteractionLog, AgentGradeLog</td><td>Student-designed agents with versioning, test conversations, config audit trail</td></tr>
+  <tr><td>Design Analytics</td><td>AgentDesignEventLog</td><td>Granular design event logging: field changes, template usage, tab timing, reflections</td></tr>
+  <tr><td>Prompt Building</td><td>PromptBlock, PromptBlockCategory</td><td>38 modular prompt blocks in 6 categories</td></tr>
+  <tr><td>Custom Labs</td><td>CustomLab, LabTemplate, LabAssignment</td><td>10 lab types with R code templates and course assignments</td></tr>
+  <tr><td>Code Labs</td><td>CodeLab, CodeBlock</td><td>In-lecture coding exercises with Monaco editor</td></tr>
+  <tr><td>Certificates</td><td>CertificateTemplate, Certificate</td><td>Templated certificates with verification codes</td></tr>
+  <tr><td>Notifications</td><td>Notification, NotificationPreference</td><td>In-app + email notifications with per-type preferences</td></tr>
+  <tr><td>Emotional Pulse</td><td>EmotionalPulse</td><td>7-state self-report (productive, stimulated, frustrated, learning, enjoying, bored, quitting)</td></tr>
+  <tr><td>Activity Log</td><td>LearningActivityLog</td><td>Unified xAPI-inspired log (actor-verb-object) across all surfaces</td></tr>
+  <tr><td>Research Logs</td><td>ContentEventLog, AssessmentEventLog, SystemEventLog, AuthEventLog</td><td>Domain-specific event logs for research export</td></tr>
+  <tr><td>User Analytics</td><td>ChatLog, UserInteraction, UserSubmission, DataAnalysisLog, UserInteractionLog</td><td>Client-side behavioral tracking, scroll depth, page time</td></tr>
+  <tr><td>Admin</td><td>AdminAuditLog, CourseRole, BatchEnrollmentJob, BatchEnrollmentResult, Rubric, RubricCriterion, CourseAnnouncement</td><td>Admin audit trail, role delegation, batch operations, rubrics</td></tr>
+</table>
+
+<h3>Key Schema Highlights</h3>
+<ul>
+  <li><strong>LLMProvider</strong> has 50+ fields covering connection (baseUrl, apiKey, timeout, retries), generation defaults (temperature, topP, topK, penalties), capabilities (streaming, vision, function calling), health monitoring (lastHealthCheck, consecutiveFailures), and usage statistics (totalRequests, totalTokensUsed).</li>
+  <li><strong>ChatbotInteractionLog</strong> captures 40+ fields per message: full course/module/lecture context, message metrics (char/word counts), AI metrics (model, provider, tokens, latency), device info, and session data.</li>
+  <li><strong>AgentDesignEventLog</strong> tracks 30+ fields per design action: field-level changes, template/suggestion usage, tab timing, role/personality selections, prompt block choices, and reflection responses.</li>
+  <li><strong>LearningActivityLog</strong> uses xAPI-inspired structure: userId (actor) + verb + objectType + objectId, enriched with course/module/lecture/section context, scores, durations, and device metadata.</li>
+</ul>
+
+<!-- ================================================================== -->
+<h2 id="s5">5. Multi-Agent Tutoring System</h2>
+
+<p>LAILA ships 7 tutor agents in two categories: 3 professional tutors and 4 peer personas. Each agent has a unique system prompt, personality, temperature, response style, do's/don'ts rules, and welcome message.</p>
+
+<h3>Agent Ensemble</h3>
+
+<table>
+  <tr><th>Agent</th><th>Category</th><th>Personality</th><th>Temp</th><th>Style</th><th>Approach</th></tr>
+  <tr><td><strong>Socratic Guide</strong></td><td>Professional</td><td>Socratic</td><td>0.7</td><td>Balanced</td><td>Probing questions; never gives direct answers unless student is stuck</td></tr>
+  <tr><td><strong>Helpful Guide</strong></td><td>Professional</td><td>Friendly</td><td>0.6</td><td>Detailed</td><td>Clear explanations, examples, analogies; checks understanding</td></tr>
+  <tr><td><strong>Project Coach</strong></td><td>Professional</td><td>Professional</td><td>0.5</td><td>Detailed</td><td>Task planning, debugging, best practices; actionable next steps</td></tr>
+  <tr><td><strong>Study Buddy</strong></td><td>Peer</td><td>Casual</td><td>0.8</td><td>Concise</td><td>Fellow student who learns alongside; casual language</td></tr>
+  <tr><td><strong>Carmen</strong></td><td>Peer</td><td>Casual</td><td>0.8</td><td>Concise</td><td>Took the course last semester; gives hints, not answers; admits uncertainty</td></tr>
+  <tr><td><strong>Laila</strong></td><td>Peer</td><td>Thoughtful</td><td>0.7</td><td>Concise</td><td>Intellectually curious; challenges ideas respectfully; plays devil's advocate</td></tr>
+  <tr><td><strong>Beatrice</strong></td><td>Peer</td><td>Supportive</td><td>0.75</td><td>Balanced</td><td>Warm and encouraging; validates feelings; celebrates small wins</td></tr>
+</table>
+
+<h3>Agent Do's &amp; Don'ts</h3>
+
+<table>
+  <tr><th>Agent</th><th>Do's</th><th>Don'ts</th></tr>
+  <tr>
+    <td><strong>Socratic Guide</strong></td>
+    <td>Ask clarifying questions · Build on student responses · Encourage self-discovery · Praise good reasoning · Use leading questions</td>
+    <td>Give direct answers immediately · Lecture without interaction · Make student feel wrong · Rush to conclusions</td>
+  </tr>
+  <tr>
+    <td><strong>Helpful Guide</strong></td>
+    <td>Explain clearly and thoroughly · Use concrete examples · Structure information logically · Be patient and encouraging · Check for understanding</td>
+    <td>Be vague or unclear · Skip important steps · Use jargon without explaining · Rush explanations</td>
+  </tr>
+  <tr>
+    <td><strong>Project Coach</strong></td>
+    <td>Create actionable task lists · Set realistic milestones · Debug systematically · Suggest best practices · Focus on practical solutions</td>
+    <td>Be vague about deliverables · Ignore deadlines · Skip planning steps · Overcomplicate solutions</td>
+  </tr>
+  <tr>
+    <td><strong>Carmen</strong></td>
+    <td>Give hints not answers · Share your own struggles · Be casual and friendly · Point in the right direction · Admit when unsure</td>
+    <td>Give complete answers · Sound like a teacher · Do their work for them · Pretend to be an expert</td>
+  </tr>
+  <tr>
+    <td><strong>Laila</strong></td>
+    <td>Challenge ideas constructively · Offer alternative viewpoints · Be supportive while disagreeing · Push them to think deeper · Give hints not answers</td>
+    <td>Be harsh or dismissive · Give complete solutions · Argue without purpose · Back down just to be nice</td>
+  </tr>
+  <tr>
+    <td><strong>Beatrice</strong></td>
+    <td>Be warm and encouraging · Validate their feelings · Celebrate small wins · Give gentle hints · Break things into small steps</td>
+    <td>Make them feel bad · Give complete answers · Rush or show impatience · Be condescending</td>
+  </tr>
+</table>
+
+<h3>Five Deployment Surfaces</h3>
+
+<table>
+  <tr><th>Surface</th><th>Scope</th><th>Agents Available</th><th>Description</th></tr>
+  <tr><td><strong>Global Tutoring</strong></td><td>Platform-wide</td><td>All 7 built-in</td><td>Persistent tutor sessions with mode selection (manual, router, collaborative, random)</td></tr>
+  <tr><td><strong>Course Tutors</strong></td><td>Per-course</td><td>Instructor-selected subset + custom</td><td>Instructors assign agents to courses, optionally override prompts and personalities</td></tr>
+  <tr><td><strong>Forum AI</strong></td><td>Per-thread</td><td>Global + course agents</td><td>Students request AI responses in forum threads; posts tagged as AI-generated</td></tr>
+  <tr><td><strong>Lecture Chatbots</strong></td><td>Per-section</td><td>Custom per section</td><td>Instructor configures chatbot per lecture section with custom system prompt and welcome</td></tr>
+  <tr><td><strong>Lecture AI Helper</strong></td><td>Per-lecture</td><td>System AI</td><td>Two modes: Explain (Q&amp;A threads) and Discuss (multi-turn chat) about lecture content</td></tr>
+</table>
+
+<!-- ================================================================== -->
+<h2 id="s6">6. Student Agent Builder</h2>
+
+<p>The Agent Builder lets students design their own AI tutoring agent as a graded assignment. Students configure identity, pedagogy, behavior rules, and test their agent in a live sandbox.</p>
+
+<h3>Architecture</h3>
+
+<div class="diagram">┌─────────────────────────────────────────────────────┐
+│                STUDENT AGENT BUILDER                │
+├──────────────┬──────────────┬───────────────────────┤
+│  Identity    │  Behavior    │  Advanced / Test      │
+│  Tab         │  Tab         │  Tabs                 │
+├──────────────┼──────────────┼───────────────────────┤
+│ Agent Name   │ System Prompt│ Temperature (0-1)     │
+│ Title        │ Do's Rules   │ Response Style        │
+│ Persona Desc │ Don'ts Rules │ Knowledge Context     │
+│ Welcome Msg  │ Prompt Blocks│ Suggested Questions   │
+│ Ped. Role    │              │ Live Test Chat        │
+│ Personality  │              │ Test Conversations    │
+│ Avatar       │              │ Reflection Responses  │
+└──────────────┴──────────────┴───────────────────────┘
+                        │
+              ┌─────────┴─────────┐
+              │  Design Analytics │
+              │  • Field changes  │
+              │  • Tab timing     │
+              │  • Version diffs  │
+              │  • Template usage │
+              │  • Block picks    │
+              │  • Reflections    │
+              └───────────────────┘</div>
+
+<h3>10 Pedagogical Role Templates</h3>
+
+<table>
+  <tr><th>Role</th><th>Description</th><th>Rec. Personality</th></tr>
+  <tr><td>Peer Tutor</td><td>Supportive classmate who explains at your level</td><td>Friendly</td></tr>
+  <tr><td>Study Buddy</td><td>Encouraging partner for collaborative learning</td><td>Encouraging</td></tr>
+  <tr><td>Socratic Guide</td><td>Asks thought-provoking questions to deepen understanding</td><td>Socratic</td></tr>
+  <tr><td>Writing Coach</td><td>Improves writing through constructive feedback</td><td>Professional</td></tr>
+  <tr><td>Research Assistant</td><td>Helps find, organize, and synthesize information</td><td>Academic</td></tr>
+  <tr><td>Debate Partner</td><td>Presents counterarguments to strengthen thinking</td><td>Professional</td></tr>
+  <tr><td>Concept Explainer</td><td>Breaks down complex topics into simple terms</td><td>Friendly</td></tr>
+  <tr><td>Practice Interviewer</td><td>Simulates interview scenarios for preparation</td><td>Professional</td></tr>
+  <tr><td>Language Partner</td><td>Practices conversation in target language</td><td>Friendly</td></tr>
+  <tr><td>Problem-Solving Coach</td><td>Guides systematic problem-solving approaches</td><td>Socratic</td></tr>
+</table>
+
+<h3>7 Personality Presets</h3>
+
+<table>
+  <tr><th>Preset</th><th>Description</th></tr>
+  <tr><td>Friendly</td><td>Warm, approachable, and casual communication style</td></tr>
+  <tr><td>Professional</td><td>Polished, formal, and business-appropriate tone</td></tr>
+  <tr><td>Socratic</td><td>Questioning approach that guides discovery</td></tr>
+  <tr><td>Encouraging</td><td>Highly supportive and motivating presence</td></tr>
+  <tr><td>Academic</td><td>Scholarly, precise, and educational tone</td></tr>
+  <tr><td>Casual</td><td>Relaxed, conversational, and easy-going style</td></tr>
+  <tr><td>Custom</td><td>Student defines their own personality prompt</td></tr>
+</table>
+
+<h3>38 Prompt Building Blocks (6 Categories)</h3>
+
+<table>
+  <tr><th>Category</th><th>Count</th><th>Blocks</th></tr>
+  <tr><td><strong>Persona</strong></td><td>6</td><td>Patient Tutor, Study Partner, Coach, Mentor, Subject Expert, Peer Helper</td></tr>
+  <tr><td><strong>Tone &amp; Style</strong></td><td>6</td><td>Encouraging, Casual &amp; Friendly, Professional, Patient &amp; Calm, Enthusiastic, Direct &amp; Clear</td></tr>
+  <tr><td><strong>Behaviors</strong></td><td>10</td><td>Ask Follow-up Questions, Give Examples, Break Down Topics, Use Analogies, Summarize Key Points, Check Understanding, Encourage Questions, Step-by-Step Guidance, Multiple Approaches, Praise Effort</td></tr>
+  <tr><td><strong>Constraints</strong></td><td>8</td><td>Don't Give Direct Answers, Avoid Jargon, Don't Be Condescending, Don't Assume Knowledge, Don't Overwhelm, Don't Rush, Stay On Topic, Admit Limitations</td></tr>
+  <tr><td><strong>Response Format</strong></td><td>6</td><td>Bullet Points, Numbered Steps, Headers/Sections, Concise, Detailed, End with Summary</td></tr>
+  <tr><td><strong>Knowledge Bounds</strong></td><td>6</td><td>Beginner Level, Intermediate Level, Focus on Concepts, Practical Applications, Redirect Off-Topic, Subject-Specific Focus</td></tr>
+</table>
+
+<p>Selected blocks are automatically combined into a structured system prompt using category-based ordering: persona → tone → behaviors → constraints → format → knowledge bounds.</p>
+
+<h3>3 Response Styles</h3>
+<table>
+  <tr><th>Style</th><th>Description</th></tr>
+  <tr><td>Concise</td><td>Brief, to-the-point responses that focus on essentials</td></tr>
+  <tr><td>Balanced</td><td>Well-rounded responses with appropriate detail</td></tr>
+  <tr><td>Detailed</td><td>Comprehensive responses with examples and explanations</td></tr>
+</table>
+
+<h3>Design Process Tracking</h3>
+<p>The Agent Builder logs every design action for learning analytics:</p>
+<ul>
+  <li><strong>Field-level changes:</strong> every edit to name, prompt, rules, etc. with character/word counts and previous/new values</li>
+  <li><strong>Tab timing:</strong> time spent on each builder tab (identity, behavior, advanced, test)</li>
+  <li><strong>Template/suggestion usage:</strong> which role templates, personality presets, and prompt blocks were selected</li>
+  <li><strong>Version snapshots:</strong> full config snapshots at each save, enabling diff analysis</li>
+  <li><strong>Test conversations:</strong> all test chat sessions logged with config version at time of test</li>
+  <li><strong>Reflection responses:</strong> student reflections captured during the design process</li>
+  <li><strong>Iteration count:</strong> total number of save operations per student</li>
+</ul>
+
+<!-- ================================================================== -->
+<h2 id="s7">7. Tutor Routing &amp; Collaboration</h2>
+
+<h3>Four Routing Modes</h3>
+
+<table>
+  <tr><th>Mode</th><th>Selection Logic</th><th>Use Case</th></tr>
+  <tr><td><strong>Manual</strong></td><td>Student explicitly picks an agent</td><td>Default mode; full student control</td></tr>
+  <tr><td><strong>Router</strong></td><td>Fast keyword-based scoring across 7 categories; selects highest-scoring agent</td><td>Automatic agent matching based on message content</td></tr>
+  <tr><td><strong>Collaborative</strong></td><td>Multiple agents respond in parallel, sequential, debate, or random style</td><td>Multi-perspective learning</td></tr>
+  <tr><td><strong>Random</strong></td><td>Random agent selection per message</td><td>Variety and exploration</td></tr>
+</table>
+
+<h3>Keyword Router</h3>
+<p>The router uses a fast, zero-latency keyword matching algorithm. Each agent has scoring categories with weighted keywords. The message is checked against all keyword lists, and the agent with the highest aggregate score wins.</p>
+
+<div class="info-box">
+The router categorizes messages into 7 dimensions: conceptual understanding, problem-solving, emotional support, study strategies, project work, writing tasks, and discussion/debate. Keywords have base and boost scores for precision matching.
+</div>
+
+<h3>Collaborative Styles</h3>
+
+<table>
+  <tr><th>Style</th><th>Mechanism</th><th>Output</th></tr>
+  <tr><td><strong>Parallel</strong></td><td>All selected agents respond simultaneously via <code>Promise.all</code></td><td>Individual responses per agent, then a synthesized summary</td></tr>
+  <tr><td><strong>Sequential</strong></td><td>Agents respond one-by-one, each seeing prior responses</td><td>Building, iterative conversation with synthesis</td></tr>
+  <tr><td><strong>Debate</strong></td><td>Agents take opposing perspectives on the question</td><td>Multiple viewpoints with a balanced synthesis</td></tr>
+  <tr><td><strong>Random</strong></td><td>Random subset of agents selected, style chosen randomly</td><td>Unpredictable multi-agent interaction</td></tr>
+</table>
+
+<p>All collaborative responses include per-agent attribution (agent name, personality) and a final synthesis message generated by the system.</p>
+
+<!-- ================================================================== -->
+<h2 id="s8">8. AI Content Generation</h2>
+
+<h3>MCQ Generation</h3>
+<p>Instructors generate multiple-choice questions from a topic or lecture content. The system uses structured prompts with JSON output parsing and validation.</p>
+
+<table>
+  <tr><th>Parameter</th><th>Range</th><th>Default</th></tr>
+  <tr><td>Question count</td><td>1-10</td><td>5</td></tr>
+  <tr><td>Difficulty</td><td>easy / medium / hard</td><td>medium</td></tr>
+  <tr><td>Options per question</td><td>3-5</td><td>4</td></tr>
+  <tr><td>Temperature</td><td>0-1</td><td>0.4</td></tr>
+  <tr><td>Max tokens</td><td>&mdash;</td><td>4000</td></tr>
+</table>
+
+<p>Generated questions include: question text, options, correct answer, and explanation. The system validates correct answers against options, resolves letter references (A/B/C/D → option text), and filters invalid questions.</p>
+
+<h3>Practice Question Generation</h3>
+<p>Students generate self-study questions from lecture content. The system extracts lecture text and attachment PDFs, builds a content-aware prompt, and returns MCQs for self-assessment.</p>
+
+<h3>Survey Generation</h3>
+<p>Instructors generate survey questions using AI. Five survey types are supported:</p>
+
+<table>
+  <tr><th>Type</th><th>Prompt Strategy</th></tr>
+  <tr><td>General Feedback</td><td>Mixed question types covering satisfaction, aspects, and open-ended feedback</td></tr>
+  <tr><td>Course Evaluation</td><td>Mostly Likert scale on teaching quality, content, workload, engagement</td></tr>
+  <tr><td>Likert Scale</td><td>Exclusively 5-point Likert (Strongly Disagree to Strongly Agree)</td></tr>
+  <tr><td>Learning Strategies</td><td>Study habits, metacognition, self-regulation, collaboration</td></tr>
+  <tr><td>Custom</td><td>User-provided instructions drive generation</td></tr>
+</table>
+
+<p>Generated surveys are created as database records (survey + questions) in a single transaction, ready for immediate editing or publishing.</p>
+
+<!-- ================================================================== -->
+<h2 id="s9">9. Assessment Engine</h2>
+
+<h3>Quiz System</h3>
+<p>Full quiz engine with configurable parameters:</p>
+
+<table>
+  <tr><th>Feature</th><th>Details</th></tr>
+  <tr><td>Question Types</td><td>Multiple choice, true/false, short answer, fill-in-the-blank</td></tr>
+  <tr><td>Time Limits</td><td>Optional, per-quiz (minutes)</td></tr>
+  <tr><td>Max Attempts</td><td>Configurable (default: 1)</td></tr>
+  <tr><td>Passing Score</td><td>Configurable threshold (default: 70%)</td></tr>
+  <tr><td>Shuffling</td><td>Question order and option order randomization</td></tr>
+  <tr><td>Availability</td><td>Start/end dates, due dates</td></tr>
+  <tr><td>Results Display</td><td>after_submit / after_due / manual</td></tr>
+  <tr><td>Auto-Save</td><td>Answers saved on each interaction</td></tr>
+  <tr><td>Resume</td><td>In-progress attempts can be resumed</td></tr>
+  <tr><td>Auto-Grading</td><td>Immediate scoring on submission with per-question points</td></tr>
+</table>
+
+<h3>Assignment System</h3>
+<p>Text or file-based submissions with instructor grading:</p>
+<ul>
+  <li>Submission types: text, file upload, or agent config (for agent builder assignments)</li>
+  <li>File uploads: configurable max size and allowed types</li>
+  <li>Grading: manual score + feedback, AI-assisted feedback option</li>
+  <li>Gradebook: matrix view across all assignments per course</li>
+  <li>Resubmission: students can resubmit before the due date</li>
+  <li>Post-submission surveys: optional survey attached to assignments</li>
+</ul>
+
+<!-- ================================================================== -->
+<h2 id="s10">10. Custom Labs &amp; Code Execution</h2>
+
+<h3>10 Lab Types</h3>
+
+<table>
+  <tr><th>Lab Type</th><th>Description</th></tr>
+  <tr><td>TNA</td><td>Transition Network Analysis &mdash; network visualization and centrality measures</td></tr>
+  <tr><td>Statistics</td><td>Descriptive stats, t-tests, ANOVA, regression, correlation, chi-square</td></tr>
+  <tr><td>Network Analysis</td><td>Social network analysis and graph metrics</td></tr>
+  <tr><td>Sequence Analysis</td><td>Sequential pattern mining and analysis</td></tr>
+  <tr><td>Data Visualization</td><td>Chart creation and data presentation</td></tr>
+  <tr><td>Regression</td><td>Linear and logistic regression modeling</td></tr>
+  <tr><td>Clustering</td><td>K-means, hierarchical clustering, cluster validation</td></tr>
+  <tr><td>Time Series</td><td>Temporal data analysis and forecasting</td></tr>
+  <tr><td>Text Analysis</td><td>NLP, sentiment analysis, text mining</td></tr>
+  <tr><td>Custom</td><td>Instructor-defined lab type with custom templates</td></tr>
+</table>
+
+<h3>Pre-built Templates</h3>
+<p>Labs ship with pre-configured R code templates for established research instruments:</p>
+<ul>
+  <li><strong>TNA:</strong> 5 templates for network construction, centrality, community detection</li>
+  <li><strong>Statistics:</strong> 11 templates covering descriptive stats, hypothesis tests, regression</li>
+  <li><strong>MSLQ:</strong> 3 templates for the Motivated Strategies for Learning Questionnaire</li>
+  <li><strong>COLLES:</strong> 3 templates for the Constructivist Online Learning Environment Survey</li>
+  <li><strong>R-SPQ-2F:</strong> 3 templates for the Revised Study Process Questionnaire</li>
+</ul>
+
+<h3>Code Execution Architecture</h3>
+
+<div class="diagram">┌─────────────────────────────────────┐
+│         Browser (Client)            │
+│  ┌──────────┐  ┌──────────────────┐ │
+│  │ Monaco   │  │ WebR Runtime     │ │
+│  │ Editor   │──│ (WebAssembly)    │ │
+│  │ (R code) │  │ R 4.x in WASM   │ │
+│  └──────────┘  └───────┬──────────┘ │
+│                        │            │
+│  ┌─────────────────────┴──────────┐ │
+│  │         Code Output            │ │
+│  │  • stdout (text results)       │ │
+│  │  • stderr (errors/warnings)    │ │
+│  │  • plots (base64 images)       │ │
+│  │  • messages (R messages)       │ │
+│  └────────────────────────────────┘ │
+└─────────────────────────────────────┘</div>
+
+<p>All R code runs client-side via WebR (R compiled to WebAssembly). No server-side execution. The Monaco Editor provides syntax highlighting, autocomplete, and line numbers. Output supports four types: stdout, stderr, plot (rendered as images), and R messages.</p>
+
+<p>Each code lab contains ordered code blocks, each with a title, markdown instructions, and starter code. Students modify and run code independently per block.</p>
+
+<!-- ================================================================== -->
+<h2 id="s11">11. Multi-Provider LLM Infrastructure</h2>
+
+<h3>Provider Architecture</h3>
+
+<div class="diagram">┌──────────────────────────────────────────────────┐
+│                  LLM Service                     │
+│          (Unified Chat Interface)                │
+├──────────┬──────────┬──────────┬─────────────────┤
+│ OpenAI   │ Anthropic│ Gemini   │ OpenAI-Compat.  │
+│ Adapter  │ Adapter  │ Adapter  │ Adapter         │
+├──────────┼──────────┼──────────┼─────────────────┤
+│ GPT-4o   │ Claude   │ Gemini   │ Ollama          │
+│ GPT-4    │ Sonnet   │ Pro      │ LM Studio       │
+│ o1/o3    │ Haiku    │ Flash    │ Groq            │
+│          │          │          │ OpenRouter       │
+│          │          │          │ Together         │
+│          │          │          │ Mistral          │
+└──────────┴──────────┴──────────┴─────────────────┘</div>
+
+<h3>Provider Configuration (50+ Fields Per Provider)</h3>
+
+<table>
+  <tr><th>Category</th><th>Fields</th></tr>
+  <tr><td><strong>Connection</strong></td><td>baseUrl, apiKey, apiVersion, organizationId, projectId, proxyUrl, proxyUsername, proxyPassword, customHeaders, skipTlsVerify, customCaCert</td></tr>
+  <tr><td><strong>Generation Defaults</strong></td><td>defaultModel, defaultTemperature, defaultMaxTokens, defaultTopP, defaultTopK, defaultFrequencyPenalty, defaultPresencePenalty, defaultRepeatPenalty, defaultStopSequences, defaultResponseFormat</td></tr>
+  <tr><td><strong>Limits</strong></td><td>maxContextLength, maxOutputTokens, defaultContextLength, rateLimitRpm, rateLimitTpm, rateLimitRpd, concurrencyLimit</td></tr>
+  <tr><td><strong>Reliability</strong></td><td>requestTimeout (120s), connectTimeout (30s), maxRetries (3), retryDelay (1s), retryBackoffMultiplier (2x)</td></tr>
+  <tr><td><strong>Capabilities</strong></td><td>supportsStreaming, defaultStreaming, supportsVision, supportsFunctionCalling, supportsJsonMode, supportsSystemMessage, supportsMultipleSystemMessages</td></tr>
+  <tr><td><strong>Health Monitoring</strong></td><td>healthCheckEnabled, healthCheckInterval (60s), lastHealthCheck, healthStatus, lastError, consecutiveFailures</td></tr>
+  <tr><td><strong>Usage Statistics</strong></td><td>totalRequests, totalTokensUsed, totalErrors, averageLatency</td></tr>
+  <tr><td><strong>Model Registry</strong></td><td>Per-model: modelId, contextLength, maxOutputTokens, pricing (input/output per 1M tokens), capability flags, usage counters</td></tr>
+</table>
+
+<h3>Provider Adapters</h3>
+<ul>
+  <li><strong>OpenAI-compatible:</strong> Handles OpenAI, Azure, Ollama, LM Studio, Groq, OpenRouter, Together, Mistral. Special handling for reasoning models (o1/o3): moves system prompt to first user message, removes unsupported parameters.</li>
+  <li><strong>Gemini:</strong> Converts OpenAI-format messages to Gemini's <code>contents</code> array. Maps system messages to Gemini's <code>systemInstruction</code>.</li>
+  <li><strong>Anthropic:</strong> Converts to Anthropic's messages API format. Handles system prompt as top-level parameter.</li>
+</ul>
+
+<h3>Local-First Deployment</h3>
+<p>The platform supports fully local AI via Ollama and LM Studio:</p>
+<ul>
+  <li><strong>Ollama:</strong> List installed models, pull new models, auto-detect at <code>http://localhost:11434</code></li>
+  <li><strong>LM Studio:</strong> List loaded models at <code>http://localhost:1234</code></li>
+  <li>Both use the OpenAI-compatible adapter, requiring zero code changes</li>
+</ul>
+
+<h3>Default Provider Seeding</h3>
+<p>Running <code>POST /api/llm/seed</code> initializes 6 providers: OpenAI, Google Gemini, Ollama, LM Studio, Anthropic, and Groq with appropriate defaults and common models.</p>
+
+<!-- ================================================================== -->
+<h2 id="s12">12. Course Management System</h2>
+
+<h3>Course Hierarchy</h3>
+
+<div class="diagram">Course
+  ├── CourseModule (ordered)
+  │     ├── Lecture (ordered)
+  │     │     ├── LectureSection (ordered)
+  │     │     │     ├── Text content (HTML/Markdown)
+  │     │     │     ├── File attachment (PDF, video, etc.)
+  │     │     │     ├── Embedded chatbot (custom prompt)
+  │     │     │     └── Assignment embed
+  │     │     ├── LectureAttachment (files)
+  │     │     └── LectureExplainThread (AI helper)
+  │     ├── CodeLab (ordered)
+  │     │     └── CodeBlock (ordered)
+  │     ├── Quiz
+  │     ├── Forum
+  │     └── LabAssignment
+  ├── Assignment
+  ├── CourseTutor (agent deployment)
+  ├── Survey
+  ├── Enrollment
+  ├── CourseRole (TA, co-instructor)
+  └── Announcement</div>
+
+<h3>Course Features</h3>
+
+<table>
+  <tr><th>Feature</th><th>Details</th></tr>
+  <tr><td>Publishing</td><td>Draft/published status. Publishing requires at least one module with content.</td></tr>
+  <tr><td>Slugs</td><td>Auto-generated URL slugs for SEO-friendly course links</td></tr>
+  <tr><td>Categories &amp; Difficulty</td><td>Instructor-defined categorization and difficulty levels</td></tr>
+  <tr><td>AI Settings</td><td>Per-course config: collaborative module toggle, emotional pulse toggle, tutor routing mode, default tutor</td></tr>
+  <tr><td>Curriculum View</td><td>Configurable view mode: mini-cards (default) or other layouts</td></tr>
+  <tr><td>Course Roles</td><td>TA, co-instructor, course admin with granular permissions (grade, edit, manage students, view analytics)</td></tr>
+  <tr><td>Batch Enrollment</td><td>CSV upload for bulk student enrollment with progress tracking and error reporting</td></tr>
+  <tr><td>Prerequisites</td><td>Course prerequisite chains with configurable minimum progress thresholds</td></tr>
+</table>
+
+<h3>Lecture Sections</h3>
+<p>Each lecture is composed of ordered sections. Section types include:</p>
+<ul>
+  <li><strong>Text:</strong> Rich content with HTML/Markdown rendering</li>
+  <li><strong>File:</strong> Uploaded documents (PDF, DOCX, PPTX, etc.) with metadata</li>
+  <li><strong>Chatbot:</strong> Embedded AI chatbot with custom system prompt, welcome message, and image. Full conversation logging.</li>
+  <li><strong>Assignment:</strong> Embedded assignment with configurable deadline and point display</li>
+</ul>
+
+<h3>Enrollment &amp; Progress</h3>
+<ul>
+  <li>Students enroll in courses and track progress per lecture</li>
+  <li>Lecture completion tracking with time-spent logging</li>
+  <li>Course progress calculated as percentage of completed lectures</li>
+  <li>Last access timestamp for engagement monitoring</li>
+  <li>Admins and instructors get virtual enrollments in their own courses</li>
+</ul>
+
+<!-- ================================================================== -->
+<h2 id="s13">13. Discussion Forums</h2>
+
+<p>Threaded discussion forums with AI agent integration:</p>
+
+<table>
+  <tr><th>Feature</th><th>Details</th></tr>
+  <tr><td>Forum Scoping</td><td>Forums are scoped to courses, optionally to specific modules</td></tr>
+  <tr><td>Threads</td><td>Pinning, locking, anonymous posting, view count tracking</td></tr>
+  <tr><td>Posts</td><td>Nested replies (parent-child), editing with edit flag, anonymous posting</td></tr>
+  <tr><td>AI Participation</td><td>Students request AI agent posts in threads. Posts marked as AI-generated with agent name.</td></tr>
+  <tr><td>Available Agents</td><td>Global system chatbots + course-specific tutors</td></tr>
+  <tr><td>Moderation</td><td>Instructors can pin, lock, and delete threads/posts</td></tr>
+  <tr><td>Pagination</td><td>Threaded list with paginated loading</td></tr>
+  <tr><td>Rate Limiting</td><td>AI posts limited to 3 requests per minute to prevent abuse</td></tr>
+</table>
+
+<!-- ================================================================== -->
+<h2 id="s14">14. Survey System</h2>
+
+<h3>Survey Capabilities</h3>
+<ul>
+  <li><strong>Question types:</strong> single choice, multiple choice, free text</li>
+  <li><strong>Anonymous mode:</strong> removes user association from responses</li>
+  <li><strong>Course scoping:</strong> surveys can be global or attached to specific courses</li>
+  <li><strong>Publishing workflow:</strong> draft → published (requires at least one question)</li>
+  <li><strong>Question management:</strong> add, edit, delete, reorder questions</li>
+  <li><strong>Duplicate prevention:</strong> non-anonymous surveys block re-submission</li>
+  <li><strong>Post-assignment integration:</strong> surveys can be attached to assignments for completion after submission</li>
+</ul>
+
+<h3>Analytics &amp; Export</h3>
+<ul>
+  <li><strong>Per-question statistics:</strong> response counts, option distributions for choice questions, free-text response lists</li>
+  <li><strong>CSV export:</strong> full response matrix with user info (for non-anonymous), question headers as columns</li>
+  <li><strong>Context tracking:</strong> where the survey was completed (standalone, post-assignment, etc.)</li>
+</ul>
+
+<!-- ================================================================== -->
+<h2 id="s15">15. Learning Analytics</h2>
+
+<p>LAILA provides research-grade analytics across multiple collection layers.</p>
+
+<h3>Analytics Architecture</h3>
+
+<div class="diagram">┌─────────────────────────────────────────────────────────────┐
+│                   ANALYTICS COLLECTION                      │
+├─────────────┬──────────────┬──────────────┬─────────────────┤
+│  Activity   │  Interaction │  Domain-     │  Design         │
+│  Log (xAPI) │  Logs        │  Specific    │  Analytics      │
+│             │              │  Logs        │                 │
+│  actor      │  page views  │  content     │  field changes  │
+│  verb       │  clicks      │  events      │  tab timing     │
+│  object     │  scroll      │  assessment  │  template use   │
+│  context    │  time-on-page│  events      │  version diffs  │
+│  score      │  device info │  auth events │  prompt blocks  │
+│  duration   │  session     │  system      │  reflections    │
+│             │              │  events      │  test chats     │
+├─────────────┴──────────────┴──────────────┴─────────────────┤
+│                         EXPORT                              │
+│   CSV · Excel · JSON · ZIP · Per-table or all-in-one        │
+└─────────────────────────────────────────────────────────────┘</div>
+
+<h3>Unified Activity Log (xAPI-inspired)</h3>
+<p>Every significant learning event is recorded with a standardized structure:</p>
+
+<table>
+  <tr><th>Field</th><th>Description</th><th>Examples</th></tr>
+  <tr><td><strong>verb</strong></td><td>Action performed</td><td>enrolled, viewed, started, completed, submitted, graded, messaged</td></tr>
+  <tr><td><strong>objectType</strong></td><td>What was acted upon</td><td>course, module, lecture, assignment, quiz, chatbot, tutor_agent</td></tr>
+  <tr><td><strong>objectId</strong></td><td>Identifier of the target</td><td>Course ID, lecture ID, etc.</td></tr>
+  <tr><td><strong>context</strong></td><td>Full path</td><td>courseId → moduleId → lectureId → sectionId with titles</td></tr>
+  <tr><td><strong>score / maxScore</strong></td><td>Numeric outcome</td><td>Quiz scores, assignment grades</td></tr>
+  <tr><td><strong>duration</strong></td><td>Time in seconds</td><td>Time on lecture, response latency</td></tr>
+  <tr><td><strong>extensions</strong></td><td>JSON metadata</td><td>Agent details, routing mode, token usage</td></tr>
+</table>
+
+<h3>Emotional Pulse</h3>
+<p>7-state self-report instrument available across AI interaction surfaces:</p>
+<table>
+  <tr><th>State</th><th>Valence</th></tr>
+  <tr><td>Productive</td><td>Positive</td></tr>
+  <tr><td>Stimulated</td><td>Positive</td></tr>
+  <tr><td>Learning</td><td>Positive</td></tr>
+  <tr><td>Enjoying</td><td>Positive</td></tr>
+  <tr><td>Frustrated</td><td>Negative</td></tr>
+  <tr><td>Bored</td><td>Negative</td></tr>
+  <tr><td>Quitting</td><td>Negative</td></tr>
+</table>
+
+<p>Each pulse record captures: userId, emotion, context (chatbot, tutor, lecture), contextId, agentId, and timestamp. Instructors access aggregated stats and timeline views.</p>
+
+<h3>Domain-Specific Event Logs</h3>
+
+<table>
+  <tr><th>Log</th><th>Events Captured</th></tr>
+  <tr><td><strong>ContentEventLog</strong></td><td>Page views, video playback (position, duration, % watched), scroll depth, time on page, document downloads</td></tr>
+  <tr><td><strong>AssessmentEventLog</strong></td><td>Quiz submissions, assignment grading, grade changes, attempt counts, time spent</td></tr>
+  <tr><td><strong>AuthEventLog</strong></td><td>Login, logout, registration, failed attempts, lockouts, with device/browser/session info</td></tr>
+  <tr><td><strong>SystemEventLog</strong></td><td>Course/assignment creation/deletion/updates, role changes, with before/after values</td></tr>
+</table>
+
+<h3>Export Capabilities</h3>
+<ul>
+  <li><strong>CSV:</strong> Per-table exports (chatbot logs, interactions, auth logs, system events, assessment logs, content events)</li>
+  <li><strong>Excel:</strong> Multi-sheet workbook with all analytics tables</li>
+  <li><strong>JSON:</strong> Structured data export for programmatic analysis</li>
+  <li><strong>ZIP:</strong> All CSV files bundled into a single archive</li>
+  <li>All exports support date range filtering and course/user scoping</li>
+</ul>
+
+<!-- ================================================================== -->
+<h2 id="s16">16. Authentication &amp; Security</h2>
+
+<h3>Authentication Flow</h3>
+
+<table>
+  <tr><th>Step</th><th>Details</th></tr>
+  <tr><td><strong>Registration</strong></td><td>Email uniqueness check → bcrypt hash (10 rounds) → JWT generation (7-day TTL) → auth event log</td></tr>
+  <tr><td><strong>Login</strong></td><td>Account lockout check → active status check → bcrypt compare → reset failed attempts → JWT generation → language preference fetch → auth event log</td></tr>
+  <tr><td><strong>Token Validation</strong></td><td>JWT signature verification → tokenVersion check (cached 30s) → active status check</td></tr>
+  <tr><td><strong>Password Change</strong></td><td>Current password verification → new hash → tokenVersion increment → cache invalidation → all existing tokens invalidated</td></tr>
+</table>
+
+<h3>Account Security</h3>
+
+<table>
+  <tr><th>Mechanism</th><th>Configuration</th></tr>
+  <tr><td>Password Requirements</td><td>Min 8 chars, uppercase, lowercase, number, special character</td></tr>
+  <tr><td>Account Lockout</td><td>5 failed attempts → 15-minute lockout</td></tr>
+  <tr><td>Token Expiration</td><td>7 days</td></tr>
+  <tr><td>Token Invalidation</td><td>Password change increments tokenVersion, invalidating all existing tokens</td></tr>
+  <tr><td>User Status Cache</td><td>30-second TTL to reduce database queries per request</td></tr>
+</table>
+
+<h3>Rate Limiting</h3>
+
+<table>
+  <tr><th>Limiter</th><th>Window</th><th>Max Requests</th><th>Applied To</th></tr>
+  <tr><td>Auth</td><td>60s</td><td>5</td><td>Login, registration</td></tr>
+  <tr><td>API (general)</td><td>60s</td><td>100</td><td>All /api routes</td></tr>
+  <tr><td>LLM</td><td>60s</td><td>60</td><td>Chat, tutors, AI routes</td></tr>
+  <tr><td>Upload</td><td>60s</td><td>10</td><td>File upload</td></tr>
+  <tr><td>Forum AI</td><td>60s</td><td>3</td><td>AI agent forum posts</td></tr>
+</table>
+
+<h3>Role-Based Access Control</h3>
+
+<table>
+  <tr><th>Role</th><th>Access Level</th></tr>
+  <tr><td><strong>Student</strong></td><td>Enrolled courses, own submissions, quiz attempts, forum posts, survey responses</td></tr>
+  <tr><td><strong>Instructor</strong></td><td>Own courses + all student access. Create/manage courses, assignments, quizzes, surveys, forums, labs. Grade submissions. View analytics for own courses.</td></tr>
+  <tr><td><strong>Admin</strong></td><td>All instructor access + platform management. User management, LLM configuration, system settings, chatbot registry, analytics export, batch enrollment.</td></tr>
+</table>
+
+<p>Course-level roles (TA, co-instructor, course admin) provide granular permissions: grade, edit content, manage students, view analytics.</p>
+
+<h3>Additional Security Measures</h3>
+<ul>
+  <li><strong>Helmet:</strong> CSP headers, X-Content-Type-Options, referrer policy</li>
+  <li><strong>CORS:</strong> Configurable origin via CLIENT_URL environment variable</li>
+  <li><strong>Input Validation:</strong> Zod schemas on all API inputs; ZodError returns 400 with field-level details</li>
+  <li><strong>Error Handling:</strong> Production mode hides stack traces; Prisma errors mapped to user-friendly messages (P2002 → 409 "already exists", P2025 → 404)</li>
+  <li><strong>DOMPurify:</strong> Client-side HTML sanitization for all user-generated content</li>
+  <li><strong>Pagination Limits:</strong> Maximum 100 records per request to prevent data exfiltration</li>
+  <li><strong>File Upload:</strong> 50MB max, allowlist of file extensions (PDF, DOC, images, video, audio, archives)</li>
+</ul>
+
+<!-- ================================================================== -->
+<h2 id="s17">17. API Architecture</h2>
+
+<p>The REST API is organized into 34 route files with 400+ endpoints. Routes are grouped by domain.</p>
+
+<h3>Route Summary</h3>
+
+<table>
+  <tr><th>Route Group</th><th>Base Path</th><th>Endpoints</th><th>Auth</th></tr>
+  <tr><td>Auth</td><td><code>/api/auth</code></td><td>6</td><td>Mixed</td></tr>
+  <tr><td>Users</td><td><code>/api/users</code></td><td>10</td><td>Required</td></tr>
+  <tr><td>Courses</td><td><code>/api/courses</code></td><td>47</td><td>Mixed</td></tr>
+  <tr><td>Enrollments</td><td><code>/api/enrollments</code></td><td>7</td><td>Required</td></tr>
+  <tr><td>Assignments</td><td><code>/api/assignments</code></td><td>10</td><td>Required</td></tr>
+  <tr><td>Quizzes</td><td><code>/api/quizzes</code></td><td>18</td><td>Required</td></tr>
+  <tr><td>Surveys</td><td><code>/api/surveys</code></td><td>14</td><td>Mixed</td></tr>
+  <tr><td>Forums</td><td><code>/api/forums</code></td><td>16</td><td>Required</td></tr>
+  <tr><td>Tutors</td><td><code>/api/tutors</code></td><td>10</td><td>Required</td></tr>
+  <tr><td>Course Tutors</td><td><code>/api/courses/:id/tutors</code></td><td>14</td><td>Required</td></tr>
+  <tr><td>Agent Assignments</td><td><code>/api/agent-assignments</code></td><td>16</td><td>Required</td></tr>
+  <tr><td>Agent Design Logs</td><td><code>/api/agent-design-logs</code></td><td>8</td><td>Required</td></tr>
+  <tr><td>Chat</td><td><code>/api/chat</code></td><td>5</td><td>Required</td></tr>
+  <tr><td>Chatbots</td><td><code>/api/chatbots</code></td><td>8</td><td>Mixed</td></tr>
+  <tr><td>LLM Management</td><td><code>/api/llm</code></td><td>18</td><td>Admin</td></tr>
+  <tr><td>Code Labs</td><td><code>/api/code-labs</code></td><td>10</td><td>Required</td></tr>
+  <tr><td>Custom Labs</td><td><code>/api/labs</code></td><td>14</td><td>Mixed</td></tr>
+  <tr><td>Prompt Blocks</td><td><code>/api/prompt-blocks</code></td><td>12</td><td>Mixed</td></tr>
+  <tr><td>Certificates</td><td><code>/api/certificates</code></td><td>14</td><td>Mixed</td></tr>
+  <tr><td>Notifications</td><td><code>/api/notifications</code></td><td>8</td><td>Required</td></tr>
+  <tr><td>Emotional Pulse</td><td><code>/api/emotional-pulse</code></td><td>4</td><td>Required</td></tr>
+  <tr><td>Activity Logs</td><td><code>/api/activity-log</code></td><td>6</td><td>Required</td></tr>
+  <tr><td>Analytics</td><td><code>/api/analytics</code></td><td>12</td><td>Mixed</td></tr>
+  <tr><td>Analytics Export</td><td><code>/api/analytics/export</code></td><td>12</td><td>Admin</td></tr>
+  <tr><td>Admin</td><td><code>/api/admin</code></td><td>14</td><td>Admin</td></tr>
+  <tr><td>User Management</td><td><code>/api/user-management</code></td><td>10</td><td>Admin</td></tr>
+  <tr><td>Enrollment Mgmt</td><td><code>/api/enrollment-management</code></td><td>7</td><td>Mixed</td></tr>
+  <tr><td>Batch Enrollment</td><td><code>/api/batch-enrollment</code></td><td>5</td><td>Instructor</td></tr>
+  <tr><td>Course Roles</td><td><code>/api/course-roles</code></td><td>4</td><td>Instructor</td></tr>
+  <tr><td>Settings</td><td><code>/api/settings</code></td><td>10</td><td>Admin</td></tr>
+  <tr><td>AI</td><td><code>/api/ai</code></td><td>1</td><td>Required</td></tr>
+  <tr><td>Uploads</td><td><code>/api/uploads</code></td><td>1</td><td>Instructor</td></tr>
+  <tr><td>Messages Export</td><td><code>/api/admin/messages</code></td><td>4</td><td>Admin</td></tr>
+  <tr><td>Learning Analytics</td><td><code>/api/analytics</code></td><td>3</td><td>Required</td></tr>
+</table>
+
+<h3>Response Format</h3>
+<pre><code>// Success
+{ "success": true, "data": { ... } }
+
+// Error
+{ "success": false, "error": "Error message" }
+
+// Validation Error (Zod)
+{ "success": false, "error": "Validation error", "details": [...] }</code></pre>
+
+<h3>Health Check</h3>
+<p><code>GET /api/health</code> returns server status, database connectivity (latency in ms), and memory usage (heap used/total in MB).</p>
+
+<!-- ================================================================== -->
+<h2 id="s18">18. Frontend Architecture</h2>
+
+<h3>State Management (4 Zustand Stores)</h3>
+
+<table>
+  <tr><th>Store</th><th>State</th><th>Key Features</th></tr>
+  <tr><td><strong>authStore</strong></td><td>user, token, isAuthenticated, viewAsRole</td><td>Persisted to localStorage. Supports "view as" role switching for admins. Effective role calculation.</td></tr>
+  <tr><td><strong>themeStore</strong></td><td>theme (light/dark), isDark</td><td>DOM class toggle. MutationObserver for external changes. Persisted.</td></tr>
+  <tr><td><strong>languageStore</strong></td><td>language, direction (ltr/rtl), isInitialized</td><td>Updates document lang/dir attributes. Priority: user setting > localStorage > browser.</td></tr>
+  <tr><td><strong>notificationStore</strong></td><td>notifications[], unreadCount, hasMore</td><td>30-second polling. Optimistic updates with rollback. Paginated (20 per page).</td></tr>
+</table>
+
+<h3>Page Count by Role</h3>
+<div class="stat-grid">
+  <div class="stat-card"><span class="number">30</span><span class="label">Student Pages</span></div>
+  <div class="stat-card"><span class="number">5</span><span class="label">AI Tool Pages</span></div>
+  <div class="stat-card"><span class="number">4</span><span class="label">Agent Builder Pages</span></div>
+  <div class="stat-card"><span class="number">20</span><span class="label">Instructor Pages</span></div>
+  <div class="stat-card"><span class="number">10</span><span class="label">Admin Pages</span></div>
+  <div class="stat-card"><span class="number">2</span><span class="label">Auth Pages</span></div>
+</div>
+
+<h3>Component Organization (16 Directories, 90+ Components)</h3>
+
+<table>
+  <tr><th>Directory</th><th>Components</th><th>Purpose</th></tr>
+  <tr><td><code>common/</code></td><td>13</td><td>Button, Card, Input, Modal, Loading, EmptyState, Breadcrumb, StatusBadge, ConfirmDialog, ErrorBoundary, SkipLinks, ThemeToggle, EmotionalPulseWidget</td></tr>
+  <tr><td><code>layout/</code></td><td>4</td><td>Layout, Navbar, DashboardSidebar, ProtectedRoute</td></tr>
+  <tr><td><code>course/</code></td><td>13</td><td>Course views, sidebar, curriculum, tutor chat, collaborative module</td></tr>
+  <tr><td><code>lecture/</code></td><td>7</td><td>Explain view, practice mode, AI helper, PDF selector</td></tr>
+  <tr><td><code>tutors/</code></td><td>12</td><td>Chat, messages, sidebar, agent cards, mode selector, collaborative components</td></tr>
+  <tr><td><code>agent-assignment/</code></td><td>13</td><td>Builder form, tabs (identity, behavior, advanced, test), prompt block selector, role selector</td></tr>
+  <tr><td><code>code/</code></td><td>4</td><td>CodeBlockRunner, CodeLabAIHelper, CodeLabPlayer, CodeOutput</td></tr>
+  <tr><td><code>labs/</code></td><td>4</td><td>Lab editor, output, templates</td></tr>
+  <tr><td><code>survey/</code></td><td>6</td><td>SurveyRenderer, SurveyQuestion, SurveyEmbed, PostAssignmentSurveyModal</td></tr>
+  <tr><td><code>forum/</code></td><td>3</td><td>Reply input, agent selector</td></tr>
+  <tr><td><code>teach/</code></td><td>13</td><td>Course form, section editors, content editors, chatbot config</td></tr>
+  <tr><td><code>teaching/</code></td><td>2</td><td>MCQGenerator, SurveyGenerator</td></tr>
+  <tr><td><code>admin/</code></td><td>6</td><td>Admin layout, sidebar, stat cards, role manager</td></tr>
+</table>
+
+<h3>API Layer</h3>
+<p>24 API modules built on a shared Axios instance with JWT interceptor and error handling. Organized by domain: auth, users, courses, enrollments, assignments, quizzes, surveys, forums, chat, tutors, labs, certificates, notifications, analytics, admin.</p>
+
+<h3>Custom Hooks</h3>
+<ul>
+  <li><code>useAuth</code> &mdash; authentication state and actions</li>
+  <li><code>useTheme</code> &mdash; theme management</li>
+  <li><code>useWebR</code> &mdash; WebR runtime initialization and code execution</li>
+  <li><code>useLabWebR</code> &mdash; lab-specific WebR with template support</li>
+  <li><code>useTNAWebR</code> &mdash; TNA (Transition Network Analysis) WebR</li>
+  <li><code>useFocusTrap</code> &mdash; accessibility focus management for modals</li>
+</ul>
+
+<!-- ================================================================== -->
+<h2 id="s19">19. Internationalization</h2>
+
+<h3>Supported Languages</h3>
+
+<table>
+  <tr><th>Code</th><th>Language</th><th>Direction</th><th>Status</th></tr>
+  <tr><td><code>en</code></td><td>English</td><td>LTR</td><td><span class="badge badge-green">Primary</span></td></tr>
+  <tr><td><code>fi</code></td><td>Finnish (Suomi)</td><td>LTR</td><td><span class="badge badge-blue">Complete</span></td></tr>
+  <tr><td><code>es</code></td><td>Spanish (Español)</td><td>LTR</td><td><span class="badge badge-blue">Complete</span></td></tr>
+  <tr><td><code>ar</code></td><td>Arabic (العربية)</td><td>RTL</td><td><span class="badge badge-purple">Complete + RTL</span></td></tr>
+</table>
+
+<h3>Translation Architecture</h3>
+<p>9 namespace files per language, loaded on demand via HTTP backend:</p>
+
+<table>
+  <tr><th>Namespace</th><th>Content</th></tr>
+  <tr><td><code>common</code></td><td>Shared strings (buttons, labels, confirmations)</td></tr>
+  <tr><td><code>navigation</code></td><td>Navbar, sidebar, breadcrumb labels</td></tr>
+  <tr><td><code>auth</code></td><td>Login, registration, password forms</td></tr>
+  <tr><td><code>courses</code></td><td>Course views, enrollment, progress</td></tr>
+  <tr><td><code>teaching</code></td><td>Instructor-facing content</td></tr>
+  <tr><td><code>admin</code></td><td>Admin panel strings</td></tr>
+  <tr><td><code>tutors</code></td><td>AI tutor interface</td></tr>
+  <tr><td><code>settings</code></td><td>User and system settings</td></tr>
+  <tr><td><code>errors</code></td><td>Error messages</td></tr>
+</table>
+
+<h3>RTL Support</h3>
+<p>Arabic uses right-to-left layout with automatic <code>dir="rtl"</code> on the document element. CSS animations have RTL variants (e.g., <code>slideIn</code> / <code>slideInRtl</code>). The language store manages direction changes.</p>
+
+<h3>Language Detection Priority</h3>
+<ol>
+  <li>User's saved preference (server-side setting)</li>
+  <li>localStorage (<code>i18nextLng</code>)</li>
+  <li>Browser language detection</li>
+  <li>Fallback: English</li>
+</ol>
+
+<!-- ================================================================== -->
+<h2 id="s20">20. Notifications &amp; Certificates</h2>
+
+<h3>Notification System</h3>
+
+<table>
+  <tr><th>Feature</th><th>Details</th></tr>
+  <tr><td>Delivery Channels</td><td>In-app (bell icon + dropdown) and email</td></tr>
+  <tr><td>Polling</td><td>30-second interval for unread count</td></tr>
+  <tr><td>Pagination</td><td>20 notifications per page with load-more</td></tr>
+  <tr><td>Actions</td><td>Mark as read (single), mark all as read</td></tr>
+  <tr><td>Types</td><td>Grade posted, assignment due, forum reply, announcement, enrollment, certificate</td></tr>
+</table>
+
+<h3>Notification Preferences</h3>
+<p>Per-user configuration with independent toggles for email and in-app notifications across 6 event types: enrollment, assignment due, grade posted, announcement, forum reply, certificate. Email digest frequency: daily (default).</p>
+
+<h3>Certificate System</h3>
+
+<table>
+  <tr><th>Feature</th><th>Details</th></tr>
+  <tr><td>Templates</td><td>HTML-based certificate templates. Instructors create custom templates; system provides a default.</td></tr>
+  <tr><td>Issuance</td><td>Instructors issue certificates to eligible students who meet completion criteria.</td></tr>
+  <tr><td>Verification</td><td>Unique verification code per certificate. Public verification endpoint (no auth required).</td></tr>
+  <tr><td>Rendering</td><td>Server-side HTML rendering with template variables (student name, course title, date, verification code).</td></tr>
+  <tr><td>Revocation</td><td>Admin-only certificate revocation.</td></tr>
+  <tr><td>Uniqueness</td><td>One certificate per user per course (enforced by unique constraint).</td></tr>
+</table>
+
+</main>
+
+<footer>
+  <p><strong>LAILA</strong> &mdash; Learning Analytics and Intelligent Learning Assistant</p>
+  <p>Mohammed Saqr &middot; University of Eastern Finland &middot; <a href="https://www.saqr.me">www.saqr.me</a></p>
+  <p style="margin-top:8px;">MIT License &middot; February 2025</p>
+</footer>
+
+</div>
+</body>
+</html>
