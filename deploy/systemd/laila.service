@@ -1,0 +1,43 @@
+# =============================================================================
+# LAILA — systemd Service Unit
+# =============================================================================
+# Placeholders replaced by deploy.sh:
+#   __INSTALL_DIR__ → absolute path to the LAILA-v3 project root
+#   __USER__        → Linux user that runs the service
+# =============================================================================
+
+[Unit]
+Description=LAILA LMS Server
+Documentation=https://github.com/your-org/LAILA-v3
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=__USER__
+Group=__USER__
+WorkingDirectory=__INSTALL_DIR__/server
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# Environment
+Environment=NODE_ENV=production
+EnvironmentFile=__INSTALL_DIR__/server/.env
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=__INSTALL_DIR__/server/uploads __INSTALL_DIR__/server/logs
+PrivateTmp=true
+
+# Logging — stdout/stderr to journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=laila
+
+[Install]
+WantedBy=multi-user.target
