@@ -130,13 +130,6 @@ const contentConfigBase: Record<ContentType, {
   },
 };
 
-// Helper to get truncated title for mini cards
-const getTruncatedTitle = (title: string, maxWords: number = 2): string => {
-  const words = title.split(' ');
-  if (words.length <= maxWords) return title;
-  return words.slice(0, maxWords).join(' ');
-};
-
 export const ContentCard = ({
   type,
   title,

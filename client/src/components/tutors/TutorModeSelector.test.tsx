@@ -2,6 +2,24 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { TutorModeSelector } from './TutorModeSelector';
 
+// Mock i18n - returns the key as text
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => {
+      const translations: Record<string, string> = {
+        mode_manual: 'Manual',
+        mode_auto_route: 'Auto-Route',
+        mode_team: 'Team',
+        mode_manual_desc: 'Choose which tutor responds',
+        mode_auto_route_desc: 'AI picks the best tutor',
+        mode_team_desc: 'All tutors contribute',
+        mode: 'Mode',
+      };
+      return translations[key] || key;
+    },
+  }),
+}));
+
 describe('TutorModeSelector', () => {
   it('should render all three mode options', () => {
     render(
@@ -26,9 +44,9 @@ describe('TutorModeSelector', () => {
       />
     );
 
-    // Manual should be selected
+    // Manual should be selected - uses inline style for background
     const manualButton = screen.getByText('Manual').closest('button');
-    expect(manualButton?.className).toContain('bg-primary');
+    expect(manualButton?.style.backgroundColor).toBeTruthy();
 
     // Rerender with router mode
     rerender(
@@ -40,7 +58,7 @@ describe('TutorModeSelector', () => {
     );
 
     const routerButton = screen.getByText('Auto-Route').closest('button');
-    expect(routerButton?.className).toContain('bg-primary');
+    expect(routerButton?.style.backgroundColor).toBeTruthy();
   });
 
   it('should call onModeChange when a mode is clicked', () => {
@@ -98,7 +116,6 @@ describe('TutorModeSelector', () => {
       />
     );
 
-    // Check for actual descriptions from the component
     expect(screen.getByText('Choose which tutor responds')).toBeInTheDocument();
     expect(screen.getByText('AI picks the best tutor')).toBeInTheDocument();
     expect(screen.getByText('All tutors contribute')).toBeInTheDocument();
@@ -115,7 +132,6 @@ describe('TutorModeSelector', () => {
     );
 
     fireEvent.click(screen.getByText('Manual'));
-    // Component still calls onModeChange
     expect(handleModeChange).toHaveBeenCalledWith('manual');
   });
 });

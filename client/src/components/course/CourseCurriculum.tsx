@@ -241,16 +241,6 @@ export const CourseCurriculum = ({
     enabled: !!selectedLectureId,
   });
 
-  // Find current module for breadcrumb context
-  const findModuleForLecture = (lectureId: number) => {
-    for (const module of modules) {
-      if (module.lectures?.some(l => l.id === lectureId)) {
-        return module;
-      }
-    }
-    return null;
-  };
-
   const handleOpenSectionContent = (section: LectureSection, lectureId?: number, moduleId?: number) => {
     const moduleInfo = modules.find(m => m.id === moduleId);
     const lectureInfo = moduleInfo?.lectures?.find(l => l.id === lectureId);

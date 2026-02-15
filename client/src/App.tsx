@@ -111,7 +111,6 @@ import {
   EnrollmentsManagement,
   BatchEnrollment,
   ChatbotRegistry,
-  AnalyticsDashboard,
   LLMSettings,
 } from './pages/admin';
 import { PromptBlocksManagement } from './pages/admin/PromptBlocksManagement';

@@ -117,7 +117,7 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
   const chatMutation = useMutation({
     mutationFn: async (message: string) => {
       return lectureAIHelperApi.chat(lectureId, {
-        mode,
+        mode: mode as LectureAIHelperMode,
         message,
         sessionId,
       });
@@ -208,8 +208,6 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
   // Filter sessions for Discuss mode only
   const filteredSessions = sessions.filter((s: LectureAISession) => s.mode === 'discuss');
 
-  // Get mode configs excluding 'practice' for original LectureAIHelperMode
-  const originalModes: LectureAIHelperMode[] = ['explain', 'discuss'];
   const allModes: ExtendedMode[] = ['explain', 'discuss', 'practice'];
 
   const currentConfig = MODE_CONFIG[mode];

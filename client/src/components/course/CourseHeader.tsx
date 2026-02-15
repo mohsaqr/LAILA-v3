@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Users, BookOpen, PlayCircle, Edit, Settings, PenSquare } from 'lucide-react';
 import { Button } from '../common/Button';
-import { useTheme } from '../../hooks/useTheme';
 
 interface CourseHeaderProps {
   course: {
@@ -33,12 +32,6 @@ export const CourseHeader = ({
   isEnrolling,
 }: CourseHeaderProps) => {
   const { t } = useTranslation(['courses', 'common']);
-  const { isDark } = useTheme();
-
-  const colors = {
-    border: isDark ? '#374151' : '#e5e7eb',
-  };
-
   const totalLectures = course.modules?.reduce((sum, m) => sum + (m.lectures?.length || 0), 0) || 0;
 
   return (

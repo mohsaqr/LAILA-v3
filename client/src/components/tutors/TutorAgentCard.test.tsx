@@ -117,7 +117,9 @@ describe('TutorAgentCard', () => {
     );
 
     const button = container.querySelector('button');
-    expect(button?.className).toContain('bg-primary-50');
+    // Component uses inline styles for selected state, not Tailwind classes
+    expect(button?.style.backgroundColor).toBeTruthy();
+    expect(button?.className).toContain('shadow-sm');
   });
 
   it('should call onClick when clicked', () => {

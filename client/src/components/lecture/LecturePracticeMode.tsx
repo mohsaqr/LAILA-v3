@@ -31,7 +31,7 @@ interface AnswerState {
   isCorrect: boolean | null;
 }
 
-export const LecturePracticeMode = ({ lectureId, lectureTitle, onBack }: LecturePracticeModeProps) => {
+export const LecturePracticeMode = ({ lectureId, lectureTitle: _lectureTitle, onBack }: LecturePracticeModeProps) => {
   const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
 
