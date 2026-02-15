@@ -543,7 +543,7 @@ export class LLMService {
       frequencyPenalty: request.frequencyPenalty ?? provider.defaultFrequencyPenalty,
       presencePenalty: request.presencePenalty ?? provider.defaultPresencePenalty,
       repeatPenalty: request.repeatPenalty ?? provider.defaultRepeatPenalty,
-      stop: request.stop || (provider.defaultStopSequences ? JSON.parse(provider.defaultStopSequences as unknown as string) : undefined),
+      stop: request.stop || (provider.defaultStopSequences as string[] | undefined),
       stream: request.stream ?? provider.defaultStreaming,
     };
 
@@ -613,19 +613,37 @@ export class LLMService {
       organization: provider.organizationId,
     });
 
-    const response = await client.chat.completions.create({
+    // Check if model is a reasoning model (o1, o3 series) that has parameter restrictions
+    const isReasoningModel = /^(o1|o3)(-|$)/i.test(model);
+
+    // Build request params, filtering out undefined values
+    const requestParams: Record<string, any> = {
       model,
-      messages: messages.map(m => ({
-        role: m.role as 'system' | 'user' | 'assistant',
-        content: m.content as string,
-      })),
-      temperature: params.temperature,
-      max_tokens: params.maxTokens,
-      top_p: params.topP,
-      frequency_penalty: params.frequencyPenalty,
-      presence_penalty: params.presencePenalty,
-      stop: params.stop,
-    });
+      messages: messages.map(m => {
+        // Reasoning models don't support system messages - convert to user messages
+        if (isReasoningModel && m.role === 'system') {
+          return { role: 'user' as const, content: `[System Instructions]: ${m.content as string}` };
+        }
+        return {
+          role: m.role as 'system' | 'user' | 'assistant',
+          content: m.content as string,
+        };
+      }),
+    };
+
+    if (isReasoningModel) {
+      // Reasoning models only support max_completion_tokens, not max_tokens/temperature/top_p
+      if (params.maxTokens != null) requestParams.max_completion_tokens = params.maxTokens;
+    } else {
+      if (params.temperature != null) requestParams.temperature = params.temperature;
+      if (params.maxTokens != null) requestParams.max_tokens = params.maxTokens;
+      if (params.topP != null) requestParams.top_p = params.topP;
+      if (params.frequencyPenalty != null) requestParams.frequency_penalty = params.frequencyPenalty;
+      if (params.presencePenalty != null) requestParams.presence_penalty = params.presencePenalty;
+    }
+    if (params.stop) requestParams.stop = params.stop;
+
+    const response = await client.chat.completions.create(requestParams as any);
 
     return {
       id: response.id,

@@ -261,7 +261,7 @@ export class MCQGenerationService {
         module: {
           include: {
             course: {
-              select: { id: true, title: true },
+              select: { id: true, title: true, instructorId: true },
             },
           },
         },
@@ -277,18 +277,24 @@ export class MCQGenerationService {
       throw new AppError('Lecture not found', 404);
     }
 
-    // Verify user is enrolled in the course
-    const enrollment = await prisma.enrollment.findUnique({
-      where: {
-        userId_courseId: {
-          userId,
-          courseId: lecture.module.courseId,
-        },
-      },
-    });
+    // Allow access if user is admin, course instructor, or enrolled student
+    const isCourseOwner = lecture.module.course.instructorId === userId;
+    if (!isCourseOwner) {
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } });
+      if (!user?.isAdmin) {
+        const enrollment = await prisma.enrollment.findUnique({
+          where: {
+            userId_courseId: {
+              userId,
+              courseId: lecture.module.courseId,
+            },
+          },
+        });
 
-    if (!enrollment) {
-      throw new AppError('You must be enrolled in this course to practice', 403);
+        if (!enrollment) {
+          throw new AppError('You must be enrolled in this course to practice', 403);
+        }
+      }
     }
 
     // Combine lecture content

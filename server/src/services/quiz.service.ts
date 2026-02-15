@@ -492,6 +492,7 @@ export class QuizService {
       where: { id: quizId },
       include: {
         questions: { orderBy: { orderIndex: 'asc' } },
+        course: { select: { instructorId: true } },
       },
     });
 
@@ -506,11 +507,17 @@ export class QuizService {
       throw new AppError('Quiz due date has passed', 400);
     }
 
-    // Check enrollment
-    const enrollment = await prisma.enrollment.findUnique({
-      where: { userId_courseId: { userId, courseId: quiz.courseId } },
-    });
-    if (!enrollment) throw new AppError('You must be enrolled to take this quiz', 403);
+    // Check enrollment (admins and course instructors bypass)
+    const isCourseOwner = quiz.course?.instructorId === userId;
+    if (!isCourseOwner) {
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } });
+      if (!user?.isAdmin) {
+        const enrollment = await prisma.enrollment.findUnique({
+          where: { userId_courseId: { userId, courseId: quiz.courseId } },
+        });
+        if (!enrollment) throw new AppError('You must be enrolled to take this quiz', 403);
+      }
+    }
 
     // Check attempts
     const existingAttempts = await prisma.quizAttempt.count({

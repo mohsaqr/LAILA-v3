@@ -5,6 +5,8 @@ import { BrainCircuit, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
+import { useLanguageStore } from '../../store/languageStore';
+import { supportedLanguages, SupportedLanguage } from '../../i18n/config';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 
@@ -16,6 +18,7 @@ export const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const { isDark } = useTheme();
+  const { language: currentLanguage, setLanguage } = useLanguageStore();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -166,6 +169,28 @@ export const Login = () => {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Language Selector */}
+        <div className="flex justify-center gap-2 mt-4">
+          {Object.entries(supportedLanguages).map(([code, { nativeName }]) => (
+            <button
+              key={code}
+              onClick={() => setLanguage(code as SupportedLanguage)}
+              className="px-3 py-1.5 text-sm rounded-lg transition-colors"
+              style={{
+                backgroundColor: currentLanguage === code
+                  ? (isDark ? 'rgba(8, 143, 143, 0.3)' : 'rgba(8, 143, 143, 0.1)')
+                  : 'transparent',
+                color: currentLanguage === code
+                  ? (isDark ? '#5eecec' : '#088F8F')
+                  : (isDark ? '#9ca3af' : '#6b7280'),
+                fontWeight: currentLanguage === code ? 600 : 400,
+              }}
+            >
+              {nativeName}
+            </button>
+          ))}
         </div>
       </div>
     </div>

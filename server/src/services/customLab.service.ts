@@ -318,10 +318,361 @@ assess_normality(mtcars$hp, "Horsepower")`,
   },
 ];
 
+// Default templates for MSLQ survey lab (Pintrich et al., 1991)
+const MSLQ_DEFAULT_TEMPLATES = [
+  {
+    title: 'Create MSLQ Data',
+    description: 'Simulate Motivated Strategies for Learning Questionnaire data (Pintrich et al., 1991). The MSLQ measures motivation and self-regulated learning across 81 items on a 7-point Likert scale.',
+    code: `# Motivated Strategies for Learning Questionnaire (MSLQ)
+# Reference: Pintrich, P. R., Smith, D. A., Garcia, T., & McKeachie, W. J. (1991)
+set.seed(42)
+n <- 80  # Number of students
+
+# MSLQ subscales (simulated with realistic inter-correlations)
+# Motivation scales
+intrinsic_goal <- round(pmin(7, pmax(1, rnorm(n, 4.8, 1.2))), 0)
+extrinsic_goal <- round(pmin(7, pmax(1, rnorm(n, 4.2, 1.4))), 0)
+task_value <- round(pmin(7, pmax(1, rnorm(n, 5.0, 1.1))), 0)
+self_efficacy <- round(pmin(7, pmax(1, rnorm(n, 4.5, 1.3))), 0)
+test_anxiety <- round(pmin(7, pmax(1, rnorm(n, 3.8, 1.5))), 0)
+
+# Learning strategy scales
+rehearsal <- round(pmin(7, pmax(1, rnorm(n, 4.0, 1.3))), 0)
+elaboration <- round(pmin(7, pmax(1, rnorm(n, 4.5, 1.2))), 0)
+critical_thinking <- round(pmin(7, pmax(1, rnorm(n, 4.2, 1.3))), 0)
+metacognition <- round(pmin(7, pmax(1, rnorm(n, 4.6, 1.1))), 0)
+
+# Outcome
+final_grade <- round(pmin(100, pmax(30,
+  40 + self_efficacy * 3 + metacognition * 2.5 +
+  elaboration * 1.5 - test_anxiety * 1.2 + rnorm(n, 0, 8)
+)), 1)
+
+mslq <- data.frame(
+  student_id = 1:n,
+  intrinsic_goal, extrinsic_goal, task_value,
+  self_efficacy, test_anxiety,
+  rehearsal, elaboration, critical_thinking, metacognition,
+  final_grade
+)
+
+cat("MSLQ Dataset Overview\\n")
+str(mslq)
+cat("\\nSummary Statistics:\\n")
+summary(mslq[, -1])`,
+    orderIndex: 0,
+  },
+  {
+    title: 'Reliability & Descriptives',
+    description: 'Compute Cronbach alpha proxies and descriptive statistics for each MSLQ subscale',
+    code: `# Descriptive statistics by subscale
+library(dplyr)
+
+motivation_vars <- c("intrinsic_goal", "extrinsic_goal", "task_value", "self_efficacy", "test_anxiety")
+strategy_vars <- c("rehearsal", "elaboration", "critical_thinking", "metacognition")
+
+cat("=== Motivation Subscales ===\\n")
+for (v in motivation_vars) {
+  cat(sprintf("%-18s  M = %.2f  SD = %.2f  Range = %d-%d\\n",
+    v, mean(mslq[[v]]), sd(mslq[[v]]), min(mslq[[v]]), max(mslq[[v]])))
+}
+
+cat("\\n=== Learning Strategy Subscales ===\\n")
+for (v in strategy_vars) {
+  cat(sprintf("%-18s  M = %.2f  SD = %.2f  Range = %d-%d\\n",
+    v, mean(mslq[[v]]), sd(mslq[[v]]), min(mslq[[v]]), max(mslq[[v]])))
+}
+
+cat("\\n=== Outcome ===\\n")
+cat(sprintf("Final Grade        M = %.2f  SD = %.2f\\n", mean(mslq$final_grade), sd(mslq$final_grade)))
+
+# Correlation matrix: motivation & strategies vs outcome
+cat("\\n=== Correlations with Final Grade ===\\n")
+all_vars <- c(motivation_vars, strategy_vars)
+for (v in all_vars) {
+  r <- cor(mslq[[v]], mslq$final_grade)
+  p <- cor.test(mslq[[v]], mslq$final_grade)$p.value
+  sig <- ifelse(p < 0.001, "***", ifelse(p < 0.01, "**", ifelse(p < 0.05, "*", "")))
+  cat(sprintf("%-18s  r = %+.3f  %s\\n", v, r, sig))
+}`,
+    orderIndex: 1,
+  },
+  {
+    title: 'Visualize & Predict',
+    description: 'Visualize relationships and build a regression model predicting achievement from MSLQ scales',
+    code: `library(ggplot2)
+library(tidyr)
+
+# Reshape for visualization
+mslq_long <- mslq %>%
+  select(-student_id, -final_grade) %>%
+  pivot_longer(everything(), names_to = "subscale", values_to = "score")
+
+# Boxplot of all subscales
+ggplot(mslq_long, aes(x = reorder(subscale, score, FUN = median), y = score, fill = subscale)) +
+  geom_boxplot(show.legend = FALSE) +
+  coord_flip() +
+  labs(title = "MSLQ Subscale Distributions",
+       x = "Subscale", y = "Score (1-7)") +
+  theme_minimal()
+
+# Regression: predict final grade from MSLQ
+cat("\\n=== Multiple Regression: MSLQ -> Final Grade ===\\n")
+model <- lm(final_grade ~ self_efficacy + metacognition + elaboration +
+            test_anxiety + task_value, data = mslq)
+summary(model)`,
+    orderIndex: 2,
+  },
+];
+
+// Default templates for COLLES survey lab (Taylor & Maor, 2000)
+const COLLES_DEFAULT_TEMPLATES = [
+  {
+    title: 'Create COLLES Data',
+    description: 'Simulate Constructivist On-Line Learning Environment Survey data (Taylor & Maor, 2000). COLLES measures 6 dimensions of online learning quality on a 5-point scale.',
+    code: `# Constructivist On-Line Learning Environment Survey (COLLES)
+# Reference: Taylor, P. C., & Maor, D. (2000)
+# 6 scales, 4 items each, 5-point Likert (1=Almost Never to 5=Almost Always)
+set.seed(123)
+n <- 65
+
+likert5 <- function(n, mu, sd) round(pmin(5, pmax(1, rnorm(n, mu, sd))), 0)
+
+colles <- data.frame(
+  student_id = 1:n,
+  # Relevance: How relevant is online learning to professional practices?
+  relevance = likert5(n, 3.8, 0.9),
+  # Reflective Thinking: Does online learning stimulate critical thinking?
+  reflective_thinking = likert5(n, 3.5, 1.0),
+  # Interactivity: To what extent do students engage in dialogue?
+  interactivity = likert5(n, 3.2, 1.1),
+  # Tutor Support: How well do tutors facilitate participation?
+  tutor_support = likert5(n, 3.9, 0.8),
+  # Peer Support: Do fellow students provide encouragement?
+  peer_support = likert5(n, 3.3, 1.0),
+  # Interpretation: Do students and tutors make sense of each other?
+  interpretation = likert5(n, 3.6, 0.9),
+  # Overall satisfaction
+  satisfaction = likert5(n, 3.7, 0.9)
+)
+
+cat("COLLES Dataset (Taylor & Maor, 2000)\\n")
+cat("Scales: Relevance, Reflective Thinking, Interactivity,")
+cat(" Tutor Support, Peer Support, Interpretation\\n\\n")
+str(colles)
+summary(colles[, -1])`,
+    orderIndex: 0,
+  },
+  {
+    title: 'Analyze COLLES Scales',
+    description: 'Compare preferred vs actual learning environment and identify strengths and weaknesses',
+    code: `library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+scales <- c("relevance", "reflective_thinking", "interactivity",
+            "tutor_support", "peer_support", "interpretation")
+
+# Descriptives
+cat("=== COLLES Scale Descriptives ===\\n")
+for (s in scales) {
+  m <- mean(colles[[s]]); sd_val <- sd(colles[[s]])
+  pct_positive <- mean(colles[[s]] >= 4) * 100
+  cat(sprintf("%-22s  M = %.2f  SD = %.2f  %%Positive = %.1f%%\\n",
+    s, m, sd_val, pct_positive))
+}
+
+# Correlations with satisfaction
+cat("\\n=== Correlations with Overall Satisfaction ===\\n")
+for (s in scales) {
+  r <- cor(colles[[s]], colles$satisfaction)
+  cat(sprintf("%-22s  r = %+.3f\\n", s, r))
+}
+
+# Diverging bar chart
+scale_means <- sapply(colles[, scales], mean)
+midpoint <- 3  # Neutral on 5-point scale
+df_plot <- data.frame(
+  scale = factor(names(scale_means), levels = rev(names(scale_means))),
+  mean = scale_means,
+  deviation = scale_means - midpoint
+)
+
+ggplot(df_plot, aes(x = scale, y = deviation, fill = deviation > 0)) +
+  geom_col(show.legend = FALSE) +
+  geom_hline(yintercept = 0, linewidth = 0.5) +
+  coord_flip() +
+  scale_fill_manual(values = c("#e74c3c", "#27ae60")) +
+  labs(title = "COLLES: Deviation from Neutral (3.0)",
+       subtitle = "Green = above neutral, Red = below neutral",
+       x = NULL, y = "Mean - 3.0") +
+  theme_minimal()`,
+    orderIndex: 1,
+  },
+  {
+    title: 'Predict Satisfaction',
+    description: 'Build a model to identify which COLLES dimensions best predict overall satisfaction',
+    code: `library(ggplot2)
+
+# Multiple regression
+model <- lm(satisfaction ~ relevance + reflective_thinking + interactivity +
+            tutor_support + peer_support + interpretation, data = colles)
+cat("=== Predicting Satisfaction from COLLES Scales ===\\n")
+summary(model)
+
+# Standardized coefficients for comparison
+colles_scaled <- as.data.frame(scale(colles[, -1]))
+model_std <- lm(satisfaction ~ relevance + reflective_thinking + interactivity +
+                tutor_support + peer_support + interpretation, data = colles_scaled)
+
+coefs <- data.frame(
+  predictor = names(coef(model_std))[-1],
+  beta = coef(model_std)[-1]
+)
+coefs$predictor <- factor(coefs$predictor, levels = coefs$predictor[order(abs(coefs$beta))])
+
+ggplot(coefs, aes(x = predictor, y = beta, fill = beta > 0)) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  scale_fill_manual(values = c("#e74c3c", "#2980b9")) +
+  labs(title = "Standardized Predictors of Student Satisfaction",
+       subtitle = "COLLES scales (Taylor & Maor, 2000)",
+       x = NULL, y = "Standardized Beta") +
+  theme_minimal()`,
+    orderIndex: 2,
+  },
+];
+
+// Default templates for SPQ survey lab (Biggs et al., 2001)
+const SPQ_DEFAULT_TEMPLATES = [
+  {
+    title: 'Create R-SPQ-2F Data',
+    description: 'Simulate Revised Study Process Questionnaire data (Biggs, Kember & Leung, 2001). The R-SPQ-2F measures deep and surface approaches to learning with 20 items on a 5-point scale.',
+    code: `# Revised Two-Factor Study Process Questionnaire (R-SPQ-2F)
+# Reference: Biggs, J., Kember, D., & Leung, D. Y. P. (2001)
+# 2 main scales: Deep Approach, Surface Approach
+# Each has 2 subscales: Motive + Strategy
+set.seed(99)
+n <- 90
+
+likert5 <- function(n, mu, sd) round(pmin(5, pmax(1, rnorm(n, mu, sd))), 0)
+
+# Deep approach students tend to have lower surface scores (negative correlation)
+deep_motive <- likert5(n, 3.6, 0.8)
+deep_strategy <- likert5(n, 3.4, 0.9)
+surface_motive <- likert5(n, 2.8, 0.9)
+surface_strategy <- likert5(n, 2.6, 1.0)
+
+spq <- data.frame(
+  student_id = 1:n,
+  deep_motive, deep_strategy,
+  surface_motive, surface_strategy,
+  deep_approach = round((deep_motive + deep_strategy) / 2, 2),
+  surface_approach = round((surface_motive + surface_strategy) / 2, 2),
+  # Simulated GPA correlated with approaches
+  gpa = round(pmin(4.0, pmax(1.0,
+    2.0 + (deep_motive + deep_strategy) * 0.15 -
+    (surface_motive + surface_strategy) * 0.1 + rnorm(n, 0, 0.4)
+  )), 2),
+  year = sample(1:4, n, replace = TRUE,
+                prob = c(0.35, 0.30, 0.20, 0.15))
+)
+
+cat("R-SPQ-2F Dataset (Biggs, Kember & Leung, 2001)\\n")
+cat("Scales: Deep Motive, Deep Strategy, Surface Motive, Surface Strategy\\n\\n")
+str(spq)
+cat("\\nSummary:\\n")
+summary(spq[, c("deep_approach", "surface_approach", "gpa")])`,
+    orderIndex: 0,
+  },
+  {
+    title: 'Compare Approaches',
+    description: 'Analyze deep vs surface learning approaches and compare across student years',
+    code: `library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+# Overall approach comparison
+cat("=== Deep vs Surface Approach ===\\n")
+cat(sprintf("Deep Approach:    M = %.2f  SD = %.2f\\n",
+  mean(spq$deep_approach), sd(spq$deep_approach)))
+cat(sprintf("Surface Approach: M = %.2f  SD = %.2f\\n",
+  mean(spq$surface_approach), sd(spq$surface_approach)))
+cat(sprintf("Paired t-test: "))
+print(t.test(spq$deep_approach, spq$surface_approach, paired = TRUE))
+
+# By year level
+cat("\\n=== Approaches by Year Level ===\\n")
+by_year <- spq %>%
+  group_by(year) %>%
+  summarise(
+    n = n(),
+    deep_M = mean(deep_approach),
+    deep_SD = sd(deep_approach),
+    surface_M = mean(surface_approach),
+    surface_SD = sd(surface_approach),
+    gpa_M = mean(gpa)
+  )
+print(as.data.frame(by_year), row.names = FALSE)
+
+# Visualization
+spq_long <- spq %>%
+  select(student_id, year, deep_approach, surface_approach) %>%
+  pivot_longer(c(deep_approach, surface_approach),
+               names_to = "approach", values_to = "score")
+
+ggplot(spq_long, aes(x = factor(year), y = score, fill = approach)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("deep_approach" = "#2980b9", "surface_approach" = "#e74c3c"),
+                    labels = c("Deep", "Surface")) +
+  labs(title = "Learning Approaches by Year Level (R-SPQ-2F)",
+       subtitle = "Biggs, Kember & Leung (2001)",
+       x = "Year", y = "Approach Score (1-5)", fill = "Approach") +
+  theme_minimal()`,
+    orderIndex: 1,
+  },
+  {
+    title: 'Approaches & Achievement',
+    description: 'Examine how deep and surface approaches predict academic achievement (GPA)',
+    code: `library(ggplot2)
+
+# Correlations
+cat("=== Correlations with GPA ===\\n")
+cat(sprintf("Deep Approach  <-> GPA: r = %+.3f (p = %.4f)\\n",
+  cor(spq$deep_approach, spq$gpa),
+  cor.test(spq$deep_approach, spq$gpa)$p.value))
+cat(sprintf("Surface Approach <-> GPA: r = %+.3f (p = %.4f)\\n",
+  cor(spq$surface_approach, spq$gpa),
+  cor.test(spq$surface_approach, spq$gpa)$p.value))
+cat(sprintf("Deep <-> Surface: r = %+.3f\\n",
+  cor(spq$deep_approach, spq$surface_approach)))
+
+# Regression
+cat("\\n=== Regression: Approaches -> GPA ===\\n")
+model <- lm(gpa ~ deep_approach + surface_approach, data = spq)
+summary(model)
+
+# Scatterplot
+ggplot(spq, aes(x = deep_approach, y = gpa, color = surface_approach)) +
+  geom_point(size = 3, alpha = 0.7) +
+  geom_smooth(method = "lm", se = TRUE, color = "#2c3e50") +
+  scale_color_gradient(low = "#27ae60", high = "#e74c3c",
+                       name = "Surface\\nApproach") +
+  labs(title = "Deep Approach vs GPA (colored by Surface Approach)",
+       subtitle = "R-SPQ-2F (Biggs et al., 2001)",
+       x = "Deep Approach Score", y = "GPA") +
+  theme_minimal()`,
+    orderIndex: 2,
+  },
+];
+
 // Map lab types to their default templates
 const DEFAULT_TEMPLATES_MAP: Record<string, typeof TNA_DEFAULT_TEMPLATES> = {
   tna: TNA_DEFAULT_TEMPLATES,
   statistics: STATISTICS_DEFAULT_TEMPLATES,
+  mslq: MSLQ_DEFAULT_TEMPLATES,
+  colles: COLLES_DEFAULT_TEMPLATES,
+  spq: SPQ_DEFAULT_TEMPLATES,
 };
 
 export class CustomLabService {

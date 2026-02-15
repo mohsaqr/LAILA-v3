@@ -51,7 +51,7 @@ export const apiLimiter = rateLimit({
  */
 export const llmLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 10, // 10 requests per minute
+  max: 60, // 60 requests per minute
   message: {
     success: false,
     error: 'Too many AI requests. Please slow down to avoid service abuse.',

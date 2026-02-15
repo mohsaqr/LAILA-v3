@@ -5,6 +5,7 @@ import { CodeBlock } from '../../types';
 import { CodeOutput } from './CodeOutput';
 import { Button } from '../common/Button';
 import { sanitizeHtml } from '../../utils/sanitize';
+import { renderMarkdown } from '../../utils/renderMarkdown';
 
 interface OutputItem {
   type: 'stdout' | 'stderr' | 'plot' | 'message';
@@ -128,7 +129,7 @@ export const CodeBlockRunner = ({
           {/* Instructions */}
           {block.instructions && (
             <div className="prose prose-sm max-w-none text-gray-600 bg-gray-50 rounded-lg p-4">
-              <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(block.instructions.replace(/\n/g, '<br/>')) }} />
+              <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMarkdown(block.instructions)) }} />
             </div>
           )}
 

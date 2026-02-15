@@ -679,7 +679,7 @@ describe('LLMService', () => {
       });
     });
 
-    it('should pass maxTokens for O1 models as max_tokens', async () => {
+    it('should pass maxTokens for O1 models as max_completion_tokens', async () => {
       vi.mocked(prisma.lLMProvider.findFirst).mockResolvedValue(mockProvider as any);
       vi.mocked(prisma.lLMProvider.update).mockResolvedValue(mockProvider as any);
 
@@ -689,12 +689,16 @@ describe('LLMService', () => {
         maxTokens: 1000,
       });
 
-      // Current implementation passes max_tokens directly
+      // Reasoning models (o1/o3) use max_completion_tokens instead of max_tokens
       expect(mockOpenAIChat).toHaveBeenCalledWith(
         expect.objectContaining({
-          max_tokens: 1000,
+          max_completion_tokens: 1000,
         })
       );
+      // Should NOT have temperature for reasoning models
+      const callArgs = mockOpenAIChat.mock.calls[0][0];
+      expect(callArgs).not.toHaveProperty('temperature');
+      expect(callArgs).not.toHaveProperty('max_tokens');
     });
 
     it('should pass temperature to standard OpenAI models', async () => {

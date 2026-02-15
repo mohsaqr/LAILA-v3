@@ -13,7 +13,7 @@ export class SurveyService {
   // SURVEY CRUD
   // =============================================================================
 
-  async getSurveys(courseId?: number, userId?: number, isInstructor = false) {
+  async getSurveys(courseId?: number, userId?: number, isInstructor = false, isAdmin = false) {
     const where: any = {};
 
     if (courseId) {
@@ -21,10 +21,10 @@ export class SurveyService {
     }
 
     // Non-instructors only see published surveys
-    if (!isInstructor) {
+    if (!isInstructor && !isAdmin) {
       where.isPublished = true;
-    } else if (userId) {
-      // Instructors only see their own surveys
+    } else if (!isAdmin && userId) {
+      // Instructors only see their own surveys (admins see all)
       where.createdById = userId;
     }
 
