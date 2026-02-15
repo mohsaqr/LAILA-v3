@@ -1,62 +1,143 @@
-# LAILA LMS v3.0
+# LAILA - Learning Analytics and Intelligent Learning Assistant
 
-**LAILA** (Learn with AI Laboratory) is a modern, AI-powered Learning Management System built with Node.js and React.
+A multi-agent tutoring platform built around pedagogically distinct AI personas. LAILA provides seven pre-built tutor agents, a student agent builder for learning-through-design, and deploys agents across five interaction surfaces within a full learning management system.
 
 ## Features
 
-- **Course Management** - Create, edit, and publish courses with modules and lectures
-- **Student Enrollment** - Track progress and completion
-- **Assignment System** - Create assignments, collect submissions, grade with feedback
-- **Teaching Dashboard** - Instructor analytics and course management
-- **AI Integration** - OpenAI/Gemini powered tools for education
-- **AI Tutors** - Multi-agent AI tutoring system with different personalities
-- **Role-based Access** - Student, Instructor, and Admin roles
-- **Dark/Light Theme** - Toggle between dark and light modes with persistent preference
-- **PWA Support** - Installable Progressive Web App
+### Multi-Agent Tutoring System
+- **7 built-in agents** in two categories:
+  - *Professional tutors*: Socratic Guide, Helpful Guide, Project Coach
+  - *Peer personas*: Carmen, Laila, Beatrice, Study Buddy
+- **4 routing modes**: Manual selection, intelligent keyword-based routing, collaborative multi-agent responses, random encounter
+- **Collaborative styles**: Parallel, sequential, debate, and random multi-agent interactions
+- **5 deployment surfaces**: Global tutoring, course-level tutors, forum AI participation, lecture-embedded chatbots, lecture AI helper (explain & discuss)
+
+### Student Agent Builder
+- 10 pedagogical role templates (Peer Tutor, Socratic Guide, Writing Coach, Debate Partner, etc.)
+- 7 personality presets with 38 modular prompt building blocks across 6 categories
+- Live testing environment with versioned configuration snapshots
+- Design process analytics: iteration tracking, change audit trail, design event logging
+- Graded coursework submissions with instructor review interface
+
+### AI-Powered Content Generation
+- **MCQ Generation**: Quiz questions with configurable difficulty (easy/medium/hard), 3-5 options, auto-generated explanations
+- **Practice Questions**: Students generate self-study questions from lecture content
+- **Survey Generation**: 5 survey types (general feedback, course evaluation, Likert scale, learning strategies, custom)
+
+### Assessment Engine
+- Multiple question types: multiple choice, true/false, short answer, fill-in-the-blank
+- Time limits, max attempts, question/option shuffling, availability windows
+- Auto-grading, auto-save, and resume support
+
+### Custom Labs & Code Execution
+- 10 lab types: TNA, Statistics, Network Analysis, Sequence Analysis, Data Visualization, Regression, Clustering, Time Series, Text Analysis, Custom
+- Browser-based R execution via WebR with Monaco editor
+- Pre-built templates for established instruments (MSLQ, COLLES, R-SPQ-2F)
+- Lab assignment to courses with access control
+
+### Multi-Provider LLM Infrastructure
+- Supports OpenAI, Anthropic, Google Gemini, Ollama, LM Studio, Groq, and OpenAI-compatible endpoints
+- 50+ configuration parameters per provider
+- Health checking, usage statistics, provider fallback
+- Local-first deployment via Ollama/LM Studio
+
+### Learning Analytics
+- Per-message interaction logging across all surfaces
+- Unified xAPI-inspired activity logging (actor-verb-object)
+- Emotional Pulse: 7-state self-report (productive, stimulated, frustrated, learning, enjoying, bored, quitting)
+- Client-side behavioral analytics with scroll depth tracking
+- CSV, JSON, and Excel export
+
+### Course Management
+- Modules and lectures with rich content sections
+- Student enrollment and progress tracking
+- Assignment system with submissions and grading
+- Discussion forums with AI participation
+- Teaching dashboard with instructor analytics
+
+### Additional
+- **Internationalization**: English, Finnish, Arabic (RTL), Spanish
+- **Dark/Light theme** with persistent preference
+- **PWA support** for installable app
+- **Role-based access**: Student, Instructor, Admin
 
 ## Tech Stack
 
 | Layer | Technology |
-|-------|------------|
-| Frontend | React 18, TypeScript, Vite, TailwindCSS |
-| Backend | Node.js, Express, TypeScript |
-| Database | SQLite with Prisma ORM |
-| State | React Query, Zustand |
+|-------|-----------|
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS, Zustand |
+| Backend | Express.js, TypeScript, Prisma ORM |
+| Database | PostgreSQL |
+| AI Providers | OpenAI, Anthropic, Google Gemini, Ollama, LM Studio, Groq |
+| Code Execution | WebR (WebAssembly R), Monaco Editor |
+| Testing | Vitest (900+ tests) |
 | Auth | JWT |
-| AI | OpenAI, Google Gemini, OpenRouter |
 
-## Quick Start
+## Project Structure
+
+```
+LAILA-v3/
+├── client/                 # React frontend (Vite)
+│   ├── public/locales/     # i18n translation files (en, fi, es, ar)
+│   ├── src/
+│   │   ├── components/     # React components
+│   │   ├── config/         # Pedagogical roles, prompt blocks
+│   │   ├── pages/          # Page components
+│   │   ├── styles/         # CSS (Tailwind)
+│   │   ├── i18n/           # i18n configuration
+│   │   └── store/          # Zustand stores
+│   └── package.json
+├── server/                 # Express backend
+│   ├── prisma/             # Database schema and seed data
+│   ├── src/
+│   │   ├── routes/         # API routes
+│   │   ├── services/       # Business logic
+│   │   ├── middleware/     # Express middleware
+│   │   ├── types/          # TypeScript type definitions
+│   │   └── utils/          # Utilities (prisma, logger)
+│   └── package.json
+└── CLAUDE.md               # AI agent context file
+```
+
+## Getting Started
 
 ### Prerequisites
 - Node.js 18+
-- npm or yarn
+- PostgreSQL
+- At least one AI provider API key (OpenAI, Anthropic, Gemini, or local Ollama)
 
 ### Installation
 
 ```bash
-# Clone the repository
-git clone <repo-url> LAILA-v3
-cd LAILA-v3
-
 # Install dependencies
-npm run install:all
+cd client && npm install
+cd ../server && npm install
 
 # Set up environment
-cp .env.example server/.env
+cp .env.example server/.env    # Configure database URL and API keys
 
 # Initialize database
-npm run db:push
-npm run db:seed
+cd server
+npx prisma migrate dev
+npx prisma db seed
+```
 
-# Start development servers
+### Development
+
+```bash
+# Start both client and server (from root)
 npm run dev
+
+# Or separately:
+cd client && npm run dev     # Frontend on port 5174
+cd server && npm run dev     # Backend on port 5001
 ```
 
 ### Access
 
-- **Frontend:** http://localhost:5173
-- **Backend:** http://localhost:5000
-- **Database UI:** `npm run db:studio`
+- **Frontend:** http://localhost:5174
+- **Backend:** http://localhost:5001
+- **Database UI:** `cd server && npx prisma studio`
 
 ### Demo Accounts
 
@@ -66,86 +147,17 @@ npm run dev
 | Instructor | instructor@laila.edu | instructor123 |
 | Student | student@laila.edu | student123 |
 
-## Project Structure
-
-```
-LAILA-v3/
-├── server/           # Express API
-│   ├── src/
-│   │   ├── routes/   # API endpoints
-│   │   ├── services/ # Business logic
-│   │   └── middleware/
-│   └── prisma/       # Database schema
-├── client/           # React SPA
-│   └── src/
-│       ├── pages/    # Page components
-│       ├── components/
-│       ├── hooks/    # Custom hooks (useTheme, useAuth, etc.)
-│       ├── store/    # Zustand stores (themeStore, authStore)
-│       └── api/      # API client
-└── package.json      # Monorepo scripts
-```
-
-## Theme System
-
-LAILA supports dark and light themes with automatic persistence:
-
-- Toggle via the sun/moon icon in the navbar
-- Toggle via Settings > Appearance > Dark Mode
-- Preference saved to `localStorage` as `laila-theme-preference`
-- Theme applied before React renders (no flash)
-
-### For Developers
-
-The theme system uses inline styles due to Tailwind dark mode class limitations in the current setup:
-
-```tsx
-import { useTheme } from '../hooks/useTheme';
-
-const MyComponent = () => {
-  const { isDark, toggleTheme } = useTheme();
-
-  return (
-    <div style={{
-      backgroundColor: isDark ? '#1f2937' : '#ffffff',
-      color: isDark ? '#f3f4f6' : '#111827'
-    }}>
-      Content
-    </div>
-  );
-};
-```
-
-## Scripts
+## Testing
 
 ```bash
-npm run dev           # Start both servers
-npm run build         # Build for production
-npm run db:studio     # Open Prisma Studio
-npm run db:seed       # Seed demo data
-npm run test          # Run tests
+cd server && npm test                                # Run all 900+ tests
+cd server && npm test -- --run src/path/to/test.ts   # Run specific test file
+cd server && npm test -- --run -t "test name"        # Run specific test by name
 ```
 
-## Deployment
+## Documentation
 
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
-
-### Quick Deploy
-
-**Production Build:**
-```bash
-npm run build
-```
-
-**Environment Variables (server/.env):**
-```env
-DATABASE_URL="file:./prod.db"
-JWT_SECRET="your-secure-secret"
-OPENAI_API_KEY="sk-..."
-GEMINI_API_KEY="..."
-NODE_ENV="production"
-PORT=5000
-```
+See [LAILA-Multi-Agent-System-Report.html](LAILA-Multi-Agent-System-Report.html) for the full technical report covering agent architecture, persona design, routing strategies, prompt construction, and learning analytics.
 
 ## License
 
