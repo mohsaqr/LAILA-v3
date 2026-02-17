@@ -544,5 +544,25 @@
   "reset_defaults": "Reset to Defaults",
   "mcq_settings_saved": "MCQ generation settings saved",
   "failed_save_settings": "Failed to save settings",
-  "failed_load_settings": "Failed to load settings"
+  "failed_load_settings": "Failed to load settings",
+
+  "frontpage": "Frontpage",
+  "dashboard": "Dashboard",
+  "dashboard_desc": "Learning analytics and TNA visualizations",
+  "distribution": "Distribution",
+  "frequencies": "Frequencies",
+  "network": "Network",
+  "distribution_title": "Verb Distribution by Timestep",
+  "distribution_desc": "Stacked bar chart showing verb proportions at each sequence position",
+  "frequencies_title": "Verb Frequencies",
+  "frequencies_desc": "Total occurrence count for each verb across all sequences",
+  "network_title": "Transition Network",
+  "network_desc": "Directed graph showing transition probabilities between verbs",
+  "prune_threshold": "Prune Threshold",
+  "users_count": "Users",
+  "events_count": "Events",
+  "verbs_count": "Verbs",
+  "no_tna_data": "No activity data available for the selected filters",
+  "min_sequence_length": "Min Sequence Length",
+  "loading_dashboard": "Loading dashboard..."
 }

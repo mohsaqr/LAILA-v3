@@ -543,5 +543,25 @@
   "failed_to_test_generation": "Error al probar la generación",
   "mcq_generation": "Generación MCQ",
   "mcq_generation_tab": "Generación MCQ",
-  "ai_question_generation": "Generación de Preguntas con IA"
+  "ai_question_generation": "Generación de Preguntas con IA",
+
+  "frontpage": "Portada",
+  "dashboard": "Panel de control",
+  "dashboard_desc": "Analítica de aprendizaje y visualizaciones TNA",
+  "distribution": "Distribución",
+  "frequencies": "Frecuencias",
+  "network": "Red",
+  "distribution_title": "Distribución de verbos por paso temporal",
+  "distribution_desc": "Gráfico de barras apiladas mostrando proporciones de verbos en cada posición",
+  "frequencies_title": "Frecuencias de verbos",
+  "frequencies_desc": "Conteo total de cada verbo en todas las secuencias",
+  "network_title": "Red de transición",
+  "network_desc": "Grafo dirigido mostrando probabilidades de transición entre verbos",
+  "prune_threshold": "Umbral de poda",
+  "users_count": "Usuarios",
+  "events_count": "Eventos",
+  "verbs_count": "Verbos",
+  "no_tna_data": "No hay datos de actividad para los filtros seleccionados",
+  "min_sequence_length": "Longitud mínima de secuencia",
+  "loading_dashboard": "Cargando panel de control..."
 }

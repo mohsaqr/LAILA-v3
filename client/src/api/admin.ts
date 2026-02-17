@@ -520,6 +520,25 @@ export interface ActivityLogFilterOptions {
   objectTypes: Array<{ objectType: string; count: number }>;
 }
 
+// TNA Sequence Types
+export interface TnaSequenceFilters {
+  courseId?: number;
+  startDate?: string;
+  endDate?: string;
+  minSequenceLength?: number;
+}
+
+export interface TnaSequenceResponse {
+  sequences: string[][];
+  metadata: {
+    totalUsers: number;
+    totalEvents: number;
+    uniqueVerbs: string[];
+    courseTitle: string | null;
+    dateRange: { start: string; end: string } | null;
+  };
+}
+
 // Unified Activity Log API
 export const activityLogApi = {
   getLogs: async (filters: ActivityLogFilters = {}) => {
@@ -635,6 +654,17 @@ export const activityLogApi = {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  },
+
+  getTnaSequences: async (filters?: TnaSequenceFilters): Promise<TnaSequenceResponse> => {
+    const params = new URLSearchParams();
+    if (filters?.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    if (filters?.minSequenceLength) params.append('minSequenceLength', filters.minSequenceLength.toString());
+
+    const response = await apiClient.get<any>(`/activity-log/tna-sequences?${params.toString()}`);
+    return response.data.data;
   },
 
   logActivity: async (data: {

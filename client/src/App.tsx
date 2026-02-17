@@ -103,7 +103,7 @@ import {
 
 // Admin pages
 import {
-  AdminDashboard,
+  AdminFrontpage,
   AdminSettings,
   LogsDashboard,
   UsersManagement,
@@ -112,6 +112,7 @@ import {
   BatchEnrollment,
   ChatbotRegistry,
   LLMSettings,
+  Dashboard as AdminDashboard_Analytics,
 } from './pages/admin';
 import { PromptBlocksManagement } from './pages/admin/PromptBlocksManagement';
 
@@ -690,7 +691,7 @@ function App() {
           path="/admin"
           element={
             <ProtectedRoute requireAdmin>
-              <AdminDashboard />
+              <AdminFrontpage />
             </ProtectedRoute>
           }
         />
@@ -775,10 +776,18 @@ function App() {
           }
         />
         <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute requireAdmin>
+              <AdminDashboard_Analytics />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/admin/*"
           element={
             <ProtectedRoute requireAdmin>
-              <AdminDashboard />
+              <AdminFrontpage />
             </ProtectedRoute>
           }
         />

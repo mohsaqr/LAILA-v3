@@ -544,5 +544,25 @@
   "reset_defaults": "Palauta oletukset",
   "mcq_settings_saved": "Monivalinta-asetukset tallennettu",
   "failed_save_settings": "Asetusten tallennus epäonnistui",
-  "failed_load_settings": "Asetusten lataus epäonnistui"
+  "failed_load_settings": "Asetusten lataus epäonnistui",
+
+  "frontpage": "Etusivu",
+  "dashboard": "Kojelauta",
+  "dashboard_desc": "Oppimisanalytiikka ja TNA-visualisoinnit",
+  "distribution": "Jakauma",
+  "frequencies": "Frekvenssit",
+  "network": "Verkosto",
+  "distribution_title": "Verbien jakauma aika-askelittain",
+  "distribution_desc": "Pinottu pylväskaavio verbien osuuksista kussakin sekvenssin kohdassa",
+  "frequencies_title": "Verbien frekvenssit",
+  "frequencies_desc": "Jokaisen verbin esiintymismäärä kaikissa sekvensseissä",
+  "network_title": "Siirtymäverkosto",
+  "network_desc": "Suunnattu graafi verbien välisistä siirtymätodennäköisyyksistä",
+  "prune_threshold": "Karsintaraja",
+  "users_count": "Käyttäjät",
+  "events_count": "Tapahtumat",
+  "verbs_count": "Verbit",
+  "no_tna_data": "Ei aktiviteettidataa valituille suodattimille",
+  "min_sequence_length": "Minimisekvenssin pituus",
+  "loading_dashboard": "Ladataan kojelautaa..."
 }

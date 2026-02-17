@@ -1,4 +1,4 @@
-export { AdminDashboard } from './AdminDashboard';
+export { AdminFrontpage } from './AdminFrontpage';
 export { AdminSettings } from './AdminSettings';
 export { LogsDashboard } from './LogsDashboard';
 export { UsersManagement } from './UsersManagement';
@@ -7,3 +7,4 @@ export { EnrollmentsManagement } from './EnrollmentsManagement';
 export { BatchEnrollment } from './BatchEnrollment';
 export { ChatbotRegistry } from './ChatbotRegistry';
 export { LLMSettings } from './LLMSettings';
+export { Dashboard } from './Dashboard';

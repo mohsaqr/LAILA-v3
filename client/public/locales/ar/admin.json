@@ -543,5 +543,25 @@
   "failed_to_test_generation": "فشل في اختبار الإنشاء",
   "mcq_generation": "إنشاء الأسئلة متعددة الخيارات",
   "mcq_generation_tab": "إنشاء الأسئلة متعددة الخيارات",
-  "ai_question_generation": "إنشاء الأسئلة بالذكاء الاصطناعي"
+  "ai_question_generation": "إنشاء الأسئلة بالذكاء الاصطناعي",
+
+  "frontpage": "الصفحة الرئيسية",
+  "dashboard": "لوحة المعلومات",
+  "dashboard_desc": "تحليلات التعلم وتصورات TNA",
+  "distribution": "التوزيع",
+  "frequencies": "الترددات",
+  "network": "الشبكة",
+  "distribution_title": "توزيع الأفعال حسب الخطوة الزمنية",
+  "distribution_desc": "مخطط أعمدة مكدس يوضح نسب الأفعال في كل موضع من التسلسل",
+  "frequencies_title": "ترددات الأفعال",
+  "frequencies_desc": "العدد الإجمالي لكل فعل عبر جميع التسلسلات",
+  "network_title": "شبكة الانتقال",
+  "network_desc": "رسم بياني موجه يوضح احتمالات الانتقال بين الأفعال",
+  "prune_threshold": "عتبة التقليم",
+  "users_count": "المستخدمون",
+  "events_count": "الأحداث",
+  "verbs_count": "الأفعال",
+  "no_tna_data": "لا توجد بيانات نشاط للفلاتر المحددة",
+  "min_sequence_length": "الحد الأدنى لطول التسلسل",
+  "loading_dashboard": "جاري تحميل لوحة المعلومات..."
 }

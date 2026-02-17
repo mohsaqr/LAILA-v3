@@ -189,4 +189,20 @@ router.get('/export/excel', authenticateToken, asyncHandler(async (req: AuthRequ
   res.send(buffer);
 }));
 
+/**
+ * GET /api/activity-log/tna-sequences
+ * Get activity verb sequences grouped by user for TNA analysis (admin only)
+ */
+router.get('/tna-sequences', authenticateToken, requireAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const filters = {
+    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+    endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+    minSequenceLength: req.query.minSequenceLength ? parseInt(req.query.minSequenceLength as string) : undefined,
+  };
+
+  const result = await activityLogService.getTnaSequences(filters);
+  res.json({ success: true, data: result });
+}));
+
 export default router;

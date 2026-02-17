@@ -523,6 +523,79 @@ class ActivityLogService {
     const buffer = await workbook.xlsx.writeBuffer();
     return Buffer.from(buffer);
   }
+
+  /**
+   * Get TNA sequences: groups activity verbs per user into sequences
+   */
+  async getTnaSequences(filters?: {
+    courseId?: number;
+    startDate?: Date;
+    endDate?: Date;
+    minSequenceLength?: number;
+  }) {
+    const where: Prisma.LearningActivityLogWhereInput = {};
+    if (filters?.courseId) where.courseId = filters.courseId;
+    if (filters?.startDate || filters?.endDate) {
+      where.timestamp = {};
+      if (filters?.startDate) where.timestamp.gte = filters.startDate;
+      if (filters?.endDate) where.timestamp.lte = filters.endDate;
+    }
+
+    const minLen = filters?.minSequenceLength ?? 2;
+
+    const logs = await prisma.learningActivityLog.findMany({
+      where,
+      select: { userId: true, verb: true, timestamp: true, courseTitle: true },
+      orderBy: [{ userId: 'asc' }, { timestamp: 'asc' }],
+      take: 50000,
+    });
+
+    // Group by userId into sequences of verbs
+    const userSequences: Record<number, string[]> = {};
+    for (const log of logs) {
+      if (!userSequences[log.userId]) {
+        userSequences[log.userId] = [];
+      }
+      userSequences[log.userId].push(log.verb);
+    }
+
+    // Filter by min sequence length
+    const sequences: string[][] = [];
+    for (const verbs of Object.values(userSequences)) {
+      if (verbs.length >= minLen) {
+        sequences.push(verbs);
+      }
+    }
+
+    // Collect unique verbs
+    const uniqueVerbs = new Set<string>();
+    for (const seq of sequences) {
+      for (const v of seq) uniqueVerbs.add(v);
+    }
+
+    // Date range
+    let dateRange: { start: string; end: string } | null = null;
+    if (logs.length > 0) {
+      dateRange = {
+        start: logs[0].timestamp.toISOString(),
+        end: logs[logs.length - 1].timestamp.toISOString(),
+      };
+    }
+
+    // Course title (from first log with a course)
+    const courseTitle = logs.find(l => l.courseTitle)?.courseTitle || null;
+
+    return {
+      sequences,
+      metadata: {
+        totalUsers: sequences.length,
+        totalEvents: logs.length,
+        uniqueVerbs: Array.from(uniqueVerbs).sort(),
+        courseTitle,
+        dateRange,
+      },
+    };
+  }
 }
 
 export const activityLogService = new ActivityLogService();

@@ -16,7 +16,7 @@ import { AdminLayout, StatCard } from '../../components/admin';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Loading } from '../../components/common/Loading';
 
-export const AdminDashboard = () => {
+export const AdminFrontpage = () => {
   const { t } = useTranslation(['admin', 'common']);
   const { isDark } = useTheme();
   const { data: adminData, isLoading } = useQuery({
@@ -64,7 +64,7 @@ export const AdminDashboard = () => {
 
   return (
     <AdminLayout
-      title={t('overview')}
+      title={t('frontpage')}
       description={t('platform_statistics_desc')}
     >
       {/* Stats Grid */}
