@@ -4,10 +4,11 @@ import { createColorMap } from 'tnaj';
 interface TnaFrequencyChartProps {
   sequences: string[][];
   labels: string[];
+  colorMap?: Record<string, string>;
 }
 
-export const TnaFrequencyChart = ({ sequences, labels }: TnaFrequencyChartProps) => {
-  const colorMap = useMemo(() => createColorMap(labels), [labels]);
+export const TnaFrequencyChart = ({ sequences, labels, colorMap: externalColorMap }: TnaFrequencyChartProps) => {
+  const colorMap = useMemo(() => externalColorMap ?? createColorMap(labels), [externalColorMap, labels]);
 
   const sortedVerbs = useMemo(() => {
     const counts: Record<string, number> = {};

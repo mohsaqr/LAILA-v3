@@ -4,10 +4,11 @@ import { createColorMap } from 'tnaj';
 interface TnaDistributionPlotProps {
   sequences: string[][];
   labels: string[];
+  colorMap?: Record<string, string>;
 }
 
-export const TnaDistributionPlot = ({ sequences, labels }: TnaDistributionPlotProps) => {
-  const colorMap = useMemo(() => createColorMap(labels), [labels]);
+export const TnaDistributionPlot = ({ sequences, labels, colorMap: externalColorMap }: TnaDistributionPlotProps) => {
+  const colorMap = useMemo(() => externalColorMap ?? createColorMap(labels), [externalColorMap, labels]);
 
   const { timesteps, maxTimestep } = useMemo(() => {
     // Find the max sequence length

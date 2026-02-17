@@ -1,19 +1,18 @@
-import { useMemo } from 'react';
-import type { TNA } from 'tnaj';
+import { useState, useMemo } from 'react';
+import { colorPalette } from 'tnaj';
+import type { TNA, CentralityResult, CentralityMeasure, CommunityResult } from 'tnaj';
+import { fixColorMap } from './colorFix';
 
-const NODE_COLORS = [
-  '#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f',
-  '#edc948', '#b07aa1', '#ff9da7', '#9c755f',
-];
-
-const EDGE_COLOR = '#4a7fba';
-const ARROW_COLOR = '#3a6a9f';
-const ARROW_SIZE = 10;
-const EDGE_WIDTH_MIN = 0.6;
-const EDGE_WIDTH_MAX = 2.8;
-const EDGE_OPACITY_MIN = 0.2;
-const EDGE_OPACITY_MAX = 0.55;
-const EDGE_LABEL_COLOR = '#555566';
+// Match the tnaj demo site style exactly
+const EDGE_COLOR = '#2B4C7E';
+const ARROW_COLOR = '#2B4C7E';
+const EDGE_LABEL_COLOR = '#2B4C7E';
+const ARROW_LEN = 7;
+const ARROW_HALF_W = 3.5;
+const EDGE_WIDTH_MIN = 0.3;
+const EDGE_WIDTH_MAX = 4;
+const EDGE_OPACITY_MIN = 0.7;
+const EDGE_OPACITY_MAX = 1.0;
 const EDGE_CURVATURE = 22;
 
 interface TnaNetworkGraphProps {
@@ -22,18 +21,28 @@ interface TnaNetworkGraphProps {
   showEdgeLabels?: boolean;
   nodeRadius?: number;
   height?: number;
+  colorMap?: Record<string, string>;
+  centralityData?: CentralityResult;
+  nodeSizeMetric?: CentralityMeasure | 'fixed';
+  communityData?: CommunityResult;
+  communityMethod?: string;
+}
+
+/** Format weight: integers as-is, decimals as .XX */
+function fmtWeight(w: number): string {
+  if (Number.isInteger(w)) return String(w);
+  return w.toFixed(2).replace(/^0\./, '.');
 }
 
 function arrowPoly(
-  tipX: number, tipY: number, dx: number, dy: number, arrowSize: number,
+  tipX: number, tipY: number, dx: number, dy: number,
 ): string {
-  const halfW = arrowSize / 2;
-  const baseX = tipX - dx * arrowSize;
-  const baseY = tipY - dy * arrowSize;
-  const lx = baseX - dy * halfW;
-  const ly = baseY + dx * halfW;
-  const rx = baseX + dy * halfW;
-  const ry = baseY - dx * halfW;
+  const baseX = tipX - dx * ARROW_LEN;
+  const baseY = tipY - dy * ARROW_LEN;
+  const lx = baseX - dy * ARROW_HALF_W;
+  const ly = baseY + dx * ARROW_HALF_W;
+  const rx = baseX + dy * ARROW_HALF_W;
+  const ry = baseY - dx * ARROW_HALF_W;
   return `${tipX},${tipY} ${lx},${ly} ${rx},${ry}`;
 }
 
@@ -121,44 +130,67 @@ function computeSelfLoop(
   };
 }
 
-function donutArc(rimRadius: number, frac: number): string {
-  if (frac <= 0) return '';
-  if (frac >= 0.9999) {
-    return [
-      `M 0 ${-rimRadius}`,
-      `A ${rimRadius} ${rimRadius} 0 1 1 0 ${rimRadius}`,
-      `A ${rimRadius} ${rimRadius} 0 1 1 0 ${-rimRadius}`,
-    ].join(' ');
-  }
-  const angle = frac * 2 * Math.PI;
-  const startX = 0;
-  const startY = -rimRadius;
-  const endX = rimRadius * Math.sin(angle);
-  const endY = -rimRadius * Math.cos(angle);
-  const largeArc = angle > Math.PI ? 1 : 0;
-  return `M ${startX} ${startY} A ${rimRadius} ${rimRadius} 0 ${largeArc} 1 ${endX} ${endY}`;
-}
-
 export const TnaNetworkGraph = ({
   model,
-  showSelfLoops = true,
-  showEdgeLabels = false,
-  nodeRadius = 35,
+  showSelfLoops = false,
+  showEdgeLabels = true,
+  nodeRadius: baseNodeRadius = 25,
   height = 500,
+  colorMap: externalColorMap,
+  centralityData,
+  nodeSizeMetric = 'fixed',
+  communityData,
+  communityMethod,
 }: TnaNetworkGraphProps) => {
   const { labels, weights, inits } = model;
+  const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
+  const [hoveredNode, setHoveredNode] = useState<number | null>(null);
 
   const svgW = 960;
   const svgH = height;
   const cx = svgW / 2;
   const cy = svgH / 2;
-  const padding = nodeRadius + 45;
+  const padding = baseNodeRadius + 45;
   const layoutRadius = Math.min(cx, cy) - padding;
 
-  const colors = useMemo(
-    () => labels.map((_, i) => NODE_COLORS[i % NODE_COLORS.length]),
-    [labels],
-  );
+  // Color map: external > generated from colorPalette
+  const colors = useMemo(() => {
+    if (externalColorMap) return labels.map(l => externalColorMap[l] ?? '#888');
+    const palette = colorPalette(labels.length);
+    const map: Record<string, string> = {};
+    labels.forEach((l, i) => { map[l] = palette[i % palette.length]; });
+    const fixed = fixColorMap(map);
+    return labels.map(l => fixed[l]);
+  }, [labels, externalColorMap]);
+
+  // Community coloring overrides
+  const communityColors = useMemo(() => {
+    if (!communityData || !communityMethod) return null;
+    const key = communityMethod as string;
+    const assignments = communityData.assignments[key];
+    if (!assignments) return null;
+    const uniqueGroups = [...new Set(assignments)].sort((a, b) => a - b);
+    const palette = colorPalette(uniqueGroups.length, 'accent');
+    const groupColorMap: Record<number, string> = {};
+    uniqueGroups.forEach((g, i) => { groupColorMap[g] = palette[i % palette.length]; });
+    return labels.map((_, i) => groupColorMap[assignments[i]] ?? '#888');
+  }, [communityData, communityMethod, labels]);
+
+  // Node size scale factors based on centrality
+  const nodeScales = useMemo(() => {
+    if (nodeSizeMetric === 'fixed' || !centralityData) {
+      return labels.map(() => 1);
+    }
+    const values = centralityData.measures[nodeSizeMetric];
+    if (!values) return labels.map(() => 1);
+    let min = Infinity, max = -Infinity;
+    for (let i = 0; i < values.length; i++) {
+      if (values[i] < min) min = values[i];
+      if (values[i] > max) max = values[i];
+    }
+    const range = max - min || 1;
+    return labels.map((_, i) => 0.6 + ((values[i] - min) / range) * 0.8);
+  }, [centralityData, nodeSizeMetric, labels]);
 
   const nodePositions = useMemo(() => {
     return labels.map((_, i) => {
@@ -210,34 +242,37 @@ export const TnaNetworkGraph = ({
   const opacityScale = (w: number) =>
     EDGE_OPACITY_MIN + (w / globalMaxW) * (EDGE_OPACITY_MAX - EDGE_OPACITY_MIN);
 
-  const rimWidth = nodeRadius * 0.18;
-  const rimRadius = nodeRadius + rimWidth * 0.7;
-
   return (
     <div className="overflow-x-auto">
       <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`}>
         {/* Self-loops */}
         {selfLoops.map(({ idx, weight }) => {
+          const nodeRadius = baseNodeRadius * nodeScales[idx];
           const pos = nodePositions[idx];
           const loop = computeSelfLoop(pos.x, pos.y, cx, cy, nodeRadius);
-          const op = Math.min(opacityScale(weight) + 0.15, 1);
-          const sw = Math.max(widthScale(weight), 1.2);
+          const op = opacityScale(weight);
+          const sw = widthScale(weight);
+          const key = `self-${idx}`;
+          const isHovered = hoveredEdge === key;
           return (
-            <g key={`self-${idx}`}>
+            <g key={key}>
               <path
                 d={loop.path}
                 fill="none"
-                stroke={EDGE_COLOR}
+                stroke={isHovered ? '#e15759' : EDGE_COLOR}
                 strokeWidth={sw}
-                strokeOpacity={op}
+                strokeOpacity={isHovered ? 0.85 : op}
                 strokeLinecap="round"
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setHoveredEdge(key)}
+                onMouseLeave={() => setHoveredEdge(null)}
               >
-                <title>{`${labels[idx]} → ${labels[idx]}: ${weight.toFixed(3)}`}</title>
+                <title>{`${labels[idx]} → ${labels[idx]}: ${weight.toFixed(4)}`}</title>
               </path>
               <polygon
-                points={arrowPoly(loop.arrowTipX, loop.arrowTipY, loop.arrowDx, loop.arrowDy, ARROW_SIZE)}
+                points={arrowPoly(loop.arrowTipX, loop.arrowTipY, loop.arrowDx, loop.arrowDy)}
                 fill={ARROW_COLOR}
-                opacity={op}
+                opacity={Math.min(op + 0.15, 1)}
               />
               {showEdgeLabels && (
                 <text
@@ -245,11 +280,12 @@ export const TnaNetworkGraph = ({
                   y={loop.labelY}
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  fontSize={7}
+                  fontSize={9}
                   fill={EDGE_LABEL_COLOR}
                   pointerEvents="none"
+                  style={{ paintOrder: 'stroke', stroke: '#ffffff', strokeWidth: 3, strokeLinejoin: 'round' } as React.CSSProperties}
                 >
-                  {weight.toFixed(2).replace(/^0\./, '.')}
+                  {fmtWeight(weight)}
                 </text>
               )}
             </g>
@@ -262,26 +298,32 @@ export const TnaNetworkGraph = ({
           const p2 = nodePositions[to];
           const isBidir = bidir.has(`${from}-${to}`);
           const curvature = isBidir ? EDGE_CURVATURE : 0;
+          const nodeRadius = baseNodeRadius * nodeScales[to];
 
           const result = computeEdgePath(p1.x, p1.y, p2.x, p2.y, curvature, nodeRadius);
           if (!result) return null;
 
           const op = opacityScale(weight);
+          const key = `${from}-${to}`;
+          const isHovered = hoveredEdge === key;
 
           return (
-            <g key={`${from}-${to}`}>
+            <g key={key}>
               <path
                 d={result.path}
                 fill="none"
-                stroke={EDGE_COLOR}
+                stroke={isHovered ? '#e15759' : EDGE_COLOR}
                 strokeWidth={widthScale(weight)}
-                strokeOpacity={op}
+                strokeOpacity={isHovered ? 0.85 : op}
                 strokeLinecap="round"
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setHoveredEdge(key)}
+                onMouseLeave={() => setHoveredEdge(null)}
               >
-                <title>{`${labels[from]} → ${labels[to]}: ${weight.toFixed(3)}`}</title>
+                <title>{`${labels[from]} → ${labels[to]}: ${weight.toFixed(4)}`}</title>
               </path>
               <polygon
-                points={arrowPoly(result.tipX, result.tipY, result.tipDx, result.tipDy, ARROW_SIZE)}
+                points={arrowPoly(result.tipX, result.tipY, result.tipDx, result.tipDy)}
                 fill={ARROW_COLOR}
                 opacity={Math.min(op + 0.15, 1)}
               />
@@ -291,11 +333,12 @@ export const TnaNetworkGraph = ({
                   y={result.labelY}
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  fontSize={7}
+                  fontSize={9}
                   fill={EDGE_LABEL_COLOR}
                   pointerEvents="none"
+                  style={{ paintOrder: 'stroke', stroke: '#ffffff', strokeWidth: 3, strokeLinejoin: 'round' } as React.CSSProperties}
                 >
-                  {weight.toFixed(2).replace(/^0\./, '.')}
+                  {fmtWeight(weight)}
                 </text>
               )}
             </g>
@@ -305,43 +348,35 @@ export const TnaNetworkGraph = ({
         {/* Nodes */}
         {labels.map((label, i) => {
           const pos = nodePositions[i];
-          const color = colors[i]!;
-          const initFrac = inits[i] ?? 0;
+          const nodeRadius = baseNodeRadius * nodeScales[i];
+          const color = communityColors ? communityColors[i] : colors[i]!;
+          const isHovered = hoveredNode === i;
 
           return (
-            <g key={label} transform={`translate(${pos.x},${pos.y})`}>
-              <circle
-                r={rimRadius}
-                fill="none"
-                stroke="#e0e0e0"
-                strokeWidth={rimWidth}
-              />
-              {initFrac > 0 && (
-                <path
-                  d={donutArc(rimRadius, initFrac)}
-                  fill="none"
-                  stroke={color}
-                  strokeWidth={rimWidth}
-                  strokeLinecap="butt"
-                />
-              )}
+            <g
+              key={label}
+              transform={`translate(${pos.x},${pos.y})`}
+              style={{ cursor: 'pointer' }}
+              onMouseEnter={() => setHoveredNode(i)}
+              onMouseLeave={() => setHoveredNode(null)}
+            >
               <circle
                 r={nodeRadius}
                 fill={color}
-                stroke="#ffffff"
-                strokeWidth={2.5}
-                opacity={0.9}
+                stroke={isHovered ? '#333333' : '#999999'}
+                strokeWidth={isHovered ? 3 : 2}
               >
-                <title>{`${label} (init: ${(initFrac * 100).toFixed(1)}%)`}</title>
+                <title>{`${label} (init: ${((inits[i] ?? 0) * 100).toFixed(1)}%)`}</title>
               </circle>
               <text
                 y={1}
                 textAnchor="middle"
                 dominantBaseline="middle"
                 fill="#ffffff"
-                fontSize={label.length > 8 ? 9 : 11}
+                fontSize={label.length > 10 ? 8 : label.length > 7 ? 9 : 11}
                 fontWeight={600}
                 pointerEvents="none"
+                style={{ paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.3)', strokeWidth: 2, strokeLinejoin: 'round' } as React.CSSProperties}
               >
                 {label.length > 12 ? label.slice(0, 11) + '\u2026' : label}
               </text>
