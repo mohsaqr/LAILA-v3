@@ -38,7 +38,7 @@ export class ChatService {
         const provider = await llmService.getDefaultProvider();
         if (provider && provider.isEnabled) {
           return {
-            provider: provider.name as 'openai' | 'gemini',
+            provider: ((provider as any).provider || provider.name) as 'openai' | 'gemini',
             model: provider.defaultModel || 'gpt-4o-mini',
             apiKey: provider.apiKey || '',
             maxTokens: provider.defaultMaxTokens,

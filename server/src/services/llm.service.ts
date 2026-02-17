@@ -78,14 +78,27 @@ export class LLMService {
   }
 
   async createProvider(input: LLMProviderCreateInput): Promise<LLMProviderConfig> {
-    const defaults = PROVIDER_DEFAULTS[input.name] || {};
+    const defaults = PROVIDER_DEFAULTS[input.provider] || {};
 
-    // Check if provider with this name already exists
+    // Auto-generate name slug if not provided
+    let name = input.name;
+    if (!name) {
+      name = input.provider;
+      // Check if slug already taken; if so, append -2, -3, etc.
+      const existingCount = await prisma.lLMProvider.count({
+        where: { provider: input.provider },
+      });
+      if (existingCount > 0) {
+        name = `${input.provider}-${existingCount + 1}`;
+      }
+    }
+
+    // Check if provider with this name slug already exists
     const existing = await prisma.lLMProvider.findUnique({
-      where: { name: input.name },
+      where: { name },
     });
     if (existing) {
-      throw new AppError(`Provider "${input.name}" already exists. Use the existing provider or choose a different name.`, 409);
+      throw new AppError(`Provider with slug "${name}" already exists. Choose a different name.`, 409);
     }
 
     // If setting as default, unset other defaults
@@ -98,8 +111,9 @@ export class LLMService {
 
     const provider = await prisma.lLMProvider.create({
       data: {
-        name: input.name,
-        displayName: input.displayName || defaults.displayName || input.name,
+        name,
+        provider: input.provider,
+        displayName: input.displayName || defaults.displayName || input.provider,
         description: input.description,
         providerType: defaults.providerType || 'cloud',
         isEnabled: input.isEnabled ?? false,
@@ -321,7 +335,7 @@ export class LLMService {
     const startTime = Date.now();
 
     try {
-      switch (provider.name) {
+      switch (provider.provider) {
         case 'openai':
         case 'azure-openai':
         case 'openrouter':
@@ -525,13 +539,13 @@ export class LLMService {
     }
 
     if (!provider.isEnabled) {
-      throw new LLMError(`Provider ${provider.name} is not enabled`, 'PROVIDER_NOT_ENABLED', provider.name as LLMProviderName);
+      throw new LLMError(`Provider ${provider.name} is not enabled`, 'PROVIDER_NOT_ENABLED', provider.provider);
     }
 
     // Determine model
     const model = request.model || provider.defaultModel;
     if (!model) {
-      throw new LLMError('No model specified', 'MODEL_NOT_FOUND', provider.name as LLMProviderName);
+      throw new LLMError('No model specified', 'MODEL_NOT_FOUND', provider.provider);
     }
 
     // Build parameters using defaults
@@ -550,7 +564,7 @@ export class LLMService {
     let response: LLMCompletionResponse;
 
     try {
-      switch (provider.name) {
+      switch (provider.provider) {
         case 'openai':
         case 'azure-openai':
         case 'openrouter':
@@ -650,7 +664,7 @@ export class LLMService {
       object: response.object,
       created: response.created,
       model: response.model,
-      provider: provider.name as LLMProviderName,
+      provider: provider.provider,
       choices: response.choices.map(c => ({
         index: c.index,
         message: {
@@ -718,7 +732,7 @@ export class LLMService {
       object: 'chat.completion',
       created: Math.floor(Date.now() / 1000),
       model,
-      provider: 'gemini',
+      provider: provider.provider,
       choices: [{
         index: 0,
         message: {
@@ -783,7 +797,7 @@ export class LLMService {
       object: 'chat.completion',
       created: Math.floor(Date.now() / 1000),
       model,
-      provider: 'ollama',
+      provider: provider.provider,
       choices: [{
         index: 0,
         message: {
@@ -852,7 +866,7 @@ export class LLMService {
       object: 'chat.completion',
       created: Math.floor(Date.now() / 1000),
       model: data.model || model,
-      provider: 'anthropic',
+      provider: provider.provider,
       choices: [{
         index: 0,
         message: {
@@ -926,19 +940,19 @@ export class LLMService {
   // ===========================================================================
 
   async seedDefaultProviders(): Promise<void> {
-    const providerNames: LLMProviderName[] = ['openai', 'gemini', 'ollama', 'lmstudio', 'anthropic', 'groq'];
+    const providerTypes: LLMProviderName[] = ['openai', 'gemini', 'ollama', 'lmstudio', 'anthropic', 'groq'];
 
-    for (const name of providerNames) {
-      const existing = await prisma.lLMProvider.findUnique({ where: { name } });
+    for (const type of providerTypes) {
+      const existing = await prisma.lLMProvider.findFirst({ where: { provider: type } });
 
       if (!existing) {
-        const defaults = PROVIDER_DEFAULTS[name];
+        const defaults = PROVIDER_DEFAULTS[type];
         await this.createProvider({
-          name,
+          provider: type,
           displayName: defaults.displayName,
           isEnabled: false,
           isDefault: false,
-          priority: name === 'openai' ? 100 : name === 'gemini' ? 90 : 50,
+          priority: type === 'openai' ? 100 : type === 'gemini' ? 90 : 50,
         });
       }
     }
@@ -952,6 +966,7 @@ export class LLMService {
     return {
       id: provider.id,
       name: provider.name,
+      provider: provider.provider || provider.name,
       displayName: provider.displayName,
       description: provider.description,
       providerType: provider.providerType,

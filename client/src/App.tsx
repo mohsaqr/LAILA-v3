@@ -111,7 +111,6 @@ import {
   EnrollmentsManagement,
   BatchEnrollment,
   ChatbotRegistry,
-  LLMSettings,
   Dashboard as AdminDashboard_Analytics,
 } from './pages/admin';
 import { PromptBlocksManagement } from './pages/admin/PromptBlocksManagement';
@@ -745,11 +744,7 @@ function App() {
         />
         <Route
           path="/admin/llm-settings"
-          element={
-            <ProtectedRoute requireAdmin>
-              <LLMSettings />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/admin/settings?tab=llm" replace />}
         />
         <Route
           path="/admin/prompt-blocks"
@@ -769,11 +764,7 @@ function App() {
         />
         <Route
           path="/admin/llm"
-          element={
-            <ProtectedRoute requireAdmin>
-              <LLMSettings />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/admin/settings?tab=llm" replace />}
         />
         <Route
           path="/admin/dashboard"

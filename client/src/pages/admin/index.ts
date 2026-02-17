@@ -6,5 +6,4 @@ export { UserDetail } from './UserDetail';
 export { EnrollmentsManagement } from './EnrollmentsManagement';
 export { BatchEnrollment } from './BatchEnrollment';
 export { ChatbotRegistry } from './ChatbotRegistry';
-export { LLMSettings } from './LLMSettings';
 export { Dashboard } from './Dashboard';

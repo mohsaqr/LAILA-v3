@@ -129,7 +129,8 @@ model LLMProvider {
   id                    Int      @id @default(autoincrement())
 
   // ===== PROVIDER IDENTITY =====
-  name                  String   @unique                    // 'openai', 'gemini', 'ollama', 'lmstudio', 'anthropic', 'azure-openai', 'custom'
+  name                  String   @unique                    // Unique slug: 'openai', 'openai-research', etc.
+  provider              String   @default("custom")         // Provider type: 'openai', 'gemini', 'ollama', etc.
   displayName           String   @map("display_name")       // User-friendly name
   description           String?                             // Provider description
   providerType          String   @map("provider_type")      // 'cloud', 'local', 'custom'
@@ -227,6 +228,7 @@ model LLMProvider {
 
   @@index([isEnabled, isDefault])
   @@index([providerType])
+  @@index([provider])
   @@map("llm_providers")
 }
 

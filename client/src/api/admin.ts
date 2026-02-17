@@ -751,6 +751,7 @@ export const settingsApi = {
 export interface LLMProvider {
   id: number;
   name: string;
+  provider: string;
   displayName: string;
   description?: string;
   providerType: 'cloud' | 'local' | 'custom';
@@ -837,6 +838,11 @@ export interface LLMProviderDefaults {
   defaultTemperature: number;
   defaultMaxTokens: number;
   defaultTopP: number;
+  requestTimeout: number;
+  connectTimeout: number;
+  maxRetries: number;
+  retryDelay: number;
+  concurrencyLimit: number;
   supportsStreaming: boolean;
   supportsVision: boolean;
   supportsFunctionCalling: boolean;

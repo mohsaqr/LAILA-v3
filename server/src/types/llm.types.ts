@@ -32,7 +32,8 @@ export type LLMResponseFormat = 'text' | 'json' | 'json_object';
 export interface LLMProviderConfig {
   // Identity
   id?: number;
-  name: LLMProviderName;
+  name: string;
+  provider: LLMProviderName;
   displayName: string;
   description?: string;
   providerType: LLMProviderType;
@@ -715,7 +716,8 @@ export const COMMON_MODELS: Record<LLMProviderName, Array<{ modelId: string; nam
 // =============================================================================
 
 export interface LLMProviderCreateInput {
-  name: LLMProviderName;
+  provider: LLMProviderName;
+  name?: string;
   displayName?: string;
   description?: string;
   isEnabled?: boolean;

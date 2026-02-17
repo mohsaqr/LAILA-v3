@@ -27,6 +27,7 @@ vi.mock('../utils/prisma.js', () => ({
       findMany: vi.fn(),
       findFirst: vi.fn(),
       findUnique: vi.fn(),
+      count: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
@@ -108,6 +109,7 @@ describe('LLMService', () => {
   const mockProvider = {
     id: 1,
     name: 'openai',
+    provider: 'openai',
     displayName: 'OpenAI',
     description: null,
     providerType: 'cloud',
@@ -231,7 +233,7 @@ describe('LLMService', () => {
     });
 
     it('should return all providers including disabled when includeDisabled is true', async () => {
-      const disabledProvider = { ...mockProvider, id: 2, name: 'gemini', isEnabled: false };
+      const disabledProvider = { ...mockProvider, id: 2, name: 'gemini', provider: 'gemini', isEnabled: false };
       vi.mocked(prisma.lLMProvider.findMany).mockResolvedValue([mockProvider, disabledProvider] as any);
 
       const providers = await llmService.getProviders(true);
@@ -356,11 +358,12 @@ describe('LLMService', () => {
 
   describe('createProvider', () => {
     it('should create a new provider successfully', async () => {
+      vi.mocked(prisma.lLMProvider.count as any).mockResolvedValue(0);
       vi.mocked(prisma.lLMProvider.findUnique).mockResolvedValue(null);
       vi.mocked(prisma.lLMProvider.create).mockResolvedValue(mockProvider as any);
 
       const provider = await llmService.createProvider({
-        name: 'openai',
+        provider: 'openai',
         apiKey: 'sk-test-key',
         isEnabled: true,
       });
@@ -369,26 +372,28 @@ describe('LLMService', () => {
       expect(prisma.lLMProvider.create).toHaveBeenCalled();
     });
 
-    it('should throw 409 error when provider already exists', async () => {
+    it('should throw 409 error when provider slug already exists', async () => {
+      vi.mocked(prisma.lLMProvider.count as any).mockResolvedValue(0);
       vi.mocked(prisma.lLMProvider.findUnique).mockResolvedValue(mockProvider as any);
 
       await expect(llmService.createProvider({
-        name: 'openai',
+        provider: 'openai',
         apiKey: 'sk-test-key',
       })).rejects.toThrow(AppError);
       await expect(llmService.createProvider({
-        name: 'openai',
+        provider: 'openai',
         apiKey: 'sk-test-key',
       })).rejects.toThrow(/already exists/);
     });
 
     it('should unset other defaults when creating new default provider', async () => {
+      vi.mocked(prisma.lLMProvider.count as any).mockResolvedValue(0);
       vi.mocked(prisma.lLMProvider.findUnique).mockResolvedValue(null);
       vi.mocked(prisma.lLMProvider.updateMany).mockResolvedValue({ count: 1 });
       vi.mocked(prisma.lLMProvider.create).mockResolvedValue(mockProvider as any);
 
       await llmService.createProvider({
-        name: 'openai',
+        provider: 'openai',
         apiKey: 'sk-test-key',
         isDefault: true,
       });
@@ -397,6 +402,30 @@ describe('LLMService', () => {
         where: { isDefault: true },
         data: { isDefault: false },
       });
+    });
+
+    it('should allow two providers of same type with different name slugs', async () => {
+      // First provider exists with name "openai"
+      vi.mocked(prisma.lLMProvider.count as any).mockResolvedValue(1);
+      vi.mocked(prisma.lLMProvider.findUnique).mockResolvedValue(null); // "openai-2" doesn't exist
+      const secondProvider = { ...mockProvider, id: 2, name: 'openai-2' };
+      vi.mocked(prisma.lLMProvider.create).mockResolvedValue(secondProvider as any);
+
+      const provider = await llmService.createProvider({
+        provider: 'openai',
+        apiKey: 'sk-test-key-2',
+        isEnabled: true,
+      });
+
+      expect(provider.name).toBe('openai-2');
+      expect(prisma.lLMProvider.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            name: 'openai-2',
+            provider: 'openai',
+          }),
+        })
+      );
     });
   });
 
@@ -535,7 +564,7 @@ describe('LLMService', () => {
     });
 
     it('should test Ollama provider successfully', async () => {
-      const ollamaProvider = { ...mockProvider, name: 'ollama', apiKey: null, baseUrl: 'http://localhost:11434' };
+      const ollamaProvider = { ...mockProvider, name: 'ollama', provider: 'ollama', apiKey: null, baseUrl: 'http://localhost:11434' };
       vi.mocked(prisma.lLMProvider.findFirst).mockResolvedValue(ollamaProvider as any);
       vi.mocked(prisma.lLMProvider.update).mockResolvedValue(ollamaProvider as any);
 
@@ -741,6 +770,7 @@ describe('LLMService', () => {
       ...mockProvider,
       id: 2,
       name: 'gemini',
+      provider: 'gemini',
       displayName: 'Google Gemini',
       defaultModel: 'gemini-1.5-flash',
     };
@@ -799,6 +829,7 @@ describe('LLMService', () => {
       ...mockProvider,
       id: 3,
       name: 'ollama',
+      provider: 'ollama',
       displayName: 'Ollama',
       apiKey: null,
       baseUrl: 'http://localhost:11434',
@@ -976,6 +1007,7 @@ describe('LLMService', () => {
       ...mockProvider,
       id: 4,
       name: 'anthropic',
+      provider: 'anthropic',
       displayName: 'Anthropic',
       baseUrl: 'https://api.anthropic.com',
       defaultModel: 'claude-3-5-sonnet-20241022',
@@ -1219,17 +1251,21 @@ describe('LLMService', () => {
 
   describe('seedDefaultProviders', () => {
     it('should create missing default providers', async () => {
+      vi.mocked(prisma.lLMProvider.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.lLMProvider.count as any).mockResolvedValue(0);
       vi.mocked(prisma.lLMProvider.findUnique).mockResolvedValue(null);
       vi.mocked(prisma.lLMProvider.create).mockResolvedValue(mockProvider as any);
 
       await llmService.seedDefaultProviders();
 
-      expect(prisma.lLMProvider.findUnique).toHaveBeenCalled();
+      expect(prisma.lLMProvider.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ provider: expect.any(String) }) })
+      );
       expect(prisma.lLMProvider.create).toHaveBeenCalled();
     });
 
     it('should skip existing providers', async () => {
-      vi.mocked(prisma.lLMProvider.findUnique).mockResolvedValue(mockProvider as any);
+      vi.mocked(prisma.lLMProvider.findFirst).mockResolvedValue(mockProvider as any);
 
       await llmService.seedDefaultProviders();
 
@@ -1260,7 +1296,7 @@ describe('LLMService', () => {
 
   describe('testProvider - Additional Tests', () => {
     it('should test Gemini provider successfully', async () => {
-      const geminiProvider = { ...mockProvider, name: 'gemini', defaultModel: 'gemini-1.5-flash' };
+      const geminiProvider = { ...mockProvider, name: 'gemini', provider: 'gemini', defaultModel: 'gemini-1.5-flash' };
       vi.mocked(prisma.lLMProvider.findFirst).mockResolvedValue(geminiProvider as any);
       vi.mocked(prisma.lLMProvider.update).mockResolvedValue(geminiProvider as any);
 
@@ -1271,7 +1307,7 @@ describe('LLMService', () => {
     });
 
     it('should return error for Gemini without API key', async () => {
-      const noKeyGemini = { ...mockProvider, name: 'gemini', apiKey: null };
+      const noKeyGemini = { ...mockProvider, name: 'gemini', provider: 'gemini', apiKey: null };
       vi.mocked(prisma.lLMProvider.findFirst).mockResolvedValue(noKeyGemini as any);
 
       const result = await llmService.testProvider('gemini');
@@ -1281,7 +1317,7 @@ describe('LLMService', () => {
     });
 
     it('should test Anthropic provider successfully', async () => {
-      const anthropicProvider = { ...mockProvider, name: 'anthropic', baseUrl: 'https://api.anthropic.com' };
+      const anthropicProvider = { ...mockProvider, name: 'anthropic', provider: 'anthropic', baseUrl: 'https://api.anthropic.com' };
       vi.mocked(prisma.lLMProvider.findFirst).mockResolvedValue(anthropicProvider as any);
       vi.mocked(prisma.lLMProvider.update).mockResolvedValue(anthropicProvider as any);
 
@@ -1297,7 +1333,7 @@ describe('LLMService', () => {
     });
 
     it('should return error for Anthropic without API key', async () => {
-      const noKeyAnthropic = { ...mockProvider, name: 'anthropic', apiKey: null };
+      const noKeyAnthropic = { ...mockProvider, name: 'anthropic', provider: 'anthropic', apiKey: null };
       vi.mocked(prisma.lLMProvider.findFirst).mockResolvedValue(noKeyAnthropic as any);
 
       const result = await llmService.testProvider('anthropic');
@@ -1307,7 +1343,7 @@ describe('LLMService', () => {
     });
 
     it('should handle Anthropic API error response', async () => {
-      const anthropicProvider = { ...mockProvider, name: 'anthropic' };
+      const anthropicProvider = { ...mockProvider, name: 'anthropic', provider: 'anthropic' };
       vi.mocked(prisma.lLMProvider.findFirst).mockResolvedValue(anthropicProvider as any);
       vi.mocked(prisma.lLMProvider.update).mockResolvedValue(anthropicProvider as any);
 
@@ -1323,7 +1359,7 @@ describe('LLMService', () => {
     });
 
     it('should handle Ollama error response', async () => {
-      const ollamaProvider = { ...mockProvider, name: 'ollama', apiKey: null, baseUrl: 'http://localhost:11434' };
+      const ollamaProvider = { ...mockProvider, name: 'ollama', provider: 'ollama', apiKey: null, baseUrl: 'http://localhost:11434' };
       vi.mocked(prisma.lLMProvider.findFirst).mockResolvedValue(ollamaProvider as any);
       vi.mocked(prisma.lLMProvider.update).mockResolvedValue(ollamaProvider as any);
 
@@ -1338,7 +1374,7 @@ describe('LLMService', () => {
     });
 
     it('should test unknown provider with OpenAI-compatible fallback', async () => {
-      const unknownProvider = { ...mockProvider, name: 'custom' };
+      const unknownProvider = { ...mockProvider, name: 'custom', provider: 'custom' };
       vi.mocked(prisma.lLMProvider.findFirst).mockResolvedValue(unknownProvider as any);
       vi.mocked(prisma.lLMProvider.update).mockResolvedValue(unknownProvider as any);
 
@@ -1381,7 +1417,7 @@ describe('LLMService', () => {
     });
 
     it('should accept topK for providers that support it', async () => {
-      const geminiProvider = { ...mockProvider, name: 'gemini', defaultModel: 'gemini-1.5-flash' };
+      const geminiProvider = { ...mockProvider, name: 'gemini', provider: 'gemini', defaultModel: 'gemini-1.5-flash' };
       vi.mocked(prisma.lLMProvider.findFirst).mockResolvedValue(geminiProvider as any);
       vi.mocked(prisma.lLMProvider.update).mockResolvedValue(geminiProvider as any);
 
@@ -1472,6 +1508,7 @@ describe('LLMService', () => {
       const geminiProvider = {
         id: 2,
         name: 'gemini',
+        provider: 'gemini',
         type: 'gemini',
         apiKey: 'gemini-key',
         isEnabled: true,
@@ -1555,6 +1592,7 @@ describe('LLMService', () => {
     const customProvider = {
       id: 3,
       name: 'custom',
+      provider: 'custom',
       type: 'custom',
       apiKey: 'custom-key',
       isEnabled: true,
@@ -1639,6 +1677,7 @@ describe('LLMService', () => {
     const mockProvider = {
       id: 1,
       name: 'openai',
+      provider: 'openai',
       displayName: 'OpenAI',
       providerType: 'cloud',
       isEnabled: true,

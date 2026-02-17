@@ -17,7 +17,8 @@ const router = Router();
 // =============================================================================
 
 const createProviderSchema = z.object({
-  name: z.string().min(1),
+  provider: z.string().min(1),
+  name: z.string().optional(),
   displayName: z.string().optional(),
   description: z.string().optional(),
   isEnabled: z.boolean().optional(),
@@ -62,7 +63,7 @@ const createProviderSchema = z.object({
   notes: z.string().optional(),
 }).passthrough();
 
-const updateProviderSchema = createProviderSchema.partial().extend({
+const updateProviderSchema = createProviderSchema.partial().omit({ provider: true }).extend({
   id: z.number().int(),
 });
 
@@ -101,6 +102,7 @@ router.get('/active', authenticateToken, asyncHandler(async (req: AuthRequest, r
   const publicProviders = providers.map(p => ({
     id: p.id,
     name: p.name,
+    provider: p.provider,
     displayName: p.displayName,
     isDefault: p.isDefault,
     defaultModel: p.defaultModel,
@@ -284,7 +286,7 @@ router.post('/providers/:id/seed-models', asyncHandler(async (req: AuthRequest, 
     return res.status(404).json({ success: false, error: 'Provider not found' });
   }
 
-  await llmService.seedCommonModels(id, provider.name as LLMProviderName);
+  await llmService.seedCommonModels(id, provider.provider as LLMProviderName);
   const models = await llmService.getModels(id);
 
   res.json({ success: true, data: models });

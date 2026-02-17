@@ -188,12 +188,12 @@ describe('LLM Routes', () => {
 
   describe('POST /api/llm/providers', () => {
     it('should create provider', async () => {
-      const mockProvider = { id: 1, name: 'new-provider', apiKey: 'secret' };
+      const mockProvider = { id: 1, name: 'new-provider', provider: 'openai', apiKey: 'secret' };
       vi.mocked(llmService.createProvider).mockResolvedValue(mockProvider as any);
 
       const response = await request(app)
         .post('/api/llm/providers')
-        .send({ name: 'new-provider', apiKey: 'secret' })
+        .send({ provider: 'openai', name: 'new-provider', apiKey: 'secret' })
         .expect(201);
 
       expect(response.body.success).toBe(true);
@@ -355,7 +355,7 @@ describe('LLM Routes', () => {
 
   describe('POST /api/llm/providers/:id/seed-models', () => {
     it('should seed common models', async () => {
-      vi.mocked(llmService.getProvider).mockResolvedValue({ id: 1, name: 'openai' } as any);
+      vi.mocked(llmService.getProvider).mockResolvedValue({ id: 1, name: 'openai', provider: 'openai' } as any);
       vi.mocked(llmService.seedCommonModels).mockResolvedValue(undefined);
       vi.mocked(llmService.getModels).mockResolvedValue([
         { id: 1, modelId: 'gpt-4o-mini', name: 'GPT-4o Mini' },
