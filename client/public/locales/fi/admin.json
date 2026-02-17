@@ -564,5 +564,13 @@
   "verbs_count": "Verbit",
   "no_tna_data": "Ei aktiviteettidataa valituille suodattimille",
   "min_sequence_length": "Minimisekvenssin pituus",
-  "loading_dashboard": "Ladataan kojelautaa..."
+  "loading_dashboard": "Ladataan kojelautaa...",
+  "transitions_count": "Siirtymät",
+  "avg_sequence_length": "Keskim. sekvenssi",
+  "sequence_length_range": "Sekvenssien väli",
+  "network_settings": "Verkoston asetukset",
+  "show_self_loops": "Itsesilmukat",
+  "show_edge_labels": "Kaarien nimet",
+  "node_radius": "Solmun koko",
+  "graph_height": "Graafin korkeus"
 }

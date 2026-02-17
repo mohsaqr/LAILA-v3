@@ -3411,6 +3411,292 @@ ggplot(spq, aes(x = deep_approach, y = gpa, color = surface_approach)) +
   }
   console.log('Created 30 fake students with enrollments');
 
+  // ═══════════════════════════════════════════════════════════
+  //  Seed Learning Activity Logs (~3000 events)
+  // ═══════════════════════════════════════════════════════════
+
+  // Gather all enrolled students for activity generation
+  const allEnrollments = await prisma.enrollment.findMany({
+    include: { user: true, course: true },
+  });
+
+  // Course structure lookup: courseId → modules → lectures → sections
+  const courseStructure: Record<number, {
+    courseTitle: string;
+    courseSlug: string;
+    modules: { id: number; title: string; order: number; lectures: { id: number; title: string; order: number; sections: { id: number; title: string; order: number; subtype: string | null }[] }[] }[];
+  }> = {};
+
+  for (const c of allCourses) {
+    const modules = await prisma.courseModule.findMany({
+      where: { courseId: c.id },
+      include: {
+        lectures: {
+          include: { sections: true },
+          orderBy: { orderIndex: 'asc' },
+        },
+      },
+      orderBy: { orderIndex: 'asc' },
+    });
+    courseStructure[c.id] = {
+      courseTitle: c.title,
+      courseSlug: c.slug,
+      modules: modules.map(m => ({
+        id: m.id,
+        title: m.title,
+        order: m.orderIndex,
+        lectures: m.lectures.map(l => ({
+          id: l.id,
+          title: l.title,
+          order: l.orderIndex,
+          sections: l.sections.map(s => ({
+            id: s.id,
+            title: s.title ?? '',
+            order: s.order,
+            subtype: s.type,
+          })),
+        })),
+      })),
+    };
+  }
+
+  // Verbs with realistic weights (some verbs are more common than others)
+  const verbWeights: { verb: string; weight: number; objectTypes: string[] }[] = [
+    { verb: 'viewed',      weight: 30, objectTypes: ['lecture', 'section', 'module', 'course'] },
+    { verb: 'started',     weight: 12, objectTypes: ['lecture', 'section', 'video', 'assignment'] },
+    { verb: 'completed',   weight: 10, objectTypes: ['lecture', 'section', 'module', 'quiz', 'assignment'] },
+    { verb: 'progressed',  weight: 15, objectTypes: ['lecture', 'section', 'video'] },
+    { verb: 'paused',      weight: 6,  objectTypes: ['video', 'lecture'] },
+    { verb: 'resumed',     weight: 5,  objectTypes: ['video', 'lecture'] },
+    { verb: 'submitted',   weight: 8,  objectTypes: ['assignment', 'quiz'] },
+    { verb: 'messaged',    weight: 7,  objectTypes: ['chatbot'] },
+    { verb: 'interacted',  weight: 4,  objectTypes: ['chatbot', 'section'] },
+    { verb: 'downloaded',  weight: 3,  objectTypes: ['file', 'section'] },
+    { verb: 'scrolled',    weight: 5,  objectTypes: ['lecture', 'section'] },
+    { verb: 'seeked',      weight: 3,  objectTypes: ['video'] },
+    { verb: 'graded',      weight: 2,  objectTypes: ['assignment', 'quiz'] },
+  ];
+  const totalVerbWeight = verbWeights.reduce((s, v) => s + v.weight, 0);
+
+  // Weighted random verb picker
+  function pickVerb() {
+    let r = Math.random() * totalVerbWeight;
+    for (const v of verbWeights) {
+      r -= v.weight;
+      if (r <= 0) return v;
+    }
+    return verbWeights[0];
+  }
+
+  // Random helpers
+  function pickRandom<T>(arr: T[]): T {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  function randomInt(min: number, max: number) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  // Generate timestamps spread across the last 90 days, with weekday bias
+  function randomTimestamp(): Date {
+    const now = Date.now();
+    const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
+    const base = new Date(now - Math.random() * ninetyDaysMs);
+    // Add realistic hour-of-day distribution (more activity 8am-11pm)
+    const hour = Math.random() < 0.85
+      ? randomInt(8, 23)   // 85% during waking hours
+      : randomInt(0, 7);   // 15% late night
+    base.setHours(hour, randomInt(0, 59), randomInt(0, 59));
+    return base;
+  }
+
+  // Learner profiles: each student gets a "style" that biases their verb distribution
+  type LearnerProfile = 'diligent' | 'skimmer' | 'social' | 'balanced';
+  const profiles: LearnerProfile[] = ['diligent', 'skimmer', 'social', 'balanced'];
+  const profileVerbBoost: Record<LearnerProfile, Record<string, number>> = {
+    diligent:  { completed: 3, submitted: 2, progressed: 2, viewed: 1.5 },
+    skimmer:   { viewed: 3, scrolled: 3, paused: 0.3, completed: 0.5 },
+    social:    { messaged: 4, interacted: 3, viewed: 1.2 },
+    balanced:  {},  // no boost, use base weights
+  };
+
+  const devices = ['desktop', 'tablet', 'mobile'];
+  const browsers = ['Chrome', 'Firefox', 'Safari', 'Edge'];
+  const deviceWeights = [0.6, 0.15, 0.25]; // desktop-heavy
+
+  function pickDevice() {
+    const r = Math.random();
+    if (r < deviceWeights[0]) return devices[0];
+    if (r < deviceWeights[0] + deviceWeights[1]) return devices[1];
+    return devices[2];
+  }
+
+  console.log('Generating learning activity logs...');
+
+  const activityBatch: Parameters<typeof prisma.learningActivityLog.createMany>[0]['data'] = [];
+
+  // For each enrolled student, generate a variable number of events
+  for (const enrollment of allEnrollments) {
+    const profile = pickRandom(profiles);
+    const boosts = profileVerbBoost[profile];
+    const structure = courseStructure[enrollment.courseId];
+    if (!structure || structure.modules.length === 0) continue;
+
+    // Variable events per student: 20-120 depending on profile
+    const baseEvents = profile === 'diligent' ? randomInt(60, 120)
+      : profile === 'skimmer' ? randomInt(40, 90)
+      : profile === 'social' ? randomInt(30, 70)
+      : randomInt(25, 80);
+
+    // Generate a session ID for bursts of activity
+    let sessionId = crypto.randomUUID();
+    let eventsInSession = 0;
+    const maxEventsPerSession = randomInt(5, 25);
+
+    for (let e = 0; e < baseEvents; e++) {
+      // New session every N events
+      eventsInSession++;
+      if (eventsInSession > maxEventsPerSession) {
+        sessionId = crypto.randomUUID();
+        eventsInSession = 1;
+      }
+
+      // Pick verb with profile boost
+      let chosen = pickVerb();
+      const boost = boosts[chosen.verb] ?? 1;
+      if (Math.random() > boost / (boost + 1)) {
+        chosen = pickVerb(); // re-roll if boost is low
+      }
+
+      const objectType = pickRandom(chosen.objectTypes);
+
+      // Build context from course structure
+      let objectId: number | undefined;
+      let objectTitle: string | undefined;
+      let objectSubtype: string | null = null;
+      let moduleId: number | undefined;
+      let moduleTitle: string | undefined;
+      let moduleOrder: number | undefined;
+      let lectureId: number | undefined;
+      let lectureTitle: string | undefined;
+      let lectureOrder: number | undefined;
+      let sectionId: number | undefined;
+      let sectionTitle: string | undefined;
+      let sectionOrder: number | undefined;
+
+      const mod = pickRandom(structure.modules);
+      moduleId = mod.id;
+      moduleTitle = mod.title;
+      moduleOrder = mod.order;
+
+      if (['lecture', 'section', 'video', 'file'].includes(objectType) && mod.lectures.length > 0) {
+        const lec = pickRandom(mod.lectures);
+        lectureId = lec.id;
+        lectureTitle = lec.title;
+        lectureOrder = lec.order;
+
+        if (['section', 'file'].includes(objectType) && lec.sections.length > 0) {
+          const sec = pickRandom(lec.sections);
+          sectionId = sec.id;
+          sectionTitle = sec.title;
+          sectionOrder = sec.order;
+          objectSubtype = sec.subtype;
+          objectId = sec.id;
+          objectTitle = sec.title;
+        } else {
+          objectId = lec.id;
+          objectTitle = lec.title;
+        }
+      } else if (objectType === 'module') {
+        objectId = mod.id;
+        objectTitle = mod.title;
+      } else if (objectType === 'course') {
+        objectId = enrollment.courseId;
+        objectTitle = structure.courseTitle;
+      } else if (objectType === 'assignment' || objectType === 'quiz') {
+        // Use a section as proxy for assignment/quiz
+        if (mod.lectures.length > 0) {
+          const lec = pickRandom(mod.lectures);
+          lectureId = lec.id;
+          lectureTitle = lec.title;
+          if (lec.sections.length > 0) {
+            const sec = pickRandom(lec.sections);
+            objectId = sec.id;
+            objectTitle = sec.title || `${objectType} ${sec.id}`;
+          }
+        }
+      } else if (objectType === 'chatbot') {
+        objectTitle = pickRandom(['Research Methods Helper', 'Academic Writing Tutor', 'AI Tutor', 'Course Assistant']);
+      }
+
+      // Result fields
+      let progress: number | undefined;
+      let duration: number | undefined;
+      let score: number | undefined;
+      let maxScore: number | undefined;
+      let success: boolean | undefined = true;
+
+      if (['progressed', 'scrolled'].includes(chosen.verb)) {
+        progress = Math.round(Math.random() * 100);
+      }
+      if (['viewed', 'started', 'progressed', 'paused', 'resumed', 'seeked'].includes(chosen.verb)) {
+        duration = randomInt(5, 1800); // 5s to 30min
+      }
+      if (['submitted', 'graded'].includes(chosen.verb)) {
+        maxScore = pickRandom([10, 20, 50, 100]);
+        score = Math.round(Math.random() * maxScore * 10) / 10;
+        success = score >= maxScore * 0.5;
+        progress = 100;
+      }
+      if (chosen.verb === 'completed') {
+        progress = 100;
+        duration = randomInt(60, 3600);
+      }
+
+      activityBatch.push({
+        userId: enrollment.userId,
+        userEmail: enrollment.user.email,
+        userFullname: enrollment.user.fullname,
+        userRole: 'student',
+        sessionId,
+        verb: chosen.verb,
+        objectType,
+        objectId: objectId ?? null,
+        objectTitle: objectTitle ?? null,
+        objectSubtype: objectSubtype ?? null,
+        courseId: enrollment.courseId,
+        courseTitle: structure.courseTitle,
+        courseSlug: structure.courseSlug,
+        moduleId: moduleId ?? null,
+        moduleTitle: moduleTitle ?? null,
+        moduleOrder: moduleOrder ?? null,
+        lectureId: lectureId ?? null,
+        lectureTitle: lectureTitle ?? null,
+        lectureOrder: lectureOrder ?? null,
+        sectionId: sectionId ?? null,
+        sectionTitle: sectionTitle ?? null,
+        sectionOrder: sectionOrder ?? null,
+        success: success ?? null,
+        score: score ?? null,
+        maxScore: maxScore ?? null,
+        progress: progress ?? null,
+        duration: duration ?? null,
+        deviceType: pickDevice(),
+        browserName: pickRandom(browsers),
+        timestamp: randomTimestamp(),
+      });
+    }
+  }
+
+  // Batch insert in chunks of 500
+  const CHUNK_SIZE = 500;
+  for (let i = 0; i < activityBatch.length; i += CHUNK_SIZE) {
+    const chunk = activityBatch.slice(i, i + CHUNK_SIZE);
+    await prisma.learningActivityLog.createMany({ data: chunk });
+  }
+
+  console.log(`Created ${activityBatch.length} learning activity log events`);
+
   console.log('Seeding completed!');
 }
 

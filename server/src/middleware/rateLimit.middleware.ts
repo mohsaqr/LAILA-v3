@@ -36,7 +36,7 @@ export const uploadLimiter = rateLimit({
  */
 export const apiLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 100, // 100 requests per minute
+  max: 300, // 300 requests per minute
   message: {
     success: false,
     error: 'Too many requests. Please slow down.',

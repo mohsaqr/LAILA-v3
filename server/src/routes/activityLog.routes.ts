@@ -199,6 +199,7 @@ router.get('/tna-sequences', authenticateToken, requireAdmin, asyncHandler(async
     startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
     endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
     minSequenceLength: req.query.minSequenceLength ? parseInt(req.query.minSequenceLength as string) : undefined,
+    minVerbPct: req.query.minVerbPct !== undefined ? parseFloat(req.query.minVerbPct as string) : undefined,
   };
 
   const result = await activityLogService.getTnaSequences(filters);

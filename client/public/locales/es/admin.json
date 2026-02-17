@@ -563,5 +563,13 @@
   "verbs_count": "Verbos",
   "no_tna_data": "No hay datos de actividad para los filtros seleccionados",
   "min_sequence_length": "Longitud mínima de secuencia",
-  "loading_dashboard": "Cargando panel de control..."
+  "loading_dashboard": "Cargando panel de control...",
+  "transitions_count": "Transiciones",
+  "avg_sequence_length": "Longitud media",
+  "sequence_length_range": "Rango de secuencia",
+  "network_settings": "Ajustes de red",
+  "show_self_loops": "Autobucles",
+  "show_edge_labels": "Etiquetas de aristas",
+  "node_radius": "Tamaño de nodo",
+  "graph_height": "Altura del gráfico"
 }

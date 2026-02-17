@@ -33,11 +33,17 @@ export class ModuleService {
       }
     }
 
+    const showUnpublished = isInstructor || isAdmin;
+
     const modules = await prisma.courseModule.findMany({
-      where: { courseId },
+      where: {
+        courseId,
+        ...(showUnpublished ? {} : { isPublished: true }),
+      },
       orderBy: { orderIndex: 'asc' },
       include: {
         lectures: {
+          where: showUnpublished ? {} : { isPublished: true },
           orderBy: { orderIndex: 'asc' },
           select: {
             id: true,
@@ -50,6 +56,7 @@ export class ModuleService {
           },
         },
         codeLabs: {
+          where: showUnpublished ? {} : { isPublished: true },
           orderBy: { orderIndex: 'asc' },
           include: {
             blocks: {

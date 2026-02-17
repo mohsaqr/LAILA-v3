@@ -563,5 +563,13 @@
   "verbs_count": "الأفعال",
   "no_tna_data": "لا توجد بيانات نشاط للفلاتر المحددة",
   "min_sequence_length": "الحد الأدنى لطول التسلسل",
-  "loading_dashboard": "جاري تحميل لوحة المعلومات..."
+  "loading_dashboard": "جاري تحميل لوحة المعلومات...",
+  "transitions_count": "الانتقالات",
+  "avg_sequence_length": "متوسط طول التسلسل",
+  "sequence_length_range": "نطاق التسلسل",
+  "network_settings": "إعدادات الشبكة",
+  "show_self_loops": "الحلقات الذاتية",
+  "show_edge_labels": "تسميات الحواف",
+  "node_radius": "حجم العقدة",
+  "graph_height": "ارتفاع الرسم البياني"
 }

@@ -564,5 +564,13 @@
   "verbs_count": "Verbs",
   "no_tna_data": "No activity data available for the selected filters",
   "min_sequence_length": "Min Sequence Length",
-  "loading_dashboard": "Loading dashboard..."
+  "loading_dashboard": "Loading dashboard...",
+  "transitions_count": "Transitions",
+  "avg_sequence_length": "Avg Sequence Length",
+  "sequence_length_range": "Sequence Range",
+  "network_settings": "Network Settings",
+  "show_self_loops": "Self-loops",
+  "show_edge_labels": "Edge labels",
+  "node_radius": "Node size",
+  "graph_height": "Graph height"
 }

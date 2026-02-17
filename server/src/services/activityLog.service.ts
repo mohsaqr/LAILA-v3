@@ -525,13 +525,29 @@ class ActivityLogService {
   }
 
   /**
-   * Get TNA sequences: groups activity verbs per user into sequences
+   * Merge map: semantically similar verbs → canonical label.
+   * Applied before frequency filtering so merged verbs pool their counts.
+   */
+  static readonly VERB_MERGES: Record<string, string> = {
+    seeked: 'navigated',
+    scrolled: 'navigated',
+    paused: 'media_control',
+    resumed: 'media_control',
+  };
+
+  /**
+   * Get TNA sequences: groups activity verbs per user into sequences.
+   *
+   * @param minVerbPct – verbs whose share of total events falls below this
+   *   fraction (0–1, default 0.05 = 5%) are replaced with "other".
+   *   Pass 0 to disable frequency filtering.
    */
   async getTnaSequences(filters?: {
     courseId?: number;
     startDate?: Date;
     endDate?: Date;
     minSequenceLength?: number;
+    minVerbPct?: number;
   }) {
     const where: Prisma.LearningActivityLogWhereInput = {};
     if (filters?.courseId) where.courseId = filters.courseId;
@@ -542,6 +558,7 @@ class ActivityLogService {
     }
 
     const minLen = filters?.minSequenceLength ?? 2;
+    const minVerbPct = filters?.minVerbPct ?? 0.05;
 
     const logs = await prisma.learningActivityLog.findMany({
       where,
@@ -550,13 +567,37 @@ class ActivityLogService {
       take: 50000,
     });
 
-    // Group by userId into sequences of verbs
+    // 1. Apply verb merges
+    const merges = ActivityLogService.VERB_MERGES;
+    for (const log of logs) {
+      if (merges[log.verb]) log.verb = merges[log.verb];
+    }
+
+    // 2. Count verb frequencies across all events
+    const verbCounts: Record<string, number> = {};
+    for (const log of logs) {
+      verbCounts[log.verb] = (verbCounts[log.verb] ?? 0) + 1;
+    }
+
+    // 3. Determine which verbs fall below the threshold
+    const totalEvents = logs.length;
+    const rareVerbs = new Set<string>();
+    if (minVerbPct > 0 && totalEvents > 0) {
+      for (const [verb, count] of Object.entries(verbCounts)) {
+        if (count / totalEvents < minVerbPct) {
+          rareVerbs.add(verb);
+        }
+      }
+    }
+
+    // 4. Group by userId into sequences, replacing rare verbs with "other"
     const userSequences: Record<number, string[]> = {};
     for (const log of logs) {
       if (!userSequences[log.userId]) {
         userSequences[log.userId] = [];
       }
-      userSequences[log.userId].push(log.verb);
+      const verb = rareVerbs.has(log.verb) ? 'other' : log.verb;
+      userSequences[log.userId].push(verb);
     }
 
     // Filter by min sequence length
@@ -589,7 +630,7 @@ class ActivityLogService {
       sequences,
       metadata: {
         totalUsers: sequences.length,
-        totalEvents: logs.length,
+        totalEvents: totalEvents,
         uniqueVerbs: Array.from(uniqueVerbs).sort(),
         courseTitle,
         dateRange,
