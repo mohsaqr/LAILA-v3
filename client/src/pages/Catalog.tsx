@@ -69,7 +69,16 @@ export const Catalog = () => {
     queryFn: () => coursesApi.getCourses({ search, category, difficulty, page, limit: 12 }),
   });
 
-  const categories = ['Research Methods', 'AI & Technology', 'Data Science', 'Academic Writing'];
+  const categories = [
+    { value: 'programming', label: t('category_programming') },
+    { value: 'data-science', label: t('category_data_science') },
+    { value: 'design', label: t('category_design') },
+    { value: 'business', label: t('category_business') },
+    { value: 'marketing', label: t('category_marketing') },
+    { value: 'language', label: t('category_language') },
+    { value: 'education', label: t('category_education') },
+    { value: 'other', label: t('category_other') },
+  ];
   const difficulties = [
     { value: 'beginner', label: t('beginner') },
     { value: 'intermediate', label: t('intermediate') },
@@ -252,8 +261,8 @@ export const Catalog = () => {
           >
             <option value="">{t('all_categories')}</option>
             {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
+              <option key={cat.value} value={cat.value}>
+                {cat.label}
               </option>
             ))}
           </select>

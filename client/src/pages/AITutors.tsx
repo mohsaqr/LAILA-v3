@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Menu, Heart, ArrowLeft } from 'lucide-react';
 import { tutorsApi } from '../api/tutors';
 import { coursesApi } from '../api/courses';
+import { courseTutorApi } from '../api/courseTutor';
 import { TutorSidebar, TutorChat, EmotionalPulseHistory } from '../components/tutors';
 import { Loading } from '../components/common/Loading';
 import { useTheme } from '../hooks/useTheme';
@@ -66,6 +67,14 @@ export const AITutors = () => {
     queryKey: ['tutorSession'],
     queryFn: tutorsApi.getSession,
     staleTime: 30000, // 30 seconds
+  });
+
+  // Fetch course-specific tutors when courseId is present
+  const { data: courseTutors } = useQuery({
+    queryKey: ['courseStudentTutors', courseIdFromUrl],
+    queryFn: () => courseTutorApi.getStudentTutors(parseInt(courseIdFromUrl!)),
+    enabled: !!courseIdFromUrl,
+    staleTime: 30000,
   });
 
   // Fetch course data if we're in a course context (to get routing mode)
@@ -299,7 +308,14 @@ export const AITutors = () => {
     return <Loading fullScreen text={t('loading_ai_tutors')} />;
   }
 
-  const agents = sessionData?.agents || [];
+  // When courseId is present and we have course-specific tutors, filter the session agents
+  // to only show tutors assigned to this course
+  const allAgents = sessionData?.agents || [];
+  const agents = (courseIdFromUrl && courseTutors)
+    ? allAgents.filter(agent =>
+        courseTutors.some(ct => ct.id === agent.id || ct.name === agent.name)
+      )
+    : allAgents;
   const conversations = sessionData?.conversations || [];
 
   return (

@@ -478,9 +478,9 @@ export class CourseService {
     return updated;
   }
 
-  async getInstructorCourses(instructorId: number, isAdmin = false) {
-    // Admins see all courses, instructors see only their own
-    const where = isAdmin ? {} : { instructorId };
+  async getInstructorCourses(instructorId: number, _isAdmin = false) {
+    // Always filter by instructorId — admins should only see their own courses on the teach dashboard
+    const where = { instructorId };
 
     const courses = await prisma.course.findMany({
       where,

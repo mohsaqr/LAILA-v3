@@ -1,4 +1,5 @@
 import apiClient from '../api/client';
+import { useAuthStore } from '../store/authStore';
 
 // Activity verbs and object types matching the server schema
 export type ActivityVerb =
@@ -58,6 +59,34 @@ class ActivityLogger {
 
   constructor() {
     this.sessionId = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+
+    // Flush pending activities when page is being closed
+    window.addEventListener('beforeunload', () => {
+      if (this.pendingActivities.length === 0) return;
+
+      const enrichedActivities = this.pendingActivities.map(a => ({
+        ...a,
+        sessionId: this.sessionId,
+        deviceType: detectDeviceType(),
+        browserName: detectBrowserName(),
+      }));
+
+      const baseURL = apiClient.defaults.baseURL || '/api';
+      const token = useAuthStore.getState().token;
+
+      // Use fetch with keepalive to survive page unload (sendBeacon can't set auth headers)
+      fetch(`${baseURL}/activity-log/batch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ activities: enrichedActivities }),
+        keepalive: true,
+      });
+
+      this.pendingActivities = [];
+    });
   }
 
   // Disable logging (e.g., for admin "view as" mode)
@@ -69,31 +98,12 @@ class ActivityLogger {
     this.isEnabled = true;
   }
 
-  // Log a single activity
+  // Queue activity for batch sending
   async log(activity: LogActivityInput): Promise<void> {
     if (!this.isEnabled) return;
 
-    // Always log activity events for debugging
-    console.log('[ActivityLogger] Sending activity:', activity.verb, activity.objectType, {
-      objectId: activity.objectId,
-      courseId: activity.courseId,
-      hasExtensions: !!activity.extensions,
-    });
-
-    try {
-      await apiClient.post('/activity-log', {
-        ...activity,
-        sessionId: this.sessionId,
-        deviceType: detectDeviceType(),
-        browserName: detectBrowserName(),
-      });
-      console.log('[ActivityLogger] Activity logged successfully:', activity.verb, activity.objectType);
-    } catch (error) {
-      console.error('[ActivityLogger] Failed to log activity:', error);
-      // Queue for batch send
-      this.pendingActivities.push(activity);
-      this.scheduleBatchFlush();
-    }
+    this.pendingActivities.push(activity);
+    this.scheduleBatchFlush();
   }
 
   // Batch log multiple activities
@@ -119,7 +129,7 @@ class ActivityLogger {
     this.flushTimeout = window.setTimeout(() => {
       this.flushPending();
       this.flushTimeout = null;
-    }, 5000);
+    }, 3000);
   }
 
   private async flushPending() {
@@ -265,14 +275,6 @@ class ActivityLogger {
     courseId?: number,
     messageContent?: { userMessage?: string; assistantMessage?: string; aiModel?: string }
   ) {
-    console.log('[ActivityLogger] logChatbotMessage called:', {
-      sectionId,
-      lectureId,
-      courseId,
-      hasUserMessage: !!messageContent?.userMessage,
-      hasAssistantMessage: !!messageContent?.assistantMessage,
-    });
-
     return this.log({
       verb: 'messaged',
       objectType: 'chatbot',

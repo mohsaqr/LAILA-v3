@@ -9,6 +9,8 @@ import {
   Plus,
   ChevronUp,
   GripVertical,
+  Eye,
+  EyeOff,
   FlaskConical,
   ClipboardList,
   FileText,
@@ -33,11 +35,13 @@ interface ModuleItemProps {
   isLast: boolean;
   onEdit: (module: CourseModule) => void;
   onDelete: (module: CourseModule) => void;
+  onTogglePublish?: (module: CourseModule) => void;
   onMoveUp: (module: CourseModule) => void;
   onMoveDown: (module: CourseModule) => void;
   onAddLecture: (module: CourseModule) => void;
   onEditLecture: (lecture: Lecture) => void;
   onDeleteLecture: (lecture: Lecture) => void;
+  onToggleLecturePublish?: (lecture: Lecture) => void;
   onMoveLectureUp: (lecture: Lecture, module: CourseModule) => void;
   onMoveLectureDown: (lecture: Lecture, module: CourseModule) => void;
   // Code Lab handlers
@@ -69,11 +73,13 @@ export const ModuleItem = ({
   isLast,
   onEdit,
   onDelete,
+  onTogglePublish,
   onMoveUp,
   onMoveDown,
   onAddLecture,
   onEditLecture,
   onDeleteLecture,
+  onToggleLecturePublish,
   onMoveLectureUp,
   onMoveLectureDown,
   onAddCodeLab,
@@ -126,6 +132,11 @@ export const ModuleItem = ({
                 {module.label}
               </span>
             )}
+            {!module.isPublished && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
+                {t('draft')}
+              </span>
+            )}
           </div>
           {module.description && (
             <p className="text-sm text-gray-500 truncate">{module.description}</p>
@@ -161,6 +172,19 @@ export const ModuleItem = ({
 
         {/* Action buttons */}
         <div className="flex items-center gap-1">
+          {onTogglePublish && (
+            <button
+              onClick={() => onTogglePublish(module)}
+              className={`p-1.5 rounded transition-colors ${module.isPublished ? 'hover:bg-amber-100' : 'hover:bg-green-100'}`}
+              title={module.isPublished ? t('unpublish_module') : t('publish_module')}
+            >
+              {module.isPublished ? (
+                <EyeOff className="w-4 h-4 text-amber-500" />
+              ) : (
+                <Eye className="w-4 h-4 text-green-500" />
+              )}
+            </button>
+          )}
           <button
             onClick={() => onEdit(module)}
             className="p-1.5 rounded hover:bg-gray-200 transition-colors"
@@ -194,6 +218,7 @@ export const ModuleItem = ({
                     isLast={index === lectures.length - 1}
                     onEdit={onEditLecture}
                     onDelete={onDeleteLecture}
+                    onTogglePublish={onToggleLecturePublish}
                     onMoveUp={() => onMoveLectureUp(lecture, module)}
                     onMoveDown={() => onMoveLectureDown(lecture, module)}
                   />

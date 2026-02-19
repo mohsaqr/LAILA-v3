@@ -572,14 +572,14 @@ describe('CourseService', () => {
       );
     });
 
-    it('should return all courses for admin', async () => {
+    it('should filter by instructorId even for admin', async () => {
       vi.mocked(prisma.course.findMany).mockResolvedValue([mockCourse] as any);
 
       await courseService.getInstructorCourses(99, true);
 
       expect(prisma.course.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: {},
+          where: { instructorId: 99 },
         })
       );
     });

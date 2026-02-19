@@ -10,9 +10,16 @@ import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { LectureAIHelper } from '../components/lecture';
+import { marked } from 'marked';
 import { sanitizeHtml } from '../utils/sanitize';
 import activityLogger from '../services/activityLogger';
 import { LectureSection } from '../types';
+
+// Parse markdown to HTML, then sanitize for XSS safety
+const renderMarkdown = (content: string): string => {
+  const html = marked.parse(content, { async: false }) as string;
+  return sanitizeHtml(html);
+};
 
 export const LectureView = () => {
   const { t } = useTranslation(['courses', 'common']);
@@ -133,7 +140,7 @@ export const LectureView = () => {
               <div
                 className="prose max-w-none"
                 style={{ color: colors.textPrimary }}
-                dangerouslySetInnerHTML={{ __html: sanitizeHtml(section.content) }}
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(section.content) }}
               />
             )}
           </div>
@@ -239,7 +246,7 @@ export const LectureView = () => {
               <div
                 className="prose max-w-none mb-8"
                 style={{ color: colors.textPrimary }}
-                dangerouslySetInnerHTML={{ __html: sanitizeHtml(lecture.content) }}
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(lecture.content) }}
               />
             )}
 

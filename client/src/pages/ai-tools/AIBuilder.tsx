@@ -20,6 +20,7 @@ import {
   Sliders,
   MessageCircle,
   Image,
+  Upload,
   ThermometerSun,
   ListChecks,
   Ban,
@@ -36,7 +37,8 @@ import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { useTheme } from '../../hooks/useTheme';
-import apiClient from '../../api/client';
+import apiClient, { resolveFileUrl } from '../../api/client';
+import { getAuthToken } from '../../utils/auth';
 import { courseTutorApi } from '../../api/courseTutor';
 
 interface AIComponent {
@@ -768,24 +770,62 @@ export const AIBuilder = () => {
                     />
                   </div>
 
-                  {/* Avatar URL */}
+                  {/* Avatar Image Upload */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       <Image className="w-4 h-4 inline mr-1" />
-                      Avatar Image URL
+                      Avatar Image
                     </label>
-                    <div className="flex gap-3">
-                      <input
-                        type="url"
-                        value={formData.avatarUrl}
-                        onChange={e => setFormData({ ...formData, avatarUrl: e.target.value })}
-                        className="flex-1 border rounded-lg px-3 py-2 text-sm"
-                        placeholder="https://example.com/avatar.png"
-                      />
+                    <div className="flex items-center gap-3">
                       {formData.avatarUrl && (
-                        <img src={formData.avatarUrl} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                        <img
+                          src={formData.avatarUrl.startsWith('/') ? resolveFileUrl(formData.avatarUrl) : formData.avatarUrl}
+                          alt=""
+                          className="w-12 h-12 rounded-lg object-cover border border-gray-200"
+                        />
+                      )}
+                      <label className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors text-sm text-gray-700">
+                        <Upload className="w-4 h-4" />
+                        {formData.avatarUrl ? 'Change image' : 'Upload image'}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/gif,image/webp"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            try {
+                              const fd = new FormData();
+                              fd.append('file', file);
+                              const token = getAuthToken();
+                              const response = await fetch('/api/uploads/file', {
+                                method: 'POST',
+                                body: fd,
+                                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                              });
+                              if (!response.ok) throw new Error('Upload failed');
+                              const data = await response.json();
+                              const fileData = data.data || data;
+                              setFormData({ ...formData, avatarUrl: fileData.url || fileData.path });
+                              toast.success('Avatar uploaded');
+                            } catch {
+                              toast.error('Failed to upload avatar');
+                            }
+                          }}
+                        />
+                      </label>
+                      {formData.avatarUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, avatarUrl: '' })}
+                          className="p-1.5 rounded hover:bg-red-50 text-red-500 transition-colors"
+                          title="Remove avatar"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
                       )}
                     </div>
+                    <p className="text-xs text-gray-400 mt-1">PNG, JPG, GIF, or WebP. Max 10MB.</p>
                   </div>
 
                   {/* Welcome Message */}

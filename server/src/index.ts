@@ -1,10 +1,12 @@
 import express from 'express';
+import { createServer } from 'http';
 import cors from 'cors';
 import compression from 'compression';
 import helmet from 'helmet';
 import session from 'express-session';
 import dotenv from 'dotenv';
 import path from 'path';
+import { initSocket } from './utils/socket.js';
 
 // Load environment variables
 dotenv.config();
@@ -77,7 +79,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "blob:"],
       fontSrc: ["'self'"],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", "ws:", "wss:"],
       frameSrc: ["'none'"],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
@@ -218,8 +220,11 @@ if (process.env.NODE_ENV === 'production') {
 // Error handling middleware
 app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
+// Start server with Socket.IO
+const server = createServer(app);
+initSocket(server, corsOptions.origin);
+
+server.listen(PORT, () => {
   logger.info({
     port: PORT,
     environment: process.env.NODE_ENV || 'development',
@@ -227,4 +232,5 @@ app.listen(PORT, () => {
   }, `Server started on port ${PORT}`);
 });
 
+export { server };
 export default app;

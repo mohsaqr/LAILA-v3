@@ -8,6 +8,8 @@ import {
   ChevronDown,
   Edit2,
   FileEdit,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { Lecture } from '../../types';
 
@@ -18,6 +20,7 @@ interface LectureItemProps {
   isLast: boolean;
   onEdit: (lecture: Lecture) => void;
   onDelete: (lecture: Lecture) => void;
+  onTogglePublish?: (lecture: Lecture) => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
 }
@@ -29,6 +32,7 @@ export const LectureItem = ({
   isLast,
   onEdit,
   onDelete,
+  onTogglePublish,
   onMoveUp,
   onMoveDown,
 }: LectureItemProps) => {
@@ -70,6 +74,12 @@ export const LectureItem = ({
               <span className="text-green-600">{t('free_preview')}</span>
             </>
           )}
+          {!lecture.isPublished && (
+            <>
+              <span>•</span>
+              <span className="text-amber-600">{t('draft')}</span>
+            </>
+          )}
         </div>
       </div>
 
@@ -105,6 +115,19 @@ export const LectureItem = ({
 
       {/* Action buttons */}
       <div className="flex items-center gap-1">
+        {onTogglePublish && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onTogglePublish(lecture); }}
+            className={`p-1.5 rounded transition-colors ${lecture.isPublished ? 'hover:bg-amber-100' : 'hover:bg-green-100'}`}
+            title={lecture.isPublished ? t('unpublish_lesson') : t('publish_lesson')}
+          >
+            {lecture.isPublished ? (
+              <EyeOff className="w-4 h-4 text-amber-500" />
+            ) : (
+              <Eye className="w-4 h-4 text-green-500" />
+            )}
+          </button>
+        )}
         <button
           onClick={(e) => { e.stopPropagation(); onEdit(lecture); }}
           className="p-1.5 rounded hover:bg-gray-200 transition-colors"

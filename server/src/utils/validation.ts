@@ -62,6 +62,7 @@ export const createCourseSchema = z.object({
   category: z.string().optional(),
   difficulty: z.enum(['beginner', 'intermediate', 'advanced']).optional(),
   isPublic: z.boolean().optional(),
+  thumbnail: z.string().optional().or(z.literal('')),
 });
 
 export const updateCourseSchema = createCourseSchema.partial();
@@ -205,6 +206,18 @@ export const createChatbotSchema = z.object({
   systemPrompt: z.string().min(10, 'System prompt must be at least 10 characters'),
   category: z.string().optional(),
   isActive: z.boolean().optional(),
+  avatarUrl: z.string().optional().nullable().or(z.literal('')),
+  welcomeMessage: z.string().optional().nullable().or(z.literal('')),
+  personality: z.string().optional().nullable().or(z.literal('')),
+  personalityPrompt: z.string().optional().nullable().or(z.literal('')),
+  temperature: z.number().min(0).max(2).optional().nullable(),
+  suggestedQuestions: z.string().optional().nullable().or(z.literal('')),
+  dosRules: z.string().optional().nullable().or(z.literal('')),
+  dontsRules: z.string().optional().nullable().or(z.literal('')),
+  responseStyle: z.string().optional().nullable().or(z.literal('')),
+  maxTokens: z.number().int().min(1).optional().nullable(),
+  modelPreference: z.string().optional().nullable().or(z.literal('')),
+  knowledgeContext: z.string().optional().nullable().or(z.literal('')),
 });
 
 export const updateChatbotSchema = createChatbotSchema.partial();

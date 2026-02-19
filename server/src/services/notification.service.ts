@@ -1,6 +1,7 @@
 import prisma from '../utils/prisma.js';
 import { createLogger } from '../utils/logger.js';
 import { emailService } from './email.service.js';
+import { emitToUser } from '../utils/socket.js';
 
 const logger = createLogger('notification');
 
@@ -118,6 +119,15 @@ class NotificationService {
       });
 
       logger.info({ notificationId: notification.id, userId: input.userId, type: input.type }, 'Notification created');
+
+      // Emit real-time notification to connected user
+      emitToUser(input.userId, 'notification:new', {
+        id: notification.id,
+        type: input.type,
+        title: input.title,
+        message: input.message,
+      });
+
       return { id: notification.id };
     } catch (error) {
       logger.error({ err: error, input }, 'Failed to create notification');

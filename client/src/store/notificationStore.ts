@@ -18,7 +18,6 @@ interface NotificationState {
   reset: () => void;
 }
 
-const POLLING_INTERVAL = 30000; // 30 seconds
 const PAGE_SIZE = 20;
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
@@ -142,32 +141,3 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     });
   },
 }));
-
-// Hook for polling
-export const useNotificationPolling = (enabled: boolean) => {
-  const { fetchUnreadCount, lastFetched } = useNotificationStore();
-
-  // Start polling when enabled
-  if (typeof window !== 'undefined' && enabled) {
-    const poll = () => {
-      const state = useNotificationStore.getState();
-      const now = Date.now();
-
-      // Only poll if we haven't fetched recently
-      if (!state.lastFetched || now - state.lastFetched >= POLLING_INTERVAL) {
-        fetchUnreadCount();
-      }
-    };
-
-    // Initial fetch
-    if (!lastFetched) {
-      fetchUnreadCount();
-    }
-
-    // Set up interval
-    const interval = setInterval(poll, POLLING_INTERVAL);
-    return () => clearInterval(interval);
-  }
-
-  return () => {};
-};

@@ -12,7 +12,9 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
+import { useAuthStore } from '../../store/authStore';
 import { useNotificationStore } from '../../store/notificationStore';
+import { connectSocket, disconnectSocket } from '../../services/socket';
 import { Notification, NotificationType } from '../../api/notifications';
 
 const getNotificationIcon = (type: NotificationType) => {
@@ -135,6 +137,8 @@ export const NotificationBell = () => {
   const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const user = useAuthStore(s => s.user);
+
   const {
     notifications,
     unreadCount,
@@ -148,14 +152,22 @@ export const NotificationBell = () => {
     setDropdownOpen,
   } = useNotificationStore();
 
-  // Initial fetch of unread count
+  // Fetch initial count and connect socket for real-time updates
   useEffect(() => {
     fetchUnreadCount();
 
-    // Set up polling
-    const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
-  }, [fetchUnreadCount]);
+    if (!user?.id) return;
+
+    const socket = connectSocket(user.id);
+    socket.on('notification:new', () => {
+      fetchUnreadCount();
+    });
+
+    return () => {
+      socket.off('notification:new');
+      disconnectSocket();
+    };
+  }, [fetchUnreadCount, user?.id]);
 
   // Handle click outside to close dropdown
   useEffect(() => {
