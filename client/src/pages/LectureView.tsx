@@ -158,8 +158,24 @@ export const LectureView = () => {
         }
         const isImage = section.fileType?.startsWith('image/');
         const isPdf = section.fileType === 'application/pdf';
-        const handleFileDownload = () => {
+        const handleFileDownload = async (e: React.MouseEvent) => {
+          e.preventDefault();
           activityLogger.logFileDownloaded(section.id, section.fileName || undefined, parseInt(lectureId!), parseInt(courseId!)).catch(() => {});
+          const url = resolveFileUrl(section.fileUrl!);
+          try {
+            const res = await fetch(url);
+            const blob = await res.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = section.fileName || 'download';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+          } catch {
+            window.open(url, '_blank');
+          }
         };
 
         return (
@@ -262,11 +278,27 @@ export const LectureView = () => {
                     <a
                       key={att.id}
                       href={resolveFileUrl(att.fileUrl)}
-                      target="_blank"
-                      rel="noopener noreferrer"
                       className="flex items-center gap-3 p-3 rounded-lg transition-colors"
                       style={{ backgroundColor: colors.bgHover }}
-                      onClick={() => activityLogger.logFileDownloaded(att.id, att.fileName, parseInt(lectureId!), parseInt(courseId!)).catch(() => {})}
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        activityLogger.logFileDownloaded(att.id, att.fileName, parseInt(lectureId!), parseInt(courseId!)).catch(() => {});
+                        const url = resolveFileUrl(att.fileUrl);
+                        try {
+                          const res = await fetch(url);
+                          const blob = await res.blob();
+                          const blobUrl = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = blobUrl;
+                          a.download = att.fileName || 'download';
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+                        } catch {
+                          window.open(url, '_blank');
+                        }
+                      }}
                     >
                       <FileText className="w-5 h-5" style={{ color: colors.textMuted }} />
                       <span className="flex-1 text-sm" style={{ color: colors.textSecondary }}>{att.fileName}</span>
