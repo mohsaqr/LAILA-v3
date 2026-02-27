@@ -16,11 +16,11 @@ export default defineConfig(({ mode }) => {
       port: parseInt(env.VITE_PORT || '5174'),
       proxy: {
         '/api': {
-          target: env.VITE_API_TARGET || 'http://localhost:5001',
+          target: env.VITE_API_TARGET || 'http://127.0.0.1:5001',
           changeOrigin: true,
         },
         '/uploads': {
-          target: env.VITE_API_TARGET || 'http://localhost:5001',
+          target: env.VITE_API_TARGET || 'http://127.0.0.1:5001',
           changeOrigin: true,
         },
       },
