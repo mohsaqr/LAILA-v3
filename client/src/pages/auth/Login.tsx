@@ -180,11 +180,11 @@ export const Login = () => {
               className="px-3 py-1.5 text-sm rounded-lg transition-colors"
               style={{
                 backgroundColor: currentLanguage === code
-                  ? (isDark ? 'rgba(8, 143, 143, 0.3)' : 'rgba(8, 143, 143, 0.1)')
+                  ? 'rgba(255, 255, 255, 0.25)'
                   : 'transparent',
                 color: currentLanguage === code
-                  ? (isDark ? '#5eecec' : '#088F8F')
-                  : (isDark ? '#9ca3af' : '#6b7280'),
+                  ? '#ffffff'
+                  : 'rgba(255, 255, 255, 0.7)',
                 fontWeight: currentLanguage === code ? 600 : 400,
               }}
             >
