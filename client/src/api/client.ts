@@ -47,9 +47,15 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError<{ error?: string; message?: string }>) => {
     if (error.response?.status === 401) {
-      // Token expired or invalid
+      // Token expired or invalid — only redirect from protected pages.
+      // Avoid redirecting when the user is already on a public auth page
+      // (login/register), which can happen due to stale tokens or
+      // unauthenticated analytics flushes.
       useAuthStore.getState().logout();
-      window.location.href = '/login';
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/login' && currentPath !== '/register') {
+        window.location.href = '/login';
+      }
     }
 
     const message = error.response?.data?.error ||
