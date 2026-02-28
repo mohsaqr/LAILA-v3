@@ -37,6 +37,7 @@ import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { useTheme } from '../../hooks/useTheme';
+import { useAuth } from '../../hooks/useAuth';
 import apiClient, { resolveFileUrl } from '../../api/client';
 import { getAuthToken } from '../../utils/auth';
 import { courseTutorApi } from '../../api/courseTutor';
@@ -202,6 +203,7 @@ export const AIBuilder = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { isDark } = useTheme();
+  const { isAdmin } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [showForm, setShowForm] = useState(false);
 
@@ -605,10 +607,11 @@ export const AIBuilder = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <button
-                    onClick={() => toggleActive(component)}
+                    onClick={() => (!isAdmin && component.isSystem ? undefined : toggleActive(component))}
+                    disabled={!isAdmin && component.isSystem}
                     className={`flex items-center gap-1 text-sm ${
                       component.isActive ? 'text-green-600' : 'text-gray-400'
-                    }`}
+                    } ${!isAdmin && component.isSystem ? 'cursor-default' : ''}`}
                   >
                     {component.isActive ? (
                       <ToggleRight className="w-5 h-5" />
@@ -625,13 +628,15 @@ export const AIBuilder = () => {
                     >
                       <Copy className="w-4 h-4" />
                     </button>
-                    <button
-                      onClick={() => handleEdit(component)}
-                      className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded"
-                      title="Edit"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
+                    {(isAdmin || !component.isSystem) && (
+                      <button
+                        onClick={() => handleEdit(component)}
+                        className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded"
+                        title="Edit"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                    )}
                     {!component.isSystem && (
                       <button
                         onClick={() => handleDelete(component)}
