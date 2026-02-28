@@ -24,6 +24,7 @@ import { ThemeToggle } from '../common/ThemeToggle';
 import { NotificationBell } from '../notifications/NotificationBell';
 import { useLanguageStore } from '../../store/languageStore';
 import { supportedLanguages, SupportedLanguage } from '../../i18n/config';
+import { resolveFileUrl } from '../../api/client';
 
 export const Navbar = () => {
   const { t } = useTranslation(['navigation', 'common']);
@@ -264,11 +265,19 @@ export const Navbar = () => {
                   className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
                   style={{ backgroundColor: 'transparent' }}
                 >
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center">
-                    <span className="text-white text-sm font-medium">
-                      {user?.fullname?.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
+                  {user?.avatarUrl ? (
+                    <img
+                      src={resolveFileUrl(user.avatarUrl)}
+                      alt={user.fullname}
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center">
+                      <span className="text-white text-sm font-medium">
+                        {user?.fullname?.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
                   <span className="hidden sm:block text-sm font-medium" style={{ color: colors.textSecondary }}>
                     {user?.fullname}
                   </span>

@@ -10,6 +10,7 @@ export interface User {
   isInstructor: boolean;
   isActive?: boolean;
   isConfirmed?: boolean;
+  avatarUrl?: string | null;
   createdAt?: string;
   lastLogin?: string;
   language?: string | null;

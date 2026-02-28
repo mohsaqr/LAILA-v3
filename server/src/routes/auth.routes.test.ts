@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import express from 'express';
 import request from 'supertest';
+import path from 'path';
+import fs from 'fs';
 import { ZodError } from 'zod';
 import { authService } from '../services/auth.service.js';
 import { AppError } from '../middleware/error.middleware.js';
@@ -24,8 +26,18 @@ vi.mock('../middleware/auth.middleware.js', () => ({
   }),
 }));
 
+// Mock prisma (used directly in avatar route)
+vi.mock('../utils/prisma.js', () => ({
+  default: {
+    user: {
+      update: vi.fn(),
+    },
+  },
+}));
+
 // Import routes after mocks
 import authRoutes from './auth.routes.js';
+import prisma from '../utils/prisma.js';
 
 describe('Auth Routes', () => {
   let app: express.Express;
@@ -352,6 +364,66 @@ describe('Auth Routes', () => {
         expect.any(Object),
         3600
       );
+    });
+  });
+
+  // ===========================================================================
+  // POST /api/auth/avatar
+  // ===========================================================================
+
+  describe('POST /api/auth/avatar', () => {
+    const profilesDir = path.join(process.cwd(), 'uploads', 'profiles');
+
+    afterAll(() => {
+      // Clean up any test files written to uploads/profiles
+      if (fs.existsSync(profilesDir)) {
+        const files = fs.readdirSync(profilesDir);
+        for (const file of files) {
+          try { fs.unlinkSync(path.join(profilesDir, file)); } catch {}
+        }
+      }
+    });
+
+    it('should upload avatar and return URL', async () => {
+      vi.mocked((prisma as any).user.update).mockResolvedValue({
+        id: 1,
+        avatarUrl: '/uploads/profiles/test-uuid.png',
+      });
+
+      const testImageBuffer = Buffer.from('fake-png-data');
+
+      const response = await request(app)
+        .post('/api/auth/avatar')
+        .attach('avatar', testImageBuffer, { filename: 'test.png', contentType: 'image/png' })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.avatarUrl).toMatch(/^\/uploads\/profiles\//);
+      expect((prisma as any).user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: expect.objectContaining({ avatarUrl: expect.stringMatching(/^\/uploads\/profiles\//) }),
+        })
+      );
+    });
+
+    it('should return 400 when no file is attached', async () => {
+      const response = await request(app)
+        .post('/api/auth/avatar')
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('No file uploaded');
+    });
+
+    it('should return 400 for disallowed file type', async () => {
+      const response = await request(app)
+        .post('/api/auth/avatar')
+        .attach('avatar', Buffer.from('data'), { filename: 'script.svg', contentType: 'image/svg+xml' })
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain('Only image files');
     });
   });
 

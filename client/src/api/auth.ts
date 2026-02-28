@@ -31,4 +31,13 @@ export const authApi = {
     const response = await apiClient.post<ApiResponse<{ message: string }>>('/auth/logout');
     return response.data;
   },
+
+  uploadAvatar: async (file: File) => {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const response = await apiClient.post<ApiResponse<{ avatarUrl: string }>>('/auth/avatar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data.data!;
+  },
 };

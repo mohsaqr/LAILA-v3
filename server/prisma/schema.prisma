@@ -20,6 +20,7 @@ model User {
   isConfirmed  Boolean   @default(false) @map("is_confirmed")
   isInstructor Boolean   @default(false) @map("is_instructor")
   isActive     Boolean   @default(true) @map("is_active")
+  avatarUrl         String?   @map("avatar_url")
   tokenVersion      Int       @default(0) @map("token_version") // Increment to invalidate all tokens
   failedLoginAttempts Int     @default(0) @map("failed_login_attempts")
   lockedUntil       DateTime? @map("locked_until") // Account lockout timestamp

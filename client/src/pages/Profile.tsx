@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { User, Mail, Shield, Calendar, Save } from 'lucide-react';
+import { User, Mail, Shield, Calendar, Save, Camera } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import { usersApi } from '../api/users';
+import { authApi } from '../api/auth';
+import { useAuthStore } from '../store/authStore';
+import { resolveFileUrl } from '../api/client';
 import { Card, CardBody, CardHeader } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
@@ -15,7 +18,10 @@ export const Profile = () => {
   const { user } = useAuth();
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
+  const setUser = useAuthStore(s => s.setUser);
   const [isEditing, setIsEditing] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     fullname: user?.fullname || '',
     email: user?.email || '',
@@ -44,6 +50,22 @@ export const Profile = () => {
       return;
     }
     updateMutation.mutate({ fullname: formData.fullname });
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingAvatar(true);
+    try {
+      const { avatarUrl } = await authApi.uploadAvatar(file);
+      setUser({ ...user!, avatarUrl });
+      toast.success(t('profile_updated'));
+    } catch (error: any) {
+      toast.error(error.message || t('failed_update_profile'));
+    } finally {
+      setIsUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const getRoleBadges = () => {
@@ -86,8 +108,37 @@ export const Profile = () => {
           <CardBody className="space-y-6">
             {/* Avatar */}
             <div className="flex items-center gap-4">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center">
-                <User className="w-10 h-10 text-white" />
+              <div className="relative w-20 h-20">
+                {user?.avatarUrl ? (
+                  <img
+                    src={resolveFileUrl(user.avatarUrl)}
+                    alt={user.fullname}
+                    className="w-20 h-20 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center">
+                    <User className="w-10 h-10 text-white" />
+                  </div>
+                )}
+                {isEditing && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingAvatar}
+                    className="absolute inset-0 rounded-full flex items-center justify-center transition-opacity"
+                    style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+                    title="Change photo"
+                  >
+                    <Camera className="w-6 h-6 text-white" />
+                  </button>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  className="hidden"
+                  onChange={handleAvatarChange}
+                />
               </div>
               <div>
                 <h3 className="text-xl font-semibold" style={{ color: colors.textPrimary }}>{user?.fullname}</h3>
