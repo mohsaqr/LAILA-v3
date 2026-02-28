@@ -41,6 +41,11 @@ export const updatePasswordSchema = z.object({
   newPassword: strongPasswordSchema,
 });
 
+// Profile update validation schema (self-service, fullname only)
+export const updateProfileSchema = z.object({
+  fullname: z.string().min(2, 'Name must be at least 2 characters'),
+});
+
 export const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(1, 'Password is required'),
@@ -245,6 +250,7 @@ export const createAnnouncementSchema = z.object({
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type CreateCourseInput = z.infer<typeof createCourseSchema>;
 export type UpdateCourseInput = z.infer<typeof updateCourseSchema>;
 export type CreateModuleInput = z.infer<typeof createModuleSchema>;

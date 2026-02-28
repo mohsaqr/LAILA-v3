@@ -1,11 +1,10 @@
 import { useState, useRef } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { User, Mail, Shield, Calendar, Save, Camera } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
-import { usersApi } from '../api/users';
 import { authApi } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
 import { resolveFileUrl } from '../api/client';
@@ -17,7 +16,6 @@ export const Profile = () => {
   const { t } = useTranslation(['settings', 'common']);
   const { user } = useAuth();
   const { isDark } = useTheme();
-  const queryClient = useQueryClient();
   const setUser = useAuthStore(s => s.setUser);
   const [isEditing, setIsEditing] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
@@ -35,13 +33,13 @@ export const Profile = () => {
   };
 
   const updateMutation = useMutation({
-    mutationFn: (data: { fullname: string }) => usersApi.updateUser(user!.id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user'] });
+    mutationFn: (data: { fullname: string }) => authApi.updateProfile(data),
+    onSuccess: (updated) => {
+      setUser({ ...user!, fullname: updated.fullname });
       toast.success(t('profile_updated'));
       setIsEditing(false);
     },
-    onError: () => toast.error(t('failed_update_profile')),
+    onError: (error: any) => toast.error(error.message || t('failed_update_profile')),
   });
 
   const handleSave = () => {

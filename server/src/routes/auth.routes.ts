@@ -6,7 +6,7 @@ import { v4 as uuid } from 'uuid';
 import { authService, AuthContext } from '../services/auth.service.js';
 import { authenticateToken } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
-import { registerSchema, loginSchema } from '../utils/validation.js';
+import { registerSchema, loginSchema, updateProfileSchema } from '../utils/validation.js';
 import { AuthRequest } from '../types/index.js';
 import prisma from '../utils/prisma.js';
 
@@ -105,6 +105,24 @@ router.get('/verify', authenticateToken, asyncHandler(async (req: AuthRequest, r
       user: req.user
     }
   });
+}));
+
+// Update profile (fullname only — self-service, no ID in URL)
+router.put('/profile', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { fullname } = updateProfileSchema.parse(req.body);
+  const updated = await prisma.user.update({
+    where: { id: req.user!.id },
+    data: { fullname },
+    select: {
+      id: true,
+      fullname: true,
+      email: true,
+      isAdmin: true,
+      isInstructor: true,
+      avatarUrl: true,
+    },
+  });
+  res.json({ success: true, data: updated });
 }));
 
 // Upload avatar

@@ -32,6 +32,11 @@ export const authApi = {
     return response.data;
   },
 
+  updateProfile: async (data: { fullname: string }) => {
+    const response = await apiClient.put<ApiResponse<{ id: number; fullname: string; email: string; isAdmin: boolean; isInstructor: boolean; avatarUrl?: string | null }>>('/auth/profile', data);
+    return response.data.data!;
+  },
+
   uploadAvatar: async (file: File) => {
     const formData = new FormData();
     formData.append('avatar', file);

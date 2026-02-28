@@ -368,6 +368,58 @@ describe('Auth Routes', () => {
   });
 
   // ===========================================================================
+  // PUT /api/auth/profile
+  // ===========================================================================
+
+  describe('PUT /api/auth/profile', () => {
+    it('should update fullname successfully', async () => {
+      vi.mocked((prisma as any).user.update).mockResolvedValue({
+        id: 1,
+        fullname: 'Updated Name',
+        email: 'test@example.com',
+        isAdmin: false,
+        isInstructor: false,
+        avatarUrl: null,
+      });
+
+      const response = await request(app)
+        .put('/api/auth/profile')
+        .send({ fullname: 'Updated Name' })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.fullname).toBe('Updated Name');
+      expect((prisma as any).user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: { fullname: 'Updated Name' },
+        })
+      );
+    });
+
+    it('should return 422 for name shorter than 2 characters', async () => {
+      const response = await request(app)
+        .put('/api/auth/profile')
+        .send({ fullname: 'A' })
+        .expect(422);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.details).toBeDefined();
+      expect(response.body.details.some((d: any) => d.field === 'fullname')).toBe(true);
+    });
+
+    it('should return 422 for missing fullname', async () => {
+      const response = await request(app)
+        .put('/api/auth/profile')
+        .send({})
+        .expect(422);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.details).toBeDefined();
+    });
+  });
+
+  // ===========================================================================
   // POST /api/auth/avatar
   // ===========================================================================
 
