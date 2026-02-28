@@ -39,9 +39,10 @@ describe('Auth Routes', () => {
     app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
       // Handle Zod validation errors
       if (err instanceof ZodError) {
-        return res.status(400).json({
+        return res.status(422).json({
           success: false,
-          error: err.errors.map(e => e.message).join(', '),
+          error: 'Validation error',
+          details: err.errors.map(e => ({ field: e.path.join('.'), message: e.message })),
         });
       }
       const statusCode = err.statusCode || 500;
@@ -108,31 +109,35 @@ describe('Auth Routes', () => {
       expect(response.body.error).toContain('Email already registered');
     });
 
-    it('should return 400 for missing fullname', async () => {
+    it('should return 422 for missing fullname', async () => {
       const response = await request(app)
         .post('/api/auth/register')
         .send({ email: 'test@example.com', password: 'StrongPass123!' })
-        .expect(400);
+        .expect(422);
 
       expect(response.body.success).toBe(false);
+      expect(response.body.details).toBeDefined();
     });
 
-    it('should return 400 for invalid email format', async () => {
+    it('should return 422 for invalid email format', async () => {
       const response = await request(app)
         .post('/api/auth/register')
         .send({ ...validRegistration, email: 'invalid-email' })
-        .expect(400);
+        .expect(422);
 
       expect(response.body.success).toBe(false);
+      expect(response.body.details).toBeDefined();
     });
 
-    it('should return 400 for weak password', async () => {
+    it('should return 422 for weak password', async () => {
       const response = await request(app)
         .post('/api/auth/register')
         .send({ ...validRegistration, password: '123' })
-        .expect(400);
+        .expect(422);
 
       expect(response.body.success).toBe(false);
+      expect(response.body.details).toBeDefined();
+      expect(response.body.details.some((d: any) => d.field === 'password')).toBe(true);
     });
   });
 
@@ -205,22 +210,24 @@ describe('Auth Routes', () => {
       expect(response.body.error).toContain('Account is deactivated');
     });
 
-    it('should return 400 for missing email', async () => {
+    it('should return 422 for missing email', async () => {
       const response = await request(app)
         .post('/api/auth/login')
         .send({ password: 'StrongPass123!' })
-        .expect(400);
+        .expect(422);
 
       expect(response.body.success).toBe(false);
+      expect(response.body.details).toBeDefined();
     });
 
-    it('should return 400 for missing password', async () => {
+    it('should return 422 for missing password', async () => {
       const response = await request(app)
         .post('/api/auth/login')
         .send({ email: 'test@example.com' })
-        .expect(400);
+        .expect(422);
 
       expect(response.body.success).toBe(false);
+      expect(response.body.details).toBeDefined();
     });
   });
 

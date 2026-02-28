@@ -34,9 +34,9 @@ export const errorHandler = (
   // Log the error with context
   logError(err, errorContext, logger);
 
-  // Zod validation error
+  // Zod validation error — 422 Unprocessable Entity is the correct status
   if (err instanceof ZodError) {
-    res.status(400).json({
+    res.status(422).json({
       success: false,
       error: 'Validation error',
       details: err.errors.map(e => ({

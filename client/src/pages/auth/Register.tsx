@@ -32,6 +32,15 @@ export const Register = () => {
     linkColor: isDark ? '#5eecec' : '#088F8F',
   };
 
+  const validatePassword = (pwd: string): string | null => {
+    if (pwd.length < 8) return t('password_too_short');
+    if (!/[A-Z]/.test(pwd)) return t('password_requirements');
+    if (!/[a-z]/.test(pwd)) return t('password_requirements');
+    if (!/[0-9]/.test(pwd)) return t('password_requirements');
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(pwd)) return t('password_requirements');
+    return null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -40,8 +49,9 @@ export const Register = () => {
       return;
     }
 
-    if (password.length < 6) {
-      toast.error(t('password_too_short'));
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      toast.error(passwordError);
       return;
     }
 
@@ -52,7 +62,12 @@ export const Register = () => {
       toast.success(t('account_created'));
       navigate('/dashboard');
     } catch (error: any) {
-      toast.error(error.message || t('register_failed'));
+      // Surface field-level messages from server 422 validation errors
+      if (error.details && Array.isArray(error.details) && error.details.length > 0) {
+        toast.error(error.details[0].message);
+      } else {
+        toast.error(error.message || t('register_failed'));
+      }
     } finally {
       setIsLoading(false);
     }
