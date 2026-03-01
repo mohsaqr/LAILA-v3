@@ -28,7 +28,7 @@ import { resolveFileUrl } from '../../api/client';
 
 export const Navbar = () => {
   const { t } = useTranslation(['navigation', 'common']);
-  const { user, isAuthenticated, isAdmin, isActualAdmin, isActualInstructor, viewAsRole, setViewAs, isViewingAs, logout } = useAuth();
+  const { user, isAuthenticated, isAdmin, isInstructor, isActualAdmin, isActualInstructor, viewAsRole, setViewAs, isViewingAs, logout } = useAuth();
   const { isDark } = useTheme();
   const { language: currentLanguage, setLanguage } = useLanguageStore();
   const location = useLocation();
@@ -84,7 +84,7 @@ export const Navbar = () => {
   const navItems = [
     { path: '/dashboard', label: t('dashboard'), icon: BookOpen },
     { path: '/courses', label: t('courses'), icon: GraduationCap },
-    { path: '/ai-tools', label: t('ai_tools'), icon: BrainCircuit },
+    ...(isAdmin || isInstructor ? [{ path: '/ai-tools', label: t('ai_tools'), icon: BrainCircuit }] : []),
     { path: '/ai-tutors', label: t('chat_tutors'), icon: MessagesSquare },
     ...(isAdmin ? [{ path: '/admin', label: t('admin'), icon: Shield }] : []),
   ];
