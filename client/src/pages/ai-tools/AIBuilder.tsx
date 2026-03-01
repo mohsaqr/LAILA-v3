@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -36,6 +36,7 @@ import toast from 'react-hot-toast';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
+import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../hooks/useAuth';
 import apiClient, { resolveFileUrl } from '../../api/client';
@@ -51,6 +52,8 @@ interface AIComponent {
   category: string;
   isActive: boolean;
   isSystem: boolean;
+  canEdit: boolean;
+  creatorId: number | null;
   createdAt: string;
   updatedAt: string;
   // Enhanced fields
@@ -231,6 +234,7 @@ export const AIBuilder = () => {
   const [testMessages, setTestMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const [testInput, setTestInput] = useState('');
   const [isTesting, setIsTesting] = useState(false);
+  const [componentToDelete, setComponentToDelete] = useState<AIComponent | null>(null);
 
   const { data: components, isLoading } = useQuery({
     queryKey: ['ai-components'],
@@ -412,10 +416,16 @@ export const AIBuilder = () => {
       toast.error('Cannot delete system components');
       return;
     }
-    if (confirm(`Delete "${component.displayName}"? This cannot be undone.`)) {
-      deleteMutation.mutate(component.id);
-    }
+    setComponentToDelete(component);
   };
+
+  const confirmDelete = useCallback(() => {
+    if (componentToDelete) {
+      deleteMutation.mutate(componentToDelete.id, {
+        onSettled: () => setComponentToDelete(null),
+      });
+    }
+  }, [componentToDelete, deleteMutation]);
 
   const toggleActive = (component: AIComponent) => {
     updateMutation.mutate({
@@ -607,11 +617,11 @@ export const AIBuilder = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <button
-                    onClick={() => (!isAdmin && component.isSystem ? undefined : toggleActive(component))}
-                    disabled={!isAdmin && component.isSystem}
+                    onClick={() => (component.canEdit ? toggleActive(component) : undefined)}
+                    disabled={!component.canEdit}
                     className={`flex items-center gap-1 text-sm ${
                       component.isActive ? 'text-green-600' : 'text-gray-400'
-                    } ${!isAdmin && component.isSystem ? 'cursor-default' : ''}`}
+                    } ${!component.canEdit ? 'cursor-default' : ''}`}
                   >
                     {component.isActive ? (
                       <ToggleRight className="w-5 h-5" />
@@ -628,7 +638,7 @@ export const AIBuilder = () => {
                     >
                       <Copy className="w-4 h-4" />
                     </button>
-                    {(isAdmin || !component.isSystem) && (
+                    {component.canEdit && (
                       <button
                         onClick={() => handleEdit(component)}
                         className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded"
@@ -637,7 +647,7 @@ export const AIBuilder = () => {
                         <Edit className="w-4 h-4" />
                       </button>
                     )}
-                    {!component.isSystem && (
+                    {component.canEdit && !component.isSystem && (
                       <button
                         onClick={() => handleDelete(component)}
                         className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
@@ -1222,6 +1232,18 @@ export const AIBuilder = () => {
           </div>
         </div>
       )}
+
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        isOpen={!!componentToDelete}
+        onClose={() => setComponentToDelete(null)}
+        onConfirm={confirmDelete}
+        title="Delete AI Builder"
+        message={`Are you sure you want to delete "${componentToDelete?.displayName}"? This action cannot be undone.`}
+        confirmText="Delete"
+        variant="danger"
+        loading={deleteMutation.isPending}
+      />
     </div>
   );
 };

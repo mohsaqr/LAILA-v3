@@ -74,6 +74,9 @@ model User {
   // Lecture AI Helper Explain Threads
   explainThreads LectureExplainThread[] @relation("UserExplainThreads")
 
+  // Chatbots created by this user (instructors)
+  createdChatbots Chatbot[]
+
   @@map("users")
 }
 
@@ -394,6 +397,7 @@ model Chatbot {
   category     String?
   isActive     Boolean  @default(true) @map("is_active")
   isSystem     Boolean  @default(false) @map("is_system")
+  creatorId    Int?     @map("creator_id")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -410,6 +414,9 @@ model Chatbot {
   maxTokens          Int?    @default(1000) @map("max_tokens")
   modelPreference    String? @map("model_preference") // gpt-4, gpt-3.5-turbo, claude, etc.
   knowledgeContext   String? @map("knowledge_context") // Additional context/knowledge
+
+  // Creator (instructor who created this chatbot; null for system/admin chatbots)
+  creator User? @relation(fields: [creatorId], references: [id], onDelete: SetNull)
 
   // AI Tutors
   tutorConversations TutorConversation[]

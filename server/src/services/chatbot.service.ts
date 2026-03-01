@@ -4,10 +4,32 @@ import { CreateChatbotInput, UpdateChatbotInput } from '../utils/validation.js';
 import { chatService } from './chat.service.js';
 
 export class ChatbotService {
-  async getChatbots(includeInactive = false) {
+  async getChatbots(
+    includeInactive = false,
+    requesterId?: number,
+    requesterIsAdmin = false,
+    requesterIsInstructor = false,
+  ) {
     const where: any = {};
     if (!includeInactive) {
       where.isActive = true;
+    }
+
+    // Instructors (non-admin) only see system chatbots + their own
+    if (requesterIsInstructor && !requesterIsAdmin && requesterId) {
+      where.OR = [
+        { isSystem: true },
+        { creatorId: requesterId },
+      ];
+      // Override isActive filter inside the OR to still respect it
+      if (!includeInactive) {
+        delete where.isActive;
+        where.AND = [
+          { isActive: true },
+          { OR: [{ isSystem: true }, { creatorId: requesterId }] },
+        ];
+        delete where.OR;
+      }
     }
 
     const chatbots = await prisma.chatbot.findMany({
@@ -18,7 +40,15 @@ export class ChatbotService {
       ],
     });
 
-    return chatbots;
+    // Attach canEdit flag: admins can edit everything; instructors only their own non-system chatbots
+    return chatbots.map(c => ({
+      ...c,
+      canEdit: requesterIsAdmin
+        ? true
+        : requesterIsInstructor
+          ? !c.isSystem && c.creatorId === requesterId
+          : false,
+    }));
   }
 
   async getChatbotByName(name: string) {
@@ -45,7 +75,7 @@ export class ChatbotService {
     return chatbot;
   }
 
-  async createChatbot(data: CreateChatbotInput) {
+  async createChatbot(data: CreateChatbotInput, creatorId?: number) {
     // Check if name already exists
     const existing = await prisma.chatbot.findUnique({
       where: { name: data.name },
@@ -64,19 +94,30 @@ export class ChatbotService {
         category: data.category,
         isActive: data.isActive ?? true,
         isSystem: false,
+        ...(creatorId ? { creatorId } : {}),
       },
     });
 
-    return chatbot;
+    return { ...chatbot, canEdit: true };
   }
 
-  async updateChatbot(id: number, data: UpdateChatbotInput) {
+  async updateChatbot(id: number, data: UpdateChatbotInput, requesterId?: number, requesterIsAdmin = false) {
     const chatbot = await prisma.chatbot.findUnique({
       where: { id },
     });
 
     if (!chatbot) {
       throw new AppError('Chatbot not found', 404);
+    }
+
+    // System chatbots: only admins can edit
+    if (chatbot.isSystem && !requesterIsAdmin) {
+      throw new AppError('Cannot modify system chatbot', 403);
+    }
+
+    // Non-admin instructors can only edit their own chatbots
+    if (!requesterIsAdmin && chatbot.creatorId !== requesterId) {
+      throw new AppError('You can only edit chatbots you created', 403);
     }
 
     // Don't allow modifying system chatbots' names
@@ -99,10 +140,10 @@ export class ChatbotService {
       data,
     });
 
-    return updated;
+    return { ...updated, canEdit: true };
   }
 
-  async deleteChatbot(id: number) {
+  async deleteChatbot(id: number, requesterId?: number, requesterIsAdmin = false) {
     const chatbot = await prisma.chatbot.findUnique({
       where: { id },
     });
@@ -113,6 +154,11 @@ export class ChatbotService {
 
     if (chatbot.isSystem) {
       throw new AppError('Cannot delete system chatbot', 400);
+    }
+
+    // Non-admin instructors can only delete their own chatbots
+    if (!requesterIsAdmin && chatbot.creatorId !== requesterId) {
+      throw new AppError('You can only delete chatbots you created', 403);
     }
 
     await prisma.chatbot.delete({
