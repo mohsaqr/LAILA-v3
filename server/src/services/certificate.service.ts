@@ -429,16 +429,24 @@ class CertificateService {
       ? Math.round((completedLectures / totalLectures) * 100)
       : 0;
 
-    // Get template
+    // Get template — use provided ID, or fall back to default/any active template
     let templateId = data.templateId;
     if (!templateId) {
-      const defaultTemplate = await prisma.certificateTemplate.findFirst({
-        where: { isDefault: true, isActive: true },
+      const fallbackTemplate = await prisma.certificateTemplate.findFirst({
+        where: { isActive: true },
+        orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
       });
-      if (!defaultTemplate) {
-        throw new AppError('No certificate template available', 400);
+      if (!fallbackTemplate) {
+        throw new AppError('No certificate template available. Please create a template first.', 400);
       }
-      templateId = defaultTemplate.id;
+      templateId = fallbackTemplate.id;
+    } else {
+      const template = await prisma.certificateTemplate.findUnique({
+        where: { id: templateId },
+      });
+      if (!template || !template.isActive) {
+        throw new AppError('Certificate template not found or inactive', 404);
+      }
     }
 
     // Generate verification code

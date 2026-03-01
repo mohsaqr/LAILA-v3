@@ -127,7 +127,7 @@ export const CourseCertificateManager = () => {
   const openIssueModal = (student: EligibleStudent) => {
     setSelectedStudent(student);
     const defaultTemplate = templates?.find(t => t.isDefault);
-    setSelectedTemplate(defaultTemplate?.id || null);
+    setSelectedTemplate(defaultTemplate?.id ?? templates?.[0]?.id ?? null);
     setShowIssueModal(true);
   };
 
