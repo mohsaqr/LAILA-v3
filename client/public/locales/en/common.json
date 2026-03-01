@@ -128,5 +128,9 @@
   "error_boundary_message": "We're sorry, but something unexpected happened. Please try refreshing the page or go back to the home page.",
   "try_again": "Try Again",
   "go_home": "Go Home",
-  "reload_page": "Reload Page"
+  "reload_page": "Reload Page",
+  "select_course": "Select a Course",
+  "select_course_for_tutor": "Choose a course to start chatting with its AI Tutor",
+  "no_courses_with_tutors": "No courses with AI Tutors",
+  "no_courses_with_tutors_hint": "You are not enrolled in any course that has an AI Tutor available"
 }

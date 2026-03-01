@@ -128,5 +128,9 @@
   "error_boundary_message": "Pahoittelemme, jotain odottamatonta tapahtui. Yritä päivittää sivu tai palaa etusivulle.",
   "try_again": "Yritä uudelleen",
   "go_home": "Etusivulle",
-  "reload_page": "Lataa sivu uudelleen"
+  "reload_page": "Lataa sivu uudelleen",
+  "select_course": "Valitse kurssi",
+  "select_course_for_tutor": "Valitse kurssi aloittaaksesi chatin sen tekoälyohjaajan kanssa",
+  "no_courses_with_tutors": "Ei kursseja, joilla on tekoälyohjaaja",
+  "no_courses_with_tutors_hint": "Et ole ilmoittautunut kurssille, jolla on tekoälyohjaaja saatavilla"
 }
