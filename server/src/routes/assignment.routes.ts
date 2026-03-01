@@ -26,6 +26,12 @@ router.get('/course/:courseId', authenticateToken, asyncHandler(async (req: Auth
   res.json({ success: true, data: assignments });
 }));
 
+// Get student's full gradebook in one aggregated call (must be before /:id)
+router.get('/my-gradebook', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const gradebook = await assignmentService.getStudentGradebook(req.user!.id);
+  res.json({ success: true, data: gradebook });
+}));
+
 // Get assignment by ID
 router.get('/:id', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = parseInt(req.params.id);

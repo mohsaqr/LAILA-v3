@@ -827,4 +827,127 @@ describe('AssignmentService', () => {
       );
     });
   });
+
+  // ===========================================================================
+  // getStudentGradebook
+  // ===========================================================================
+
+  describe('getStudentGradebook', () => {
+    const mockEnrollments = [
+      {
+        userId: 1,
+        courseId: 10,
+        status: 'active',
+        course: { id: 10, title: 'Intro to Testing' },
+      },
+      {
+        userId: 1,
+        courseId: 20,
+        status: 'active',
+        course: { id: 20, title: 'Advanced Mocking' },
+      },
+    ];
+
+    const mockAssignments = [
+      { id: 101, courseId: 10, moduleId: 1, title: 'HW1', points: 100, dueDate: null, isPublished: true, aiAssisted: false, module: null },
+      { id: 102, courseId: 10, moduleId: 1, title: 'HW2', points: 50,  dueDate: null, isPublished: true, aiAssisted: false, module: null },
+      { id: 201, courseId: 20, moduleId: 2, title: 'Lab1', points: 75, dueDate: null, isPublished: true, aiAssisted: false, module: null },
+    ];
+
+    const mockSubmissions = [
+      { assignmentId: 101, status: 'graded', grade: 90, submittedAt: new Date(), gradedAt: new Date(), feedback: 'Good work' },
+      { assignmentId: 201, status: 'submitted', grade: null, submittedAt: new Date(), gradedAt: null, feedback: null },
+    ];
+
+    it('should return empty array when student has no active enrollments', async () => {
+      vi.mocked(prisma.enrollment.findMany).mockResolvedValue([]);
+
+      const result = await assignmentService.getStudentGradebook(1);
+
+      expect(result).toEqual([]);
+      expect(prisma.assignment.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should return courses grouped with their assignments', async () => {
+      vi.mocked(prisma.enrollment.findMany).mockResolvedValue(mockEnrollments as any);
+      vi.mocked(prisma.assignment.findMany).mockResolvedValue(mockAssignments as any);
+      vi.mocked(prisma.assignmentSubmission.findMany).mockResolvedValue(mockSubmissions as any);
+
+      const result = await assignmentService.getStudentGradebook(1);
+
+      expect(result).toHaveLength(2);
+      expect(result[0].courseId).toBe(10);
+      expect(result[0].courseTitle).toBe('Intro to Testing');
+      expect(result[0].assignments).toHaveLength(2);
+      expect(result[1].courseId).toBe(20);
+      expect(result[1].assignments).toHaveLength(1);
+    });
+
+    it('should attach submission data to matching assignments', async () => {
+      vi.mocked(prisma.enrollment.findMany).mockResolvedValue(mockEnrollments as any);
+      vi.mocked(prisma.assignment.findMany).mockResolvedValue(mockAssignments as any);
+      vi.mocked(prisma.assignmentSubmission.findMany).mockResolvedValue(mockSubmissions as any);
+
+      const result = await assignmentService.getStudentGradebook(1);
+
+      const hw1 = result[0].assignments.find((a: any) => a.id === 101);
+      expect(hw1.mySubmission).not.toBeNull();
+      expect(hw1.mySubmission.grade).toBe(90);
+      expect(hw1.mySubmission.status).toBe('graded');
+    });
+
+    it('should set mySubmission to null when no submission exists', async () => {
+      vi.mocked(prisma.enrollment.findMany).mockResolvedValue(mockEnrollments as any);
+      vi.mocked(prisma.assignment.findMany).mockResolvedValue(mockAssignments as any);
+      vi.mocked(prisma.assignmentSubmission.findMany).mockResolvedValue(mockSubmissions as any);
+
+      const result = await assignmentService.getStudentGradebook(1);
+
+      const hw2 = result[0].assignments.find((a: any) => a.id === 102);
+      expect(hw2.mySubmission).toBeNull();
+    });
+
+    it('should execute exactly 3 queries', async () => {
+      vi.mocked(prisma.enrollment.findMany).mockResolvedValue(mockEnrollments as any);
+      vi.mocked(prisma.assignment.findMany).mockResolvedValue(mockAssignments as any);
+      vi.mocked(prisma.assignmentSubmission.findMany).mockResolvedValue(mockSubmissions as any);
+
+      await assignmentService.getStudentGradebook(1);
+
+      expect(prisma.enrollment.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.assignment.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.assignmentSubmission.findMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('should query only active enrollments', async () => {
+      vi.mocked(prisma.enrollment.findMany).mockResolvedValue(mockEnrollments as any);
+      vi.mocked(prisma.assignment.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.assignmentSubmission.findMany).mockResolvedValue([]);
+
+      await assignmentService.getStudentGradebook(1);
+
+      expect(prisma.enrollment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 1, status: 'active' },
+        })
+      );
+    });
+
+    it('should query only published assignments for enrolled courses', async () => {
+      vi.mocked(prisma.enrollment.findMany).mockResolvedValue(mockEnrollments as any);
+      vi.mocked(prisma.assignment.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.assignmentSubmission.findMany).mockResolvedValue([]);
+
+      await assignmentService.getStudentGradebook(1);
+
+      expect(prisma.assignment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            courseId: { in: [10, 20] },
+            isPublished: true,
+          },
+        })
+      );
+    });
+  });
 });

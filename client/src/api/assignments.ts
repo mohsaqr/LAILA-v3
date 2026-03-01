@@ -66,4 +66,9 @@ export const assignmentsApi = {
     const response = await apiClient.get<ApiResponse<any>>(`/assignments/course/${courseId}/gradebook`);
     return response.data.data!;
   },
+
+  getMyGradebook: async () => {
+    const response = await apiClient.get<ApiResponse<any>>('/assignments/my-gradebook');
+    return response.data.data!;
+  },
 };

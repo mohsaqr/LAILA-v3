@@ -10,7 +10,6 @@ import {
   ChevronRight,
   BookOpen,
 } from 'lucide-react';
-import { enrollmentsApi } from '../api/enrollments';
 import { assignmentsApi } from '../api/assignments';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
@@ -63,51 +62,19 @@ export const DashboardGradebook = () => {
     gradeD: isDark ? '#fca5a5' : '#dc2626',
   };
 
-  // Fetch all enrollments
-  const { data: enrollments, isLoading: enrollmentsLoading } = useQuery({
-    queryKey: ['myEnrollments'],
-    queryFn: () => enrollmentsApi.getMyEnrollments(),
+  // Single aggregated request — replaces N×(1 + M) per-course requests
+  const { data: gradebookData, isLoading: gradebookLoading } = useQuery({
+    queryKey: ['myGradebook'],
+    queryFn: assignmentsApi.getMyGradebook,
   });
 
-  // Fetch assignments for each enrolled course
-  const courseIds = enrollments?.map((e: any) => e.courseId) || [];
-  const { data: courseAssignments, isLoading: assignmentsLoading } = useQuery({
-    queryKey: ['allCourseAssignments', courseIds],
-    queryFn: async () => {
-      const results = await Promise.all(
-        courseIds.map(async (courseId: number) => {
-          try {
-            const assignments = await assignmentsApi.getAssignments(courseId);
-            // Fetch submissions for each assignment
-            const assignmentsWithSubmissions = await Promise.all(
-              (assignments || []).filter((a: any) => a.isPublished).map(async (assignment: any) => {
-                try {
-                  const submission = await assignmentsApi.getMySubmission(assignment.id);
-                  return { ...assignment, mySubmission: submission };
-                } catch {
-                  return { ...assignment, mySubmission: null };
-                }
-              })
-            );
-            return { courseId, assignments: assignmentsWithSubmissions };
-          } catch {
-            return { courseId, assignments: [] };
-          }
-        })
-      );
-      return results;
-    },
-    enabled: courseIds.length > 0,
-  });
-
-  if (enrollmentsLoading || assignmentsLoading) {
+  if (gradebookLoading) {
     return <Loading fullScreen text={t('loading_gradebook')} />;
   }
 
   // Calculate grades for each course
-  const courseGrades: CourseGrade[] = (enrollments || []).map((enrollment: any) => {
-    const courseData = courseAssignments?.find((c: any) => c.courseId === enrollment.courseId);
-    const assignments = courseData?.assignments || [];
+  const courseGrades: CourseGrade[] = (gradebookData || []).map((courseData: any) => {
+    const assignments = courseData.assignments || [];
 
     let totalEarned = 0;
     let totalPossible = 0;
@@ -132,8 +99,8 @@ export const DashboardGradebook = () => {
     });
 
     return {
-      courseId: enrollment.courseId,
-      courseTitle: enrollment.course?.title || 'Unknown Course',
+      courseId: courseData.courseId,
+      courseTitle: courseData.courseTitle,
       totalEarned,
       totalPossible,
       percentage: totalPossible > 0 ? Math.round((totalEarned / totalPossible) * 100) : 0,
