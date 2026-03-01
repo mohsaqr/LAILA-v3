@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { BrainCircuit, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -20,9 +20,6 @@ export const Login = () => {
   const { isDark } = useTheme();
   const { language: currentLanguage, setLanguage } = useLanguageStore();
   const navigate = useNavigate();
-  const location = useLocation();
-
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
 
   // Theme colors
   const colors = {
@@ -49,7 +46,7 @@ export const Login = () => {
     try {
       await login(email, password);
       toast.success(t('welcome_back'));
-      navigate(from, { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (error: any) {
       toast.error(error.message || t('login_failed'));
     } finally {
@@ -62,7 +59,7 @@ export const Login = () => {
     try {
       await login(quickEmail, quickPassword);
       toast.success(t('welcome_back'));
-      navigate(from, { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (error: any) {
       toast.error(error.message || t('login_failed'));
     } finally {
