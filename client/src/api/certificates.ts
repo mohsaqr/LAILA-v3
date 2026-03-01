@@ -75,7 +75,7 @@ export const certificatesApi = {
 
   // Admin - templates
   getTemplates: async (): Promise<CertificateTemplate[]> => {
-    const response = await apiClient.get<ApiResponse<CertificateTemplate[]>>('/certificates/templates/all');
+    const response = await apiClient.get<ApiResponse<CertificateTemplate[]>>('/certificates/templates');
     return response.data.data!;
   },
 

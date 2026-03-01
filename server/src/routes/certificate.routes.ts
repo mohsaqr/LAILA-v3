@@ -75,37 +75,6 @@ router.get('/course/:courseId/eligible', authenticateToken, requireInstructor, a
   res.json({ success: true, data: eligible });
 }));
 
-// Get single certificate (owner, admin, or course instructor can view)
-router.get('/:certificateId', authenticateToken, asyncHandler(async (req, res) => {
-  const certificateId = parseInt(req.params.certificateId);
-  const user = (req as any).user;
-
-  const certificate = await certificateService.getCertificate(
-    certificateId,
-    user.id,
-    user.isAdmin,
-    user.isInstructor
-  );
-  res.json({ success: true, data: certificate });
-}));
-
-// Render certificate as HTML (for viewing/printing)
-// Owner, admin, or course instructor can render
-router.get('/:certificateId/render', authenticateToken, asyncHandler(async (req, res) => {
-  const certificateId = parseInt(req.params.certificateId);
-  const user = (req as any).user;
-
-  const html = await certificateService.renderCertificate(
-    certificateId,
-    user.id,
-    user.isAdmin,
-    user.isInstructor
-  );
-
-  res.setHeader('Content-Type', 'text/html');
-  res.send(html);
-}));
-
 // =========================================================================
 // INSTRUCTOR ROUTES
 // =========================================================================
@@ -125,6 +94,8 @@ router.post('/issue', authenticateToken, requireInstructor, asyncHandler(async (
 
 // =========================================================================
 // TEMPLATE MANAGEMENT ROUTES
+// NOTE: These must appear before /:certificateId to avoid the wildcard
+// catching GET /templates as certificateId='templates'.
 // =========================================================================
 
 // Get all templates (instructors and admins)
@@ -169,6 +140,37 @@ router.delete('/templates/:templateId', authenticateToken, requireInstructor, as
 
   const result = await certificateService.deleteTemplate(templateId, user.isAdmin);
   res.json({ success: true, ...result });
+}));
+
+// Get single certificate (owner, admin, or course instructor can view)
+router.get('/:certificateId', authenticateToken, asyncHandler(async (req, res) => {
+  const certificateId = parseInt(req.params.certificateId);
+  const user = (req as any).user;
+
+  const certificate = await certificateService.getCertificate(
+    certificateId,
+    user.id,
+    user.isAdmin,
+    user.isInstructor
+  );
+  res.json({ success: true, data: certificate });
+}));
+
+// Render certificate as HTML (for viewing/printing)
+// Owner, admin, or course instructor can render
+router.get('/:certificateId/render', authenticateToken, asyncHandler(async (req, res) => {
+  const certificateId = parseInt(req.params.certificateId);
+  const user = (req as any).user;
+
+  const html = await certificateService.renderCertificate(
+    certificateId,
+    user.id,
+    user.isAdmin,
+    user.isInstructor
+  );
+
+  res.setHeader('Content-Type', 'text/html');
+  res.send(html);
 }));
 
 // Revoke certificate

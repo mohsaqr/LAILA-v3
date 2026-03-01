@@ -7,6 +7,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
+import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
@@ -29,6 +30,7 @@ export const CertificateManager = () => {
   const queryClient = useQueryClient();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<CertificateTemplate | null>(null);
+  const [templateToDelete, setTemplateToDelete] = useState<CertificateTemplate | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -87,9 +89,14 @@ export const CertificateManager = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['certificateTemplates'] });
+      setTemplateToDelete(null);
       toast.success(t('template_deleted'));
     },
-    onError: () => toast.error(t('failed_delete_template')),
+    onError: (error: any) => {
+      setTemplateToDelete(null);
+      const message = error?.response?.data?.message || t('failed_delete_template');
+      toast.error(message);
+    },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -187,11 +194,7 @@ export const CertificateManager = () => {
                     <Edit className="w-4 h-4" style={{ color: colors.textSecondary }} />
                   </button>
                   <button
-                    onClick={() => {
-                      if (confirm(t('delete_template_confirm'))) {
-                        deleteMutation.mutate(template.id);
-                      }
-                    }}
+                    onClick={() => setTemplateToDelete(template)}
                     className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                     title={t('common:delete')}
                   >
@@ -214,6 +217,18 @@ export const CertificateManager = () => {
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!templateToDelete}
+        onClose={() => setTemplateToDelete(null)}
+        onConfirm={() => templateToDelete && deleteMutation.mutate(templateToDelete.id)}
+        title={t('delete_template')}
+        message={t('delete_template_confirm', { name: templateToDelete?.name })}
+        confirmText={t('common:delete')}
+        variant="danger"
+        loading={deleteMutation.isPending}
+      />
 
       {/* Create/Edit Modal */}
       <Modal
