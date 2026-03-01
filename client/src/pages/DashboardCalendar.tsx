@@ -10,7 +10,6 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useState } from 'react';
-import { enrollmentsApi } from '../api/enrollments';
 import { assignmentsApi } from '../api/assignments';
 import { useTheme } from '../hooks/useTheme';
 import { Card, CardBody } from '../components/common/Card';
@@ -39,42 +38,22 @@ export const DashboardCalendar = () => {
     textGreen: isDark ? '#86efac' : '#15803d',
   };
 
-  // Fetch all enrollments
-  const { data: enrollments, isLoading: enrollmentsLoading } = useQuery({
-    queryKey: ['myEnrollments'],
-    queryFn: () => enrollmentsApi.getMyEnrollments(),
+  // Single aggregated request for all enrolled courses + their assignments
+  const { data: gradebookData, isLoading: calendarLoading } = useQuery({
+    queryKey: ['myGradebook'],
+    queryFn: assignmentsApi.getMyGradebook,
   });
 
-  // Fetch assignments for each enrolled course
-  const courseIds = enrollments?.map((e: any) => e.courseId) || [];
-  const { data: allAssignments, isLoading: assignmentsLoading } = useQuery({
-    queryKey: ['allAssignmentsForCalendar', courseIds],
-    queryFn: async () => {
-      const results = await Promise.all(
-        courseIds.map(async (courseId: number) => {
-          try {
-            const assignments = await assignmentsApi.getAssignments(courseId);
-            const course = enrollments?.find((e: any) => e.courseId === courseId)?.course;
-            return (assignments || [])
-              .filter((a: any) => a.isPublished && a.dueDate)
-              .map((a: any) => ({
-                ...a,
-                courseId,
-                courseTitle: course?.title || 'Unknown Course',
-              }));
-          } catch {
-            return [];
-          }
-        })
-      );
-      return results.flat();
-    },
-    enabled: courseIds.length > 0,
-  });
-
-  if (enrollmentsLoading || assignmentsLoading) {
+  if (calendarLoading) {
     return <Loading fullScreen text={t('loading_calendar')} />;
   }
+
+  // Flatten courses → assignments, keeping only those with a due date
+  const allAssignments = (gradebookData || []).flatMap((course: any) =>
+    (course.assignments || [])
+      .filter((a: any) => a.dueDate)
+      .map((a: any) => ({ ...a, courseTitle: course.courseTitle }))
+  );
 
   // Get assignments for the current month
   const getMonthDays = () => {
