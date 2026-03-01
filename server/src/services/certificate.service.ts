@@ -25,12 +25,17 @@ class CertificateService {
   // CERTIFICATE TEMPLATES
   // =========================================================================
 
-  async getTemplates(isAdmin = false) {
+  async getTemplates(userId?: number, isAdmin = false) {
+    const where = isAdmin
+      ? {}
+      : { creatorId: userId, isActive: true };
+
     const templates = await prisma.certificateTemplate.findMany({
-      where: isAdmin ? {} : { isActive: true },
+      where,
       orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
       include: {
         _count: { select: { certificates: true } },
+        creator: isAdmin ? { select: { id: true, fullname: true } } : false,
       },
     });
 
@@ -50,9 +55,7 @@ class CertificateService {
     return template;
   }
 
-  async createTemplate(data: CreateTemplateInput, _isAdmin = false) {
-    // Allow instructors and admins to create templates
-
+  async createTemplate(data: CreateTemplateInput, creatorId?: number, _isAdmin = false) {
     // If this is the default template, unset any existing default
     if (data.isDefault) {
       await prisma.certificateTemplate.updateMany({
@@ -67,21 +70,24 @@ class CertificateService {
         description: data.description,
         templateHtml: data.templateHtml,
         isDefault: data.isDefault ?? false,
+        creatorId: creatorId ?? null,
       },
     });
 
-    logger.info({ templateId: template.id }, 'Certificate template created');
+    logger.info({ templateId: template.id, creatorId }, 'Certificate template created');
     return template;
   }
 
-  async updateTemplate(templateId: number, data: Partial<CreateTemplateInput>, _isAdmin = false) {
-    // Allow instructors and admins to update templates
-
+  async updateTemplate(templateId: number, data: Partial<CreateTemplateInput>, userId?: number, isAdmin = false) {
     const existing = await prisma.certificateTemplate.findUnique({
       where: { id: templateId },
     });
 
     if (!existing) throw new AppError('Template not found', 404);
+
+    if (!isAdmin && existing.creatorId !== userId) {
+      throw new AppError('Not authorized to edit this template', 403);
+    }
 
     // If setting as default, unset others
     if (data.isDefault) {
@@ -97,15 +103,18 @@ class CertificateService {
     });
   }
 
-  async deleteTemplate(templateId: number, _isAdmin = false) {
-    // Allow instructors and admins to delete templates
-
+  async deleteTemplate(templateId: number, userId?: number, isAdmin = false) {
     const template = await prisma.certificateTemplate.findUnique({
       where: { id: templateId },
       include: { _count: { select: { certificates: true } } },
     });
 
     if (!template) throw new AppError('Template not found', 404);
+
+    if (!isAdmin && template.creatorId !== userId) {
+      throw new AppError('Not authorized to delete this template', 403);
+    }
+
     if (template._count.certificates > 0) {
       throw new AppError('Cannot delete template with issued certificates', 400);
     }
@@ -540,7 +549,7 @@ class CertificateService {
         description: 'Standard course completion certificate',
         templateHtml: this.getDefaultTemplateHtml(),
         isDefault: true,
-      }, true);
+      }, undefined, true);
     }
   }
 

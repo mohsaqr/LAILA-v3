@@ -77,6 +77,9 @@ model User {
   // Chatbots created by this user (instructors)
   createdChatbots Chatbot[]
 
+  // Certificate templates created by this user
+  createdCertificateTemplates CertificateTemplate[] @relation("TemplateCreator")
+
   @@map("users")
 }
 
@@ -2287,10 +2290,12 @@ model CertificateTemplate {
   templateHtml String   @map("template_html") // HTML template with placeholders
   isDefault    Boolean  @default(false) @map("is_default")
   isActive     Boolean  @default(true) @map("is_active")
+  creatorId    Int?     @map("creator_id")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relations
+  creator      User?           @relation("TemplateCreator", fields: [creatorId], references: [id], onDelete: SetNull)
   certificates Certificate[]
 
   @@map("certificate_templates")

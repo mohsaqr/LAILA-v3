@@ -101,7 +101,7 @@ router.post('/issue', authenticateToken, requireInstructor, asyncHandler(async (
 // Get all templates (instructors and admins)
 router.get('/templates', authenticateToken, requireInstructor, asyncHandler(async (req, res) => {
   const user = (req as any).user;
-  const templates = await certificateService.getTemplates(user.isAdmin);
+  const templates = await certificateService.getTemplates(user.id, user.isAdmin);
   res.json({ success: true, data: templates });
 }));
 
@@ -117,7 +117,7 @@ router.post('/templates', authenticateToken, requireInstructor, asyncHandler(asy
   const user = (req as any).user;
   const data = createTemplateSchema.parse(req.body);
 
-  const template = await certificateService.createTemplate(data, user.isAdmin);
+  const template = await certificateService.createTemplate(data, user.id, user.isAdmin);
   res.status(201).json({ success: true, data: template });
 }));
 
@@ -129,7 +129,7 @@ router.put('/templates/:templateId', authenticateToken, requireInstructor, async
     isActive: z.boolean().optional(),
   }).parse(req.body);
 
-  const template = await certificateService.updateTemplate(templateId, data, user.isAdmin);
+  const template = await certificateService.updateTemplate(templateId, data, user.id, user.isAdmin);
   res.json({ success: true, data: template });
 }));
 
@@ -138,7 +138,7 @@ router.delete('/templates/:templateId', authenticateToken, requireInstructor, as
   const templateId = parseInt(req.params.templateId);
   const user = (req as any).user;
 
-  const result = await certificateService.deleteTemplate(templateId, user.isAdmin);
+  const result = await certificateService.deleteTemplate(templateId, user.id, user.isAdmin);
   res.json({ success: true, ...result });
 }));
 

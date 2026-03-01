@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Award, Plus, Edit, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTheme } from '../../hooks/useTheme';
+import { useAuth } from '../../hooks/useAuth';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
@@ -22,11 +23,13 @@ interface CertificateTemplate {
   isActive: boolean;
   issuedCount: number;
   createdAt: string;
+  creator?: { id: number; fullname: string } | null;
 }
 
 export const CertificateManager = () => {
   const { t } = useTranslation(['teaching', 'common']);
   const { isDark } = useTheme();
+  const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<CertificateTemplate | null>(null);
@@ -212,6 +215,11 @@ export const CertificateManager = () => {
                   <span>{t('x_certificates_issued', { count: template.issuedCount })}</span>
                   <span>{t('created_date', { date: new Date(template.createdAt).toLocaleDateString() })}</span>
                 </div>
+                {isAdmin && template.creator && (
+                  <p className="text-xs mt-2" style={{ color: colors.textSecondary }}>
+                    {t('created_by', { name: template.creator.fullname })}
+                  </p>
+                )}
               </CardBody>
             </Card>
           ))}
