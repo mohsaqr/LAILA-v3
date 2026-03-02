@@ -9,6 +9,7 @@ import {
   Clock,
   Bot,
   MessageSquare,
+  Calendar,
 } from 'lucide-react';
 import { agentAssignmentsApi } from '../../api/agentAssignments';
 import { assignmentsApi } from '../../api/assignments';
@@ -118,6 +119,14 @@ export const AgentSubmissionsList = () => {
                   <Check className="w-4 h-4 text-green-500" />
                   <span>{t('graded_count', { count: gradedCount })}</span>
                 </div>
+                <div className="flex items-center gap-2 text-gray-500">
+                  <Calendar className="w-4 h-4" />
+                  <span>
+                    {assignment.dueDate
+                      ? `${t('due_date')}: ${formatDate(assignment.dueDate)}`
+                      : t('no_due_date')}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -137,13 +146,7 @@ export const AgentSubmissionsList = () => {
               {submissions.map((config) => (
                 <div
                   key={config.id}
-                  className="border border-gray-200 rounded-lg p-4 hover:border-violet-200 hover:bg-violet-50/30 transition-colors cursor-pointer"
-                  onClick={() =>
-                    config.submission &&
-                    navigate(
-                      `/teach/courses/${courseId}/assignments/${assId}/submissions/${config.submission.id}`
-                    )
-                  }
+                  className="border border-gray-200 rounded-lg p-4"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
@@ -197,6 +200,22 @@ export const AgentSubmissionsList = () => {
                       {config.submission.feedback.length > 100
                         ? `${config.submission.feedback.slice(0, 100)}...`
                         : config.submission.feedback}
+                    </div>
+                  )}
+
+                  {/* View Answer button */}
+                  {config.submission && (
+                    <div className="mt-3 flex justify-end">
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          navigate(
+                            `/teach/courses/${courseId}/agent-assignments/${assId}/submissions/${config.submission!.id}`
+                          )
+                        }
+                      >
+                        {t('view_answer')}
+                      </Button>
                     </div>
                   )}
                 </div>

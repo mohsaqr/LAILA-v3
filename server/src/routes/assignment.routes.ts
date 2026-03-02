@@ -86,6 +86,13 @@ router.get('/:id/my-submission', authenticateToken, asyncHandler(async (req: Aut
   res.json({ success: true, data: submission });
 }));
 
+// Get single submission by ID (instructor)
+router.get('/submissions/:submissionId', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const submissionId = parseInt(req.params.submissionId);
+  const submission = await assignmentService.getSubmissionById(submissionId, req.user!.id, req.user!.isAdmin);
+  res.json({ success: true, data: submission });
+}));
+
 // Grade submission (instructor)
 router.post('/submissions/:submissionId/grade', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
   const submissionId = parseInt(req.params.submissionId);

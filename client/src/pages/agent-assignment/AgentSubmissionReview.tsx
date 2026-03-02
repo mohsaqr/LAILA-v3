@@ -100,7 +100,7 @@ export const AgentSubmissionReview = () => {
         <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('submission_not_found')}</h1>
         <Button
           onClick={() =>
-            navigate(`/teach/courses/${courseId}/assignments/${assId}/submissions`)
+            navigate(`/teach/courses/${courseId}/agent-assignments/${assId}/submissions`)
           }
         >
           {t('back_to_submissions')}
@@ -144,7 +144,7 @@ export const AgentSubmissionReview = () => {
           variant="ghost"
           size="sm"
           onClick={() =>
-            navigate(`/teach/courses/${courseId}/assignments/${assId}/submissions`)
+            navigate(`/teach/courses/${courseId}/agent-assignments/${assId}/submissions`)
           }
           icon={<ArrowLeft className="w-4 h-4" />}
         >

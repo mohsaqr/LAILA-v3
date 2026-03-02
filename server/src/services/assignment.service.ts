@@ -212,6 +212,33 @@ export class AssignmentService {
     return submissions;
   }
 
+  async getSubmissionById(submissionId: number, instructorId: number, isAdmin = false) {
+    const submission = await prisma.assignmentSubmission.findUnique({
+      where: { id: submissionId },
+      include: {
+        user: {
+          select: { id: true, fullname: true, email: true },
+        },
+        gradedBy: {
+          select: { id: true, fullname: true },
+        },
+        assignment: {
+          include: { course: { select: { id: true, title: true, instructorId: true } } },
+        },
+      },
+    });
+
+    if (!submission) {
+      throw new AppError('Submission not found', 404);
+    }
+
+    if (submission.assignment.course.instructorId !== instructorId && !isAdmin) {
+      throw new AppError('Not authorized', 403);
+    }
+
+    return submission;
+  }
+
   async submitAssignment(assignmentId: number, userId: number, data: CreateSubmissionInput, context?: EventContext) {
     const assignment = await prisma.assignment.findUnique({
       where: { id: assignmentId },

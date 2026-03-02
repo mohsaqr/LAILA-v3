@@ -6,6 +6,7 @@ export { LectureEditor } from './LectureEditor';
 export { CodeLabEditor } from './CodeLabEditor';
 export { AssignmentManager } from './AssignmentManager';
 export { SubmissionReview } from './SubmissionReview';
+export { SubmissionDetail } from './SubmissionDetail';
 export { ChatbotLogs } from './ChatbotLogs';
 export { TeacherGradebook } from './TeacherGradebook';
 export { SurveyManager } from './SurveyManager';
