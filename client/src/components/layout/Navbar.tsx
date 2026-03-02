@@ -14,7 +14,6 @@ import {
   ChevronDown,
   Eye,
   EyeOff,
-  MessagesSquare,
   Globe,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
@@ -85,7 +84,6 @@ export const Navbar = () => {
     { path: '/dashboard', label: t('dashboard'), icon: BookOpen },
     { path: '/courses', label: t('courses'), icon: GraduationCap },
     ...(isAdmin || isInstructor ? [{ path: '/ai-tools', label: t('ai_tools'), icon: BrainCircuit }] : []),
-    { path: '/ai-tutors', label: t('chat_tutors'), icon: MessagesSquare },
     ...(isAdmin ? [{ path: '/admin', label: t('admin'), icon: Shield }] : []),
   ];
 
