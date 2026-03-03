@@ -1055,5 +1055,10 @@
   "make_public": "Público",
   "thumbnail_help": "Pega una URL que apunte a una imagen para usar como portada del curso. Déjalo vacío para mostrar el degradado predeterminado.",
   "curriculum_view_mode_help": "Controla cómo aparece el índice de contenidos en la página del curso. Minitarjetas muestra tarjetas compactas, Íconos usa mosaicos de íconos, Lista muestra una lista simple y Acordeón agrupa los elementos en secciones desplegables.",
-  "curriculum_view_mode": "Modo de vista del plan de estudios"
+  "curriculum_view_mode": "Modo de vista del plan de estudios",
+  "link_existing_assignment": "Vincular tarea existente",
+  "back_to_create": "Volver a crear",
+  "select_existing_assignment": "Seleccionar tarea existente",
+  "unlink_assignment": "Desvincular tarea",
+  "linked_assignment": "Tarea vinculada"
 }

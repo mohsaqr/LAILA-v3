@@ -1060,5 +1060,10 @@
   "make_public": "Julkinen",
   "thumbnail_help": "Liitä URL-osoite kuvan käyttämiseksi kurssin kansikuvana. Jätä tyhjäksi käyttääksesi oletusliukuväriä.",
   "curriculum_view_mode_help": "Määrittää, miten sisällysluettelo näkyy kurssin sivulla. Minikortit näyttää kompaktit kortit, Kuvakkeet käyttää kuvakelaatat, Lista näyttää yksinkertaisen listan ja Tiivistelynäkymä ryhmittelee kohteet tiivistettäviin osioihin.",
-  "curriculum_view_mode": "Opetussuunnitelman näkymätila"
+  "curriculum_view_mode": "Opetussuunnitelman näkymätila",
+  "link_existing_assignment": "Linkitä olemassa oleva tehtävä",
+  "back_to_create": "Takaisin luomiseen",
+  "select_existing_assignment": "Valitse olemassa oleva tehtävä",
+  "unlink_assignment": "Poista tehtävän linkitys",
+  "linked_assignment": "Linkitetty tehtävä"
 }

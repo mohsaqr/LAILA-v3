@@ -261,6 +261,7 @@ export const LectureEditor = () => {
                       courseTitle={course?.title}
                       courseId={courseId}
                       lectureId={lecId}
+                      moduleId={lecture?.moduleId}
                       isExpanded={expandedSectionId === section.id}
                       onToggleExpand={(id) => setExpandedSectionId(expandedSectionId === id ? null : id)}
                     />

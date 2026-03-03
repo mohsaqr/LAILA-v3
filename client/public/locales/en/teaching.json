@@ -1060,5 +1060,10 @@
   "make_public": "Public",
   "thumbnail_help": "Paste a URL pointing to an image to use as the course cover. Leave it empty to show the default gradient.",
   "curriculum_view_mode_help": "Controls how the table of contents appears on the course page. Mini Cards shows compact cards, Icons uses icon tiles, List shows a simple list, and Accordion groups items in collapsible sections.",
-  "curriculum_view_mode": "Curriculum View Mode"
+  "curriculum_view_mode": "Curriculum View Mode",
+  "link_existing_assignment": "Link existing assignment",
+  "back_to_create": "Back to create",
+  "select_existing_assignment": "Select existing assignment",
+  "unlink_assignment": "Unlink assignment",
+  "linked_assignment": "Linked assignment"
 }

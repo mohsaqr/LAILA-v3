@@ -20,6 +20,7 @@ interface SectionEditorProps {
   courseTitle?: string;
   courseId?: number;
   lectureId?: number;
+  moduleId?: number;
   readOnly?: boolean;
   isExpanded?: boolean;
   onToggleExpand?: (sectionId: number) => void;
@@ -81,6 +82,7 @@ export const SectionEditor = ({
   courseTitle,
   courseId,
   lectureId,
+  moduleId,
   readOnly = false,
   isExpanded = true,
   onToggleExpand,
@@ -192,6 +194,7 @@ export const SectionEditor = ({
             section={section}
             courseId={courseId || 0}
             lectureId={lectureId}
+            moduleId={moduleId}
             onChange={handleSectionDataChange}
             readOnly={readOnly}
           />
