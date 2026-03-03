@@ -5,9 +5,9 @@
   "my_courses": "Mis cursos",
   "enrolled_courses": "Cursos inscritos",
   "available_courses": "Cursos disponibles",
-  "browse_courses": "Explorar cursos",
+  "browse_courses": "Explorar Cursos",
   "create_course": "Crear curso",
-  "edit_course": "Editar curso",
+  "edit_course": "Editar Curso",
   "delete_course": "Eliminar curso",
   "enroll": "Inscribirse",
   "unenroll": "Cancelar inscripción",
@@ -85,7 +85,6 @@
   "completed": "Completado",
   "not_started": "No iniciado",
   "in_progress": "En progreso",
-
   "welcome_back": "¡Bienvenido de nuevo, {{name}}!",
   "explore_description": "Explora cursos, usa herramientas de IA y mejora tu experiencia de aprendizaje.",
   "manage_discover_courses": "Gestiona tus cursos y descubre nuevos",
@@ -121,9 +120,9 @@
   "continue": "Continuar",
   "n_students": "{{count}} estudiantes",
   "n_modules": "{{count}} módulos",
-  "instructor_view": "Vista del instructor",
-  "enroll_now_free": "Inscríbete ahora - Gratis",
-  "sign_in_to_enroll": "Inicia sesión para inscribirte",
+  "instructor_view": "Vista del Instructor",
+  "enroll_now_free": "Inscribirse Ahora - Gratis",
+  "sign_in_to_enroll": "Iniciar sesión para inscribirse",
   "no_content_available": "Aún no hay contenido disponible",
   "content_not_found": "Contenido no encontrado",
   "content_not_found_description": "El contenido solicitado no se pudo encontrar",
@@ -142,7 +141,6 @@
   "n_questions": "{{count}} preguntas",
   "n_threads": "{{count}} hilos",
   "general": "General",
-
   "loading_quiz": "Cargando cuestionario...",
   "failed_load_quiz": "Error al cargar el cuestionario. Por favor, inténtelo de nuevo.",
   "failed_start_quiz": "Error al iniciar el cuestionario",
@@ -159,23 +157,20 @@
   "quiz_submitted_score": "¡Cuestionario enviado! Puntuación: {{score}}%",
   "true": "Verdadero",
   "false": "Falso",
-
   "my_quizzes": "Mis cuestionarios",
   "view_take_quizzes": "Ver y realizar cuestionarios de todos tus cursos inscritos",
-  "no_quizzes_available": "No hay cuestionarios disponibles",
+  "no_quizzes_available": "No Hay Cuestionarios Disponibles",
   "quizzes_will_appear": "Los cuestionarios aparecerán aquí cuando estés inscrito en cursos con cuestionarios activos.",
   "n_attempts": "{{current}}/{{max}} intentos",
   "unlimited_attempts": "{{current}}/∞ intentos",
   "passed": "Aprobado",
   "not_passed": "No aprobado",
   "n_min": "{{count}} min",
-
   "loading_forums": "Cargando foros...",
   "all_forums": "Todos los foros",
   "participate_in_discussions": "Participa en las discusiones del curso y conecta con tus compañeros",
-  "no_forums_available": "No hay foros disponibles",
+  "no_forums_available": "No Hay Foros Disponibles",
   "forums_will_appear": "Los foros aparecerán aquí cuando estés inscrito en cursos con discusiones activas.",
-
   "loading_results": "Cargando resultados...",
   "results_not_available": "Los resultados no están disponibles.",
   "return_to_course": "Volver al curso",
@@ -192,7 +187,6 @@
   "correct_answer": "Respuesta correcta:",
   "explanation": "Explicación:",
   "points_awarded": "{{awarded}} / {{total}} puntos",
-
   "course_forums_title": "Foros del Curso",
   "discussion_forums_for": "Foros de discusión para {{title}}",
   "no_forums_available_title": "No hay Foros Disponibles",
@@ -227,7 +221,7 @@
   "m_ago": "hace {{count}}m",
   "h_ago": "hace {{count}}h",
   "d_ago": "hace {{count}}d",
-  "ai_response": "Respuesta de IA",
+  "ai_response": "3. Respuesta de IA",
   "reply": "Responder",
   "replies": "respuestas",
   "n_replies": "{{count}} {{count, plural, one {Respuesta} other {Respuestas}}}",
@@ -252,14 +246,12 @@
   "reply_thread_placeholder": "Escribe tu respuesta al hilo... (Escribe @agente para mencionar a un tutor de IA)",
   "discussion_is_locked": "Esta discusión está bloqueada",
   "loading": "Cargando...",
-
   "my_learning": "Mi Aprendizaje",
   "my_learning_loading": "Cargando tus cursos...",
   "in_progress_title": "En Progreso",
   "no_active_courses": "No hay cursos activos",
   "start_learning": "Comienza a aprender inscribiéndote en un curso",
   "last_accessed": "Último acceso {{date}}",
-
   "loading_assignments": "Cargando tareas...",
   "back_to_course": "Volver al Curso",
   "my_grades": "Mis Calificaciones",
@@ -276,7 +268,6 @@
   "view_agent": "Ver Agente",
   "build_agent": "Construir Agente",
   "due_at": "Fecha límite {{date}} a las {{time}}",
-
   "loading_grades": "Cargando calificaciones...",
   "not_enrolled_title": "No Inscrito",
   "need_enroll_assignments": "Necesitas inscribirte en este curso para ver las tareas",
@@ -291,7 +282,6 @@
   "back_to_assignments": "Volver a Tareas",
   "points_format": "{{points}} puntos",
   "grade_percent": "{{percent}}%",
-
   "loading_assignment": "Cargando tarea...",
   "need_enroll_view_assignment": "Necesitas inscribirte en este curso para ver esta tarea",
   "assignment_not_found": "Tarea No Encontrada",
@@ -323,7 +313,6 @@
   "submission_type_label": "Entrega de {{type}}",
   "redirecting_agent_builder": "Redirigiendo al Constructor de Agente...",
   "thank_you_feedback": "¡Gracias por tu retroalimentación!",
-
   "loading_lecture": "Cargando lección...",
   "lecture_not_found": "Lección No Encontrada",
   "lecture_not_found_description": "No se pudo encontrar la lección solicitada.",
@@ -333,7 +322,6 @@
   "no_file_uploaded": "No se subió ningún archivo",
   "attachments": "Adjuntos",
   "n_minutes": "{{count}} min",
-
   "custom_labs": "Laboratorios Personalizados",
   "interactive_labs_description": "Laboratorios analíticos interactivos basados en R para aprendizaje práctico",
   "manage_labs": "Gestionar Laboratorios",
@@ -361,7 +349,6 @@
   "clear_output": "Limpiar Salida",
   "lab_output": "Salida",
   "lab_console": "Consola",
-
   "certificate_verified": "Certificado Verificado",
   "certificate_not_found": "Certificado No Encontrado",
   "certificate_not_found_description": "Este certificado no se pudo encontrar o puede haber sido revocado.",
@@ -382,7 +369,6 @@
   "complete_to_earn": "Completa el curso para obtener este certificado",
   "loading_certificate": "Cargando certificado...",
   "loading_certificates": "Cargando certificados...",
-
   "ai_research_tools": "Herramientas de Investigación con IA",
   "ai_tools_description": "Potentes herramientas impulsadas por IA para investigación académica, aprendizaje y creación de contenido",
   "launch_tool": "Abrir Herramienta",
@@ -395,10 +381,8 @@
   "session_tracking_desc": "Tus interacciones se registran con fines de investigación y para mejorar tu experiencia.",
   "customizable": "Personalizable",
   "customizable_desc": "Configura los ajustes de IA, elige modelos y personaliza las herramientas según tus preferencias.",
-  "loading_ai_tutors": "Cargando Tutores de IA...",
+  "loading_ai_tutors": "Cargando tutores de IA...",
   "back_to_ai_tools": "Volver a Herramientas de IA",
-
-  "ai_builder": "Constructor de IA",
   "ai_builder_desc": "Crea y personaliza componentes de IA reutilizables para tus cursos",
   "ai_builder_course_desc": "Crea un tutor de IA personalizado para tu curso",
   "back_to_course_tutors": "Volver a Tutores del Curso",
@@ -433,7 +417,6 @@
   "create_component": "Crear Componente",
   "send_test_message": "Envía un mensaje para probar tu componente de IA",
   "type_test_message": "Escribe un mensaje de prueba...",
-
   "ai_chatbots": "Chatbots de IA",
   "chat_with_assistants": "Chatea con asistentes de IA especializados",
   "loading_chatbots": "Cargando chatbots...",
@@ -445,7 +428,6 @@
   "type_your_message": "Escribe tu mensaje...",
   "ai_assistant": "Asistente de IA",
   "error_occurred": "Lo siento, ocurrió un error. Por favor, intenta de nuevo.",
-
   "bias_research_platform": "Plataforma de Investigación de Sesgos",
   "bias_research_desc": "Analiza texto para detectar posibles sesgos en investigación académica",
   "text_analysis": "Análisis de Texto",
@@ -459,7 +441,6 @@
   "about_bias_detection": "Acerca de la Detección de Sesgos",
   "bias_detection_note": "Esta herramienta utiliza IA para ayudar a identificar posibles sesgos en el texto. Está diseñada para ayudar a los investigadores a crear contenido más inclusivo y equilibrado.",
   "bias_detection_warning": "El análisis de IA debe usarse como punto de partida para la revisión, no como una evaluación definitiva. Siempre aplica el juicio humano y la experiencia en el dominio.",
-
   "data_interpreter": "Intérprete de Datos",
   "data_interpreter_desc": "Análisis estadístico impulsado por IA para investigación educativa",
   "data_input": "Entrada de Datos",
@@ -473,7 +454,6 @@
   "csv_format_desc": "Valores separados por comas con encabezados",
   "copy_from_excel": "Copiar desde Excel",
   "copy_from_excel_desc": "Los datos separados por tabulación también funcionan",
-
   "prompt_engineering_helper": "Asistente de Ingeniería de Prompts",
   "prompt_helper_desc": "Crea prompts de IA efectivos usando el marco PCTFT",
   "define_your_task": "1. Define tu Tarea",
@@ -482,7 +462,6 @@
   "generate_prompt": "Generar Prompt",
   "generated_prompt": "2. Prompt Generado",
   "run_with_ai": "Ejecutar con IA",
-  "ai_response": "3. Respuesta de IA",
   "pctft_tips": "Consejos del Marco PCTFT",
   "persona": "P - Persona",
   "persona_desc": "Define quién debe ser la IA",
@@ -496,9 +475,7 @@
   "tone_desc": "Establece el estilo de comunicación",
   "copied": "Copiado",
   "copied_to_clipboard": "Copiado al portapapeles",
-
   "loading_gradebook": "Cargando calificaciones...",
-  "my_grades": "Mis Calificaciones",
   "my_grades_as_student": "Mis Calificaciones (como Estudiante)",
   "view_grades_description": "Ver tus calificaciones en todos los cursos matriculados",
   "overall_average": "Promedio General",
@@ -509,8 +486,6 @@
   "last_grade": "Última calificación",
   "no_grades_yet": "Sin calificaciones aún",
   "no_grades_description": "Inscríbete en cursos y completa tareas para ver tus calificaciones aquí",
-  "browse_courses": "Explorar Cursos",
-
   "loading_calendar": "Cargando calendario...",
   "calendar": "Calendario",
   "calendar_description": "Ver tus tareas y fechas límite próximas",
@@ -524,27 +499,16 @@
   "x_more": "+{{count}} más",
   "upcoming_next_7_days": "Próximas (Siguientes 7 Días)",
   "no_upcoming_assignments": "Sin tareas próximas",
-
   "invalid_survey": "Encuesta Inválida",
   "survey_not_found": "La encuesta que buscas no existe.",
-
-  "instructor_view": "Vista del Instructor",
-  "edit_course": "Editar Curso",
   "x_students": "{{count}} estudiantes",
   "x_modules": "{{count}} módulos",
   "x_lessons": "{{count}} lecciones",
-  "by_instructor": "por {{name}}",
-  "enroll_now_free": "Inscribirse Ahora - Gratis",
-  "sign_in_to_enroll": "Iniciar sesión para inscribirse",
-
   "curriculum": "Currículum",
-  "assignments": "Tareas",
   "quizzes": "Cuestionarios",
-  "forums": "Foros",
   "ai_tutors": "Tutores IA",
   "certificates": "Certificados",
   "course_navigation": "Navegación del Curso",
-
   "content_lecture": "Lección",
   "content_video": "Video",
   "content_mixed": "Mixto",
@@ -554,38 +518,29 @@
   "content_ai_agent": "Agente IA",
   "content_forum": "Foro",
   "content_ai": "Contenido IA",
-
   "no_assignments_available": "No Hay Tareas Disponibles",
   "no_assignments_description": "Este curso aún no tiene tareas.",
   "due_date_format": "Fecha límite: {{date}}",
   "x_points": "{{count}} puntos",
   "ai_agent_type": "Agente IA",
   "standard_type": "Estándar",
-
   "loading_quizzes": "Cargando cuestionarios...",
   "quizzes_for_course": "Cuestionarios de {{title}}",
   "quiz_passed": "Aprobado",
   "quiz_not_passed": "No Aprobado",
   "quiz_in_progress": "En Progreso",
   "quiz_not_started": "No Iniciado",
-  "no_quizzes_available": "No Hay Cuestionarios Disponibles",
   "no_quizzes_description": "Este curso aún no tiene cuestionarios.",
   "x_questions": "{{count}} preguntas",
   "x_min": "{{count}} min",
   "attempts_count": "{{current}}/{{max}} intentos",
-
-  "loading_forums": "Cargando foros...",
-  "no_forums_available": "No Hay Foros Disponibles",
   "no_forums_description": "Este curso aún no tiene foros de discusión activos.",
   "x_threads": "{{count}} hilos",
-
-  "loading_ai_tutors": "Cargando tutores de IA...",
   "no_ai_tutors_available": "No Hay Tutores de IA Disponibles",
   "no_ai_tutors_description": "Este curso aún no tiene tutores de IA configurados.",
   "manage_tutors": "Gestionar Tutores",
   "x_ai_tutors_ready": "{{count}} tutor(es) de IA listo(s) para ayudarte a aprender",
   "click_to_start_chatting_tutors": "Haz clic para empezar a chatear con los tutores de IA",
-
   "text_content": "Contenido de Texto",
   "read_article": "Leer Artículo",
   "no_content_yet": "Sin contenido aún",
@@ -593,17 +548,14 @@
   "no_content_available_yet": "No hay contenido disponible todavía",
   "lab_badge": "Laboratorio",
   "forum_badge": "Foro",
-
   "x_items": "{{count}} elemento(s)",
   "no_content_in_module": "No hay contenido disponible en este módulo todavía.",
   "due_date_short": "Fecha límite {{date}}",
   "x_pts": "{{count}} pts",
-
   "confirm_clear_conversation": "¿Estás seguro de que quieres borrar tu historial de conversación?",
   "ai_teaching_assistant": "Asistente de Enseñanza IA",
   "start_conversation": "¡Inicia una conversación!",
   "failed_to_send_message": "Error al enviar el mensaje. Por favor, inténtalo de nuevo.",
-
   "assignment_no_longer_available": "Esta tarea ya no está disponible",
   "status_overdue": "Atrasado",
   "status_due_soon": "Fecha límite próxima",
@@ -615,7 +567,6 @@
   "score_display": "Puntuación: {{grade}}/{{total}}",
   "not_yet_submitted": "Aún no enviado",
   "start_assignment": "Iniciar Tarea",
-
   "failed_to_start_conversation": "Error al iniciar la conversación",
   "failed_to_send_message_toast": "Error al enviar el mensaje",
   "conversation_deleted": "Conversación eliminada",
@@ -631,20 +582,16 @@
   "message_tutor": "Mensaje a {{name}}...",
   "send": "Enviar",
   "keyboard_hint": "Presiona Enter para enviar, Shift+Enter para nueva línea",
-
   "collaborative_module": "Módulo Colaborativo",
   "x_ai_tutors_ready_help": "{{count}} tutor(es) de IA listo(s) para ayudar",
   "click_to_start_chatting": "Haz clic para empezar a chatear",
-
   "ask_ai_tutor": "Preguntar al Tutor IA",
   "generating_response": "Generando respuesta...",
   "write_your_reply": "Escribe tu respuesta...",
   "replying_to": "Respondiendo a",
   "cancel_reply": "Cancelar respuesta",
-  "ai_tutors": "Tutores IA",
   "posting": "Publicando...",
   "post_reply": "Publicar Respuesta",
-
   "practice_mode": "Modo Práctica",
   "practice_description": "Pon a prueba tu comprensión con preguntas generadas por IA",
   "generate_practice_quiz": "Generar Cuestionario de Práctica",
@@ -666,5 +613,6 @@
   "generating_questions": "Generando preguntas...",
   "failed_generate_questions": "Error al generar preguntas",
   "select_answer": "Selecciona una respuesta",
-  "practice_complete": "¡Práctica completada!"
+  "practice_complete": "¡Práctica completada!",
+  "clear_conversation": "Borrar conversación"
 }

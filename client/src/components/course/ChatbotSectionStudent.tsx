@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Send, MessageCircle, Loader2, Trash2 } from 'lucide-react';
@@ -6,6 +6,7 @@ import { LectureSection, ChatbotConversationMessage } from '../../types';
 import { coursesApi } from '../../api/courses';
 import { Button } from '../common/Button';
 import { Card, CardBody } from '../common/Card';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import analytics from '../../services/analytics';
 import activityLogger from '../../services/activityLogger';
 
@@ -18,6 +19,7 @@ export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStude
   const { t } = useTranslation(['courses']);
   const [message, setMessage] = useState('');
   const [hasTrackedStart, setHasTrackedStart] = useState(false);
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -171,11 +173,14 @@ export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStude
     sendMessageMutation.mutate(message.trim());
   };
 
-  const handleClearConversation = () => {
-    if (confirm(t('confirm_clear_conversation'))) {
-      clearConversationMutation.mutate();
-    }
-  };
+  const handleClearConversation = useCallback(() => {
+    setConfirmClearOpen(true);
+  }, []);
+
+  const handleConfirmClear = useCallback(() => {
+    clearConversationMutation.mutate();
+    setConfirmClearOpen(false);
+  }, [clearConversationMutation]);
 
   // Build display messages including welcome message
   const displayMessages: ChatbotConversationMessage[] = [];
@@ -310,6 +315,15 @@ export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStude
           )}
         </form>
       </CardBody>
+      <ConfirmDialog
+        isOpen={confirmClearOpen}
+        onClose={() => setConfirmClearOpen(false)}
+        onConfirm={handleConfirmClear}
+        title={t('delete_conversation')}
+        message={t('confirm_clear_conversation')}
+        confirmText={t('clear_conversation')}
+        loading={clearConversationMutation.isPending}
+      />
     </Card>
   );
 };
