@@ -36,7 +36,9 @@ router.get('/', asyncHandler(async (req: AuthRequest, res: Response) => {
   const page = parseInt(req.query.page as string) || 1;
   const limit = parsePaginationLimit(req.query.limit as string, 10);
   const filters = {
-    categoryId: req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined,
+    categoryIds: req.query.categoryIds
+      ? (req.query.categoryIds as string).split(',').map(Number).filter(Boolean)
+      : undefined,
     difficulty: req.query.difficulty as string,
     search: req.query.search as string,
   };

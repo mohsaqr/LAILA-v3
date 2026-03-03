@@ -199,12 +199,12 @@ describe('Course Routes', () => {
       } as any);
 
       await request(app)
-        .get('/api/courses?categoryId=1&difficulty=beginner&search=python')
+        .get('/api/courses?categoryIds=1&difficulty=beginner&search=python')
         .expect(200);
 
       expect(courseService.getCourses).toHaveBeenCalledWith(
         {
-          categoryId: 1,
+          categoryIds: [1],
           difficulty: 'beginner',
           search: 'python',
         },

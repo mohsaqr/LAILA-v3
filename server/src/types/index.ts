@@ -33,7 +33,7 @@ export interface PaginatedResponse<T> extends ApiResponse<T> {
 
 // Course types
 export interface CourseFilters {
-  categoryId?: number;
+  categoryIds?: number[];
   difficulty?: string;
   status?: string;
   search?: string;

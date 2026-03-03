@@ -19,7 +19,7 @@ import {
 } from '../types';
 
 interface CourseFilters {
-  categoryId?: number;
+  categoryIds?: number[];
   difficulty?: string;
   search?: string;
   page?: number;
@@ -30,7 +30,7 @@ export const coursesApi = {
   // Catalog
   getCourses: async (filters: CourseFilters = {}) => {
     const params = new URLSearchParams();
-    if (filters.categoryId) params.append('categoryId', filters.categoryId.toString());
+    if (filters.categoryIds?.length) params.append('categoryIds', filters.categoryIds.join(','));
     if (filters.difficulty) params.append('difficulty', filters.difficulty);
     if (filters.search) params.append('search', filters.search);
     if (filters.page) params.append('page', filters.page.toString());

@@ -26,8 +26,8 @@ export class CourseService {
       isPublic: true,
     };
 
-    if (filters.categoryId) {
-      where.categories = { some: { categoryId: filters.categoryId } };
+    if (filters.categoryIds?.length) {
+      where.categories = { some: { categoryId: { in: filters.categoryIds } } };
     }
     if (filters.difficulty) {
       where.difficulty = filters.difficulty;
