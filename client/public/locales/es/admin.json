@@ -407,6 +407,8 @@
   "loading_course_roles": "Cargando roles del curso...",
 
   "user_updated": "Usuario actualizado",
+  "cannot_change_own_role": "No puedes cambiar tu propio rol",
+  "change_role": "Cambiar rol",
   "actions": "Acciones",
   "role_admin": "Administrador",
   "role_instructor": "Instructor",

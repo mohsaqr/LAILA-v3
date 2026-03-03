@@ -407,6 +407,8 @@
   "loading_course_roles": "جاري تحميل أدوار الدورة...",
 
   "user_updated": "تم تحديث المستخدم",
+  "cannot_change_own_role": "لا يمكنك تغيير دورك الخاص",
+  "change_role": "تغيير الدور",
   "actions": "الإجراءات",
   "role_admin": "مدير",
   "role_instructor": "مدرس",

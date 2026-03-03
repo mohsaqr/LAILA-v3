@@ -407,6 +407,8 @@
   "loading_course_roles": "Ladataan kurssirooleja...",
 
   "user_updated": "Käyttäjä päivitetty",
+  "cannot_change_own_role": "Et voi muuttaa omaa rooliasi",
+  "change_role": "Vaihda rooli",
   "actions": "Toiminnot",
   "role_admin": "Ylläpitäjä",
   "role_instructor": "Opettaja",
