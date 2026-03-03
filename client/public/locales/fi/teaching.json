@@ -87,7 +87,6 @@
   "selection_mode": "Valintatila",
   "allow_all_tutors": "Salli kaikki tutorit",
   "select_tutors": "Valitse tutorit",
-
   "loading_assignments": "Ladataan tehtäviä...",
   "loading_assignment": "Ladataan tehtävää...",
   "manage_assignments_and_grading": "Hallitse tehtäviä ja arviointia",
@@ -116,7 +115,6 @@
   "failed_to_update_assignment": "Tehtävän päivitys epäonnistui",
   "failed_to_delete_assignment": "Tehtävän poisto epäonnistui",
   "title_required": "Otsikko on pakollinen",
-
   "loading_gradebook": "Ladataan arvosanakirjaa...",
   "back_to_teaching": "Takaisin opetushallintaan",
   "export_csv": "Vie CSV",
@@ -141,7 +139,6 @@
   "no_submission_to_grade": "Ei palautusta arvioitavaksi",
   "grade_range_error": "Arvosanan tulee olla välillä 0 ja {{max}}",
   "create_assignments_to_track": "Luo tehtäviä aloittaaksesi arvosanojen seurannan",
-
   "loading_labs": "Ladataan laboratorioita...",
   "lab_manager": "Laboratorioiden hallinta",
   "lab_manager_description": "Luo ja hallitse omia laboratorioitasi",
@@ -164,7 +161,7 @@
   "add_default_templates": "Lisää oletusmallit tälle laboratoriotyypille",
   "make_lab_public": "Tee laboratorio julkiseksi (näkyy kaikille käyttäjille)",
   "creating": "Luodaan...",
-  "edit_lab": "Muokkaa laboratoriota",
+  "edit_lab": "Muokkaa laboria",
   "saving": "Tallennetaan...",
   "delete_lab": "Poista laboratorio",
   "delete_lab_confirm": "Haluatko varmasti poistaa \"{{name}}\"? Tätä toimintoa ei voi perua. Kaikki mallit ja kurssimääritykset poistetaan.",
@@ -183,8 +180,8 @@
   "lab_updated": "Laboratorio päivitetty onnistuneesti",
   "lab_deleted": "Laboratorio poistettu onnistuneesti",
   "template_added": "Malli lisätty onnistuneesti",
-  "template_updated": "Malli päivitetty onnistuneesti",
-  "template_deleted": "Malli poistettu",
+  "template_updated": "Todistusmalli päivitetty",
+  "template_deleted": "Todistusmalli poistettu",
   "lab_assigned": "Laboratorio määritetty kurssille",
   "lab_unassigned": "Laboratorion määritys poistettu kurssilta",
   "failed_to_create_lab": "Laboratorion luonti epäonnistui",
@@ -196,10 +193,8 @@
   "failed_to_assign_lab": "Laboratorion määritys epäonnistui",
   "failed_to_unassign_lab": "Laboratorion määrityksen poisto epäonnistui",
   "coming_soon": "Tulossa pian",
-
   "course_not_found": "Kurssia ei löytynyt",
   "back_to_dashboard": "Takaisin hallintapaneeliin",
-
   "loading_submissions": "Ladataan palautuksia...",
   "assignment_not_found": "Tehtävää ei löydy",
   "back_to_assignments": "Takaisin tehtäviin",
@@ -215,7 +210,6 @@
   "instructor_feedback": "Opettajan palaute",
   "no_submissions_yet": "Ei palautuksia vielä",
   "no_submissions_description": "Opiskelijat eivät ole vielä palauttaneet töitä tähän tehtävään",
-
   "loading_code_lab": "Ladataan koodilaboria...",
   "code_lab_not_found": "Koodilaboria ei löydy",
   "back_to_curriculum": "Takaisin opetussuunnitelmaan",
@@ -247,7 +241,6 @@
   "tip_blocks_order": "Lohkot suoritetaan järjestyksessä, jakaen R-istunnon",
   "delete_code_block": "Poista koodilohko",
   "delete_code_block_confirm": "Haluatko varmasti poistaa tämän koodilohkon? Toimintoa ei voi perua.",
-
   "loading_curriculum": "Ladataan opetussuunnitelmaa...",
   "no_description": "Ei kuvausta",
   "course_management": "Kurssin hallinta",
@@ -277,7 +270,6 @@
   "all_tutors_mode": "Kaikki tutorit",
   "manage": "Hallitse",
   "more_tutors": "+{{count}} lisää",
-
   "module_title": "Moduulin otsikko",
   "module_title_placeholder": "esim., Johdanto kurssiin",
   "label_optional": "Tunniste (valinnainen)",
@@ -293,7 +285,6 @@
   "failed_to_delete_module": "Moduulin poisto epäonnistui",
   "module_title_required": "Moduulin otsikko vaaditaan",
   "delete_module_confirm": "Haluatko varmasti poistaa \"{{title}}\"? Kaikki moduulin oppitunnit poistetaan myös.",
-
   "add_lesson": "Lisää oppitunti",
   "edit_lesson": "Muokkaa oppituntia",
   "lesson_title": "Oppitunnin otsikko",
@@ -314,7 +305,6 @@
   "lesson_title_required": "Oppitunnin otsikko vaaditaan",
   "delete_lesson": "Poista oppitunti",
   "delete_lesson_confirm": "Haluatko varmasti poistaa \"{{title}}\"?",
-
   "add_code_lab": "Lisää koodilabori",
   "code_lab_title_label": "Koodilaborin otsikko",
   "edit_code_lab_content": "Muokkaa koodilaborin sisältöä",
@@ -341,7 +331,6 @@
   "failed_to_update_code_lab": "Koodilaborin päivitys epäonnistui",
   "failed_to_delete_code_lab": "Koodilaborin poisto epäonnistui",
   "code_lab_title_required": "Koodilaborin otsikko vaaditaan",
-
   "assignment_title": "Tehtävän otsikko",
   "assignment_title_placeholder": "esim., Viikko 1 tehtävä",
   "assignment_description": "Kuvaus (valinnainen)",
@@ -356,11 +345,10 @@
   "publish_assignment": "Julkaise tehtävä (näkyy opiskelijoille)",
   "view_submissions_description": "Katso ja arvioi opiskelijoiden palautuksia:",
   "view_submissions": "Näytä palautukset",
-
   "forum_title": "Keskustelun otsikko",
   "forum_title_placeholder": "esim., Keskustelu: Luku 1",
   "forum_description": "Kuvaus (valinnainen)",
-  "forum_description_placeholder": "Lyhyt kuvaus keskustelun aiheesta",
+  "forum_description_placeholder": "Mitä varten tämä foorumi on?",
   "publish_forum": "Julkaise keskustelu (näkyy opiskelijoille)",
   "allow_anonymous_posts": "Salli anonyymit viestit",
   "edit_forum": "Muokkaa keskustelua",
@@ -373,7 +361,6 @@
   "forum_title_required": "Keskustelun otsikko vaaditaan",
   "delete_forum": "Poista keskustelu",
   "delete_forum_confirm": "Haluatko varmasti poistaa \"{{title}}\"? Kaikki ketjut ja viestit poistetaan myös.",
-
   "assignment_reordering_not_supported": "Tehtävien uudelleenjärjestämistä ei vielä tueta",
   "course_published": "Kurssi julkaistu",
   "course_unpublished": "Kurssin julkaisu peruttu",
@@ -383,7 +370,6 @@
   "failed_to_reorder_code_labs": "Koodilaborien järjestyksen muutos epäonnistui",
   "save": "Tallenna",
   "loading": "Ladataan...",
-
   "loading_chatbot_logs": "Ladataan chatbot-lokeja...",
   "chatbot_conversations_analytics": "Chatbot-keskustelut ja analytiikka",
   "ai_chatbot_logs": "AI Chatbot -lokit",
@@ -412,7 +398,6 @@
   "previous": "Edellinen",
   "next": "Seuraava",
   "page_of": "Sivu {{current}} / {{total}}",
-
   "loading_course_tutors": "Ladataan kurssin tutoreita...",
   "collaborative_module": "Yhteistyömoduuli",
   "manage_ai_tutors_for": "Hallitse AI-tutoreita kurssille {{course}}",
@@ -478,14 +463,12 @@
   "failed_to_remove_tutor": "Tutorin poisto epäonnistui",
   "failed_to_reorder": "Järjestyksen muutos epäonnistui",
   "failed_to_save_settings": "Asetusten tallennus epäonnistui",
-
   "teach_dashboard": "Opetuksen hallintapaneeli",
   "your_courses": "Omat kurssit",
   "no_courses_created": "Kursseja ei ole vielä luotu",
   "no_courses_desc": "Luo ensimmäinen kurssi aloittaaksesi",
   "course_actions": "Kurssitoiminnot",
   "quick_stats": "Pikatilastot",
-
   "create_new_course": "Luo uusi kurssi",
   "course_title": "Kurssin otsikko",
   "course_title_placeholder": "esim., Johdatus psykologiaan",
@@ -502,7 +485,6 @@
   "create_course_btn": "Luo kurssi",
   "course_created": "Kurssi luotu onnistuneesti",
   "failed_to_create_course": "Kurssin luonti epäonnistui",
-
   "course_title_required": "Kurssin otsikko vaaditaan",
   "general_settings": "Yleiset asetukset",
   "team_members": "Tiimin jäsenet",
@@ -514,7 +496,7 @@
   "difficulty_level": "Vaikeustaso",
   "beginner": "Aloittelija",
   "intermediate": "Keskitaso",
-  "advanced": "Edistynyt",
+  "advanced": "Lisäasetukset",
   "thumbnail_url": "Pienoiskuvan URL",
   "course_thumbnail": "Kurssin pienoiskuva",
   "invite_team_member": "Kutsu tiimin jäsen",
@@ -529,7 +511,6 @@
   "failed_to_remove_team_member": "Tiimin jäsenen poisto epäonnistui",
   "no_team_members": "Ei tiimin jäseniä vielä",
   "no_team_members_desc": "Kutsu opettajia tai avustajia hallitsemaan tätä kurssia",
-
   "lesson_settings": "Oppitunnin asetukset",
   "lesson_content": "Oppitunnin sisältö",
   "add_text_section": "Lisää tekstiosio",
@@ -545,7 +526,6 @@
   "no_sections_yet": "Ei osioita vielä",
   "add_sections_desc": "Lisää tekstiä, tiedostoja tai AI-sisältöä tähän oppituntiin",
   "back_to_course": "Takaisin kurssille",
-
   "create_quiz": "Luo tentti",
   "quiz_title": "Tentin otsikko",
   "quiz_title_placeholder": "esim., Moduulin 1 tentti",
@@ -573,7 +553,6 @@
   "quiz_unpublished": "Tentin julkaisu peruttu",
   "failed_to_publish_quiz": "Tentin julkaisu epäonnistui",
   "failed_to_unpublish_quiz": "Tentin julkaisun peruminen epäonnistui",
-
   "question_management": "Kysymysten hallinta",
   "add_question": "Lisää kysymys",
   "question_type": "Kysymystyyppi",
@@ -597,13 +576,11 @@
   "no_questions_desc": "Lisää kysymyksiä tähän tenttiin",
   "quiz_settings": "Tentin asetukset",
   "x_points_total": "{{count}} pistettä yhteensä",
-
   "create_forum_btn": "Luo keskustelu",
   "no_forums_yet": "Ei keskusteluja vielä",
   "no_forums_desc": "Luo keskustelufoorumeita opiskelijoiden vuorovaikutusta varten",
   "x_threads": "{{count}} ketjua",
   "x_posts": "{{count}} viestiä",
-
   "certificate_templates": "Todistusmallit",
   "create_certificate_template": "Luo todistusmalli",
   "template_name": "Mallin nimi",
@@ -618,8 +595,6 @@
   "date_var": "{{date}} - Suorituspäivämäärä",
   "instructor_name_var": "{{instructorName}} - Opettajan nimi",
   "template_created": "Todistusmalli luotu",
-  "template_updated": "Todistusmalli päivitetty",
-  "template_deleted": "Todistusmalli poistettu",
   "failed_to_create_template": "Mallin luonti epäonnistui",
   "failed_to_update_template_cert": "Mallin päivitys epäonnistui",
   "failed_to_delete_template_cert": "Mallin poisto epäonnistui",
@@ -627,7 +602,6 @@
   "no_templates_desc_cert": "Luo malleja myöntääksesi todistuksia opiskelijoille",
   "delete_template": "Poista malli",
   "delete_template_confirm": "Haluatko varmasti poistaa \"{{name}}\"?",
-
   "issue_certificates": "Myönnä todistuksia",
   "eligible_students": "Kelpoiset opiskelijat",
   "select_students": "Valitse opiskelijat",
@@ -643,7 +617,6 @@
   "revoke_certificate": "Peruuta todistus",
   "certificate_revoked": "Todistus peruutettu",
   "failed_to_revoke": "Todistuksen peruuttaminen epäonnistui",
-
   "survey_manager": "Kyselyiden hallinta",
   "create_survey": "Luo kysely",
   "survey_title": "Kyselyn otsikko",
@@ -666,17 +639,15 @@
   "delete_survey": "Poista kysely",
   "delete_survey_confirm": "Haluatko varmasti poistaa \"{{title}}\"? Kaikki vastaukset poistetaan myös.",
   "x_responses": "{{count}} vastausta",
-
   "survey_responses": "Kyselyn vastaukset",
   "export_responses": "Vie vastaukset",
   "responses_exported": "Vastaukset viety",
   "no_responses_yet": "Ei vastauksia vielä",
   "no_responses_desc": "Opiskelijat eivät ole vielä vastanneet tähän kyselyyn",
   "response_from": "Vastaus käyttäjältä {{name}}",
-  "submitted_on": "Lähetetty {{date}}",
+  "submitted_on": "Palautettu {{date}}",
   "average_rating": "Keskimääräinen arvosana",
   "response_summary": "Vastausten yhteenveto",
-
   "loading_lesson": "Ladataan oppituntia...",
   "lesson_not_found": "Oppituntia ei löydy",
   "lesson_saved": "Oppitunti tallennettu",
@@ -703,7 +674,6 @@
   "delete_section_confirm": "Haluatko varmasti poistaa tämän osion? Tätä toimintoa ei voi perua.",
   "title_required_msg": "Otsikko vaaditaan",
   "video_url_help": "YouTube, Vimeo tai suora video-URL",
-
   "loading_quizzes": "Ladataan tenttejä...",
   "create_manage_quizzes": "Luo ja hallitse kurssin tenttejä",
   "x_attempts": "{{count}} yritystä",
@@ -713,7 +683,6 @@
   "chapter_quiz_placeholder": "esim., Luku 1 -tentti",
   "brief_quiz_desc": "Lyhyt kuvaus tentistä",
   "max_attempts": "Max yritykset",
-
   "loading_quiz": "Ladataan tenttiä...",
   "failed_to_load_quiz": "Tentin lataus epäonnistui.",
   "go_back": "Palaa takaisin",
@@ -730,12 +699,10 @@
   "update_question": "Päivitä kysymys",
   "option_placeholder": "Vaihtoehto {{number}}",
   "add_first_question": "Lisää ensimmäinen kysymys aloittaaksesi",
-
   "manage_quizzes_all": "Hallitse tenttejä kaikilla kursseillasi",
   "no_quizzes_created": "Tenttejä ei ole luotu",
   "create_quizzes_from_course": "Luo tenttejä kurssin opetussuunnitelmasta.",
   "go_to_courses": "Siirry kursseihin",
-
   "loading_forums": "Ladataan keskusteluita...",
   "manage_forums_for": "Hallitse keskusteluita kurssille {{course}}",
   "new_forum": "Uusi keskustelu",
@@ -753,7 +720,6 @@
   "update_forum": "Päivitä keskustelu",
   "general_discussion_placeholder": "esim., Yleinen keskustelu",
   "what_is_forum_for": "Mitä tämä keskustelu koskee?",
-
   "loading_certificate_templates": "Ladataan todistusmalleja...",
   "create_manage_templates": "Luo ja hallitse todistusmalleja kursseillesi",
   "new_template": "Uusi malli",
@@ -763,15 +729,12 @@
   "created_on": "Luotu {{date}}",
   "certificate_content_html": "Todistuksen sisältö (HTML)",
   "placeholders_help": "Käytettävissä olevat paikkamerkit: {{studentName}}, {{courseName}}, {{date}}, {{verificationCode}}",
-  "edit_template": "Muokkaa mallia",
   "default_label": "Oletus",
-
   "loading_certificates": "Ladataan todistuksia...",
   "issue_manage_certs": "Myönnä ja hallitse todistuksia kurssille {{course}}",
   "issued_certificates_count": "Myönnetyt todistukset ({{count}})",
   "no_certs_issued": "Todistuksia ei ole vielä myönnetty tälle kurssille.",
   "issue_new_certificate": "Myönnä uusi todistus",
-  "search_students": "Etsi opiskelijoita...",
   "no_matching_students": "Vastaavia opiskelijoita ei löytynyt",
   "all_eligible_received": "Kaikki kelpoiset opiskelijat ovat jo saaneet todistuksen",
   "completed_percent": "{{percent}}% suoritettu",
@@ -781,7 +744,6 @@
   "failed_to_issue_cert": "Todistuksen myöntäminen epäonnistui",
   "view_cert": "Näytä",
   "issue": "Myönnä",
-
   "create_manage_surveys": "Luo ja hallitse palautekyselyitä",
   "no_surveys_message": "Ei kyselyitä vielä",
   "create_first_survey": "Luo ensimmäinen kysely",
@@ -807,9 +769,7 @@
   "free_text": "Vapaa teksti",
   "options_form": "Vaihtoehdot",
   "required_question": "Pakollinen kysymys",
-  "add_option": "Lisää vaihtoehto",
   "delete_confirm_survey": "Haluatko varmasti poistaa \"{{title}}\"? Tämä poistaa myös kaikki vastaukset.",
-
   "survey_title_responses": "{{title}} - Vastaukset",
   "back": "Takaisin",
   "summary_view": "Yhteenveto",
@@ -821,7 +781,6 @@
   "failed_load_responses": "Vastausten lataus epäonnistui",
   "failed_export_responses": "Vastausten vienti epäonnistui",
   "no_data_found": "Tietoja ei löytynyt",
-
   "delete_question_confirm": "Haluatko varmasti poistaa tämän kysymyksen?",
   "time_limit_display": "{{minutes}} min aikaraja",
   "settings": "Asetukset",
@@ -836,7 +795,6 @@
   "correct_answer_label": "Oikea vastaus",
   "explanation_label": "Selitys (näytetään vastaamisen jälkeen)",
   "failed_load_quiz": "Tietovisan lataaminen epäonnistui.",
-
   "manage_certificate_templates_desc": "Luo ja hallitse todistusmaleja kursseillesi",
   "create_template": "Luo malli",
   "created_date": "Luotu {{date}}",
@@ -845,7 +803,6 @@
   "certificate_html_placeholder": "<div>Todistuksen sisältö {{studentName}}, {{courseName}}, {{date}} -paikannimillä</div>",
   "available_placeholders": "Käytettävissä olevat paikannäet: {{studentName}}, {{courseName}}, {{date}}, {{verificationCode}}",
   "update_template": "Päivitä malli",
-
   "certificate_issued": "Todistus myönnetty onnistuneesti",
   "failed_issue_certificate": "Todistuksen myöntäminen epäonnistui",
   "issue_manage_certificates_for": "Myönnä ja hallitse todistuksia kurssille {{course}}",
@@ -853,7 +810,6 @@
   "all_students_have_certificates": "Kaikki kelpoiset opiskelijat ovat jo saaneet todistuksen",
   "completed_label": "suoritettu",
   "view": "Näytä",
-
   "surveys": "Kyselyt",
   "publish_survey": "Julkaise kysely",
   "anonymous_responses_desc": "Anonyymit vastaukset (ei käyttäjäseurantaa)",
@@ -861,13 +817,10 @@
   "question_label": "Kysymys",
   "enter_question_placeholder": "Kirjoita kysymyksesi",
   "options_label": "Vaihtoehdot",
-
   "responses": "Vastaukset",
   "question_number": "Kysymys {{number}}",
   "forum_title_label": "Foorumin otsikko",
-  "forum_description_placeholder": "Mitä varten tämä foorumi on?",
   "create_forum_title": "Luo foorumi",
-
   "loading_submission": "Ladataan palautusta...",
   "submission_not_found": "Palautusta ei löytynyt",
   "back_to_submissions": "Takaisin palautuksiin",
@@ -885,7 +838,7 @@
   "pending": "odottaa",
   "test_conversations": "testikeskustelua",
   "version": "Versio",
-  "submitted": "Palautettu",
+  "submitted": "Lähetetty",
   "agent_name": "Agentin nimi",
   "configuration": "Asetukset",
   "design_process": "Suunnitteluprosessi",
@@ -894,11 +847,9 @@
   "grade_tab": "Arviointi",
   "submission_graded_successfully": "Palautus arvioitu onnistuneesti!",
   "failed_to_grade": "Arviointi epäonnistui",
-
   "loading_your_agent": "Ladataan agenttiasi...",
   "agent_not_found": "Agenttia ei löytynyt",
   "could_not_load_agent": "Agenttia ei voitu ladata",
-  "back_to_course": "Takaisin kurssille",
   "agent_not_ready": "Agentti ei ole valmis",
   "agent_available_after_due": "Agenttisi on käytettävissä määräajan jälkeen. Jatka sen suunnittelua siihen asti.",
   "go_to_agent_builder": "Siirry agentinrakentajaan",
@@ -909,12 +860,10 @@
   "message_agent": "Viesti {{name}}...",
   "failed_to_start_conversation": "Keskustelun aloitus epäonnistui",
   "failed_to_send_message": "Viestin lähetys epäonnistui",
-
   "failed_to_load_assignment": "Tehtävän lataus epäonnistui",
   "something_went_wrong": "Jotain meni pieleen",
   "identity_role": "Identiteetti ja rooli",
   "behavior": "Käyttäytyminen",
-  "advanced": "Lisäasetukset",
   "test_reflect": "Testaa ja pohdi",
   "agent_created": "Agentti luotu onnistuneesti!",
   "agent_saved": "Agentti tallennettu!",
@@ -934,15 +883,12 @@
   "unsubmit_to_edit": "Peru lähetys muokkausta varten",
   "agent_unsubmitted": "Agentti palautettu luonnokseksi",
   "failed_to_unsubmit_agent": "Lähetyksen peruminen epäonnistui",
-  "submitted": "Lähetetty",
   "past_due": "Myöhässä ({{date}})",
-  "submitted_on": "Palautettu {{date}}",
   "due_on": "Määräaika {{date}}",
   "chat_with_agent": "Keskustele {{name}}",
   "graded_label": "Arvioitu",
   "feedback_label": "Palaute:",
   "instructions_header": "Ohjeet",
-
   "section_type_text": "Teksti",
   "section_type_file": "Tiedosto",
   "section_type_ai_generated": "AI-generoitu",
@@ -1032,7 +978,6 @@
   "manage_lesson_sections": "Hallitse oppitunnin osioita",
   "manage_content": "Hallitse sisältöä",
   "edit_lesson_details": "Muokkaa oppitunnin tietoja",
-  "edit_lab": "Muokkaa laboria",
   "edit_code_lab_details": "Muokkaa koodilaborin tietoja",
   "block_title_placeholder": "Lohkon otsikko...",
   "delete_block": "Poista lohko",
@@ -1052,7 +997,6 @@
   "title": "Otsikko",
   "assignment_instructions_placeholder": "Yksityiskohtaiset ohjeet opiskelijoille",
   "create_and_select": "Luo ja valitse",
-
   "just_now": "Juuri nyt",
   "minutes_ago": "{{count}} min sitten",
   "hours_ago": "{{count}} t sitten",
@@ -1063,7 +1007,6 @@
   "ai_tutor": "AI-tutor",
   "ask_follow_up": "Kysy jatkokysymys",
   "ask_follow_up_placeholder": "Kysy jatkokysymys...",
-
   "lecture_has_pdfs": "Tämä luento sisältää PDF-dokumentteja",
   "select_pages_for_ai": "Valitse sivut AI-kontekstiin",
   "n_pages": "{{count}} sivua",
@@ -1073,9 +1016,7 @@
   "all_pages_included": "Kaikki sivut mukana",
   "continue_to_ask_questions": "Jatka kysymysten esittämiseen",
   "select_pages_all_pdfs": "Valitse sivut kaikille suurille PDF-tiedostoille jatkaaksesi",
-
   "ask_about_lecture": "Kysy kysymys luennosta...",
-
   "generate_mcq_title": "Luo kysymyksiä tekoälyllä",
   "topic_label": "Aihe",
   "topic_placeholder": "esim. Johdatus koneoppimiseen",
@@ -1090,7 +1031,6 @@
   "options": "vaihtoehtoa",
   "include_explanations_label": "Sisällytä selitykset",
   "generate_button": "Luo kysymykset",
-  "generating": "Luodaan...",
   "preview_title": "Luodut kysymykset",
   "selected": "valittu",
   "add_selected": "Lisää valitut",
@@ -1101,10 +1041,7 @@
   "topic_required": "Anna aihe",
   "no_questions_selected": "Ei kysymyksiä valittuna",
   "failed_add_questions": "Kysymysten lisääminen epäonnistui",
-  "regenerate": "Luo uudelleen",
   "explanation": "Selitys",
-  "remove": "Poista",
-
   "generate_survey_title": "Luo kysely tekoälyllä",
   "survey_topic_label": "Aihe",
   "survey_topic_placeholder": "esim., Lukukauden lopun kurssiarviointi",
@@ -1119,5 +1056,9 @@
   "generating_survey": "Luodaan...",
   "generate_survey_button": "Luo kysely",
   "survey_generated_success": "Kysely luotu {{count}} kysymyksellä",
-  "survey_generation_failed": "Kyselyn luonti epäonnistui"
+  "survey_generation_failed": "Kyselyn luonti epäonnistui",
+  "make_public": "Julkinen",
+  "thumbnail_help": "Liitä URL-osoite kuvan käyttämiseksi kurssin kansikuvana. Jätä tyhjäksi käyttääksesi oletusliukuväriä.",
+  "curriculum_view_mode_help": "Määrittää, miten sisällysluettelo näkyy kurssin sivulla. Minikortit näyttää kompaktit kortit, Kuvakkeet käyttää kuvakelaatat, Lista näyttää yksinkertaisen listan ja Tiivistelynäkymä ryhmittelee kohteet tiivistettäviin osioihin.",
+  "curriculum_view_mode": "Opetussuunnitelman näkymätila"
 }

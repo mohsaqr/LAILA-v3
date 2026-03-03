@@ -10,6 +10,7 @@ import {
   Blocks,
   MessageSquare,
   Network,
+  Tag,
 } from 'lucide-react';
 
 interface AdminSidebarProps {
@@ -29,6 +30,7 @@ export const AdminSidebar = ({ className = '', onNavigate }: AdminSidebarProps) 
     { path: '/admin/logs', label: t('logs'), icon: BarChart3 },
     { path: '/admin/chatbot-registry', label: t('chatbots'), icon: MessageSquare },
     { path: '/admin/settings?tab=llm', label: t('llm'), icon: Bot },
+    { path: '/admin/settings?tab=categories', label: t('categories'), icon: Tag },
     { path: '/admin/settings?tab=system', label: t('system_label'), icon: Settings },
     { path: '/admin/prompt-blocks', label: t('prompts'), icon: Blocks },
   ];

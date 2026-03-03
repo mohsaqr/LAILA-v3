@@ -50,6 +50,7 @@ import quizRoutes from './routes/quiz.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import forumRoutes from './routes/forum.routes.js';
 import certificateRoutes from './routes/certificate.routes.js';
+import categoryRoutes from './routes/category.routes.js';
 
 // Import middleware
 import { errorHandler } from './middleware/error.middleware.js';
@@ -162,6 +163,7 @@ app.use('/api/quizzes', quizRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/forums', forumRoutes);
 app.use('/api/certificates', certificateRoutes);
+app.use('/api/categories', categoryRoutes);
 
 // Health check with comprehensive status
 app.get('/api/health', async (req, res) => {

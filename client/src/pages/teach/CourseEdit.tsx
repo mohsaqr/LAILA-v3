@@ -32,7 +32,7 @@ export const CourseEdit = () => {
       coursesApi.updateCourse(courseId, {
         ...data,
         difficulty: data.difficulty || null,
-      }),
+      } as any),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['course', courseId] });
       queryClient.invalidateQueries({ queryKey: ['teachingCourses'] });

@@ -38,7 +38,7 @@
   "google_settings": "Google AI -asetukset",
   "api_key": "API-avain",
   "model": "Malli",
-  "default_model": "Oletusmalli",
+  "default_model": "Oletus",
   "temperature": "Lämpötila",
   "max_tokens": "Max tokeneja",
   "rate_limits": "Pyyntörajoitukset",
@@ -62,7 +62,6 @@
   "filter_by_status": "Suodata tilan mukaan",
   "export_users": "Vie käyttäjät",
   "import_users": "Tuo käyttäjät",
-
   "users_management": "Käyttäjähallinta",
   "manage_user_accounts": "Hallitse käyttäjätilejä ja rooleja",
   "total_users": "Käyttäjiä yhteensä",
@@ -86,7 +85,6 @@
   "view_details": "Näytä tiedot",
   "student": "Opiskelija",
   "instructor": "Opettaja",
-
   "enrollments_management": "Ilmoittautumisten hallinta",
   "manage_enrollments": "Hallitse kurssien ilmoittautumisia",
   "add_enrollment": "Lisää ilmoittautuminen",
@@ -100,7 +98,6 @@
   "no_enrollments_found": "Ilmoittautumisia ei löytynyt.",
   "unenroll": "Peru ilmoittautuminen",
   "confirm_unenroll": "Haluatko varmasti poistaa käyttäjän \"{{user}}\" kurssilta \"{{course}}\"?",
-
   "llm_provider_settings": "LLM-palveluntarjoajan asetukset",
   "configure_ai_providers": "Määritä tekoälypalveluntarjoajat",
   "seed_defaults": "Alusta oletukset",
@@ -118,7 +115,6 @@
   "edit_provider": "Muokkaa palveluntarjoajaa",
   "delete_provider": "Poista palveluntarjoaja",
   "confirm_delete_provider": "Haluatko varmasti poistaa tämän palveluntarjoajan?",
-
   "loading_admin_dashboard": "Ladataan ylläpidon hallintapaneelia...",
   "overview": "Yleiskatsaus",
   "platform_statistics_desc": "Alustan tilastot ja viimeaikainen toiminta",
@@ -131,20 +127,17 @@
   "new_enrollments": "Uudet ilmoittautumiset",
   "no_recent_users": "Ei viimeaikaisia käyttäjiä",
   "no_recent_enrollments": "Ei viimeaikaisia ilmoittautumisia",
-
   "manage_users_permissions": "Hallitse käyttäjiä ja oikeuksia",
   "course_enrollments_batch": "Kurssien ilmoittautumiset ja joukkotoiminnot",
   "ai_provider_config": "Tekoälypalveluntarjoajan määritykset",
   "general_system_config": "Yleiset järjestelmäasetukset",
   "llm_providers": "LLM-palveluntarjoajat",
-
   "logs_analytics": "Lokit ja analytiikka",
   "logs_analytics_desc": "Tarkastele alustan toimintalokeja ja analytiikkaa",
   "activity_log": "Toimintaloki",
   "messages": "Viestit",
   "user_interactions": "Käyttäjän vuorovaikutukset",
   "chatbot_registry_desc": "Tarkastele ja hallitse kaikkia chatbotteja alustalla",
-
   "loading_user_details": "Ladataan käyttäjätietoja...",
   "user_not_found_error": "Käyttäjää ei löytynyt tai tietojen lataamisessa tapahtui virhe",
   "back_to_users": "Takaisin käyttäjiin",
@@ -159,7 +152,6 @@
   "remove_enrollment": "Poista ilmoittautuminen",
   "confirm_remove_enrollment": "Haluatko varmasti poistaa käyttäjän {{user}} kurssilta {{course}}?",
   "adding": "Lisätään...",
-
   "batch_enrollment_desc": "Lataa CSV-tiedostoja ilmoittaaksesi useita opiskelijoita kerralla",
   "download_template": "Lataa pohja",
   "upload_csv_file": "Lataa CSV-tiedosto",
@@ -182,7 +174,6 @@
   "skipped": "Ohitettu",
   "row": "Rivi",
   "message": "Viesti",
-
   "loading_system_info": "Ladataan järjestelmätietoja...",
   "system_info_maintenance": "Järjestelmätiedot ja ylläpito",
   "system_information": "Järjestelmätiedot",
@@ -206,7 +197,6 @@
   "reset_data": "Nollaa tiedot",
   "confirm_reset": "Vahvista nollaus",
   "reset_not_implemented": "Nollaustoimintoa ei ole vielä toteutettu",
-
   "loading_forum_logs": "Ladataan keskustelupalstoja...",
   "forums": "Foorumit",
   "threads": "Ketjut",
@@ -238,7 +228,6 @@
   "location": "Sijainti",
   "reply_to_post": "Vastaus toiseen viestiin",
   "original_post": "Alkuperäinen viesti ketjussa",
-
   "total_activities": "Toimintoja yhteensä",
   "top_verbs": "Yleisimmät verbit",
   "top_object_types": "Yleisimmät kohdetyypit",
@@ -286,7 +275,6 @@
   "prev": "Edellinen",
   "next": "Seuraava",
   "last": "Viimeinen",
-
   "loading_messages": "Ladataan viestejä...",
   "total_messages": "Viestejä yhteensä",
   "chatbot": "Chatbot",
@@ -312,7 +300,6 @@
   "timing_session": "Ajoitus ja istunto",
   "conversation_id": "Keskustelun ID",
   "message_index": "Viestin indeksi",
-
   "total_interactions": "Vuorovaikutukset yhteensä",
   "unique_sessions": "Yksilölliset istunnot",
   "top_event_types": "Yleisimmät tapahtumatyypit",
@@ -348,13 +335,11 @@
   "test_mode": "Testitila",
   "page_label": "Sivu",
   "title_label": "Otsikko",
-
   "total_chatbots": "Chatbotit yhteensä",
   "global_ai_tutors": "Globaalit tekoälytutorit",
   "section_chatbots": "Osion chatbotit",
   "total_conversations": "Keskustelut yhteensä",
   "search_chatbot": "Hae nimestä, kehotteesta, kuvauksesta...",
-  "all_types": "Kaikki tyypit",
   "all_creators": "Kaikki luojat",
   "all_categories": "Kaikki kategoriat",
   "creator": "Luoja",
@@ -363,7 +348,6 @@
   "conversations_abbr": "Kesk.",
   "messages_abbr": "Viestit",
   "global": "Globaali",
-  "section": "Osio",
   "inactive": "Ei-aktiivinen",
   "uncategorized": "Ei luokiteltu",
   "no_chatbots_found": "Chatbotteja ei löytynyt",
@@ -377,7 +361,6 @@
   "configuration": "Asetukset",
   "personality": "Persoonallisuus",
   "response_style": "Vastaustyyli",
-  "default_model": "Oletus",
   "last_activity": "Viimeinen toiminta",
   "user_experience": "Käyttäjäkokemus",
   "welcome_message": "Tervetuloviesti",
@@ -385,14 +368,12 @@
   "knowledge_context": "Tietokonteksti",
   "personality_prompt": "Persoonallisuuskehote",
   "created": "Luotu",
-
   "open_menu": "Avaa valikko",
   "close_menu": "Sulje valikko",
   "chatbots": "Chatbotit",
   "llm": "LLM",
   "system_label": "Järjestelmä",
   "prompts": "Kehotteet",
-
   "course_team": "Kurssitiimi",
   "add_role": "Lisää rooli",
   "no_team_members": "Tiimin jäseniä ei ole vielä määritelty.",
@@ -405,7 +386,6 @@
   "remove_team_member": "Poista tiimin jäsen",
   "confirm_remove_team_member": "Haluatko varmasti poistaa käyttäjän {{name}} tästä kurssitiimistä?",
   "loading_course_roles": "Ladataan kurssirooleja...",
-
   "user_updated": "Käyttäjä päivitetty",
   "cannot_change_own_role": "Et voi muuttaa omaa rooliasi",
   "change_role": "Vaihda rooli",
@@ -422,7 +402,6 @@
   "batch_import_instructions": "Liitä CSV-tiedot sarakkeilla:",
   "import": "Tuo",
   "feature_coming_soon": "Ominaisuus tulossa pian",
-
   "loading_chatbot_logs": "Ladataan chatbot-lokeja...",
   "total_logs": "Lokit yhteensä",
   "active_chatbots": "Aktiiviset chatbotit",
@@ -449,7 +428,6 @@
   "intro": "Esittely",
   "response_label": "Vastaus",
   "error": "Virhe",
-
   "provider_created": "Palveluntarjoaja luotu",
   "provider_updated": "Palveluntarjoaja päivitetty",
   "provider_deleted": "Palveluntarjoaja poistettu",
@@ -468,7 +446,6 @@
   "confirm_delete": "Vahvista poisto",
   "are_you_sure_delete": "Haluatko varmasti poistaa tämän?",
   "default": "Oletus",
-
   "loading_prompt_blocks": "Ladataan kehotelohkoja...",
   "prompt_building_blocks": "Kehoterakennuspalikat",
   "prompt_blocks_description": "Hallitse kehotelohkoja, joita opiskelijat voivat käyttää AI-agenttien rakentamiseen",
@@ -509,7 +486,6 @@
   "slug": "Tunniste",
   "slug_placeholder": "esim. oma_kategoria",
   "slug_hint": "Vain pienet kirjaimet, numerot ja alaviivat",
-  "name": "Nimi",
   "category_name_placeholder": "esim. Oma kategoria",
   "category_description_placeholder": "Lyhyt kuvaus kategoriasta",
   "icon": "Ikoni",
@@ -519,7 +495,6 @@
   "icon_shield_constraint": "Kilpi (Rajoitus)",
   "icon_layout_format": "Asettelu (Muoto)",
   "icon_book_knowledge": "Kirja (Tieto)",
-
   "mcq_generation": "Monivalintakysymysten luonti",
   "mcq_generation_config": "Määritä tekoälykysymysten luonti",
   "mcq_generation_settings": "Monivalintakysymysten luontiasetukset",
@@ -533,7 +508,6 @@
   "default_option_count": "Oletusvaihtoehtojen määrä",
   "max_questions_per_request": "Enimmäiskysymyksiä per pyyntö",
   "default_difficulty": "Oletusvaikeustaso",
-  "temperature": "Lämpötila",
   "temperature_help": "Matalammat arvot (0.2-0.4) = johdonmukaisempi, korkeammat (0.6-0.8) = luovempi",
   "include_explanations_default": "Sisällytä selitykset oletuksena",
   "test_generation": "Testaa luontia",
@@ -547,7 +521,6 @@
   "mcq_settings_saved": "Monivalinta-asetukset tallennettu",
   "failed_save_settings": "Asetusten tallennus epäonnistui",
   "failed_load_settings": "Asetusten lataus epäonnistui",
-
   "frontpage": "Etusivu",
   "dashboard": "Kojelauta",
   "dashboard_desc": "Oppimisanalytiikka ja TNA-visualisoinnit",
@@ -575,7 +548,6 @@
   "show_edge_labels": "Kaarien nimet",
   "node_radius": "Solmun koko",
   "graph_height": "Graafin korkeus",
-
   "provider_type": "Palveluntarjoajan tyyppi",
   "provider_slug": "Tunnus",
   "provider_slug_hint": "Luodaan automaattisesti jos tyhjä",
@@ -608,7 +580,6 @@
   "disabled_label": "Poistettu käytöstä",
   "default_label": "Oletus",
   "duplicate": "Kopioi",
-
   "model_type": "Mallityyppi",
   "model_relative": "Suhteellinen",
   "model_frequency": "Frekvenssi",
@@ -625,5 +596,13 @@
   "in_strength": "Tulovahvuus",
   "betweenness": "Välillisyys",
   "closeness": "Läheisyys",
-  "clustering_coeff": "Klusterointi"
+  "clustering_coeff": "Klusterointi",
+  "categories": "Kategoriat",
+  "manage_categories_desc": "Hallinnoi kurssikategorioita",
+  "delete_category": "Poista kategoria",
+  "category_title": "Kategorian nimi",
+  "category_deleted": "Kategoria poistettu",
+  "confirm_delete_category": "Poistetaanko \"{{title}}\"? Tämän kategorian kursseja ei poisteta.",
+  "no_categories": "Ei kategorioita vielä",
+  "loading_categories": "Ladataan kategorioita..."
 }

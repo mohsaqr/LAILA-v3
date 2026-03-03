@@ -26,8 +26,8 @@ export class CourseService {
       isPublic: true,
     };
 
-    if (filters.category) {
-      where.category = filters.category;
+    if (filters.categoryId) {
+      where.categories = { some: { categoryId: filters.categoryId } };
     }
     if (filters.difficulty) {
       where.difficulty = filters.difficulty;
@@ -46,6 +46,7 @@ export class CourseService {
           instructor: {
             select: { id: true, fullname: true },
           },
+          categories: { include: { category: true } },
           _count: {
             select: { enrollments: true, modules: true },
           },
@@ -80,6 +81,7 @@ export class CourseService {
         instructor: {
           select: { id: true, fullname: true, email: true },
         },
+        categories: { include: { category: true } },
         modules: {
           where: includeUnpublished ? {} : { isPublished: true },
           orderBy: { orderIndex: 'asc' },
@@ -164,6 +166,7 @@ export class CourseService {
         instructor: {
           select: { id: true, fullname: true },
         },
+        categories: { include: { category: true } },
         modules: {
           where: { isPublished: true },
           orderBy: { orderIndex: 'asc' },
@@ -233,6 +236,7 @@ export class CourseService {
           instructor: {
             select: { id: true, fullname: true },
           },
+          categories: { include: { category: true } },
           modules: {
             orderBy: { orderIndex: 'asc' },
             include: {
@@ -261,10 +265,11 @@ export class CourseService {
 
   async createCourse(instructorId: number, data: CreateCourseInput, context?: SystemEventContext) {
     const slug = this.generateSlug(data.title);
+    const { categoryIds, ...courseData } = data;
 
     const course = await prisma.course.create({
       data: {
-        ...data,
+        ...courseData,
         slug,
         instructorId,
       },
@@ -272,8 +277,15 @@ export class CourseService {
         instructor: {
           select: { id: true, fullname: true },
         },
+        categories: { include: { category: true } },
       },
     });
+
+    if (categoryIds?.length) {
+      await prisma.courseCategory.createMany({
+        data: categoryIds.map(categoryId => ({ courseId: course.id, categoryId })),
+      });
+    }
 
     // Log course creation event
     try {
@@ -286,7 +298,7 @@ export class CourseService {
         targetId: course.id,
         targetTitle: course.title,
         courseId: course.id,
-        newValues: { title: course.title, description: course.description, category: course.category, difficulty: course.difficulty },
+        newValues: { title: course.title, description: course.description, difficulty: course.difficulty },
       }, context?.ipAddress);
     } catch (error) {
       console.error('Failed to log course create event:', error);
@@ -312,21 +324,32 @@ export class CourseService {
     const previousValues = {
       title: course.title,
       description: course.description,
-      category: course.category,
       difficulty: course.difficulty,
       status: course.status,
       isPublic: course.isPublic,
     };
 
+    const { categoryIds, ...courseData } = data;
+
     const updated = await prisma.course.update({
       where: { id: courseId },
-      data,
+      data: courseData,
       include: {
         instructor: {
           select: { id: true, fullname: true },
         },
+        categories: { include: { category: true } },
       },
     });
+
+    if (categoryIds !== undefined) {
+      await prisma.courseCategory.deleteMany({ where: { courseId } });
+      if (categoryIds.length) {
+        await prisma.courseCategory.createMany({
+          data: categoryIds.map(categoryId => ({ courseId, categoryId })),
+        });
+      }
+    }
 
     // Log course update event
     try {

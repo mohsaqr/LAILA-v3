@@ -225,7 +225,7 @@ export const TeachDashboard = () => {
                     <div className="flex items-center gap-4 text-xs" style={{ color: colors.textMuted }}>
                       <span>{course._count?.modules || 0} modules</span>
                       <span>{course._count?.enrollments || 0} students</span>
-                      {course.category && <span className="capitalize">{course.category}</span>}
+                      {course.categories?.[0] && <span className="capitalize">{course.categories[0].category.title}</span>}
                     </div>
                   </div>
 

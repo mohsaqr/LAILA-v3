@@ -444,7 +444,6 @@ model Course {
   description  String?
   thumbnail    String?
   instructorId Int       @map("instructor_id")
-  category     String?
   difficulty   String? // beginner, intermediate, advanced
   status       String    @default("draft") // draft, published, archived
   isPublic     Boolean   @default(true) @map("is_public")
@@ -464,6 +463,7 @@ model Course {
 
   // Relations
   instructor    User                 @relation("InstructorCourses", fields: [instructorId], references: [id])
+  categories    CourseCategory[]
   modules       CourseModule[]
   enrollments   Enrollment[]
   assignments   Assignment[]
@@ -492,6 +492,27 @@ model Course {
   @@index([instructorId])
   @@index([status])
   @@map("courses")
+}
+
+model Category {
+  id        Int              @id @default(autoincrement())
+  title     String           @unique
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+  courses   CourseCategory[]
+
+  @@map("categories")
+}
+
+model CourseCategory {
+  id         Int      @id @default(autoincrement())
+  courseId   Int      @map("course_id")
+  categoryId Int      @map("category_id")
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, categoryId])
+  @@map("course_categories")
 }
 
 model CourseModule {

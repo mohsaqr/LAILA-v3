@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { coursesApi } from '../api/courses';
 import { enrollmentsApi } from '../api/enrollments';
+import { categoriesApi } from '../api/categories';
 import { Card, CardBody } from '../components/common/Card';
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
@@ -42,7 +43,7 @@ export const Catalog = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const filter = searchParams.get('filter'); // 'enrolled' | 'completed' | null
   const [search, setSearch] = useState('');
-  const [category, setCategory] = useState('');
+  const [categoryId, setCategoryId] = useState<number | ''>('');
   const [difficulty, setDifficulty] = useState('');
   const [page, setPage] = useState(1);
 
@@ -63,22 +64,17 @@ export const Catalog = () => {
     enabled: isAuthenticated && canCreateCourses,
   });
 
-  // Fetch public course catalog
-  const { data, isLoading } = useQuery({
-    queryKey: ['courses', { search, category, difficulty, page }],
-    queryFn: () => coursesApi.getCourses({ search, category, difficulty, page, limit: 12 }),
+  // Fetch categories for filter dropdown
+  const { data: categoriesList } = useQuery({
+    queryKey: ['categories'],
+    queryFn: categoriesApi.getCategories,
   });
 
-  const categories = [
-    { value: 'programming', label: t('category_programming') },
-    { value: 'data-science', label: t('category_data_science') },
-    { value: 'design', label: t('category_design') },
-    { value: 'business', label: t('category_business') },
-    { value: 'marketing', label: t('category_marketing') },
-    { value: 'language', label: t('category_language') },
-    { value: 'education', label: t('category_education') },
-    { value: 'other', label: t('category_other') },
-  ];
+  // Fetch public course catalog
+  const { data, isLoading } = useQuery({
+    queryKey: ['courses', { search, categoryId, difficulty, page }],
+    queryFn: () => coursesApi.getCourses({ search, categoryId: categoryId || undefined, difficulty, page, limit: 12 }),
+  });
   const difficulties = [
     { value: 'beginner', label: t('beginner') },
     { value: 'intermediate', label: t('intermediate') },
@@ -252,17 +248,17 @@ export const Catalog = () => {
           </div>
 
           <select
-            value={category}
+            value={categoryId}
             onChange={(e) => {
-              setCategory(e.target.value);
+              setCategoryId(e.target.value ? parseInt(e.target.value) : '');
               setPage(1);
             }}
             className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
           >
             <option value="">{t('all_categories')}</option>
-            {categories.map((cat) => (
-              <option key={cat.value} value={cat.value}>
-                {cat.label}
+            {categoriesList?.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.title}
               </option>
             ))}
           </select>
@@ -497,12 +493,12 @@ const CourseCard = ({ course }: { course: Course }) => {
 
         <CardBody>
           {/* Category & Difficulty */}
-          <div className="flex items-center gap-2 mb-3">
-            {course.category && (
-              <span className="text-xs font-medium text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/30 px-2 py-1 rounded">
-                {course.category}
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            {course.categories?.slice(0, 2).map(cc => (
+              <span key={cc.category.id} className="text-xs font-medium text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/30 px-2 py-1 rounded">
+                {cc.category.title}
               </span>
-            )}
+            ))}
             {course.difficulty && (
               <span
                 className={`text-xs font-medium px-2 py-1 rounded ${difficultyColors[course.difficulty] || ''}`}

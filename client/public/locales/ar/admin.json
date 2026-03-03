@@ -38,7 +38,7 @@
   "google_settings": "إعدادات Google AI",
   "api_key": "مفتاح API",
   "model": "النموذج",
-  "default_model": "النموذج الافتراضي",
+  "default_model": "الافتراضي",
   "temperature": "درجة الحرارة",
   "max_tokens": "أقصى عدد من الرموز",
   "rate_limits": "حدود المعدل",
@@ -62,7 +62,6 @@
   "filter_by_status": "تصفية حسب الحالة",
   "export_users": "تصدير المستخدمين",
   "import_users": "استيراد المستخدمين",
-
   "users_management": "إدارة المستخدمين",
   "manage_user_accounts": "إدارة حسابات المستخدمين والأدوار",
   "total_users": "إجمالي المستخدمين",
@@ -86,7 +85,6 @@
   "view_details": "عرض التفاصيل",
   "student": "طالب",
   "instructor": "مدرّس",
-
   "enrollments_management": "إدارة التسجيلات",
   "manage_enrollments": "إدارة تسجيلات الدورات",
   "add_enrollment": "إضافة تسجيل",
@@ -100,7 +98,6 @@
   "no_enrollments_found": "لم يتم العثور على تسجيلات.",
   "unenroll": "إلغاء التسجيل",
   "confirm_unenroll": "هل أنت متأكد من إزالة \"{{user}}\" من دورة \"{{course}}\"؟",
-
   "llm_provider_settings": "إعدادات مزود نموذج اللغة",
   "configure_ai_providers": "تكوين مزودي الذكاء الاصطناعي للمنصة",
   "seed_defaults": "تهيئة الافتراضيات",
@@ -118,7 +115,6 @@
   "edit_provider": "تعديل المزود",
   "delete_provider": "حذف المزود",
   "confirm_delete_provider": "هل أنت متأكد من حذف هذا المزود؟",
-
   "loading_admin_dashboard": "جاري تحميل لوحة تحكم المشرف...",
   "overview": "نظرة عامة",
   "platform_statistics_desc": "إحصائيات المنصة والنشاط الأخير",
@@ -131,20 +127,17 @@
   "new_enrollments": "التسجيلات الجديدة",
   "no_recent_users": "لا يوجد مستخدمون جدد",
   "no_recent_enrollments": "لا توجد تسجيلات جديدة",
-
   "manage_users_permissions": "إدارة المستخدمين والصلاحيات",
   "course_enrollments_batch": "تسجيلات الدورات والعمليات الجماعية",
   "ai_provider_config": "تكوين مزود الذكاء الاصطناعي",
   "general_system_config": "إعدادات النظام العامة",
   "llm_providers": "مزودو نماذج اللغة",
-
   "logs_analytics": "السجلات والتحليلات",
   "logs_analytics_desc": "عرض سجلات نشاط المنصة والتحليلات",
   "activity_log": "سجل النشاط",
   "messages": "الرسائل",
   "user_interactions": "تفاعلات المستخدمين",
   "chatbot_registry_desc": "عرض وإدارة جميع الدردشات الآلية عبر المنصة",
-
   "loading_user_details": "جاري تحميل تفاصيل المستخدم...",
   "user_not_found_error": "المستخدم غير موجود أو حدث خطأ في تحميل التفاصيل",
   "back_to_users": "العودة إلى المستخدمين",
@@ -159,7 +152,6 @@
   "remove_enrollment": "إزالة التسجيل",
   "confirm_remove_enrollment": "هل أنت متأكد من إزالة {{user}} من {{course}}؟",
   "adding": "جاري الإضافة...",
-
   "batch_enrollment_desc": "رفع ملفات CSV لتسجيل عدة طلاب دفعة واحدة",
   "download_template": "تنزيل القالب",
   "upload_csv_file": "رفع ملف CSV",
@@ -182,7 +174,6 @@
   "skipped": "تم التخطي",
   "row": "صف",
   "message": "رسالة",
-
   "loading_system_info": "جاري تحميل معلومات النظام...",
   "system_info_maintenance": "معلومات النظام والصيانة",
   "system_information": "معلومات النظام",
@@ -206,7 +197,6 @@
   "reset_data": "إعادة تعيين البيانات",
   "confirm_reset": "تأكيد إعادة التعيين",
   "reset_not_implemented": "وظيفة إعادة التعيين غير مفعّلة بعد",
-
   "loading_forum_logs": "جاري تحميل سجلات المنتديات...",
   "forums": "المنتديات",
   "threads": "المواضيع",
@@ -238,7 +228,6 @@
   "location": "الموقع",
   "reply_to_post": "رد على مشاركة أخرى",
   "original_post": "المشاركة الأصلية في الموضوع",
-
   "total_activities": "إجمالي الأنشطة",
   "top_verbs": "أكثر الأفعال",
   "top_object_types": "أكثر أنواع الكائنات",
@@ -266,7 +255,7 @@
   "course_hierarchy": "التسلسل الهرمي للدورة",
   "module": "الوحدة",
   "lecture": "المحاضرة",
-  "section": "القسم",
+  "section": "قسم",
   "order": "الترتيب",
   "results": "النتائج",
   "score": "الدرجة",
@@ -286,7 +275,6 @@
   "prev": "السابق",
   "next": "التالي",
   "last": "الأخيرة",
-
   "loading_messages": "جاري تحميل الرسائل...",
   "total_messages": "إجمالي الرسائل",
   "chatbot": "الدردشة الآلية",
@@ -312,7 +300,6 @@
   "timing_session": "التوقيت والجلسة",
   "conversation_id": "معرّف المحادثة",
   "message_index": "فهرس الرسالة",
-
   "total_interactions": "إجمالي التفاعلات",
   "unique_sessions": "الجلسات الفريدة",
   "top_event_types": "أنواع الأحداث الرئيسية",
@@ -348,13 +335,11 @@
   "test_mode": "وضع الاختبار",
   "page_label": "الصفحة",
   "title_label": "العنوان",
-
   "total_chatbots": "إجمالي روبوتات الدردشة",
   "global_ai_tutors": "معلمو الذكاء الاصطناعي العالميون",
   "section_chatbots": "روبوتات دردشة القسم",
   "total_conversations": "إجمالي المحادثات",
   "search_chatbot": "بحث في الاسم، الموجه، الوصف...",
-  "all_types": "جميع الأنواع",
   "all_creators": "جميع المنشئين",
   "all_categories": "جميع الفئات",
   "creator": "المنشئ",
@@ -363,7 +348,6 @@
   "conversations_abbr": "محادثات",
   "messages_abbr": "رسائل",
   "global": "عالمي",
-  "section": "قسم",
   "inactive": "غير نشط",
   "uncategorized": "غير مصنف",
   "no_chatbots_found": "لم يتم العثور على روبوتات دردشة",
@@ -377,7 +361,6 @@
   "configuration": "الإعدادات",
   "personality": "الشخصية",
   "response_style": "نمط الاستجابة",
-  "default_model": "الافتراضي",
   "last_activity": "آخر نشاط",
   "user_experience": "تجربة المستخدم",
   "welcome_message": "رسالة الترحيب",
@@ -385,14 +368,12 @@
   "knowledge_context": "سياق المعرفة",
   "personality_prompt": "موجه الشخصية",
   "created": "تم الإنشاء",
-
   "open_menu": "فتح القائمة",
   "close_menu": "إغلاق القائمة",
   "chatbots": "روبوتات الدردشة",
   "llm": "نماذج اللغة",
   "system_label": "النظام",
   "prompts": "الموجهات",
-
   "course_team": "فريق الدورة",
   "add_role": "إضافة دور",
   "no_team_members": "لم يتم تعيين أعضاء الفريق بعد.",
@@ -405,7 +386,6 @@
   "remove_team_member": "إزالة عضو الفريق",
   "confirm_remove_team_member": "هل أنت متأكد من إزالة {{name}} من فريق هذه الدورة؟",
   "loading_course_roles": "جاري تحميل أدوار الدورة...",
-
   "user_updated": "تم تحديث المستخدم",
   "cannot_change_own_role": "لا يمكنك تغيير دورك الخاص",
   "change_role": "تغيير الدور",
@@ -422,7 +402,6 @@
   "batch_import_instructions": "الصق بيانات CSV بالأعمدة:",
   "import": "استيراد",
   "feature_coming_soon": "الميزة قادمة قريباً",
-
   "loading_chatbot_logs": "جاري تحميل سجلات المحادثة الآلية...",
   "total_logs": "إجمالي السجلات",
   "active_chatbots": "روبوتات المحادثة النشطة",
@@ -449,7 +428,6 @@
   "intro": "المقدمة",
   "response_label": "الاستجابة",
   "error": "خطأ",
-
   "provider_created": "تم إنشاء المزود بنجاح",
   "provider_updated": "تم تحديث المزود بنجاح",
   "provider_deleted": "تم حذف المزود بنجاح",
@@ -468,7 +446,6 @@
   "confirm_delete": "تأكيد الحذف",
   "are_you_sure_delete": "هل أنت متأكد من حذف هذا العنصر؟",
   "default": "افتراضي",
-
   "loading_prompt_blocks": "جاري تحميل كتل الأوامر...",
   "prompt_building_blocks": "كتل بناء الأوامر",
   "prompt_blocks_description": "إدارة كتل الأوامر التي يمكن للطلاب استخدامها لبناء وكلاء الذكاء الاصطناعي",
@@ -509,7 +486,6 @@
   "slug": "المعرف",
   "slug_placeholder": "مثال: فئة_مخصصة",
   "slug_hint": "أحرف صغيرة وأرقام وشرطات سفلية فقط",
-  "name": "الاسم",
   "category_name_placeholder": "مثال: فئة مخصصة",
   "category_description_placeholder": "وصف قصير لهذه الفئة",
   "icon": "الأيقونة",
@@ -519,7 +495,6 @@
   "icon_shield_constraint": "درع (قيد)",
   "icon_layout_format": "تخطيط (تنسيق)",
   "icon_book_knowledge": "كتاب (معرفة)",
-
   "mcq_settings_title": "إعدادات إنشاء الأسئلة متعددة الخيارات",
   "mcq_settings_description": "تكوين موجهات النظام والإعدادات الافتراضية لإنشاء الأسئلة متعددة الخيارات بالذكاء الاصطناعي",
   "system_prompt_label": "موجه النظام",
@@ -546,7 +521,6 @@
   "mcq_generation": "إنشاء الأسئلة متعددة الخيارات",
   "mcq_generation_tab": "إنشاء الأسئلة متعددة الخيارات",
   "ai_question_generation": "إنشاء الأسئلة بالذكاء الاصطناعي",
-
   "frontpage": "الصفحة الرئيسية",
   "dashboard": "لوحة المعلومات",
   "dashboard_desc": "تحليلات التعلم وتصورات TNA",
@@ -574,7 +548,6 @@
   "show_edge_labels": "تسميات الحواف",
   "node_radius": "حجم العقدة",
   "graph_height": "ارتفاع الرسم البياني",
-
   "provider_type": "نوع المزود",
   "provider_slug": "المعرف",
   "provider_slug_hint": "يتم إنشاؤه تلقائياً إذا ترك فارغاً",
@@ -607,7 +580,6 @@
   "disabled_label": "معطّل",
   "default_label": "افتراضي",
   "duplicate": "تكرار",
-
   "model_type": "نوع النموذج",
   "model_relative": "نسبي",
   "model_frequency": "التكرار",
@@ -624,5 +596,13 @@
   "in_strength": "قوة الدخول",
   "betweenness": "الوساطة",
   "closeness": "القرب",
-  "clustering_coeff": "التجميع"
+  "clustering_coeff": "التجميع",
+  "categories": "الفئات",
+  "manage_categories_desc": "إدارة فئات الدورات",
+  "delete_category": "حذف الفئة",
+  "category_title": "عنوان الفئة",
+  "category_deleted": "تم حذف الفئة",
+  "confirm_delete_category": "حذف \"{{title}}\"؟ لن يتم حذف الدورات في هذه الفئة.",
+  "no_categories": "لا توجد فئات بعد",
+  "loading_categories": "جارٍ تحميل الفئات..."
 }

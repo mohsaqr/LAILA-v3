@@ -502,7 +502,6 @@ What you DON'T do:
       slug: 'intro-to-ai-research',
       description: 'Master the fundamentals of using artificial intelligence tools in academic research. This comprehensive course covers everything from understanding AI capabilities and limitations to practical applications in literature reviews, data analysis, and research writing. You will learn to critically evaluate AI outputs, avoid common pitfalls, and leverage these powerful tools to enhance your research productivity while maintaining academic integrity.',
       instructorId: instructor.id,
-      category: 'Research Methods',
       difficulty: 'beginner',
       status: 'published',
       isPublic: true,
@@ -823,7 +822,6 @@ What you DON'T do:
       slug: 'academic-writing-ai',
       description: 'Learn to effectively use AI tools to enhance your academic writing while maintaining your authentic voice and adhering to academic integrity standards. This course covers practical strategies for using AI in drafting, editing, citation management, and overcoming writer\'s block, while ensuring your work remains genuinely yours.',
       instructorId: instructor.id,
-      category: 'Academic Writing',
       difficulty: 'intermediate',
       status: 'published',
       isPublic: true,
@@ -1092,7 +1090,6 @@ Write bullet points of your key ideas, then ask AI to help expand them. Heavily 
       slug: 'data-analysis-beginners',
       description: 'A practical introduction to data analysis for students and researchers with no prior experience. Learn fundamental concepts of statistics, data visualization, and interpretation through hands-on exercises. By the end of this course, you will be able to conduct basic analyses, create meaningful visualizations, and interpret results for your research projects.',
       instructorId: instructor2.id,
-      category: 'Data Science',
       difficulty: 'beginner',
       status: 'published',
       isPublic: true,
@@ -1369,7 +1366,6 @@ Write bullet points of your key ideas, then ask AI to help expand them. Heavily 
       slug: 'pedagogy-science-art-teaching',
       description: 'Explore the foundations of effective teaching and learning. This course covers learning theories, instructional design, active learning strategies, assessment methods, and technology-enhanced learning. Through lectures, discussions, hands-on data analysis labs, and reflective assignments, you will develop a comprehensive understanding of pedagogical principles and practical skills for designing impactful educational experiences.',
       instructorId: instructor.id,
-      category: 'Education',
       difficulty: 'intermediate',
       status: 'published',
       isPublic: true,
@@ -3696,6 +3692,39 @@ ggplot(spq, aes(x = deep_approach, y = gpa, color = surface_approach)) +
   }
 
   console.log(`Created ${activityBatch.length} learning activity log events`);
+
+  // Seed default categories
+  const categoryTitles = [
+    // Technology
+    'Programming', 'Web Development', 'Mobile Development', 'Data Science',
+    'Machine Learning', 'Artificial Intelligence', 'Cybersecurity', 'Cloud Computing',
+    'DevOps', 'Databases', 'Networking', 'Blockchain',
+    // Creative & Design
+    'Design', 'UI/UX Design', 'Graphic Design', '3D Modeling',
+    'Video Production', 'Photography', 'Animation', 'Game Development',
+    // Business & Finance
+    'Business', 'Entrepreneurship', 'Finance', 'Accounting',
+    'Project Management', 'Leadership', 'Marketing', 'Sales',
+    'Human Resources', 'Operations', 'Supply Chain', 'Real Estate',
+    // Science & Academia
+    'Mathematics', 'Statistics', 'Physics', 'Biology',
+    'Chemistry', 'Environmental Science', 'Research Methods', 'Academic Writing',
+    // Humanities & Social
+    'History', 'Philosophy', 'Psychology', 'Sociology',
+    'Political Science', 'Economics', 'Law',
+    // Language & Education
+    'Language', 'Education', 'Teaching', 'Linguistics',
+    // Health & Lifestyle
+    'Health & Wellness', 'Nutrition', 'Other',
+  ];
+  for (const title of categoryTitles) {
+    await prisma.category.upsert({
+      where: { title },
+      update: {},
+      create: { title },
+    });
+  }
+  console.log('Created default categories');
 
   console.log('Seeding completed!');
 }

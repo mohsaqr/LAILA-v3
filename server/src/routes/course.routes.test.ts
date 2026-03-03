@@ -154,20 +154,20 @@ describe('Course Routes', () => {
   describe('GET /api/courses', () => {
     it('should return paginated courses', async () => {
       const mockResult = {
-        data: [
-          { id: 1, title: 'Course 1', slug: 'course-1' },
-          { id: 2, title: 'Course 2', slug: 'course-2' },
+        courses: [
+          { id: 1, title: 'Course 1', slug: 'course-1', categories: [] },
+          { id: 2, title: 'Course 2', slug: 'course-2', categories: [] },
         ],
         pagination: { page: 1, limit: 10, total: 2, totalPages: 1 },
       };
-      vi.mocked(courseService.getCourses).mockResolvedValue(mockResult);
+      vi.mocked(courseService.getCourses).mockResolvedValue(mockResult as any);
 
       const response = await request(app)
         .get('/api/courses')
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveLength(2);
+      expect(response.body.courses).toHaveLength(2);
       expect(courseService.getCourses).toHaveBeenCalledWith(
         expect.objectContaining({}),
         1,
@@ -177,9 +177,9 @@ describe('Course Routes', () => {
 
     it('should support pagination parameters', async () => {
       vi.mocked(courseService.getCourses).mockResolvedValue({
-        data: [],
+        courses: [],
         pagination: { page: 2, limit: 5, total: 0, totalPages: 0 },
-      });
+      } as any);
 
       await request(app)
         .get('/api/courses?page=2&limit=5')
@@ -194,17 +194,17 @@ describe('Course Routes', () => {
 
     it('should support filter parameters', async () => {
       vi.mocked(courseService.getCourses).mockResolvedValue({
-        data: [],
+        courses: [],
         pagination: { page: 1, limit: 10, total: 0, totalPages: 0 },
-      });
+      } as any);
 
       await request(app)
-        .get('/api/courses?category=programming&difficulty=beginner&search=python')
+        .get('/api/courses?categoryId=1&difficulty=beginner&search=python')
         .expect(200);
 
       expect(courseService.getCourses).toHaveBeenCalledWith(
         {
-          category: 'programming',
+          categoryId: 1,
           difficulty: 'beginner',
           search: 'python',
         },
@@ -326,7 +326,7 @@ describe('Course Routes', () => {
     const validCourse = {
       title: 'New Course',
       description: 'A new course description',
-      category: 'programming',
+      categoryIds: [1],
       difficulty: 'beginner',
     };
 
@@ -642,7 +642,7 @@ describe('Course Routes', () => {
 
   describe('DELETE /api/courses/modules/:moduleId', () => {
     it('should delete module', async () => {
-      vi.mocked(moduleService.deleteModule).mockResolvedValue(undefined);
+      vi.mocked(moduleService.deleteModule).mockResolvedValue(undefined as any);
 
       const response = await request(app)
         .delete('/api/courses/modules/1')
@@ -654,7 +654,7 @@ describe('Course Routes', () => {
 
   describe('PUT /api/courses/:courseId/modules/reorder', () => {
     it('should reorder modules', async () => {
-      vi.mocked(moduleService.reorderModules).mockResolvedValue(undefined);
+      vi.mocked(moduleService.reorderModules).mockResolvedValue(undefined as any);
 
       const response = await request(app)
         .put('/api/courses/1/modules/reorder')
@@ -733,7 +733,7 @@ describe('Course Routes', () => {
 
   describe('DELETE /api/courses/lectures/:lectureId', () => {
     it('should delete lecture', async () => {
-      vi.mocked(lectureService.deleteLecture).mockResolvedValue(undefined);
+      vi.mocked(lectureService.deleteLecture).mockResolvedValue(undefined as any);
 
       const response = await request(app)
         .delete('/api/courses/lectures/1')
@@ -745,7 +745,7 @@ describe('Course Routes', () => {
 
   describe('PUT /api/courses/modules/:moduleId/lectures/reorder', () => {
     it('should reorder lectures', async () => {
-      vi.mocked(lectureService.reorderLectures).mockResolvedValue(undefined);
+      vi.mocked(lectureService.reorderLectures).mockResolvedValue(undefined as any);
 
       const response = await request(app)
         .put('/api/courses/modules/1/lectures/reorder')
@@ -810,7 +810,7 @@ describe('Course Routes', () => {
 
   describe('DELETE /api/courses/sections/:sectionId', () => {
     it('should delete section', async () => {
-      vi.mocked(sectionService.deleteSection).mockResolvedValue(undefined);
+      vi.mocked(sectionService.deleteSection).mockResolvedValue(undefined as any);
 
       const response = await request(app)
         .delete('/api/courses/sections/1')
@@ -822,7 +822,7 @@ describe('Course Routes', () => {
 
   describe('PUT /api/courses/lectures/:lectureId/sections/reorder', () => {
     it('should reorder sections', async () => {
-      vi.mocked(sectionService.reorderSections).mockResolvedValue(undefined);
+      vi.mocked(sectionService.reorderSections).mockResolvedValue(undefined as any);
 
       const response = await request(app)
         .put('/api/courses/lectures/1/sections/reorder')

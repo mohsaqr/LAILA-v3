@@ -625,5 +625,18 @@
   "in_strength": "In-Strength",
   "betweenness": "Betweenness",
   "closeness": "Closeness",
-  "clustering_coeff": "Clustering"
+  "clustering_coeff": "Clustering",
+
+  "categories": "Categories",
+  "manage_categories_desc": "Manage course categories",
+  "add_category": "Add Category",
+  "edit_category": "Edit Category",
+  "delete_category": "Delete Category",
+  "category_title": "Category Title",
+  "category_created": "Category created",
+  "category_updated": "Category updated",
+  "category_deleted": "Category deleted",
+  "confirm_delete_category": "Delete \"{{title}}\"? Courses in this category won't be deleted.",
+  "no_categories": "No categories yet",
+  "loading_categories": "Loading categories..."
 }

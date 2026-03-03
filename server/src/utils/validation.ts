@@ -64,7 +64,7 @@ export const updateUserSchema = z.object({
 export const createCourseSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
   description: z.string().optional(),
-  category: z.string().optional(),
+  categoryIds: z.array(z.number()).optional(),
   difficulty: z.enum(['beginner', 'intermediate', 'advanced']).optional(),
   isPublic: z.boolean().optional(),
   thumbnail: z.string().optional().or(z.literal('')),

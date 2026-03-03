@@ -21,6 +21,12 @@ export interface AuthResponse {
   token: string;
 }
 
+// Category types
+export interface Category {
+  id: number;
+  title: string;
+}
+
 // Course types
 export type CurriculumViewMode = 'mini-cards' | 'icons' | 'list' | 'accordion';
 
@@ -31,7 +37,7 @@ export interface Course {
   description: string | null;
   thumbnail: string | null;
   instructorId: number;
-  category: string | null;
+  categories?: { category: Category }[];
   difficulty: 'beginner' | 'intermediate' | 'advanced' | null;
   status: 'draft' | 'published' | 'archived';
   isPublic: boolean;

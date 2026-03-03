@@ -25,7 +25,7 @@ export const CourseCreate = () => {
       coursesApi.createCourse({
         ...data,
         difficulty: data.difficulty || null,
-      }),
+      } as any),
     onSuccess: course => {
       toast.success(t('course_created'));
       navigate(`/teach/courses/${course.id}/curriculum`);

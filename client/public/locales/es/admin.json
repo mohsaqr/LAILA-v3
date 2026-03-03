@@ -38,7 +38,7 @@
   "google_settings": "Configuración de Google AI",
   "api_key": "Clave de API",
   "model": "Modelo",
-  "default_model": "Modelo predeterminado",
+  "default_model": "Predeterminado",
   "temperature": "Temperatura",
   "max_tokens": "Tokens máximos",
   "rate_limits": "Límites de tasa",
@@ -62,7 +62,6 @@
   "filter_by_status": "Filtrar por estado",
   "export_users": "Exportar usuarios",
   "import_users": "Importar usuarios",
-
   "users_management": "Gestión de usuarios",
   "manage_user_accounts": "Administrar cuentas de usuario y roles",
   "total_users": "Usuarios totales",
@@ -86,7 +85,6 @@
   "view_details": "Ver detalles",
   "student": "Estudiante",
   "instructor": "Instructor",
-
   "enrollments_management": "Gestión de inscripciones",
   "manage_enrollments": "Administrar inscripciones de cursos",
   "add_enrollment": "Agregar inscripción",
@@ -100,7 +98,6 @@
   "no_enrollments_found": "No se encontraron inscripciones.",
   "unenroll": "Cancelar inscripción",
   "confirm_unenroll": "¿Está seguro de que desea eliminar a \"{{user}}\" del curso \"{{course}}\"?",
-
   "llm_provider_settings": "Configuración de proveedores LLM",
   "configure_ai_providers": "Configurar proveedores de IA para la plataforma",
   "seed_defaults": "Inicializar valores predeterminados",
@@ -118,7 +115,6 @@
   "edit_provider": "Editar proveedor",
   "delete_provider": "Eliminar proveedor",
   "confirm_delete_provider": "¿Está seguro de que desea eliminar este proveedor?",
-
   "loading_admin_dashboard": "Cargando panel de administrador...",
   "overview": "Vista general",
   "platform_statistics_desc": "Estadísticas de la plataforma y actividad reciente",
@@ -131,20 +127,17 @@
   "new_enrollments": "Nuevas inscripciones",
   "no_recent_users": "No hay usuarios recientes",
   "no_recent_enrollments": "No hay inscripciones recientes",
-
   "manage_users_permissions": "Administrar usuarios y permisos",
   "course_enrollments_batch": "Inscripciones de cursos y operaciones masivas",
   "ai_provider_config": "Configuración de proveedores de IA",
   "general_system_config": "Configuración general del sistema",
   "llm_providers": "Proveedores LLM",
-
   "logs_analytics": "Registros y análisis",
   "logs_analytics_desc": "Ver registros de actividad y análisis de la plataforma",
   "activity_log": "Registro de actividad",
   "messages": "Mensajes",
   "user_interactions": "Interacciones de usuarios",
   "chatbot_registry_desc": "Ver y administrar todos los chatbots en la plataforma",
-
   "loading_user_details": "Cargando detalles del usuario...",
   "user_not_found_error": "Usuario no encontrado o error al cargar detalles",
   "back_to_users": "Volver a usuarios",
@@ -159,7 +152,6 @@
   "remove_enrollment": "Eliminar inscripción",
   "confirm_remove_enrollment": "¿Está seguro de que desea eliminar a {{user}} de {{course}}?",
   "adding": "Agregando...",
-
   "batch_enrollment_desc": "Subir archivos CSV para inscribir múltiples estudiantes a la vez",
   "download_template": "Descargar plantilla",
   "upload_csv_file": "Subir archivo CSV",
@@ -182,7 +174,6 @@
   "skipped": "Omitido",
   "row": "Fila",
   "message": "Mensaje",
-
   "loading_system_info": "Cargando información del sistema...",
   "system_info_maintenance": "Información del sistema y mantenimiento",
   "system_information": "Información del sistema",
@@ -206,7 +197,6 @@
   "reset_data": "Restablecer datos",
   "confirm_reset": "Confirmar restablecimiento",
   "reset_not_implemented": "Función de restablecimiento aún no implementada",
-
   "loading_forum_logs": "Cargando registros de foros...",
   "forums": "Foros",
   "threads": "Hilos",
@@ -238,7 +228,6 @@
   "location": "Ubicación",
   "reply_to_post": "Respuesta a otra publicación",
   "original_post": "Publicación original del hilo",
-
   "total_activities": "Total de actividades",
   "top_verbs": "Verbos principales",
   "top_object_types": "Tipos de objetos principales",
@@ -286,7 +275,6 @@
   "prev": "Anterior",
   "next": "Siguiente",
   "last": "Último",
-
   "loading_messages": "Cargando mensajes...",
   "total_messages": "Total de mensajes",
   "chatbot": "Chatbot",
@@ -312,7 +300,6 @@
   "timing_session": "Tiempo y sesión",
   "conversation_id": "ID de conversación",
   "message_index": "Índice de mensaje",
-
   "total_interactions": "Interacciones totales",
   "unique_sessions": "Sesiones únicas",
   "top_event_types": "Tipos de eventos principales",
@@ -348,13 +335,11 @@
   "test_mode": "Modo de prueba",
   "page_label": "Página",
   "title_label": "Título",
-
   "total_chatbots": "Total de chatbots",
   "global_ai_tutors": "Tutores IA globales",
   "section_chatbots": "Chatbots de sección",
   "total_conversations": "Conversaciones totales",
   "search_chatbot": "Buscar nombre, prompt, descripción...",
-  "all_types": "Todos los tipos",
   "all_creators": "Todos los creadores",
   "all_categories": "Todas las categorías",
   "creator": "Creador",
@@ -363,7 +348,6 @@
   "conversations_abbr": "Conv.",
   "messages_abbr": "Msgs",
   "global": "Global",
-  "section": "Sección",
   "inactive": "Inactivo",
   "uncategorized": "Sin categoría",
   "no_chatbots_found": "No se encontraron chatbots",
@@ -377,7 +361,6 @@
   "configuration": "Configuración",
   "personality": "Personalidad",
   "response_style": "Estilo de respuesta",
-  "default_model": "Predeterminado",
   "last_activity": "Última actividad",
   "user_experience": "Experiencia de usuario",
   "welcome_message": "Mensaje de bienvenida",
@@ -385,14 +368,12 @@
   "knowledge_context": "Contexto de conocimiento",
   "personality_prompt": "Prompt de personalidad",
   "created": "Creado",
-
   "open_menu": "Abrir menú",
   "close_menu": "Cerrar menú",
   "chatbots": "Chatbots",
   "llm": "LLM",
   "system_label": "Sistema",
   "prompts": "Prompts",
-
   "course_team": "Equipo del curso",
   "add_role": "Agregar rol",
   "no_team_members": "Aún no hay miembros del equipo asignados.",
@@ -405,7 +386,6 @@
   "remove_team_member": "Eliminar miembro del equipo",
   "confirm_remove_team_member": "¿Estás seguro de que quieres eliminar a {{name}} de este equipo del curso?",
   "loading_course_roles": "Cargando roles del curso...",
-
   "user_updated": "Usuario actualizado",
   "cannot_change_own_role": "No puedes cambiar tu propio rol",
   "change_role": "Cambiar rol",
@@ -422,7 +402,6 @@
   "batch_import_instructions": "Pega datos CSV con columnas:",
   "import": "Importar",
   "feature_coming_soon": "Función próximamente",
-
   "loading_chatbot_logs": "Cargando registros de chatbot...",
   "total_logs": "Total de registros",
   "active_chatbots": "Chatbots activos",
@@ -449,7 +428,6 @@
   "intro": "Introducción",
   "response_label": "Respuesta",
   "error": "Error",
-
   "provider_created": "Proveedor creado exitosamente",
   "provider_updated": "Proveedor actualizado exitosamente",
   "provider_deleted": "Proveedor eliminado exitosamente",
@@ -468,7 +446,6 @@
   "confirm_delete": "Confirmar eliminación",
   "are_you_sure_delete": "¿Estás seguro de que quieres eliminar esto?",
   "default": "Predeterminado",
-
   "loading_prompt_blocks": "Cargando bloques de prompts...",
   "prompt_building_blocks": "Bloques de Construcción de Prompts",
   "prompt_blocks_description": "Administra los bloques de prompts que los estudiantes pueden usar para construir sus agentes de IA",
@@ -509,7 +486,6 @@
   "slug": "Identificador",
   "slug_placeholder": "ej., categoria_personalizada",
   "slug_hint": "Solo letras minúsculas, números y guiones bajos",
-  "name": "Nombre",
   "category_name_placeholder": "ej., Categoría personalizada",
   "category_description_placeholder": "Breve descripción de esta categoría",
   "icon": "Icono",
@@ -519,7 +495,6 @@
   "icon_shield_constraint": "Escudo (Restricción)",
   "icon_layout_format": "Diseño (Formato)",
   "icon_book_knowledge": "Libro (Conocimiento)",
-
   "mcq_settings_title": "Configuración de Generación de MCQ",
   "mcq_settings_description": "Configurar indicaciones del sistema y valores predeterminados para la generación de preguntas de opción múltiple con IA",
   "system_prompt_label": "Indicación del Sistema",
@@ -546,7 +521,6 @@
   "mcq_generation": "Generación MCQ",
   "mcq_generation_tab": "Generación MCQ",
   "ai_question_generation": "Generación de Preguntas con IA",
-
   "frontpage": "Portada",
   "dashboard": "Panel de control",
   "dashboard_desc": "Analítica de aprendizaje y visualizaciones TNA",
@@ -574,7 +548,6 @@
   "show_edge_labels": "Etiquetas de aristas",
   "node_radius": "Tamaño de nodo",
   "graph_height": "Altura del gráfico",
-
   "provider_type": "Tipo de proveedor",
   "provider_slug": "Identificador",
   "provider_slug_hint": "Se genera automáticamente si está vacío",
@@ -607,7 +580,6 @@
   "disabled_label": "Deshabilitado",
   "default_label": "Predeterminado",
   "duplicate": "Duplicar",
-
   "model_type": "Tipo de modelo",
   "model_relative": "Relativo",
   "model_frequency": "Frecuencia",
@@ -624,5 +596,13 @@
   "in_strength": "Fuerza de entrada",
   "betweenness": "Intermediación",
   "closeness": "Cercanía",
-  "clustering_coeff": "Agrupamiento"
+  "clustering_coeff": "Agrupamiento",
+  "categories": "Categorías",
+  "manage_categories_desc": "Administrar categorías de cursos",
+  "delete_category": "Eliminar categoría",
+  "category_title": "Título de categoría",
+  "category_deleted": "Categoría eliminada",
+  "confirm_delete_category": "¿Eliminar \"{{title}}\"? Los cursos de esta categoría no se eliminarán.",
+  "no_categories": "Sin categorías aún",
+  "loading_categories": "Cargando categorías..."
 }
