@@ -739,15 +739,25 @@ export const CurriculumEditor = () => {
     updateForumMutation.mutate({ id: nextForum.id, data: { orderIndex: forum.orderIndex } });
   };
 
-  // Group assignments by moduleId
+  // Group module-level assignments (no lectureId) by moduleId
   const assignmentsByModule = useMemo(() => {
     const map: Record<number, Assignment[]> = {};
     (assignments || []).forEach(assignment => {
-      if (assignment.moduleId) {
-        if (!map[assignment.moduleId]) {
-          map[assignment.moduleId] = [];
-        }
+      if (assignment.moduleId && !assignment.lectureId) {
+        if (!map[assignment.moduleId]) map[assignment.moduleId] = [];
         map[assignment.moduleId].push(assignment);
+      }
+    });
+    return map;
+  }, [assignments]);
+
+  // Group lecture-level assignments (with lectureId) by lectureId
+  const assignmentsByLecture = useMemo(() => {
+    const map: Record<number, Assignment[]> = {};
+    (assignments || []).forEach(assignment => {
+      if (assignment.lectureId) {
+        if (!map[assignment.lectureId]) map[assignment.lectureId] = [];
+        map[assignment.lectureId].push(assignment);
       }
     });
     return map;
@@ -1010,6 +1020,7 @@ export const CurriculumEditor = () => {
                   onDeleteAssignment={setDeleteAssignmentConfirm}
                   onMoveAssignmentUp={handleMoveAssignmentUp}
                   onMoveAssignmentDown={handleMoveAssignmentDown}
+                  lectureAssignments={assignmentsByLecture}
                   onRemoveLabAssignment={(labId) => unassignLabMutation.mutate(labId)}
                   onAddForum={openAddForumModal}
                   onEditForum={openEditForumModal}

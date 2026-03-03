@@ -64,6 +64,8 @@ interface ModuleItemProps {
   onDeleteForum?: (forum: Forum) => void;
   onMoveForumUp?: (forum: Forum, module: CourseModule) => void;
   onMoveForumDown?: (forum: Forum, module: CourseModule) => void;
+  // Lecture-level assignments keyed by lectureId
+  lectureAssignments?: Record<number, Assignment[]>;
 }
 
 export const ModuleItem = ({
@@ -98,6 +100,7 @@ export const ModuleItem = ({
   onDeleteForum,
   onMoveForumUp,
   onMoveForumDown,
+  lectureAssignments = {},
 }: ModuleItemProps) => {
   const { t } = useTranslation(['teaching']);
   const [isExpanded, setIsExpanded] = useState(true);
@@ -221,6 +224,9 @@ export const ModuleItem = ({
                     onTogglePublish={onToggleLecturePublish}
                     onMoveUp={() => onMoveLectureUp(lecture, module)}
                     onMoveDown={() => onMoveLectureDown(lecture, module)}
+                    assignments={lectureAssignments[lecture.id] || []}
+                    onEditAssignment={onEditAssignment}
+                    onDeleteAssignment={onDeleteAssignment}
                   />
                   {/* Inline add options after each lesson */}
                   <div className="flex items-center gap-1.5 py-2 px-3 ml-6 border-l-2 border-dashed border-gray-200 flex-wrap">
