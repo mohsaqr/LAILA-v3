@@ -1060,5 +1060,6 @@
   "back_to_create": "Volver a crear",
   "select_existing_assignment": "Seleccionar tarea existente",
   "unlink_assignment": "Desvincular tarea",
-  "linked_assignment": "Tarea vinculada"
+  "linked_assignment": "Tarea vinculada",
+  "assignments": "Tareas"
 }

@@ -1065,5 +1065,6 @@
   "back_to_create": "Takaisin luomiseen",
   "select_existing_assignment": "Valitse olemassa oleva tehtävä",
   "unlink_assignment": "Poista tehtävän linkitys",
-  "linked_assignment": "Linkitetty tehtävä"
+  "linked_assignment": "Linkitetty tehtävä",
+  "assignments": "Tehtävät"
 }

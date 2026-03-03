@@ -1060,5 +1060,6 @@
   "back_to_create": "العودة إلى الإنشاء",
   "select_existing_assignment": "اختر مهمة موجودة",
   "unlink_assignment": "إلغاء ربط المهمة",
-  "linked_assignment": "المهمة المرتبطة"
+  "linked_assignment": "المهمة المرتبطة",
+  "assignments": "المهام"
 }

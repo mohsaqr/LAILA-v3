@@ -244,7 +244,7 @@
   "loading_curriculum": "Loading curriculum...",
   "no_description": "No description",
   "course_management": "Course Management",
-  "view_course": "View Course",
+  "view_course": "View",
   "quizzes": "Quizzes",
   "forums": "Forums",
   "ai_tutors": "AI Tutors",
@@ -1065,5 +1065,6 @@
   "back_to_create": "Back to create",
   "select_existing_assignment": "Select existing assignment",
   "unlink_assignment": "Unlink assignment",
-  "linked_assignment": "Linked assignment"
+  "linked_assignment": "Linked assignment",
+  "assignments": "Assignments"
 }
