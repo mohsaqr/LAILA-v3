@@ -399,13 +399,15 @@ export const StudentAgentBuilder = () => {
 
             {/* Action Buttons - Only show during building phase */}
             {!isBuilt && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <Button
+                  size="sm"
                   variant="secondary"
                   onClick={handleSave}
                   loading={isSaving}
                   disabled={isSubmitting}
                   icon={<Save className="w-4 h-4" />}
+                  className="whitespace-nowrap"
                 >
                   {t('save_progress')}
                 </Button>
@@ -413,14 +415,16 @@ export const StudentAgentBuilder = () => {
                 {/* Submit for Grading */}
                 {config && config.isDraft && !showSubmitConfirm && (
                   <Button
+                    size="sm"
                     onClick={() => {
                       logger?.logSubmissionAttempted();
                       setShowSubmitConfirm(true);
                     }}
                     disabled={isSaving || isPastDue}
                     icon={<CheckCircle className="w-4 h-4" />}
+                    className="whitespace-nowrap"
                   >
-                    {t('submit_for_grading')}
+                    {t('common:submit')}
                   </Button>
                 )}
 
