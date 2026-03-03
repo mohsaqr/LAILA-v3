@@ -374,6 +374,7 @@ export interface Assignment {
   id: number;
   courseId: number;
   moduleId: number | null;
+  lectureId?: number | null;
   title: string;
   description: string | null;
   instructions: string | null;

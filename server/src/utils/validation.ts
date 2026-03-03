@@ -175,6 +175,7 @@ export const createAssignmentSchema = z.object({
   points: z.number().int().min(0).max(1000).optional(),
   isPublished: z.boolean().optional(),
   moduleId: z.number().int().optional().nullable(),
+  lectureId: z.number().int().optional().nullable(),
   aiAssisted: z.boolean().optional(),
   aiPrompt: z.string().optional(),
   agentRequirements: z.string().optional(),

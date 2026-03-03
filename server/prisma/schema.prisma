@@ -7,78 +7,48 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// =============================================================================
-// USER & AUTHENTICATION
-// =============================================================================
-
 model User {
-  id           Int       @id @default(autoincrement())
-  fullname     String
-  email        String    @unique
-  passwordHash String    @map("password_hash")
-  isAdmin      Boolean   @default(false) @map("is_admin")
-  isConfirmed  Boolean   @default(false) @map("is_confirmed")
-  isInstructor Boolean   @default(false) @map("is_instructor")
-  isActive     Boolean   @default(true) @map("is_active")
-  avatarUrl         String?   @map("avatar_url")
-  tokenVersion      Int       @default(0) @map("token_version") // Increment to invalidate all tokens
-  failedLoginAttempts Int     @default(0) @map("failed_login_attempts")
-  lockedUntil       DateTime? @map("locked_until") // Account lockout timestamp
-  createdAt         DateTime  @default(now()) @map("created_at")
-  lastLogin         DateTime? @map("last_login")
-
-  // Relations
-  settings         UserSetting[]
-  chatLogs         ChatLog[]
-  userInteractions UserInteraction[]
-  userSubmissions  UserSubmission[]
-  dataAnalysisLogs DataAnalysisLog[]
-
-  // LMS Relations
-  taughtCourses          Course[]                @relation("InstructorCourses")
-  enrollments            Enrollment[]
-  submissions            AssignmentSubmission[]  @relation("StudentSubmissions")
-  gradedSubmissions      AssignmentSubmission[]  @relation("GradedBy")
-  announcements          CourseAnnouncement[]
-  chatbotConversations   ChatbotConversation[]
-  chatbotInteractionLogs ChatbotInteractionLog[]
-  userInteractionLogs    UserInteractionLog[]
-
-  // Course Roles Relations
-  courseRoles         CourseRole[]         @relation("CourseRoles")
-  assignedCourseRoles CourseRole[]         @relation("AssignedCourseRoles")
-  batchEnrollmentJobs BatchEnrollmentJob[] @relation("BatchEnrollmentJobs")
-
-  // Unified Activity Logs
-  activityLogs LearningActivityLog[] @relation("ActivityLogs")
-
-  // AI Tutors
-  tutorSession TutorSession?
-
-  // Surveys
-  createdSurveys  Survey[]         @relation("SurveyCreator")
-  surveyResponses SurveyResponse[] @relation("SurveyResponses")
-
-  // Emotional Pulse
-  emotionalPulses EmotionalPulse[]
-
-  // Course Tutors (Collaborative Module)
-  courseTutorConversations CourseTutorConversation[]
-
-  // Custom Labs
-  customLabs CustomLab[]
-
-  // Forum AI Posts (requested by this user)
-  aiRequestedPosts ForumPost[] @relation("AiRequestedPosts")
-
-  // Lecture AI Helper Explain Threads
-  explainThreads LectureExplainThread[] @relation("UserExplainThreads")
-
-  // Chatbots created by this user (instructors)
-  createdChatbots Chatbot[]
-
-  // Certificate templates created by this user
-  createdCertificateTemplates CertificateTemplate[] @relation("TemplateCreator")
+  id                          Int                       @id @default(autoincrement())
+  fullname                    String
+  email                       String                    @unique
+  passwordHash                String                    @map("password_hash")
+  isAdmin                     Boolean                   @default(false) @map("is_admin")
+  isConfirmed                 Boolean                   @default(false) @map("is_confirmed")
+  isInstructor                Boolean                   @default(false) @map("is_instructor")
+  isActive                    Boolean                   @default(true) @map("is_active")
+  avatarUrl                   String?                   @map("avatar_url")
+  tokenVersion                Int                       @default(0) @map("token_version")
+  failedLoginAttempts         Int                       @default(0) @map("failed_login_attempts")
+  lockedUntil                 DateTime?                 @map("locked_until")
+  createdAt                   DateTime                  @default(now()) @map("created_at")
+  lastLogin                   DateTime?                 @map("last_login")
+  gradedSubmissions           AssignmentSubmission[]    @relation("GradedBy")
+  submissions                 AssignmentSubmission[]    @relation("StudentSubmissions")
+  batchEnrollmentJobs         BatchEnrollmentJob[]      @relation("BatchEnrollmentJobs")
+  createdCertificateTemplates CertificateTemplate[]     @relation("TemplateCreator")
+  chatLogs                    ChatLog[]
+  chatbotConversations        ChatbotConversation[]
+  chatbotInteractionLogs      ChatbotInteractionLog[]
+  createdChatbots             Chatbot[]
+  announcements               CourseAnnouncement[]
+  assignedCourseRoles         CourseRole[]              @relation("AssignedCourseRoles")
+  courseRoles                 CourseRole[]              @relation("CourseRoles")
+  courseTutorConversations    CourseTutorConversation[]
+  taughtCourses               Course[]                  @relation("InstructorCourses")
+  customLabs                  CustomLab[]
+  dataAnalysisLogs            DataAnalysisLog[]
+  emotionalPulses             EmotionalPulse[]
+  enrollments                 Enrollment[]
+  aiRequestedPosts            ForumPost[]               @relation("AiRequestedPosts")
+  activityLogs                LearningActivityLog[]     @relation("ActivityLogs")
+  explainThreads              LectureExplainThread[]    @relation("UserExplainThreads")
+  surveyResponses             SurveyResponse[]          @relation("SurveyResponses")
+  createdSurveys              Survey[]                  @relation("SurveyCreator")
+  tutorSession                TutorSession?
+  userInteractionLogs         UserInteractionLog[]
+  userInteractions            UserInteraction[]
+  settings                    UserSetting[]
+  userSubmissions             UserSubmission[]
 
   @@map("users")
 }
@@ -90,16 +60,11 @@ model UserSetting {
   settingValue String?  @map("setting_value")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, settingKey])
   @@map("user_settings")
 }
-
-// =============================================================================
-// SYSTEM SETTINGS
-// =============================================================================
 
 model SystemSetting {
   id           Int      @id @default(autoincrement())
@@ -128,110 +93,72 @@ model ApiConfiguration {
   @@map("api_configurations")
 }
 
-// =============================================================================
-// LLM PROVIDER CONFIGURATION (Comprehensive AI/LLM Settings)
-// =============================================================================
-
 model LLMProvider {
-  id                    Int      @id @default(autoincrement())
-
-  // ===== PROVIDER IDENTITY =====
-  name                  String   @unique                    // Unique slug: 'openai', 'openai-research', etc.
-  provider              String   @default("custom")         // Provider type: 'openai', 'gemini', 'ollama', etc.
-  displayName           String   @map("display_name")       // User-friendly name
-  description           String?                             // Provider description
-  providerType          String   @map("provider_type")      // 'cloud', 'local', 'custom'
-  isEnabled             Boolean  @default(false) @map("is_enabled")
-  isDefault             Boolean  @default(false) @map("is_default")
-  priority              Int      @default(0)               // For fallback ordering (higher = preferred)
-
-  // ===== CONNECTION SETTINGS =====
-  baseUrl               String?  @map("base_url")          // API endpoint (required for local/custom)
-  apiKey                String?  @map("api_key")           // API key (encrypted in practice)
-  apiVersion            String?  @map("api_version")       // API version if applicable
-  organizationId        String?  @map("organization_id")   // For OpenAI org, Azure resource group, etc.
-  projectId             String?  @map("project_id")        // For Google Cloud project, etc.
-
-  // ===== DEFAULT MODEL SETTINGS =====
-  defaultModel          String?  @map("default_model")     // Default model to use
-  defaultModelId        String?  @map("default_model_id")  // Model ID if different from name
-
-  // ===== GENERATION DEFAULTS =====
-  defaultTemperature    Float    @default(0.7) @map("default_temperature")
-  defaultMaxTokens      Int      @default(2048) @map("default_max_tokens")
-  defaultTopP           Float    @default(1.0) @map("default_top_p")
-  defaultTopK           Int?     @map("default_top_k")     // For providers that support it
-  defaultFrequencyPenalty Float  @default(0) @map("default_frequency_penalty")
-  defaultPresencePenalty  Float  @default(0) @map("default_presence_penalty")
-  defaultRepeatPenalty  Float?   @map("default_repeat_penalty")  // For Ollama/local models
-
-  // ===== CONTEXT & LIMITS =====
-  maxContextLength      Int?     @map("max_context_length")     // Max tokens in context window
-  maxOutputTokens       Int?     @map("max_output_tokens")      // Max tokens in response
-  defaultContextLength  Int?     @map("default_context_length") // Default context to use
-
-  // ===== STOP SEQUENCES & FORMAT =====
-  defaultStopSequences  String?  @map("default_stop_sequences") // JSON array of stop sequences
-  defaultResponseFormat String?  @map("default_response_format") // 'text', 'json', 'json_object'
-
-  // ===== TIMEOUT & RETRY SETTINGS =====
-  requestTimeout        Int      @default(120000) @map("request_timeout")    // ms
-  connectTimeout        Int      @default(30000) @map("connect_timeout")     // ms
-  maxRetries            Int      @default(3) @map("max_retries")
-  retryDelay            Int      @default(1000) @map("retry_delay")          // ms
-  retryBackoffMultiplier Float   @default(2.0) @map("retry_backoff_multiplier")
-
-  // ===== RATE LIMITING =====
-  rateLimitRpm          Int?     @map("rate_limit_rpm")    // Requests per minute
-  rateLimitTpm          Int?     @map("rate_limit_tpm")    // Tokens per minute
-  rateLimitRpd          Int?     @map("rate_limit_rpd")    // Requests per day
-  concurrencyLimit      Int      @default(5) @map("concurrency_limit")
-
-  // ===== STREAMING =====
-  supportsStreaming     Boolean  @default(true) @map("supports_streaming")
-  defaultStreaming      Boolean  @default(false) @map("default_streaming")
-
-  // ===== FEATURES & CAPABILITIES =====
-  supportsVision        Boolean  @default(false) @map("supports_vision")
-  supportsFunctionCalling Boolean @default(false) @map("supports_function_calling")
-  supportsJsonMode      Boolean  @default(false) @map("supports_json_mode")
-  supportsSystemMessage Boolean  @default(true) @map("supports_system_message")
-  supportsMultipleSystemMessages Boolean @default(false) @map("supports_multiple_system_messages")
-
-  // ===== PROXY & NETWORK =====
-  proxyUrl              String?  @map("proxy_url")
-  proxyUsername         String?  @map("proxy_username")
-  proxyPassword         String?  @map("proxy_password")
-  customHeaders         String?  @map("custom_headers")    // JSON object of headers
-
-  // ===== TLS/SSL SETTINGS =====
-  skipTlsVerify         Boolean  @default(false) @map("skip_tls_verify")     // For self-signed certs
-  customCaCert          String?  @map("custom_ca_cert")    // Custom CA certificate
-
-  // ===== HEALTH CHECK =====
-  healthCheckEnabled    Boolean  @default(true) @map("health_check_enabled")
-  healthCheckInterval   Int      @default(60000) @map("health_check_interval")  // ms
-  lastHealthCheck       DateTime? @map("last_health_check")
-  healthStatus          String?  @map("health_status")     // 'healthy', 'unhealthy', 'unknown'
-  lastError             String?  @map("last_error")
-  consecutiveFailures   Int      @default(0) @map("consecutive_failures")
-
-  // ===== USAGE TRACKING =====
-  totalRequests         Int      @default(0) @map("total_requests")
-  totalTokensUsed       Int      @default(0) @map("total_tokens_used")
-  totalErrors           Int      @default(0) @map("total_errors")
-  averageLatency        Float?   @map("average_latency")   // ms
-
-  // ===== METADATA =====
-  metadata              String?                            // JSON for additional provider-specific config
-  notes                 String?                            // Admin notes
-
-  // ===== TIMESTAMPS =====
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  models                LLMModel[]
+  id                             Int        @id @default(autoincrement())
+  name                           String     @unique
+  provider                       String     @default("custom")
+  displayName                    String     @map("display_name")
+  description                    String?
+  providerType                   String     @map("provider_type")
+  isEnabled                      Boolean    @default(false) @map("is_enabled")
+  isDefault                      Boolean    @default(false) @map("is_default")
+  priority                       Int        @default(0)
+  baseUrl                        String?    @map("base_url")
+  apiKey                         String?    @map("api_key")
+  apiVersion                     String?    @map("api_version")
+  organizationId                 String?    @map("organization_id")
+  projectId                      String?    @map("project_id")
+  defaultModel                   String?    @map("default_model")
+  defaultModelId                 String?    @map("default_model_id")
+  defaultTemperature             Float      @default(0.7) @map("default_temperature")
+  defaultMaxTokens               Int        @default(2048) @map("default_max_tokens")
+  defaultTopP                    Float      @default(1.0) @map("default_top_p")
+  defaultTopK                    Int?       @map("default_top_k")
+  defaultFrequencyPenalty        Float      @default(0) @map("default_frequency_penalty")
+  defaultPresencePenalty         Float      @default(0) @map("default_presence_penalty")
+  defaultRepeatPenalty           Float?     @map("default_repeat_penalty")
+  maxContextLength               Int?       @map("max_context_length")
+  maxOutputTokens                Int?       @map("max_output_tokens")
+  defaultContextLength           Int?       @map("default_context_length")
+  defaultStopSequences           String?    @map("default_stop_sequences")
+  defaultResponseFormat          String?    @map("default_response_format")
+  requestTimeout                 Int        @default(120000) @map("request_timeout")
+  connectTimeout                 Int        @default(30000) @map("connect_timeout")
+  maxRetries                     Int        @default(3) @map("max_retries")
+  retryDelay                     Int        @default(1000) @map("retry_delay")
+  retryBackoffMultiplier         Float      @default(2.0) @map("retry_backoff_multiplier")
+  rateLimitRpm                   Int?       @map("rate_limit_rpm")
+  rateLimitTpm                   Int?       @map("rate_limit_tpm")
+  rateLimitRpd                   Int?       @map("rate_limit_rpd")
+  concurrencyLimit               Int        @default(5) @map("concurrency_limit")
+  supportsStreaming              Boolean    @default(true) @map("supports_streaming")
+  defaultStreaming               Boolean    @default(false) @map("default_streaming")
+  supportsVision                 Boolean    @default(false) @map("supports_vision")
+  supportsFunctionCalling        Boolean    @default(false) @map("supports_function_calling")
+  supportsJsonMode               Boolean    @default(false) @map("supports_json_mode")
+  supportsSystemMessage          Boolean    @default(true) @map("supports_system_message")
+  supportsMultipleSystemMessages Boolean    @default(false) @map("supports_multiple_system_messages")
+  proxyUrl                       String?    @map("proxy_url")
+  proxyUsername                  String?    @map("proxy_username")
+  proxyPassword                  String?    @map("proxy_password")
+  customHeaders                  String?    @map("custom_headers")
+  skipTlsVerify                  Boolean    @default(false) @map("skip_tls_verify")
+  customCaCert                   String?    @map("custom_ca_cert")
+  healthCheckEnabled             Boolean    @default(true) @map("health_check_enabled")
+  healthCheckInterval            Int        @default(60000) @map("health_check_interval")
+  lastHealthCheck                DateTime?  @map("last_health_check")
+  healthStatus                   String?    @map("health_status")
+  lastError                      String?    @map("last_error")
+  consecutiveFailures            Int        @default(0) @map("consecutive_failures")
+  totalRequests                  Int        @default(0) @map("total_requests")
+  totalTokensUsed                Int        @default(0) @map("total_tokens_used")
+  totalErrors                    Int        @default(0) @map("total_errors")
+  averageLatency                 Float?     @map("average_latency")
+  metadata                       String?
+  notes                          String?
+  createdAt                      DateTime   @default(now()) @map("created_at")
+  updatedAt                      DateTime   @updatedAt @map("updated_at")
+  models                         LLMModel[]
 
   @@index([isEnabled, isDefault])
   @@index([providerType])
@@ -240,51 +167,33 @@ model LLMProvider {
 }
 
 model LLMModel {
-  id                    Int      @id @default(autoincrement())
-
-  // ===== MODEL IDENTITY =====
-  providerId            Int      @map("provider_id")
-  provider              LLMProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  modelId               String   @map("model_id")          // The actual model identifier
-  name                  String                             // Display name
-  description           String?                            // Model description
-
-  // ===== MODEL TYPE & CAPABILITIES =====
-  modelType             String   @default("chat") @map("model_type")  // 'chat', 'completion', 'embedding', 'vision', 'multimodal'
-  isEnabled             Boolean  @default(true) @map("is_enabled")
-  isDefault             Boolean  @default(false) @map("is_default")
-
-  // ===== CONTEXT & LIMITS =====
-  contextLength         Int?     @map("context_length")    // Max context window
-  maxOutputTokens       Int?     @map("max_output_tokens") // Max output tokens
-
-  // ===== MODEL-SPECIFIC DEFAULTS =====
-  defaultTemperature    Float?   @map("default_temperature")
-  defaultMaxTokens      Int?     @map("default_max_tokens")
-  defaultTopP           Float?   @map("default_top_p")
-  defaultTopK           Int?     @map("default_top_k")
-
-  // ===== CAPABILITIES =====
-  supportsVision        Boolean  @default(false) @map("supports_vision")
-  supportsFunctionCalling Boolean @default(false) @map("supports_function_calling")
-  supportsJsonMode      Boolean  @default(false) @map("supports_json_mode")
-  supportsStreaming     Boolean  @default(true) @map("supports_streaming")
-
-  // ===== PRICING (per 1M tokens) =====
-  inputPricePer1M       Float?   @map("input_price_per_1m")
-  outputPricePer1M      Float?   @map("output_price_per_1m")
-
-  // ===== USAGE TRACKING =====
-  totalRequests         Int      @default(0) @map("total_requests")
-  totalInputTokens      Int      @default(0) @map("total_input_tokens")
-  totalOutputTokens     Int      @default(0) @map("total_output_tokens")
-
-  // ===== METADATA =====
-  metadata              String?                            // JSON for additional model-specific config
-
-  // ===== TIMESTAMPS =====
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
+  id                      Int         @id @default(autoincrement())
+  providerId              Int         @map("provider_id")
+  modelId                 String      @map("model_id")
+  name                    String
+  description             String?
+  modelType               String      @default("chat") @map("model_type")
+  isEnabled               Boolean     @default(true) @map("is_enabled")
+  isDefault               Boolean     @default(false) @map("is_default")
+  contextLength           Int?        @map("context_length")
+  maxOutputTokens         Int?        @map("max_output_tokens")
+  defaultTemperature      Float?      @map("default_temperature")
+  defaultMaxTokens        Int?        @map("default_max_tokens")
+  defaultTopP             Float?      @map("default_top_p")
+  defaultTopK             Int?        @map("default_top_k")
+  supportsVision          Boolean     @default(false) @map("supports_vision")
+  supportsFunctionCalling Boolean     @default(false) @map("supports_function_calling")
+  supportsJsonMode        Boolean     @default(false) @map("supports_json_mode")
+  supportsStreaming       Boolean     @default(true) @map("supports_streaming")
+  inputPricePer1M         Float?      @map("input_price_per_1m")
+  outputPricePer1M        Float?      @map("output_price_per_1m")
+  totalRequests           Int         @default(0) @map("total_requests")
+  totalInputTokens        Int         @default(0) @map("total_input_tokens")
+  totalOutputTokens       Int         @default(0) @map("total_output_tokens")
+  metadata                String?
+  createdAt               DateTime    @default(now()) @map("created_at")
+  updatedAt               DateTime    @updatedAt @map("updated_at")
+  provider                LLMProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
   @@unique([providerId, modelId])
   @@index([providerId])
@@ -292,22 +201,17 @@ model LLMModel {
   @@map("llm_models")
 }
 
-// Global LLM settings
 model LLMSettings {
-  id                    Int      @id @default(autoincrement())
-  settingKey            String   @unique @map("setting_key")
-  settingValue          String?  @map("setting_value")
-  settingType           String   @default("string") @map("setting_type")  // 'string', 'number', 'boolean', 'json'
-  description           String?
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
+  id           Int      @id @default(autoincrement())
+  settingKey   String   @unique @map("setting_key")
+  settingValue String?  @map("setting_value")
+  settingType  String   @default("string") @map("setting_type")
+  description  String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("llm_settings")
 }
-
-// =============================================================================
-// LOGGING & ANALYTICS
-// =============================================================================
 
 model ChatLog {
   id              Int      @id @default(autoincrement())
@@ -315,15 +219,14 @@ model ChatLog {
   sessionId       String?  @map("session_id")
   timestamp       DateTime
   module          String
-  sender          String // 'User' or 'AI'
+  sender          String
   turn            Int
   message         String
   aiModel         String?  @map("ai_model")
   responseTimeSec Float?   @map("response_time_sec")
   context         String?
   createdAt       DateTime @default(now()) @map("created_at")
-
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user            User?    @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([timestamp])
@@ -345,8 +248,7 @@ model UserInteraction {
   userAgent       String?  @map("user_agent")
   ipAddress       String?  @map("ip_address")
   additionalData  String?  @map("additional_data")
-
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user            User?    @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([timestamp])
@@ -364,8 +266,7 @@ model UserSubmission {
   fieldOfStudy    String?  @map("field_of_study")
   academicLevel   String?  @map("academic_level")
   submittedAt     DateTime @default(now()) @map("submitted_at")
-
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user            User?    @relation(fields: [userId], references: [id])
 
   @@map("user_submissions")
 }
@@ -381,113 +282,76 @@ model DataAnalysisLog {
   processingTimeSec Float?   @map("processing_time_sec")
   timestamp         DateTime
   status            String   @default("completed")
-
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user              User?    @relation(fields: [userId], references: [id])
 
   @@map("data_analysis_logs")
 }
 
-// =============================================================================
-// CHATBOTS
-// =============================================================================
-
 model Chatbot {
-  id           Int      @id @default(autoincrement())
-  name         String   @unique
-  displayName  String   @map("display_name")
-  description  String?
-  systemPrompt String   @map("system_prompt")
-  category     String?
-  isActive     Boolean  @default(true) @map("is_active")
-  isSystem     Boolean  @default(false) @map("is_system")
-  creatorId    Int?     @map("creator_id")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
-  // Enhanced customization fields
-  welcomeMessage     String? @map("welcome_message")
-  avatarUrl          String? @map("avatar_url")
-  personality        String? @default("friendly") // friendly, professional, academic, casual, socratic, learning, custom
-  personalityPrompt  String? @map("personality_prompt") // Editable personality instructions
-  temperature        Float?  @default(0.7)
-  suggestedQuestions String? @map("suggested_questions") // JSON array
-  dosRules           String? @map("dos_rules") // JSON array
-  dontsRules         String? @map("donts_rules") // JSON array
-  responseStyle      String? @default("balanced") @map("response_style") // concise, balanced, detailed
-  maxTokens          Int?    @default(1000) @map("max_tokens")
-  modelPreference    String? @map("model_preference") // gpt-4, gpt-3.5-turbo, claude, etc.
-  knowledgeContext   String? @map("knowledge_context") // Additional context/knowledge
-
-  // Creator (instructor who created this chatbot; null for system/admin chatbots)
-  creator User? @relation(fields: [creatorId], references: [id], onDelete: SetNull)
-
-  // AI Tutors
+  id                 Int                 @id @default(autoincrement())
+  name               String              @unique
+  displayName        String              @map("display_name")
+  description        String?
+  systemPrompt       String              @map("system_prompt")
+  category           String?
+  isActive           Boolean             @default(true) @map("is_active")
+  isSystem           Boolean             @default(false) @map("is_system")
+  creatorId          Int?                @map("creator_id")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  welcomeMessage     String?             @map("welcome_message")
+  avatarUrl          String?             @map("avatar_url")
+  personality        String?             @default("friendly")
+  personalityPrompt  String?             @map("personality_prompt")
+  temperature        Float?              @default(0.7)
+  suggestedQuestions String?             @map("suggested_questions")
+  dosRules           String?             @map("dos_rules")
+  dontsRules         String?             @map("donts_rules")
+  responseStyle      String?             @default("balanced") @map("response_style")
+  maxTokens          Int?                @default(1000) @map("max_tokens")
+  modelPreference    String?             @map("model_preference")
+  knowledgeContext   String?             @map("knowledge_context")
+  creator            User?               @relation(fields: [creatorId], references: [id])
+  courseTutors       CourseTutor[]
+  forumAiPosts       ForumPost[]         @relation("ForumAiPosts")
   tutorConversations TutorConversation[]
-
-  // Course Tutors (Collaborative Module)
-  courseTutors CourseTutor[]
-
-  // Forum AI Posts
-  forumAiPosts ForumPost[] @relation("ForumAiPosts")
 
   @@map("chatbots")
 }
 
-// =============================================================================
-// LMS - COURSES
-// =============================================================================
-
 model Course {
-  id           Int       @id @default(autoincrement())
-  title        String
-  slug         String    @unique
-  description  String?
-  thumbnail    String?
-  instructorId Int       @map("instructor_id")
-  difficulty   String? // beginner, intermediate, advanced
-  status       String    @default("draft") // draft, published, archived
-  isPublic     Boolean   @default(true) @map("is_public")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  publishedAt  DateTime? @map("published_at")
-
-  // AI Module Settings (Collaborative Module)
-  collaborativeModuleName    String?  @map("collaborative_module_name")
-  collaborativeModuleEnabled Boolean  @default(true) @map("collaborative_module_enabled")
-  emotionalPulseEnabled      Boolean  @default(true) @map("emotional_pulse_enabled")
-  tutorRoutingMode           String   @default("all") @map("tutor_routing_mode") // "all" | "single" | "smart"
-  defaultTutorId             Int?     @map("default_tutor_id")
-
-  // Curriculum Display Settings
-  curriculumViewMode         String   @default("mini-cards") @map("curriculum_view_mode") // "mini-cards" | "icons" | "list" | "accordion"
-
-  // Relations
-  instructor    User                 @relation("InstructorCourses", fields: [instructorId], references: [id])
-  categories    CourseCategory[]
-  modules       CourseModule[]
-  enrollments   Enrollment[]
-  assignments   Assignment[]
-  announcements CourseAnnouncement[]
-  surveys       Survey[]
-
-  // Course Roles Relations
-  courseRoles         CourseRole[]
-  batchEnrollmentJobs BatchEnrollmentJob[]
-
-  // Unified Activity Logs
-  activityLogs LearningActivityLog[] @relation("CourseActivityLogs")
-
-  // Course Tutors (Collaborative Module)
-  courseTutors CourseTutor[]
-
-  // Custom Labs
-  labAssignments LabAssignment[]
-
-  // Quiz System
-  quizzes Quiz[]
-
-  // Discussion Forums
-  forums Forum[]
+  id                         Int                   @id @default(autoincrement())
+  title                      String
+  slug                       String                @unique
+  description                String?
+  thumbnail                  String?
+  instructorId               Int                   @map("instructor_id")
+  difficulty                 String?
+  status                     String                @default("draft")
+  isPublic                   Boolean               @default(true) @map("is_public")
+  createdAt                  DateTime              @default(now()) @map("created_at")
+  updatedAt                  DateTime              @updatedAt @map("updated_at")
+  publishedAt                DateTime?             @map("published_at")
+  collaborativeModuleName    String?               @map("collaborative_module_name")
+  collaborativeModuleEnabled Boolean               @default(true) @map("collaborative_module_enabled")
+  emotionalPulseEnabled      Boolean               @default(true) @map("emotional_pulse_enabled")
+  tutorRoutingMode           String                @default("all") @map("tutor_routing_mode")
+  defaultTutorId             Int?                  @map("default_tutor_id")
+  curriculumViewMode         String                @default("mini-cards") @map("curriculum_view_mode")
+  assignments                Assignment[]
+  batchEnrollmentJobs        BatchEnrollmentJob[]
+  announcements              CourseAnnouncement[]
+  categories                 CourseCategory[]
+  modules                    CourseModule[]
+  courseRoles                CourseRole[]
+  courseTutors               CourseTutor[]
+  instructor                 User                  @relation("InstructorCourses", fields: [instructorId], references: [id])
+  enrollments                Enrollment[]
+  forums                     Forum[]
+  labAssignments             LabAssignment[]
+  activityLogs               LearningActivityLog[] @relation("CourseActivityLogs")
+  quizzes                    Quiz[]
+  surveys                    Survey[]
 
   @@index([instructorId])
   @@index([status])
@@ -508,92 +372,84 @@ model CourseCategory {
   id         Int      @id @default(autoincrement())
   courseId   Int      @map("course_id")
   categoryId Int      @map("category_id")
-  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@unique([courseId, categoryId])
   @@map("course_categories")
 }
 
 model CourseModule {
-  id          Int      @id @default(autoincrement())
-  courseId    Int      @map("course_id")
-  title       String
-  description String?
-  label       String? // e.g., "Week 1 - Foundations"
-  orderIndex  Int      @default(0) @map("order_index")
-  isPublished Boolean  @default(false) @map("is_published")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  lectures    Lecture[]
-  assignments Assignment[]
-  codeLabs    CodeLab[]
+  id             Int             @id @default(autoincrement())
+  courseId       Int             @map("course_id")
+  title          String
+  description    String?
+  label          String?
+  orderIndex     Int             @default(0) @map("order_index")
+  isPublished    Boolean         @default(false) @map("is_published")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  assignments    Assignment[]
+  codeLabs       CodeLab[]
+  course         Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  forums         Forum[]
   labAssignments LabAssignment[]
-  quizzes     Quiz[]
-  forums      Forum[]
+  lectures       Lecture[]
+  quizzes        Quiz[]
 
   @@index([courseId])
   @@map("course_modules")
 }
 
 model Lecture {
-  id          Int      @id @default(autoincrement())
-  moduleId    Int      @map("module_id")
-  title       String
-  content     String? // Rich text / HTML / Markdown (kept for backwards compatibility)
-  contentType String   @default("text") @map("content_type") // text, video, mixed
-  videoUrl    String?  @map("video_url")
-  duration    Int? // Duration in minutes
-  orderIndex  Int      @default(0) @map("order_index")
-  isPublished Boolean  @default(false) @map("is_published")
-  isFree      Boolean  @default(false) @map("is_free") // Preview lecture
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  module         CourseModule           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  id             Int                    @id @default(autoincrement())
+  moduleId       Int                    @map("module_id")
+  title          String
+  content        String?
+  contentType    String                 @default("text") @map("content_type")
+  videoUrl       String?                @map("video_url")
+  duration       Int?
+  orderIndex     Int                    @default(0) @map("order_index")
+  isPublished    Boolean                @default(false) @map("is_published")
+  isFree         Boolean                @default(false) @map("is_free")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+  assignments    Assignment[]
   attachments    LectureAttachment[]
+  explainThreads LectureExplainThread[]
   progress       LectureProgress[]
   sections       LectureSection[]
-  explainThreads LectureExplainThread[]
+  module         CourseModule           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   @@index([moduleId])
   @@map("lectures")
 }
 
 model LectureSection {
-  id        Int      @id @default(autoincrement())
-  lectureId Int      @map("lecture_id")
-  title     String? // Section title (e.g., "Introduction", "Key Concepts")
-  type      String // 'text', 'file', 'ai-generated', 'chatbot', 'assignment'
-  content   String? // For text and ai-generated (rich text/markdown)
-  fileName  String?  @map("file_name")
-  fileUrl   String?  @map("file_url")
-  fileType  String?  @map("file_type")
-  fileSize  Int?     @map("file_size")
-  order     Int      @default(0)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  // New fields for chatbot sections
-  chatbotTitle        String? @map("chatbot_title")
-  chatbotIntro        String? @map("chatbot_intro")
-  chatbotImageUrl     String? @map("chatbot_image_url")
-  chatbotSystemPrompt String? @map("chatbot_system_prompt")
-  chatbotWelcome      String? @map("chatbot_welcome")
-
-  // New fields for assignment sections
-  assignmentId Int?        @map("assignment_id")
-  assignment   Assignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
-  showDeadline Boolean     @default(true) @map("show_deadline")
-  showPoints   Boolean     @default(true) @map("show_points")
-
-  lecture                Lecture                 @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+  id                     Int                     @id @default(autoincrement())
+  lectureId              Int                     @map("lecture_id")
+  title                  String?
+  type                   String
+  content                String?
+  fileName               String?                 @map("file_name")
+  fileUrl                String?                 @map("file_url")
+  fileType               String?                 @map("file_type")
+  fileSize               Int?                    @map("file_size")
+  order                  Int                     @default(0)
+  createdAt              DateTime                @default(now()) @map("created_at")
+  updatedAt              DateTime                @updatedAt @map("updated_at")
+  chatbotTitle           String?                 @map("chatbot_title")
+  chatbotIntro           String?                 @map("chatbot_intro")
+  chatbotImageUrl        String?                 @map("chatbot_image_url")
+  chatbotSystemPrompt    String?                 @map("chatbot_system_prompt")
+  chatbotWelcome         String?                 @map("chatbot_welcome")
+  assignmentId           Int?                    @map("assignment_id")
+  showDeadline           Boolean                 @default(true) @map("show_deadline")
+  showPoints             Boolean                 @default(true) @map("show_points")
   chatbotConversations   ChatbotConversation[]
   chatbotInteractionLogs ChatbotInteractionLog[]
+  lecture                Lecture                 @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+  assignment             Assignment?             @relation(fields: [assignmentId], references: [id])
 
   @@index([lectureId])
   @@index([assignmentId])
@@ -605,30 +461,23 @@ model LectureAttachment {
   lectureId Int      @map("lecture_id")
   fileName  String   @map("file_name")
   fileUrl   String   @map("file_url")
-  fileType  String   @map("file_type") // pdf, doc, ppt, etc.
+  fileType  String   @map("file_type")
   fileSize  Int?     @map("file_size")
   createdAt DateTime @default(now()) @map("created_at")
-
-  lecture Lecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+  lecture   Lecture  @relation(fields: [lectureId], references: [id], onDelete: Cascade)
 
   @@map("lecture_attachments")
 }
 
-// =============================================================================
-// LMS - LECTURE AI HELPER (Explain Mode Threads)
-// =============================================================================
-
 model LectureExplainThread {
-  id        Int      @id @default(autoincrement())
-  lectureId Int      @map("lecture_id")
-  userId    Int      @map("user_id")
-  question  String   // The initial question
-  createdAt DateTime @default(now()) @map("created_at")
-
-  // Relations
-  lecture Lecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
-  user    User    @relation("UserExplainThreads", fields: [userId], references: [id], onDelete: Cascade)
-  posts   LectureExplainPost[]
+  id        Int                  @id @default(autoincrement())
+  lectureId Int                  @map("lecture_id")
+  userId    Int                  @map("user_id")
+  question  String
+  createdAt DateTime             @default(now()) @map("created_at")
+  posts     LectureExplainPost[]
+  user      User                 @relation("UserExplainThreads", fields: [userId], references: [id], onDelete: Cascade)
+  lecture   Lecture              @relation(fields: [lectureId], references: [id], onDelete: Cascade)
 
   @@index([lectureId])
   @@index([userId])
@@ -636,41 +485,33 @@ model LectureExplainThread {
 }
 
 model LectureExplainPost {
-  id         Int      @id @default(autoincrement())
-  threadId   Int      @map("thread_id")
-  parentId   Int?     @map("parent_id") // For nested follow-ups
-  authorType String   @map("author_type") // 'user' or 'ai'
+  id         Int                  @id @default(autoincrement())
+  threadId   Int                  @map("thread_id")
+  parentId   Int?                 @map("parent_id")
+  authorType String               @map("author_type")
   content    String
-  aiModel    String?  @map("ai_model")
-  createdAt  DateTime @default(now()) @map("created_at")
-
-  // Relations
-  thread  LectureExplainThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  parent  LectureExplainPost?  @relation("PostReplies", fields: [parentId], references: [id], onDelete: SetNull)
-  replies LectureExplainPost[] @relation("PostReplies")
+  aiModel    String?              @map("ai_model")
+  createdAt  DateTime             @default(now()) @map("created_at")
+  parent     LectureExplainPost?  @relation("PostReplies", fields: [parentId], references: [id])
+  replies    LectureExplainPost[] @relation("PostReplies")
+  thread     LectureExplainThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
   @@index([threadId])
   @@index([parentId])
   @@map("lecture_explain_posts")
 }
 
-// =============================================================================
-// LMS - CODE LABS
-// =============================================================================
-
 model CodeLab {
-  id          Int      @id @default(autoincrement())
-  moduleId    Int      @map("module_id")
+  id          Int          @id @default(autoincrement())
+  moduleId    Int          @map("module_id")
   title       String
   description String?
-  orderIndex  Int      @default(0) @map("order_index")
-  isPublished Boolean  @default(false) @map("is_published")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  module CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  blocks CodeBlock[]
+  orderIndex  Int          @default(0) @map("order_index")
+  isPublished Boolean      @default(false) @map("is_published")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  blocks      CodeBlock[]
+  module      CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   @@index([moduleId])
   @@map("code_labs")
@@ -685,31 +526,23 @@ model CodeBlock {
   orderIndex   Int      @default(0) @map("order_index")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  codeLab CodeLab @relation(fields: [codeLabId], references: [id], onDelete: Cascade)
+  codeLab      CodeLab  @relation(fields: [codeLabId], references: [id], onDelete: Cascade)
 
   @@index([codeLabId])
   @@map("code_blocks")
 }
 
-// =============================================================================
-// LMS - ENROLLMENTS & PROGRESS
-// =============================================================================
-
 model Enrollment {
-  id           Int       @id @default(autoincrement())
-  userId       Int       @map("user_id")
-  courseId     Int       @map("course_id")
-  status       String    @default("active") // active, completed, dropped
-  progress     Float     @default(0) // 0-100 percentage
-  enrolledAt   DateTime  @default(now()) @map("enrolled_at")
-  completedAt  DateTime? @map("completed_at")
-  lastAccessAt DateTime? @map("last_access_at")
-
-  // Relations
-  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              Int               @id @default(autoincrement())
+  userId          Int               @map("user_id")
+  courseId        Int               @map("course_id")
+  status          String            @default("active")
+  progress        Float             @default(0)
+  enrolledAt      DateTime          @default(now()) @map("enrolled_at")
+  completedAt     DateTime?         @map("completed_at")
+  lastAccessAt    DateTime?         @map("last_access_at")
   course          Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   lectureProgress LectureProgress[]
 
   @@unique([userId, courseId])
@@ -719,88 +552,75 @@ model Enrollment {
 }
 
 model LectureProgress {
-  id           Int       @id @default(autoincrement())
-  enrollmentId Int       @map("enrollment_id")
-  lectureId    Int       @map("lecture_id")
-  isCompleted  Boolean   @default(false) @map("is_completed")
-  completedAt  DateTime? @map("completed_at")
-  timeSpent    Int       @default(0) @map("time_spent") // seconds
-
-  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
-  lecture    Lecture    @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+  id           Int        @id @default(autoincrement())
+  enrollmentId Int        @map("enrollment_id")
+  lectureId    Int        @map("lecture_id")
+  isCompleted  Boolean    @default(false) @map("is_completed")
+  completedAt  DateTime?  @map("completed_at")
+  timeSpent    Int        @default(0) @map("time_spent")
+  lecture      Lecture    @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
 
   @@unique([enrollmentId, lectureId])
   @@map("lecture_progress")
 }
 
-// =============================================================================
-// LMS - ASSIGNMENTS
-// =============================================================================
-
 model Assignment {
-  id               Int       @id @default(autoincrement())
-  courseId         Int       @map("course_id")
-  moduleId         Int?      @map("module_id")
-  title            String
-  description      String?
-  instructions     String?
-  submissionType   String    @default("text") @map("submission_type") // text, file, mixed, ai_agent
-  maxFileSize      Int?      @map("max_file_size") // MB
-  allowedFileTypes String?   @map("allowed_file_types") // pdf,doc,jpg,png
-  dueDate          DateTime? @map("due_date")
-  points           Int       @default(100)
-  isPublished      Boolean   @default(false) @map("is_published")
-  aiAssisted       Boolean   @default(false) @map("ai_assisted")
-  aiPrompt         String?   @map("ai_prompt")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
-
-  // AI Agent Assignment specific fields
-  agentRequirements String? @map("agent_requirements") // JSON: requirements for the agent
-
-  // Reflection settings for AI Agent assignments
-  reflectionRequirement String? @map("reflection_requirement") // 'required' | 'optional' | 'disabled'
-
-  // Post-submission survey
-  postSurveyId       Int?     @map("post_survey_id")
-  postSurveyRequired Boolean  @default(false) @map("post_survey_required")
-
-  // Relations
-  course              Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  module              CourseModule?          @relation(fields: [moduleId], references: [id], onDelete: SetNull)
-  submissions         AssignmentSubmission[]
-  lectureSections     LectureSection[]
-  studentAgentConfigs StudentAgentConfig[]
-  designEvents        AgentDesignEventLog[]
-  postSurvey          Survey?                @relation("PostAssignmentSurvey", fields: [postSurveyId], references: [id], onDelete: SetNull)
+  id                    Int                    @id @default(autoincrement())
+  courseId              Int                    @map("course_id")
+  moduleId              Int?                   @map("module_id")
+  lectureId             Int?                   @map("lecture_id")
+  title                 String
+  description           String?
+  instructions          String?
+  submissionType        String                 @default("text") @map("submission_type")
+  maxFileSize           Int?                   @map("max_file_size")
+  allowedFileTypes      String?                @map("allowed_file_types")
+  dueDate               DateTime?              @map("due_date")
+  points                Int                    @default(100)
+  isPublished           Boolean                @default(false) @map("is_published")
+  aiAssisted            Boolean                @default(false) @map("ai_assisted")
+  aiPrompt              String?                @map("ai_prompt")
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+  agentRequirements     String?                @map("agent_requirements")
+  reflectionRequirement String?                @map("reflection_requirement")
+  postSurveyId          Int?                   @map("post_survey_id")
+  postSurveyRequired    Boolean                @default(false) @map("post_survey_required")
+  designEvents          AgentDesignEventLog[]
+  submissions           AssignmentSubmission[]
+  postSurvey            Survey?                @relation("PostAssignmentSurvey", fields: [postSurveyId], references: [id])
+  lecture               Lecture?               @relation(fields: [lectureId], references: [id], onDelete: SetNull)
+  module                CourseModule?          @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  course                Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lectureSections       LectureSection[]
+  studentAgentConfigs   StudentAgentConfig[]
 
   @@index([courseId])
   @@index([postSurveyId])
+  @@index([lectureId])
+  @@index([moduleId])
   @@map("assignments")
 }
 
 model AssignmentSubmission {
-  id           Int       @id @default(autoincrement())
-  assignmentId Int       @map("assignment_id")
-  userId       Int       @map("user_id")
-  content      String? // Text submission
-  fileUrls     String?   @map("file_urls") // JSON array of file URLs
-  status       String    @default("submitted") // draft, submitted, graded, returned
-  submittedAt  DateTime  @default(now()) @map("submitted_at")
-  grade        Float?
-  feedback     String?
-  gradedAt     DateTime? @map("graded_at")
-  gradedById   Int?      @map("graded_by")
-  aiFeedback   String?   @map("ai_feedback")
-
-  // AI Agent submission - links to the student's agent config
-  agentConfigId Int? @unique @map("agent_config_id")
-
-  // Relations
-  assignment  Assignment          @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  user        User                @relation("StudentSubmissions", fields: [userId], references: [id], onDelete: Cascade)
-  gradedBy    User?               @relation("GradedBy", fields: [gradedById], references: [id], onDelete: SetNull)
-  agentConfig StudentAgentConfig? @relation(fields: [agentConfigId], references: [id])
+  id            Int                 @id @default(autoincrement())
+  assignmentId  Int                 @map("assignment_id")
+  userId        Int                 @map("user_id")
+  content       String?
+  fileUrls      String?             @map("file_urls")
+  status        String              @default("submitted")
+  submittedAt   DateTime            @default(now()) @map("submitted_at")
+  grade         Float?
+  feedback      String?
+  gradedAt      DateTime?           @map("graded_at")
+  gradedById    Int?                @map("graded_by")
+  aiFeedback    String?             @map("ai_feedback")
+  agentConfigId Int?                @unique @map("agent_config_id")
+  agentConfig   StudentAgentConfig? @relation(fields: [agentConfigId], references: [id])
+  gradedBy      User?               @relation("GradedBy", fields: [gradedById], references: [id])
+  user          User                @relation("StudentSubmissions", fields: [userId], references: [id], onDelete: Cascade)
+  assignment    Assignment          @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
 
   @@unique([assignmentId, userId])
   @@index([assignmentId])
@@ -809,10 +629,6 @@ model AssignmentSubmission {
   @@map("assignment_submissions")
 }
 
-// =============================================================================
-// LMS - ANNOUNCEMENTS
-// =============================================================================
-
 model CourseAnnouncement {
   id        Int      @id @default(autoincrement())
   courseId  Int      @map("course_id")
@@ -820,28 +636,22 @@ model CourseAnnouncement {
   content   String
   authorId  Int      @map("author_id")
   createdAt DateTime @default(now()) @map("created_at")
-
-  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  author User   @relation(fields: [authorId], references: [id])
+  author    User     @relation(fields: [authorId], references: [id])
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@index([courseId])
   @@map("course_announcements")
 }
 
-// =============================================================================
-// CHATBOT CONVERSATIONS (for lesson chatbot sections)
-// =============================================================================
-
 model ChatbotConversation {
-  id        Int            @id @default(autoincrement())
-  sectionId Int            @map("section_id")
-  section   LectureSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  userId    Int            @map("user_id")
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime       @default(now()) @map("created_at")
-  updatedAt DateTime       @updatedAt @map("updated_at")
-
-  messages ChatbotConversationMessage[]
+  id        Int                          @id @default(autoincrement())
+  sectionId Int                          @map("section_id")
+  userId    Int                          @map("user_id")
+  createdAt DateTime                     @default(now()) @map("created_at")
+  updatedAt DateTime                     @updatedAt @map("updated_at")
+  messages  ChatbotConversationMessage[]
+  user      User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  section   LectureSection               @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
   @@unique([sectionId, userId])
   @@index([sectionId])
@@ -852,104 +662,76 @@ model ChatbotConversation {
 model ChatbotConversationMessage {
   id             Int                 @id @default(autoincrement())
   conversationId Int                 @map("conversation_id")
-  conversation   ChatbotConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  role           String // 'user' | 'assistant'
+  role           String
   content        String
   createdAt      DateTime            @default(now()) @map("created_at")
+  conversation   ChatbotConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId])
   @@map("chatbot_conversation_messages")
 }
 
-// =============================================================================
-// CHATBOT INTERACTION LOGS (Comprehensive logging with full context)
-// =============================================================================
-
 model ChatbotInteractionLog {
-  id Int @id @default(autoincrement())
-
-  // ===== USER CONTEXT =====
-  userId       Int?    @map("user_id")
-  user         User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
-  userFullname String? @map("user_fullname") // Snapshot at time of interaction
-  userEmail    String? @map("user_email") // Snapshot at time of interaction
-  sessionId    String? @map("session_id")
-
-  // ===== COURSE HIERARCHY CONTEXT =====
-  courseId          Int?           @map("course_id")
-  courseTitle       String?        @map("course_title") // Snapshot
-  courseSlug        String?        @map("course_slug") // Snapshot
-  moduleId          Int?           @map("module_id")
-  moduleTitle       String?        @map("module_title") // Snapshot
-  moduleOrderIndex  Int?           @map("module_order_index") // Snapshot
-  lectureId         Int?           @map("lecture_id")
-  lectureTitle      String?        @map("lecture_title") // Snapshot
-  lectureOrderIndex Int?           @map("lecture_order_index") // Snapshot
-  sectionId         Int            @map("section_id")
-  section           LectureSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  sectionOrderIndex Int?           @map("section_order_index") // Snapshot
-
-  // ===== CONVERSATION CONTEXT =====
-  conversationId           Int? @map("conversation_id")
-  conversationMessageCount Int? @map("conversation_message_count") // Messages in conversation at this point
-  messageIndex             Int? @map("message_index") // Index of this message in conversation
-
-  // ===== EVENT DETAILS =====
-  eventType     String @map("event_type") // 'conversation_start' | 'message_sent' | 'message_received' | 'conversation_cleared' | 'error'
-  eventSequence Int?   @map("event_sequence") // Sequence number in session
-
-  // ===== CHATBOT CONFIGURATION SNAPSHOT =====
-  chatbotTitle          String? @map("chatbot_title")
-  chatbotIntro          String? @map("chatbot_intro")
-  chatbotImageUrl       String? @map("chatbot_image_url")
-  chatbotSystemPrompt   String? @map("chatbot_system_prompt")
-  chatbotWelcomeMessage String? @map("chatbot_welcome_message")
-
-  // ===== MESSAGE DETAILS =====
-  messageContent    String? @map("message_content")
-  messageCharCount  Int?    @map("message_char_count")
-  messageWordCount  Int?    @map("message_word_count")
-  responseContent   String? @map("response_content")
-  responseCharCount Int?    @map("response_char_count")
-  responseWordCount Int?    @map("response_word_count")
-
-  // ===== AI RESPONSE METRICS =====
-  responseTime     Float?  @map("response_time") // in seconds
-  aiModel          String? @map("ai_model")
-  aiProvider       String? @map("ai_provider") // openai, anthropic, etc.
-  promptTokens     Int?    @map("prompt_tokens")
-  completionTokens Int?    @map("completion_tokens")
-  totalTokens      Int?    @map("total_tokens")
-
-  // ===== ERROR DETAILS =====
-  errorMessage String? @map("error_message")
-  errorCode    String? @map("error_code")
-  errorStack   String? @map("error_stack")
-
-  // ===== CLIENT CONTEXT =====
-  ipAddress      String? @map("ip_address")
-  userAgent      String? @map("user_agent")
-  browserName    String? @map("browser_name")
-  browserVersion String? @map("browser_version")
-  osName         String? @map("os_name")
-  osVersion      String? @map("os_version")
-  deviceType     String? @map("device_type") // desktop, mobile, tablet
-  screenWidth    Int?    @map("screen_width")
-  screenHeight   Int?    @map("screen_height")
-  language       String? @map("language")
-  timezone       String? @map("timezone")
-
-  // ===== TIMING =====
-  timestamp        DateTime  @default(now())
-  timestampMs      BigInt?   @map("timestamp_ms") // Unix timestamp in milliseconds
-  sessionStartTime DateTime? @map("session_start_time")
-  sessionDuration  Int?      @map("session_duration") // seconds since session start
-
-  // ===== ADDITIONAL DATA =====
-  metadata String? // JSON string for any additional data
-
-  // ===== TEST MODE (Admin "View As" feature) =====
-  testMode String? @map("test_mode") // 'test_instructor', 'test_student' when admin is testing roles
+  id                       Int            @id @default(autoincrement())
+  userId                   Int?           @map("user_id")
+  userFullname             String?        @map("user_fullname")
+  userEmail                String?        @map("user_email")
+  sessionId                String?        @map("session_id")
+  courseId                 Int?           @map("course_id")
+  courseTitle              String?        @map("course_title")
+  courseSlug               String?        @map("course_slug")
+  moduleId                 Int?           @map("module_id")
+  moduleTitle              String?        @map("module_title")
+  moduleOrderIndex         Int?           @map("module_order_index")
+  lectureId                Int?           @map("lecture_id")
+  lectureTitle             String?        @map("lecture_title")
+  lectureOrderIndex        Int?           @map("lecture_order_index")
+  sectionId                Int            @map("section_id")
+  sectionOrderIndex        Int?           @map("section_order_index")
+  conversationId           Int?           @map("conversation_id")
+  conversationMessageCount Int?           @map("conversation_message_count")
+  messageIndex             Int?           @map("message_index")
+  eventType                String         @map("event_type")
+  eventSequence            Int?           @map("event_sequence")
+  chatbotTitle             String?        @map("chatbot_title")
+  chatbotIntro             String?        @map("chatbot_intro")
+  chatbotImageUrl          String?        @map("chatbot_image_url")
+  chatbotSystemPrompt      String?        @map("chatbot_system_prompt")
+  chatbotWelcomeMessage    String?        @map("chatbot_welcome_message")
+  messageContent           String?        @map("message_content")
+  messageCharCount         Int?           @map("message_char_count")
+  messageWordCount         Int?           @map("message_word_count")
+  responseContent          String?        @map("response_content")
+  responseCharCount        Int?           @map("response_char_count")
+  responseWordCount        Int?           @map("response_word_count")
+  responseTime             Float?         @map("response_time")
+  aiModel                  String?        @map("ai_model")
+  aiProvider               String?        @map("ai_provider")
+  promptTokens             Int?           @map("prompt_tokens")
+  completionTokens         Int?           @map("completion_tokens")
+  totalTokens              Int?           @map("total_tokens")
+  errorMessage             String?        @map("error_message")
+  errorCode                String?        @map("error_code")
+  errorStack               String?        @map("error_stack")
+  ipAddress                String?        @map("ip_address")
+  userAgent                String?        @map("user_agent")
+  browserName              String?        @map("browser_name")
+  browserVersion           String?        @map("browser_version")
+  osName                   String?        @map("os_name")
+  osVersion                String?        @map("os_version")
+  deviceType               String?        @map("device_type")
+  screenWidth              Int?           @map("screen_width")
+  screenHeight             Int?           @map("screen_height")
+  language                 String?        @map("language")
+  timezone                 String?        @map("timezone")
+  timestamp                DateTime       @default(now())
+  timestampMs              BigInt?        @map("timestamp_ms")
+  sessionStartTime         DateTime?      @map("session_start_time")
+  sessionDuration          Int?           @map("session_duration")
+  metadata                 String?
+  testMode                 String?        @map("test_mode")
+  section                  LectureSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  user                     User?          @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([sectionId])
@@ -962,81 +744,57 @@ model ChatbotInteractionLog {
   @@map("chatbot_interaction_logs")
 }
 
-// =============================================================================
-// USER INTERACTION LOGS (Enhanced with full context)
-// =============================================================================
-
 model UserInteractionLog {
-  id Int @id @default(autoincrement())
-
-  // ===== USER CONTEXT =====
-  userId       Int?    @map("user_id")
-  user         User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
-  userFullname String? @map("user_fullname")
-  userEmail    String? @map("user_email")
-  sessionId    String? @map("session_id")
-
-  // ===== LOCATION CONTEXT =====
-  pageUrl     String? @map("page_url")
-  pagePath    String? @map("page_path")
-  pageTitle   String? @map("page_title")
-  referrerUrl String? @map("referrer_url")
-
-  // ===== COURSE CONTEXT (if on course page) =====
-  courseId     Int?    @map("course_id")
-  courseTitle  String? @map("course_title")
-  moduleId     Int?    @map("module_id")
-  moduleTitle  String? @map("module_title")
-  lectureId    Int?    @map("lecture_id")
-  lectureTitle String? @map("lecture_title")
-
-  // ===== EVENT DETAILS =====
-  eventType     String  @map("event_type") // click, page_view, scroll, form_submit, etc.
-  eventCategory String? @map("event_category") // navigation, content, form, etc.
-  eventAction   String? @map("event_action") // Specific action
-  eventLabel    String? @map("event_label") // Label for grouping
-  eventValue    Float?  @map("event_value") // Numeric value if applicable
-  eventSequence Int?    @map("event_sequence") // Sequence in session
-
-  // ===== ELEMENT DETAILS =====
-  elementId      String? @map("element_id")
-  elementType    String? @map("element_type") // button, link, input, etc.
-  elementText    String? @map("element_text")
-  elementHref    String? @map("element_href")
-  elementClasses String? @map("element_classes")
-  elementName    String? @map("element_name")
-  elementValue   String? @map("element_value")
-
-  // ===== SCROLL/VIEWPORT =====
-  scrollDepth    Int? @map("scroll_depth") // Percentage scrolled
-  viewportWidth  Int? @map("viewport_width")
-  viewportHeight Int? @map("viewport_height")
-
-  // ===== CLIENT CONTEXT =====
-  ipAddress      String? @map("ip_address")
-  userAgent      String? @map("user_agent")
-  browserName    String? @map("browser_name")
-  browserVersion String? @map("browser_version")
-  osName         String? @map("os_name")
-  osVersion      String? @map("os_version")
-  deviceType     String? @map("device_type")
-  screenWidth    Int?    @map("screen_width")
-  screenHeight   Int?    @map("screen_height")
-  language       String? @map("language")
-  timezone       String? @map("timezone")
-
-  // ===== TIMING =====
+  id               Int       @id @default(autoincrement())
+  userId           Int?      @map("user_id")
+  userFullname     String?   @map("user_fullname")
+  userEmail        String?   @map("user_email")
+  sessionId        String?   @map("session_id")
+  pageUrl          String?   @map("page_url")
+  pagePath         String?   @map("page_path")
+  pageTitle        String?   @map("page_title")
+  referrerUrl      String?   @map("referrer_url")
+  courseId         Int?      @map("course_id")
+  courseTitle      String?   @map("course_title")
+  moduleId         Int?      @map("module_id")
+  moduleTitle      String?   @map("module_title")
+  lectureId        Int?      @map("lecture_id")
+  lectureTitle     String?   @map("lecture_title")
+  eventType        String    @map("event_type")
+  eventCategory    String?   @map("event_category")
+  eventAction      String?   @map("event_action")
+  eventLabel       String?   @map("event_label")
+  eventValue       Float?    @map("event_value")
+  eventSequence    Int?      @map("event_sequence")
+  elementId        String?   @map("element_id")
+  elementType      String?   @map("element_type")
+  elementText      String?   @map("element_text")
+  elementHref      String?   @map("element_href")
+  elementClasses   String?   @map("element_classes")
+  elementName      String?   @map("element_name")
+  elementValue     String?   @map("element_value")
+  scrollDepth      Int?      @map("scroll_depth")
+  viewportWidth    Int?      @map("viewport_width")
+  viewportHeight   Int?      @map("viewport_height")
+  ipAddress        String?   @map("ip_address")
+  userAgent        String?   @map("user_agent")
+  browserName      String?   @map("browser_name")
+  browserVersion   String?   @map("browser_version")
+  osName           String?   @map("os_name")
+  osVersion        String?   @map("os_version")
+  deviceType       String?   @map("device_type")
+  screenWidth      Int?      @map("screen_width")
+  screenHeight     Int?      @map("screen_height")
+  language         String?   @map("language")
+  timezone         String?   @map("timezone")
   timestamp        DateTime  @default(now())
   timestampMs      BigInt?   @map("timestamp_ms")
   sessionStartTime DateTime? @map("session_start_time")
   sessionDuration  Int?      @map("session_duration")
-  timeOnPage       Int?      @map("time_on_page") // seconds on current page
-
-  // ===== ADDITIONAL DATA =====
-  metadata String?
-
-  // ===== TEST MODE (Admin "View As" feature) =====
-  testMode String? @map("test_mode") // 'test_instructor', 'test_student' when admin is testing roles
+  timeOnPage       Int?      @map("time_on_page")
+  metadata         String?
+  testMode         String?   @map("test_mode")
+  user             User?     @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([sessionId])
@@ -1048,11 +806,6 @@ model UserInteractionLog {
   @@map("user_interaction_logs")
 }
 
-// =============================================================================
-// RESEARCH-GRADE LEARNING ANALYTICS LOGS
-// =============================================================================
-
-// ContentEventLog - Student content consumption tracking
 model ContentEventLog {
   id                  Int      @id @default(autoincrement())
   userId              Int?     @map("user_id")
@@ -1067,7 +820,7 @@ model ContentEventLog {
   lectureTitle        String?  @map("lecture_title")
   sectionId           Int?     @map("section_id")
   sectionTitle        String?  @map("section_title")
-  eventType           String   @map("event_type") // lecture_view, video_play, video_pause, video_complete, document_download, scroll_depth_update
+  eventType           String   @map("event_type")
   videoPosition       Float?   @map("video_position")
   videoDuration       Float?   @map("video_duration")
   videoPercentWatched Float?   @map("video_percent_watched")
@@ -1086,7 +839,6 @@ model ContentEventLog {
   @@map("content_event_logs")
 }
 
-// AssessmentEventLog - Assignment/quiz tracking
 model AssessmentEventLog {
   id               Int      @id @default(autoincrement())
   userId           Int?     @map("user_id")
@@ -1098,7 +850,7 @@ model AssessmentEventLog {
   assignmentId     Int?     @map("assignment_id")
   assignmentTitle  String?  @map("assignment_title")
   submissionId     Int?     @map("submission_id")
-  eventType        String   @map("event_type") // assignment_view, assignment_submit, grade_received, feedback_view
+  eventType        String   @map("event_type")
   grade            Float?
   maxPoints        Float?   @map("max_points")
   previousGrade    Float?   @map("previous_grade")
@@ -1114,17 +866,16 @@ model AssessmentEventLog {
   @@map("assessment_event_logs")
 }
 
-// SystemEventLog - Teacher/Admin CRUD actions
 model SystemEventLog {
   id                 Int      @id @default(autoincrement())
   actorId            Int?     @map("actor_id")
   actorFullname      String?  @map("actor_fullname")
   actorEmail         String?  @map("actor_email")
-  actorRole          String?  @map("actor_role") // admin, instructor
-  eventType          String   @map("event_type") // course_create, lecture_update, chatbot_config_change, etc.
-  eventCategory      String   @map("event_category") // content_mgmt, grading, user_mgmt
-  changeType         String?  @map("change_type") // create, update, delete
-  targetType         String?  @map("target_type") // course, module, lecture, section, assignment, chatbot
+  actorRole          String?  @map("actor_role")
+  eventType          String   @map("event_type")
+  eventCategory      String   @map("event_category")
+  changeType         String?  @map("change_type")
+  targetType         String?  @map("target_type")
   targetId           Int?     @map("target_id")
   targetTitle        String?  @map("target_title")
   courseId           Int?     @map("course_id")
@@ -1132,8 +883,8 @@ model SystemEventLog {
   targetUserId       Int?     @map("target_user_id")
   targetUserFullname String?  @map("target_user_fullname")
   targetUserEmail    String?  @map("target_user_email")
-  previousValues     String?  @map("previous_values") // JSON
-  newValues          String?  @map("new_values") // JSON
+  previousValues     String?  @map("previous_values")
+  newValues          String?  @map("new_values")
   ipAddress          String?  @map("ip_address")
   timestamp          DateTime @default(now())
 
@@ -1141,7 +892,6 @@ model SystemEventLog {
   @@map("system_event_logs")
 }
 
-// AuthEventLog - Authentication tracking
 model AuthEventLog {
   id              Int      @id @default(autoincrement())
   userId          Int?     @map("user_id")
@@ -1149,7 +899,7 @@ model AuthEventLog {
   userEmail       String   @map("user_email")
   sessionId       String?  @map("session_id")
   sessionDuration Int?     @map("session_duration")
-  eventType       String   @map("event_type") // login_success, login_failure, logout, password_reset, password_change, session_timeout
+  eventType       String   @map("event_type")
   failureReason   String?  @map("failure_reason")
   attemptCount    Int?     @map("attempt_count")
   ipAddress       String?  @map("ip_address")
@@ -1165,64 +915,41 @@ model AuthEventLog {
   @@map("auth_event_logs")
 }
 
-// =============================================================================
-// AI AGENT ASSIGNMENTS
-// =============================================================================
-
-// StudentAgentConfig - Student's agent configuration for AI Agent assignments
 model StudentAgentConfig {
-  id           Int @id @default(autoincrement())
-  assignmentId Int @map("assignment_id")
-  userId       Int @map("user_id")
-
-  // Agent Configuration
-  agentName          String  @map("agent_name")
-  agentTitle         String? @map("agent_title") // Role title, e.g., "Writing Coach", "Study Buddy"
-  personaDescription String? @map("persona_description")
-  systemPrompt       String  @map("system_prompt")
-  dosRules           String? @map("dos_rules") // JSON array of do's
-  dontsRules         String? @map("donts_rules") // JSON array of don'ts
-  welcomeMessage     String? @map("welcome_message")
-  avatarImageUrl     String? @map("avatar_image_url")
-
-  // Enhanced builder fields
-  pedagogicalRole    String? @map("pedagogical_role") // peer_tutor, study_buddy, socratic_guide, etc.
-  personality        String? @map("personality") // friendly, professional, socratic, encouraging, etc.
-  personalityPrompt  String? @map("personality_prompt") // Editable personality instructions
-  responseStyle      String? @map("response_style") // concise, balanced, detailed
-  temperature        Float?  @default(0.7) @map("temperature")
-  suggestedQuestions String? @map("suggested_questions") // JSON array of conversation starters
-  knowledgeContext   String? @map("knowledge_context") // Domain expertise/knowledge field
-
-  // Prompt building blocks
-  selectedPromptBlocks String? @map("selected_prompt_blocks") // JSON array of block IDs
-
-  // Reflection tracking
-  reflectionResponses String? @map("reflection_responses") // JSON object of reflection prompt responses
-
-  // Design metrics
-  totalDesignTime       Int? @map("total_design_time") // Total seconds spent designing
-  testConversationCount Int? @map("test_conversation_count") // Number of test conversations
-  iterationCount        Int? @map("iteration_count") // Times saved after testing
-
-  // Version tracking - increments on each save
-  version Int @default(1)
-
-  // Status
-  isDraft Boolean @default(true) @map("is_draft")
-
-  // Timestamps
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  submittedAt DateTime? @map("submitted_at")
-
-  // Relations
-  assignment        Assignment              @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  submission        AssignmentSubmission?
-  testConversations AgentTestConversation[]
-  configLogs        AgentConfigurationLog[]
-  gradeLogs         AgentGradeLog[]
-  designEvents      AgentDesignEventLog[]
+  id                    Int                     @id @default(autoincrement())
+  assignmentId          Int                     @map("assignment_id")
+  userId                Int                     @map("user_id")
+  agentName             String                  @map("agent_name")
+  agentTitle            String?                 @map("agent_title")
+  personaDescription    String?                 @map("persona_description")
+  systemPrompt          String                  @map("system_prompt")
+  dosRules              String?                 @map("dos_rules")
+  dontsRules            String?                 @map("donts_rules")
+  welcomeMessage        String?                 @map("welcome_message")
+  avatarImageUrl        String?                 @map("avatar_image_url")
+  pedagogicalRole       String?                 @map("pedagogical_role")
+  personality           String?                 @map("personality")
+  personalityPrompt     String?                 @map("personality_prompt")
+  responseStyle         String?                 @map("response_style")
+  temperature           Float?                  @default(0.7) @map("temperature")
+  suggestedQuestions    String?                 @map("suggested_questions")
+  knowledgeContext      String?                 @map("knowledge_context")
+  selectedPromptBlocks  String?                 @map("selected_prompt_blocks")
+  reflectionResponses   String?                 @map("reflection_responses")
+  totalDesignTime       Int?                    @map("total_design_time")
+  testConversationCount Int?                    @map("test_conversation_count")
+  iterationCount        Int?                    @map("iteration_count")
+  version               Int                     @default(1)
+  isDraft               Boolean                 @default(true) @map("is_draft")
+  createdAt             DateTime                @default(now()) @map("created_at")
+  updatedAt             DateTime                @updatedAt @map("updated_at")
+  submittedAt           DateTime?               @map("submitted_at")
+  configLogs            AgentConfigurationLog[]
+  designEvents          AgentDesignEventLog[]
+  gradeLogs             AgentGradeLog[]
+  testConversations     AgentTestConversation[]
+  submission            AssignmentSubmission?
+  assignment            Assignment              @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
 
   @@unique([assignmentId, userId])
   @@index([assignmentId])
@@ -1230,39 +957,26 @@ model StudentAgentConfig {
   @@map("student_agent_configs")
 }
 
-// AgentConfigurationLog - Audit trail for agent config changes
 model AgentConfigurationLog {
-  id Int @id @default(autoincrement())
-
-  // Agent Config Context
-  agentConfigId Int                @map("agent_config_id")
-  agentConfig   StudentAgentConfig @relation(fields: [agentConfigId], references: [id], onDelete: Cascade)
-
-  // User Context
-  userId       Int     @map("user_id")
-  userFullname String? @map("user_fullname")
-  userEmail    String? @map("user_email")
-
-  // Assignment Context (snapshot)
-  assignmentId    Int     @map("assignment_id")
-  assignmentTitle String? @map("assignment_title")
-  courseId        Int?    @map("course_id")
-  courseTitle     String? @map("course_title")
-
-  // Change Details
-  changeType             String  @map("change_type") // 'create' | 'update' | 'submit' | 'unsubmit'
-  version                Int // Version number at the time of change
-  previousConfigSnapshot String? @map("previous_config_snapshot") // Full JSON snapshot
-  newConfigSnapshot      String  @map("new_config_snapshot") // Full JSON snapshot
-  changedFields          String? @map("changed_fields") // JSON array of field names that changed
-
-  // Client Context
-  ipAddress String? @map("ip_address")
-  userAgent String? @map("user_agent")
-  sessionId String? @map("session_id")
-
-  // Timestamp
-  timestamp DateTime @default(now())
+  id                     Int                @id @default(autoincrement())
+  agentConfigId          Int                @map("agent_config_id")
+  userId                 Int                @map("user_id")
+  userFullname           String?            @map("user_fullname")
+  userEmail              String?            @map("user_email")
+  assignmentId           Int                @map("assignment_id")
+  assignmentTitle        String?            @map("assignment_title")
+  courseId               Int?               @map("course_id")
+  courseTitle            String?            @map("course_title")
+  changeType             String             @map("change_type")
+  version                Int
+  previousConfigSnapshot String?            @map("previous_config_snapshot")
+  newConfigSnapshot      String             @map("new_config_snapshot")
+  changedFields          String?            @map("changed_fields")
+  ipAddress              String?            @map("ip_address")
+  userAgent              String?            @map("user_agent")
+  sessionId              String?            @map("session_id")
+  timestamp              DateTime           @default(now())
+  agentConfig            StudentAgentConfig @relation(fields: [agentConfigId], references: [id], onDelete: Cascade)
 
   @@index([agentConfigId])
   @@index([userId])
@@ -1272,31 +986,20 @@ model AgentConfigurationLog {
   @@map("agent_configuration_logs")
 }
 
-// AgentTestConversation - Test conversation sessions
 model AgentTestConversation {
-  id Int @id @default(autoincrement())
-
-  // Agent Config Context
-  agentConfigId Int                @map("agent_config_id")
-  agentConfig   StudentAgentConfig @relation(fields: [agentConfigId], references: [id], onDelete: Cascade)
-
-  // Tester Info
-  testerId       Int     @map("tester_id")
-  testerRole     String  @map("tester_role") // 'student' | 'instructor'
-  testerFullname String? @map("tester_fullname")
-  testerEmail    String? @map("tester_email")
-
-  // Config Snapshot at test time
-  configVersion  Int    @map("config_version")
-  configSnapshot String @map("config_snapshot") // Full JSON snapshot
-
-  // Timestamps
-  startedAt DateTime  @default(now()) @map("started_at")
-  endedAt   DateTime? @map("ended_at")
-
-  // Relations
-  messages        AgentTestMessage[]
+  id              Int                       @id @default(autoincrement())
+  agentConfigId   Int                       @map("agent_config_id")
+  testerId        Int                       @map("tester_id")
+  testerRole      String                    @map("tester_role")
+  testerFullname  String?                   @map("tester_fullname")
+  testerEmail     String?                   @map("tester_email")
+  configVersion   Int                       @map("config_version")
+  configSnapshot  String                    @map("config_snapshot")
+  startedAt       DateTime                  @default(now()) @map("started_at")
+  endedAt         DateTime?                 @map("ended_at")
+  agentConfig     StudentAgentConfig        @relation(fields: [agentConfigId], references: [id], onDelete: Cascade)
   interactionLogs AgentTestInteractionLog[]
+  messages        AgentTestMessage[]
 
   @@index([agentConfigId])
   @@index([testerId])
@@ -1304,115 +1007,79 @@ model AgentTestConversation {
   @@map("agent_test_conversations")
 }
 
-// AgentTestMessage - Individual messages in test conversations
 model AgentTestMessage {
-  id Int @id @default(autoincrement())
-
-  // Conversation Context
-  conversationId Int                   @map("conversation_id")
-  conversation   AgentTestConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  // Message Details
-  role         String // 'user' | 'assistant'
-  content      String
-  messageIndex Int    @map("message_index") // Order in conversation
-
-  // AI Metrics (for assistant messages)
-  aiModel          String? @map("ai_model")
-  aiProvider       String? @map("ai_provider")
-  promptTokens     Int?    @map("prompt_tokens")
-  completionTokens Int?    @map("completion_tokens")
-  totalTokens      Int?    @map("total_tokens")
-  responseTimeMs   Int?    @map("response_time_ms")
-
-  // Timestamp
-  createdAt DateTime @default(now()) @map("created_at")
+  id               Int                   @id @default(autoincrement())
+  conversationId   Int                   @map("conversation_id")
+  role             String
+  content          String
+  messageIndex     Int                   @map("message_index")
+  aiModel          String?               @map("ai_model")
+  aiProvider       String?               @map("ai_provider")
+  promptTokens     Int?                  @map("prompt_tokens")
+  completionTokens Int?                  @map("completion_tokens")
+  totalTokens      Int?                  @map("total_tokens")
+  responseTimeMs   Int?                  @map("response_time_ms")
+  createdAt        DateTime              @default(now()) @map("created_at")
+  conversation     AgentTestConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId])
   @@index([messageIndex])
   @@map("agent_test_messages")
 }
 
-// AgentTestInteractionLog - Comprehensive logging for agent testing (follows ChatbotInteractionLog pattern)
 model AgentTestInteractionLog {
-  id Int @id @default(autoincrement())
-
-  // ===== USER CONTEXT =====
-  userId       Int?    @map("user_id")
-  userFullname String? @map("user_fullname")
-  userEmail    String? @map("user_email")
-  userRole     String? @map("user_role") // 'student' | 'instructor'
-  sessionId    String? @map("session_id")
-
-  // ===== AGENT CONFIG CONTEXT =====
-  agentConfigId Int     @map("agent_config_id")
-  agentName     String? @map("agent_name")
-  agentTitle    String? @map("agent_title")
-  agentVersion  Int?    @map("agent_version")
-
-  // ===== ASSIGNMENT CONTEXT =====
-  assignmentId    Int     @map("assignment_id")
-  assignmentTitle String? @map("assignment_title")
-  courseId        Int?    @map("course_id")
-  courseTitle     String? @map("course_title")
-
-  // ===== CONVERSATION CONTEXT =====
-  conversationId           Int? @map("conversation_id")
-  conversationMessageCount Int? @map("conversation_message_count")
-  messageIndex             Int? @map("message_index")
-
-  // ===== EVENT DETAILS =====
-  eventType     String @map("event_type") // 'test_start' | 'message_sent' | 'message_received' | 'test_end' | 'error'
-  eventSequence Int?   @map("event_sequence")
-
-  // ===== AGENT CONFIGURATION SNAPSHOT =====
-  agentConfigSnapshot String? @map("agent_config_snapshot") // Full JSON
-
-  // ===== MESSAGE DETAILS =====
-  messageContent    String? @map("message_content")
-  messageCharCount  Int?    @map("message_char_count")
-  messageWordCount  Int?    @map("message_word_count")
-  responseContent   String? @map("response_content")
-  responseCharCount Int?    @map("response_char_count")
-  responseWordCount Int?    @map("response_word_count")
-
-  // ===== AI RESPONSE METRICS =====
-  responseTime     Float?  @map("response_time")
-  aiModel          String? @map("ai_model")
-  aiProvider       String? @map("ai_provider")
-  promptTokens     Int?    @map("prompt_tokens")
-  completionTokens Int?    @map("completion_tokens")
-  totalTokens      Int?    @map("total_tokens")
-
-  // ===== ERROR DETAILS =====
-  errorMessage String? @map("error_message")
-  errorCode    String? @map("error_code")
-  errorStack   String? @map("error_stack")
-
-  // ===== CLIENT CONTEXT =====
-  ipAddress      String? @map("ip_address")
-  userAgent      String? @map("user_agent")
-  browserName    String? @map("browser_name")
-  browserVersion String? @map("browser_version")
-  osName         String? @map("os_name")
-  osVersion      String? @map("os_version")
-  deviceType     String? @map("device_type")
-  screenWidth    Int?    @map("screen_width")
-  screenHeight   Int?    @map("screen_height")
-  language       String? @map("language")
-  timezone       String? @map("timezone")
-
-  // ===== TIMING =====
-  timestamp        DateTime  @default(now())
-  timestampMs      BigInt?   @map("timestamp_ms")
-  sessionStartTime DateTime? @map("session_start_time")
-  sessionDuration  Int?      @map("session_duration")
-
-  // ===== ADDITIONAL DATA =====
-  metadata String?
-
-  // Relations
-  conversation AgentTestConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  id                       Int                    @id @default(autoincrement())
+  userId                   Int?                   @map("user_id")
+  userFullname             String?                @map("user_fullname")
+  userEmail                String?                @map("user_email")
+  userRole                 String?                @map("user_role")
+  sessionId                String?                @map("session_id")
+  agentConfigId            Int                    @map("agent_config_id")
+  agentName                String?                @map("agent_name")
+  agentTitle               String?                @map("agent_title")
+  agentVersion             Int?                   @map("agent_version")
+  assignmentId             Int                    @map("assignment_id")
+  assignmentTitle          String?                @map("assignment_title")
+  courseId                 Int?                   @map("course_id")
+  courseTitle              String?                @map("course_title")
+  conversationId           Int?                   @map("conversation_id")
+  conversationMessageCount Int?                   @map("conversation_message_count")
+  messageIndex             Int?                   @map("message_index")
+  eventType                String                 @map("event_type")
+  eventSequence            Int?                   @map("event_sequence")
+  agentConfigSnapshot      String?                @map("agent_config_snapshot")
+  messageContent           String?                @map("message_content")
+  messageCharCount         Int?                   @map("message_char_count")
+  messageWordCount         Int?                   @map("message_word_count")
+  responseContent          String?                @map("response_content")
+  responseCharCount        Int?                   @map("response_char_count")
+  responseWordCount        Int?                   @map("response_word_count")
+  responseTime             Float?                 @map("response_time")
+  aiModel                  String?                @map("ai_model")
+  aiProvider               String?                @map("ai_provider")
+  promptTokens             Int?                   @map("prompt_tokens")
+  completionTokens         Int?                   @map("completion_tokens")
+  totalTokens              Int?                   @map("total_tokens")
+  errorMessage             String?                @map("error_message")
+  errorCode                String?                @map("error_code")
+  errorStack               String?                @map("error_stack")
+  ipAddress                String?                @map("ip_address")
+  userAgent                String?                @map("user_agent")
+  browserName              String?                @map("browser_name")
+  browserVersion           String?                @map("browser_version")
+  osName                   String?                @map("os_name")
+  osVersion                String?                @map("os_version")
+  deviceType               String?                @map("device_type")
+  screenWidth              Int?                   @map("screen_width")
+  screenHeight             Int?                   @map("screen_height")
+  language                 String?                @map("language")
+  timezone                 String?                @map("timezone")
+  timestamp                DateTime               @default(now())
+  timestampMs              BigInt?                @map("timestamp_ms")
+  sessionStartTime         DateTime?              @map("session_start_time")
+  sessionDuration          Int?                   @map("session_duration")
+  metadata                 String?
+  conversation             AgentTestConversation? @relation(fields: [conversationId], references: [id])
 
   @@index([userId])
   @@index([agentConfigId])
@@ -1424,48 +1091,31 @@ model AgentTestInteractionLog {
   @@map("agent_test_interaction_logs")
 }
 
-// AgentGradeLog - Grade audit trail for agent assignments
 model AgentGradeLog {
-  id Int @id @default(autoincrement())
-
-  // Agent Config Context
-  agentConfigId Int                @map("agent_config_id")
-  agentConfig   StudentAgentConfig @relation(fields: [agentConfigId], references: [id], onDelete: Cascade)
-
-  // Grader Context
-  graderId       Int     @map("grader_id")
-  graderFullname String? @map("grader_fullname")
-  graderEmail    String? @map("grader_email")
-
-  // Student Context
-  studentId       Int     @map("student_id")
-  studentFullname String? @map("student_fullname")
-  studentEmail    String? @map("student_email")
-
-  // Assignment Context
-  assignmentId    Int     @map("assignment_id")
-  assignmentTitle String? @map("assignment_title")
-  courseId        Int?    @map("course_id")
-  courseTitle     String? @map("course_title")
-  maxPoints       Int?    @map("max_points")
-
-  // Grade Details
-  previousGrade    Float?  @map("previous_grade")
-  newGrade         Float   @map("new_grade")
-  previousFeedback String? @map("previous_feedback")
-  newFeedback      String? @map("new_feedback")
-
-  // Config Snapshot at grading time
-  configVersion  Int    @map("config_version")
-  configSnapshot String @map("config_snapshot")
-
-  // Client Context
-  ipAddress String? @map("ip_address")
-  userAgent String? @map("user_agent")
-  sessionId String? @map("session_id")
-
-  // Timestamp
-  timestamp DateTime @default(now())
+  id               Int                @id @default(autoincrement())
+  agentConfigId    Int                @map("agent_config_id")
+  graderId         Int                @map("grader_id")
+  graderFullname   String?            @map("grader_fullname")
+  graderEmail      String?            @map("grader_email")
+  studentId        Int                @map("student_id")
+  studentFullname  String?            @map("student_fullname")
+  studentEmail     String?            @map("student_email")
+  assignmentId     Int                @map("assignment_id")
+  assignmentTitle  String?            @map("assignment_title")
+  courseId         Int?               @map("course_id")
+  courseTitle      String?            @map("course_title")
+  maxPoints        Int?               @map("max_points")
+  previousGrade    Float?             @map("previous_grade")
+  newGrade         Float              @map("new_grade")
+  previousFeedback String?            @map("previous_feedback")
+  newFeedback      String?            @map("new_feedback")
+  configVersion    Int                @map("config_version")
+  configSnapshot   String             @map("config_snapshot")
+  ipAddress        String?            @map("ip_address")
+  userAgent        String?            @map("user_agent")
+  sessionId        String?            @map("session_id")
+  timestamp        DateTime           @default(now())
+  agentConfig      StudentAgentConfig @relation(fields: [agentConfigId], references: [id], onDelete: Cascade)
 
   @@index([agentConfigId])
   @@index([graderId])
@@ -1475,23 +1125,17 @@ model AgentGradeLog {
   @@map("agent_grade_logs")
 }
 
-// =============================================================================
-// USERS MANAGEMENT MODULE
-// =============================================================================
-
-// Course-Level Roles
 model CourseRole {
   id          Int      @id @default(autoincrement())
   userId      Int      @map("user_id")
   courseId    Int      @map("course_id")
-  role        String // 'ta' | 'co_instructor' | 'course_admin'
-  permissions String? // JSON array: ['grade', 'edit_content', 'manage_students', 'view_analytics']
+  role        String
+  permissions String?
   assignedBy  Int      @map("assigned_by")
   createdAt   DateTime @default(now()) @map("created_at")
-
-  user     User   @relation("CourseRoles", fields: [userId], references: [id], onDelete: Cascade)
-  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  assigner User   @relation("AssignedCourseRoles", fields: [assignedBy], references: [id], onDelete: Cascade)
+  assigner    User     @relation("AssignedCourseRoles", fields: [assignedBy], references: [id], onDelete: Cascade)
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user        User     @relation("CourseRoles", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, courseId])
   @@index([courseId])
@@ -1500,24 +1144,22 @@ model CourseRole {
   @@map("course_roles")
 }
 
-// Batch Enrollment Job Tracking
 model BatchEnrollmentJob {
-  id            Int       @id @default(autoincrement())
-  courseId      Int       @map("course_id")
-  createdBy     Int       @map("created_by")
-  fileName      String    @map("file_name")
-  totalRows     Int       @default(0) @map("total_rows")
-  processedRows Int       @default(0) @map("processed_rows")
-  successCount  Int       @default(0) @map("success_count")
-  errorCount    Int       @default(0) @map("error_count")
-  status        String    @default("pending") // pending|processing|completed|failed
-  errorLog      String?   @map("error_log") // JSON array of errors
-  createdAt     DateTime  @default(now()) @map("created_at")
-  completedAt   DateTime? @map("completed_at")
-
-  course  Course                  @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  creator User                    @relation("BatchEnrollmentJobs", fields: [createdBy], references: [id])
-  results BatchEnrollmentResult[]
+  id            Int                     @id @default(autoincrement())
+  courseId      Int                     @map("course_id")
+  createdBy     Int                     @map("created_by")
+  fileName      String                  @map("file_name")
+  totalRows     Int                     @default(0) @map("total_rows")
+  processedRows Int                     @default(0) @map("processed_rows")
+  successCount  Int                     @default(0) @map("success_count")
+  errorCount    Int                     @default(0) @map("error_count")
+  status        String                  @default("pending")
+  errorLog      String?                 @map("error_log")
+  createdAt     DateTime                @default(now()) @map("created_at")
+  completedAt   DateTime?               @map("completed_at")
+  creator       User                    @relation("BatchEnrollmentJobs", fields: [createdBy], references: [id])
+  course        Course                  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  results       BatchEnrollmentResult[]
 
   @@index([courseId])
   @@index([createdBy])
@@ -1526,33 +1168,31 @@ model BatchEnrollmentJob {
 }
 
 model BatchEnrollmentResult {
-  id           Int      @id @default(autoincrement())
-  jobId        Int      @map("job_id")
-  rowNumber    Int      @map("row_number")
+  id           Int                @id @default(autoincrement())
+  jobId        Int                @map("job_id")
+  rowNumber    Int                @map("row_number")
   email        String
-  status       String // success|error|skipped
-  userId       Int?     @map("user_id")
-  enrollmentId Int?     @map("enrollment_id")
-  errorMessage String?  @map("error_message")
-  createdAt    DateTime @default(now()) @map("created_at")
-
-  job BatchEnrollmentJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  status       String
+  userId       Int?               @map("user_id")
+  enrollmentId Int?               @map("enrollment_id")
+  errorMessage String?            @map("error_message")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  job          BatchEnrollmentJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@index([jobId])
   @@index([email])
   @@map("batch_enrollment_results")
 }
 
-// Admin Audit Trail
 model AdminAuditLog {
   id             Int      @id @default(autoincrement())
   adminId        Int      @map("admin_id")
   adminEmail     String?  @map("admin_email")
-  action         String // user_update|role_change|enrollment_add|batch_enrollment
-  targetType     String   @map("target_type") // user|enrollment|course_role
+  action         String
+  targetType     String   @map("target_type")
   targetId       Int      @map("target_id")
-  previousValues String?  @map("previous_values") // JSON snapshot
-  newValues      String?  @map("new_values") // JSON snapshot
+  previousValues String?  @map("previous_values")
+  newValues      String?  @map("new_values")
   ipAddress      String?  @map("ip_address")
   timestamp      DateTime @default(now())
 
@@ -1562,63 +1202,41 @@ model AdminAuditLog {
   @@map("admin_audit_logs")
 }
 
-// =============================================================================
-// UNIFIED LEARNING ACTIVITY LOG
-// =============================================================================
-
 model LearningActivityLog {
-  id Int @id @default(autoincrement())
-
-  // Actor (Who)
-  userId       Int     @map("user_id")
-  userEmail    String? @map("user_email")
-  userFullname String? @map("user_fullname")
-  userRole     String? @map("user_role") // student|instructor|admin
-  sessionId    String? @map("session_id")
-
-  // Verb (Action)
-  verb String // enrolled|unenrolled|viewed|started|completed|progressed|paused|resumed|seeked|scrolled|downloaded|submitted|graded|messaged|received|cleared|interacted
-
-  // Object (What)
-  objectType    String  @map("object_type") // course|module|lecture|section|video|assignment|chatbot|file|quiz
-  objectId      Int?    @map("object_id")
-  objectTitle   String? @map("object_title")
-  objectSubtype String? @map("object_subtype") // For sections: text|file|ai-generated|chatbot|assignment
-
-  // Context (Where - Course Hierarchy)
-  courseId     Int?    @map("course_id")
-  courseTitle  String? @map("course_title")
-  courseSlug   String? @map("course_slug")
-  moduleId     Int?    @map("module_id")
-  moduleTitle  String? @map("module_title")
-  moduleOrder  Int?    @map("module_order")
-  lectureId    Int?    @map("lecture_id")
-  lectureTitle String? @map("lecture_title")
-  lectureOrder Int?    @map("lecture_order")
-  sectionId    Int?    @map("section_id")
-  sectionTitle String? @map("section_title")
-  sectionOrder Int?    @map("section_order")
-
-  // Result (Outcome)
-  success  Boolean? @default(true)
-  score    Float? // For graded activities
-  maxScore Float?   @map("max_score")
-  progress Float? // Percentage (0-100)
-  duration Int? // Time spent in seconds
-
-  // Extended Data (JSON)
-  extensions String? // JSON: Additional event-specific data
-
-  // Timestamps
-  timestamp DateTime @default(now())
-
-  // Client Context (Minimal)
-  deviceType  String? @map("device_type") // desktop|tablet|mobile
-  browserName String? @map("browser_name")
-
-  // Relations
-  user   User    @relation("ActivityLogs", fields: [userId], references: [id], onDelete: Cascade)
-  course Course? @relation("CourseActivityLogs", fields: [courseId], references: [id], onDelete: SetNull)
+  id            Int      @id @default(autoincrement())
+  userId        Int      @map("user_id")
+  userEmail     String?  @map("user_email")
+  userFullname  String?  @map("user_fullname")
+  userRole      String?  @map("user_role")
+  sessionId     String?  @map("session_id")
+  verb          String
+  objectType    String   @map("object_type")
+  objectId      Int?     @map("object_id")
+  objectTitle   String?  @map("object_title")
+  objectSubtype String?  @map("object_subtype")
+  courseId      Int?     @map("course_id")
+  courseTitle   String?  @map("course_title")
+  courseSlug    String?  @map("course_slug")
+  moduleId      Int?     @map("module_id")
+  moduleTitle   String?  @map("module_title")
+  moduleOrder   Int?     @map("module_order")
+  lectureId     Int?     @map("lecture_id")
+  lectureTitle  String?  @map("lecture_title")
+  lectureOrder  Int?     @map("lecture_order")
+  sectionId     Int?     @map("section_id")
+  sectionTitle  String?  @map("section_title")
+  sectionOrder  Int?     @map("section_order")
+  success       Boolean? @default(true)
+  score         Float?
+  maxScore      Float?   @map("max_score")
+  progress      Float?
+  duration      Int?
+  extensions    String?
+  timestamp     DateTime @default(now())
+  deviceType    String?  @map("device_type")
+  browserName   String?  @map("browser_name")
+  course        Course?  @relation("CourseActivityLogs", fields: [courseId], references: [id])
+  user          User     @relation("ActivityLogs", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([courseId])
@@ -1629,76 +1247,48 @@ model LearningActivityLog {
   @@map("learning_activity_logs")
 }
 
-// =============================================================================
-// AGENT DESIGN EVENT LOG (Comprehensive design process tracking)
-// =============================================================================
-
 model AgentDesignEventLog {
-  id Int @id @default(autoincrement())
-
-  // References
-  userId       Int                 @map("user_id")
-  assignmentId Int                 @map("assignment_id")
-  agentConfigId Int?               @map("agent_config_id")
-  assignment   Assignment          @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  agentConfig  StudentAgentConfig? @relation(fields: [agentConfigId], references: [id], onDelete: SetNull)
-
-  // Session tracking
-  sessionId       String  @map("session_id")
-  designSessionId String  @map("design_session_id") // Groups events in same design session
-
-  // Event details
-  eventType     String @map("event_type") // design_session_start, field_change, role_selected, template_applied, etc.
-  eventCategory String @map("event_category") // session, navigation, field, template, rule, test, reflection, save
-  timestamp     DateTime @default(now())
-  version       Int? // Agent version at time of event
-
-  // Change tracking
-  fieldName     String? @map("field_name")
-  previousValue String? @map("previous_value")
-  newValue      String? @map("new_value")
-  changeType    String? @map("change_type") // type, paste, select, toggle, click, delete
-
-  // Metrics
-  characterCount  Int? @map("character_count")
-  wordCount       Int? @map("word_count")
-  timeOnTab       Int? @map("time_on_tab") // seconds
-  totalDesignTime Int? @map("total_design_time") // cumulative seconds
-
-  // Tab context
-  activeTab String? @map("active_tab") // identity, behavior, advanced, test
-
-  // Template/suggestion tracking
-  usedTemplate        Boolean @default(false) @map("used_template")
-  templateName        String? @map("template_name")
-  usedSuggestion      Boolean @default(false) @map("used_suggestion")
-  suggestionSource    String? @map("suggestion_source")
-  roleSelected        String? @map("role_selected")
-  personalitySelected String? @map("personality_selected")
-
-  // Prompt block tracking
-  promptBlockId       String? @map("prompt_block_id") // Which block was selected/removed
-  promptBlockCategory String? @map("prompt_block_category") // Block category
-  selectedBlockIds    String? @map("selected_block_ids") // Current selection state (JSON array)
-
-  // Reflection tracking
-  reflectionPromptId   String? @map("reflection_prompt_id")
-  reflectionPromptText String? @map("reflection_prompt_text")
-  reflectionResponse   String? @map("reflection_response")
-  reflectionDismissed  Boolean @default(false) @map("reflection_dismissed")
-
-  // Test context
-  testConversationId Int? @map("test_conversation_id")
-  testMessageCount   Int? @map("test_message_count")
-
-  // Client context
-  ipAddress   String? @map("ip_address")
-  deviceType  String? @map("device_type")
-  browserName String? @map("browser_name")
-  userAgent   String? @map("user_agent")
-
-  // Snapshots
-  agentConfigSnapshot String? @map("agent_config_snapshot") // Full config at time of event (JSON)
+  id                   Int                 @id @default(autoincrement())
+  userId               Int                 @map("user_id")
+  assignmentId         Int                 @map("assignment_id")
+  agentConfigId        Int?                @map("agent_config_id")
+  sessionId            String              @map("session_id")
+  designSessionId      String              @map("design_session_id")
+  eventType            String              @map("event_type")
+  eventCategory        String              @map("event_category")
+  timestamp            DateTime            @default(now())
+  version              Int?
+  fieldName            String?             @map("field_name")
+  previousValue        String?             @map("previous_value")
+  newValue             String?             @map("new_value")
+  changeType           String?             @map("change_type")
+  characterCount       Int?                @map("character_count")
+  wordCount            Int?                @map("word_count")
+  timeOnTab            Int?                @map("time_on_tab")
+  totalDesignTime      Int?                @map("total_design_time")
+  activeTab            String?             @map("active_tab")
+  usedTemplate         Boolean             @default(false) @map("used_template")
+  templateName         String?             @map("template_name")
+  usedSuggestion       Boolean             @default(false) @map("used_suggestion")
+  suggestionSource     String?             @map("suggestion_source")
+  roleSelected         String?             @map("role_selected")
+  personalitySelected  String?             @map("personality_selected")
+  promptBlockId        String?             @map("prompt_block_id")
+  promptBlockCategory  String?             @map("prompt_block_category")
+  selectedBlockIds     String?             @map("selected_block_ids")
+  reflectionPromptId   String?             @map("reflection_prompt_id")
+  reflectionPromptText String?             @map("reflection_prompt_text")
+  reflectionResponse   String?             @map("reflection_response")
+  reflectionDismissed  Boolean             @default(false) @map("reflection_dismissed")
+  testConversationId   Int?                @map("test_conversation_id")
+  testMessageCount     Int?                @map("test_message_count")
+  ipAddress            String?             @map("ip_address")
+  deviceType           String?             @map("device_type")
+  browserName          String?             @map("browser_name")
+  userAgent            String?             @map("user_agent")
+  agentConfigSnapshot  String?             @map("agent_config_snapshot")
+  agentConfig          StudentAgentConfig? @relation(fields: [agentConfigId], references: [id])
+  assignment           Assignment          @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([assignmentId])
@@ -1710,25 +1300,18 @@ model AgentDesignEventLog {
   @@map("agent_design_event_logs")
 }
 
-// =============================================================================
-// PROMPT BUILDING BLOCKS (Admin-configurable)
-// =============================================================================
-
-// PromptBlock - Customizable prompt building blocks for AI agent builder
 model PromptBlock {
-  id          Int     @id @default(autoincrement())
-  category    String  // persona, tone, behavior, constraint, format, knowledge
-  label       String  // Display text, e.g., "Patient Tutor"
-  promptText  String  @map("prompt_text") // The actual prompt text to insert
-  description String? // Help text explaining the block
-  popular     Boolean @default(false) // Show in popular section
-  isActive    Boolean @default(true) @map("is_active") // Soft delete
-  orderIndex  Int     @default(0) @map("order_index") // For ordering within category
-
-  // Audit fields
-  createdById Int?      @map("created_by_id")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id          Int      @id @default(autoincrement())
+  category    String
+  label       String
+  promptText  String   @map("prompt_text")
+  description String?
+  popular     Boolean  @default(false)
+  isActive    Boolean  @default(true) @map("is_active")
+  orderIndex  Int      @default(0) @map("order_index")
+  createdById Int?     @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@index([category])
   @@index([isActive])
@@ -1736,68 +1319,44 @@ model PromptBlock {
   @@map("prompt_blocks")
 }
 
-// PromptBlockCategory - Customizable categories for prompt blocks
 model PromptBlockCategory {
-  id          Int     @id @default(autoincrement())
-  slug        String  @unique // persona, tone, behavior, etc.
-  name        String  // Display name
-  description String? // Help text
-  icon        String? // Icon name
-  orderIndex  Int     @default(0) @map("order_index")
-  isActive    Boolean @default(true) @map("is_active")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id          Int      @id @default(autoincrement())
+  slug        String   @unique
+  name        String
+  description String?
+  icon        String?
+  orderIndex  Int      @default(0) @map("order_index")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@index([isActive])
   @@index([orderIndex])
   @@map("prompt_block_categories")
 }
 
-// =============================================================================
-// MULTI-AGENT TUTORING SYSTEM
-// =============================================================================
-
-// User's tutor session - one per user, stores preferences
 model TutorSession {
-  id            Int      @id @default(autoincrement())
-  userId        Int      @unique @map("user_id")
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Mode preference
-  mode          String   @default("manual") // manual | router | collaborative
-
-  // Current active agent (for manual mode)
-  activeAgentId Int?     @map("active_agent_id")
-
-  // Timestamps
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  // Relations
+  id            Int                 @id @default(autoincrement())
+  userId        Int                 @unique @map("user_id")
+  mode          String              @default("manual")
+  activeAgentId Int?                @map("active_agent_id")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
   conversations TutorConversation[]
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("tutor_sessions")
 }
 
-// Separate conversation per agent (like Discord DMs)
 model TutorConversation {
-  id            Int          @id @default(autoincrement())
-  sessionId     Int          @map("session_id")
-  session       TutorSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  // Which chatbot this conversation is with
-  chatbotId     Int          @map("chatbot_id")
-  chatbot       Chatbot      @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
-
-  // Conversation metadata
-  lastMessageAt DateTime?    @map("last_message_at")
-  messageCount  Int          @default(0) @map("message_count")
-
-  // Timestamps
-  createdAt     DateTime     @default(now()) @map("created_at")
-
-  // Relations
+  id            Int            @id @default(autoincrement())
+  sessionId     Int            @map("session_id")
+  chatbotId     Int            @map("chatbot_id")
+  lastMessageAt DateTime?      @map("last_message_at")
+  messageCount  Int            @default(0) @map("message_count")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  chatbot       Chatbot        @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+  session       TutorSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   messages      TutorMessage[]
 
   @@unique([sessionId, chatbotId])
@@ -1806,17 +1365,11 @@ model TutorConversation {
   @@map("tutor_conversations")
 }
 
-// Individual messages with comprehensive metadata
 model TutorMessage {
   id                Int               @id @default(autoincrement())
   conversationId    Int               @map("conversation_id")
-  conversation      TutorConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  // Message content
-  role              String            // 'user' | 'assistant'
+  role              String
   content           String
-
-  // AI Response metadata (null for user messages)
   aiModel           String?           @map("ai_model")
   aiProvider        String?           @map("ai_provider")
   promptTokens      Int?              @map("prompt_tokens")
@@ -1824,77 +1377,49 @@ model TutorMessage {
   totalTokens       Int?              @map("total_tokens")
   responseTimeMs    Int?              @map("response_time_ms")
   temperature       Float?
-
-  // Router mode metadata
   routingReason     String?           @map("routing_reason")
   routingConfidence Float?            @map("routing_confidence")
-
-  // Collaborative mode metadata
-  synthesizedFrom   String?           @map("synthesized_from") // JSON: agent contributions
-
-  // Timestamp
+  synthesizedFrom   String?           @map("synthesized_from")
   createdAt         DateTime          @default(now()) @map("created_at")
+  conversation      TutorConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId])
   @@index([createdAt])
   @@map("tutor_messages")
 }
 
-// Comprehensive interaction log (mirrors ChatbotInteractionLog pattern)
 model TutorInteractionLog {
-  id                 Int      @id @default(autoincrement())
-
-  // User context
-  userId             Int      @map("user_id")
-  sessionId          Int?     @map("session_id")
-  conversationId     Int?     @map("conversation_id")
-  messageId          Int?     @map("message_id")
-
-  // Agent context
-  chatbotId          Int?     @map("chatbot_id")
-  chatbotName        String?  @map("chatbot_name")
-  chatbotDisplayName String?  @map("chatbot_display_name")
-
-  // Event tracking
-  eventType          String   @map("event_type")
-  // Events: session_start, session_end, mode_change, agent_switch,
-  //         message_sent, message_received, conversation_clear, error
-
-  // Message details (for message events)
-  userMessage        String?  @map("user_message")
-  assistantMessage   String?  @map("assistant_message")
-  messageCharCount   Int?     @map("message_char_count")
-  responseCharCount  Int?     @map("response_char_count")
-
-  // AI metrics
-  mode               String?  // manual | router | collaborative
-  aiModel            String?  @map("ai_model")
-  aiProvider         String?  @map("ai_provider")
-  promptTokens       Int?     @map("prompt_tokens")
-  completionTokens   Int?     @map("completion_tokens")
-  totalTokens        Int?     @map("total_tokens")
-  responseTimeMs     Int?     @map("response_time_ms")
-
-  // Router mode details
-  routingReason      String?  @map("routing_reason")
-  routingConfidence  Float?   @map("routing_confidence")
-  routingAlternatives String? @map("routing_alternatives") // JSON
-
-  // Collaborative mode details
-  agentContributions String?  @map("agent_contributions") // JSON
-
-  // Error tracking
-  errorMessage       String?  @map("error_message")
-  errorCode          String?  @map("error_code")
-  errorStack         String?  @map("error_stack")
-
-  // Client context
-  ipAddress          String?  @map("ip_address")
-  userAgent          String?  @map("user_agent")
-  deviceType         String?  @map("device_type")
-
-  // Timestamp
-  timestamp          DateTime @default(now())
+  id                  Int      @id @default(autoincrement())
+  userId              Int      @map("user_id")
+  sessionId           Int?     @map("session_id")
+  conversationId      Int?     @map("conversation_id")
+  messageId           Int?     @map("message_id")
+  chatbotId           Int?     @map("chatbot_id")
+  chatbotName         String?  @map("chatbot_name")
+  chatbotDisplayName  String?  @map("chatbot_display_name")
+  eventType           String   @map("event_type")
+  userMessage         String?  @map("user_message")
+  assistantMessage    String?  @map("assistant_message")
+  messageCharCount    Int?     @map("message_char_count")
+  responseCharCount   Int?     @map("response_char_count")
+  mode                String?
+  aiModel             String?  @map("ai_model")
+  aiProvider          String?  @map("ai_provider")
+  promptTokens        Int?     @map("prompt_tokens")
+  completionTokens    Int?     @map("completion_tokens")
+  totalTokens         Int?     @map("total_tokens")
+  responseTimeMs      Int?     @map("response_time_ms")
+  routingReason       String?  @map("routing_reason")
+  routingConfidence   Float?   @map("routing_confidence")
+  routingAlternatives String?  @map("routing_alternatives")
+  agentContributions  String?  @map("agent_contributions")
+  errorMessage        String?  @map("error_message")
+  errorCode           String?  @map("error_code")
+  errorStack          String?  @map("error_stack")
+  ipAddress           String?  @map("ip_address")
+  userAgent           String?  @map("user_agent")
+  deviceType          String?  @map("device_type")
+  timestamp           DateTime @default(now())
 
   @@index([userId])
   @@index([sessionId])
@@ -1904,26 +1429,21 @@ model TutorInteractionLog {
   @@map("tutor_interaction_logs")
 }
 
-// =============================================================================
-// SURVEY SYSTEM
-// =============================================================================
-
 model Survey {
-  id           Int       @id @default(autoincrement())
-  title        String
-  description  String?
-  courseId     Int?      @map("course_id")  // null = global survey
-  createdById  Int       @map("created_by_id")
-  isPublished  Boolean   @default(false) @map("is_published")
-  isAnonymous  Boolean   @default(false) @map("is_anonymous")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-
-  course       Course?   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  createdBy    User      @relation("SurveyCreator", fields: [createdById], references: [id])
-  questions    SurveyQuestion[]
-  responses    SurveyResponse[]
-  assignments  Assignment[] @relation("PostAssignmentSurvey")
+  id          Int              @id @default(autoincrement())
+  title       String
+  description String?
+  courseId    Int?             @map("course_id")
+  createdById Int              @map("created_by_id")
+  isPublished Boolean          @default(false) @map("is_published")
+  isAnonymous Boolean          @default(false) @map("is_anonymous")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  assignments Assignment[]     @relation("PostAssignmentSurvey")
+  questions   SurveyQuestion[]
+  responses   SurveyResponse[]
+  createdBy   User             @relation("SurveyCreator", fields: [createdById], references: [id])
+  course      Course?          @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@index([courseId])
   @@index([createdById])
@@ -1931,33 +1451,31 @@ model Survey {
 }
 
 model SurveyQuestion {
-  id           Int      @id @default(autoincrement())
-  surveyId     Int      @map("survey_id")
-  questionText String   @map("question_text")
-  questionType String   @map("question_type")  // 'single_choice' | 'multiple_choice' | 'free_text'
-  options      String?  // JSON array for choice questions
-  isRequired   Boolean  @default(true) @map("is_required")
-  orderIndex   Int      @default(0) @map("order_index")
-  createdAt    DateTime @default(now()) @map("created_at")
-
-  survey       Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  id           Int            @id @default(autoincrement())
+  surveyId     Int            @map("survey_id")
+  questionText String         @map("question_text")
+  questionType String         @map("question_type")
+  options      String?
+  isRequired   Boolean        @default(true) @map("is_required")
+  orderIndex   Int            @default(0) @map("order_index")
+  createdAt    DateTime       @default(now()) @map("created_at")
   answers      SurveyAnswer[]
+  survey       Survey         @relation(fields: [surveyId], references: [id], onDelete: Cascade)
 
   @@index([surveyId])
   @@map("survey_questions")
 }
 
 model SurveyResponse {
-  id           Int       @id @default(autoincrement())
-  surveyId     Int       @map("survey_id")
-  userId       Int?      @map("user_id")  // null if anonymous
-  context      String    @default("standalone")  // 'standalone' | 'lecture' | 'post_assignment'
-  contextId    Int?      @map("context_id")  // e.g., assignmentId, lectureId
-  completedAt  DateTime  @default(now()) @map("completed_at")
-
-  survey       Survey    @relation(fields: [surveyId], references: [id], onDelete: Cascade)
-  user         User?     @relation("SurveyResponses", fields: [userId], references: [id], onDelete: SetNull)
-  answers      SurveyAnswer[]
+  id          Int            @id @default(autoincrement())
+  surveyId    Int            @map("survey_id")
+  userId      Int?           @map("user_id")
+  context     String         @default("standalone")
+  contextId   Int?           @map("context_id")
+  completedAt DateTime       @default(now()) @map("completed_at")
+  answers     SurveyAnswer[]
+  user        User?          @relation("SurveyResponses", fields: [userId], references: [id])
+  survey      Survey         @relation(fields: [surveyId], references: [id], onDelete: Cascade)
 
   @@index([surveyId])
   @@index([userId])
@@ -1965,33 +1483,27 @@ model SurveyResponse {
 }
 
 model SurveyAnswer {
-  id           Int             @id @default(autoincrement())
-  responseId   Int             @map("response_id")
-  questionId   Int             @map("question_id")
-  answerValue  String          @map("answer_value")  // text or JSON array for multi-choice
-
-  response     SurveyResponse  @relation(fields: [responseId], references: [id], onDelete: Cascade)
-  question     SurveyQuestion  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  id          Int            @id @default(autoincrement())
+  responseId  Int            @map("response_id")
+  questionId  Int            @map("question_id")
+  answerValue String         @map("answer_value")
+  question    SurveyQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  response    SurveyResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
 
   @@index([responseId])
   @@index([questionId])
   @@map("survey_answers")
 }
 
-// =============================================================================
-// EMOTIONAL PULSE (Real-time emotional feedback)
-// =============================================================================
-
 model EmotionalPulse {
   id        Int      @id @default(autoincrement())
   userId    Int      @map("user_id")
-  emotion   String   // 'productive' | 'stimulated' | 'frustrated' | 'learning' | 'enjoying' | 'bored' | 'quitting'
-  context   String   @default("chatbot") // 'chatbot' | 'lesson' | 'assignment'
-  contextId Int?     @map("context_id") // e.g., conversationId, lectureId
-  agentId   Int?     @map("agent_id") // which tutor agent (if applicable)
+  emotion   String
+  context   String   @default("chatbot")
+  contextId Int?     @map("context_id")
+  agentId   Int?     @map("agent_id")
   createdAt DateTime @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
   @@index([context, contextId])
@@ -1999,32 +1511,23 @@ model EmotionalPulse {
   @@map("emotional_pulses")
 }
 
-// =============================================================================
-// COURSE TUTORS (Collaborative Module)
-// =============================================================================
-
 model CourseTutor {
-  id                   Int      @id @default(autoincrement())
-  courseId             Int      @map("course_id")
-  chatbotId            Int      @map("chatbot_id")
-
-  // Customization overrides (null = use global default)
-  customName           String?  @map("custom_name")
-  customDescription    String?  @map("custom_description")
-  customSystemPrompt   String?  @map("custom_system_prompt")
-  customWelcomeMessage String?  @map("custom_welcome_message")
-  customPersonality    String?  @map("custom_personality")
-  customTemperature    Float?   @map("custom_temperature")
-
-  isActive             Boolean  @default(true) @map("is_active")
-  displayOrder         Int      @default(0) @map("display_order")
-
-  createdAt            DateTime @default(now()) @map("created_at")
-  updatedAt            DateTime @updatedAt @map("updated_at")
-
-  course               Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  chatbot              Chatbot  @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+  id                   Int                       @id @default(autoincrement())
+  courseId             Int                       @map("course_id")
+  chatbotId            Int                       @map("chatbot_id")
+  customName           String?                   @map("custom_name")
+  customDescription    String?                   @map("custom_description")
+  customSystemPrompt   String?                   @map("custom_system_prompt")
+  customWelcomeMessage String?                   @map("custom_welcome_message")
+  customPersonality    String?                   @map("custom_personality")
+  customTemperature    Float?                    @map("custom_temperature")
+  isActive             Boolean                   @default(true) @map("is_active")
+  displayOrder         Int                       @default(0) @map("display_order")
+  createdAt            DateTime                  @default(now()) @map("created_at")
+  updatedAt            DateTime                  @updatedAt @map("updated_at")
   conversations        CourseTutorConversation[]
+  chatbot              Chatbot                   @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+  course               Course                    @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@unique([courseId, chatbotId])
   @@index([courseId])
@@ -2033,16 +1536,14 @@ model CourseTutor {
 }
 
 model CourseTutorConversation {
-  id            Int      @id @default(autoincrement())
-  courseTutorId Int      @map("course_tutor_id")
-  userId        Int      @map("user_id")
+  id            Int                  @id @default(autoincrement())
+  courseTutorId Int                  @map("course_tutor_id")
+  userId        Int                  @map("user_id")
   title         String?
-
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  courseTutor   CourseTutor @relation(fields: [courseTutorId], references: [id], onDelete: Cascade)
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseTutor   CourseTutor          @relation(fields: [courseTutorId], references: [id], onDelete: Cascade)
   messages      CourseTutorMessage[]
 
   @@index([courseTutorId])
@@ -2051,37 +1552,30 @@ model CourseTutorConversation {
 }
 
 model CourseTutorMessage {
-  id             Int      @id @default(autoincrement())
-  conversationId Int      @map("conversation_id")
-  role           String   // 'user' | 'assistant'
+  id             Int                     @id @default(autoincrement())
+  conversationId Int                     @map("conversation_id")
+  role           String
   content        String
-
-  createdAt      DateTime @default(now()) @map("created_at")
-
+  createdAt      DateTime                @default(now()) @map("created_at")
   conversation   CourseTutorConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId])
   @@map("course_tutor_messages")
 }
 
-// =============================================================================
-// CUSTOM LABS (Interactive R Analytics)
-// =============================================================================
-
 model CustomLab {
-  id          Int       @id @default(autoincrement())
+  id          Int             @id @default(autoincrement())
   name        String
   description String?
-  labType     String    @map("lab_type") // 'tna', 'statistics', 'dataviz', etc.
-  config      String?   // Lab-specific configuration (JSON)
-  createdBy   Int       @map("created_by")
-  isPublic    Boolean   @default(false) @map("is_public")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-
-  creator     User      @relation(fields: [createdBy], references: [id])
-  templates   LabTemplate[]
+  labType     String          @map("lab_type")
+  config      String?
+  createdBy   Int             @map("created_by")
+  isPublic    Boolean         @default(false) @map("is_public")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  creator     User            @relation(fields: [createdBy], references: [id])
   assignments LabAssignment[]
+  templates   LabTemplate[]
 
   @@index([createdBy])
   @@index([labType])
@@ -2094,9 +1588,8 @@ model LabTemplate {
   labId       Int       @map("lab_id")
   title       String
   description String?
-  code        String    // Pre-filled R code
+  code        String
   orderIndex  Int       @default(0) @map("order_index")
-
   lab         CustomLab @relation(fields: [labId], references: [id], onDelete: Cascade)
 
   @@index([labId])
@@ -2104,14 +1597,13 @@ model LabTemplate {
 }
 
 model LabAssignment {
-  id          Int       @id @default(autoincrement())
-  labId       Int       @map("lab_id")
-  courseId    Int       @map("course_id")
-  moduleId    Int?      @map("module_id")
-
-  lab         CustomLab    @relation(fields: [labId], references: [id], onDelete: Cascade)
-  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  module      CourseModule? @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  id       Int           @id @default(autoincrement())
+  labId    Int           @map("lab_id")
+  courseId Int           @map("course_id")
+  moduleId Int?          @map("module_id")
+  module   CourseModule? @relation(fields: [moduleId], references: [id])
+  course   Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lab      CustomLab     @relation(fields: [labId], references: [id], onDelete: Cascade)
 
   @@unique([labId, courseId])
   @@index([labId])
@@ -2120,34 +1612,28 @@ model LabAssignment {
   @@map("lab_assignments")
 }
 
-// =============================================================================
-// QUIZ SYSTEM
-// =============================================================================
-
 model Quiz {
-  id            Int       @id @default(autoincrement())
-  courseId      Int       @map("course_id")
-  moduleId      Int?      @map("module_id")
-  title         String
-  description   String?
-  instructions  String?
-  timeLimit     Int?      @map("time_limit") // minutes, null = unlimited
-  maxAttempts   Int       @default(1) @map("max_attempts") // 0 = unlimited
-  passingScore  Float     @default(70) @map("passing_score") // percentage
-  shuffleQuestions Boolean @default(false) @map("shuffle_questions")
-  shuffleOptions Boolean  @default(false) @map("shuffle_options")
-  showResults   String    @default("after_submit") @map("show_results") // after_submit, after_due_date, never
-  isPublished   Boolean   @default(false) @map("is_published")
-  dueDate       DateTime? @map("due_date")
-  availableFrom DateTime? @map("available_from")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
-
-  // Relations
-  course    Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  module    CourseModule?  @relation(fields: [moduleId], references: [id], onDelete: SetNull)
-  questions QuizQuestion[]
-  attempts  QuizAttempt[]
+  id               Int            @id @default(autoincrement())
+  courseId         Int            @map("course_id")
+  moduleId         Int?           @map("module_id")
+  title            String
+  description      String?
+  instructions     String?
+  timeLimit        Int?           @map("time_limit")
+  maxAttempts      Int            @default(1) @map("max_attempts")
+  passingScore     Float          @default(70) @map("passing_score")
+  shuffleQuestions Boolean        @default(false) @map("shuffle_questions")
+  shuffleOptions   Boolean        @default(false) @map("shuffle_options")
+  showResults      String         @default("after_submit") @map("show_results")
+  isPublished      Boolean        @default(false) @map("is_published")
+  dueDate          DateTime?      @map("due_date")
+  availableFrom    DateTime?      @map("available_from")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  attempts         QuizAttempt[]
+  questions        QuizQuestion[]
+  module           CourseModule?  @relation(fields: [moduleId], references: [id])
+  course           Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@index([courseId])
   @@index([moduleId])
@@ -2156,43 +1642,39 @@ model Quiz {
 }
 
 model QuizQuestion {
-  id            Int      @id @default(autoincrement())
-  quizId        Int      @map("quiz_id")
-  questionType  String   @map("question_type") // multiple_choice, true_false, short_answer, fill_in_blank
-  questionText  String   @map("question_text")
-  options       String?  // JSON array for multiple choice options
-  correctAnswer String   @map("correct_answer") // For objective questions
-  explanation   String?  // Shown after answering
-  points        Float    @default(1)
-  orderIndex    Int      @default(0) @map("order_index")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  quiz    Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  answers QuizAnswer[]
+  id            Int          @id @default(autoincrement())
+  quizId        Int          @map("quiz_id")
+  questionType  String       @map("question_type")
+  questionText  String       @map("question_text")
+  options       String?
+  correctAnswer String       @map("correct_answer")
+  explanation   String?
+  points        Float        @default(1)
+  orderIndex    Int          @default(0) @map("order_index")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  answers       QuizAnswer[]
+  quiz          Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
 
   @@index([quizId])
   @@map("quiz_questions")
 }
 
 model QuizAttempt {
-  id          Int       @id @default(autoincrement())
-  quizId      Int       @map("quiz_id")
-  userId      Int       @map("user_id")
-  attemptNumber Int     @default(1) @map("attempt_number")
-  startedAt   DateTime  @default(now()) @map("started_at")
-  submittedAt DateTime? @map("submitted_at")
-  score       Float?    // Percentage score
-  pointsEarned Float?   @map("points_earned")
-  pointsTotal  Float?   @map("points_total")
-  timeTaken   Int?      @map("time_taken") // seconds
-  status      String    @default("in_progress") // in_progress, submitted, graded
-  ipAddress   String?   @map("ip_address")
-
-  // Relations
-  quiz    Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  answers QuizAnswer[]
+  id            Int          @id @default(autoincrement())
+  quizId        Int          @map("quiz_id")
+  userId        Int          @map("user_id")
+  attemptNumber Int          @default(1) @map("attempt_number")
+  startedAt     DateTime     @default(now()) @map("started_at")
+  submittedAt   DateTime?    @map("submitted_at")
+  score         Float?
+  pointsEarned  Float?       @map("points_earned")
+  pointsTotal   Float?       @map("points_total")
+  timeTaken     Int?         @map("time_taken")
+  status        String       @default("in_progress")
+  ipAddress     String?      @map("ip_address")
+  answers       QuizAnswer[]
+  quiz          Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
 
   @@unique([quizId, userId, attemptNumber])
   @@index([quizId])
@@ -2202,17 +1684,15 @@ model QuizAttempt {
 }
 
 model QuizAnswer {
-  id          Int      @id @default(autoincrement())
-  attemptId   Int      @map("attempt_id")
-  questionId  Int      @map("question_id")
-  answer      String?  // User's answer
-  isCorrect   Boolean? @map("is_correct")
-  pointsAwarded Float? @map("points_awarded")
-  answeredAt  DateTime @default(now()) @map("answered_at")
-
-  // Relations
-  attempt  QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  question QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  id            Int          @id @default(autoincrement())
+  attemptId     Int          @map("attempt_id")
+  questionId    Int          @map("question_id")
+  answer        String?
+  isCorrect     Boolean?     @map("is_correct")
+  pointsAwarded Float?       @map("points_awarded")
+  answeredAt    DateTime     @default(now()) @map("answered_at")
+  question      QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  attempt       QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
 
   @@unique([attemptId, questionId])
   @@index([attemptId])
@@ -2220,26 +1700,20 @@ model QuizAnswer {
   @@map("quiz_answers")
 }
 
-// =============================================================================
-// DISCUSSION FORUMS
-// =============================================================================
-
 model Forum {
-  id          Int       @id @default(autoincrement())
-  courseId    Int       @map("course_id")
-  moduleId    Int?      @map("module_id")  // null = course-level forum
-  title       String
-  description String?
-  isPublished Boolean   @default(true) @map("is_published")
-  allowAnonymous Boolean @default(false) @map("allow_anonymous")
-  orderIndex  Int       @default(0) @map("order_index")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-
-  // Relations
-  course  Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  module  CourseModule? @relation(fields: [moduleId], references: [id], onDelete: SetNull)
-  threads ForumThread[]
+  id             Int           @id @default(autoincrement())
+  courseId       Int           @map("course_id")
+  moduleId       Int?          @map("module_id")
+  title          String
+  description    String?
+  isPublished    Boolean       @default(true) @map("is_published")
+  allowAnonymous Boolean       @default(false) @map("allow_anonymous")
+  orderIndex     Int           @default(0) @map("order_index")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  threads        ForumThread[]
+  module         CourseModule? @relation(fields: [moduleId], references: [id])
+  course         Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@index([courseId])
   @@index([moduleId])
@@ -2247,21 +1721,19 @@ model Forum {
 }
 
 model ForumThread {
-  id          Int       @id @default(autoincrement())
-  forumId     Int       @map("forum_id")
-  authorId    Int       @map("author_id")
+  id          Int         @id @default(autoincrement())
+  forumId     Int         @map("forum_id")
+  authorId    Int         @map("author_id")
   title       String
   content     String
-  isPinned    Boolean   @default(false) @map("is_pinned")
-  isLocked    Boolean   @default(false) @map("is_locked")
-  isAnonymous Boolean   @default(false) @map("is_anonymous")
-  viewCount   Int       @default(0) @map("view_count")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-
-  // Relations
-  forum Forum       @relation(fields: [forumId], references: [id], onDelete: Cascade)
-  posts ForumPost[]
+  isPinned    Boolean     @default(false) @map("is_pinned")
+  isLocked    Boolean     @default(false) @map("is_locked")
+  isAnonymous Boolean     @default(false) @map("is_anonymous")
+  viewCount   Int         @default(0) @map("view_count")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  posts       ForumPost[]
+  forum       Forum       @relation(fields: [forumId], references: [id], onDelete: Cascade)
 
   @@index([forumId])
   @@index([authorId])
@@ -2270,28 +1742,24 @@ model ForumThread {
 }
 
 model ForumPost {
-  id          Int       @id @default(autoincrement())
-  threadId    Int       @map("thread_id")
-  authorId    Int       @map("author_id")
-  parentId    Int?      @map("parent_id") // For nested replies
-  content     String
-  isAnonymous Boolean   @default(false) @map("is_anonymous")
-  isEdited    Boolean   @default(false) @map("is_edited")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-
-  // AI Integration
-  isAiGenerated Boolean  @default(false) @map("is_ai_generated")
-  aiAgentId     Int?     @map("ai_agent_id")     // Chatbot ID that generated this
-  aiAgentName   String?  @map("ai_agent_name")   // "carmen-peer", "layla-peer"
-  aiRequestedBy Int?     @map("ai_requested_by") // User who invoked the AI
-
-  // Relations
-  thread    ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  parent    ForumPost?  @relation("PostReplies", fields: [parentId], references: [id], onDelete: SetNull)
-  replies   ForumPost[] @relation("PostReplies")
-  aiAgent   Chatbot?    @relation("ForumAiPosts", fields: [aiAgentId], references: [id], onDelete: SetNull)
-  requester User?       @relation("AiRequestedPosts", fields: [aiRequestedBy], references: [id], onDelete: SetNull)
+  id            Int         @id @default(autoincrement())
+  threadId      Int         @map("thread_id")
+  authorId      Int         @map("author_id")
+  parentId      Int?        @map("parent_id")
+  content       String
+  isAnonymous   Boolean     @default(false) @map("is_anonymous")
+  isEdited      Boolean     @default(false) @map("is_edited")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  isAiGenerated Boolean     @default(false) @map("is_ai_generated")
+  aiAgentId     Int?        @map("ai_agent_id")
+  aiAgentName   String?     @map("ai_agent_name")
+  aiRequestedBy Int?        @map("ai_requested_by")
+  requester     User?       @relation("AiRequestedPosts", fields: [aiRequestedBy], references: [id])
+  aiAgent       Chatbot?    @relation("ForumAiPosts", fields: [aiAgentId], references: [id])
+  parent        ForumPost?  @relation("PostReplies", fields: [parentId], references: [id])
+  replies       ForumPost[] @relation("PostReplies")
+  thread        ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
   @@index([threadId])
   @@index([authorId])
@@ -2300,40 +1768,32 @@ model ForumPost {
   @@map("forum_posts")
 }
 
-// =============================================================================
-// CERTIFICATES
-// =============================================================================
-
 model CertificateTemplate {
-  id           Int      @id @default(autoincrement())
+  id           Int           @id @default(autoincrement())
   name         String
   description  String?
-  templateHtml String   @map("template_html") // HTML template with placeholders
-  isDefault    Boolean  @default(false) @map("is_default")
-  isActive     Boolean  @default(true) @map("is_active")
-  creatorId    Int?     @map("creator_id")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  creator      User?           @relation("TemplateCreator", fields: [creatorId], references: [id], onDelete: SetNull)
+  templateHtml String        @map("template_html")
+  isDefault    Boolean       @default(false) @map("is_default")
+  isActive     Boolean       @default(true) @map("is_active")
+  creatorId    Int?          @map("creator_id")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  creator      User?         @relation("TemplateCreator", fields: [creatorId], references: [id])
   certificates Certificate[]
 
   @@map("certificate_templates")
 }
 
 model Certificate {
-  id               Int       @id @default(autoincrement())
-  userId           Int       @map("user_id")
-  courseId         Int       @map("course_id")
-  templateId       Int       @map("template_id")
-  verificationCode String    @unique @map("verification_code")
-  issueDate        DateTime  @default(now()) @map("issue_date")
-  expiryDate       DateTime? @map("expiry_date")
-  metadata         String?   // JSON: additional data like grade, instructor name
-
-  // Relations
-  template CertificateTemplate @relation(fields: [templateId], references: [id])
+  id               Int                 @id @default(autoincrement())
+  userId           Int                 @map("user_id")
+  courseId         Int                 @map("course_id")
+  templateId       Int                 @map("template_id")
+  verificationCode String              @unique @map("verification_code")
+  issueDate        DateTime            @default(now()) @map("issue_date")
+  expiryDate       DateTime?           @map("expiry_date")
+  metadata         String?
+  template         CertificateTemplate @relation(fields: [templateId], references: [id])
 
   @@unique([userId, courseId])
   @@index([userId])
@@ -2342,66 +1802,52 @@ model Certificate {
   @@map("certificates")
 }
 
-// =============================================================================
-// NOTIFICATIONS
-// =============================================================================
-
 model Notification {
-  id          Int       @id @default(autoincrement())
-  userId      Int       @map("user_id")
-  type        String    // grade_posted, deadline_approaching, announcement, forum_reply, enrollment, certificate
-  title       String
-  message     String
-  link        String?
-  data        String?   // JSON for extra context
-  isRead      Boolean   @default(false) @map("is_read")
-  readAt      DateTime? @map("read_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  type      String
+  title     String
+  message   String
+  link      String?
+  data      String?
+  isRead    Boolean   @default(false) @map("is_read")
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
 
   @@index([userId, isRead])
   @@index([userId, createdAt])
   @@map("notifications")
 }
 
-// =============================================================================
-// NOTIFICATION PREFERENCES
-// =============================================================================
-
 model NotificationPreference {
-  id                    Int      @id @default(autoincrement())
-  userId                Int      @unique @map("user_id")
-  // Email preferences
-  emailEnrollment       Boolean  @default(true) @map("email_enrollment")
-  emailAssignmentDue    Boolean  @default(true) @map("email_assignment_due")
-  emailGradePosted      Boolean  @default(true) @map("email_grade_posted")
-  emailAnnouncement     Boolean  @default(true) @map("email_announcement")
-  emailForumReply       Boolean  @default(true) @map("email_forum_reply")
-  emailCertificate      Boolean  @default(true) @map("email_certificate")
-  emailDigestFrequency  String   @default("daily") @map("email_digest_frequency") // none, daily, weekly
-  // In-app preferences
-  inAppEnabled          Boolean  @default(true) @map("in_app_enabled")
-  inAppGradePosted      Boolean  @default(true) @map("in_app_grade_posted")
-  inAppDeadline         Boolean  @default(true) @map("in_app_deadline")
-  inAppAnnouncement     Boolean  @default(true) @map("in_app_announcement")
-  inAppForumReply       Boolean  @default(true) @map("in_app_forum_reply")
-  inAppCertificate      Boolean  @default(true) @map("in_app_certificate")
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
+  id                   Int      @id @default(autoincrement())
+  userId               Int      @unique @map("user_id")
+  emailEnrollment      Boolean  @default(true) @map("email_enrollment")
+  emailAssignmentDue   Boolean  @default(true) @map("email_assignment_due")
+  emailGradePosted     Boolean  @default(true) @map("email_grade_posted")
+  emailAnnouncement    Boolean  @default(true) @map("email_announcement")
+  emailForumReply      Boolean  @default(true) @map("email_forum_reply")
+  emailCertificate     Boolean  @default(true) @map("email_certificate")
+  emailDigestFrequency String   @default("daily") @map("email_digest_frequency")
+  inAppEnabled         Boolean  @default(true) @map("in_app_enabled")
+  inAppGradePosted     Boolean  @default(true) @map("in_app_grade_posted")
+  inAppDeadline        Boolean  @default(true) @map("in_app_deadline")
+  inAppAnnouncement    Boolean  @default(true) @map("in_app_announcement")
+  inAppForumReply      Boolean  @default(true) @map("in_app_forum_reply")
+  inAppCertificate     Boolean  @default(true) @map("in_app_certificate")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
   @@map("notification_preferences")
 }
 
-// =============================================================================
-// COURSE PREREQUISITES
-// =============================================================================
-
 model CoursePrerequisite {
-  id                Int      @id @default(autoincrement())
-  courseId          Int      @map("course_id")
-  prerequisiteCourseId Int   @map("prerequisite_course_id")
-  isRequired        Boolean  @default(true) @map("is_required") // true = must complete, false = recommended
-  minProgress       Float    @default(100) @map("min_progress") // minimum progress % required
-  createdAt         DateTime @default(now()) @map("created_at")
+  id                   Int      @id @default(autoincrement())
+  courseId             Int      @map("course_id")
+  prerequisiteCourseId Int      @map("prerequisite_course_id")
+  isRequired           Boolean  @default(true) @map("is_required")
+  minProgress          Float    @default(100) @map("min_progress")
+  createdAt            DateTime @default(now()) @map("created_at")
 
   @@unique([courseId, prerequisiteCourseId])
   @@index([courseId])
@@ -2409,22 +1855,16 @@ model CoursePrerequisite {
   @@map("course_prerequisites")
 }
 
-// =============================================================================
-// GRADING RUBRICS
-// =============================================================================
-
 model Rubric {
-  id          Int      @id @default(autoincrement())
+  id          Int               @id @default(autoincrement())
   title       String
   description String?
-  courseId    Int?     @map("course_id") // null = template rubric
-  createdById Int      @map("created_by_id")
-  isTemplate  Boolean  @default(false) @map("is_template")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  criteria RubricCriterion[]
+  courseId    Int?              @map("course_id")
+  createdById Int               @map("created_by_id")
+  isTemplate  Boolean           @default(false) @map("is_template")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  criteria    RubricCriterion[]
 
   @@index([courseId])
   @@index([createdById])
@@ -2432,16 +1872,14 @@ model Rubric {
 }
 
 model RubricCriterion {
-  id          Int      @id @default(autoincrement())
-  rubricId    Int      @map("rubric_id")
+  id          Int     @id @default(autoincrement())
+  rubricId    Int     @map("rubric_id")
   name        String
   description String?
-  maxPoints   Float    @map("max_points")
-  orderIndex  Int      @default(0) @map("order_index")
-  levels      String   // JSON array of {score, description} levels
-
-  // Relations
-  rubric Rubric @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+  maxPoints   Float   @map("max_points")
+  orderIndex  Int     @default(0) @map("order_index")
+  levels      String
+  rubric      Rubric  @relation(fields: [rubricId], references: [id], onDelete: Cascade)
 
   @@index([rubricId])
   @@map("rubric_criteria")

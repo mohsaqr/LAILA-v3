@@ -13,6 +13,7 @@ import { Loading } from '../common/Loading';
 interface AssignmentSectionEditorProps {
   section: LectureSection;
   courseId: number;
+  lectureId?: number;
   onChange: (data: UpdateSectionData) => void;
   readOnly?: boolean;
 }
@@ -42,6 +43,7 @@ const initialFormData: AssignmentFormData = {
 export const AssignmentSectionEditor = ({
   section,
   courseId,
+  lectureId,
   onChange,
   readOnly = false,
 }: AssignmentSectionEditorProps) => {
@@ -74,6 +76,7 @@ export const AssignmentSectionEditor = ({
     mutationFn: (data: AssignmentFormData) =>
       assignmentsApi.createAssignment(courseId, {
         ...data,
+        lectureId: lectureId ?? null,
         dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
       }),
     onSuccess: (newAssignment) => {
