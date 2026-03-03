@@ -68,6 +68,7 @@ export const createCourseSchema = z.object({
   difficulty: z.enum(['beginner', 'intermediate', 'advanced']).optional(),
   isPublic: z.boolean().optional(),
   thumbnail: z.string().optional().or(z.literal('')),
+  curriculumViewMode: z.enum(['mini-cards', 'icons', 'list', 'accordion']).optional(),
 });
 
 export const updateCourseSchema = createCourseSchema.partial();
