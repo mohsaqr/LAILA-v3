@@ -80,6 +80,20 @@ export const AssignmentSectionEditor = ({
     enabled: !readOnly && !!courseId && showSelectExisting,
   });
 
+  // Fetch full assignment details when edit form is opened
+  const { data: fullAssignment, isLoading: fullAssignmentLoading } = useQuery({
+    queryKey: ['assignment', selectedAssignmentId],
+    queryFn: () => assignmentsApi.getAssignmentById(selectedAssignmentId!),
+    enabled: isEditing && !!selectedAssignmentId,
+  });
+
+  useEffect(() => {
+    if (isEditing && fullAssignment) {
+      setFormData(assignmentToFormData(fullAssignment));
+      setCachedAssignment(fullAssignment);
+    }
+  }, [fullAssignment, isEditing]);
+
   const createMutation = useMutation({
     mutationFn: (data: AssignmentFormData) =>
       assignmentsApi.createAssignment(courseId, {
@@ -153,7 +167,7 @@ export const AssignmentSectionEditor = ({
   };
 
   const openEdit = () => {
-    if (cachedAssignment) setFormData(assignmentToFormData(cachedAssignment));
+    setFormData(initialFormData);
     setIsEditing(true);
   };
 
@@ -211,6 +225,9 @@ export const AssignmentSectionEditor = ({
 
   // ─── Linked assignment: edit form ─────────────────────────────────────────
   if (selectedAssignmentId && isEditing) {
+    if (fullAssignmentLoading) {
+      return <Loading text={t('loading_assignment')} />;
+    }
     return (
       <form onSubmit={handleEditSubmit} className="space-y-4">
         <Input
@@ -303,22 +320,18 @@ export const AssignmentSectionEditor = ({
             <p className="font-medium text-gray-900 truncate">
               {selectedAssignment?.title}
             </p>
-            {selectedAssignment?.description && (
-              <p className="text-sm text-gray-500 truncate">{selectedAssignment.description}</p>
-            )}
-            <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-              {selectedAssignment?.dueDate && (
-                <span className="flex items-center gap-1">
-                  <Calendar className="w-3 h-3" />
-                  {formatDate(selectedAssignment.dueDate)}
-                </span>
-              )}
-              {selectedAssignment?.points !== undefined && (
-                <span className="flex items-center gap-1">
-                  <Award className="w-3 h-3" />
-                  {selectedAssignment.points} {t('points')}
-                </span>
-              )}
+            <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
+              <span className="flex items-center gap-1">
+                <Calendar className="w-3 h-3 text-gray-400" />
+                {selectedAssignment?.dueDate
+                  ? formatDate(selectedAssignment.dueDate)
+                  : t('no_due_date')}
+              </span>
+              <span className="text-gray-300">•</span>
+              <span className="flex items-center gap-1">
+                <Award className="w-3 h-3 text-gray-400" />
+                {selectedAssignment?.points ?? 0} {t('points')}
+              </span>
             </div>
           </div>
           <button

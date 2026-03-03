@@ -360,6 +360,31 @@ export const LectureView = () => {
                 </div>
               </div>
             )}
+
+            {/* Complete button (students only) */}
+            {isStudent && (
+              <div className="mt-8 pt-6 flex justify-end" style={{ borderTop: `1px solid ${colors.border}` }}>
+                {isCompleted ? (
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400 font-medium">
+                    <CheckCircle className="w-4 h-4" />
+                    {t('completed')}
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => completeMutation.mutate()}
+                    disabled={completeMutation.isPending}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-green-50 hover:bg-green-100 text-green-600 dark:bg-green-900/20 dark:hover:bg-green-900/30 dark:text-green-400 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {completeMutation.isPending ? (
+                      <Circle className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4" />
+                    )}
+                    {t('complete')}
+                  </button>
+                )}
+              </div>
+            )}
           </CardBody>
         </Card>
 
@@ -371,31 +396,6 @@ export const LectureView = () => {
             courseId={parseInt(courseId!)}
           />
         </div>
-
-        {/* Mark as Complete button (students only) */}
-        {isStudent && (
-          <div className="mt-6 flex justify-center">
-            {isCompleted ? (
-              <div className="flex items-center gap-2 px-6 py-3 rounded-lg text-green-700 bg-green-50 dark:bg-green-900/20 dark:text-green-400 font-medium">
-                <CheckCircle className="w-5 h-5" />
-                {t('completed')}
-              </div>
-            ) : (
-              <button
-                onClick={() => completeMutation.mutate()}
-                disabled={completeMutation.isPending}
-                className="flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors bg-green-600 hover:bg-green-700 text-white disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {completeMutation.isPending ? (
-                  <Circle className="w-5 h-5 animate-spin" />
-                ) : (
-                  <CheckCircle className="w-5 h-5" />
-                )}
-                {t('mark_complete')}
-              </button>
-            )}
-          </div>
-        )}
 
         {/* Navigation buttons */}
         <div className="mt-6 flex items-center justify-between">

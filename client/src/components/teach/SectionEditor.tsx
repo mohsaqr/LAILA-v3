@@ -100,6 +100,7 @@ export const SectionEditor = ({
     }
     if (section.fileName) return `${t('file')}: ${section.fileName}`;
     if (section.type === 'chatbot') return section.chatbotTitle || t('chatbot_configured');
+    if (section.type === 'assignment') return section.assignment?.title || t('no_content_yet');
     return t('no_content_yet');
   };
 
