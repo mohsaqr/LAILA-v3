@@ -80,7 +80,7 @@ export const TeachDashboard = () => {
       queryClient.invalidateQueries({ queryKey: ['instructorStats'] });
       toast.success(t('course_published'));
     },
-    onError: () => toast.error(t('failed_to_publish_course')),
+    onError: (error: any) => toast.error(error?.message || t('failed_to_publish_course')),
   });
 
   const unpublishMutation = useMutation({

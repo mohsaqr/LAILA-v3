@@ -270,7 +270,7 @@ export const CurriculumEditor = () => {
       toast.success(t('course_published'));
     },
     onError: (error: any) => {
-      const msg = error?.response?.data?.message || error?.response?.data?.error || t('failed_to_publish_course');
+      const msg = error?.message || t('failed_to_publish_course');
       toast.error(msg);
     },
   });
