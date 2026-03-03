@@ -258,14 +258,14 @@ export const ModuleItem = ({
                       <MessageCircle className="w-3 h-3" />
                       {t('section_type_chatbot')}
                     </Link>
-                    <button
-                      onClick={() => onAddAssignment(module)}
+                    <Link
+                      to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=assignment`}
                       className="text-xs px-2 py-1 rounded-md border border-rose-200 hover:bg-rose-50 text-rose-600 hover:text-rose-700 transition-colors flex items-center gap-1"
                       title={t('add_assignment')}
                     >
                       <ClipboardList className="w-3 h-3" />
                       {t('assignment')}
-                    </button>
+                    </Link>
                   </div>
                 </div>
               ))
