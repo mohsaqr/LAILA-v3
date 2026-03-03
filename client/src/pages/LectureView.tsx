@@ -13,6 +13,7 @@ import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { LectureAIHelper } from '../components/lecture';
+import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStudent';
 import { marked } from 'marked';
 import { sanitizeHtml } from '../utils/sanitize';
 import activityLogger from '../services/activityLogger';
@@ -250,6 +251,21 @@ export const LectureView = () => {
           </div>
         );
       }
+
+      case 'chatbot':
+        return (
+          <div key={section.id} className="mb-8">
+            {section.title && (
+              <h2 className="text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>
+                {section.title}
+              </h2>
+            )}
+            <ChatbotSectionStudent
+              section={section}
+              courseId={parseInt(courseId!)}
+            />
+          </div>
+        );
 
       default:
         return null;
