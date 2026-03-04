@@ -517,9 +517,9 @@ export class AssignmentService {
    * Executes exactly 3 queries regardless of enrollment count.
    */
   async getStudentGradebook(userId: number) {
-    // 1. All active enrollments with course title
+    // 1. All active or completed enrollments with course title
     const enrollments = await prisma.enrollment.findMany({
-      where: { userId, status: 'active' },
+      where: { userId, status: { in: ['active', 'completed'] } },
       include: {
         course: { select: { id: true, title: true } },
       },
