@@ -13,6 +13,8 @@ import {
   BrainCircuit,
   Sparkles,
   Settings,
+  ClipboardList,
+  CalendarDays,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
@@ -76,13 +78,15 @@ export const Dashboard = () => {
                   <Sparkles className="w-5 h-5" />
                   {t('explore_courses')}
                 </Link>
-                <Link
-                  to="/ai-tools"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/20 text-white rounded-lg font-medium hover:bg-white/30 transition-colors"
-                >
-                  <BrainCircuit className="w-5 h-5" />
-                  {t('ai_tools')}
-                </Link>
+                {isInstructor && (
+                  <Link
+                    to="/ai-tools"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/20 text-white rounded-lg font-medium hover:bg-white/30 transition-colors"
+                  >
+                    <BrainCircuit className="w-5 h-5" />
+                    {t('ai_tools')}
+                  </Link>
+                )}
               </div>
             </div>
             <div className="hidden lg:block">
@@ -117,19 +121,19 @@ export const Dashboard = () => {
               </Card>
             </Link>
 
-            <Link to="/ai-tools">
-              <Card hover className="h-full">
-                <CardBody className="text-center py-6">
-                  <div className="w-12 h-12 rounded-xl bg-secondary-100 dark:bg-secondary-900/30 flex items-center justify-center mx-auto mb-3">
-                    <BrainCircuit className="w-6 h-6 text-secondary-600 dark:text-secondary-400" />
-                  </div>
-                  <p className="font-medium" style={{ color: colors.textPrimary }}>{t('ai_tools')}</p>
-                </CardBody>
-              </Card>
-            </Link>
-
             {isInstructor ? (
               <>
+                <Link to="/ai-tools">
+                  <Card hover className="h-full">
+                    <CardBody className="text-center py-6">
+                      <div className="w-12 h-12 rounded-xl bg-secondary-100 dark:bg-secondary-900/30 flex items-center justify-center mx-auto mb-3">
+                        <BrainCircuit className="w-6 h-6 text-secondary-600 dark:text-secondary-400" />
+                      </div>
+                      <p className="font-medium" style={{ color: colors.textPrimary }}>{t('ai_tools')}</p>
+                    </CardBody>
+                  </Card>
+                </Link>
+
                 <Link to="/teach/create">
                   <Card hover className="h-full">
                     <CardBody className="text-center py-6">
@@ -154,13 +158,24 @@ export const Dashboard = () => {
               </>
             ) : (
               <>
-                <Link to="/ai-tools/builder">
+                <Link to="/dashboard/gradebook">
+                  <Card hover className="h-full">
+                    <CardBody className="text-center py-6">
+                      <div className="w-12 h-12 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-3">
+                        <ClipboardList className="w-6 h-6 text-green-600 dark:text-green-400" />
+                      </div>
+                      <p className="font-medium" style={{ color: colors.textPrimary }}>{t('my_grades')}</p>
+                    </CardBody>
+                  </Card>
+                </Link>
+
+                <Link to="/dashboard/calendar">
                   <Card hover className="h-full">
                     <CardBody className="text-center py-6">
                       <div className="w-12 h-12 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center mx-auto mb-3">
-                        <Sparkles className="w-6 h-6 text-violet-600 dark:text-violet-400" />
+                        <CalendarDays className="w-6 h-6 text-violet-600 dark:text-violet-400" />
                       </div>
-                      <p className="font-medium" style={{ color: colors.textPrimary }}>{t('ai_builder')}</p>
+                      <p className="font-medium" style={{ color: colors.textPrimary }}>{t('calendar')}</p>
                     </CardBody>
                   </Card>
                 </Link>
