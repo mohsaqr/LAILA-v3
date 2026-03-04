@@ -23,8 +23,10 @@ interface CourseGrade {
   totalEarned: number;
   totalPossible: number;
   percentage: number;
+  submittedCount: number;
   gradedCount: number;
   totalAssignments: number;
+  submissionProgress: number;
   recentGrade?: {
     assignmentTitle: string;
     grade: number;
@@ -79,10 +81,15 @@ export const DashboardGradebook = () => {
     let totalEarned = 0;
     let totalPossible = 0;
     let gradedCount = 0;
+    let submittedCount = 0;
     let recentGrade: CourseGrade['recentGrade'] = undefined;
 
     assignments.forEach((assignment: any) => {
       totalPossible += assignment.points;
+      const status = assignment.mySubmission?.status;
+      if (status === 'submitted' || status === 'graded') {
+        submittedCount++;
+      }
       if (assignment.mySubmission?.grade !== null && assignment.mySubmission?.grade !== undefined) {
         totalEarned += assignment.mySubmission.grade;
         gradedCount++;
@@ -98,14 +105,17 @@ export const DashboardGradebook = () => {
       }
     });
 
+    const total = assignments.length;
     return {
       courseId: courseData.courseId,
       courseTitle: courseData.courseTitle,
       totalEarned,
       totalPossible,
       percentage: totalPossible > 0 ? Math.round((totalEarned / totalPossible) * 100) : 0,
+      submittedCount,
       gradedCount,
-      totalAssignments: assignments.length,
+      totalAssignments: total,
+      submissionProgress: total > 0 ? Math.round((submittedCount / total) * 100) : 0,
       recentGrade,
     };
   });
@@ -241,24 +251,29 @@ export const DashboardGradebook = () => {
                 <Link key={course.courseId} to={`/courses/${course.courseId}/grades`}>
                   <Card hover>
                     <CardBody className="flex items-center gap-4">
-                      {/* Grade Circle */}
-                      <div
-                        className="w-16 h-16 rounded-full flex flex-col items-center justify-center flex-shrink-0"
-                        style={{
-                          backgroundColor: isDark ? 'rgba(99, 102, 241, 0.1)' : '#f0f0ff',
-                          border: `3px solid ${getGradeColor(course.percentage)}`,
-                        }}
-                      >
-                        <span
-                          className="text-xl font-bold"
-                          style={{ color: getGradeColor(course.percentage) }}
-                        >
-                          {getGradeLetter(course.percentage)}
-                        </span>
-                        <span className="text-xs" style={{ color: colors.textSecondary }}>
-                          {course.percentage}%
-                        </span>
-                      </div>
+                      {/* Submission Progress Circle */}
+                      {(() => {
+                        const r = 26;
+                        const circ = 2 * Math.PI * r;
+                        const filled = (course.submissionProgress / 100) * circ;
+                        return (
+                          <div className="w-16 h-16 flex-shrink-0 relative flex items-center justify-center">
+                            <svg width="64" height="64" viewBox="0 0 64 64" className="-rotate-90 absolute inset-0">
+                              <circle cx="32" cy="32" r={r} fill="none" strokeWidth="5"
+                                stroke={isDark ? '#374151' : '#e5e7eb'} />
+                              <circle cx="32" cy="32" r={r} fill="none" strokeWidth="5"
+                                stroke="#16a34a"
+                                strokeDasharray={`${filled} ${circ}`}
+                                strokeLinecap="round" />
+                            </svg>
+                            <div className="flex flex-col items-center justify-center z-10">
+                              <span className="text-sm font-bold leading-none" style={{ color: '#16a34a' }}>
+                                {course.submittedCount}/{course.totalAssignments}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       {/* Course Info */}
                       <div className="flex-1 min-w-0">
@@ -272,7 +287,7 @@ export const DashboardGradebook = () => {
                           </span>
                           <span className="flex items-center gap-1">
                             <FileText className="w-4 h-4" />
-                            {course.gradedCount}/{course.totalAssignments} {t('graded')}
+                            {course.submittedCount}/{course.totalAssignments} {t('submitted_status')}
                           </span>
                         </div>
                         {course.recentGrade && (
@@ -284,12 +299,15 @@ export const DashboardGradebook = () => {
 
                       {/* Progress Bar */}
                       <div className="hidden sm:block w-32">
+                        <div className="text-xs mb-1 text-right" style={{ color: colors.textSecondary }}>
+                          {course.submissionProgress}%
+                        </div>
                         <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: colors.border }}>
                           <div
                             className="h-full rounded-full transition-all"
                             style={{
-                              width: `${course.percentage}%`,
-                              backgroundColor: getGradeColor(course.percentage),
+                              width: `${course.submissionProgress}%`,
+                              backgroundColor: '#16a34a',
                             }}
                           />
                         </div>
