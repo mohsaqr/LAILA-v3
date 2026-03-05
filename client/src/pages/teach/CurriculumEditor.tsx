@@ -7,7 +7,6 @@ import toast from 'react-hot-toast';
 import { coursesApi } from '../../api/courses';
 import { codeLabsApi } from '../../api/codeLabs';
 import { assignmentsApi } from '../../api/assignments';
-import { courseTutorApi } from '../../api/courseTutor';
 import { customLabsApi } from '../../api/customLabs';
 import { forumsApi, Forum, CreateForumInput } from '../../api/forums';
 import { useTheme } from '../../hooks/useTheme';
@@ -127,28 +126,23 @@ export const CurriculumEditor = () => {
     allowAnonymous: false,
   });
 
-  // Queries
-  const { data: course, isLoading: courseLoading } = useQuery({
-    queryKey: ['course', courseId],
-    queryFn: () => coursesApi.getCourseById(courseId),
+  // Single query: fetches course, assignments, tutors, labs, and forums in one request
+  const { data: courseDetails, isLoading: courseLoading } = useQuery({
+    queryKey: ['courseDetails', courseId],
+    queryFn: () => coursesApi.getCourseDetails(courseId),
     enabled: !!courseId,
   });
+
+  const course = courseDetails?.course;
+  const assignments: Assignment[] = courseDetails?.assignments ?? [];
+  const courseTutors = courseDetails?.tutors;
+  const courseLabAssignments: LabAssignment[] = courseDetails?.labs ?? [];
+  const courseForums: Forum[] = courseDetails?.forums ?? [];
 
   // Derive modules from course data (already includes modules with nested lectures/codeLabs)
   const modules = course?.modules ?? [];
   const modulesLoading = courseLoading;
-
-  const { data: assignments, isLoading: assignmentsLoading } = useQuery({
-    queryKey: ['courseAssignments', courseId],
-    queryFn: () => assignmentsApi.getAssignments(courseId),
-    enabled: !!courseId,
-  });
-
-  const { data: courseTutors } = useQuery({
-    queryKey: ['courseTutors', courseId],
-    queryFn: () => courseTutorApi.getCourseTutors(courseId),
-    enabled: !!courseId,
-  });
+  const assignmentsLoading = courseLoading;
 
   // Fetch all accessible labs (public + created by instructor)
   const { data: availableLabs } = useQuery({
@@ -156,25 +150,11 @@ export const CurriculumEditor = () => {
     queryFn: () => customLabsApi.getLabs(),
   });
 
-  // Fetch labs already assigned to this course
-  const { data: courseLabAssignments } = useQuery({
-    queryKey: ['courseLabAssignments', courseId],
-    queryFn: () => customLabsApi.getLabsForCourse(courseId),
-    enabled: !!courseId,
-  });
-
-  // Fetch forums for the course
-  const { data: courseForums } = useQuery({
-    queryKey: ['courseForums', courseId],
-    queryFn: () => forumsApi.getForums(courseId),
-    enabled: !!courseId,
-  });
-
   // Mutations
   const createModuleMutation = useMutation({
     mutationFn: (data: ModuleFormData) => coursesApi.createModule(courseId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('module_created'));
       closeModuleModal();
     },
@@ -185,7 +165,7 @@ export const CurriculumEditor = () => {
     mutationFn: ({ id, data }: { id: number; data: ModuleFormData }) =>
       coursesApi.updateModule(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('module_updated'));
       closeModuleModal();
     },
@@ -195,7 +175,7 @@ export const CurriculumEditor = () => {
   const deleteModuleMutation = useMutation({
     mutationFn: (id: number) => coursesApi.deleteModule(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('module_deleted'));
       setDeleteModuleConfirm(null);
     },
@@ -206,7 +186,7 @@ export const CurriculumEditor = () => {
     mutationFn: ({ id, isPublished }: { id: number; isPublished: boolean }) =>
       coursesApi.updateModule(id, { isPublished }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('module_updated'));
     },
     onError: () => toast.error(t('failed_to_update_module')),
@@ -215,7 +195,7 @@ export const CurriculumEditor = () => {
   const reorderModulesMutation = useMutation({
     mutationFn: (moduleIds: number[]) => coursesApi.reorderModules(courseId, moduleIds),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
     },
     onError: () => toast.error(t('failed_to_reorder_modules')),
   });
@@ -224,7 +204,7 @@ export const CurriculumEditor = () => {
     mutationFn: ({ moduleId, data }: { moduleId: number; data: LectureFormData }) =>
       coursesApi.createLecture(moduleId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('lesson_created'));
       closeLectureModal();
     },
@@ -235,7 +215,7 @@ export const CurriculumEditor = () => {
     mutationFn: ({ id, data }: { id: number; data: LectureFormData }) =>
       coursesApi.updateLecture(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('lesson_updated'));
       closeLectureModal();
     },
@@ -246,7 +226,7 @@ export const CurriculumEditor = () => {
     mutationFn: ({ id, isPublished }: { id: number; isPublished: boolean }) =>
       coursesApi.updateLecture(id, { isPublished }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('lesson_updated'));
     },
     onError: () => toast.error(t('failed_to_update_lesson')),
@@ -255,7 +235,7 @@ export const CurriculumEditor = () => {
   const deleteLectureMutation = useMutation({
     mutationFn: (id: number) => coursesApi.deleteLecture(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('lesson_deleted'));
       setDeleteLectureConfirm(null);
     },
@@ -265,7 +245,7 @@ export const CurriculumEditor = () => {
   const publishMutation = useMutation({
     mutationFn: () => coursesApi.publishCourse(courseId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       queryClient.invalidateQueries({ queryKey: ['teachingCourses'] });
       toast.success(t('course_published'));
     },
@@ -278,7 +258,7 @@ export const CurriculumEditor = () => {
   const unpublishMutation = useMutation({
     mutationFn: () => coursesApi.unpublishCourse(courseId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       queryClient.invalidateQueries({ queryKey: ['teachingCourses'] });
       toast.success(t('course_unpublished'));
     },
@@ -303,7 +283,7 @@ export const CurriculumEditor = () => {
     mutationFn: ({ moduleId, data }: { moduleId: number; data: CodeLabFormData }) =>
       codeLabsApi.createCodeLab({ moduleId, title: data.title, description: data.description }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('code_lab_created'));
       closeCodeLabModal();
     },
@@ -314,7 +294,7 @@ export const CurriculumEditor = () => {
     mutationFn: ({ id, data }: { id: number; data: CodeLabFormData }) =>
       codeLabsApi.updateCodeLab(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('code_lab_updated'));
       closeCodeLabModal();
     },
@@ -324,7 +304,7 @@ export const CurriculumEditor = () => {
   const deleteCodeLabMutation = useMutation({
     mutationFn: (id: number) => codeLabsApi.deleteCodeLab(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('code_lab_deleted'));
       setDeleteCodeLabConfirm(null);
     },
@@ -336,8 +316,8 @@ export const CurriculumEditor = () => {
     mutationFn: ({ labId, moduleId }: { labId: number; moduleId?: number }) =>
       customLabsApi.assignToCourse(labId, { courseId, moduleId }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['courseLabAssignments', courseId] });
-      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('lab_template_added'));
       closeCodeLabModal();
     },
@@ -348,7 +328,7 @@ export const CurriculumEditor = () => {
   const unassignLabMutation = useMutation({
     mutationFn: (labId: number) => customLabsApi.unassignFromCourse(labId, courseId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['courseLabAssignments', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('lab_template_removed'));
     },
     onError: () => toast.error(t('failed_to_remove_lab_template')),
@@ -362,7 +342,7 @@ export const CurriculumEditor = () => {
         dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('assignment_created'));
       closeAssignmentModal();
     },
@@ -380,7 +360,7 @@ export const CurriculumEditor = () => {
         dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('assignment_updated'));
       closeAssignmentModal();
     },
@@ -394,7 +374,7 @@ export const CurriculumEditor = () => {
   const deleteAssignmentMutation = useMutation({
     mutationFn: (id: number) => assignmentsApi.deleteAssignment(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('assignment_deleted'));
       setDeleteAssignmentConfirm(null);
     },
@@ -405,7 +385,7 @@ export const CurriculumEditor = () => {
   const createForumMutation = useMutation({
     mutationFn: (data: CreateForumInput) => forumsApi.createForum(courseId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['courseForums', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('forum_created'));
       closeForumModal();
     },
@@ -416,7 +396,7 @@ export const CurriculumEditor = () => {
     mutationFn: ({ id, data }: { id: number; data: Partial<CreateForumInput> }) =>
       forumsApi.updateForum(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['courseForums', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('forum_updated'));
       closeForumModal();
     },
@@ -426,7 +406,7 @@ export const CurriculumEditor = () => {
   const deleteForumMutation = useMutation({
     mutationFn: (id: number) => forumsApi.deleteForum(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['courseForums', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('forum_deleted'));
       setDeleteForumConfirm(null);
     },
@@ -660,7 +640,7 @@ export const CurriculumEditor = () => {
     const newOrder = [...sorted];
     [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
     coursesApi.reorderLectures(module.id, newOrder.map(l => l.id)).then(() => {
-      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
     });
   };
 
@@ -673,7 +653,7 @@ export const CurriculumEditor = () => {
     const newOrder = [...sorted];
     [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
     coursesApi.reorderLectures(module.id, newOrder.map(l => l.id)).then(() => {
-      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
     });
   };
 
@@ -686,7 +666,7 @@ export const CurriculumEditor = () => {
     const newOrder = [...sorted];
     [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
     codeLabsApi.reorderCodeLabs(module.id, newOrder.map(c => c.id)).then(() => {
-      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
     });
   };
 
@@ -699,7 +679,7 @@ export const CurriculumEditor = () => {
     const newOrder = [...sorted];
     [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
     codeLabsApi.reorderCodeLabs(module.id, newOrder.map(c => c.id)).then(() => {
-      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
     });
   };
 

@@ -50,6 +50,11 @@ export const coursesApi = {
     return response.data.data!;
   },
 
+  getCourseDetails: async (id: number) => {
+    const response = await apiClient.get<ApiResponse<any>>(`/courses/${id}/details`);
+    return response.data.data!;
+  },
+
   getCourseBySlug: async (slug: string) => {
     const response = await apiClient.get<ApiResponse<Course>>(`/courses/slug/${slug}`);
     return response.data.data!;
