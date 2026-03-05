@@ -5,10 +5,6 @@ import { lectureService } from '../services/lecture.service.js';
 import { sectionService } from '../services/section.service.js';
 import { chatbotConversationService } from '../services/chatbotConversation.service.js';
 import { lectureAIHelperService } from '../services/lectureAIHelper.service.js';
-import { assignmentService } from '../services/assignment.service.js';
-import { courseTutorService } from '../services/courseTutor.service.js';
-import { customLabService } from '../services/customLab.service.js';
-import { forumService } from '../services/forum.service.js';
 import { authenticateToken, requireInstructor, optionalAuth } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import {
@@ -133,22 +129,11 @@ router.put('/:id/ai-settings', authenticateToken, requireInstructor, asyncHandle
   res.json({ success: true, data: course });
 }));
 
-// Get all course details in one request (for CurriculumEditor)
+// Get all course details in one database query (for CurriculumEditor)
 router.get('/:id/details', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = parseInt(req.params.id);
-  const userId = req.user!.id;
-  const isAdmin = req.user!.isAdmin;
-  const isInstructor = req.user!.isInstructor;
-
-  const [course, assignments, tutors, labs, forums] = await Promise.all([
-    courseService.getCourseByIdWithOwnerCheck(id, userId, isAdmin, isInstructor),
-    assignmentService.getAssignments(id, userId, true, isAdmin),
-    courseTutorService.getCourseTutors(id),
-    customLabService.getLabsForCourse(id),
-    forumService.getForums(id, userId, true, isAdmin),
-  ]);
-
-  res.json({ success: true, data: { course, assignments, tutors, labs, forums } });
+  const data = await courseService.getCourseDetails(id, req.user!.id, req.user!.isAdmin, req.user!.isInstructor);
+  res.json({ success: true, data });
 }));
 
 // ============= MODULES =============

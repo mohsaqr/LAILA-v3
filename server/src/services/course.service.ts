@@ -159,6 +159,98 @@ export class CourseService {
     return this.getCourseById(id, includeUnpublished);
   }
 
+  /**
+   * Get all data needed by CurriculumEditor in a SINGLE database query.
+   * Returns course (with modules/lectures/codeLabs), assignments, tutors, labs, and forums.
+   */
+  async getCourseDetails(id: number, userId: number, isAdmin = false, isInstructor = false) {
+    // Ownership check (inline, no extra query needed – we check after the main fetch)
+    const result = await prisma.course.findUnique({
+      where: { id },
+      include: {
+        instructor: { select: { id: true, fullname: true, email: true } },
+        categories: { include: { category: true } },
+        _count: { select: { enrollments: true } },
+
+        modules: {
+          orderBy: { orderIndex: 'asc' },
+          include: {
+            lectures: {
+              orderBy: { orderIndex: 'asc' },
+              select: {
+                id: true, title: true, contentType: true, duration: true,
+                orderIndex: true, isPublished: true, isFree: true,
+              },
+            },
+            codeLabs: {
+              orderBy: { orderIndex: 'asc' },
+              select: { id: true, title: true, description: true, orderIndex: true, isPublished: true },
+            },
+          },
+        },
+
+        assignments: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            module: { select: { id: true, title: true } },
+            _count: { select: { submissions: true } },
+          },
+        },
+
+        courseTutors: {
+          orderBy: { displayOrder: 'asc' },
+          include: {
+            chatbot: {
+              select: {
+                id: true, name: true, displayName: true, description: true,
+                systemPrompt: true, welcomeMessage: true, avatarUrl: true,
+                personality: true, temperature: true,
+              },
+            },
+            _count: { select: { conversations: true } },
+            conversations: { select: { _count: { select: { messages: true } } } },
+          },
+        },
+
+        labAssignments: {
+          include: {
+            lab: {
+              include: {
+                creator: { select: { id: true, fullname: true } },
+                _count: { select: { templates: true } },
+              },
+            },
+            module: { select: { id: true, title: true } },
+          },
+        },
+
+        forums: {
+          orderBy: [{ orderIndex: 'asc' }, { createdAt: 'desc' }],
+          include: { _count: { select: { threads: true } } },
+        },
+      },
+    });
+
+    if (!result) throw new AppError('Course not found', 404);
+
+    // Access check
+    const canSeeUnpublished = isAdmin || (isInstructor && result.instructorId === userId);
+    if (result.status !== 'published' && !canSeeUnpublished) {
+      throw new AppError('Course not found', 404);
+    }
+
+    // Destructure so `course` doesn't carry the extra joined arrays
+    const { assignments, courseTutors: rawTutors, labAssignments, forums, ...courseData } = result;
+
+    // Compute totalMessages per tutor from nested counts (avoids N+1)
+    const tutors = rawTutors.map(({ conversations, ...tutor }) => ({
+      ...tutor,
+      totalMessages: conversations.reduce((sum: number, c: any) => sum + (c._count?.messages ?? 0), 0),
+    }));
+
+    return { course: courseData, assignments, tutors, labs: labAssignments, forums };
+  }
+
   async getCourseBySlug(slug: string) {
     const course = await prisma.course.findUnique({
       where: { slug, status: 'published' },
