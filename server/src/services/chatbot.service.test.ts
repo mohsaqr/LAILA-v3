@@ -38,6 +38,7 @@ describe('ChatbotService', () => {
     category: 'support',
     isActive: true,
     isSystem: false,
+    creatorId: null,
   };
 
   const mockSystemChatbot = {
@@ -46,6 +47,7 @@ describe('ChatbotService', () => {
     name: 'system-bot',
     displayName: 'System Bot',
     isSystem: true,
+    creatorId: null,
   };
 
   beforeEach(() => {
@@ -208,53 +210,73 @@ describe('ChatbotService', () => {
   // ===========================================================================
 
   describe('updateChatbot', () => {
-    it('should update chatbot successfully', async () => {
+    it('should update chatbot successfully (admin)', async () => {
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockChatbot as any);
       vi.mocked(prisma.chatbot.update).mockResolvedValue({
         ...mockChatbot,
         displayName: 'Updated Name',
       } as any);
 
-      const result = await chatbotService.updateChatbot(1, { displayName: 'Updated Name' });
+      const result = await chatbotService.updateChatbot(1, { displayName: 'Updated Name' }, 1, true);
 
       expect(result.displayName).toBe('Updated Name');
+    });
+
+    it('should update own chatbot successfully (instructor)', async () => {
+      const ownChatbot = { ...mockChatbot, creatorId: 5 };
+      vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(ownChatbot as any);
+      vi.mocked(prisma.chatbot.update).mockResolvedValue({ ...ownChatbot, displayName: 'Updated Name' } as any);
+
+      const result = await chatbotService.updateChatbot(1, { displayName: 'Updated Name' }, 5, false);
+
+      expect(result.displayName).toBe('Updated Name');
+    });
+
+    it('should throw 403 when instructor tries to edit another user chatbot', async () => {
+      const otherChatbot = { ...mockChatbot, creatorId: 99 };
+      vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(otherChatbot as any);
+
+      await expect(chatbotService.updateChatbot(1, { displayName: 'Hack' }, 5, false)).rejects.toThrow('You can only edit chatbots you created');
+    });
+
+    it('should throw 403 when non-admin tries to edit system chatbot', async () => {
+      vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockSystemChatbot as any);
+
+      await expect(chatbotService.updateChatbot(2, { displayName: 'Hack' }, 5, false)).rejects.toThrow('Cannot modify system chatbot');
     });
 
     it('should throw 404 if chatbot not found', async () => {
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(null);
 
-      await expect(chatbotService.updateChatbot(999, { displayName: 'Test' })).rejects.toThrow(AppError);
-      await expect(chatbotService.updateChatbot(999, { displayName: 'Test' })).rejects.toThrow('Chatbot not found');
+      await expect(chatbotService.updateChatbot(999, { displayName: 'Test' }, 1, true)).rejects.toThrow(AppError);
+      await expect(chatbotService.updateChatbot(999, { displayName: 'Test' }, 1, true)).rejects.toThrow('Chatbot not found');
     });
 
-    it('should throw 400 when trying to change system chatbot name', async () => {
+    it('should throw 400 when trying to change system chatbot name (admin)', async () => {
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockSystemChatbot as any);
 
-      await expect(chatbotService.updateChatbot(2, { name: 'new-name' })).rejects.toThrow(AppError);
-      await expect(chatbotService.updateChatbot(2, { name: 'new-name' })).rejects.toThrow('Cannot change system chatbot name');
+      await expect(chatbotService.updateChatbot(2, { name: 'new-name' }, 1, true)).rejects.toThrow(AppError);
+      await expect(chatbotService.updateChatbot(2, { name: 'new-name' }, 1, true)).rejects.toThrow('Cannot change system chatbot name');
     });
 
-    it('should allow updating system chatbot with same name', async () => {
+    it('should allow updating system chatbot with same name (admin)', async () => {
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockSystemChatbot as any);
       vi.mocked(prisma.chatbot.update).mockResolvedValue(mockSystemChatbot as any);
 
-      const result = await chatbotService.updateChatbot(2, { name: 'system-bot', displayName: 'New Display' });
+      const result = await chatbotService.updateChatbot(2, { name: 'system-bot', displayName: 'New Display' }, 1, true);
 
       expect(result).toBeDefined();
     });
 
     it('should throw 409 when changing to existing name', async () => {
-      // Each call to updateChatbot makes two findUnique calls:
-      // 1. Find the chatbot being updated
-      // 2. Check if the new name already exists
       vi.mocked(prisma.chatbot.findUnique)
-        .mockResolvedValueOnce(mockChatbot as any) // First updateChatbot: finding the chatbot to update
-        .mockResolvedValueOnce(mockSystemChatbot as any) // First updateChatbot: checking name uniqueness (name exists!)
-        .mockResolvedValueOnce(mockChatbot as any) // Second updateChatbot: finding the chatbot to update
-        .mockResolvedValueOnce(mockSystemChatbot as any); // Second updateChatbot: checking name uniqueness (name exists!)
+        .mockResolvedValueOnce(mockChatbot as any)
+        .mockResolvedValueOnce(mockSystemChatbot as any)
+        .mockResolvedValueOnce(mockChatbot as any)
+        .mockResolvedValueOnce(mockSystemChatbot as any);
 
-      await expect(chatbotService.updateChatbot(1, { name: 'system-bot' })).rejects.toThrow(AppError);
-      await expect(chatbotService.updateChatbot(1, { name: 'system-bot' })).rejects.toThrow('already exists');
+      await expect(chatbotService.updateChatbot(1, { name: 'system-bot' }, 1, true)).rejects.toThrow(AppError);
+      await expect(chatbotService.updateChatbot(1, { name: 'system-bot' }, 1, true)).rejects.toThrow('already exists');
     });
   });
 
@@ -263,28 +285,45 @@ describe('ChatbotService', () => {
   // ===========================================================================
 
   describe('deleteChatbot', () => {
-    it('should delete non-system chatbot', async () => {
+    it('should delete non-system chatbot (admin)', async () => {
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockChatbot as any);
       vi.mocked(prisma.chatbot.delete).mockResolvedValue(mockChatbot as any);
 
-      const result = await chatbotService.deleteChatbot(1);
+      const result = await chatbotService.deleteChatbot(1, 1, true);
 
       expect(result.message).toBe('Chatbot deleted successfully');
       expect(prisma.chatbot.delete).toHaveBeenCalledWith({ where: { id: 1 } });
     });
 
+    it('should delete own chatbot (instructor)', async () => {
+      const ownChatbot = { ...mockChatbot, creatorId: 5 };
+      vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(ownChatbot as any);
+      vi.mocked(prisma.chatbot.delete).mockResolvedValue(ownChatbot as any);
+
+      const result = await chatbotService.deleteChatbot(1, 5, false);
+
+      expect(result.message).toBe('Chatbot deleted successfully');
+    });
+
+    it('should throw 403 when instructor tries to delete another user chatbot', async () => {
+      const otherChatbot = { ...mockChatbot, creatorId: 99 };
+      vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(otherChatbot as any);
+
+      await expect(chatbotService.deleteChatbot(1, 5, false)).rejects.toThrow('You can only delete chatbots you created');
+    });
+
     it('should throw 404 if chatbot not found', async () => {
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(null);
 
-      await expect(chatbotService.deleteChatbot(999)).rejects.toThrow(AppError);
-      await expect(chatbotService.deleteChatbot(999)).rejects.toThrow('Chatbot not found');
+      await expect(chatbotService.deleteChatbot(999, 1, true)).rejects.toThrow(AppError);
+      await expect(chatbotService.deleteChatbot(999, 1, true)).rejects.toThrow('Chatbot not found');
     });
 
     it('should throw 400 when trying to delete system chatbot', async () => {
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockSystemChatbot as any);
 
-      await expect(chatbotService.deleteChatbot(2)).rejects.toThrow(AppError);
-      await expect(chatbotService.deleteChatbot(2)).rejects.toThrow('Cannot delete system chatbot');
+      await expect(chatbotService.deleteChatbot(2, 1, true)).rejects.toThrow(AppError);
+      await expect(chatbotService.deleteChatbot(2, 1, true)).rejects.toThrow('Cannot delete system chatbot');
     });
   });
 

@@ -82,10 +82,10 @@
   "no_modules": "Ei moduuleja saatavilla",
   "no_lectures": "Ei luentoja saatavilla",
   "mark_complete": "Merkitse valmiiksi",
+  "complete": "Valmis",
   "completed": "Valmis",
   "not_started": "Ei aloitettu",
   "in_progress": "Käynnissä",
-
   "welcome_back": "Tervetuloa takaisin, {{name}}!",
   "explore_description": "Tutustu kursseihin, käytä tekoälytyökaluja ja paranna oppimiskokemustasi.",
   "manage_discover_courses": "Hallitse kurssejasi ja löydä uusia",
@@ -142,7 +142,6 @@
   "n_questions": "{{count}} kysymystä",
   "n_threads": "{{count}} keskustelua",
   "general": "Yleinen",
-
   "loading_quiz": "Ladataan tenttiä...",
   "failed_load_quiz": "Tentin lataaminen epäonnistui. Yritä uudelleen.",
   "failed_start_quiz": "Tentin aloittaminen epäonnistui",
@@ -159,23 +158,20 @@
   "quiz_submitted_score": "Tentti lähetetty! Tulos: {{score}}%",
   "true": "Totta",
   "false": "Väärin",
-
   "my_quizzes": "Omat tentit",
   "view_take_quizzes": "Katso ja suorita tenttejä kaikilla kursseillasi",
-  "no_quizzes_available": "Ei tenttejä saatavilla",
+  "no_quizzes_available": "Ei kokeita saatavilla",
   "quizzes_will_appear": "Tentit näkyvät täällä kun olet ilmoittautunut kursseille, joilla on aktiivisia tenttejä.",
   "n_attempts": "{{current}}/{{max}} yritystä",
   "unlimited_attempts": "{{current}}/∞ yritystä",
   "passed": "Hyväksytty",
   "not_passed": "Ei hyväksytty",
   "n_min": "{{count}} min",
-
-  "loading_forums": "Ladataan keskusteluita...",
+  "loading_forums": "Ladataan foorumeita...",
   "all_forums": "Kaikki keskustelut",
   "participate_in_discussions": "Osallistu kurssien keskusteluihin ja verkostoidu muiden kanssa",
-  "no_forums_available": "Ei keskusteluita saatavilla",
+  "no_forums_available": "Ei foorumeita saatavilla",
   "forums_will_appear": "Keskustelut näkyvät täällä kun olet ilmoittautunut kursseille, joilla on aktiivisia keskusteluita.",
-
   "loading_results": "Ladataan tuloksia...",
   "results_not_available": "Tulokset eivät ole saatavilla.",
   "return_to_course": "Palaa kurssille",
@@ -192,12 +188,11 @@
   "correct_answer": "Oikea vastaus:",
   "explanation": "Selitys:",
   "points_awarded": "{{awarded}} / {{total}} pistettä",
-
   "course_forums_title": "Kurssin Keskustelut",
   "discussion_forums_for": "Keskustelufoorumit kurssille {{title}}",
   "no_forums_available_title": "Ei Keskusteluita Saatavilla",
   "no_forums_available_description": "Tällä kurssilla ei ole vielä aktiivisia keskustelufoorumeita.",
-  "forums": "Keskustelut",
+  "forums": "Foorumit",
   "threads": "ketjua",
   "forum_not_found": "Foorumia ei löytynyt",
   "new_discussion": "Uusi Keskustelu",
@@ -227,7 +222,7 @@
   "m_ago": "{{count}} min sitten",
   "h_ago": "{{count}} t sitten",
   "d_ago": "{{count}} pv sitten",
-  "ai_response": "AI-vastaus",
+  "ai_response": "3. Tekoälyvastaus",
   "reply": "Vastaa",
   "replies": "vastausta",
   "n_replies": "{{count}} {{count, plural, one {Vastaus} other {Vastausta}}}",
@@ -252,14 +247,12 @@
   "reply_thread_placeholder": "Kirjoita vastauksesi ketjuun... (Kirjoita @nimi mainitaksesi AI-tutorin)",
   "discussion_is_locked": "Tämä keskustelu on lukittu",
   "loading": "Ladataan...",
-
   "my_learning": "Oma oppiminen",
   "my_learning_loading": "Ladataan kurssejasi...",
   "in_progress_title": "Käynnissä",
   "no_active_courses": "Ei aktiivisia kursseja",
   "start_learning": "Aloita oppiminen ilmoittautumalla kurssille",
   "last_accessed": "Viimeksi avattu {{date}}",
-
   "loading_assignments": "Ladataan tehtäviä...",
   "back_to_course": "Takaisin kurssille",
   "my_grades": "Arvosanani",
@@ -276,7 +269,6 @@
   "view_agent": "Näytä agentti",
   "build_agent": "Rakenna agentti",
   "due_at": "Palautus {{date}} klo {{time}}",
-
   "loading_grades": "Ladataan arvosanoja...",
   "not_enrolled_title": "Ei ilmoittautunut",
   "need_enroll_assignments": "Sinun täytyy ilmoittautua kurssille nähdäksesi tehtävät",
@@ -291,7 +283,6 @@
   "back_to_assignments": "Takaisin tehtäviin",
   "points_format": "{{points}} pistettä",
   "grade_percent": "{{percent}}%",
-
   "loading_assignment": "Ladataan tehtävää...",
   "need_enroll_view_assignment": "Sinun täytyy ilmoittautua kurssille nähdäksesi tämän tehtävän",
   "assignment_not_found": "Tehtävää ei löytynyt",
@@ -323,7 +314,6 @@
   "submission_type_label": "{{type}}-palautus",
   "redirecting_agent_builder": "Ohjataan agenttirakentajaan...",
   "thank_you_feedback": "Kiitos palautteestasi!",
-
   "loading_lecture": "Ladataan luentoa...",
   "lecture_not_found": "Luentoa ei löytynyt",
   "lecture_not_found_description": "Pyydettyä luentoa ei löytynyt.",
@@ -333,7 +323,6 @@
   "no_file_uploaded": "Tiedostoa ei ladattu",
   "attachments": "Liitteet",
   "n_minutes": "{{count}} min",
-
   "custom_labs": "Mukautetut laboratoriot",
   "interactive_labs_description": "Interaktiiviset R-pohjaiset analytiikkalaboratoriot käytännön oppimiseen",
   "manage_labs": "Hallitse laboratorioita",
@@ -361,7 +350,6 @@
   "clear_output": "Tyhjennä tuloste",
   "lab_output": "Tuloste",
   "lab_console": "Konsoli",
-
   "certificate_verified": "Todistus varmennettu",
   "certificate_not_found": "Todistusta ei löytynyt",
   "certificate_not_found_description": "Tätä todistusta ei löytynyt tai se on saatettu peruuttaa.",
@@ -382,7 +370,6 @@
   "complete_to_earn": "Suorita kurssi ansaitaksesi tämän todistuksen",
   "loading_certificate": "Ladataan todistusta...",
   "loading_certificates": "Ladataan todistuksia...",
-
   "ai_research_tools": "AI-tutkimustyökalut",
   "ai_tools_description": "Tehokkaat tekoälypohjaiset työkalut akateemiseen tutkimukseen, oppimiseen ja sisällöntuotantoon",
   "launch_tool": "Avaa työkalu",
@@ -397,8 +384,6 @@
   "customizable_desc": "Mukauta tekoälyasetuksia, valitse malleja ja personoi työkaluja mieltymystesi mukaan.",
   "loading_ai_tutors": "Ladataan tekoälytutoreita...",
   "back_to_ai_tools": "Takaisin tekoälytyökaluihin",
-
-  "ai_builder": "Tekoälyrakentaja",
   "ai_builder_desc": "Luo ja muokkaa uudelleenkäytettäviä tekoälykomponentteja kursseillesi",
   "ai_builder_course_desc": "Luo mukautettu tekoälytutori kurssillesi",
   "back_to_course_tutors": "Takaisin kurssin tutoreihin",
@@ -433,7 +418,6 @@
   "create_component": "Luo komponentti",
   "send_test_message": "Lähetä viesti testataksesi tekoälykomponenttia",
   "type_test_message": "Kirjoita testiviesti...",
-
   "ai_chatbots": "Tekoälykeskustelurobotit",
   "chat_with_assistants": "Keskustele erikoistuneiden tekoälyavustajien kanssa",
   "loading_chatbots": "Ladataan keskustelubotteja...",
@@ -445,7 +429,6 @@
   "type_your_message": "Kirjoita viestisi...",
   "ai_assistant": "Tekoälyavustaja",
   "error_occurred": "Valitettavasti tapahtui virhe. Yritä uudelleen.",
-
   "bias_research_platform": "Ennakkoasennetutkimusalusta",
   "bias_research_desc": "Analysoi tekstiä mahdollisten ennakkoasenteiden varalta akateemisessa tutkimuksessa",
   "text_analysis": "Tekstianalyysi",
@@ -459,7 +442,6 @@
   "about_bias_detection": "Tietoa ennakkoasennetunnistuksesta",
   "bias_detection_note": "Tämä työkalu käyttää tekoälyä auttaakseen tunnistamaan mahdollisia ennakkoasenteita tekstissä. Se on suunniteltu auttamaan tutkijoita luomaan osallistavampaa ja tasapainoisempaa sisältöä.",
   "bias_detection_warning": "Tekoälyanalyysiä tulisi käyttää lähtökohtana tarkastelulle, ei lopullisena arviona. Käytä aina ihmisen harkintaa ja alan asiantuntemusta.",
-
   "data_interpreter": "Datantulkitsija",
   "data_interpreter_desc": "Tekoälypohjainen tilastollinen analyysi koulutustutkimukseen",
   "data_input": "Datan syöttö",
@@ -473,7 +455,6 @@
   "csv_format_desc": "Pilkuilla erotetut arvot otsikoineen",
   "copy_from_excel": "Kopioi Excelistä",
   "copy_from_excel_desc": "Sarkainerotellut tiedot toimivat myös",
-
   "prompt_engineering_helper": "Kehotteen suunnitteluapuri",
   "prompt_helper_desc": "Luo tehokkaita tekoälykehotteita PCTFT-viitekehyksellä",
   "define_your_task": "1. Määritä tehtäväsi",
@@ -482,7 +463,6 @@
   "generate_prompt": "Luo kehote",
   "generated_prompt": "2. Luotu kehote",
   "run_with_ai": "Suorita tekoälyllä",
-  "ai_response": "3. Tekoälyvastaus",
   "pctft_tips": "PCTFT-viitekehyksen vinkit",
   "persona": "P - Persoona",
   "persona_desc": "Määritä kuka tekoälyn tulisi olla",
@@ -496,9 +476,7 @@
   "tone_desc": "Aseta viestintätyyli",
   "copied": "Kopioitu",
   "copied_to_clipboard": "Kopioitu leikepöydälle",
-
   "loading_gradebook": "Ladataan arvosanakirjaa...",
-  "my_grades": "Arvosanani",
   "my_grades_as_student": "Arvosanani (opiskelijana)",
   "view_grades_description": "Tarkastele arvosanojasi kaikilla kursseillasi",
   "overall_average": "Kokonaiskeskiarvo",
@@ -509,8 +487,6 @@
   "last_grade": "Viimeisin arvosana",
   "no_grades_yet": "Ei vielä arvosanoja",
   "no_grades_description": "Ilmoittaudu kursseille ja suorita tehtäviä nähdäksesi arvosanasi täällä",
-  "browse_courses": "Selaa kursseja",
-
   "loading_calendar": "Ladataan kalenteria...",
   "calendar": "Kalenteri",
   "calendar_description": "Tarkastele tulevia tehtäviä ja määräaikoja",
@@ -524,27 +500,16 @@
   "x_more": "+{{count}} lisää",
   "upcoming_next_7_days": "Tulossa (seuraavat 7 päivää)",
   "no_upcoming_assignments": "Ei tulevia tehtäviä",
-
   "invalid_survey": "Virheellinen kysely",
   "survey_not_found": "Etsimääsi kyselyä ei löydy.",
-
-  "instructor_view": "Opettajan näkymä",
-  "edit_course": "Muokkaa kurssia",
   "x_students": "{{count}} opiskelijaa",
   "x_modules": "{{count}} moduulia",
   "x_lessons": "{{count}} oppituntia",
-  "by_instructor": "tekijä: {{name}}",
-  "enroll_now_free": "Ilmoittaudu nyt - Ilmainen",
-  "sign_in_to_enroll": "Kirjaudu ilmoittautuaksesi",
-
   "curriculum": "Opetussuunnitelma",
-  "assignments": "Tehtävät",
   "quizzes": "Kokeet",
-  "forums": "Foorumit",
-  "ai_tutors": "Tekoälytutorit",
+  "ai_tutors": "AI-tutorit",
   "certificates": "Todistukset",
   "course_navigation": "Kurssin navigointi",
-
   "content_lecture": "Luento",
   "content_video": "Video",
   "content_mixed": "Sekalainen",
@@ -554,38 +519,29 @@
   "content_ai_agent": "Tekoälyagentti",
   "content_forum": "Foorumi",
   "content_ai": "Tekoälysisältö",
-
   "no_assignments_available": "Ei tehtäviä saatavilla",
   "no_assignments_description": "Tällä kurssilla ei ole vielä tehtäviä.",
   "due_date_format": "Määräaika: {{date}}",
   "x_points": "{{count}} pistettä",
   "ai_agent_type": "Tekoälyagentti",
   "standard_type": "Tavallinen",
-
   "loading_quizzes": "Ladataan kokeita...",
   "quizzes_for_course": "Kurssin {{title}} kokeet",
   "quiz_passed": "Läpäisty",
   "quiz_not_passed": "Ei läpäisty",
   "quiz_in_progress": "Kesken",
   "quiz_not_started": "Ei aloitettu",
-  "no_quizzes_available": "Ei kokeita saatavilla",
   "no_quizzes_description": "Tällä kurssilla ei ole vielä kokeita.",
   "x_questions": "{{count}} kysymystä",
   "x_min": "{{count}} min",
   "attempts_count": "{{current}}/{{max}} yritystä",
-
-  "loading_forums": "Ladataan foorumeita...",
-  "no_forums_available": "Ei foorumeita saatavilla",
   "no_forums_description": "Tällä kurssilla ei ole vielä aktiivisia keskustelufoorumeita.",
   "x_threads": "{{count}} keskustelua",
-
-  "loading_ai_tutors": "Ladataan tekoälytutoreita...",
   "no_ai_tutors_available": "Ei tekoälytutoreita saatavilla",
   "no_ai_tutors_description": "Tälle kurssille ei ole vielä määritetty tekoälytutoreita.",
   "manage_tutors": "Hallinnoi tutoreita",
   "x_ai_tutors_ready": "{{count}} tekoälytutori(a) valmiina auttamaan oppimisessa",
   "click_to_start_chatting_tutors": "Napsauta aloittaaksesi keskustelun tekoälytutorien kanssa",
-
   "text_content": "Tekstisisältö",
   "read_article": "Lue artikkeli",
   "no_content_yet": "Ei sisältöä vielä",
@@ -593,17 +549,14 @@
   "no_content_available_yet": "Ei sisältöä saatavilla vielä",
   "lab_badge": "Laboratorio",
   "forum_badge": "Foorumi",
-
   "x_items": "{{count}} kohdetta",
   "no_content_in_module": "Tässä moduulissa ei ole vielä sisältöä.",
   "due_date_short": "Määräaika {{date}}",
   "x_pts": "{{count}} pist.",
-
   "confirm_clear_conversation": "Haluatko varmasti tyhjentää keskusteluhistoriasi?",
   "ai_teaching_assistant": "Tekoälyopetusassistentti",
   "start_conversation": "Aloita keskustelu!",
   "failed_to_send_message": "Viestin lähetys epäonnistui. Yritä uudelleen.",
-
   "assignment_no_longer_available": "Tämä tehtävä ei ole enää saatavilla",
   "status_overdue": "Myöhässä",
   "status_due_soon": "Määräaika pian",
@@ -615,7 +568,6 @@
   "score_display": "Pisteet: {{grade}}/{{total}}",
   "not_yet_submitted": "Ei vielä lähetetty",
   "start_assignment": "Aloita tehtävä",
-
   "failed_to_start_conversation": "Keskustelun aloitus epäonnistui",
   "failed_to_send_message_toast": "Viestin lähetys epäonnistui",
   "conversation_deleted": "Keskustelu poistettu",
@@ -631,20 +583,16 @@
   "message_tutor": "Viesti {{name}}...",
   "send": "Lähetä",
   "keyboard_hint": "Paina Enter lähettääksesi, Shift+Enter uudelle riville",
-
   "collaborative_module": "Yhteistyömoduuli",
   "x_ai_tutors_ready_help": "{{count}} tekoälytutori(a) valmiina auttamaan",
   "click_to_start_chatting": "Napsauta aloittaaksesi keskustelun",
-
   "ask_ai_tutor": "Kysy AI-tutorilta",
   "generating_response": "Luodaan vastausta...",
   "write_your_reply": "Kirjoita vastauksesi...",
   "replying_to": "Vastaus käyttäjälle",
   "cancel_reply": "Peruuta vastaus",
-  "ai_tutors": "AI-tutorit",
   "posting": "Lähetetään...",
   "post_reply": "Lähetä vastaus",
-
   "practice_mode": "Harjoittelutila",
   "practice_description": "Testaa ymmärrystäsi tekoälyn luomilla kysymyksillä",
   "generate_practice_quiz": "Luo harjoituskysely",
@@ -666,5 +614,6 @@
   "generating_questions": "Luodaan kysymyksiä...",
   "failed_generate_questions": "Kysymysten luonti epäonnistui",
   "select_answer": "Valitse vastaus",
-  "practice_complete": "Harjoittelu valmis!"
+  "practice_complete": "Harjoittelu valmis!",
+  "clear_conversation": "Tyhjennä keskustelu"
 }

@@ -36,7 +36,9 @@ router.get('/', asyncHandler(async (req: AuthRequest, res: Response) => {
   const page = parseInt(req.query.page as string) || 1;
   const limit = parsePaginationLimit(req.query.limit as string, 10);
   const filters = {
-    category: req.query.category as string,
+    categoryIds: req.query.categoryIds
+      ? (req.query.categoryIds as string).split(',').map(Number).filter(Boolean)
+      : undefined,
     difficulty: req.query.difficulty as string,
     search: req.query.search as string,
   };
@@ -125,6 +127,13 @@ router.put('/:id/ai-settings', authenticateToken, requireInstructor, asyncHandle
   const settings = req.body;
   const course = await courseService.updateAISettings(id, req.user!.id, settings, req.user!.isAdmin);
   res.json({ success: true, data: course });
+}));
+
+// Get all course details in one database query (for CurriculumEditor)
+router.get('/:id/details', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const id = parseInt(req.params.id);
+  const data = await courseService.getCourseDetails(id, req.user!.id, req.user!.isAdmin, req.user!.isInstructor);
+  res.json({ success: true, data });
 }));
 
 // ============= MODULES =============

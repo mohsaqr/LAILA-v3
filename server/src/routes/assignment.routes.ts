@@ -26,6 +26,12 @@ router.get('/course/:courseId', authenticateToken, asyncHandler(async (req: Auth
   res.json({ success: true, data: assignments });
 }));
 
+// Get student's full gradebook in one aggregated call (must be before /:id)
+router.get('/my-gradebook', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const gradebook = await assignmentService.getStudentGradebook(req.user!.id);
+  res.json({ success: true, data: gradebook });
+}));
+
 // Get assignment by ID
 router.get('/:id', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = parseInt(req.params.id);
@@ -77,6 +83,13 @@ router.post('/:id/submit', authenticateToken, asyncHandler(async (req: AuthReque
 router.get('/:id/my-submission', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = parseInt(req.params.id);
   const submission = await assignmentService.getMySubmission(id, req.user!.id);
+  res.json({ success: true, data: submission });
+}));
+
+// Get single submission by ID (instructor)
+router.get('/submissions/:submissionId', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const submissionId = parseInt(req.params.submissionId);
+  const submission = await assignmentService.getSubmissionById(submissionId, req.user!.id, req.user!.isAdmin);
   res.json({ success: true, data: submission });
 }));
 

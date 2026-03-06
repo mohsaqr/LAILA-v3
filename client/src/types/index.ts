@@ -10,6 +10,7 @@ export interface User {
   isInstructor: boolean;
   isActive?: boolean;
   isConfirmed?: boolean;
+  avatarUrl?: string | null;
   createdAt?: string;
   lastLogin?: string;
   language?: string | null;
@@ -18,6 +19,12 @@ export interface User {
 export interface AuthResponse {
   user: User;
   token: string;
+}
+
+// Category types
+export interface Category {
+  id: number;
+  title: string;
 }
 
 // Course types
@@ -30,7 +37,7 @@ export interface Course {
   description: string | null;
   thumbnail: string | null;
   instructorId: number;
-  category: string | null;
+  categories?: { category: Category }[];
   difficulty: 'beginner' | 'intermediate' | 'advanced' | null;
   status: 'draft' | 'published' | 'archived';
   isPublic: boolean;
@@ -367,6 +374,7 @@ export interface Assignment {
   id: number;
   courseId: number;
   moduleId: number | null;
+  lectureId?: number | null;
   title: string;
   description: string | null;
   instructions: string | null;

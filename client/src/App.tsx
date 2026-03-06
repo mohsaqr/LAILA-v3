@@ -77,6 +77,7 @@ import {
   CodeLabEditor,
   AssignmentManager,
   SubmissionReview,
+  SubmissionDetail,
   ChatbotLogs,
   TeacherGradebook,
   SurveyManager,
@@ -567,6 +568,16 @@ function App() {
           }
         />
 
+        {/* Regular assignment submission detail */}
+        <Route
+          path="/teach/courses/:id/assignments/:assignmentId/submissions/:submissionId"
+          element={
+            <ProtectedRoute requireInstructor>
+              <SubmissionDetail />
+            </ProtectedRoute>
+          }
+        />
+
         {/* AI Agent Assignment routes (Instructor) */}
         <Route
           path="/teach/courses/:id/agent-assignments/:assignmentId/submissions"
@@ -577,7 +588,7 @@ function App() {
           }
         />
         <Route
-          path="/teach/courses/:id/assignments/:assignmentId/submissions/:submissionId"
+          path="/teach/courses/:id/agent-assignments/:assignmentId/submissions/:submissionId"
           element={
             <ProtectedRoute requireInstructor>
               <AgentSubmissionReview />

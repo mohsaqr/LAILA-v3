@@ -32,12 +32,11 @@ export const CourseEdit = () => {
       coursesApi.updateCourse(courseId, {
         ...data,
         difficulty: data.difficulty || null,
-      }),
+      } as any),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['course', courseId] });
       queryClient.invalidateQueries({ queryKey: ['teachingCourses'] });
       toast.success(t('course_saved'));
-      navigate(`/teach/courses/${courseId}/curriculum`);
     },
     onError: () => {
       toast.error(t('failed_to_save_course'));

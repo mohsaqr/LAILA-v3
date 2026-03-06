@@ -82,7 +82,6 @@ export class AnalyticsExportService {
                         id: true,
                         title: true,
                         slug: true,
-                        category: true,
                         difficulty: true,
                         instructor: {
                           select: {
@@ -132,7 +131,7 @@ export class AnalyticsExportService {
         course_id: log.courseId || course?.id || '',
         course_title: log.courseTitle || course?.title || '',
         course_slug: log.courseSlug || course?.slug || '',
-        course_category: course?.category || '',
+        course_category: '',
         course_difficulty: course?.difficulty || '',
         instructor_id: instructor?.id || '',
         instructor_name: instructor?.fullname || '',
@@ -234,7 +233,6 @@ export class AnalyticsExportService {
         id: true,
         title: true,
         slug: true,
-        category: true,
         difficulty: true,
         instructor: {
           select: { id: true, fullname: true, email: true },
@@ -287,7 +285,7 @@ export class AnalyticsExportService {
         course_id: log.courseId || '',
         course_title: log.courseTitle || course?.title || '',
         course_slug: course?.slug || '',
-        course_category: course?.category || '',
+        course_category: '',
         course_difficulty: course?.difficulty || '',
         instructor_id: course?.instructor?.id || '',
         instructor_name: course?.instructor?.fullname || '',
@@ -1157,7 +1155,7 @@ export class AnalyticsExportService {
         title: course.title,
         slug: course.slug,
         description: course.description,
-        category: course.category,
+        categories: (course as any).categories ?? [],
         difficulty: course.difficulty,
         status: course.status,
         instructor: course.instructor,

@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Menu, Heart, ArrowLeft } from 'lucide-react';
+import { Menu, Heart, ArrowLeft, BookOpen, ChevronRight } from 'lucide-react';
 import { tutorsApi } from '../api/tutors';
 import { coursesApi } from '../api/courses';
 import { courseTutorApi } from '../api/courseTutor';
+import { enrollmentsApi } from '../api/enrollments';
 import { TutorSidebar, TutorChat, EmotionalPulseHistory } from '../components/tutors';
 import { Loading } from '../components/common/Loading';
 import { useTheme } from '../hooks/useTheme';
@@ -44,11 +45,23 @@ export const AITutors = () => {
   const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   // URL params for deep linking
   const agentIdFromUrl = searchParams.get('agent');
   const courseIdFromUrl = searchParams.get('courseId');
+
+  // Fetch enrolled courses when no courseId is selected
+  const { data: enrollments, isLoading: enrollmentsLoading } = useQuery({
+    queryKey: ['myEnrollments'],
+    queryFn: enrollmentsApi.getMyEnrollments,
+    enabled: !courseIdFromUrl,
+    staleTime: 60000,
+  });
+
+  // All active enrolled courses (with course data) — shown in the selector
+  const enrolledCourses = enrollments?.filter(e => e.status === 'active' && e.course) ?? [];
 
   // Theme colors
   const bgColor = isDark ? '#111827' : '#f9fafb';
@@ -318,8 +331,76 @@ export const AITutors = () => {
     : allAgents;
   const conversations = sessionData?.conversations || [];
 
+  // Show course selection overlay when no courseId is in the URL
+  const showCourseSelector = !courseIdFromUrl;
+  const selectorLoading = enrollmentsLoading;
+
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col relative" style={{ backgroundColor: bgColor }}>
+
+      {/* Course selection overlay — covers only this page content, not navbar/sidebar */}
+      {showCourseSelector && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center">
+          {/* Blurred backdrop */}
+          <div className="absolute inset-0 backdrop-blur-sm" style={{ backgroundColor: isDark ? 'rgba(17,24,39,0.6)' : 'rgba(249,250,251,0.6)' }} />
+
+          {/* Selection card */}
+          <div
+            className="relative z-10 w-full max-w-md mx-4 rounded-2xl shadow-2xl border p-6"
+            style={{
+              backgroundColor: isDark ? '#1f2937' : '#ffffff',
+              borderColor: isDark ? '#374151' : '#e5e7eb',
+            }}
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center flex-shrink-0">
+                <BookOpen className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold" style={{ color: isDark ? '#f3f4f6' : '#111827' }}>
+                  {t('common:select_course')}
+                </h2>
+                <p className="text-sm" style={{ color: isDark ? '#9ca3af' : '#6b7280' }}>
+                  {t('common:select_course_for_tutor')}
+                </p>
+              </div>
+            </div>
+
+            {selectorLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loading text={t('common:loading')} />
+              </div>
+            ) : enrolledCourses.length === 0 ? (
+              <div className="text-center py-8" style={{ color: isDark ? '#9ca3af' : '#6b7280' }}>
+                <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">{t('common:no_courses_with_tutors')}</p>
+                <p className="text-sm mt-1">{t('common:no_courses_with_tutors_hint')}</p>
+              </div>
+            ) : (
+              <ul className="space-y-2 max-h-72 overflow-y-auto">
+                {enrolledCourses.map((enrollment) => (
+                  <li key={enrollment.courseId}>
+                    <button
+                      onClick={() => navigate(`/ai-tutors?courseId=${enrollment.courseId}`)}
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors hover:bg-primary-50 dark:hover:bg-primary-900/20 group"
+                      style={{ border: `1px solid ${isDark ? '#374151' : '#e5e7eb'}` }}
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-400 to-secondary-400 flex items-center justify-center flex-shrink-0">
+                        <BookOpen className="w-4 h-4 text-white" />
+                      </div>
+                      <span className="flex-1 font-medium text-sm" style={{ color: isDark ? '#f3f4f6' : '#111827' }}>
+                        {enrollment.course?.title}
+                      </span>
+                      <ChevronRight className="w-4 h-4 opacity-40 group-hover:opacity-100 transition-opacity" style={{ color: isDark ? '#9ca3af' : '#6b7280' }} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Course context breadcrumb */}
       {courseIdFromUrl && (
         <div className="flex-shrink-0 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
@@ -354,18 +435,20 @@ export const AITutors = () => {
         </button>
       )}
 
-      {/* Sidebar (left) */}
-      <TutorSidebar
-        agents={agents}
-        conversations={conversations}
-        selectedAgent={selectedAgent}
-        onAgentSelect={handleAgentSelect}
-        mode={mode}
-        onModeChange={handleModeChange}
-        isLoading={sendMessageMutation.isPending}
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
+      {/* Sidebar (left) — blurred when course selector is active */}
+      <div className={showCourseSelector ? 'blur-sm pointer-events-none' : ''}>
+        <TutorSidebar
+          agents={agents}
+          conversations={conversations}
+          selectedAgent={selectedAgent}
+          onAgentSelect={handleAgentSelect}
+          mode={mode}
+          onModeChange={handleModeChange}
+          isLoading={sendMessageMutation.isPending}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+        />
+      </div>
 
       {/* Chat Area (center) */}
       <TutorChat

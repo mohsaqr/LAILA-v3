@@ -212,6 +212,33 @@ export class AssignmentService {
     return submissions;
   }
 
+  async getSubmissionById(submissionId: number, instructorId: number, isAdmin = false) {
+    const submission = await prisma.assignmentSubmission.findUnique({
+      where: { id: submissionId },
+      include: {
+        user: {
+          select: { id: true, fullname: true, email: true },
+        },
+        gradedBy: {
+          select: { id: true, fullname: true },
+        },
+        assignment: {
+          include: { course: { select: { id: true, title: true, instructorId: true } } },
+        },
+      },
+    });
+
+    if (!submission) {
+      throw new AppError('Submission not found', 404);
+    }
+
+    if (submission.assignment.course.instructorId !== instructorId && !isAdmin) {
+      throw new AppError('Not authorized', 403);
+    }
+
+    return submission;
+  }
+
   async submitAssignment(assignmentId: number, userId: number, data: CreateSubmissionInput, context?: EventContext) {
     const assignment = await prisma.assignment.findUnique({
       where: { id: assignmentId },
@@ -483,6 +510,81 @@ export class AssignmentService {
       assignments,
       gradebook,
     };
+  }
+
+  /**
+   * Get all assignments with submission status for every course the student is enrolled in.
+   * Executes exactly 3 queries regardless of enrollment count.
+   */
+  async getStudentGradebook(userId: number) {
+    // 1. All active or completed enrollments with course title
+    const enrollments = await prisma.enrollment.findMany({
+      where: { userId, status: { in: ['active', 'completed'] } },
+      include: {
+        course: { select: { id: true, title: true } },
+      },
+    });
+
+    if (enrollments.length === 0) return [];
+
+    const courseIds = enrollments.map(e => e.courseId);
+
+    // 2. All published assignments across those courses
+    const assignments = await prisma.assignment.findMany({
+      where: { courseId: { in: courseIds }, isPublished: true },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        courseId: true,
+        moduleId: true,
+        title: true,
+        points: true,
+        dueDate: true,
+        isPublished: true,
+        aiAssisted: true,
+        module: { select: { id: true, title: true } },
+      },
+    });
+
+    // 3. All submissions by this student for those assignments
+    const assignmentIds = assignments.map(a => a.id);
+    const submissions = assignmentIds.length > 0
+      ? await prisma.assignmentSubmission.findMany({
+          where: { userId, assignmentId: { in: assignmentIds } },
+          select: {
+            assignmentId: true,
+            status: true,
+            grade: true,
+            submittedAt: true,
+            gradedAt: true,
+            feedback: true,
+          },
+        })
+      : [];
+
+    const submissionMap = new Map(submissions.map(s => [s.assignmentId, s]));
+
+    // Group assignments by course, preserving enrollment order
+    const courseMap = new Map<number, { courseId: number; courseTitle: string; assignments: any[] }>();
+    for (const enrollment of enrollments) {
+      courseMap.set(enrollment.courseId, {
+        courseId: enrollment.courseId,
+        courseTitle: enrollment.course.title,
+        assignments: [],
+      });
+    }
+
+    for (const assignment of assignments) {
+      const course = courseMap.get(assignment.courseId);
+      if (course) {
+        course.assignments.push({
+          ...assignment,
+          mySubmission: submissionMap.get(assignment.id) ?? null,
+        });
+      }
+    }
+
+    return Array.from(courseMap.values());
   }
 }
 

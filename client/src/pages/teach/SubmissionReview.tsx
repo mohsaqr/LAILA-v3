@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
+  ArrowLeft,
   User,
   Calendar,
   Award,
@@ -11,18 +11,12 @@ import {
   FileText,
   ExternalLink,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { assignmentsApi } from '../../api/assignments';
-import { coursesApi } from '../../api/courses';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { EmptyState } from '../../components/common/EmptyState';
-import { Modal } from '../../components/common/Modal';
-import { Input, TextArea } from '../../components/common/Input';
-import { Breadcrumb } from '../../components/common/Breadcrumb';
-import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { AssignmentSubmission } from '../../types';
 
 export const SubmissionReview = () => {
@@ -31,19 +25,6 @@ export const SubmissionReview = () => {
   const courseId = parseInt(id!, 10);
   const assId = parseInt(assignmentId!, 10);
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-
-  const [gradeModal, setGradeModal] = useState<{ isOpen: boolean; submission?: AssignmentSubmission }>({
-    isOpen: false,
-  });
-  const [gradeForm, setGradeForm] = useState({ grade: 0, feedback: '' });
-
-  // Fetch course info for breadcrumbs
-  const { data: course } = useQuery({
-    queryKey: ['course', courseId],
-    queryFn: () => coursesApi.getCourseById(courseId),
-    enabled: !!courseId,
-  });
 
   const { data: assignment, isLoading: assignmentLoading } = useQuery({
     queryKey: ['assignment', assId],
@@ -56,46 +37,6 @@ export const SubmissionReview = () => {
     queryFn: () => assignmentsApi.getSubmissions(assId),
     enabled: !!assId,
   });
-
-  const gradeMutation = useMutation({
-    mutationFn: ({ submissionId, data }: { submissionId: number; data: { grade: number; feedback?: string } }) =>
-      assignmentsApi.gradeSubmission(submissionId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['assignmentSubmissions', assId] });
-      queryClient.invalidateQueries({ queryKey: ['instructorStats'] });
-      toast.success(t('submission_graded'));
-      closeGradeModal();
-    },
-    onError: () => toast.error(t('failed_to_grade_submission')),
-  });
-
-  const openGradeModal = (submission: AssignmentSubmission) => {
-    setGradeForm({
-      grade: submission.grade || 0,
-      feedback: submission.feedback || '',
-    });
-    setGradeModal({ isOpen: true, submission });
-  };
-
-  const closeGradeModal = () => {
-    setGradeModal({ isOpen: false });
-    setGradeForm({ grade: 0, feedback: '' });
-  };
-
-  const handleGradeSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!gradeModal.submission) return;
-
-    if (gradeForm.grade < 0 || gradeForm.grade > (assignment?.points || 100)) {
-      toast.error(t('grade_range_error', { max: assignment?.points || 100 }));
-      return;
-    }
-
-    gradeMutation.mutate({
-      submissionId: gradeModal.submission.id,
-      data: gradeForm,
-    });
-  };
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-US', {
@@ -111,6 +52,14 @@ export const SubmissionReview = () => {
     if (submission.status === 'graded') return 'graded';
     if (submission.status === 'submitted') return 'submitted';
     return 'pending';
+  };
+
+  const getTypeLabel = () => {
+    switch (assignment?.submissionType) {
+      case 'file': return t('file_assignment');
+      case 'mixed': return t('mixed_assignment');
+      default: return t('text_assignment');
+    }
   };
 
   if (assignmentLoading || submissionsLoading) {
@@ -131,37 +80,57 @@ export const SubmissionReview = () => {
   const pendingCount = submissions?.filter(s => s.status === 'submitted').length || 0;
   const gradedCount = submissions?.filter(s => s.status === 'graded').length || 0;
 
-  const breadcrumbItems = [
-    ...buildTeachingBreadcrumb(id, course?.title || t('course'), t('navigation:assignments')),
-    { label: assignment.title },
-  ];
-
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Breadcrumb navigation */}
+      {/* Back button */}
       <div className="mb-6">
-        <Breadcrumb items={breadcrumbItems} />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate(`/teach/courses/${courseId}/assignments`)}
+          icon={<ArrowLeft className="w-4 h-4" />}
+        >
+          {t('back_to_assignments')}
+        </Button>
       </div>
 
       {/* Assignment Header */}
       <Card className="mb-6">
         <CardBody>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">{assignment.title}</h1>
-          {assignment.description && (
-            <p className="text-gray-600 mb-4">{assignment.description}</p>
-          )}
-          <div className="flex items-center gap-6 text-sm">
-            <div className="flex items-center gap-2 text-gray-500">
-              <Award className="w-4 h-4" />
-              <span>{t('x_points', { count: assignment.points })}</span>
-            </div>
-            <div className="flex items-center gap-2 text-gray-500">
-              <Clock className="w-4 h-4 text-yellow-500" />
-              <span>{t('pending_count', { count: pendingCount })}</span>
-            </div>
-            <div className="flex items-center gap-2 text-gray-500">
-              <Check className="w-4 h-4 text-green-500" />
-              <span>{t('graded_count', { count: gradedCount })}</span>
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="w-5 h-5 text-blue-600" />
+                <span className="text-sm font-medium text-blue-600 bg-blue-100 px-2 py-0.5 rounded">
+                  {getTypeLabel()}
+                </span>
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">{assignment.title}</h1>
+              {assignment.description && (
+                <p className="text-gray-600 mb-4">{assignment.description}</p>
+              )}
+              <div className="flex items-center gap-6 text-sm">
+                <div className="flex items-center gap-2 text-gray-500">
+                  <Award className="w-4 h-4" />
+                  <span>{t('x_points', { count: assignment.points })}</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-500">
+                  <Clock className="w-4 h-4 text-yellow-500" />
+                  <span>{t('pending_count', { count: pendingCount })}</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-500">
+                  <Check className="w-4 h-4 text-green-500" />
+                  <span>{t('graded_count', { count: gradedCount })}</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-500">
+                  <Calendar className="w-4 h-4" />
+                  <span>
+                    {assignment.dueDate
+                      ? `${t('due_date')}: ${formatDate(assignment.dueDate)}`
+                      : t('no_due_date')}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </CardBody>
@@ -204,56 +173,33 @@ export const SubmissionReview = () => {
                     </div>
                   </div>
 
-                  <div className="text-sm text-gray-500 flex items-center gap-1 mb-3">
-                    <Calendar className="w-4 h-4" />
+                  {/* Submission date */}
+                  <div className="mt-2 text-xs text-gray-500">
                     {t('submitted_at', { date: formatDate(submission.submittedAt) })}
                   </div>
 
-                  {/* Submission Content */}
-                  {submission.content && (
-                    <div className="bg-gray-50 rounded-lg p-4 mb-3">
-                      <p className="text-sm text-gray-600 whitespace-pre-wrap">
-                        {submission.content.length > 500
-                          ? `${submission.content.slice(0, 500)}...`
-                          : submission.content}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* File Links */}
-                  {submission.fileUrls && (
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {JSON.parse(submission.fileUrls).map((url: string, index: number) => (
-                        <a
-                          key={index}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-sm hover:bg-blue-100"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          {t('file_number', { number: index + 1 })}
-                        </a>
-                      ))}
-                    </div>
-                  )}
-
                   {/* Existing Feedback */}
                   {submission.feedback && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
-                      <p className="text-sm font-medium text-green-800 mb-1">{t('instructor_feedback')}</p>
-                      <p className="text-sm text-green-700">{submission.feedback}</p>
+                    <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-700">
+                      <span className="font-medium">{t('feedback')}: </span>
+                      {submission.feedback.length > 100
+                        ? `${submission.feedback.slice(0, 100)}...`
+                        : submission.feedback}
                     </div>
                   )}
 
-                  {/* Grade Button */}
-                  <div className="flex justify-end">
+                  {/* Actions */}
+                  <div className="mt-3 flex justify-end">
                     <Button
                       size="sm"
-                      variant={submission.status === 'graded' ? 'secondary' : 'primary'}
-                      onClick={() => openGradeModal(submission)}
+                      onClick={() =>
+                        navigate(
+                          `/teach/courses/${courseId}/assignments/${assId}/submissions/${submission.id}`
+                        )
+                      }
+                      icon={<ExternalLink className="w-3 h-3" />}
                     >
-                      {submission.status === 'graded' ? t('update_grade') : t('grade')}
+                      {t('view_answer')}
                     </Button>
                   </div>
                 </div>
@@ -268,49 +214,6 @@ export const SubmissionReview = () => {
           )}
         </CardBody>
       </Card>
-
-      {/* Grade Modal */}
-      <Modal
-        isOpen={gradeModal.isOpen}
-        onClose={closeGradeModal}
-        title={t('grade_submission')}
-        size="md"
-      >
-        <form onSubmit={handleGradeSubmit} className="space-y-4">
-          <div>
-            <p className="text-sm text-gray-600 mb-4">
-              {t('student')}: <strong>{gradeModal.submission?.user?.fullname}</strong>
-            </p>
-          </div>
-
-          <Input
-            label={t('grade_out_of', { max: assignment?.points || 100 })}
-            type="number"
-            value={gradeForm.grade}
-            onChange={e => setGradeForm(f => ({ ...f, grade: parseInt(e.target.value) || 0 }))}
-            min={0}
-            max={assignment?.points || 100}
-            required
-          />
-
-          <TextArea
-            label={t('feedback_optional')}
-            value={gradeForm.feedback}
-            onChange={e => setGradeForm(f => ({ ...f, feedback: e.target.value }))}
-            placeholder={t('feedback_placeholder')}
-            rows={4}
-          />
-
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button type="button" variant="secondary" onClick={closeGradeModal}>
-              {t('common:cancel')}
-            </Button>
-            <Button type="submit" loading={gradeMutation.isPending}>
-              {gradeModal.submission?.status === 'graded' ? t('update_grade') : t('submit_grade')}
-            </Button>
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 };

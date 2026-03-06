@@ -87,7 +87,7 @@ describe('Error Middleware', () => {
 
       errorHandler(zodError, mockRequest as Request, mockResponse as Response, mockNext);
 
-      expect(statusMock).toHaveBeenCalledWith(400);
+      expect(statusMock).toHaveBeenCalledWith(422);
       expect(jsonMock).toHaveBeenCalledWith({
         success: false,
         error: 'Validation error',

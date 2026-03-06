@@ -41,6 +41,11 @@ export const updatePasswordSchema = z.object({
   newPassword: strongPasswordSchema,
 });
 
+// Profile update validation schema (self-service, fullname only)
+export const updateProfileSchema = z.object({
+  fullname: z.string().min(2, 'Name must be at least 2 characters'),
+});
+
 export const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(1, 'Password is required'),
@@ -59,10 +64,11 @@ export const updateUserSchema = z.object({
 export const createCourseSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
   description: z.string().optional(),
-  category: z.string().optional(),
+  categoryIds: z.array(z.number()).optional(),
   difficulty: z.enum(['beginner', 'intermediate', 'advanced']).optional(),
   isPublic: z.boolean().optional(),
   thumbnail: z.string().optional().or(z.literal('')),
+  curriculumViewMode: z.enum(['mini-cards', 'icons', 'list', 'accordion']).optional(),
 });
 
 export const updateCourseSchema = createCourseSchema.partial();
@@ -169,6 +175,7 @@ export const createAssignmentSchema = z.object({
   points: z.number().int().min(0).max(1000).optional(),
   isPublished: z.boolean().optional(),
   moduleId: z.number().int().optional().nullable(),
+  lectureId: z.number().int().optional().nullable(),
   aiAssisted: z.boolean().optional(),
   aiPrompt: z.string().optional(),
   agentRequirements: z.string().optional(),
@@ -245,6 +252,7 @@ export const createAnnouncementSchema = z.object({
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type CreateCourseInput = z.infer<typeof createCourseSchema>;
 export type UpdateCourseInput = z.infer<typeof updateCourseSchema>;
 export type CreateModuleInput = z.infer<typeof createModuleSchema>;

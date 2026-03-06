@@ -31,4 +31,18 @@ export const authApi = {
     const response = await apiClient.post<ApiResponse<{ message: string }>>('/auth/logout');
     return response.data;
   },
+
+  updateProfile: async (data: { fullname: string }) => {
+    const response = await apiClient.put<ApiResponse<{ id: number; fullname: string; email: string; isAdmin: boolean; isInstructor: boolean; avatarUrl?: string | null }>>('/auth/profile', data);
+    return response.data.data!;
+  },
+
+  uploadAvatar: async (file: File) => {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const response = await apiClient.post<ApiResponse<{ avatarUrl: string }>>('/auth/avatar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data.data!;
+  },
 };

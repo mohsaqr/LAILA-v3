@@ -4,9 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { Award, Plus, Edit, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTheme } from '../../hooks/useTheme';
+import { useAuth } from '../../hooks/useAuth';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
+import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
@@ -21,14 +23,17 @@ interface CertificateTemplate {
   isActive: boolean;
   issuedCount: number;
   createdAt: string;
+  creator?: { id: number; fullname: string } | null;
 }
 
 export const CertificateManager = () => {
   const { t } = useTranslation(['teaching', 'common']);
   const { isDark } = useTheme();
+  const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<CertificateTemplate | null>(null);
+  const [templateToDelete, setTemplateToDelete] = useState<CertificateTemplate | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -87,9 +92,14 @@ export const CertificateManager = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['certificateTemplates'] });
+      setTemplateToDelete(null);
       toast.success(t('template_deleted'));
     },
-    onError: () => toast.error(t('failed_delete_template')),
+    onError: (error: any) => {
+      setTemplateToDelete(null);
+      const message = error?.response?.data?.message || t('failed_delete_template');
+      toast.error(message);
+    },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -187,11 +197,7 @@ export const CertificateManager = () => {
                     <Edit className="w-4 h-4" style={{ color: colors.textSecondary }} />
                   </button>
                   <button
-                    onClick={() => {
-                      if (confirm(t('delete_template_confirm'))) {
-                        deleteMutation.mutate(template.id);
-                      }
-                    }}
+                    onClick={() => setTemplateToDelete(template)}
                     className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                     title={t('common:delete')}
                   >
@@ -209,11 +215,28 @@ export const CertificateManager = () => {
                   <span>{t('x_certificates_issued', { count: template.issuedCount })}</span>
                   <span>{t('created_date', { date: new Date(template.createdAt).toLocaleDateString() })}</span>
                 </div>
+                {isAdmin && template.creator && (
+                  <p className="text-xs mt-2" style={{ color: colors.textSecondary }}>
+                    {t('created_by', { name: template.creator.fullname })}
+                  </p>
+                )}
               </CardBody>
             </Card>
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!templateToDelete}
+        onClose={() => setTemplateToDelete(null)}
+        onConfirm={() => templateToDelete && deleteMutation.mutate(templateToDelete.id)}
+        title={t('delete_template')}
+        message={t('delete_template_confirm', { name: templateToDelete?.name })}
+        confirmText={t('common:delete')}
+        variant="danger"
+        loading={deleteMutation.isPending}
+      />
 
       {/* Create/Edit Modal */}
       <Modal

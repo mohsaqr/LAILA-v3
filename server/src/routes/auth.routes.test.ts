@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import express from 'express';
 import request from 'supertest';
+import path from 'path';
+import fs from 'fs';
 import { ZodError } from 'zod';
 import { authService } from '../services/auth.service.js';
 import { AppError } from '../middleware/error.middleware.js';
@@ -24,8 +26,18 @@ vi.mock('../middleware/auth.middleware.js', () => ({
   }),
 }));
 
+// Mock prisma (used directly in avatar route)
+vi.mock('../utils/prisma.js', () => ({
+  default: {
+    user: {
+      update: vi.fn(),
+    },
+  },
+}));
+
 // Import routes after mocks
 import authRoutes from './auth.routes.js';
+import prisma from '../utils/prisma.js';
 
 describe('Auth Routes', () => {
   let app: express.Express;
@@ -39,9 +51,10 @@ describe('Auth Routes', () => {
     app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
       // Handle Zod validation errors
       if (err instanceof ZodError) {
-        return res.status(400).json({
+        return res.status(422).json({
           success: false,
-          error: err.errors.map(e => e.message).join(', '),
+          error: 'Validation error',
+          details: err.errors.map(e => ({ field: e.path.join('.'), message: e.message })),
         });
       }
       const statusCode = err.statusCode || 500;
@@ -108,31 +121,35 @@ describe('Auth Routes', () => {
       expect(response.body.error).toContain('Email already registered');
     });
 
-    it('should return 400 for missing fullname', async () => {
+    it('should return 422 for missing fullname', async () => {
       const response = await request(app)
         .post('/api/auth/register')
         .send({ email: 'test@example.com', password: 'StrongPass123!' })
-        .expect(400);
+        .expect(422);
 
       expect(response.body.success).toBe(false);
+      expect(response.body.details).toBeDefined();
     });
 
-    it('should return 400 for invalid email format', async () => {
+    it('should return 422 for invalid email format', async () => {
       const response = await request(app)
         .post('/api/auth/register')
         .send({ ...validRegistration, email: 'invalid-email' })
-        .expect(400);
+        .expect(422);
 
       expect(response.body.success).toBe(false);
+      expect(response.body.details).toBeDefined();
     });
 
-    it('should return 400 for weak password', async () => {
+    it('should return 422 for weak password', async () => {
       const response = await request(app)
         .post('/api/auth/register')
         .send({ ...validRegistration, password: '123' })
-        .expect(400);
+        .expect(422);
 
       expect(response.body.success).toBe(false);
+      expect(response.body.details).toBeDefined();
+      expect(response.body.details.some((d: any) => d.field === 'password')).toBe(true);
     });
   });
 
@@ -205,22 +222,24 @@ describe('Auth Routes', () => {
       expect(response.body.error).toContain('Account is deactivated');
     });
 
-    it('should return 400 for missing email', async () => {
+    it('should return 422 for missing email', async () => {
       const response = await request(app)
         .post('/api/auth/login')
         .send({ password: 'StrongPass123!' })
-        .expect(400);
+        .expect(422);
 
       expect(response.body.success).toBe(false);
+      expect(response.body.details).toBeDefined();
     });
 
-    it('should return 400 for missing password', async () => {
+    it('should return 422 for missing password', async () => {
       const response = await request(app)
         .post('/api/auth/login')
         .send({ email: 'test@example.com' })
-        .expect(400);
+        .expect(422);
 
       expect(response.body.success).toBe(false);
+      expect(response.body.details).toBeDefined();
     });
   });
 
@@ -345,6 +364,118 @@ describe('Auth Routes', () => {
         expect.any(Object),
         3600
       );
+    });
+  });
+
+  // ===========================================================================
+  // PUT /api/auth/profile
+  // ===========================================================================
+
+  describe('PUT /api/auth/profile', () => {
+    it('should update fullname successfully', async () => {
+      vi.mocked((prisma as any).user.update).mockResolvedValue({
+        id: 1,
+        fullname: 'Updated Name',
+        email: 'test@example.com',
+        isAdmin: false,
+        isInstructor: false,
+        avatarUrl: null,
+      });
+
+      const response = await request(app)
+        .put('/api/auth/profile')
+        .send({ fullname: 'Updated Name' })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.fullname).toBe('Updated Name');
+      expect((prisma as any).user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: { fullname: 'Updated Name' },
+        })
+      );
+    });
+
+    it('should return 422 for name shorter than 2 characters', async () => {
+      const response = await request(app)
+        .put('/api/auth/profile')
+        .send({ fullname: 'A' })
+        .expect(422);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.details).toBeDefined();
+      expect(response.body.details.some((d: any) => d.field === 'fullname')).toBe(true);
+    });
+
+    it('should return 422 for missing fullname', async () => {
+      const response = await request(app)
+        .put('/api/auth/profile')
+        .send({})
+        .expect(422);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.details).toBeDefined();
+    });
+  });
+
+  // ===========================================================================
+  // POST /api/auth/avatar
+  // ===========================================================================
+
+  describe('POST /api/auth/avatar', () => {
+    const profilesDir = path.join(process.cwd(), 'uploads', 'profiles');
+
+    afterAll(() => {
+      // Clean up any test files written to uploads/profiles
+      if (fs.existsSync(profilesDir)) {
+        const files = fs.readdirSync(profilesDir);
+        for (const file of files) {
+          try { fs.unlinkSync(path.join(profilesDir, file)); } catch {}
+        }
+      }
+    });
+
+    it('should upload avatar and return URL', async () => {
+      vi.mocked((prisma as any).user.update).mockResolvedValue({
+        id: 1,
+        avatarUrl: '/uploads/profiles/test-uuid.png',
+      });
+
+      const testImageBuffer = Buffer.from('fake-png-data');
+
+      const response = await request(app)
+        .post('/api/auth/avatar')
+        .attach('avatar', testImageBuffer, { filename: 'test.png', contentType: 'image/png' })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.avatarUrl).toMatch(/^\/uploads\/profiles\//);
+      expect((prisma as any).user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: expect.objectContaining({ avatarUrl: expect.stringMatching(/^\/uploads\/profiles\//) }),
+        })
+      );
+    });
+
+    it('should return 400 when no file is attached', async () => {
+      const response = await request(app)
+        .post('/api/auth/avatar')
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('No file uploaded');
+    });
+
+    it('should return 400 for disallowed file type', async () => {
+      const response = await request(app)
+        .post('/api/auth/avatar')
+        .attach('avatar', Buffer.from('data'), { filename: 'script.svg', contentType: 'image/svg+xml' })
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain('Only image files');
     });
   });
 

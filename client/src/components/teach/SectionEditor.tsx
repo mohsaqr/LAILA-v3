@@ -19,6 +19,8 @@ interface SectionEditorProps {
   lectureTitle?: string;
   courseTitle?: string;
   courseId?: number;
+  lectureId?: number;
+  moduleId?: number;
   readOnly?: boolean;
   isExpanded?: boolean;
   onToggleExpand?: (sectionId: number) => void;
@@ -79,6 +81,8 @@ export const SectionEditor = ({
   lectureTitle,
   courseTitle,
   courseId,
+  lectureId,
+  moduleId,
   readOnly = false,
   isExpanded = true,
   onToggleExpand,
@@ -96,6 +100,7 @@ export const SectionEditor = ({
     }
     if (section.fileName) return `${t('file')}: ${section.fileName}`;
     if (section.type === 'chatbot') return section.chatbotTitle || t('chatbot_configured');
+    if (section.type === 'assignment') return section.assignment?.title || t('no_content_yet');
     return t('no_content_yet');
   };
 
@@ -189,6 +194,8 @@ export const SectionEditor = ({
           <AssignmentSectionEditor
             section={section}
             courseId={courseId || 0}
+            lectureId={lectureId}
+            moduleId={moduleId}
             onChange={handleSectionDataChange}
             readOnly={readOnly}
           />

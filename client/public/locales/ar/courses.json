@@ -82,10 +82,10 @@
   "no_modules": "لا توجد وحدات متاحة",
   "no_lectures": "لا توجد محاضرات متاحة",
   "mark_complete": "وضع علامة مكتمل",
+  "complete": "إتمام",
   "completed": "مكتمل",
   "not_started": "لم يبدأ",
   "in_progress": "قيد التنفيذ",
-
   "welcome_back": "مرحباً بعودتك، {{name}}!",
   "explore_description": "استكشف الدورات واستخدم أدوات الذكاء الاصطناعي وحسّن تجربة التعلم الخاصة بك.",
   "manage_discover_courses": "أدر دوراتك واكتشف دورات جديدة",
@@ -121,9 +121,9 @@
   "continue": "متابعة",
   "n_students": "{{count}} طالب",
   "n_modules": "{{count}} وحدة",
-  "instructor_view": "عرض المدرّس",
-  "enroll_now_free": "سجّل الآن - مجاناً",
-  "sign_in_to_enroll": "سجّل الدخول للتسجيل",
+  "instructor_view": "عرض المدرس",
+  "enroll_now_free": "سجل الآن - مجاناً",
+  "sign_in_to_enroll": "سجل دخول للتسجيل",
   "no_content_available": "لا يوجد محتوى متاح بعد",
   "content_not_found": "المحتوى غير موجود",
   "content_not_found_description": "تعذر العثور على المحتوى المطلوب",
@@ -142,7 +142,6 @@
   "n_questions": "{{count}} سؤال",
   "n_threads": "{{count}} موضوع",
   "general": "عام",
-
   "loading_quiz": "جاري تحميل الاختبار...",
   "failed_load_quiz": "فشل تحميل الاختبار. يرجى المحاولة مرة أخرى.",
   "failed_start_quiz": "فشل بدء الاختبار",
@@ -159,7 +158,6 @@
   "quiz_submitted_score": "تم إرسال الاختبار! النتيجة: {{score}}%",
   "true": "صحيح",
   "false": "خطأ",
-
   "my_quizzes": "اختباراتي",
   "view_take_quizzes": "عرض وإجراء الاختبارات في جميع دوراتك المسجلة",
   "no_quizzes_available": "لا توجد اختبارات متاحة",
@@ -169,13 +167,11 @@
   "passed": "ناجح",
   "not_passed": "غير ناجح",
   "n_min": "{{count}} دقيقة",
-
   "loading_forums": "جاري تحميل المنتديات...",
   "all_forums": "جميع المنتديات",
   "participate_in_discussions": "شارك في مناقشات الدورات وتواصل مع زملائك",
   "no_forums_available": "لا توجد منتديات متاحة",
   "forums_will_appear": "ستظهر المنتديات هنا عندما تكون مسجلاً في دورات بها مناقشات نشطة.",
-
   "loading_results": "جاري تحميل النتائج...",
   "results_not_available": "النتائج غير متاحة.",
   "return_to_course": "العودة إلى الدورة",
@@ -192,7 +188,6 @@
   "correct_answer": "الإجابة الصحيحة:",
   "explanation": "التوضيح:",
   "points_awarded": "{{awarded}} / {{total}} نقطة",
-
   "course_forums_title": "منتديات الدورة",
   "discussion_forums_for": "منتديات النقاش لـ {{title}}",
   "no_forums_available_title": "لا توجد منتديات متاحة",
@@ -227,7 +222,7 @@
   "m_ago": "منذ {{count}} دقيقة",
   "h_ago": "منذ {{count}} ساعة",
   "d_ago": "منذ {{count}} يوم",
-  "ai_response": "رد الذكاء الاصطناعي",
+  "ai_response": "3. رد الذكاء الاصطناعي",
   "reply": "رد",
   "replies": "ردود",
   "n_replies": "{{count}} رد",
@@ -252,14 +247,12 @@
   "reply_thread_placeholder": "اكتب ردك على الموضوع... (اكتب @agent للإشارة إلى مدرّس ذكاء اصطناعي)",
   "discussion_is_locked": "هذا النقاش مقفل",
   "loading": "جاري التحميل...",
-
   "my_learning": "تعلّمي",
   "my_learning_loading": "جاري تحميل دوراتك...",
   "in_progress_title": "قيد التنفيذ",
   "no_active_courses": "لا توجد دورات نشطة",
   "start_learning": "ابدأ التعلم بالتسجيل في دورة",
   "last_accessed": "آخر وصول {{date}}",
-
   "loading_assignments": "جاري تحميل الواجبات...",
   "back_to_course": "العودة إلى الدورة",
   "my_grades": "درجاتي",
@@ -276,7 +269,6 @@
   "view_agent": "عرض الوكيل",
   "build_agent": "بناء الوكيل",
   "due_at": "الموعد النهائي {{date}} الساعة {{time}}",
-
   "loading_grades": "جاري تحميل الدرجات...",
   "not_enrolled_title": "غير مسجّل",
   "need_enroll_assignments": "تحتاج للتسجيل في هذه الدورة لعرض الواجبات",
@@ -291,7 +283,6 @@
   "back_to_assignments": "العودة إلى الواجبات",
   "points_format": "{{points}} نقطة",
   "grade_percent": "{{percent}}%",
-
   "loading_assignment": "جاري تحميل الواجب...",
   "need_enroll_view_assignment": "تحتاج للتسجيل في هذه الدورة لعرض هذا الواجب",
   "assignment_not_found": "الواجب غير موجود",
@@ -323,7 +314,6 @@
   "submission_type_label": "تسليم {{type}}",
   "redirecting_agent_builder": "جاري التوجيه إلى منشئ الوكيل...",
   "thank_you_feedback": "شكراً لملاحظاتك!",
-
   "loading_lecture": "جاري تحميل المحاضرة...",
   "lecture_not_found": "المحاضرة غير موجودة",
   "lecture_not_found_description": "تعذر العثور على المحاضرة المطلوبة.",
@@ -333,7 +323,6 @@
   "no_file_uploaded": "لم يتم رفع ملف",
   "attachments": "المرفقات",
   "n_minutes": "{{count}} دقيقة",
-
   "custom_labs": "المختبرات المخصصة",
   "interactive_labs_description": "مختبرات تحليلية تفاعلية قائمة على R للتعلم العملي",
   "manage_labs": "إدارة المختبرات",
@@ -361,7 +350,6 @@
   "clear_output": "مسح المخرجات",
   "lab_output": "المخرجات",
   "lab_console": "وحدة التحكم",
-
   "certificate_verified": "تم التحقق من الشهادة",
   "certificate_not_found": "الشهادة غير موجودة",
   "certificate_not_found_description": "تعذر العثور على هذه الشهادة أو ربما تم إلغاؤها.",
@@ -382,7 +370,6 @@
   "complete_to_earn": "أكمل الدورة للحصول على هذه الشهادة",
   "loading_certificate": "جاري تحميل الشهادة...",
   "loading_certificates": "جاري تحميل الشهادات...",
-
   "ai_research_tools": "أدوات البحث بالذكاء الاصطناعي",
   "ai_tools_description": "أدوات ذكاء اصطناعي قوية للبحث الأكاديمي والتعلم وإنشاء المحتوى",
   "launch_tool": "تشغيل الأداة",
@@ -395,10 +382,8 @@
   "session_tracking_desc": "يتم تسجيل تفاعلاتك لأغراض البحث ولتحسين تجربتك.",
   "customizable": "قابل للتخصيص",
   "customizable_desc": "قم بتكوين إعدادات الذكاء الاصطناعي واختيار النماذج وتخصيص الأدوات حسب تفضيلاتك.",
-  "loading_ai_tutors": "جاري تحميل معلمي الذكاء الاصطناعي...",
+  "loading_ai_tutors": "جاري تحميل المعلمين الآليين...",
   "back_to_ai_tools": "العودة إلى أدوات الذكاء الاصطناعي",
-
-  "ai_builder": "منشئ الذكاء الاصطناعي",
   "ai_builder_desc": "إنشاء وتخصيص مكونات ذكاء اصطناعي قابلة لإعادة الاستخدام لدوراتك",
   "ai_builder_course_desc": "إنشاء معلم ذكاء اصطناعي مخصص لدورتك",
   "back_to_course_tutors": "العودة إلى معلمي الدورة",
@@ -433,7 +418,6 @@
   "create_component": "إنشاء مكون",
   "send_test_message": "أرسل رسالة لاختبار مكون الذكاء الاصطناعي",
   "type_test_message": "اكتب رسالة اختبار...",
-
   "ai_chatbots": "روبوتات الدردشة الذكية",
   "chat_with_assistants": "تحدث مع مساعدين ذكاء اصطناعي متخصصين",
   "loading_chatbots": "جاري تحميل روبوتات الدردشة...",
@@ -445,7 +429,6 @@
   "type_your_message": "اكتب رسالتك...",
   "ai_assistant": "مساعد الذكاء الاصطناعي",
   "error_occurred": "عذراً، حدث خطأ. يرجى المحاولة مرة أخرى.",
-
   "bias_research_platform": "منصة بحث التحيز",
   "bias_research_desc": "تحليل النص للكشف عن التحيزات المحتملة في البحث الأكاديمي",
   "text_analysis": "تحليل النص",
@@ -459,7 +442,6 @@
   "about_bias_detection": "حول اكتشاف التحيز",
   "bias_detection_note": "تستخدم هذه الأداة الذكاء الاصطناعي للمساعدة في تحديد التحيزات المحتملة في النص. وهي مصممة لمساعدة الباحثين في إنشاء محتوى أكثر شمولاً وتوازناً.",
   "bias_detection_warning": "يجب استخدام تحليل الذكاء الاصطناعي كنقطة انطلاق للمراجعة، وليس كتقييم نهائي. استخدم دائماً الحكم البشري والخبرة المتخصصة.",
-
   "data_interpreter": "مفسر البيانات",
   "data_interpreter_desc": "تحليل إحصائي مدعوم بالذكاء الاصطناعي للبحث التعليمي",
   "data_input": "إدخال البيانات",
@@ -473,7 +455,6 @@
   "csv_format_desc": "قيم مفصولة بفواصل مع عناوين",
   "copy_from_excel": "نسخ من Excel",
   "copy_from_excel_desc": "البيانات المفصولة بعلامات التبويب تعمل أيضاً",
-
   "prompt_engineering_helper": "مساعد هندسة الموجهات",
   "prompt_helper_desc": "إنشاء موجهات ذكاء اصطناعي فعالة باستخدام إطار عمل PCTFT",
   "define_your_task": "1. حدد مهمتك",
@@ -482,7 +463,6 @@
   "generate_prompt": "إنشاء موجه",
   "generated_prompt": "2. الموجه المُنشأ",
   "run_with_ai": "تشغيل مع الذكاء الاصطناعي",
-  "ai_response": "3. رد الذكاء الاصطناعي",
   "pctft_tips": "نصائح إطار عمل PCTFT",
   "persona": "P - الشخصية",
   "persona_desc": "حدد من يجب أن يكون الذكاء الاصطناعي",
@@ -496,9 +476,7 @@
   "tone_desc": "حدد أسلوب التواصل",
   "copied": "تم النسخ",
   "copied_to_clipboard": "تم النسخ إلى الحافظة",
-
   "loading_gradebook": "جاري تحميل سجل الدرجات...",
-  "my_grades": "درجاتي",
   "my_grades_as_student": "درجاتي (كطالب)",
   "view_grades_description": "عرض درجاتك في جميع الدورات المسجلة",
   "overall_average": "المتوسط العام",
@@ -509,8 +487,6 @@
   "last_grade": "آخر درجة",
   "no_grades_yet": "لا توجد درجات بعد",
   "no_grades_description": "سجل في الدورات وأكمل الواجبات لرؤية درجاتك هنا",
-  "browse_courses": "تصفح الدورات",
-
   "loading_calendar": "جاري تحميل التقويم...",
   "calendar": "التقويم",
   "calendar_description": "عرض الواجبات والمواعيد النهائية القادمة",
@@ -524,27 +500,16 @@
   "x_more": "+{{count}} المزيد",
   "upcoming_next_7_days": "القادمة (الأيام السبعة القادمة)",
   "no_upcoming_assignments": "لا توجد واجبات قادمة",
-
   "invalid_survey": "استبيان غير صالح",
   "survey_not_found": "الاستبيان الذي تبحث عنه غير موجود.",
-
-  "instructor_view": "عرض المدرس",
-  "edit_course": "تعديل الدورة",
   "x_students": "{{count}} طالب",
   "x_modules": "{{count}} وحدات",
   "x_lessons": "{{count}} دروس",
-  "by_instructor": "بواسطة {{name}}",
-  "enroll_now_free": "سجل الآن - مجاناً",
-  "sign_in_to_enroll": "سجل دخول للتسجيل",
-
   "curriculum": "المنهج",
-  "assignments": "الواجبات",
   "quizzes": "الاختبارات",
-  "forums": "المنتديات",
   "ai_tutors": "معلمو الذكاء الاصطناعي",
   "certificates": "الشهادات",
   "course_navigation": "تصفح الدورة",
-
   "content_lecture": "محاضرة",
   "content_video": "فيديو",
   "content_mixed": "مختلط",
@@ -554,38 +519,29 @@
   "content_ai_agent": "وكيل الذكاء الاصطناعي",
   "content_forum": "منتدى",
   "content_ai": "محتوى الذكاء الاصطناعي",
-
   "no_assignments_available": "لا توجد واجبات متاحة",
   "no_assignments_description": "هذه الدورة لا تحتوي على أي واجبات بعد.",
   "due_date_format": "تاريخ الاستحقاق: {{date}}",
   "x_points": "{{count}} نقطة",
   "ai_agent_type": "وكيل الذكاء الاصطناعي",
   "standard_type": "عادي",
-
   "loading_quizzes": "جاري تحميل الاختبارات...",
   "quizzes_for_course": "اختبارات {{title}}",
   "quiz_passed": "نجح",
   "quiz_not_passed": "لم ينجح",
   "quiz_in_progress": "قيد التقدم",
   "quiz_not_started": "لم يبدأ",
-  "no_quizzes_available": "لا توجد اختبارات متاحة",
   "no_quizzes_description": "هذه الدورة لا تحتوي على أي اختبارات بعد.",
   "x_questions": "{{count}} سؤال",
   "x_min": "{{count}} دقيقة",
   "attempts_count": "{{current}}/{{max}} محاولات",
-
-  "loading_forums": "جاري تحميل المنتديات...",
-  "no_forums_available": "لا توجد منتديات متاحة",
   "no_forums_description": "هذه الدورة لا تحتوي على أي منتديات نقاش نشطة بعد.",
   "x_threads": "{{count}} موضوع",
-
-  "loading_ai_tutors": "جاري تحميل المعلمين الآليين...",
   "no_ai_tutors_available": "لا يوجد معلمون آليون متاحون",
   "no_ai_tutors_description": "لم يتم تكوين أي معلمين آليين لهذه الدورة بعد.",
   "manage_tutors": "إدارة المعلمين",
   "x_ai_tutors_ready": "{{count}} معلم(ين) آلي(ين) جاهز(ون) لمساعدتك في التعلم",
   "click_to_start_chatting_tutors": "انقر لبدء الدردشة مع المعلمين الآليين",
-
   "text_content": "محتوى نصي",
   "read_article": "قراءة المقال",
   "no_content_yet": "لا يوجد محتوى بعد",
@@ -593,17 +549,14 @@
   "no_content_available_yet": "لا يوجد محتوى متاح بعد",
   "lab_badge": "معمل",
   "forum_badge": "منتدى",
-
   "x_items": "{{count}} عنصر(عناصر)",
   "no_content_in_module": "لا يوجد محتوى متاح في هذه الوحدة بعد.",
   "due_date_short": "موعد التسليم {{date}}",
   "x_pts": "{{count}} نقطة",
-
   "confirm_clear_conversation": "هل أنت متأكد أنك تريد مسح سجل المحادثة؟",
   "ai_teaching_assistant": "مساعد التدريس الآلي",
   "start_conversation": "ابدأ محادثة!",
   "failed_to_send_message": "فشل إرسال الرسالة. يرجى المحاولة مرة أخرى.",
-
   "assignment_no_longer_available": "هذا الواجب لم يعد متاحاً",
   "status_overdue": "متأخر",
   "status_due_soon": "موعد التسليم قريب",
@@ -615,7 +568,6 @@
   "score_display": "الدرجة: {{grade}}/{{total}}",
   "not_yet_submitted": "لم يتم التسليم بعد",
   "start_assignment": "بدء الواجب",
-
   "failed_to_start_conversation": "فشل بدء المحادثة",
   "failed_to_send_message_toast": "فشل إرسال الرسالة",
   "conversation_deleted": "تم حذف المحادثة",
@@ -631,20 +583,16 @@
   "message_tutor": "رسالة إلى {{name}}...",
   "send": "إرسال",
   "keyboard_hint": "اضغط Enter للإرسال، Shift+Enter لسطر جديد",
-
   "collaborative_module": "الوحدة التعاونية",
   "x_ai_tutors_ready_help": "{{count}} معلم(ين) آلي(ين) جاهز(ون) للمساعدة",
   "click_to_start_chatting": "انقر لبدء الدردشة",
-
   "ask_ai_tutor": "اسأل معلم الذكاء الاصطناعي",
   "generating_response": "جاري إنشاء الرد...",
   "write_your_reply": "اكتب ردك...",
   "replying_to": "الرد على",
   "cancel_reply": "إلغاء الرد",
-  "ai_tutors": "معلمو الذكاء الاصطناعي",
   "posting": "جاري النشر...",
   "post_reply": "نشر الرد",
-
   "practice_mode": "وضع التمرين",
   "practice_description": "اختبر فهمك بأسئلة منشأة بالذكاء الاصطناعي",
   "generate_practice_quiz": "إنشاء اختبار تمرين",
@@ -666,5 +614,6 @@
   "generating_questions": "جاري إنشاء الأسئلة...",
   "failed_generate_questions": "فشل في إنشاء الأسئلة",
   "select_answer": "اختر إجابة",
-  "practice_complete": "اكتمل التمرين!"
+  "practice_complete": "اكتمل التمرين!",
+  "clear_conversation": "مسح المحادثة"
 }

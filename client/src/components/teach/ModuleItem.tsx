@@ -64,6 +64,8 @@ interface ModuleItemProps {
   onDeleteForum?: (forum: Forum) => void;
   onMoveForumUp?: (forum: Forum, module: CourseModule) => void;
   onMoveForumDown?: (forum: Forum, module: CourseModule) => void;
+  // Lecture-level assignments keyed by lectureId
+  lectureAssignments?: Record<number, Assignment[]>;
 }
 
 export const ModuleItem = ({
@@ -98,6 +100,7 @@ export const ModuleItem = ({
   onDeleteForum,
   onMoveForumUp,
   onMoveForumDown,
+  lectureAssignments = {},
 }: ModuleItemProps) => {
   const { t } = useTranslation(['teaching']);
   const [isExpanded, setIsExpanded] = useState(true);
@@ -221,6 +224,9 @@ export const ModuleItem = ({
                     onTogglePublish={onToggleLecturePublish}
                     onMoveUp={() => onMoveLectureUp(lecture, module)}
                     onMoveDown={() => onMoveLectureDown(lecture, module)}
+                    assignments={lectureAssignments[lecture.id] || []}
+                    onEditAssignment={onEditAssignment}
+                    onDeleteAssignment={onDeleteAssignment}
                   />
                   {/* Inline add options after each lesson */}
                   <div className="flex items-center gap-1.5 py-2 px-3 ml-6 border-l-2 border-dashed border-gray-200 flex-wrap">
@@ -258,42 +264,14 @@ export const ModuleItem = ({
                       <MessageCircle className="w-3 h-3" />
                       {t('section_type_chatbot')}
                     </Link>
-                    <span className="text-gray-300 mx-1">|</span>
-                    {/* Module-level items */}
-                    <button
-                      onClick={() => onAddLecture(module)}
-                      className="text-xs px-2 py-1 rounded-md border border-gray-200 hover:bg-gray-100 text-gray-600 hover:text-gray-800 transition-colors flex items-center gap-1"
-                      title={t('add_new_lesson')}
-                    >
-                      <Plus className="w-3 h-3" />
-                      {t('lesson')}
-                    </button>
-                    <button
-                      onClick={() => onAddCodeLab(module)}
-                      className="text-xs px-2 py-1 rounded-md border border-emerald-200 hover:bg-emerald-50 text-emerald-600 hover:text-emerald-700 transition-colors flex items-center gap-1"
-                      title={t('add_code_lab')}
-                    >
-                      <FlaskConical className="w-3 h-3" />
-                      {t('code_lab')}
-                    </button>
-                    <button
-                      onClick={() => onAddAssignment(module)}
+                    <Link
+                      to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=assignment`}
                       className="text-xs px-2 py-1 rounded-md border border-rose-200 hover:bg-rose-50 text-rose-600 hover:text-rose-700 transition-colors flex items-center gap-1"
                       title={t('add_assignment')}
                     >
                       <ClipboardList className="w-3 h-3" />
                       {t('assignment')}
-                    </button>
-                    {onAddForum && (
-                      <button
-                        onClick={() => onAddForum(module)}
-                        className="text-xs px-2 py-1 rounded-md border border-teal-200 hover:bg-teal-50 text-teal-600 hover:text-teal-700 transition-colors flex items-center gap-1"
-                        title={t('add_forum')}
-                      >
-                        <MessageSquare className="w-3 h-3" />
-                        {t('forum')}
-                      </button>
-                    )}
+                    </Link>
                   </div>
                 </div>
               ))
@@ -416,49 +394,47 @@ export const ModuleItem = ({
             </div>
           )}
 
-          {/* Action buttons - shown when no lessons exist */}
-          {lectures.length === 0 && (
-            <div className="flex gap-2 mt-2 flex-wrap">
+          {/* Module-level add buttons — always visible at module footer */}
+          <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100 flex-wrap">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onAddLecture(module)}
+              icon={<Plus className="w-4 h-4" />}
+              className="flex-1 min-w-[120px]"
+            >
+              {t('add_lesson')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onAddCodeLab(module)}
+              icon={<FlaskConical className="w-4 h-4" />}
+              className="flex-1 min-w-[120px] text-emerald-600 hover:bg-emerald-50"
+            >
+              {t('add_code_lab')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onAddAssignment(module)}
+              icon={<ClipboardList className="w-4 h-4" />}
+              className="flex-1 min-w-[120px] text-amber-600 hover:bg-amber-50"
+            >
+              {t('add_assignment')}
+            </Button>
+            {onAddForum && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => onAddLecture(module)}
-                icon={<Plus className="w-4 h-4" />}
-                className="flex-1 min-w-[120px]"
+                onClick={() => onAddForum(module)}
+                icon={<MessageSquare className="w-4 h-4" />}
+                className="flex-1 min-w-[120px] text-teal-600 hover:bg-teal-50"
               >
-                {t('add_lesson')}
+                {t('add_forum')}
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onAddCodeLab(module)}
-                icon={<FlaskConical className="w-4 h-4" />}
-                className="flex-1 min-w-[120px] text-emerald-600 hover:bg-emerald-50"
-              >
-                {t('add_code_lab')}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onAddAssignment(module)}
-                icon={<ClipboardList className="w-4 h-4" />}
-                className="flex-1 min-w-[120px] text-amber-600 hover:bg-amber-50"
-              >
-                {t('add_assignment')}
-              </Button>
-              {onAddForum && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onAddForum(module)}
-                  icon={<MessageSquare className="w-4 h-4" />}
-                  className="flex-1 min-w-[120px] text-teal-600 hover:bg-teal-50"
-                >
-                  {t('add_forum')}
-                </Button>
-              )}
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
     </div>

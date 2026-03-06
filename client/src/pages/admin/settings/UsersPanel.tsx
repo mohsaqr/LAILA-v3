@@ -1,19 +1,33 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Search, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Download, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
 import { usersApi } from '../../../api/users';
 import { adminApi } from '../../../api/admin';
 import { useTheme } from '../../../hooks/useTheme';
+import { useAuthStore } from '../../../store/authStore';
 import { Button } from '../../../components/common/Button';
+import { Modal } from '../../../components/common/Modal';
 import { Loading } from '../../../components/common/Loading';
 import toast from 'react-hot-toast';
+
+type Role = 'student' | 'instructor' | 'admin';
+
+interface EditableUser {
+  id: number;
+  fullname: string;
+  isAdmin: boolean;
+  isInstructor: boolean;
+}
 
 export const UsersPanel = () => {
   const { t } = useTranslation(['admin', 'common']);
   const queryClient = useQueryClient();
+  const currentUser = useAuthStore(state => state.user);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [editUser, setEditUser] = useState<EditableUser | null>(null);
+  const [selectedRole, setSelectedRole] = useState<Role>('student');
   const limit = 15;
   const { isDark } = useTheme();
 
@@ -53,6 +67,35 @@ export const UsersPanel = () => {
     },
   });
 
+  const changeRoleMutation = useMutation({
+    mutationFn: ({ userId, isAdmin, isInstructor }: { userId: number; isAdmin: boolean; isInstructor: boolean }) =>
+      usersApi.updateUser(userId, { isAdmin, isInstructor }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success(t('user_updated'));
+      setEditUser(null);
+    },
+  });
+
+  const openEditRole = (user: any) => {
+    if (user.id === currentUser?.id) {
+      toast.error(t('cannot_change_own_role'));
+      return;
+    }
+    const role: Role = user.isAdmin ? 'admin' : user.isInstructor ? 'instructor' : 'student';
+    setSelectedRole(role);
+    setEditUser({ id: user.id, fullname: user.fullname, isAdmin: user.isAdmin, isInstructor: user.isInstructor });
+  };
+
+  const handleRoleSave = () => {
+    if (!editUser) return;
+    changeRoleMutation.mutate({
+      userId: editUser.id,
+      isAdmin: selectedRole === 'admin',
+      isInstructor: selectedRole === 'admin' || selectedRole === 'instructor',
+    });
+  };
+
   const handleExport = async () => {
     try {
       const data = await adminApi.exportData('users');
@@ -75,6 +118,12 @@ export const UsersPanel = () => {
 
   const users = data?.users || [];
   const pagination = data?.pagination;
+
+  const roles: { value: Role; label: string }[] = [
+    { value: 'student', label: t('role_student') },
+    { value: 'instructor', label: t('role_instructor') },
+    { value: 'admin', label: t('role_admin') },
+  ];
 
   return (
     <div>
@@ -150,7 +199,7 @@ export const UsersPanel = () => {
                         style={{ backgroundColor: colors.bgRed, color: colors.textRed }}
                       >{t('role_admin')}</span>
                     )}
-                    {user.isInstructor && (
+                    {user.isInstructor && !user.isAdmin && (
                       <span
                         className="inline-flex px-2 py-0.5 text-xs font-medium rounded"
                         style={{ backgroundColor: colors.bgBlue, color: colors.textBlue }}
@@ -179,13 +228,23 @@ export const UsersPanel = () => {
                   {new Date(user.createdAt).toLocaleDateString()}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => toggleStatusMutation.mutate({ userId: user.id, isActive: user.isActive === false })}
-                    className="text-xs hover:underline"
-                    style={{ color: colors.textSecondary }}
-                  >
-                    {user.isActive !== false ? t('deactivate') : t('activate')}
-                  </button>
+                  <div className="flex items-center justify-end gap-3">
+                    <button
+                      onClick={() => openEditRole(user)}
+                      title={t('change_role')}
+                      className="p-1 rounded hover:opacity-70 transition-opacity"
+                      style={{ color: colors.textSecondary }}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => toggleStatusMutation.mutate({ userId: user.id, isActive: user.isActive === false })}
+                      className="text-xs hover:underline"
+                      style={{ color: colors.textSecondary }}
+                    >
+                      {user.isActive !== false ? t('deactivate') : t('activate')}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -222,6 +281,51 @@ export const UsersPanel = () => {
           </div>
         )}
       </div>
+
+      {/* Change Role Modal */}
+      <Modal
+        isOpen={!!editUser}
+        onClose={() => setEditUser(null)}
+        title={t('edit_role_title', { name: editUser?.fullname })}
+        size="sm"
+      >
+        <div className="space-y-3">
+          {roles.map(({ value, label }) => (
+            <label
+              key={value}
+              className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors"
+              style={{
+                borderColor: selectedRole === value ? '#6366f1' : colors.border,
+                backgroundColor: selectedRole === value
+                  ? (isDark ? 'rgba(99,102,241,0.15)' : '#eef2ff')
+                  : 'transparent',
+              }}
+            >
+              <input
+                type="radio"
+                name="role"
+                value={value}
+                checked={selectedRole === value}
+                onChange={() => setSelectedRole(value)}
+                className="accent-indigo-500"
+              />
+              <span className="text-sm font-medium" style={{ color: colors.textPrimary }}>{label}</span>
+            </label>
+          ))}
+        </div>
+        <div className="flex justify-end gap-2 mt-4">
+          <Button variant="outline" size="sm" onClick={() => setEditUser(null)}>
+            {t('common:cancel')}
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleRoleSave}
+            disabled={changeRoleMutation.isPending}
+          >
+            {t('common:save')}
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 };

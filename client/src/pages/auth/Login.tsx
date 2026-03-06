@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { BrainCircuit, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -20,9 +20,6 @@ export const Login = () => {
   const { isDark } = useTheme();
   const { language: currentLanguage, setLanguage } = useLanguageStore();
   const navigate = useNavigate();
-  const location = useLocation();
-
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
 
   // Theme colors
   const colors = {
@@ -49,7 +46,7 @@ export const Login = () => {
     try {
       await login(email, password);
       toast.success(t('welcome_back'));
-      navigate(from, { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (error: any) {
       toast.error(error.message || t('login_failed'));
     } finally {
@@ -62,7 +59,7 @@ export const Login = () => {
     try {
       await login(quickEmail, quickPassword);
       toast.success(t('welcome_back'));
-      navigate(from, { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (error: any) {
       toast.error(error.message || t('login_failed'));
     } finally {
@@ -76,11 +73,11 @@ export const Login = () => {
         <div className="rounded-2xl shadow-xl p-8" style={{ backgroundColor: colors.bgCard }}>
           {/* Header */}
           <div className="text-center mb-8">
-            <Link to="/" className="inline-flex items-center gap-2 mb-4">
+            <div className="inline-flex items-center gap-2 mb-4">
               <div className="w-12 h-12 gradient-bg rounded-xl flex items-center justify-center">
                 <BrainCircuit className="w-7 h-7 text-white" />
               </div>
-            </Link>
+            </div>
             <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{t('login_title')}</h1>
             <p className="mt-1" style={{ color: colors.textSecondary }}>{t('login_subtitle')}</p>
           </div>
@@ -180,11 +177,11 @@ export const Login = () => {
               className="px-3 py-1.5 text-sm rounded-lg transition-colors"
               style={{
                 backgroundColor: currentLanguage === code
-                  ? (isDark ? 'rgba(8, 143, 143, 0.3)' : 'rgba(8, 143, 143, 0.1)')
+                  ? 'rgba(255, 255, 255, 0.25)'
                   : 'transparent',
                 color: currentLanguage === code
-                  ? (isDark ? '#5eecec' : '#088F8F')
-                  : (isDark ? '#9ca3af' : '#6b7280'),
+                  ? '#ffffff'
+                  : 'rgba(255, 255, 255, 0.7)',
                 fontWeight: currentLanguage === code ? 600 : 400,
               }}
             >

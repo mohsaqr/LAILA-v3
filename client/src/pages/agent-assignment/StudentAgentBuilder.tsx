@@ -86,6 +86,7 @@ export const StudentAgentBuilder = () => {
   const [formData, setFormData] = useState<AgentConfigFormData>(getDefaultFormData());
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [logger, setLogger] = useState<AgentDesignLogger | null>(null);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
 
   const assId = parseInt(assignmentId!, 10);
 
@@ -180,6 +181,34 @@ export const StudentAgentBuilder = () => {
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.error || t('failed_to_save_agent'));
+    },
+  });
+
+  // Submit mutation
+  const submitMutation = useMutation({
+    mutationFn: () => agentAssignmentsApi.submitAgentConfig(assId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['myAgentConfig', assId] });
+      toast.success(t('agent_submitted'));
+      logger?.logSubmissionCompleted(formData);
+      setShowSubmitConfirm(false);
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || t('failed_to_submit_agent'));
+      setShowSubmitConfirm(false);
+    },
+  });
+
+  // Unsubmit mutation
+  const unsubmitMutation = useMutation({
+    mutationFn: () => agentAssignmentsApi.unsubmitAgentConfig(assId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['myAgentConfig', assId] });
+      toast.success(t('agent_unsubmitted'));
+      logger?.logUnsubmitRequested();
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || t('failed_to_unsubmit_agent'));
     },
   });
 
@@ -298,9 +327,8 @@ export const StudentAgentBuilder = () => {
   const isGraded = config?.submission?.status === 'graded';
   const isPastDue = Boolean(assignment.dueDate && new Date(assignment.dueDate) < new Date());
   const isSaving = createMutation.isPending || updateMutation.isPending;
-
-  // Auto-submit on due date - agent is "submitted" when due date passes
-  const isBuilt = isSubmitted || isPastDue;
+  const isSubmitting = submitMutation.isPending;
+  const isBuilt = isSubmitted;
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-US', {
@@ -345,13 +373,18 @@ export const StudentAgentBuilder = () => {
                 {assignment.dueDate && (
                   <div
                     className={`flex items-center gap-1.5 ${
-                      isPastDue ? 'text-green-600' : 'text-gray-500'
+                      isSubmitted ? 'text-green-600' : isPastDue ? 'text-red-500' : 'text-gray-500'
                     }`}
                   >
-                    {isPastDue ? (
+                    {isSubmitted ? (
                       <>
                         <CheckCircle className="w-4 h-4" />
-                        <span className="font-medium">{t('submitted_on', { date: formatDate(assignment.dueDate) })}</span>
+                        <span className="font-medium">{t('submitted')}</span>
+                      </>
+                    ) : isPastDue ? (
+                      <>
+                        <AlertCircle className="w-4 h-4" />
+                        <span className="font-medium">{t('past_due', { date: formatDate(assignment.dueDate) })}</span>
                       </>
                     ) : (
                       <>
@@ -364,16 +397,59 @@ export const StudentAgentBuilder = () => {
               </div>
             </div>
 
-            {/* Save Button - Only show during building phase */}
+            {/* Action Buttons - Only show during building phase */}
             {!isBuilt && (
-              <Button
-                variant="secondary"
-                onClick={handleSave}
-                loading={isSaving}
-                icon={<Save className="w-4 h-4" />}
-              >
-                {t('save_progress')}
-              </Button>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleSave}
+                  loading={isSaving}
+                  disabled={isSubmitting}
+                  icon={<Save className="w-4 h-4" />}
+                  className="whitespace-nowrap"
+                >
+                  {t('save_progress')}
+                </Button>
+
+                {/* Submit for Grading */}
+                {config && config.isDraft && !showSubmitConfirm && (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      logger?.logSubmissionAttempted();
+                      setShowSubmitConfirm(true);
+                    }}
+                    disabled={isSaving || isPastDue}
+                    icon={<CheckCircle className="w-4 h-4" />}
+                    className="whitespace-nowrap"
+                  >
+                    {t('common:submit')}
+                  </Button>
+                )}
+
+                {/* Inline confirmation */}
+                {showSubmitConfirm && (
+                  <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+                    <span className="text-sm text-yellow-800 font-medium">{t('confirm_submit_agent')}</span>
+                    <Button
+                      size="sm"
+                      onClick={() => submitMutation.mutate()}
+                      loading={isSubmitting}
+                    >
+                      {t('confirm')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => setShowSubmitConfirm(false)}
+                      disabled={isSubmitting}
+                    >
+                      {t('common:cancel')}
+                    </Button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -441,6 +517,20 @@ export const StudentAgentBuilder = () => {
               >
                 {t('chat_with_agent', { name: config?.agentName })}
               </Button>
+
+              {/* Unsubmit - only before grading */}
+              {!isGraded && (
+                <div className="mt-4">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => unsubmitMutation.mutate()}
+                    loading={unsubmitMutation.isPending}
+                  >
+                    {t('unsubmit_to_edit')}
+                  </Button>
+                </div>
+              )}
             </div>
           </CardBody>
         </Card>

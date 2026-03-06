@@ -89,7 +89,6 @@ export const DashboardSidebar = () => {
     },
     { label: t('gradebook'), icon: ClipboardList, path: '/dashboard/gradebook' },
     { label: t('calendar'), icon: Calendar, path: '/dashboard/calendar' },
-    { label: t('ai_tools'), icon: BrainCircuit, path: '/ai-tools' },
   ];
 
   // Build instructor nav items - only show admin logs to actual admins

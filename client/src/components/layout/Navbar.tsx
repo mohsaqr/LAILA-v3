@@ -14,7 +14,6 @@ import {
   ChevronDown,
   Eye,
   EyeOff,
-  MessagesSquare,
   Globe,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
@@ -24,10 +23,11 @@ import { ThemeToggle } from '../common/ThemeToggle';
 import { NotificationBell } from '../notifications/NotificationBell';
 import { useLanguageStore } from '../../store/languageStore';
 import { supportedLanguages, SupportedLanguage } from '../../i18n/config';
+import { resolveFileUrl } from '../../api/client';
 
 export const Navbar = () => {
   const { t } = useTranslation(['navigation', 'common']);
-  const { user, isAuthenticated, isAdmin, isActualAdmin, isActualInstructor, viewAsRole, setViewAs, isViewingAs, logout } = useAuth();
+  const { user, isAuthenticated, isAdmin, isInstructor, isActualAdmin, isActualInstructor, viewAsRole, setViewAs, isViewingAs, logout } = useAuth();
   const { isDark } = useTheme();
   const { language: currentLanguage, setLanguage } = useLanguageStore();
   const location = useLocation();
@@ -83,8 +83,7 @@ export const Navbar = () => {
   const navItems = [
     { path: '/dashboard', label: t('dashboard'), icon: BookOpen },
     { path: '/courses', label: t('courses'), icon: GraduationCap },
-    { path: '/ai-tools', label: t('ai_tools'), icon: BrainCircuit },
-    { path: '/ai-tutors', label: t('chat_tutors'), icon: MessagesSquare },
+    ...(isAdmin || isInstructor ? [{ path: '/ai-tools', label: t('ai_tools'), icon: BrainCircuit }] : []),
     ...(isAdmin ? [{ path: '/admin', label: t('admin'), icon: Shield }] : []),
   ];
 
@@ -264,11 +263,19 @@ export const Navbar = () => {
                   className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
                   style={{ backgroundColor: 'transparent' }}
                 >
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center">
-                    <span className="text-white text-sm font-medium">
-                      {user?.fullname?.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
+                  {user?.avatarUrl ? (
+                    <img
+                      src={resolveFileUrl(user.avatarUrl)}
+                      alt={user.fullname}
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center">
+                      <span className="text-white text-sm font-medium">
+                        {user?.fullname?.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
                   <span className="hidden sm:block text-sm font-medium" style={{ color: colors.textSecondary }}>
                     {user?.fullname}
                   </span>

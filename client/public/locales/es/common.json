@@ -128,5 +128,9 @@
   "error_boundary_message": "Lo sentimos, ocurrió algo inesperado. Por favor, intenta actualizar la página o volver a la página de inicio.",
   "try_again": "Intentar de nuevo",
   "go_home": "Ir al inicio",
-  "reload_page": "Recargar página"
+  "reload_page": "Recargar página",
+  "select_course": "Seleccionar un curso",
+  "select_course_for_tutor": "Elige un curso para comenzar a chatear con su tutor de IA",
+  "no_courses_with_tutors": "No hay cursos con tutores de IA",
+  "no_courses_with_tutors_hint": "No estás inscrito en ningún curso que tenga un tutor de IA disponible"
 }

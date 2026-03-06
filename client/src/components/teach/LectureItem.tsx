@@ -11,7 +11,8 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react';
-import { Lecture } from '../../types';
+import { Assignment, Lecture } from '../../types';
+import { AssignmentItem } from './AssignmentItem';
 
 interface LectureItemProps {
   lecture: Lecture;
@@ -23,6 +24,9 @@ interface LectureItemProps {
   onTogglePublish?: (lecture: Lecture) => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  assignments?: Assignment[];
+  onEditAssignment?: (assignment: Assignment) => void;
+  onDeleteAssignment?: (assignment: Assignment) => void;
 }
 
 export const LectureItem = ({
@@ -35,6 +39,9 @@ export const LectureItem = ({
   onTogglePublish,
   onMoveUp,
   onMoveDown,
+  assignments = [],
+  onEditAssignment,
+  onDeleteAssignment,
 }: LectureItemProps) => {
   const { t } = useTranslation(['teaching']);
 
@@ -50,6 +57,7 @@ export const LectureItem = ({
   };
 
   return (
+    <div>
     <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
       <div className="flex items-center justify-center w-8 h-8 rounded bg-white border border-gray-200">
         {getIcon()}
@@ -143,6 +151,26 @@ export const LectureItem = ({
           <Trash2 className="w-4 h-4 text-red-500" />
         </button>
       </div>
+    </div>
+
+    {/* Lecture-level assignments nested below this lecture */}
+    {assignments.length > 0 && (
+      <div className="ml-6 mt-1 space-y-1 border-l-2 border-rose-200 pl-3">
+        {assignments.map((assignment, idx) => (
+          <AssignmentItem
+            key={assignment.id}
+            assignment={assignment}
+            courseId={courseId}
+            isFirst={idx === 0}
+            isLast={idx === assignments.length - 1}
+            onEdit={onEditAssignment ?? (() => {})}
+            onDelete={onDeleteAssignment ?? (() => {})}
+            onMoveUp={() => {}}
+            onMoveDown={() => {}}
+          />
+        ))}
+      </div>
+    )}
     </div>
   );
 };

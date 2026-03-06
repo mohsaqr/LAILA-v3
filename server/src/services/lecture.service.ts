@@ -105,6 +105,11 @@ export class LectureService {
         attachments: true,
         sections: {
           orderBy: { order: 'asc' },
+          include: {
+            assignment: {
+              select: { id: true, title: true, dueDate: true, points: true },
+            },
+          },
         },
         module: {
           include: {

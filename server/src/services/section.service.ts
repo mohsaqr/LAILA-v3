@@ -206,9 +206,20 @@ export class SectionService {
   async deleteSection(sectionId: number, instructorId: number, isAdmin = false) {
     await this.verifySectionOwnership(sectionId, instructorId, isAdmin);
 
+    const section = await prisma.lectureSection.findUnique({
+      where: { id: sectionId },
+      select: { type: true, assignmentId: true },
+    });
+
     await prisma.lectureSection.delete({
       where: { id: sectionId },
     });
+
+    if (section?.type === 'assignment' && section.assignmentId) {
+      await prisma.assignment.delete({
+        where: { id: section.assignmentId },
+      });
+    }
 
     return { message: 'Section deleted successfully' };
   }

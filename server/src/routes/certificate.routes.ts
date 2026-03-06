@@ -75,6 +75,73 @@ router.get('/course/:courseId/eligible', authenticateToken, requireInstructor, a
   res.json({ success: true, data: eligible });
 }));
 
+// =========================================================================
+// INSTRUCTOR ROUTES
+// =========================================================================
+
+// Issue certificate to student
+router.post('/issue', authenticateToken, requireInstructor, asyncHandler(async (req, res) => {
+  const user = (req as any).user;
+  const data = issueCertificateSchema.parse(req.body);
+
+  const certificate = await certificateService.issueCertificate(
+    data,
+    user.isAdmin,
+    user.isInstructor
+  );
+  res.status(201).json({ success: true, data: certificate });
+}));
+
+// =========================================================================
+// TEMPLATE MANAGEMENT ROUTES
+// NOTE: These must appear before /:certificateId to avoid the wildcard
+// catching GET /templates as certificateId='templates'.
+// =========================================================================
+
+// Get all templates (instructors and admins)
+router.get('/templates', authenticateToken, requireInstructor, asyncHandler(async (req, res) => {
+  const user = (req as any).user;
+  const templates = await certificateService.getTemplates(user.id, user.isAdmin);
+  res.json({ success: true, data: templates });
+}));
+
+// Get single template
+router.get('/templates/:templateId', authenticateToken, requireAdmin, asyncHandler(async (req, res) => {
+  const templateId = parseInt(req.params.templateId);
+  const template = await certificateService.getTemplate(templateId);
+  res.json({ success: true, data: template });
+}));
+
+// Create template (instructors and admins)
+router.post('/templates', authenticateToken, requireInstructor, asyncHandler(async (req, res) => {
+  const user = (req as any).user;
+  const data = createTemplateSchema.parse(req.body);
+
+  const template = await certificateService.createTemplate(data, user.id, user.isAdmin);
+  res.status(201).json({ success: true, data: template });
+}));
+
+// Update template (instructors and admins)
+router.put('/templates/:templateId', authenticateToken, requireInstructor, asyncHandler(async (req, res) => {
+  const templateId = parseInt(req.params.templateId);
+  const user = (req as any).user;
+  const data = createTemplateSchema.partial().extend({
+    isActive: z.boolean().optional(),
+  }).parse(req.body);
+
+  const template = await certificateService.updateTemplate(templateId, data, user.id, user.isAdmin);
+  res.json({ success: true, data: template });
+}));
+
+// Delete template (instructors and admins)
+router.delete('/templates/:templateId', authenticateToken, requireInstructor, asyncHandler(async (req, res) => {
+  const templateId = parseInt(req.params.templateId);
+  const user = (req as any).user;
+
+  const result = await certificateService.deleteTemplate(templateId, user.id, user.isAdmin);
+  res.json({ success: true, ...result });
+}));
+
 // Get single certificate (owner, admin, or course instructor can view)
 router.get('/:certificateId', authenticateToken, asyncHandler(async (req, res) => {
   const certificateId = parseInt(req.params.certificateId);
@@ -104,71 +171,6 @@ router.get('/:certificateId/render', authenticateToken, asyncHandler(async (req,
 
   res.setHeader('Content-Type', 'text/html');
   res.send(html);
-}));
-
-// =========================================================================
-// INSTRUCTOR ROUTES
-// =========================================================================
-
-// Issue certificate to student
-router.post('/issue', authenticateToken, requireInstructor, asyncHandler(async (req, res) => {
-  const user = (req as any).user;
-  const data = issueCertificateSchema.parse(req.body);
-
-  const certificate = await certificateService.issueCertificate(
-    data,
-    user.isAdmin,
-    user.isInstructor
-  );
-  res.status(201).json({ success: true, data: certificate });
-}));
-
-// =========================================================================
-// TEMPLATE MANAGEMENT ROUTES
-// =========================================================================
-
-// Get all templates (instructors and admins)
-router.get('/templates', authenticateToken, requireInstructor, asyncHandler(async (req, res) => {
-  const user = (req as any).user;
-  const templates = await certificateService.getTemplates(user.isAdmin);
-  res.json({ success: true, data: templates });
-}));
-
-// Get single template
-router.get('/templates/:templateId', authenticateToken, requireAdmin, asyncHandler(async (req, res) => {
-  const templateId = parseInt(req.params.templateId);
-  const template = await certificateService.getTemplate(templateId);
-  res.json({ success: true, data: template });
-}));
-
-// Create template (instructors and admins)
-router.post('/templates', authenticateToken, requireInstructor, asyncHandler(async (req, res) => {
-  const user = (req as any).user;
-  const data = createTemplateSchema.parse(req.body);
-
-  const template = await certificateService.createTemplate(data, user.isAdmin);
-  res.status(201).json({ success: true, data: template });
-}));
-
-// Update template (instructors and admins)
-router.put('/templates/:templateId', authenticateToken, requireInstructor, asyncHandler(async (req, res) => {
-  const templateId = parseInt(req.params.templateId);
-  const user = (req as any).user;
-  const data = createTemplateSchema.partial().extend({
-    isActive: z.boolean().optional(),
-  }).parse(req.body);
-
-  const template = await certificateService.updateTemplate(templateId, data, user.isAdmin);
-  res.json({ success: true, data: template });
-}));
-
-// Delete template (instructors and admins)
-router.delete('/templates/:templateId', authenticateToken, requireInstructor, asyncHandler(async (req, res) => {
-  const templateId = parseInt(req.params.templateId);
-  const user = (req as any).user;
-
-  const result = await certificateService.deleteTemplate(templateId, user.isAdmin);
-  res.json({ success: true, ...result });
 }));
 
 // Revoke certificate

@@ -132,7 +132,7 @@ export class ChatbotConversationService {
 
     // Get AI response using the section's custom system prompt
     const systemPrompt = section.chatbotSystemPrompt ||
-      'You are a helpful AI teaching assistant. Help the student understand the course material and answer their questions.';
+      'You are a helpful AI teaching assistant. Help the student understand the course material and answer their questions. Always respond in plain text without any markdown formatting.';
 
     const courseTitle = section.lecture.module.course.title;
     const lectureTitle = section.lecture.title;
@@ -145,7 +145,9 @@ Module: ${moduleTitle}
 Lesson: ${lectureTitle}
 
 Previous conversation:
-${conversationContext}`;
+${conversationContext}
+
+Important: Respond in plain text only. Do not use markdown formatting, bullet points, bold, italics, headers, or code blocks. Write in clear, natural sentences.`;
 
     try {
       const response = await chatService.chat({

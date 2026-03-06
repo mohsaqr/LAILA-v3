@@ -54,6 +54,13 @@ export const assignmentsApi = {
     return response.data.data;
   },
 
+  getSubmissionById: async (submissionId: number): Promise<AssignmentSubmission> => {
+    const response = await apiClient.get<ApiResponse<AssignmentSubmission>>(
+      `/assignments/submissions/${submissionId}`
+    );
+    return response.data.data!;
+  },
+
   gradeSubmission: async (submissionId: number, data: { grade: number; feedback?: string }) => {
     const response = await apiClient.post<ApiResponse<AssignmentSubmission>>(
       `/assignments/submissions/${submissionId}/grade`,
@@ -64,6 +71,11 @@ export const assignmentsApi = {
 
   getGradebook: async (courseId: number) => {
     const response = await apiClient.get<ApiResponse<any>>(`/assignments/course/${courseId}/gradebook`);
+    return response.data.data!;
+  },
+
+  getMyGradebook: async () => {
+    const response = await apiClient.get<ApiResponse<any>>('/assignments/my-gradebook');
     return response.data.data!;
   },
 };

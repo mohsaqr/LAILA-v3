@@ -100,11 +100,11 @@ describe('CourseService', () => {
       vi.mocked(prisma.course.findMany).mockResolvedValue([mockCourse] as any);
       vi.mocked(prisma.course.count).mockResolvedValue(1);
 
-      await courseService.getCourses({ category: 'programming' }, 1, 10);
+      await courseService.getCourses({ categoryIds: [1] }, 1, 10);
 
       expect(prisma.course.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ category: 'programming' }),
+          where: expect.objectContaining({ categories: { some: { categoryId: { in: [1] } } } }),
         })
       );
     });

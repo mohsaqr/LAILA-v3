@@ -80,7 +80,7 @@ export const TeachDashboard = () => {
       queryClient.invalidateQueries({ queryKey: ['instructorStats'] });
       toast.success(t('course_published'));
     },
-    onError: () => toast.error(t('failed_to_publish_course')),
+    onError: (error: any) => toast.error(error?.message || t('failed_to_publish_course')),
   });
 
   const unpublishMutation = useMutation({
@@ -225,7 +225,7 @@ export const TeachDashboard = () => {
                     <div className="flex items-center gap-4 text-xs" style={{ color: colors.textMuted }}>
                       <span>{course._count?.modules || 0} modules</span>
                       <span>{course._count?.enrollments || 0} students</span>
-                      {course.category && <span className="capitalize">{course.category}</span>}
+                      {course.categories?.[0] && <span className="capitalize">{course.categories[0].category.title}</span>}
                     </div>
                   </div>
 

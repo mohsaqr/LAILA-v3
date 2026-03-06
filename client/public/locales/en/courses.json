@@ -82,10 +82,10 @@
   "no_modules": "No modules available",
   "no_lectures": "No lectures available",
   "mark_complete": "Mark as Complete",
+  "complete": "Complete",
   "completed": "Completed",
   "not_started": "Not Started",
   "in_progress": "In Progress",
-
   "welcome_back": "Welcome back, {{name}}!",
   "explore_description": "Explore courses, use AI tools, and enhance your learning experience.",
   "manage_discover_courses": "Manage your courses and discover new ones",
@@ -142,7 +142,6 @@
   "n_questions": "{{count}} questions",
   "n_threads": "{{count}} threads",
   "general": "General",
-
   "loading_quiz": "Loading quiz...",
   "failed_load_quiz": "Failed to load quiz. Please try again.",
   "failed_start_quiz": "Failed to start quiz",
@@ -159,7 +158,6 @@
   "quiz_submitted_score": "Quiz submitted! Score: {{score}}%",
   "true": "True",
   "false": "False",
-
   "my_quizzes": "My Quizzes",
   "view_take_quizzes": "View and take quizzes across all your enrolled courses",
   "no_quizzes_available": "No Quizzes Available",
@@ -169,13 +167,11 @@
   "passed": "Passed",
   "not_passed": "Not Passed",
   "n_min": "{{count}} min",
-
   "loading_forums": "Loading forums...",
   "all_forums": "All Forums",
   "participate_in_discussions": "Participate in course discussions and connect with your peers",
   "no_forums_available": "No Forums Available",
   "forums_will_appear": "Forums will appear here once you're enrolled in courses with active discussions.",
-
   "loading_results": "Loading results...",
   "results_not_available": "Results are not available.",
   "return_to_course": "Return to Course",
@@ -190,9 +186,8 @@
   "your_answer": "Your answer:",
   "no_answer": "(No answer)",
   "correct_answer": "Correct answer:",
-  "explanation": "Explanation:",
+  "explanation": "Explanation",
   "points_awarded": "{{awarded}} / {{total}} points",
-
   "course_forums_title": "Course Forums",
   "discussion_forums_for": "Discussion forums for {{title}}",
   "no_forums_available_title": "No Forums Available",
@@ -218,7 +213,7 @@
   "failed_ai_response": "Failed to get AI response",
   "discussion_deleted": "Discussion deleted",
   "failed_delete_discussion": "Failed to delete discussion",
-  "discussion_locked": "Discussion locked",
+  "discussion_locked": "This discussion is locked",
   "discussion_unlocked": "Discussion unlocked",
   "discussion_pinned": "Discussion pinned",
   "discussion_unpinned": "Discussion unpinned",
@@ -227,7 +222,7 @@
   "m_ago": "{{count}}m ago",
   "h_ago": "{{count}}h ago",
   "d_ago": "{{count}}d ago",
-  "ai_response": "AI Response",
+  "ai_response": "3. AI Response",
   "reply": "Reply",
   "replies": "replies",
   "n_replies": "{{count}} {{count, plural, one {Reply} other {Replies}}}",
@@ -250,16 +245,13 @@
   "post_a_reply": "Post a Reply",
   "reply_placeholder": "Write your reply...",
   "reply_thread_placeholder": "Write your reply to the thread... (Type @agent to mention an AI tutor)",
-  "discussion_locked": "This discussion is locked",
   "loading": "Loading...",
-
   "my_learning": "My Learning",
   "my_learning_loading": "Loading your courses...",
   "in_progress_title": "In Progress",
   "no_active_courses": "No active courses",
   "start_learning": "Start learning by enrolling in a course",
   "last_accessed": "Last accessed {{date}}",
-
   "loading_assignments": "Loading assignments...",
   "back_to_course": "Back to Course",
   "my_grades": "My Grades",
@@ -276,7 +268,6 @@
   "view_agent": "View Agent",
   "build_agent": "Build Agent",
   "due_at": "Due {{date}} at {{time}}",
-
   "loading_grades": "Loading grades...",
   "not_enrolled_title": "Not Enrolled",
   "need_enroll_assignments": "You need to enroll in this course to view assignments",
@@ -291,7 +282,6 @@
   "back_to_assignments": "Back to Assignments",
   "points_format": "{{points}} points",
   "grade_percent": "{{percent}}%",
-
   "loading_assignment": "Loading assignment...",
   "need_enroll_view_assignment": "You need to enroll in this course to view this assignment",
   "assignment_not_found": "Assignment Not Found",
@@ -323,7 +313,6 @@
   "submission_type_label": "{{type}} submission",
   "redirecting_agent_builder": "Redirecting to Agent Builder...",
   "thank_you_feedback": "Thank you for your feedback!",
-
   "loading_lecture": "Loading lecture...",
   "lecture_not_found": "Lecture Not Found",
   "lecture_not_found_description": "The requested lecture could not be found.",
@@ -333,7 +322,6 @@
   "no_file_uploaded": "No file uploaded",
   "attachments": "Attachments",
   "n_minutes": "{{count}} min",
-
   "custom_labs": "Custom Labs",
   "interactive_labs_description": "Interactive R-based analytics labs for hands-on learning",
   "manage_labs": "Manage Labs",
@@ -361,7 +349,6 @@
   "clear_output": "Clear Output",
   "lab_output": "Output",
   "lab_console": "Console",
-
   "certificate_verified": "Certificate Verified",
   "certificate_not_found": "Certificate Not Found",
   "certificate_not_found_description": "This certificate could not be found or may have been revoked.",
@@ -382,7 +369,6 @@
   "complete_to_earn": "Complete the course to earn this certificate",
   "loading_certificate": "Loading certificate...",
   "loading_certificates": "Loading certificates...",
-
   "ai_research_tools": "AI Research Tools",
   "ai_tools_description": "Powerful AI-powered tools for academic research, learning, and content creation",
   "launch_tool": "Launch Tool",
@@ -395,10 +381,8 @@
   "session_tracking_desc": "Your interactions are logged for research purposes and to improve your experience.",
   "customizable": "Customizable",
   "customizable_desc": "Configure AI settings, choose models, and personalize tools to match your preferences.",
-  "loading_ai_tutors": "Loading AI Tutors...",
+  "loading_ai_tutors": "Loading AI tutors...",
   "back_to_ai_tools": "Back to AI Tools",
-
-  "ai_builder": "AI Builder",
   "ai_builder_desc": "Create and customize reusable AI components for your courses",
   "ai_builder_course_desc": "Create a custom AI tutor for your course",
   "back_to_course_tutors": "Back to Course Tutors",
@@ -433,7 +417,6 @@
   "create_component": "Create Component",
   "send_test_message": "Send a message to test your AI component",
   "type_test_message": "Type a test message...",
-
   "ai_chatbots": "AI Chatbots",
   "chat_with_assistants": "Chat with specialized AI assistants",
   "loading_chatbots": "Loading chatbots...",
@@ -445,7 +428,6 @@
   "type_your_message": "Type your message...",
   "ai_assistant": "AI Assistant",
   "error_occurred": "Sorry, I encountered an error. Please try again.",
-
   "bias_research_platform": "Bias Research Platform",
   "bias_research_desc": "Analyze text for potential biases in academic research",
   "text_analysis": "Text Analysis",
@@ -459,7 +441,6 @@
   "about_bias_detection": "About Bias Detection",
   "bias_detection_note": "This tool uses AI to help identify potential biases in text. It's designed to assist researchers in creating more inclusive and balanced content.",
   "bias_detection_warning": "AI analysis should be used as a starting point for review, not as a definitive assessment. Always apply human judgment and domain expertise.",
-
   "data_interpreter": "Data Interpreter",
   "data_interpreter_desc": "AI-powered statistical analysis for educational research",
   "data_input": "Data Input",
@@ -473,7 +454,6 @@
   "csv_format_desc": "Comma-separated values with headers",
   "copy_from_excel": "Copy from Excel",
   "copy_from_excel_desc": "Tab-separated data works too",
-
   "prompt_engineering_helper": "Prompt Engineering Helper",
   "prompt_helper_desc": "Create effective AI prompts using the PCTFT framework",
   "define_your_task": "1. Define Your Task",
@@ -482,7 +462,6 @@
   "generate_prompt": "Generate Prompt",
   "generated_prompt": "2. Generated Prompt",
   "run_with_ai": "Run with AI",
-  "ai_response": "3. AI Response",
   "pctft_tips": "PCTFT Framework Tips",
   "persona": "P - Persona",
   "persona_desc": "Define who the AI should act as",
@@ -496,9 +475,7 @@
   "tone_desc": "Set the communication style",
   "copied": "Copied",
   "copied_to_clipboard": "Copied to clipboard",
-
   "loading_gradebook": "Loading gradebook...",
-  "my_grades": "My Grades",
   "my_grades_as_student": "My Grades (as Student)",
   "view_grades_description": "View your grades across all enrolled courses",
   "overall_average": "Overall Average",
@@ -509,8 +486,6 @@
   "last_grade": "Last grade",
   "no_grades_yet": "No grades yet",
   "no_grades_description": "Enroll in courses and complete assignments to see your grades here",
-  "browse_courses": "Browse Courses",
-
   "loading_calendar": "Loading calendar...",
   "calendar": "Calendar",
   "calendar_description": "View your upcoming assignments and deadlines",
@@ -524,27 +499,16 @@
   "x_more": "+{{count}} more",
   "upcoming_next_7_days": "Upcoming (Next 7 Days)",
   "no_upcoming_assignments": "No upcoming assignments",
-
   "invalid_survey": "Invalid Survey",
   "survey_not_found": "The survey you're looking for doesn't exist.",
-
-  "instructor_view": "Instructor View",
-  "edit_course": "Edit Course",
   "x_students": "{{count}} students",
   "x_modules": "{{count}} modules",
   "x_lessons": "{{count}} lessons",
-  "by_instructor": "by {{name}}",
-  "enroll_now_free": "Enroll Now - Free",
-  "sign_in_to_enroll": "Sign in to Enroll",
-
   "curriculum": "Curriculum",
-  "assignments": "Assignments",
   "quizzes": "Quizzes",
-  "forums": "Forums",
   "ai_tutors": "AI Tutors",
   "certificates": "Certificates",
   "course_navigation": "Course Navigation",
-
   "content_lecture": "Lecture",
   "content_video": "Video",
   "content_mixed": "Mixed",
@@ -554,38 +518,29 @@
   "content_ai_agent": "AI Agent",
   "content_forum": "Forum",
   "content_ai": "AI Content",
-
   "no_assignments_available": "No Assignments Available",
   "no_assignments_description": "This course doesn't have any assignments yet.",
   "due_date_format": "Due: {{date}}",
   "x_points": "{{count}} points",
   "ai_agent_type": "AI Agent",
   "standard_type": "Standard",
-
   "loading_quizzes": "Loading quizzes...",
   "quizzes_for_course": "Quizzes for {{title}}",
   "quiz_passed": "Passed",
   "quiz_not_passed": "Not Passed",
   "quiz_in_progress": "In Progress",
   "quiz_not_started": "Not Started",
-  "no_quizzes_available": "No Quizzes Available",
   "no_quizzes_description": "This course doesn't have any quizzes yet.",
   "x_questions": "{{count}} questions",
   "x_min": "{{count}} min",
   "attempts_count": "{{current}}/{{max}} attempts",
-
-  "loading_forums": "Loading forums...",
-  "no_forums_available": "No Forums Available",
   "no_forums_description": "This course doesn't have any active discussion forums yet.",
   "x_threads": "{{count}} threads",
-
-  "loading_ai_tutors": "Loading AI tutors...",
   "no_ai_tutors_available": "No AI Tutors Available",
   "no_ai_tutors_description": "This course doesn't have any AI tutors configured yet.",
   "manage_tutors": "Manage Tutors",
   "x_ai_tutors_ready": "{{count}} AI tutor(s) ready to help you learn",
   "click_to_start_chatting_tutors": "Click to start chatting with AI tutors",
-
   "text_content": "Text Content",
   "read_article": "Read Article",
   "no_content_yet": "No content yet",
@@ -593,17 +548,14 @@
   "no_content_available_yet": "No content available yet",
   "lab_badge": "Lab",
   "forum_badge": "Forum",
-
   "x_items": "{{count}} item(s)",
   "no_content_in_module": "No content available in this module yet.",
   "due_date_short": "Due {{date}}",
   "x_pts": "{{count}} pts",
-
   "confirm_clear_conversation": "Are you sure you want to clear your conversation history?",
   "ai_teaching_assistant": "AI Teaching Assistant",
   "start_conversation": "Start a conversation!",
   "failed_to_send_message": "Failed to send message. Please try again.",
-
   "assignment_no_longer_available": "This assignment is no longer available",
   "status_overdue": "Overdue",
   "status_due_soon": "Due soon",
@@ -615,7 +567,6 @@
   "score_display": "Score: {{grade}}/{{total}}",
   "not_yet_submitted": "Not yet submitted",
   "start_assignment": "Start Assignment",
-
   "failed_to_start_conversation": "Failed to start conversation",
   "failed_to_send_message_toast": "Failed to send message",
   "conversation_deleted": "Conversation deleted",
@@ -631,20 +582,16 @@
   "message_tutor": "Message {{name}}...",
   "send": "Send",
   "keyboard_hint": "Press Enter to send, Shift+Enter for new line",
-
   "collaborative_module": "Collaborative Module",
   "x_ai_tutors_ready_help": "{{count}} AI tutor(s) ready to help",
   "click_to_start_chatting": "Click to start chatting",
-
   "ask_ai_tutor": "Ask AI Tutor",
   "generating_response": "Generating response...",
   "write_your_reply": "Write your reply...",
   "replying_to": "Replying to",
   "cancel_reply": "Cancel reply",
-  "ai_tutors": "AI Tutors",
   "posting": "Posting...",
   "post_reply": "Post Reply",
-
   "practice_mode": "Practice",
   "practice_description": "Test your understanding with AI-generated questions",
   "test_your_understanding": "Test your understanding with practice questions",
@@ -662,13 +609,12 @@
   "check_answer": "Check Answer",
   "next_question": "Next Question",
   "see_results": "See Results",
-  "explanation": "Explanation",
   "exit": "Exit",
   "back_to_menu": "Back to Menu",
   "score_summary": "You got {{correct}} out of {{total}} correct",
   "great_job": "Great job!",
   "keep_practicing": "Keep practicing to improve",
-  "question_review": "Question Review",
   "try_again": "Try Again",
-  "new_questions": "New Questions"
+  "new_questions": "New Questions",
+  "clear_conversation": "Clear Conversation"
 }

@@ -1,15 +1,19 @@
 import { useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Download, FileText, Sparkles, Upload, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, Download, FileText, Sparkles, Upload, BookOpen, ChevronLeft, ChevronRight, CheckCircle, Circle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import { coursesApi } from '../api/courses';
+import { enrollmentsApi } from '../api/enrollments';
 import { resolveFileUrl } from '../api/client';
 import { useTheme } from '../hooks/useTheme';
+import { useAuth } from '../hooks/useAuth';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { LectureAIHelper } from '../components/lecture';
+import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStudent';
 import { marked } from 'marked';
 import { sanitizeHtml } from '../utils/sanitize';
 import activityLogger from '../services/activityLogger';
@@ -25,6 +29,9 @@ export const LectureView = () => {
   const { t } = useTranslation(['courses', 'common']);
   const { courseId, lectureId } = useParams<{ courseId: string; lectureId: string }>();
   const { isDark } = useTheme();
+  const { isAdmin, isInstructor } = useAuth();
+  const queryClient = useQueryClient();
+  const isStudent = !isAdmin && !isInstructor;
 
   // Theme colors
   const colors = {
@@ -57,6 +64,36 @@ export const LectureView = () => {
     queryKey: ['lecture', lectureId],
     queryFn: () => coursesApi.getLectureById(parseInt(lectureId!)),
     enabled: !!lectureId,
+  });
+
+  // Fetch course progress to know if this lecture is already completed (students only)
+  const { data: courseProgress } = useQuery({
+    queryKey: ['courseProgress', courseId],
+    queryFn: () => enrollmentsApi.getProgress(parseInt(courseId!)),
+    enabled: !!courseId && isStudent,
+    staleTime: 10000,
+  });
+
+  const isCompleted = courseProgress?.moduleProgress
+    .flatMap(m => m.lectures)
+    .some(l => l.lectureId === parseInt(lectureId!) && l.isCompleted) ?? false;
+
+  // Mutation to mark lecture as complete
+  const completeMutation = useMutation({
+    mutationFn: () => enrollmentsApi.markLectureComplete(
+      parseInt(courseId!),
+      parseInt(lectureId!),
+      lecture?.title,
+      lecture?.moduleId,
+    ),
+    onSuccess: () => {
+      toast.success(t('completed'));
+      queryClient.invalidateQueries({ queryKey: ['courseProgress', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['myEnrollments'] });
+    },
+    onError: () => {
+      toast.error(t('common:error'));
+    },
   });
 
   // Log lecture view
@@ -215,6 +252,21 @@ export const LectureView = () => {
         );
       }
 
+      case 'chatbot':
+        return (
+          <div key={section.id} className="mb-8">
+            {section.title && (
+              <h2 className="text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>
+                {section.title}
+              </h2>
+            )}
+            <ChatbotSectionStudent
+              section={section}
+              courseId={parseInt(courseId!)}
+            />
+          </div>
+        );
+
       default:
         return null;
     }
@@ -306,6 +358,31 @@ export const LectureView = () => {
                     </a>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Complete button (students only) */}
+            {isStudent && (
+              <div className="mt-8 pt-6 flex justify-end" style={{ borderTop: `1px solid ${colors.border}` }}>
+                {isCompleted ? (
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400 font-medium">
+                    <CheckCircle className="w-4 h-4" />
+                    {t('completed')}
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => completeMutation.mutate()}
+                    disabled={completeMutation.isPending}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-green-50 hover:bg-green-100 text-green-600 dark:bg-green-900/20 dark:hover:bg-green-900/30 dark:text-green-400 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {completeMutation.isPending ? (
+                      <Circle className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4" />
+                    )}
+                    {t('complete')}
+                  </button>
+                )}
               </div>
             )}
           </CardBody>

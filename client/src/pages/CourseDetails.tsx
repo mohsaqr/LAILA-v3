@@ -178,7 +178,7 @@ export const CourseDetails = () => {
           <Breadcrumb
             items={[
               { label: t('courses'), href: '/courses' },
-              { label: course.category || t('general'), href: `/courses?category=${encodeURIComponent(course.category || '')}` },
+              { label: course.categories?.[0]?.category.title || t('general'), href: '/courses' },
               { label: course.title },
             ]}
           />
