@@ -523,17 +523,22 @@ export interface ActivityLogFilterOptions {
 // TNA Sequence Types
 export interface TnaSequenceFilters {
   courseId?: number;
+  userId?: number;
   startDate?: string;
   endDate?: string;
   minSequenceLength?: number;
+  groupBy?: 'actor' | 'actor-session';
 }
 
 export interface TnaSequenceResponse {
   sequences: string[][];
+  objectTypeSequences: string[][];
   metadata: {
-    totalUsers: number;
+    totalSequences: number;
     totalEvents: number;
+    groupBy: 'actor' | 'actor-session';
     uniqueVerbs: string[];
+    uniqueObjectTypes: string[];
     courseTitle: string | null;
     dateRange: { start: string; end: string } | null;
   };
@@ -659,9 +664,14 @@ export const activityLogApi = {
   getTnaSequences: async (filters?: TnaSequenceFilters): Promise<TnaSequenceResponse> => {
     const params = new URLSearchParams();
     if (filters?.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters?.userId) params.append('userId', filters.userId.toString());
     if (filters?.startDate) params.append('startDate', filters.startDate);
     if (filters?.endDate) params.append('endDate', filters.endDate);
     if (filters?.minSequenceLength) params.append('minSequenceLength', filters.minSequenceLength.toString());
+    if (filters?.groupBy) params.append('groupBy', filters.groupBy);
+    // Disable server-side filtering/merging — client handles it via VerbEditor
+    params.append('minVerbPct', '0');
+    params.append('skipMerges', 'true');
 
     const response = await apiClient.get<any>(`/activity-log/tna-sequences?${params.toString()}`);
     return response.data.data;

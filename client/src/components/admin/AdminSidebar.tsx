@@ -24,7 +24,7 @@ export const AdminSidebar = ({ className = '', onNavigate }: AdminSidebarProps) 
 
   const sidebarItems = [
     { path: '/admin', label: t('frontpage'), icon: LayoutDashboard, exact: true },
-    { path: '/admin/dashboard', label: t('dashboard'), icon: Network },
+    { path: '/admin/analytics', label: t('analytics'), icon: Network },
     { path: '/admin/settings?tab=users', label: t('users'), icon: Users },
     { path: '/admin/settings?tab=enrollments', label: t('enrollments'), icon: GraduationCap },
     { path: '/admin/logs', label: t('logs'), icon: BarChart3 },

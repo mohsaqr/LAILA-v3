@@ -11,6 +11,7 @@ interface AdminLayoutProps {
   children: ReactNode;
   headerActions?: ReactNode;
   breadcrumbs?: BreadcrumbItem[];
+  fullWidth?: boolean;
 }
 
 export const AdminLayout = ({
@@ -19,6 +20,7 @@ export const AdminLayout = ({
   children,
   headerActions,
   breadcrumbs,
+  fullWidth = false,
 }: AdminLayoutProps) => {
   const { t } = useTranslation(['admin']);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -29,7 +31,7 @@ export const AdminLayout = ({
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className={`${fullWidth ? '' : 'max-w-7xl'} mx-auto px-4 sm:px-6 lg:px-8 py-8`}>
         {/* Breadcrumb navigation */}
         <div className="mb-4">
           <Breadcrumb items={breadcrumbItems} homeHref="/admin" />
