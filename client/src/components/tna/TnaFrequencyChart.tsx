@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { createColorMap } from 'tnaj';
+import { createColorMap } from './colorFix';
 
 interface TnaFrequencyChartProps {
   sequences: string[][];
@@ -18,7 +18,6 @@ export const TnaFrequencyChart = ({ sequences, labels, colorMap: externalColorMa
         if (labels.includes(verb)) counts[verb]++;
       }
     }
-
     return labels
       .map(label => ({ label, count: counts[label] }))
       .sort((a, b) => b.count - a.count);
@@ -40,42 +39,18 @@ export const TnaFrequencyChart = ({ sequences, labels, colorMap: externalColorMa
           {sortedVerbs.map((item, i) => {
             const y = i * (barHeight + gap);
             const barW = (item.count / maxCount) * plotW;
-
             return (
               <g key={item.label}>
-                {/* Label */}
-                <text
-                  x={-8}
-                  y={y + barHeight / 2 + 4}
-                  textAnchor="end"
-                  className="fill-gray-700 dark:fill-gray-300"
-                  fontSize={12}
-                >
+                <text x={-8} y={y + barHeight / 2 + 4} textAnchor="end"
+                  className="fill-gray-700 dark:fill-gray-300" fontSize={12}>
                   {item.label}
                 </text>
-
-                {/* Bar */}
-                <rect
-                  x={0}
-                  y={y}
-                  width={barW}
-                  height={barHeight}
-                  fill={colorMap[item.label]}
-                  rx={4}
-                  opacity={0.85}
-                >
+                <rect x={0} y={y} width={barW} height={barHeight}
+                  fill={colorMap[item.label]} rx={4} opacity={0.85}>
                   <title>{`${item.label}: ${item.count}`}</title>
                 </rect>
-
-                {/* Count label */}
-                <text
-                  x={barW + 6}
-                  y={y + barHeight / 2 + 4}
-                  textAnchor="start"
-                  className="fill-gray-600 dark:fill-gray-400"
-                  fontSize={11}
-                  fontWeight={500}
-                >
+                <text x={barW + 6} y={y + barHeight / 2 + 4} textAnchor="start"
+                  className="fill-gray-600 dark:fill-gray-400" fontSize={11} fontWeight={500}>
                   {item.count}
                 </text>
               </g>

@@ -1,9 +1,12 @@
 import { useState, useMemo } from 'react';
-import { colorPalette } from 'tnaj';
-import type { TNA, CentralityResult, CentralityMeasure, CommunityResult } from 'tnaj';
-import { fixColorMap } from './colorFix';
+import type { TNA } from 'dynajs';
+import { createColorMap } from './colorFix';
 
-// Match the tnaj demo site style exactly
+interface CentralityData {
+  labels: string[];
+  measures: Record<string, number[]>;
+}
+
 const EDGE_COLOR = '#2B4C7E';
 const ARROW_COLOR = '#2B4C7E';
 const EDGE_LABEL_COLOR = '#2B4C7E';
@@ -15,6 +18,8 @@ const EDGE_OPACITY_MIN = 0.7;
 const EDGE_OPACITY_MAX = 1.0;
 const EDGE_CURVATURE = 22;
 
+type ModelType = 'relative' | 'frequency' | 'co-occurrence' | 'attention';
+
 interface TnaNetworkGraphProps {
   model: TNA;
   showSelfLoops?: boolean;
@@ -22,21 +27,17 @@ interface TnaNetworkGraphProps {
   nodeRadius?: number;
   height?: number;
   colorMap?: Record<string, string>;
-  centralityData?: CentralityResult;
-  nodeSizeMetric?: CentralityMeasure | 'fixed';
-  communityData?: CommunityResult;
-  communityMethod?: string;
+  centralityData?: CentralityData;
+  nodeSizeMetric?: string;
+  modelType?: ModelType;
 }
 
-/** Format weight: integers as-is, decimals as .XX */
 function fmtWeight(w: number): string {
   if (Number.isInteger(w)) return String(w);
   return w.toFixed(2).replace(/^0\./, '.');
 }
 
-function arrowPoly(
-  tipX: number, tipY: number, dx: number, dy: number,
-): string {
+function arrowPoly(tipX: number, tipY: number, dx: number, dy: number): string {
   const baseX = tipX - dx * ARROW_LEN;
   const baseY = tipY - dy * ARROW_LEN;
   const lx = baseX - dy * ARROW_HALF_W;
@@ -84,10 +85,7 @@ function computeEdgePath(
   const labelX = (1 - t) * (1 - t) * startX + 2 * (1 - t) * t * mx + t * t * endX;
   const labelY = (1 - t) * (1 - t) * startY + 2 * (1 - t) * t * my + t * t * endY;
 
-  return {
-    path: `M${startX},${startY} Q${mx},${my} ${endX},${endY}`,
-    tipX, tipY, tipDx: eux, tipDy: euy, labelX, labelY,
-  };
+  return { path: `M${startX},${startY} Q${mx},${my} ${endX},${endY}`, tipX, tipY, tipDx: eux, tipDy: euy, labelX, labelY };
 }
 
 function computeSelfLoop(
@@ -95,7 +93,6 @@ function computeSelfLoop(
   nodeRadius: number,
 ) {
   const loopR = nodeRadius * 0.55;
-
   let dirX = nodeX - centroidX;
   let dirY = nodeY - centroidY;
   const dirLen = Math.sqrt(dirX * dirX + dirY * dirY) || 1;
@@ -139,44 +136,26 @@ export const TnaNetworkGraph = ({
   colorMap: externalColorMap,
   centralityData,
   nodeSizeMetric = 'fixed',
-  communityData,
-  communityMethod,
+  modelType,
 }: TnaNetworkGraphProps) => {
   const { labels, weights, inits } = model;
+  const isUndirected = modelType === 'co-occurrence';
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
   const [hoveredNode, setHoveredNode] = useState<number | null>(null);
 
-  const svgW = 960;
   const svgH = height;
+  const svgW = svgH;
   const cx = svgW / 2;
   const cy = svgH / 2;
-  const padding = baseNodeRadius + 45;
+  const padding = baseNodeRadius + 5;
   const layoutRadius = Math.min(cx, cy) - padding;
 
-  // Color map: external > generated from colorPalette
   const colors = useMemo(() => {
     if (externalColorMap) return labels.map(l => externalColorMap[l] ?? '#888');
-    const palette = colorPalette(labels.length);
-    const map: Record<string, string> = {};
-    labels.forEach((l, i) => { map[l] = palette[i % palette.length]; });
-    const fixed = fixColorMap(map);
-    return labels.map(l => fixed[l]);
+    const map = createColorMap(labels);
+    return labels.map(l => map[l]);
   }, [labels, externalColorMap]);
 
-  // Community coloring overrides
-  const communityColors = useMemo(() => {
-    if (!communityData || !communityMethod) return null;
-    const key = communityMethod as string;
-    const assignments = communityData.assignments[key];
-    if (!assignments) return null;
-    const uniqueGroups = [...new Set(assignments)].sort((a, b) => a - b);
-    const palette = colorPalette(uniqueGroups.length, 'accent');
-    const groupColorMap: Record<number, string> = {};
-    uniqueGroups.forEach((g, i) => { groupColorMap[g] = palette[i % palette.length]; });
-    return labels.map((_, i) => groupColorMap[assignments[i]] ?? '#888');
-  }, [communityData, communityMethod, labels]);
-
-  // Node size scale factors based on centrality
   const nodeScales = useMemo(() => {
     if (nodeSizeMetric === 'fixed' || !centralityData) {
       return labels.map(() => 1);
@@ -195,15 +174,24 @@ export const TnaNetworkGraph = ({
   const nodePositions = useMemo(() => {
     return labels.map((_, i) => {
       const angle = (2 * Math.PI * i) / labels.length - Math.PI / 2;
-      return {
-        x: cx + layoutRadius * Math.cos(angle),
-        y: cy + layoutRadius * Math.sin(angle),
-      };
+      return { x: cx + layoutRadius * Math.cos(angle), y: cy + layoutRadius * Math.sin(angle) };
     });
   }, [labels, cx, cy, layoutRadius]);
 
   const { edges, bidir } = useMemo(() => {
     const result: { from: number; to: number; weight: number }[] = [];
+    if (isUndirected) {
+      // Undirected: only add each pair once (i < j), average the two directions
+      for (let i = 0; i < labels.length; i++) {
+        for (let j = i + 1; j < labels.length; j++) {
+          const wij = weights.get(i, j);
+          const wji = weights.get(j, i);
+          const w = (wij + wji) / 2;
+          if (w > 0) result.push({ from: i, to: j, weight: w });
+        }
+      }
+      return { edges: result, bidir: new Set<string>() };
+    }
     for (let i = 0; i < labels.length; i++) {
       for (let j = 0; j < labels.length; j++) {
         if (i === j) continue;
@@ -211,16 +199,14 @@ export const TnaNetworkGraph = ({
         if (w > 0) result.push({ from: i, to: j, weight: w });
       }
     }
-
     const bidirSet = new Set<string>();
     for (const e of result) {
       if (result.find(r => r.from === e.to && r.to === e.from)) {
         bidirSet.add(`${e.from}-${e.to}`);
       }
     }
-
     return { edges: result, bidir: bidirSet };
-  }, [labels, weights]);
+  }, [labels, weights, isUndirected]);
 
   const selfLoops = useMemo(() => {
     if (!showSelfLoops) return [];
@@ -237,15 +223,23 @@ export const TnaNetworkGraph = ({
     return Math.max(...allW, 1e-6);
   }, [edges, selfLoops]);
 
-  const widthScale = (w: number) =>
-    EDGE_WIDTH_MIN + (w / globalMaxW) * (EDGE_WIDTH_MAX - EDGE_WIDTH_MIN);
-  const opacityScale = (w: number) =>
-    EDGE_OPACITY_MIN + (w / globalMaxW) * (EDGE_OPACITY_MAX - EDGE_OPACITY_MIN);
+  // For attention model, compute min-max normalized weights for display labels
+  const { normalizeWeight } = useMemo(() => {
+    const allW = [...edges.map(e => e.weight), ...selfLoops.map(s => s.weight)];
+    const mn = allW.length > 0 ? Math.min(...allW) : 0;
+    const range = globalMaxW - mn || 1;
+    const normalize = modelType === 'attention'
+      ? (w: number) => (w - mn) / range
+      : (w: number) => w;
+    return { normalizeWeight: normalize };
+  }, [edges, selfLoops, globalMaxW, modelType]);
+
+  const widthScale = (w: number) => EDGE_WIDTH_MIN + (w / globalMaxW) * (EDGE_WIDTH_MAX - EDGE_WIDTH_MIN);
+  const opacityScale = (w: number) => EDGE_OPACITY_MIN + (w / globalMaxW) * (EDGE_OPACITY_MAX - EDGE_OPACITY_MIN);
 
   return (
     <div className="overflow-x-auto">
-      <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`}>
-        {/* Self-loops */}
+      <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} className="mx-auto max-w-full">
         {selfLoops.map(({ idx, weight }) => {
           const nodeRadius = baseNodeRadius * nodeScales[idx];
           const pos = nodePositions[idx];
@@ -256,128 +250,79 @@ export const TnaNetworkGraph = ({
           const isHovered = hoveredEdge === key;
           return (
             <g key={key}>
-              <path
-                d={loop.path}
-                fill="none"
-                stroke={isHovered ? '#e15759' : EDGE_COLOR}
-                strokeWidth={sw}
-                strokeOpacity={isHovered ? 0.85 : op}
-                strokeLinecap="round"
+              <path d={loop.path} fill="none" stroke={isHovered ? '#e15759' : EDGE_COLOR}
+                strokeWidth={sw} strokeOpacity={isHovered ? 0.85 : op} strokeLinecap="round"
                 style={{ cursor: 'pointer' }}
-                onMouseEnter={() => setHoveredEdge(key)}
-                onMouseLeave={() => setHoveredEdge(null)}
-              >
+                onMouseEnter={() => setHoveredEdge(key)} onMouseLeave={() => setHoveredEdge(null)}>
                 <title>{`${labels[idx]} → ${labels[idx]}: ${weight.toFixed(4)}`}</title>
               </path>
-              <polygon
-                points={arrowPoly(loop.arrowTipX, loop.arrowTipY, loop.arrowDx, loop.arrowDy)}
-                fill={ARROW_COLOR}
-                opacity={Math.min(op + 0.15, 1)}
-              />
+              {!isUndirected && (
+                <polygon points={arrowPoly(loop.arrowTipX, loop.arrowTipY, loop.arrowDx, loop.arrowDy)}
+                  fill={ARROW_COLOR} opacity={Math.min(op + 0.15, 1)} />
+              )}
               {showEdgeLabels && (
-                <text
-                  x={loop.labelX}
-                  y={loop.labelY}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fontSize={9}
-                  fill={EDGE_LABEL_COLOR}
-                  pointerEvents="none"
-                  style={{ paintOrder: 'stroke', stroke: '#ffffff', strokeWidth: 3, strokeLinejoin: 'round' } as React.CSSProperties}
-                >
-                  {fmtWeight(weight)}
+                <text x={loop.labelX} y={loop.labelY} textAnchor="middle" dominantBaseline="middle"
+                  fontSize={9} fill={EDGE_LABEL_COLOR} pointerEvents="none"
+                  style={{ paintOrder: 'stroke', stroke: '#ffffff', strokeWidth: 3, strokeLinejoin: 'round' } as React.CSSProperties}>
+                  {fmtWeight(normalizeWeight(weight))}
                 </text>
               )}
             </g>
           );
         })}
 
-        {/* Edges */}
         {edges.map(({ from, to, weight }) => {
           const p1 = nodePositions[from];
           const p2 = nodePositions[to];
           const isBidir = bidir.has(`${from}-${to}`);
-          const curvature = isBidir ? EDGE_CURVATURE : 0;
+          const curvature = isUndirected ? 0 : (isBidir ? EDGE_CURVATURE : 0);
           const nodeRadius = baseNodeRadius * nodeScales[to];
-
           const result = computeEdgePath(p1.x, p1.y, p2.x, p2.y, curvature, nodeRadius);
           if (!result) return null;
-
           const op = opacityScale(weight);
           const key = `${from}-${to}`;
           const isHovered = hoveredEdge === key;
-
+          const arrow = isUndirected ? '—' : '→';
+          const displayW = normalizeWeight(weight);
           return (
             <g key={key}>
-              <path
-                d={result.path}
-                fill="none"
-                stroke={isHovered ? '#e15759' : EDGE_COLOR}
-                strokeWidth={widthScale(weight)}
-                strokeOpacity={isHovered ? 0.85 : op}
-                strokeLinecap="round"
-                style={{ cursor: 'pointer' }}
-                onMouseEnter={() => setHoveredEdge(key)}
-                onMouseLeave={() => setHoveredEdge(null)}
-              >
-                <title>{`${labels[from]} → ${labels[to]}: ${weight.toFixed(4)}`}</title>
+              <path d={result.path} fill="none" stroke={isHovered ? '#e15759' : EDGE_COLOR}
+                strokeWidth={widthScale(weight)} strokeOpacity={isHovered ? 0.85 : op}
+                strokeLinecap="round" style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setHoveredEdge(key)} onMouseLeave={() => setHoveredEdge(null)}>
+                <title>{`${labels[from]} ${arrow} ${labels[to]}: ${displayW.toFixed(4)}`}</title>
               </path>
-              <polygon
-                points={arrowPoly(result.tipX, result.tipY, result.tipDx, result.tipDy)}
-                fill={ARROW_COLOR}
-                opacity={Math.min(op + 0.15, 1)}
-              />
+              {!isUndirected && (
+                <polygon points={arrowPoly(result.tipX, result.tipY, result.tipDx, result.tipDy)}
+                  fill={ARROW_COLOR} opacity={Math.min(op + 0.15, 1)} />
+              )}
               {showEdgeLabels && (
-                <text
-                  x={result.labelX}
-                  y={result.labelY}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fontSize={9}
-                  fill={EDGE_LABEL_COLOR}
-                  pointerEvents="none"
-                  style={{ paintOrder: 'stroke', stroke: '#ffffff', strokeWidth: 3, strokeLinejoin: 'round' } as React.CSSProperties}
-                >
-                  {fmtWeight(weight)}
+                <text x={result.labelX} y={result.labelY} textAnchor="middle" dominantBaseline="middle"
+                  fontSize={9} fill={EDGE_LABEL_COLOR} pointerEvents="none"
+                  style={{ paintOrder: 'stroke', stroke: '#ffffff', strokeWidth: 3, strokeLinejoin: 'round' } as React.CSSProperties}>
+                  {fmtWeight(displayW)}
                 </text>
               )}
             </g>
           );
         })}
 
-        {/* Nodes */}
         {labels.map((label, i) => {
           const pos = nodePositions[i];
           const nodeRadius = baseNodeRadius * nodeScales[i];
-          const color = communityColors ? communityColors[i] : colors[i]!;
+          const color = colors[i]!;
           const isHovered = hoveredNode === i;
-
           return (
-            <g
-              key={label}
-              transform={`translate(${pos.x},${pos.y})`}
-              style={{ cursor: 'pointer' }}
-              onMouseEnter={() => setHoveredNode(i)}
-              onMouseLeave={() => setHoveredNode(null)}
-            >
-              <circle
-                r={nodeRadius}
-                fill={color}
-                stroke={isHovered ? '#333333' : '#999999'}
-                strokeWidth={isHovered ? 3 : 2}
-              >
+            <g key={label} transform={`translate(${pos.x},${pos.y})`} style={{ cursor: 'pointer' }}
+              onMouseEnter={() => setHoveredNode(i)} onMouseLeave={() => setHoveredNode(null)}>
+              <circle r={nodeRadius} fill={color} stroke={isHovered ? '#333333' : '#999999'}
+                strokeWidth={isHovered ? 3 : 2}>
                 <title>{`${label} (init: ${((inits[i] ?? 0) * 100).toFixed(1)}%)`}</title>
               </circle>
-              <text
-                y={1}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fill="#ffffff"
-                fontSize={label.length > 10 ? 8 : label.length > 7 ? 9 : 11}
-                fontWeight={600}
+              <text y={1} textAnchor="middle" dominantBaseline="middle" fill="#ffffff"
+                fontSize={label.length > 10 ? 8 : label.length > 7 ? 9 : 11} fontWeight={600}
                 pointerEvents="none"
-                style={{ paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.3)', strokeWidth: 2, strokeLinejoin: 'round' } as React.CSSProperties}
-              >
+                style={{ paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.3)', strokeWidth: 2, strokeLinejoin: 'round' } as React.CSSProperties}>
                 {label.length > 12 ? label.slice(0, 11) + '\u2026' : label}
               </text>
             </g>
