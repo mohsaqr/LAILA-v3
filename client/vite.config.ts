@@ -12,6 +12,9 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, './src'),
       },
     },
+    optimizeDeps: {
+      exclude: ['pyodide'],
+    },
     server: {
       port: parseInt(env.VITE_PORT || '5174'),
       proxy: {

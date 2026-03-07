@@ -9,23 +9,47 @@ interface CentralityData {
 interface CentralityBarChartProps {
   centralityData: CentralityData;
   colorMap: Record<string, string>;
+  /** When provided, hides internal tabs and uses this measure. */
+  selectedMeasure?: string;
 }
 
 const MEASURE_COLORS: Record<string, string> = {
+  Degree: 'rgba(90, 180, 172, 0.8)',
+  InDegree: 'rgba(74, 144, 217, 0.8)',
+  OutDegree: 'rgba(230, 171, 2, 0.8)',
   InStrength: 'rgba(74, 144, 217, 0.8)',
+  OutStrength: 'rgba(237, 140, 59, 0.8)',
+  Betweenness: 'rgba(169, 133, 202, 0.8)',
+  Closeness: 'rgba(225, 87, 89, 0.8)',
 };
 
 const MEASURE_I18N: Record<string, string> = {
-  InStrength: 'in_strength',
+  Degree: 'sna.m_degree',
+  InDegree: 'sna.m_in_degree',
+  OutDegree: 'sna.m_out_degree',
+  InStrength: 'sna.m_in_strength',
+  OutStrength: 'sna.m_out_strength',
+  Betweenness: 'sna.m_betweenness',
+  Closeness: 'sna.m_closeness',
 };
 
-export const CentralityBarChart = ({ centralityData, colorMap }: CentralityBarChartProps) => {
-  const { t } = useTranslation(['admin']);
+export const CentralityBarChart = ({ centralityData, colorMap, selectedMeasure }: CentralityBarChartProps) => {
+  const { t } = useTranslation(['courses', 'admin']);
   const { labels, measures } = centralityData;
   const measureKeys = Object.keys(measures).filter(k => measures[k]?.length > 0);
-  const [activeMeasure, setActiveMeasure] = useState(measureKeys[0] ?? 'InStrength');
+  const [internalMeasure, setInternalMeasure] = useState(measureKeys[0] ?? 'InStrength');
+  const activeMeasure = selectedMeasure ?? internalMeasure;
+  const showTabs = !selectedMeasure;
 
   const values = measures[activeMeasure] ?? [];
+
+  // Sort labels by value descending
+  const sortedIndices = useMemo(() => {
+    const indices = labels.map((_, i) => i);
+    indices.sort((a, b) => (values[b] ?? 0) - (values[a] ?? 0));
+    return indices;
+  }, [labels, values]);
+
   const maxVal = useMemo(() => Math.max(...values, 1e-6), [values]);
 
   const barHeight = 26;
@@ -37,26 +61,29 @@ export const CentralityBarChart = ({ centralityData, colorMap }: CentralityBarCh
 
   return (
     <div>
-      {/* Measure tabs */}
-      <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden text-xs mb-3 w-fit">
-        {measureKeys.map(key => (
-          <button key={key}
-            onClick={() => setActiveMeasure(key)}
-            className={`px-3 py-1 transition-colors ${activeMeasure === key
-              ? 'bg-primary-600 text-white'
-              : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'}`}>
-            {t(MEASURE_I18N[key] ?? key)}
-          </button>
-        ))}
-      </div>
+      {/* Measure tabs (hidden when controlled externally) */}
+      {showTabs && (
+        <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden text-xs mb-3 w-fit">
+          {measureKeys.map(key => (
+            <button key={key}
+              onClick={() => setInternalMeasure(key)}
+              className={`px-3 py-1 transition-colors ${activeMeasure === key
+                ? 'bg-primary-600 text-white'
+                : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'}`}>
+              {MEASURE_I18N[key] ? t(`courses:${MEASURE_I18N[key]}`) : key}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="overflow-x-auto">
         <svg width={svgWidth} height={svgHeight} className="mx-auto">
           <g transform={`translate(${margin.left},${margin.top})`}>
-            {labels.map((label, li) => {
+            {sortedIndices.map((li, rank) => {
+              const label = labels[li];
               const val = values[li] ?? 0;
               const barW = (val / maxVal) * plotW;
-              const y = li * (barHeight + gap);
+              const y = rank * (barHeight + gap);
               return (
                 <g key={label}>
                   {/* Color dot */}

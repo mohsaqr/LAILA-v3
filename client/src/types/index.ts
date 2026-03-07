@@ -45,6 +45,7 @@ export interface Course {
   updatedAt: string;
   publishedAt: string | null;
   curriculumViewMode?: CurriculumViewMode;
+  enabledLabs?: string | null;
   instructor?: {
     id: number;
     fullname: string;
@@ -65,6 +66,7 @@ export interface CourseModule {
   label: string | null; // e.g., "Week 1 - Foundations"
   orderIndex: number;
   isPublished: boolean;
+  interactiveLabs?: string | null;
   lectures?: Lecture[];
   codeLabs?: CodeLab[];
   assignments?: Assignment[];

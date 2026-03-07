@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Settings, Eye, EyeOff, Layers, FileEdit, Bot, ChevronDown, Heart, Beaker, Check, ExternalLink, FileQuestion, MessageSquare, Trash2, ClipboardList } from 'lucide-react';
+import { Plus, Settings, Eye, EyeOff, Layers, FileEdit, Bot, ChevronDown, Heart, Beaker, Check, ExternalLink, FileQuestion, MessageSquare, Trash2, ClipboardList, Network } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../../api/courses';
 import { codeLabsApi } from '../../api/codeLabs';
@@ -40,7 +40,7 @@ interface CodeLabFormData {
   description: string;
 }
 
-type CodeLabModalTab = 'create' | 'templates';
+type CodeLabModalTab = 'create' | 'templates' | 'interactive';
 
 interface AssignmentFormData {
   title: string;
@@ -334,6 +334,15 @@ export const CurriculumEditor = () => {
     onError: () => toast.error(t('failed_to_remove_lab_template')),
   });
 
+  // Interactive lab add/remove per module
+  const updateModuleInteractiveLabs = useMutation({
+    mutationFn: ({ moduleId, interactiveLabs }: { moduleId: number; interactiveLabs: string | null }) =>
+      coursesApi.updateModule(moduleId, { interactiveLabs } as any),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+    },
+  });
+
   // Assignment mutations
   const createAssignmentMutation = useMutation({
     mutationFn: (data: AssignmentFormData & { moduleId: number }) =>
@@ -520,6 +529,29 @@ export const CurriculumEditor = () => {
   const closeForumModal = () => {
     setForumModal({ isOpen: false });
     setForumForm({ title: '', description: '', isPublished: true, allowAnonymous: false });
+  };
+
+  // Interactive lab handlers
+  const handleAddInteractiveLab = (moduleId: number, labKey: string) => {
+    const mod = modules.find((m: CourseModule) => m.id === moduleId);
+    const existing = mod?.interactiveLabs
+      ? mod.interactiveLabs.split(',').map((s: string) => s.trim()).filter(Boolean)
+      : [];
+    if (existing.includes(labKey)) return;
+    const updated = [...existing, labKey].join(',');
+    updateModuleInteractiveLabs.mutate({ moduleId, interactiveLabs: updated });
+    closeCodeLabModal();
+  };
+
+  const handleRemoveInteractiveLab = (mod: CourseModule, labKey: string) => {
+    const existing = mod.interactiveLabs
+      ? mod.interactiveLabs.split(',').map(s => s.trim()).filter(Boolean)
+      : [];
+    const updated = existing.filter(k => k !== labKey);
+    updateModuleInteractiveLabs.mutate({
+      moduleId: mod.id,
+      interactiveLabs: updated.length > 0 ? updated.join(',') : null,
+    });
   };
 
   // Form handlers
@@ -1016,6 +1048,7 @@ export const CurriculumEditor = () => {
                   onDeleteForum={setDeleteForumConfirm}
                   onMoveForumUp={handleMoveForumUp}
                   onMoveForumDown={handleMoveForumDown}
+                  onRemoveInteractiveLab={handleRemoveInteractiveLab}
                 />
               ))}
             </div>
@@ -1299,6 +1332,18 @@ export const CurriculumEditor = () => {
                 </span>
               )}
             </button>
+            <button
+              type="button"
+              onClick={() => setCodeLabModalTab('interactive')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-2 ${
+                codeLabModalTab === 'interactive'
+                  ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+            >
+              <Network className="w-4 h-4" />
+              {t('interactive_labs')}
+            </button>
           </div>
         )}
 
@@ -1457,6 +1502,43 @@ export const CurriculumEditor = () => {
             )}
           </div>
         )}
+
+        {/* Interactive Labs Tab */}
+        {codeLabModalTab === 'interactive' && !codeLabModal.codeLab && (
+          <div className="space-y-2 p-1">
+            {(() => {
+              const mod = modules.find((m: CourseModule) => m.id === codeLabModal.moduleId);
+              const existing = mod?.interactiveLabs
+                ? mod.interactiveLabs.split(',').map((s: string) => s.trim()).filter(Boolean)
+                : [];
+              const labs = [
+                { key: 'tna', label: t('interactive_lab_tna') },
+                { key: 'sna', label: t('interactive_lab_sna') },
+              ];
+              return labs.map(lab => {
+                const added = existing.includes(lab.key);
+                return (
+                  <button
+                    key={lab.key}
+                    onClick={() => !added && codeLabModal.moduleId && handleAddInteractiveLab(codeLabModal.moduleId, lab.key)}
+                    disabled={added}
+                    className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors text-left ${
+                      added
+                        ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-violet-300 dark:hover:border-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20'
+                    }`}
+                  >
+                    <Network className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+                    <span className="font-medium text-gray-900 dark:text-white">{lab.label}</span>
+                    {added && (
+                      <span className="ml-auto text-xs text-gray-400">{t('already_added')}</span>
+                    )}
+                  </button>
+                );
+              });
+            })()}
+          </div>
+        )}
       </Modal>
 
       {/* Delete Code Lab Confirmation */}
@@ -1487,13 +1569,6 @@ export const CurriculumEditor = () => {
             placeholder={t('assignment_title_placeholder')}
             required
           />
-          <TextArea
-            label={t('assignment_description')}
-            value={assignmentForm.description}
-            onChange={e => setAssignmentForm(f => ({ ...f, description: e.target.value }))}
-            placeholder={t('assignment_description_placeholder')}
-            rows={3}
-          />
           <Select
             label={t('submission_type')}
             value={assignmentForm.submissionType}
@@ -1509,6 +1584,13 @@ export const CurriculumEditor = () => {
               { value: 'mixed', label: t('text_file_submission') },
               { value: 'ai_agent', label: t('ai_agent_submission') },
             ]}
+          />
+          <TextArea
+            label={t('assignment_description')}
+            value={assignmentForm.description}
+            onChange={e => setAssignmentForm(f => ({ ...f, description: e.target.value }))}
+            placeholder={t('assignment_description_placeholder')}
+            rows={3}
           />
           {assignmentForm.submissionType === 'ai_agent' && (
             <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700">
@@ -1671,6 +1753,7 @@ export const CurriculumEditor = () => {
         confirmText={t('common:delete')}
         loading={deleteCourseMutation.isPending}
       />
+
     </div>
   );
 };

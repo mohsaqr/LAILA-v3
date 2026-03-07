@@ -1061,5 +1061,13 @@
   "select_existing_assignment": "اختر مهمة موجودة",
   "unlink_assignment": "إلغاء ربط المهمة",
   "linked_assignment": "المهمة المرتبطة",
-  "assignments": "المهام"
+  "assignments": "المهام",
+  "add_interactive_lab": "إضافة مختبر تفاعلي",
+  "interactive_lab_tna": "تمرين TNA",
+  "interactive_lab_sna": "تمرين SNA",
+  "x_interactive_labs": "{{count}} مختبر تفاعلي",
+  "x_interactive_labs_plural": "{{count}} مختبرات تفاعلية",
+  "already_added": "مضاف بالفعل",
+  "interactive": "تفاعلي",
+  "interactive_labs": "المختبرات التفاعلية"
 }

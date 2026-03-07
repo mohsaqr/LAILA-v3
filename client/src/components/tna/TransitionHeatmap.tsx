@@ -35,42 +35,20 @@ export const TransitionHeatmap = ({ model }: TransitionHeatmapProps) => {
   }, [labels, weights]);
 
   const cellSize = Math.min(50, Math.max(28, 400 / labels.length));
-  const labelWidth = 80;
-  const topLabelHeight = 80;
+  const labelWidth = 90;
+  // Generous height for rotated −45° column labels so they never overlap cells
+  const maxLabelChars = labels.reduce((mx, l) => Math.max(mx, Math.min(l.length, 10)), 0);
+  const topLabelHeight = Math.max(90, maxLabelChars * 8);
   const svgW = labelWidth + labels.length * cellSize + 20;
   const svgH = topLabelHeight + labels.length * cellSize + 20;
 
   return (
     <div className="overflow-x-auto">
       <svg width={svgW} height={svgH} className="mx-auto">
-        {/* Column labels (top) */}
-        {labels.map((label, j) => (
-          <text
-            key={`col-${j}`}
-            x={labelWidth + j * cellSize + cellSize / 2}
-            y={topLabelHeight - 6}
-            textAnchor="end"
-            transform={`rotate(-45, ${labelWidth + j * cellSize + cellSize / 2}, ${topLabelHeight - 6})`}
-            className="fill-gray-700 dark:fill-gray-300"
-            fontSize={Math.min(11, cellSize * 0.4)}
-          >
-            {label.length > 10 ? label.slice(0, 9) + '\u2026' : label}
-          </text>
-        ))}
-
-        {/* Row labels + cells */}
-        {labels.map((rowLabel, i) => (
+        {/* Cells first (so labels render on top) */}
+        {labels.map((_, i) => (
           <g key={`row-${i}`}>
-            <text
-              x={labelWidth - 6}
-              y={topLabelHeight + i * cellSize + cellSize / 2 + 4}
-              textAnchor="end"
-              className="fill-gray-700 dark:fill-gray-300"
-              fontSize={Math.min(11, cellSize * 0.4)}
-            >
-              {rowLabel.length > 10 ? rowLabel.slice(0, 9) + '\u2026' : rowLabel}
-            </text>
-            {labels.map((_, j) => {
+            {labels.map((__, j) => {
               const val = matrix[i][j];
               const isHovered = hoveredCell?.i === i && hoveredCell?.j === j;
               const textColor = val / (maxVal || 1) > 0.5 ? '#ffffff' : '#333333';
@@ -107,6 +85,35 @@ export const TransitionHeatmap = ({ model }: TransitionHeatmapProps) => {
               );
             })}
           </g>
+        ))}
+
+        {/* Row labels (rendered after cells so they appear on top) */}
+        {labels.map((rowLabel, i) => (
+          <text
+            key={`rowlbl-${i}`}
+            x={labelWidth - 6}
+            y={topLabelHeight + i * cellSize + cellSize / 2 + 4}
+            textAnchor="end"
+            className="fill-gray-700 dark:fill-gray-300"
+            fontSize={Math.min(11, cellSize * 0.4)}
+          >
+            {rowLabel.length > 10 ? rowLabel.slice(0, 9) + '\u2026' : rowLabel}
+          </text>
+        ))}
+
+        {/* Column labels (rendered last so they appear on top) */}
+        {labels.map((label, j) => (
+          <text
+            key={`col-${j}`}
+            x={labelWidth + j * cellSize + cellSize / 2}
+            y={topLabelHeight - 6}
+            textAnchor="end"
+            transform={`rotate(-45, ${labelWidth + j * cellSize + cellSize / 2}, ${topLabelHeight - 6})`}
+            className="fill-gray-700 dark:fill-gray-300"
+            fontSize={Math.min(11, cellSize * 0.4)}
+          >
+            {label.length > 10 ? label.slice(0, 9) + '\u2026' : label}
+          </text>
         ))}
       </svg>
     </div>

@@ -16,6 +16,7 @@ import { Button } from '../components/common/Button';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { useLabWebR } from '../hooks/useLabWebR';
+import { useLabPyodide } from '../hooks/useLabPyodide';
 import { useTheme } from '../hooks/useTheme';
 import { LabTemplate } from '../types';
 
@@ -24,28 +25,44 @@ interface OutputItem {
   content: string;
 }
 
-// Inner component that uses WebR after lab is loaded
-const LabRunnerContent = ({ lab }: { lab: any }) => {
+interface LabHookResult {
+  isReady: boolean;
+  isLoading: boolean;
+  isExecuting: boolean;
+  isInstallingPackages: boolean;
+  packagesInstalled: boolean;
+  loadingStatus: string;
+  error: string | null;
+  executeCode: (code: string) => Promise<{ success: boolean; outputs: OutputItem[]; error?: string }>;
+  reset: () => Promise<void>;
+}
+
+const isPythonLab = (labType: string) => labType.startsWith('python');
+
+// Shared lab runner UI — receives hook result as props
+const LabRunnerUI = ({ lab, hook }: { lab: any; hook: LabHookResult }) => {
   const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
 
-  // Lab state
-  const [code, setCode] = useState('# Enter your R code here\n');
+  const defaultCode = isPythonLab(lab.labType)
+    ? '# Enter your Python code here\n'
+    : '# Enter your R code here\n';
+
+  const [code, setCode] = useState(defaultCode);
   const [outputs, setOutputs] = useState<OutputItem[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
 
-  // WebR hook - uses lab type to determine which packages to install
   const {
     isReady,
-    isLoading: webRLoading,
+    isLoading: runtimeLoading,
     isExecuting,
     isInstallingPackages,
     packagesInstalled,
     loadingStatus,
-    error: webRError,
+    error: runtimeError,
     executeCode,
-    reset: resetWebR,
-  } = useLabWebR(lab.labType);
+    reset: resetRuntime,
+  } = hook;
 
   const colors = {
     bg: isDark ? '#111827' : '#f3f4f6',
@@ -55,19 +72,15 @@ const LabRunnerContent = ({ lab }: { lab: any }) => {
     textSecondary: isDark ? '#9ca3af' : '#6b7280',
   };
 
-  // Handle template selection
   const handleSelectTemplate = useCallback((template: LabTemplate) => {
     setCode(template.code);
     setSelectedTemplateId(template.id);
     setOutputs([]);
   }, []);
 
-  // Handle code execution
   const handleRunCode = useCallback(async () => {
     if (!isReady || isExecuting) return;
-
     const result = await executeCode(code);
-
     if (result.success) {
       setOutputs(result.outputs);
     } else {
@@ -78,24 +91,26 @@ const LabRunnerContent = ({ lab }: { lab: any }) => {
     }
   }, [code, isReady, isExecuting, executeCode]);
 
-  // Handle session reset
   const handleResetSession = useCallback(async () => {
     setOutputs([]);
-    await resetWebR();
-  }, [resetWebR]);
+    await resetRuntime();
+  }, [resetRuntime]);
 
-  // Clear outputs
   const handleClearOutputs = useCallback(() => {
     setOutputs([]);
   }, []);
 
-  // Get loading message based on lab type
   const getLoadingMessage = () => {
-    if (lab.labType === 'tna') {
-      return 'Installing TNA packages may take a moment on first load...';
+    if (isPythonLab(lab.labType)) {
+      if (isInstallingPackages) return 'Installing Python packages (numpy, pandas, matplotlib)...';
+      return 'Setting up the Python environment...';
     }
+    if (lab.labType === 'tna') return 'Installing TNA packages may take a moment on first load...';
+    if (lab.labType === 'sna') return 'Installing igraph for Social Network Analysis...';
     return 'Setting up the R environment...';
   };
+
+  const langLabel = isPythonLab(lab.labType) ? 'Python' : 'R';
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: colors.bg }}>
@@ -126,23 +141,22 @@ const LabRunnerContent = ({ lab }: { lab: any }) => {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Status Indicator */}
             <div className="flex items-center gap-2 text-sm">
               <span
                 className={`w-2 h-2 rounded-full ${
                   isReady
                     ? 'bg-emerald-500'
-                    : webRLoading
+                    : runtimeLoading
                     ? 'bg-amber-500 animate-pulse'
                     : 'bg-red-500'
                 }`}
               />
               <span style={{ color: colors.textSecondary }}>
                 {isReady
-                  ? t('r_ready')
-                  : webRLoading
+                  ? `${langLabel} ready`
+                  : runtimeLoading
                   ? loadingStatus
-                  : webRError || t('r_error')}
+                  : runtimeError || `${langLabel} error`}
               </span>
             </div>
 
@@ -150,7 +164,7 @@ const LabRunnerContent = ({ lab }: { lab: any }) => {
               variant="secondary"
               size="sm"
               onClick={handleResetSession}
-              disabled={webRLoading}
+              disabled={runtimeLoading}
               icon={<RefreshCw className="w-4 h-4" />}
             >
               {t('reset_session')}
@@ -166,8 +180,8 @@ const LabRunnerContent = ({ lab }: { lab: any }) => {
           </div>
         </div>
 
-        {/* WebR Loading State */}
-        {webRLoading && (
+        {/* Loading State */}
+        {runtimeLoading && (
           <Card className="mb-6">
             <CardBody>
               <div className="flex items-center gap-4">
@@ -177,7 +191,7 @@ const LabRunnerContent = ({ lab }: { lab: any }) => {
                     {loadingStatus}
                   </p>
                   <p className="text-sm" style={{ color: colors.textSecondary }}>
-                    {isInstallingPackages ? getLoadingMessage() : 'Initializing R...'}
+                    {isInstallingPackages ? getLoadingMessage() : `Initializing ${langLabel}...`}
                   </p>
                 </div>
               </div>
@@ -194,16 +208,16 @@ const LabRunnerContent = ({ lab }: { lab: any }) => {
           </Card>
         )}
 
-        {/* WebR Error State */}
-        {webRError && !webRLoading && (
+        {/* Error State */}
+        {runtimeError && !runtimeLoading && (
           <Card className="mb-6">
             <CardBody>
               <div className="flex items-start gap-4">
                 <AlertTriangle className="w-6 h-6 text-red-500 flex-shrink-0" />
                 <div>
-                  <p className="font-medium text-red-600">Failed to Initialize R Environment</p>
+                  <p className="font-medium text-red-600">Failed to Initialize {langLabel} Environment</p>
                   <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-                    {webRError}
+                    {runtimeError}
                   </p>
                   <Button
                     size="sm"
@@ -222,7 +236,6 @@ const LabRunnerContent = ({ lab }: { lab: any }) => {
 
         {/* Main Content */}
         <div className="grid lg:grid-cols-4 gap-6">
-          {/* Templates Sidebar */}
           <div className="lg:col-span-1">
             <LabTemplates
               templates={lab.templates || []}
@@ -230,7 +243,6 @@ const LabRunnerContent = ({ lab }: { lab: any }) => {
               onSelectTemplate={handleSelectTemplate}
             />
 
-            {/* Tips */}
             <Card className="mt-6">
               <CardBody className="p-4">
                 <h3 className="font-medium mb-3" style={{ color: colors.textPrimary }}>
@@ -247,9 +259,7 @@ const LabRunnerContent = ({ lab }: { lab: any }) => {
             </Card>
           </div>
 
-          {/* Editor and Output */}
           <div className="lg:col-span-3 space-y-6">
-            {/* Code Editor */}
             <LabCodeEditor
               code={code}
               onChange={setCode}
@@ -258,7 +268,6 @@ const LabRunnerContent = ({ lab }: { lab: any }) => {
               isReady={isReady}
             />
 
-            {/* Output */}
             <LabOutput outputs={outputs} onClear={handleClearOutputs} labId={lab.id} />
           </div>
         </div>
@@ -267,12 +276,23 @@ const LabRunnerContent = ({ lab }: { lab: any }) => {
   );
 };
 
+// Wrapper that uses WebR hook
+const RLabRunnerContent = ({ lab }: { lab: any }) => {
+  const hook = useLabWebR(lab.labType);
+  return <LabRunnerUI lab={lab} hook={hook} />;
+};
+
+// Wrapper that uses Pyodide hook
+const PythonLabRunnerContent = ({ lab }: { lab: any }) => {
+  const hook = useLabPyodide(lab.labType);
+  return <LabRunnerUI lab={lab} hook={hook} />;
+};
+
 export const LabRunner = () => {
   const { t } = useTranslation(['courses', 'common']);
   const { id } = useParams<{ id: string }>();
   const { isDark } = useTheme();
 
-  // Fetch lab data first
   const { data: lab, isLoading: labLoading } = useQuery({
     queryKey: ['lab', id],
     queryFn: () => customLabsApi.getLabById(Number(id)),
@@ -281,8 +301,6 @@ export const LabRunner = () => {
 
   const colors = {
     bg: isDark ? '#111827' : '#f3f4f6',
-    cardBg: isDark ? '#1f2937' : '#ffffff',
-    border: isDark ? '#374151' : '#e5e7eb',
     textPrimary: isDark ? '#f3f4f6' : '#111827',
     textSecondary: isDark ? '#9ca3af' : '#6b7280',
   };
@@ -312,6 +330,9 @@ export const LabRunner = () => {
     );
   }
 
-  // Once lab is loaded, render the content with the appropriate WebR hook
-  return <LabRunnerContent lab={lab} />;
+  // Dispatch to the right runtime
+  if (isPythonLab(lab.labType)) {
+    return <PythonLabRunnerContent lab={lab} />;
+  }
+  return <RLabRunnerContent lab={lab} />;
 };

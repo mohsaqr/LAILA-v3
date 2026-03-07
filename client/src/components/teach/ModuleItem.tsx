@@ -20,6 +20,7 @@ import {
   Beaker,
   ExternalLink,
   MessageSquare,
+  Network,
 } from 'lucide-react';
 import { CourseModule, Lecture, CodeLab, Assignment, LabAssignment, Forum } from '../../types';
 import { Button } from '../common/Button';
@@ -64,6 +65,8 @@ interface ModuleItemProps {
   onDeleteForum?: (forum: Forum) => void;
   onMoveForumUp?: (forum: Forum, module: CourseModule) => void;
   onMoveForumDown?: (forum: Forum, module: CourseModule) => void;
+  // Interactive lab handlers
+  onRemoveInteractiveLab?: (module: CourseModule, labKey: string) => void;
   // Lecture-level assignments keyed by lectureId
   lectureAssignments?: Record<number, Assignment[]>;
 }
@@ -100,6 +103,7 @@ export const ModuleItem = ({
   onDeleteForum,
   onMoveForumUp,
   onMoveForumDown,
+  onRemoveInteractiveLab,
   lectureAssignments = {},
 }: ModuleItemProps) => {
   const { t } = useTranslation(['teaching']);
@@ -109,6 +113,9 @@ export const ModuleItem = ({
   const assignments = module.assignments || [];
   const labAssignments = module.labAssignments || [];
   const forums = module.forums || [];
+  const interactiveLabKeys = module.interactiveLabs
+    ? module.interactiveLabs.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
 
   return (
     <div className="border border-gray-200 rounded-lg bg-white">
@@ -150,6 +157,7 @@ export const ModuleItem = ({
             {labAssignments.length > 0 && ` • ${t('x_lab_templates', { count: labAssignments.length })}`}
             {assignments.length > 0 && ` • ${t('x_assignments', { count: assignments.length })}`}
             {forums.length > 0 && ` • ${t('x_forums', { count: forums.length })}`}
+            {interactiveLabKeys.length > 0 && ` • ${t('x_interactive_labs', { count: interactiveLabKeys.length })}`}
           </span>
         </div>
 
@@ -391,6 +399,37 @@ export const ModuleItem = ({
                     onMoveDown={() => onMoveForumDown?.(forum, module)}
                   />
                 ))}
+            </div>
+          )}
+
+          {/* Interactive Labs */}
+          {interactiveLabKeys.length > 0 && (
+            <div className="pt-2 border-t border-gray-100 mt-2 space-y-2">
+              {interactiveLabKeys.map(labKey => (
+                <div
+                  key={labKey}
+                  className="flex items-center gap-3 p-3 rounded-lg bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800"
+                >
+                  <Network className="w-5 h-5 text-violet-600 dark:text-violet-400 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium text-gray-900 dark:text-white truncate">
+                      {labKey === 'tna' ? t('interactive_lab_tna') : labKey === 'sna' ? t('interactive_lab_sna') : labKey}
+                    </span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-800 text-violet-700 dark:text-violet-300 ml-2">
+                      {t('interactive')}
+                    </span>
+                  </div>
+                  {onRemoveInteractiveLab && (
+                    <button
+                      onClick={() => onRemoveInteractiveLab(module, labKey)}
+                      className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                      title={t('remove_from_module')}
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
           )}
 

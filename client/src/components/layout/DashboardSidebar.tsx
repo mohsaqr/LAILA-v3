@@ -72,7 +72,11 @@ export const DashboardSidebar = () => {
   const studentNavItems: NavItem[] = [
     { label: t('dashboard'), icon: LayoutDashboard, path: '/dashboard' },
     { label: t('my_courses'), icon: GraduationCap, path: '/courses' },
-    { label: t('labs'), icon: FlaskConical, path: '/labs' },
+    {
+      label: currentCourseId ? t('course_labs') : t('labs'),
+      icon: FlaskConical,
+      path: currentCourseId ? `/courses/${currentCourseId}/labs` : '/labs',
+    },
     {
       label: currentCourseId ? t('course_forums') : t('forums'),
       icon: MessageSquare,
@@ -101,6 +105,11 @@ export const DashboardSidebar = () => {
   const instructorNavItems: NavItem[] = [
     { label: t('dashboard'), icon: LayoutDashboard, path: '/dashboard' },
     { label: t('my_courses'), icon: GraduationCap, path: '/courses' },
+    {
+      label: currentCourseId ? t('course_labs') : t('labs'),
+      icon: FlaskConical,
+      path: currentCourseId ? `/courses/${currentCourseId}/labs` : '/labs',
+    },
     { label: t('lab_templates'), icon: FlaskConical, path: '/teach/labs' },
     {
       label: currentCourseId ? t('course_quizzes') : t('quizzes'),

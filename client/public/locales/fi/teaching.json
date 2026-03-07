@@ -1066,5 +1066,13 @@
   "select_existing_assignment": "Valitse olemassa oleva tehtävä",
   "unlink_assignment": "Poista tehtävän linkitys",
   "linked_assignment": "Linkitetty tehtävä",
-  "assignments": "Tehtävät"
+  "assignments": "Tehtävät",
+  "add_interactive_lab": "Lisää interaktiivinen laboratorio",
+  "interactive_lab_tna": "TNA-harjoitus",
+  "interactive_lab_sna": "SNA-harjoitus",
+  "x_interactive_labs": "{{count}} interaktiivinen laboratorio",
+  "x_interactive_labs_plural": "{{count}} interaktiivista laboratoriota",
+  "already_added": "Jo lisätty",
+  "interactive": "Interaktiivinen",
+  "interactive_labs": "Interaktiiviset laboratoriot"
 }

@@ -297,6 +297,66 @@ class ActivityLogService {
   }
 
   /**
+   * Get daily activity counts grouped by verb.
+   */
+  async getDailyCounts(filters?: { courseId?: number; userId?: number; startDate?: Date; endDate?: Date }) {
+    const conditions: string[] = [];
+    const params: (string | number)[] = [];
+
+    if (filters?.courseId) {
+      conditions.push('course_id = ?');
+      params.push(filters.courseId);
+    }
+    if (filters?.userId) {
+      conditions.push('user_id = ?');
+      params.push(filters.userId);
+    }
+    if (filters?.startDate) {
+      conditions.push('timestamp >= ?');
+      params.push(filters.startDate.getTime());
+    }
+    if (filters?.endDate) {
+      conditions.push('timestamp <= ?');
+      params.push(filters.endDate.getTime());
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const rows = await prisma.$queryRawUnsafe<Array<{ day: string; verb: string; count: bigint }>>(
+      `SELECT date(timestamp / 1000, 'unixepoch') as day, verb, COUNT(*) as count
+       FROM learning_activity_logs
+       ${whereClause}
+       GROUP BY day, verb
+       ORDER BY day ASC, verb ASC`,
+      ...params,
+    );
+
+    // Build structured response: { days: string[], verbs: string[], series: Record<verb, number[]> }
+    const daySet = new Set<string>();
+    const verbSet = new Set<string>();
+    for (const row of rows) {
+      if (!row.day || !row.verb) continue;
+      daySet.add(row.day);
+      verbSet.add(row.verb);
+    }
+
+    const days = Array.from(daySet).sort();
+    const verbs = Array.from(verbSet).sort();
+    const dayIndex = new Map(days.map((d, i) => [d, i]));
+
+    const series: Record<string, number[]> = {};
+    for (const verb of verbs) {
+      series[verb] = new Array(days.length).fill(0);
+    }
+    for (const row of rows) {
+      if (!row.day || !row.verb) continue;
+      series[row.verb][dayIndex.get(row.day)!] = Number(row.count);
+    }
+
+    return { days, verbs, series };
+  }
+
+  /**
    * Export logs to CSV with all 28+ fields
    */
   async exportToCsv(filters: LogQueryFilters): Promise<string> {

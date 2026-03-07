@@ -579,6 +579,20 @@ export const activityLogApi = {
     return response.data.data;
   },
 
+  getDailyCounts: async (filters?: { courseId?: number; userId?: number; startDate?: string; endDate?: string }): Promise<{
+    days: string[];
+    verbs: string[];
+    series: Record<string, number[]>;
+  }> => {
+    const params = new URLSearchParams();
+    if (filters?.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters?.userId) params.append('userId', filters.userId.toString());
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    const response = await apiClient.get<any>(`/activity-log/daily-counts?${params.toString()}`);
+    return response.data.data;
+  },
+
   // Helper to build query string from filters
   _buildQueryString: (filters: ActivityLogFilters) => {
     const params = new URLSearchParams();

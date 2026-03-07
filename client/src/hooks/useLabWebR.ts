@@ -42,6 +42,11 @@ const LAB_PACKAGES: Record<string, string[]> = {
   statistics: [
     'base64enc',  // For plot capture only
   ],
+  sna: [
+    'base64enc',
+    'igraph',
+    'ggplot2',
+  ],
   network: [
     'base64enc',
     'igraph',
@@ -238,6 +243,206 @@ ggplot_tna <- function(x, digits = 2, min_weight = 0.05, ...) {
 }
 `;
 
+// SNA-specific helper (loaded for SNA labs)
+const SNA_PLOT_HELPER = `
+# ── SNA plot helper: plot igraph with base64 capture ──
+plot_network <- function(g, layout = "circle", main = "",
+                         vertex.size = 15, vertex.label.cex = 0.7,
+                         edge.arrow.size = 0.4, edge.width = NULL,
+                         vertex.color = NULL, ...) {
+  if (!inherits(g, "igraph")) stop("g must be an igraph object")
+  tmp <- tempfile(fileext = ".png")
+  png(tmp, width = 900, height = 700, res = 100)
+  tryCatch({
+    lay <- switch(layout,
+      circle   = igraph::layout_in_circle(g),
+      fr       = igraph::layout_with_fr(g),
+      kk       = igraph::layout_with_kk(g),
+      tree     = igraph::layout_as_tree(g),
+      star     = igraph::layout_as_star(g),
+      grid     = igraph::layout_on_grid(g),
+      random   = igraph::layout_randomly(g),
+      drl      = igraph::layout_with_drl(g),
+      sphere   = igraph::layout_on_sphere(g),
+      igraph::layout_in_circle(g)
+    )
+    if (is.null(edge.width) && "weight" %in% igraph::edge_attr_names(g)) {
+      w <- igraph::E(g)$weight
+      edge.width <- 0.5 + 2.5 * (w - min(w)) / max(1e-9, max(w) - min(w))
+    }
+    if (is.null(vertex.color)) {
+      palette <- c("#5ab4ac","#e6ab02","#a985ca","#e15759","#5a9bd4",
+                   "#ed8c3b","#8bc34a","#e78ac3","#a8786a","#9580c4",
+                   "#66c2a5","#fc8d62","#8da0cb","#e78ac3","#a6d854")
+      vertex.color <- palette[(seq_len(igraph::vcount(g)) - 1) %% length(palette) + 1]
+    }
+    par(mar = c(1, 1, 2, 1))
+    plot(g, layout = lay, main = main,
+         vertex.size = vertex.size, vertex.label.cex = vertex.label.cex,
+         edge.arrow.size = edge.arrow.size, edge.width = edge.width,
+         vertex.color = vertex.color, vertex.label.color = "black",
+         vertex.frame.color = "gray40", ...)
+    dev.off()
+    if (file.exists(tmp) && file.info(tmp)$size > 0) {
+      raw_data <- readBin(tmp, "raw", file.info(tmp)$size)
+      b64 <- base64enc::base64encode(raw_data)
+      unlink(tmp)
+      cat("__PLOT_BASE64__", b64, "__END_PLOT__", sep = "")
+    } else {
+      unlink(tmp)
+    }
+  }, error = function(e) {
+    tryCatch(dev.off(), error = function(x) NULL)
+    unlink(tmp)
+    cat("Plot error:", e$message, "\\n")
+  })
+  invisible(NULL)
+}
+
+# Centrality comparison barplot
+plot_centrality <- function(g, measures = c("degree", "betweenness", "closeness", "eigenvector"),
+                            main = "Centrality Comparison") {
+  tmp <- tempfile(fileext = ".png")
+  png(tmp, width = 1000, height = 600, res = 100)
+  tryCatch({
+    n <- igraph::vcount(g)
+    node_names <- igraph::V(g)$name
+    if (is.null(node_names)) node_names <- as.character(seq_len(n))
+    results <- list()
+    for (m in measures) {
+      vals <- switch(m,
+        degree      = igraph::degree(g, normalized = TRUE),
+        in_degree   = igraph::degree(g, mode = "in", normalized = TRUE),
+        out_degree  = igraph::degree(g, mode = "out", normalized = TRUE),
+        betweenness = igraph::betweenness(g, normalized = TRUE),
+        closeness   = igraph::closeness(g, normalized = TRUE),
+        eigenvector = igraph::eigen_centrality(g)$vector,
+        pagerank    = igraph::page_rank(g)$vector,
+        hub         = igraph::hub_score(g)$vector,
+        authority   = igraph::authority_score(g)$vector,
+        igraph::degree(g, normalized = TRUE)
+      )
+      vals[!is.finite(vals)] <- 0
+      results[[m]] <- vals
+    }
+    mat <- do.call(rbind, results)
+    colnames(mat) <- node_names
+    colors <- c("#5ab4ac","#e6ab02","#a985ca","#e15759","#5a9bd4","#ed8c3b","#8bc34a","#e78ac3","#a8786a")
+    par(mar = c(6, 4, 3, 8), xpd = TRUE)
+    bp <- barplot(mat, beside = TRUE, col = colors[seq_along(measures)],
+                  main = main, las = 2, cex.names = 0.7, ylab = "Centrality Score")
+    legend("topright", inset = c(-0.18, 0), legend = measures,
+           fill = colors[seq_along(measures)], cex = 0.7, bty = "n")
+    dev.off()
+    if (file.exists(tmp) && file.info(tmp)$size > 0) {
+      raw_data <- readBin(tmp, "raw", file.info(tmp)$size)
+      b64 <- base64enc::base64encode(raw_data)
+      unlink(tmp)
+      cat("__PLOT_BASE64__", b64, "__END_PLOT__", sep = "")
+    } else {
+      unlink(tmp)
+    }
+  }, error = function(e) {
+    tryCatch(dev.off(), error = function(x) NULL)
+    unlink(tmp)
+    cat("Plot error:", e$message, "\\n")
+  })
+  invisible(NULL)
+}
+
+# Community detection with colored plot
+plot_communities <- function(g, algorithm = "louvain", layout = "fr", main = NULL) {
+  tmp <- tempfile(fileext = ".png")
+  png(tmp, width = 900, height = 700, res = 100)
+  tryCatch({
+    comm <- switch(algorithm,
+      louvain          = igraph::cluster_louvain(igraph::as.undirected(g)),
+      walktrap         = igraph::cluster_walktrap(g),
+      label_prop       = igraph::cluster_label_prop(g),
+      edge_betweenness = igraph::cluster_edge_betweenness(g),
+      infomap          = igraph::cluster_infomap(g),
+      fast_greedy      = igraph::cluster_fast_greedy(igraph::as.undirected(g)),
+      igraph::cluster_louvain(igraph::as.undirected(g))
+    )
+    if (is.null(main)) main <- paste0("Community Detection (", algorithm, ") — ",
+                                       length(unique(igraph::membership(comm))), " communities")
+    lay <- switch(layout,
+      circle = igraph::layout_in_circle(g),
+      fr     = igraph::layout_with_fr(g),
+      kk     = igraph::layout_with_kk(g),
+      igraph::layout_with_fr(g)
+    )
+    palette <- c("#5ab4ac","#e6ab02","#a985ca","#e15759","#5a9bd4",
+                 "#ed8c3b","#8bc34a","#e78ac3","#a8786a","#9580c4")
+    mem <- igraph::membership(comm)
+    vcol <- palette[(mem - 1) %% length(palette) + 1]
+    par(mar = c(1, 1, 3, 1))
+    plot(g, layout = lay, main = main,
+         vertex.color = vcol, vertex.size = 15,
+         vertex.label.cex = 0.65, edge.arrow.size = 0.3,
+         vertex.frame.color = "gray40", vertex.label.color = "black")
+    dev.off()
+    if (file.exists(tmp) && file.info(tmp)$size > 0) {
+      raw_data <- readBin(tmp, "raw", file.info(tmp)$size)
+      b64 <- base64enc::base64encode(raw_data)
+      unlink(tmp)
+      cat("__PLOT_BASE64__", b64, "__END_PLOT__", sep = "")
+    } else {
+      unlink(tmp)
+    }
+    cat("\\nModularity:", round(igraph::modularity(comm), 4), "\\n")
+    cat("Communities:", length(unique(mem)), "\\n")
+    for (i in sort(unique(mem))) {
+      members <- igraph::V(g)$name[mem == i]
+      if (is.null(members)) members <- which(mem == i)
+      cat("  Community", i, "(", length(members), "nodes):", paste(members, collapse = ", "), "\\n")
+    }
+    invisible(comm)
+  }, error = function(e) {
+    tryCatch(dev.off(), error = function(x) NULL)
+    unlink(tmp)
+    cat("Plot error:", e$message, "\\n")
+  })
+}
+
+# Adjacency heatmap
+plot_adjacency <- function(g, main = "Adjacency Matrix") {
+  tmp <- tempfile(fileext = ".png")
+  png(tmp, width = 800, height = 700, res = 100)
+  tryCatch({
+    mat <- as.matrix(igraph::as_adjacency_matrix(g, attr = "weight", sparse = FALSE))
+    n <- nrow(mat)
+    node_names <- rownames(mat)
+    if (is.null(node_names)) node_names <- as.character(seq_len(n))
+    colors <- colorRampPalette(c("white", "#deebf7", "#3182bd", "#08306b"))(100)
+    par(mar = c(6, 6, 3, 2))
+    image(1:n, 1:n, t(mat[n:1, ]), col = colors, axes = FALSE,
+          main = main, xlab = "", ylab = "")
+    axis(1, at = 1:n, labels = node_names, las = 2, cex.axis = 0.65)
+    axis(2, at = 1:n, labels = rev(node_names), las = 2, cex.axis = 0.65)
+    for (i in 1:n) for (j in 1:n) {
+      val <- mat[n + 1 - j, i]
+      if (val > 0) text(i, j, round(val, 1), cex = max(0.4, 0.8 - n * 0.02),
+                        col = if (val > max(mat) * 0.6) "white" else "black")
+    }
+    dev.off()
+    if (file.exists(tmp) && file.info(tmp)$size > 0) {
+      raw_data <- readBin(tmp, "raw", file.info(tmp)$size)
+      b64 <- base64enc::base64encode(raw_data)
+      unlink(tmp)
+      cat("__PLOT_BASE64__", b64, "__END_PLOT__", sep = "")
+    } else {
+      unlink(tmp)
+    }
+  }, error = function(e) {
+    tryCatch(dev.off(), error = function(x) NULL)
+    unlink(tmp)
+    cat("Plot error:", e$message, "\\n")
+  })
+  invisible(NULL)
+}
+`;
+
 export const useLabWebR = (labType: string = 'custom'): UseLabWebRReturn => {
   const [isReady, setIsReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -336,9 +541,12 @@ export const useLabWebR = (labType: string = 'custom'): UseLabWebRReturn => {
       setLoadingStatus('Setting up environment...');
       await webR.evalRVoid(BASE_PLOT_HELPER);
 
-      // Add TNA-specific helpers if needed
+      // Add lab-type-specific helpers
       if (labType === 'tna') {
         await webR.evalRVoid(TNA_PLOT_HELPER);
+      }
+      if (labType === 'sna' || labType === 'network') {
+        await webR.evalRVoid(SNA_PLOT_HELPER);
       }
 
       setIsReady(true);
@@ -413,47 +621,69 @@ export const useLabWebR = (labType: string = 'custom'): UseLabWebRReturn => {
 
     try {
       const webR = webRRef.current;
+      const hasSnaHelper = code.includes('plot_network(') || code.includes('plot_centrality(') ||
+                           code.includes('plot_communities(') || code.includes('plot_adjacency(');
       const isPlotCode = code.includes('plot(') || code.includes('ggplot_tna(') || code.includes('ggplot(');
 
       let rCode: string;
 
-      if (isPlotCode && !code.includes('ggplot_tna(')) {
+      if (hasSnaHelper) {
+        // SNA helpers handle their own plot capture internally
         rCode = `
           paste(capture.output({
-            tryCatch({
-              capture_plot(quote({ ${code.replace(/`/g, "\\`")} }))
-            },
-            error = function(e) cat("Error:", conditionMessage(e), "\\n"),
-            warning = function(w) { invokeRestart("muffleWarning") }
+            tryCatch(
+              withCallingHandlers({
+                ${code.replace(/`/g, "\\`")}
+              },
+              warning = function(w) invokeRestart("muffleWarning")
+              ),
+            error = function(e) cat("Error:", conditionMessage(e), "\\n")
+            )
+          }), collapse = "\\n")
+        `;
+      } else if (isPlotCode && !code.includes('ggplot_tna(')) {
+        rCode = `
+          paste(capture.output({
+            tryCatch(
+              withCallingHandlers({
+                capture_plot(quote({ ${code.replace(/`/g, "\\`")} }))
+              },
+              warning = function(w) invokeRestart("muffleWarning")
+              ),
+            error = function(e) cat("Error:", conditionMessage(e), "\\n")
             )
           }), collapse = "\\n")
         `;
       } else if (code.includes('ggplot_tna(')) {
         rCode = `
           paste(capture.output({
-            tryCatch({
-              ${code.replace(/`/g, "\\`")}
-            },
-            error = function(e) cat("Error:", conditionMessage(e), "\\n"),
-            warning = function(w) { invokeRestart("muffleWarning") }
+            tryCatch(
+              withCallingHandlers({
+                ${code.replace(/`/g, "\\`")}
+              },
+              warning = function(w) invokeRestart("muffleWarning")
+              ),
+            error = function(e) cat("Error:", conditionMessage(e), "\\n")
             )
           }), collapse = "\\n")
         `;
       } else {
         rCode = `
           paste(capture.output({
-            tryCatch({
-              .exprs <- parse(text = ${JSON.stringify(code)})
-              .last_result <- NULL
-              for (.expr in .exprs) {
-                .last_result <- eval(.expr)
-              }
-              if (!is.null(.last_result)) {
-                print(.last_result)
-              }
-            },
-            error = function(e) cat("Error:", conditionMessage(e), "\\n"),
-            warning = function(w) { invokeRestart("muffleWarning") }
+            tryCatch(
+              withCallingHandlers({
+                .exprs <- parse(text = ${JSON.stringify(code)})
+                .last_result <- NULL
+                for (.expr in .exprs) {
+                  .last_result <- eval(.expr)
+                }
+                if (!is.null(.last_result)) {
+                  print(.last_result)
+                }
+              },
+              warning = function(w) invokeRestart("muffleWarning")
+              ),
+            error = function(e) cat("Error:", conditionMessage(e), "\\n")
             )
           }), collapse = "\\n")
         `;

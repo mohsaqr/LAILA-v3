@@ -275,6 +275,7 @@ export const CourseDetails = () => {
               </Card>
             )}
 
+
             {/* Standalone Assignments Section */}
             {hasAccess && standaloneAssignments.length > 0 && (
               <div className="mt-8">

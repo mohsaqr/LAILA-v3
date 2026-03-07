@@ -12,12 +12,13 @@ import {
   Code,
   Users,
   X,
-  GripVertical,
   ChevronDown,
   ChevronRight,
   Save,
   BookOpen,
   Loader2,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import { customLabsApi } from '../../api/customLabs';
 import { coursesApi } from '../../api/courses';
@@ -192,6 +193,17 @@ export const LabManager = () => {
     },
   });
 
+  const reorderTemplatesMutation = useMutation({
+    mutationFn: ({ labId, templateIds }: { labId: number; templateIds: number[] }) =>
+      customLabsApi.reorderTemplates(labId, templateIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['myLabs'] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to reorder templates');
+    },
+  });
+
   // Helpers
   const resetLabForm = () => {
     setLabForm({
@@ -252,6 +264,21 @@ export const LabManager = () => {
   const handleAssignLab = () => {
     if (!selectedLab || !assignCourseId) return;
     assignLabMutation.mutate({ labId: selectedLab.id, courseId: assignCourseId });
+  };
+
+  const moveTemplate = (lab: CustomLab, templateId: number, direction: 'up' | 'down') => {
+    if (!lab.templates) return;
+    const sorted = [...lab.templates].sort((a, b) => a.orderIndex - b.orderIndex);
+    const idx = sorted.findIndex(t => t.id === templateId);
+    if (idx < 0) return;
+    if (direction === 'up' && idx === 0) return;
+    if (direction === 'down' && idx === sorted.length - 1) return;
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    [sorted[idx], sorted[swapIdx]] = [sorted[swapIdx], sorted[idx]];
+    reorderTemplatesMutation.mutate({
+      labId: lab.id,
+      templateIds: sorted.map(t => t.id),
+    });
   };
 
   const openEditModal = (lab: CustomLab) => {
@@ -432,16 +459,31 @@ export const LabManager = () => {
 
                           {lab.templates && lab.templates.length > 0 ? (
                             <div className="space-y-2">
-                              {lab.templates
-                                .sort((a, b) => a.orderIndex - b.orderIndex)
-                                .map((template) => (
+                              {(() => {
+                                const sorted = [...lab.templates].sort((a, b) => a.orderIndex - b.orderIndex);
+                                return sorted.map((template, idx) => (
                                   <div
                                     key={template.id}
                                     className="flex items-center justify-between p-3 rounded-lg border"
                                     style={{ borderColor: colors.border, backgroundColor: colors.inputBg }}
                                   >
                                     <div className="flex items-center gap-3">
-                                      <GripVertical className="w-4 h-4" style={{ color: colors.textSecondary }} />
+                                      <div className="flex flex-col">
+                                        <button
+                                          onClick={() => moveTemplate(lab, template.id, 'up')}
+                                          disabled={idx === 0 || reorderTemplatesMutation.isPending}
+                                          className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                                        >
+                                          <ArrowUp className="w-3.5 h-3.5" style={{ color: colors.textSecondary }} />
+                                        </button>
+                                        <button
+                                          onClick={() => moveTemplate(lab, template.id, 'down')}
+                                          disabled={idx === sorted.length - 1 || reorderTemplatesMutation.isPending}
+                                          className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                                        >
+                                          <ArrowDown className="w-3.5 h-3.5" style={{ color: colors.textSecondary }} />
+                                        </button>
+                                      </div>
                                       <div>
                                         <p className="font-medium" style={{ color: colors.textPrimary }}>
                                           {template.title}
@@ -477,7 +519,8 @@ export const LabManager = () => {
                                       </Button>
                                     </div>
                                   </div>
-                                ))}
+                                ));
+                              })()}
                             </div>
                           ) : (
                             <p className="text-sm" style={{ color: colors.textSecondary }}>

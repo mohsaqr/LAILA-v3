@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronRight, FileText, PlayCircle, Layers, FlaskConical, FileQuestion, ClipboardList, MessageSquare, Bot } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileText, PlayCircle, Layers, FlaskConical, FileQuestion, ClipboardList, MessageSquare, Bot, Network } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { ContentCard, ContentType, ContentCardSize } from './ContentCard';
 import type { CourseModule, Lecture, CodeLab, Assignment, CurriculumViewMode } from '../../types';
@@ -42,6 +42,7 @@ const iconMap: Record<ContentType, React.ElementType> = {
   ai_agent: Bot,
   forum: MessageSquare,
   ai: FileText,
+  interactive_lab: Network,
 };
 
 // Color mapping for list view
@@ -55,6 +56,7 @@ const colorMap: Record<ContentType, { bg: string; bgDark: string; text: string; 
   ai_agent: { bg: 'bg-teal-50', bgDark: 'rgba(8, 143, 143, 0.15)', text: '#0d9488', textDark: '#5eead4' },
   forum: { bg: 'bg-cyan-50', bgDark: 'rgba(6, 182, 212, 0.15)', text: '#0891b2', textDark: '#67e8f9' },
   ai: { bg: 'bg-teal-50', bgDark: 'rgba(20, 184, 166, 0.15)', text: '#0d9488', textDark: '#5eead4' },
+  interactive_lab: { bg: 'bg-violet-50', bgDark: 'rgba(139, 92, 246, 0.15)', text: '#7c3aed', textDark: '#c4b5fd' },
 };
 
 export const ModuleSection = ({
@@ -149,6 +151,14 @@ export const ModuleSection = ({
       metadata: forum._count?.threads ? t('x_threads', { count: forum._count.threads }) : undefined,
       href: `/courses/${courseId}/forums/${forum.id}`,
     })),
+    ...(module.interactiveLabs
+      ? module.interactiveLabs.split(',').map((key: string) => key.trim()).filter(Boolean).map((key: string, idx: number) => ({
+          id: -(idx + 1),
+          type: 'interactive_lab' as ContentType,
+          title: key === 'tna' ? t('exercise.title') : key === 'sna' ? t('sna.title') : key,
+          href: `/courses/${courseId}/${key}-exercise`,
+        }))
+      : []),
   ];
 
   // Calculate content counts for module header

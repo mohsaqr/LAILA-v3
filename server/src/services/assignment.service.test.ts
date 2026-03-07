@@ -919,7 +919,7 @@ describe('AssignmentService', () => {
       expect(prisma.assignmentSubmission.findMany).toHaveBeenCalledTimes(1);
     });
 
-    it('should query only active enrollments', async () => {
+    it('should query only active and completed enrollments', async () => {
       vi.mocked(prisma.enrollment.findMany).mockResolvedValue(mockEnrollments as any);
       vi.mocked(prisma.assignment.findMany).mockResolvedValue([]);
       vi.mocked(prisma.assignmentSubmission.findMany).mockResolvedValue([]);
@@ -928,7 +928,7 @@ describe('AssignmentService', () => {
 
       expect(prisma.enrollment.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { userId: 1, status: 'active' },
+          where: { userId: 1, status: { in: ['active', 'completed'] } },
         })
       );
     });

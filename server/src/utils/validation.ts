@@ -69,6 +69,7 @@ export const createCourseSchema = z.object({
   isPublic: z.boolean().optional(),
   thumbnail: z.string().optional().or(z.literal('')),
   curriculumViewMode: z.enum(['mini-cards', 'icons', 'list', 'accordion']).optional(),
+  enabledLabs: z.string().optional().nullable(),
 });
 
 export const updateCourseSchema = createCourseSchema.partial();
@@ -80,6 +81,7 @@ export const createModuleSchema = z.object({
   label: z.string().optional(), // e.g., "Week 1 - Foundations"
   orderIndex: z.number().int().min(0).optional(),
   isPublished: z.boolean().optional(),
+  interactiveLabs: z.string().optional().nullable(),
 });
 
 export const updateModuleSchema = createModuleSchema.partial();

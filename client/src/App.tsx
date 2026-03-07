@@ -92,6 +92,9 @@ import {
 } from './pages/teach';
 import { CourseAnalytics } from './pages/teach/CourseAnalytics';
 import { StudentAnalytics } from './pages/StudentAnalytics';
+import { TnaExercise } from './pages/TnaExercise';
+import { SnaExercise } from './pages/SnaExercise';
+import { CourseLabs } from './pages/CourseLabs';
 
 // Survey pages
 import { SurveyStandalone } from './pages/SurveyStandalone';
@@ -475,6 +478,48 @@ function App() {
           element={
             <ProtectedRoute>
               <Labs />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/labs/tna-exercise"
+          element={
+            <ProtectedRoute>
+              <TnaExercise />
+            </ProtectedRoute>
+          }
+        />
+        {/* Course Labs landing */}
+        <Route
+          path="/courses/:courseId/labs"
+          element={
+            <ProtectedRoute>
+              <CourseLabs />
+            </ProtectedRoute>
+          }
+        />
+        {/* TNA Exercise embedded in a course */}
+        <Route
+          path="/courses/:courseId/tna-exercise"
+          element={
+            <ProtectedRoute>
+              <TnaExercise />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/labs/sna-exercise"
+          element={
+            <ProtectedRoute>
+              <SnaExercise />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/courses/:courseId/sna-exercise"
+          element={
+            <ProtectedRoute>
+              <SnaExercise />
             </ProtectedRoute>
           }
         />

@@ -13,6 +13,15 @@ function generateSecurePassword(): string {
   return crypto.randomBytes(16).toString('base64url');
 }
 
+// Idempotent module creation — prevents duplicates on re-seed
+async function findOrCreateModule(data: { courseId: number; title: string; description: string; orderIndex: number; isPublished: boolean; label?: string }) {
+  const existing = await prisma.courseModule.findFirst({
+    where: { courseId: data.courseId, title: data.title },
+  });
+  if (existing) return existing;
+  return prisma.courseModule.create({ data });
+}
+
 async function main() {
   console.log('Seeding database...');
 
@@ -511,14 +520,12 @@ What you DON'T do:
   console.log('Created course:', course1.title);
 
   // Course 1 - Module 1
-  const c1m1 = await prisma.courseModule.create({
-    data: {
+  const c1m1 = await findOrCreateModule({
       courseId: course1.id,
       title: 'Foundations of AI in Research',
       description: 'Understanding the role and capabilities of AI in modern academic research.',
       orderIndex: 0,
       isPublished: true,
-    },
   });
 
   await prisma.lecture.create({
@@ -605,14 +612,12 @@ What you DON'T do:
   });
 
   // Course 1 - Module 2
-  const c1m2 = await prisma.courseModule.create({
-    data: {
+  const c1m2 = await findOrCreateModule({
       courseId: course1.id,
       title: 'Critical Evaluation of AI Outputs',
       description: 'Learn to assess AI-generated content for accuracy, bias, and appropriateness.',
       orderIndex: 1,
       isPublished: true,
-    },
   });
 
   await prisma.lecture.create({
@@ -704,14 +709,12 @@ What you DON'T do:
   });
 
   // Course 1 - Module 3
-  const c1m3 = await prisma.courseModule.create({
-    data: {
+  const c1m3 = await findOrCreateModule({
       courseId: course1.id,
       title: 'Practical Applications',
       description: 'Hands-on exercises applying AI tools to research tasks.',
       orderIndex: 2,
       isPublished: true,
-    },
   });
 
   await prisma.lecture.create({
@@ -831,14 +834,12 @@ What you DON'T do:
   console.log('Created course:', course2.title);
 
   // Course 2 - Module 1
-  const c2m1 = await prisma.courseModule.create({
-    data: {
+  const c2m1 = await findOrCreateModule({
       courseId: course2.id,
       title: 'Ethical Foundations',
       description: 'Understanding academic integrity in the age of AI.',
       orderIndex: 0,
       isPublished: true,
-    },
   });
 
   await prisma.lecture.create({
@@ -915,14 +916,12 @@ What you DON'T do:
   });
 
   // Course 2 - Module 2
-  const c2m2 = await prisma.courseModule.create({
-    data: {
+  const c2m2 = await findOrCreateModule({
       courseId: course2.id,
       title: 'AI-Enhanced Writing Process',
       description: 'Practical strategies for integrating AI into your writing workflow.',
       orderIndex: 1,
       isPublished: true,
-    },
   });
 
   await prisma.lecture.create({
@@ -1099,14 +1098,12 @@ Write bullet points of your key ideas, then ask AI to help expand them. Heavily 
   console.log('Created course:', course3.title);
 
   // Course 3 - Module 1
-  const c3m1 = await prisma.courseModule.create({
-    data: {
+  const c3m1 = await findOrCreateModule({
       courseId: course3.id,
       title: 'Understanding Data',
       description: 'Fundamental concepts of data and measurement.',
       orderIndex: 0,
       isPublished: true,
-    },
   });
 
   await prisma.lecture.create({
@@ -1240,14 +1237,12 @@ Write bullet points of your key ideas, then ask AI to help expand them. Heavily 
   });
 
   // Course 3 - Module 2
-  const c3m2 = await prisma.courseModule.create({
-    data: {
+  const c3m2 = await findOrCreateModule({
       courseId: course3.id,
       title: 'Data Visualization',
       description: 'Creating effective visual representations of data.',
       orderIndex: 1,
       isPublished: true,
-    },
   });
 
   await prisma.lecture.create({
@@ -1378,15 +1373,13 @@ Write bullet points of your key ideas, then ask AI to help expand them. Heavily 
   console.log('Created course:', course4.title);
 
   // ---- Module 1: Foundations of Pedagogy ----
-  const c4m1 = await prisma.courseModule.create({
-    data: {
+  const c4m1 = await findOrCreateModule({
       courseId: course4.id,
       title: 'Foundations of Pedagogy',
       description: 'Explore the meaning, history, and theoretical underpinnings of pedagogy.',
       label: 'Week 1',
       orderIndex: 0,
       isPublished: true,
-    },
   });
 
   // Lecture 1.1: What is Pedagogy?
@@ -1675,15 +1668,13 @@ Ask one question at a time and build on the student's responses. Help them see c
   });
 
   // ---- Module 2: Instructional Design ----
-  const c4m2 = await prisma.courseModule.create({
-    data: {
+  const c4m2 = await findOrCreateModule({
       courseId: course4.id,
       title: 'Instructional Design',
       description: 'Learn to design effective learning experiences using established frameworks.',
       label: 'Week 2',
       orderIndex: 1,
       isPublished: true,
-    },
   });
 
   // Lecture 2.1: Bloom's Taxonomy and Learning Objectives
@@ -2110,15 +2101,13 @@ ggplot(gain_summary, aes(x = group, y = mean_gain, fill = group)) +
   });
 
   // ---- Module 3: Teaching Strategies and Methods ----
-  const c4m3 = await prisma.courseModule.create({
-    data: {
+  const c4m3 = await findOrCreateModule({
       courseId: course4.id,
       title: 'Teaching Strategies and Methods',
       description: 'Explore evidence-based teaching strategies and assessment methods.',
       label: 'Week 3',
       orderIndex: 2,
       isPublished: true,
-    },
   });
 
   // Lecture 3.1: Active Learning Strategies
@@ -2627,15 +2616,13 @@ ggplot(survey_numeric, aes(x = feedback_quality, y = overall_satisfaction)) +
   });
 
   // ---- Module 4: Technology-Enhanced Learning ----
-  const c4m4 = await prisma.courseModule.create({
-    data: {
+  const c4m4 = await findOrCreateModule({
       courseId: course4.id,
       title: 'Technology-Enhanced Learning',
       description: 'Explore how technology and AI are transforming education.',
       label: 'Week 4',
       orderIndex: 3,
       isPublished: true,
-    },
   });
 
   // Lecture 4.1: Integrating Technology in Education
@@ -2934,17 +2921,16 @@ Key topics to explore: data privacy, algorithmic bias, equity of access, academi
   // CUSTOM LABS (TNA and Statistics)
   // =========================================================================
 
-  const tnaLab = await prisma.customLab.upsert({
-    where: { id: 1 },
-    update: {},
-    create: {
-      name: 'TNA Lab',
-      description: 'Transition Network Analysis - Explore group regulation patterns using the TNA R package',
-      labType: 'tna',
-      isPublic: true,
-      createdBy: admin.id,
-    },
-  });
+  const tnaLab = await prisma.customLab.findFirst({ where: { name: 'TNA Lab', labType: 'tna' } })
+    ?? await prisma.customLab.create({
+      data: {
+        name: 'TNA Lab',
+        description: 'Transition Network Analysis - Explore group regulation patterns using the TNA R package',
+        labType: 'tna',
+        isPublic: true,
+        createdBy: admin.id,
+      },
+    });
 
   // Add TNA templates
   const tnaTemplates = [
@@ -2962,17 +2948,16 @@ Key topics to explore: data privacy, algorithmic bias, equity of access, academi
     });
   }
 
-  const statsLab = await prisma.customLab.upsert({
-    where: { id: 2 },
-    update: {},
-    create: {
-      name: 'Statistics Lab',
-      description: 'Statistical Analysis - Perform common statistical tests and analyses using R',
-      labType: 'statistics',
-      isPublic: true,
-      createdBy: admin.id,
-    },
-  });
+  const statsLab = await prisma.customLab.findFirst({ where: { name: 'Statistics Lab', labType: 'statistics' } })
+    ?? await prisma.customLab.create({
+      data: {
+        name: 'Statistics Lab',
+        description: 'Statistical Analysis - Perform common statistical tests and analyses using R',
+        labType: 'statistics',
+        isPublic: true,
+        createdBy: admin.id,
+      },
+    });
 
   // Add Statistics templates
   const statsTemplates = [
@@ -2991,17 +2976,16 @@ Key topics to explore: data privacy, algorithmic bias, equity of access, academi
   }
 
   // MSLQ Survey Lab (Pintrich et al., 1991)
-  const mslqLab = await prisma.customLab.upsert({
-    where: { id: 3 },
-    update: {},
-    create: {
-      name: 'MSLQ Survey Analysis',
-      description: 'Motivated Strategies for Learning Questionnaire (Pintrich et al., 1991) — Analyze motivation and self-regulated learning strategies and their relationship to academic achievement.',
-      labType: 'mslq',
-      isPublic: true,
-      createdBy: admin.id,
-    },
-  });
+  const mslqLab = await prisma.customLab.findFirst({ where: { name: 'MSLQ Survey Analysis', labType: 'mslq' } })
+    ?? await prisma.customLab.create({
+      data: {
+        name: 'MSLQ Survey Analysis',
+        description: 'Motivated Strategies for Learning Questionnaire (Pintrich et al., 1991) — Analyze motivation and self-regulated learning strategies and their relationship to academic achievement.',
+        labType: 'mslq',
+        isPublic: true,
+        createdBy: admin.id,
+      },
+    });
   const existingMslqTemplates = await prisma.labTemplate.count({ where: { labId: mslqLab.id } });
   if (existingMslqTemplates === 0) {
     await prisma.labTemplate.createMany({
@@ -3072,17 +3056,16 @@ summary(model)` },
   }
 
   // COLLES Survey Lab (Taylor & Maor, 2000)
-  const collesLab = await prisma.customLab.upsert({
-    where: { id: 4 },
-    update: {},
-    create: {
-      name: 'COLLES Survey Analysis',
-      description: 'Constructivist On-Line Learning Environment Survey (Taylor & Maor, 2000) — Evaluate online learning environments across relevance, reflective thinking, interactivity, tutor support, peer support, and interpretation.',
-      labType: 'colles',
-      isPublic: true,
-      createdBy: admin.id,
-    },
-  });
+  const collesLab = await prisma.customLab.findFirst({ where: { name: 'COLLES Survey Analysis', labType: 'colles' } })
+    ?? await prisma.customLab.create({
+      data: {
+        name: 'COLLES Survey Analysis',
+        description: 'Constructivist On-Line Learning Environment Survey (Taylor & Maor, 2000) — Evaluate online learning environments across relevance, reflective thinking, interactivity, tutor support, peer support, and interpretation.',
+        labType: 'colles',
+        isPublic: true,
+        createdBy: admin.id,
+      },
+    });
   const existingCollesTemplates = await prisma.labTemplate.count({ where: { labId: collesLab.id } });
   if (existingCollesTemplates === 0) {
     await prisma.labTemplate.createMany({
@@ -3154,17 +3137,16 @@ ggplot(coefs, aes(x = predictor, y = beta, fill = beta > 0)) +
   }
 
   // SPQ Survey Lab (Biggs et al., 2001)
-  const spqLab = await prisma.customLab.upsert({
-    where: { id: 5 },
-    update: {},
-    create: {
-      name: 'R-SPQ-2F Survey Analysis',
-      description: 'Revised Study Process Questionnaire (Biggs, Kember & Leung, 2001) — Measure deep vs surface approaches to learning and their impact on academic performance.',
-      labType: 'spq',
-      isPublic: true,
-      createdBy: admin.id,
-    },
-  });
+  const spqLab = await prisma.customLab.findFirst({ where: { name: 'R-SPQ-2F Survey Analysis', labType: 'spq' } })
+    ?? await prisma.customLab.create({
+      data: {
+        name: 'R-SPQ-2F Survey Analysis',
+        description: 'Revised Study Process Questionnaire (Biggs, Kember & Leung, 2001) — Measure deep vs surface approaches to learning and their impact on academic performance.',
+        labType: 'spq',
+        isPublic: true,
+        createdBy: admin.id,
+      },
+    });
   const existingSpqTemplates = await prisma.labTemplate.count({ where: { labId: spqLab.id } });
   if (existingSpqTemplates === 0) {
     await prisma.labTemplate.createMany({
@@ -3236,7 +3218,388 @@ ggplot(spq, aes(x = deep_approach, y = gpa, color = surface_approach)) +
     });
   }
 
-  console.log('Created custom labs: TNA, Statistics, MSLQ, COLLES, R-SPQ-2F');
+  // SNA Lab (Social Network Analysis with igraph)
+  const snaLab = await prisma.customLab.findFirst({ where: { name: 'SNA Lab', labType: 'sna' } })
+    ?? await prisma.customLab.create({
+      data: {
+        name: 'SNA Lab',
+        description: 'Social Network Analysis with igraph — centrality, communities, resilience, and more',
+        labType: 'sna',
+        isPublic: true,
+        createdBy: admin.id,
+      },
+    });
+  const existingSnaTemplates = await prisma.labTemplate.count({ where: { labId: snaLab.id } });
+  if (existingSnaTemplates === 0) {
+    await prisma.labTemplate.createMany({
+      data: [
+        { labId: snaLab.id, title: '1. Build a Network from an Edge List', description: 'Create an igraph network from an edge list and visualize it', orderIndex: 0, code: `library(igraph)
+
+# Create a directed, weighted network from an edge list
+edges <- data.frame(
+  from   = c("Alice","Alice","Bob","Bob","Charlie","Diana","Diana","Eve","Eve","Frank",
+             "Grace","Grace","Hannah","Ivan","Ivan","Julia","Julia","Karl","Laura","Laura"),
+  to     = c("Bob","Charlie","Charlie","Diana","Alice","Eve","Frank","Frank","Grace","Grace",
+             "Hannah","Ivan","Ivan","Julia","Karl","Karl","Laura","Alice","Bob","Diana"),
+  weight = c(3, 2, 5, 1, 2, 4, 3, 2, 5, 1, 3, 2, 4, 1, 3, 2, 5, 1, 3, 2)
+)
+
+g <- graph_from_data_frame(edges, directed = TRUE)
+cat("Network created:\\n")
+cat("  Nodes:", vcount(g), "\\n")
+cat("  Edges:", ecount(g), "\\n")
+cat("  Directed:", is_directed(g), "\\n\\n")
+
+plot_network(g, layout = "circle", main = "Circle Layout")
+plot_network(g, layout = "fr", main = "Force-Directed Layout")` },
+        { labId: snaLab.id, title: '2. Network Descriptive Statistics', description: 'Compute density, diameter, transitivity, reciprocity, and more', orderIndex: 1, code: `library(igraph)
+
+set.seed(42)
+edges <- data.frame(
+  from   = c("Amy","Amy","Ben","Ben","Cat","Cat","Dan","Dan","Eve","Eve",
+             "Fay","Fay","Guy","Guy","Hal","Ivy","Ivy","Jay","Jay","Kim",
+             "Amy","Ben","Cat","Dan","Eve"),
+  to     = c("Ben","Cat","Cat","Dan","Dan","Eve","Eve","Fay","Fay","Guy",
+             "Guy","Hal","Hal","Ivy","Ivy","Jay","Kim","Kim","Amy","Amy",
+             "Eve","Fay","Guy","Hal","Ivy"),
+  weight = c(5,3,4,2,3,5,2,4,3,2,5,1,3,4,2,3,5,2,4,3,1,2,3,1,2)
+)
+g <- graph_from_data_frame(edges, directed = TRUE)
+
+cat("=== NETWORK DESCRIPTIVE STATISTICS ===\\n\\n")
+cat("Nodes:", vcount(g), "  Edges:", ecount(g), "\\n")
+cat("Density:", round(edge_density(g), 4), "\\n")
+cat("Diameter:", diameter(g, directed = TRUE), "\\n")
+cat("Avg Path Length:", round(mean_distance(g, directed = TRUE), 3), "\\n")
+cat("Transitivity:", round(transitivity(g, type = "global"), 4), "\\n")
+cat("Reciprocity:", round(reciprocity(g), 4), "\\n")
+
+plot_network(g, layout = "fr", main = "Classroom Friendship Network")` },
+        { labId: snaLab.id, title: '3. Centrality Analysis', description: 'Calculate and compare 7 centrality measures', orderIndex: 2, code: `library(igraph)
+
+set.seed(42)
+edges <- data.frame(
+  from   = c("Amy","Amy","Ben","Ben","Cat","Cat","Dan","Dan","Eve","Eve",
+             "Fay","Fay","Guy","Guy","Hal","Ivy","Ivy","Jay","Jay","Kim"),
+  to     = c("Ben","Cat","Cat","Dan","Dan","Eve","Eve","Fay","Fay","Guy",
+             "Guy","Hal","Hal","Ivy","Ivy","Jay","Kim","Kim","Amy","Amy"),
+  weight = c(5,3,4,2,3,5,2,4,3,2,5,1,3,4,2,3,5,2,4,3)
+)
+g <- graph_from_data_frame(edges, directed = TRUE)
+
+# Compute centralities
+cent <- data.frame(
+  node         = V(g)$name,
+  in_degree    = degree(g, mode = "in"),
+  out_degree   = degree(g, mode = "out"),
+  betweenness  = round(betweenness(g, directed = TRUE), 2),
+  closeness_in = round(closeness(g, mode = "in"), 4),
+  eigenvector  = round(eigen_centrality(g, directed = TRUE)$vector, 4),
+  pagerank     = round(page_rank(g)$vector, 4)
+)
+print(cent[order(-cent$betweenness), ])
+
+plot_centrality(g, measures = c("in_degree","out_degree","betweenness","pagerank"), main = "Centrality Comparison")
+plot_network(g, layout = "fr", main = "Network (node size = betweenness)", vertex.size = 8 + betweenness(g, directed = TRUE) * 2)` },
+        { labId: snaLab.id, title: '4. Community Detection', description: 'Detect and visualize communities using multiple algorithms', orderIndex: 3, code: `library(igraph)
+
+set.seed(42)
+g <- sample_sbm(30, pref.matrix = matrix(c(0.5, 0.05, 0.02,
+                                            0.05, 0.4, 0.03,
+                                            0.02, 0.03, 0.45), 3, 3),
+                block.sizes = c(10, 10, 10))
+V(g)$name <- paste0("N", 1:30)
+
+# Try multiple algorithms
+plot_communities(g, algorithm = "louvain", layout = "fr", main = "Louvain Communities")
+plot_communities(g, algorithm = "walktrap", layout = "fr", main = "Walktrap Communities")
+plot_communities(g, algorithm = "label_prop", layout = "fr", main = "Label Propagation")` },
+        { labId: snaLab.id, title: '5. Network Resilience', description: 'Simulate targeted attacks vs random failures', orderIndex: 4, code: `library(igraph)
+
+set.seed(42)
+g <- sample_pa(40, m = 2, directed = FALSE)
+V(g)$name <- paste0("N", 1:40)
+
+cat("Original network:", vcount(g), "nodes,", ecount(g), "edges\\n")
+cat("Connected:", is_connected(g), "\\n\\n")
+
+# Targeted attack (remove highest-degree nodes)
+g_attack <- g
+removed <- 0
+for (i in 1:10) {
+  d <- degree(g_attack)
+  target <- which.max(d)
+  g_attack <- delete_vertices(g_attack, target)
+  removed <- removed + 1
+  comps <- components(g_attack)
+  cat(sprintf("Removed %2d (targeted): %d nodes left, %d components, largest = %d\\n",
+      removed, vcount(g_attack), comps$no, max(comps$csize)))
+}
+
+cat("\\n--- Random failure ---\\n")
+g_random <- g
+for (i in 1:10) {
+  target <- sample(vcount(g_random), 1)
+  g_random <- delete_vertices(g_random, target)
+  comps <- components(g_random)
+  cat(sprintf("Removed %2d (random):   %d nodes left, %d components, largest = %d\\n",
+      i, vcount(g_random), comps$no, max(comps$csize)))
+}
+
+plot_network(g, layout = "fr", main = "Original Scale-Free Network")` },
+        { labId: snaLab.id, title: '6. Complete SNA Pipeline', description: 'End-to-end analysis of a classroom network', orderIndex: 5, code: `library(igraph)
+
+# Classroom collaboration network
+set.seed(123)
+students <- paste0("S", sprintf("%02d", 1:20))
+n_edges <- 45
+from <- sample(students, n_edges, replace = TRUE)
+to <- sample(students, n_edges, replace = TRUE)
+valid <- from != to
+edges <- data.frame(from = from[valid], to = to[valid], weight = sample(1:5, sum(valid), replace = TRUE))
+g <- graph_from_data_frame(edges, directed = TRUE, vertices = data.frame(name = students))
+g <- simplify(g, edge.attr.comb = list(weight = "max"))
+
+cat("=== CLASSROOM COLLABORATION NETWORK ===\\n")
+cat("Students:", vcount(g), "  Connections:", ecount(g), "\\n")
+cat("Density:", round(edge_density(g), 3), "\\n")
+cat("Reciprocity:", round(reciprocity(g), 3), "\\n\\n")
+
+# Key players
+pr <- page_rank(g)$vector
+bt <- betweenness(g, directed = TRUE)
+cat("Top 5 by PageRank:\\n")
+print(sort(pr, decreasing = TRUE)[1:5])
+cat("\\nTop 5 by Betweenness:\\n")
+print(sort(bt, decreasing = TRUE)[1:5])
+
+plot_network(g, layout = "fr", main = "Classroom Collaboration Network", vertex.size = 5 + pr * 80)
+plot_centrality(g, measures = c("in_degree","out_degree","betweenness","pagerank"), main = "Student Centralities")
+plot_communities(g, algorithm = "louvain", layout = "fr", main = "Student Groups (Louvain)")` },
+      ],
+    });
+  }
+
+  // Python Data Science Lab
+  const pythonLab = await prisma.customLab.findFirst({ where: { name: 'Python Data Science Lab', labType: 'python-data' } })
+    ?? await prisma.customLab.create({
+      data: {
+        name: 'Python Data Science Lab',
+        description: 'Data analysis, visualization, and machine learning with Python — NumPy, Pandas, Matplotlib, and scikit-learn',
+        labType: 'python-data',
+        isPublic: true,
+        createdBy: admin.id,
+      },
+    });
+  const existingPythonTemplates = await prisma.labTemplate.count({ where: { labId: pythonLab.id } });
+  if (existingPythonTemplates === 0) {
+    await prisma.labTemplate.createMany({
+      data: [
+        { labId: pythonLab.id, title: '1. NumPy Fundamentals', description: 'Array creation, operations, and linear algebra', orderIndex: 0, code: `import numpy as np
+
+# Create arrays
+a = np.array([1, 2, 3, 4, 5])
+b = np.linspace(0, 10, 6)
+mat = np.random.randn(4, 4)
+
+print("Array a:", a)
+print("Linspace b:", b)
+print("\\nRandom matrix:")
+print(np.round(mat, 3))
+print("\\nMean:", np.mean(mat))
+print("Std:", np.round(np.std(mat), 4))
+print("Eigenvalues:", np.round(np.linalg.eigvals(mat), 3))` },
+        { labId: pythonLab.id, title: '2. Pandas Data Exploration', description: 'Load, inspect, and summarize data', orderIndex: 1, code: `import pandas as pd
+import numpy as np
+
+np.random.seed(42)
+n = 50
+df = pd.DataFrame({
+    'student_id': range(1, n + 1),
+    'math_score': np.random.normal(75, 12, n).round(1),
+    'reading_score': np.random.normal(70, 15, n).round(1),
+    'study_hours': np.random.exponential(3, n).round(1),
+    'grade': np.random.choice(['A', 'B', 'C', 'D'], n, p=[0.2, 0.35, 0.3, 0.15])
+})
+
+print("Shape:", df.shape)
+print("\\nFirst 5 rows:")
+print(df.head())
+print("\\nDescriptives:")
+print(df.describe().round(2))
+print("\\nCorrelations:")
+print(df[['math_score', 'reading_score', 'study_hours']].corr().round(3))` },
+        { labId: pythonLab.id, title: '3. Matplotlib Visualizations', description: 'Scatter plots, histograms, and multi-panel figures', orderIndex: 2, code: `import matplotlib.pyplot as plt
+import numpy as np
+
+np.random.seed(42)
+x = np.random.normal(0, 1, 200)
+y = 0.8 * x + np.random.normal(0, 0.5, 200)
+
+fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+axes[0].scatter(x, y, alpha=0.5, c='#3498db', s=30)
+axes[0].set_title('Scatter Plot')
+axes[0].set_xlabel('X')
+axes[0].set_ylabel('Y')
+
+axes[1].hist(x, bins=25, color='#e74c3c', alpha=0.7, edgecolor='white')
+axes[1].set_title('Distribution of X')
+axes[1].set_xlabel('Value')
+
+plt.tight_layout()
+plt.show()` },
+        { labId: pythonLab.id, title: '4. Statistical Testing', description: 'T-tests, chi-squared, and correlation', orderIndex: 3, code: `import numpy as np
+from scipy import stats
+
+np.random.seed(42)
+group_a = np.random.normal(75, 10, 30)
+group_b = np.random.normal(80, 12, 30)
+
+t_stat, p_value = stats.ttest_ind(group_a, group_b)
+print("=== Independent Samples T-Test ===")
+print(f"Group A: M = {group_a.mean():.2f}, SD = {group_a.std():.2f}")
+print(f"Group B: M = {group_b.mean():.2f}, SD = {group_b.std():.2f}")
+print(f"t = {t_stat:.3f}, p = {p_value:.4f}")
+
+r, p = stats.pearsonr(group_a, group_b[:30])
+print(f"\\n=== Pearson Correlation ===")
+print(f"r = {r:.3f}, p = {p:.4f}")` },
+        { labId: pythonLab.id, title: '5. ML Classification Pipeline', description: 'Train, evaluate, and compare classifiers', orderIndex: 4, code: `import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score, classification_report
+
+X, y = make_classification(n_samples=200, n_features=5, n_informative=3, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+scaler = StandardScaler()
+X_train_s = scaler.fit_transform(X_train)
+X_test_s = scaler.transform(X_test)
+
+models = {
+    'Logistic Regression': LogisticRegression(random_state=42),
+    'Decision Tree': DecisionTreeClassifier(max_depth=4, random_state=42),
+}
+
+results = {}
+for name, model in models.items():
+    model.fit(X_train_s, y_train)
+    y_pred = model.predict(X_test_s)
+    acc = accuracy_score(y_test, y_pred)
+    results[name] = acc
+    print(f"\\n=== {name} (Accuracy: {acc:.3f}) ===")
+    print(classification_report(y_test, y_pred, digits=3))
+
+plt.barh(list(results.keys()), list(results.values()), color=['#3498db', '#2ecc71'])
+plt.xlim(0, 1)
+plt.xlabel('Accuracy')
+plt.title('Model Comparison')
+plt.tight_layout()
+plt.show()` },
+      ],
+    });
+  }
+
+  // Python SNA Lab
+  const pythonSnaLab = await prisma.customLab.findFirst({ where: { name: 'Python SNA Lab', labType: 'python-sna' } })
+    ?? await prisma.customLab.create({
+      data: {
+        name: 'Python SNA Lab',
+        description: 'Social Network Analysis with NetworkX — centrality, communities, resilience, ego networks, and more',
+        labType: 'python-sna',
+        isPublic: true,
+        createdBy: admin.id,
+      },
+    });
+  const existingPySnaTemplates = await prisma.labTemplate.count({ where: { labId: pythonSnaLab.id } });
+  if (existingPySnaTemplates === 0) {
+    await prisma.labTemplate.createMany({
+      data: [
+        { labId: pythonSnaLab.id, title: '1. Build a Network', description: 'Create a directed weighted network with NetworkX', orderIndex: 0, code: `import networkx as nx
+import matplotlib.pyplot as plt
+
+edges = [
+    ("Alice","Bob",3), ("Alice","Charlie",2), ("Bob","Charlie",5),
+    ("Bob","Diana",1), ("Charlie","Alice",2), ("Diana","Eve",4),
+    ("Diana","Frank",3), ("Eve","Frank",2), ("Eve","Grace",5),
+    ("Frank","Grace",1), ("Grace","Hannah",3), ("Hannah","Ivan",4),
+]
+G = nx.DiGraph()
+for u, v, w in edges:
+    G.add_edge(u, v, weight=w)
+
+print(f"Nodes: {G.number_of_nodes()}, Edges: {G.number_of_edges()}")
+
+pos = nx.spring_layout(G, seed=42)
+nx.draw(G, pos, with_labels=True, node_color='#5ab4ac',
+        node_size=600, font_size=9, arrows=True, arrowsize=15,
+        edge_color='gray', font_weight='bold')
+plt.title("Collaboration Network")
+plt.show()` },
+        { labId: pythonSnaLab.id, title: '2. Centrality Analysis', description: 'Compare PageRank, betweenness, and degree centrality', orderIndex: 1, code: `import networkx as nx
+import matplotlib.pyplot as plt
+import numpy as np
+
+edges = [
+    ("Amy","Ben",5), ("Amy","Cat",3), ("Ben","Cat",4), ("Ben","Dan",2),
+    ("Cat","Dan",3), ("Cat","Eve",5), ("Dan","Eve",2), ("Dan","Fay",4),
+    ("Eve","Fay",3), ("Eve","Guy",2), ("Fay","Guy",5), ("Guy","Ivy",4),
+    ("Ivy","Jay",3), ("Jay","Amy",4),
+]
+G = nx.DiGraph()
+for u, v, w in edges:
+    G.add_edge(u, v, weight=w)
+
+pr = nx.pagerank(G)
+bt = nx.betweenness_centrality(G)
+
+print(f"{'Node':>6} {'PageRank':>10} {'Betweenness':>12}")
+for n in sorted(G.nodes()):
+    print(f"{n:>6} {pr[n]:>10.4f} {bt[n]:>12.4f}")
+
+fig, ax = plt.subplots(figsize=(10, 5))
+nodes = sorted(G.nodes())
+x = np.arange(len(nodes))
+ax.bar(x - 0.15, [pr[n] for n in nodes], 0.3, label='PageRank', color='#3498db')
+ax.bar(x + 0.15, [bt[n] for n in nodes], 0.3, label='Betweenness', color='#e74c3c')
+ax.set_xticks(x)
+ax.set_xticklabels(nodes, rotation=45)
+ax.legend()
+ax.set_title("Centrality Comparison")
+plt.tight_layout()
+plt.show()` },
+        { labId: pythonSnaLab.id, title: '3. Community Detection', description: 'Detect communities with Louvain algorithm', orderIndex: 2, code: `import networkx as nx
+import matplotlib.pyplot as plt
+from networkx.algorithms.community import louvain_communities
+
+sizes = [10, 10, 10]
+probs = [[0.5, 0.05, 0.02], [0.05, 0.4, 0.03], [0.02, 0.03, 0.45]]
+G = nx.stochastic_block_model(sizes, probs, seed=42)
+
+communities = louvain_communities(G, seed=42)
+palette = ['#5ab4ac','#e6ab02','#a985ca','#e15759','#5a9bd4']
+color_map = {}
+for i, comm in enumerate(communities):
+    for node in comm:
+        color_map[node] = palette[i % len(palette)]
+
+pos = nx.spring_layout(G, seed=42)
+colors = [color_map[n] for n in G.nodes()]
+nx.draw(G, pos, with_labels=True, node_color=colors, node_size=400,
+        font_size=7, edge_color='gray', width=0.5)
+plt.title(f"Louvain Communities ({len(communities)} groups)")
+plt.show()
+
+for i, comm in enumerate(communities):
+    print(f"Community {i+1} ({len(comm)} nodes): {sorted(comm)}")` },
+      ],
+    });
+  }
+
+  console.log('Created custom labs: TNA, Statistics, MSLQ, COLLES, R-SPQ-2F, SNA, Python, Python-SNA');
 
   // =========================================================================
   // SURVEYS (Pedagogical surveys for the Pedagogy course)

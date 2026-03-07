@@ -19,6 +19,7 @@ import { CentralityBarChart } from '../../components/tna/CentralityBarChart';
 import { NetworkModal, ModalShell, useEscapeClose } from '../../components/tna/NetworkModal';
 import { ClustersTab } from '../../components/tna/ClustersTab';
 import { PatternsTab } from '../../components/tna/PatternsTab';
+import { ActivityTimelineChart } from '../../components/tna/ActivityTimelineChart';
 import { createColorMap, PALETTE_NAMES } from '../../components/tna/colorFix';
 import type { PaletteName } from '../../components/tna/colorFix';
 
@@ -27,7 +28,7 @@ import type { PaletteName } from '../../components/tna/colorFix';
 /* ------------------------------------------------------------------ */
 
 type ModelType = 'relative' | 'frequency' | 'co-occurrence' | 'attention';
-type PageTab = 'analytics' | 'clusters' | 'patterns' | 'settings';
+type PageTab = 'activity' | 'analytics' | 'clusters' | 'patterns' | 'settings';
 type SequenceMode = 'verb' | 'objectType' | 'combined' | 'raw';
 
 const MODEL_BUILDERS: Record<ModelType, typeof tna> = {
@@ -194,10 +195,10 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
 
   // Available tabs depend on mode
   const availableTabs: PageTab[] = isStudent
-    ? ['analytics', 'patterns']
+    ? ['activity', 'analytics', 'patterns']
     : isAdmin
-    ? ['analytics', 'clusters', 'patterns', 'settings']
-    : ['analytics', 'clusters', 'patterns', 'settings'];
+    ? ['activity', 'analytics', 'clusters', 'patterns', 'settings']
+    : ['activity', 'analytics', 'clusters', 'patterns', 'settings'];
 
   // Top-level tab
   const [activeTab, setActiveTab] = useState<PageTab>('analytics');
@@ -277,6 +278,17 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
         endDate: endDate || undefined,
         minSequenceLength,
         groupBy,
+      }),
+  });
+
+  const { data: dailyCounts, isLoading: dailyCountsLoading } = useQuery({
+    queryKey: ['dailyCounts', courseId, fixedUserId, startDate, endDate],
+    queryFn: () =>
+      activityLogApi.getDailyCounts({
+        courseId,
+        userId: fixedUserId,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
       }),
   });
 
@@ -425,7 +437,7 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
           {/* Tabs */}
           <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden text-sm mr-auto">
             {availableTabs.map(tab => {
-              const label = tab === 'analytics' ? t('network') : tab === 'clusters' ? t('clusters_title') : tab === 'patterns' ? t('patterns_title') : t('analytics_settings');
+              const label = tab === 'activity' ? t('activity_tab') : tab === 'analytics' ? t('network') : tab === 'clusters' ? t('clusters_title') : tab === 'patterns' ? t('patterns_title') : t('analytics_settings');
               return (
                 <button
                   key={tab}
@@ -528,8 +540,28 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
           </div>
         )}
 
-        {/* ========== No data state ========== */}
-        {!transformedData?.sequences?.length ? (
+        {/* ========== Activity tab (independent data source) ========== */}
+        {activeTab === 'activity' ? (
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-4">
+              {t('activity_timeline')}
+            </h3>
+            {dailyCountsLoading ? (
+              <Loading />
+            ) : dailyCounts && dailyCounts.days.length > 0 ? (
+              <ActivityTimelineChart
+                days={dailyCounts.days}
+                verbs={dailyCounts.verbs}
+                series={dailyCounts.series}
+                palette={palette}
+              />
+            ) : (
+              <div className="text-center py-16 text-gray-500 dark:text-gray-400">
+                {t('no_tna_data')}
+              </div>
+            )}
+          </div>
+        ) : !transformedData?.sequences?.length ? (
           <div className="text-center py-16 text-gray-500 dark:text-gray-400">
             {t('no_tna_data')}
           </div>

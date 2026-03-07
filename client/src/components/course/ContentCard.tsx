@@ -10,10 +10,11 @@ import {
   MessageSquare,
   Sparkles,
   Bot,
+  Network,
 } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 
-export type ContentType = 'lecture' | 'video' | 'mixed' | 'lab' | 'quiz' | 'assignment' | 'forum' | 'ai' | 'ai_agent';
+export type ContentType = 'lecture' | 'video' | 'mixed' | 'lab' | 'quiz' | 'assignment' | 'forum' | 'ai' | 'ai_agent' | 'interactive_lab';
 export type ContentCardSize = 'mini' | 'icon' | 'normal';
 
 interface ContentCardProps {
@@ -127,6 +128,16 @@ const contentConfigBase: Record<ContentType, {
     textDark: '#5eead4',
     borderLight: '#99f6e4',
     borderDark: 'rgba(20, 184, 166, 0.3)',
+  },
+  interactive_lab: {
+    icon: Network,
+    labelKey: 'content_interactive_lab',
+    bgLight: 'bg-violet-50',
+    bgDark: 'rgba(139, 92, 246, 0.15)',
+    textLight: '#7c3aed',
+    textDark: '#c4b5fd',
+    borderLight: '#ddd6fe',
+    borderDark: 'rgba(139, 92, 246, 0.3)',
   },
 };
 

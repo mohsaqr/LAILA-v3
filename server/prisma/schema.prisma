@@ -338,6 +338,7 @@ model Course {
   tutorRoutingMode           String                @default("all") @map("tutor_routing_mode")
   defaultTutorId             Int?                  @map("default_tutor_id")
   curriculumViewMode         String                @default("mini-cards") @map("curriculum_view_mode")
+  enabledLabs                String?               @map("enabled_labs")
   assignments                Assignment[]
   batchEnrollmentJobs        BatchEnrollmentJob[]
   announcements              CourseAnnouncement[]
@@ -388,14 +389,15 @@ model CourseModule {
   orderIndex     Int             @default(0) @map("order_index")
   isPublished    Boolean         @default(false) @map("is_published")
   createdAt      DateTime        @default(now()) @map("created_at")
-  updatedAt      DateTime        @updatedAt @map("updated_at")
-  assignments    Assignment[]
-  codeLabs       CodeLab[]
-  course         Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  forums         Forum[]
-  labAssignments LabAssignment[]
-  lectures       Lecture[]
-  quizzes        Quiz[]
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  interactiveLabs String?         @map("interactive_labs")
+  assignments     Assignment[]
+  codeLabs        CodeLab[]
+  course          Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  forums          Forum[]
+  labAssignments  LabAssignment[]
+  lectures        Lecture[]
+  quizzes         Quiz[]
 
   @@index([courseId])
   @@map("course_modules")

@@ -1061,5 +1061,13 @@
   "select_existing_assignment": "Seleccionar tarea existente",
   "unlink_assignment": "Desvincular tarea",
   "linked_assignment": "Tarea vinculada",
-  "assignments": "Tareas"
+  "assignments": "Tareas",
+  "add_interactive_lab": "Agregar laboratorio interactivo",
+  "interactive_lab_tna": "Ejercicio TNA",
+  "interactive_lab_sna": "Ejercicio SNA",
+  "x_interactive_labs": "{{count}} laboratorio interactivo",
+  "x_interactive_labs_plural": "{{count}} laboratorios interactivos",
+  "already_added": "Ya agregado",
+  "interactive": "Interactivo",
+  "interactive_labs": "Laboratorios interactivos"
 }

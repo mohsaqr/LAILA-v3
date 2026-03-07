@@ -30,6 +30,10 @@ interface TnaNetworkGraphProps {
   centralityData?: CentralityData;
   nodeSizeMetric?: string;
   modelType?: ModelType;
+  /** External node positions — if provided, overrides internal circle layout. */
+  externalPositions?: { x: number; y: number }[];
+  /** Maximum edge stroke width (default 4). */
+  maxEdgeWidth?: number;
 }
 
 function fmtWeight(w: number): string {
@@ -137,6 +141,8 @@ export const TnaNetworkGraph = ({
   centralityData,
   nodeSizeMetric = 'fixed',
   modelType,
+  externalPositions,
+  maxEdgeWidth = EDGE_WIDTH_MAX,
 }: TnaNetworkGraphProps) => {
   const { labels, weights, inits } = model;
   const isUndirected = modelType === 'co-occurrence';
@@ -172,11 +178,12 @@ export const TnaNetworkGraph = ({
   }, [centralityData, nodeSizeMetric, labels]);
 
   const nodePositions = useMemo(() => {
+    if (externalPositions && externalPositions.length === labels.length) return externalPositions;
     return labels.map((_, i) => {
       const angle = (2 * Math.PI * i) / labels.length - Math.PI / 2;
       return { x: cx + layoutRadius * Math.cos(angle), y: cy + layoutRadius * Math.sin(angle) };
     });
-  }, [labels, cx, cy, layoutRadius]);
+  }, [labels, cx, cy, layoutRadius, externalPositions]);
 
   const { edges, bidir } = useMemo(() => {
     const result: { from: number; to: number; weight: number }[] = [];
@@ -234,7 +241,7 @@ export const TnaNetworkGraph = ({
     return { normalizeWeight: normalize };
   }, [edges, selfLoops, globalMaxW, modelType]);
 
-  const widthScale = (w: number) => EDGE_WIDTH_MIN + (w / globalMaxW) * (EDGE_WIDTH_MAX - EDGE_WIDTH_MIN);
+  const widthScale = (w: number) => EDGE_WIDTH_MIN + (w / globalMaxW) * (maxEdgeWidth - EDGE_WIDTH_MIN);
   const opacityScale = (w: number) => EDGE_OPACITY_MIN + (w / globalMaxW) * (EDGE_OPACITY_MAX - EDGE_OPACITY_MIN);
 
   return (

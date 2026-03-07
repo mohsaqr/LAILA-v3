@@ -6,9 +6,15 @@ interface CentralityData {
   measures: Record<string, number[]>;
 }
 
-const DISPLAY_MEASURES = [
-  { key: 'InStrength', i18nKey: 'in_strength' },
-];
+const MEASURE_I18N: Record<string, string> = {
+  Degree: 'sna.m_degree',
+  InDegree: 'sna.m_in_degree',
+  OutDegree: 'sna.m_out_degree',
+  InStrength: 'sna.m_in_strength',
+  OutStrength: 'sna.m_out_strength',
+  Betweenness: 'sna.m_betweenness',
+  Closeness: 'sna.m_closeness',
+};
 
 interface TnaCentralityTableProps {
   centralityData: CentralityData;
@@ -16,13 +22,14 @@ interface TnaCentralityTableProps {
 }
 
 export const TnaCentralityTable = ({ centralityData, colorMap }: TnaCentralityTableProps) => {
-  const { t } = useTranslation(['admin']);
-  const [sortBy, setSortBy] = useState('InStrength');
+  const { t } = useTranslation(['courses', 'admin']);
+  const measureKeys = useMemo(() => Object.keys(centralityData.measures).filter(k => centralityData.measures[k]?.length > 0), [centralityData]);
+  const [sortBy, setSortBy] = useState(() => measureKeys[0] ?? 'InStrength');
   const [sortAsc, setSortAsc] = useState(false);
 
   const availableMeasures = useMemo(() => {
-    return DISPLAY_MEASURES.filter(m => centralityData.measures[m.key]);
-  }, [centralityData]);
+    return measureKeys.map(key => ({ key, i18nKey: MEASURE_I18N[key] }));
+  }, [measureKeys]);
 
   const rows = useMemo(() => {
     const { labels, measures } = centralityData;
@@ -59,7 +66,7 @@ export const TnaCentralityTable = ({ centralityData, colorMap }: TnaCentralityTa
               <th key={key}
                 className="text-right py-2 px-3 font-medium text-gray-600 dark:text-gray-300 cursor-pointer hover:text-gray-900 dark:hover:text-white select-none"
                 onClick={() => handleSort(key)}>
-                {t(i18nKey)}
+                {i18nKey ? t(`courses:${i18nKey}`) : key}
                 {sortBy === key && <span className="ml-1">{sortAsc ? '\u25B2' : '\u25BC'}</span>}
               </th>
             ))}

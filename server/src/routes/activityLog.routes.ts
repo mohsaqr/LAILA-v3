@@ -138,6 +138,22 @@ router.get('/filter-options', authenticateToken, asyncHandler(async (_req: AuthR
 }));
 
 /**
+ * GET /api/activity-log/daily-counts
+ * Get daily activity counts grouped by verb
+ */
+router.get('/daily-counts', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const filters = {
+    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    userId: req.query.userId ? parseInt(req.query.userId as string) : undefined,
+    startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+    endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+  };
+
+  const data = await activityLogService.getDailyCounts(filters);
+  res.json({ success: true, data });
+}));
+
+/**
  * GET /api/activity-log/export
  * Export logs as CSV or JSON
  */

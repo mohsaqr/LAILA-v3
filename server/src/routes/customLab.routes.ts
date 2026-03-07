@@ -120,6 +120,14 @@ router.delete('/:id', authenticateToken, requireInstructor, asyncHandler(async (
 
 // ============= LAB TEMPLATES =============
 
+// Reorder templates (must be before /:templateId routes)
+router.put('/:id/templates/reorder', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const labId = parseInt(req.params.id);
+  const { ids } = reorderSchema.parse(req.body);
+  const result = await customLabService.reorderTemplates(labId, req.user!.id, ids, req.user!.isAdmin);
+  res.json({ success: true, ...result });
+}));
+
 // Add template to lab
 router.post('/:id/templates', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
   const labId = parseInt(req.params.id);
@@ -140,14 +148,6 @@ router.put('/:id/templates/:templateId', authenticateToken, requireInstructor, a
 router.delete('/:id/templates/:templateId', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
   const templateId = parseInt(req.params.templateId);
   const result = await customLabService.deleteTemplate(templateId, req.user!.id, req.user!.isAdmin);
-  res.json({ success: true, ...result });
-}));
-
-// Reorder templates
-router.put('/:id/templates/reorder', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const labId = parseInt(req.params.id);
-  const { ids } = reorderSchema.parse(req.body);
-  const result = await customLabService.reorderTemplates(labId, req.user!.id, ids, req.user!.isAdmin);
   res.json({ success: true, ...result });
 }));
 

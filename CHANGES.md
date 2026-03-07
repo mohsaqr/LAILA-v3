@@ -1,11 +1,33 @@
+### 2026-03-07 — Rename clusters tab to "Learning Tactics"
+
+- `client/public/locales/en/admin.json`: `clusters_title` -> "Learning Tactics"
+- `client/public/locales/fi/admin.json`: `clusters_title` -> "Oppimistaktiikat"
+- `client/public/locales/ar/admin.json`: `clusters_title` -> "تكتيكات التعلم"
+- `client/public/locales/es/admin.json`: `clusters_title` -> "Tacticas de Aprendizaje"
+
+### 2026-03-07 — Add Activity Timeline tab to TNA Dashboard
+
+- `server/src/services/activityLog.service.ts`: Added `getDailyCounts()` method — raw SQL grouping by `date(timestamp / 1000, 'unixepoch')` and verb, with course/user/date filters. Uses `.getTime()` for date comparisons against epoch ms timestamps.
+- `server/src/routes/activityLog.routes.ts`: Added `GET /activity-log/daily-counts` endpoint.
+- `client/src/api/admin.ts`: Added `activityLogApi.getDailyCounts()` method.
+- `client/src/components/tna/ActivityTimelineChart.tsx`: New component — stacked bar / line chart toggle, color-coded by verb, interactive hover highlighting, tooltips, legend with totals. Custom SVG matching existing chart patterns.
+- `client/src/pages/admin/Dashboard.tsx`: Added `'activity'` to `PageTab` type, placed as first tab for all roles, independent data fetch via `useQuery`, renders `ActivityTimelineChart`.
+- `client/public/locales/*/admin.json`: Added `activity_tab` and `activity_timeline` keys in en/fi/ar/es.
+
+### 2026-03-07 — Fix seed.ts syntax errors and test alignment
+
+- `server/prisma/seed.ts`: Fixed 9 missing `},` closing braces in assignment.create, quiz.create, and codeLab.create calls. Added `label?: string` to `findOrCreateModule` type.
+- `server/src/services/assignment.service.test.ts`: Updated gradebook test to expect `status: { in: ['active', 'completed'] }` instead of `status: 'active'`.
+- Tests: 930/930 passing.
+
 ### 2026-02-25 — Fix PDF/file download in dev mode (Vite proxy)
 
 - `client/vite.config.ts`: Added `/uploads` proxy rule so file requests reach the backend in dev mode. Previously only `/api` was proxied, causing all `/uploads/` fetches to 404 against the Vite dev server.
-- `client/src/pages/LectureView.tsx`: No new changes (fetch→blob download from previous session already present).
+- `client/src/pages/LectureView.tsx`: No new changes (fetch->blob download from previous session already present).
 
 ### 2026-02-24 — Fix student file download in LectureView
 
-- `client/src/pages/LectureView.tsx`: Updated `handleFileDownload` to use fetch→blob→objectURL to force browser download dialog instead of opening files in a new tab. Applied same fix to lecture attachment links. Fallback to `window.open()` on error.
+- `client/src/pages/LectureView.tsx`: Updated `handleFileDownload` to use fetch->blob->objectURL to force browser download dialog instead of opening files in a new tab. Applied same fix to lecture attachment links. Fallback to `window.open()` on error.
 
 ### 2026-02-24 — Docs and gitignore housekeeping
 

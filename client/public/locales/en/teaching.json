@@ -1066,5 +1066,13 @@
   "select_existing_assignment": "Select existing assignment",
   "unlink_assignment": "Unlink assignment",
   "linked_assignment": "Linked assignment",
-  "assignments": "Assignments"
+  "assignments": "Assignments",
+  "add_interactive_lab": "Add Interactive Lab",
+  "interactive_lab_tna": "TNA Exercise",
+  "interactive_lab_sna": "SNA Exercise",
+  "x_interactive_labs": "{{count}} interactive lab",
+  "x_interactive_labs_plural": "{{count}} interactive labs",
+  "already_added": "Already added",
+  "interactive": "Interactive",
+  "interactive_labs": "Interactive Labs"
 }
