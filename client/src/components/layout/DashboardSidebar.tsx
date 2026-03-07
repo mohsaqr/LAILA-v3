@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Activity,
+  Network,
   Bot,
   FlaskConical,
   MessageSquare,
@@ -87,6 +88,11 @@ export const DashboardSidebar = () => {
       icon: Award,
       path: currentCourseId ? `/course/${currentCourseId}/certificates` : '/certificates',
     },
+    ...(currentCourseId ? [{
+      label: t('analytics'),
+      icon: Network,
+      path: `/courses/${currentCourseId}/analytics`,
+    }] : []),
     { label: t('gradebook'), icon: ClipboardList, path: '/dashboard/gradebook' },
     { label: t('calendar'), icon: Calendar, path: '/dashboard/calendar' },
   ];
@@ -118,8 +124,16 @@ export const DashboardSidebar = () => {
       icon: Award,
       path: currentCourseId ? `/teach/courses/${currentCourseId}/certificates` : '/teach/certificates',
     },
+    ...(currentCourseId ? [{
+      label: t('analytics'),
+      icon: Network,
+      path: `/teach/courses/${currentCourseId}/analytics`,
+    }] : []),
     // Only show admin logs link to actual admins (not just instructors)
-    ...(isActualAdmin ? [{ label: t('logs'), icon: Activity, path: '/admin/logs' }] : []),
+    ...(isActualAdmin ? [
+      { label: t('logs'), icon: Activity, path: '/admin/logs' },
+      { label: t('analytics'), icon: Network, path: '/admin/analytics' },
+    ] : []),
     { label: t('gradebook'), icon: ClipboardList, path: '/dashboard/gradebook' },
     { label: t('calendar'), icon: Calendar, path: '/dashboard/calendar' },
     { label: t('ai_tools'), icon: BrainCircuit, path: '/ai-tools' },

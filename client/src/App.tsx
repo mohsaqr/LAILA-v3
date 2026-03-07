@@ -90,6 +90,8 @@ import {
   CourseForumManager,
   CourseCertificateManager,
 } from './pages/teach';
+import { CourseAnalytics } from './pages/teach/CourseAnalytics';
+import { StudentAnalytics } from './pages/StudentAnalytics';
 
 // Survey pages
 import { SurveyStandalone } from './pages/SurveyStandalone';
@@ -233,6 +235,16 @@ function App() {
           element={
             <ProtectedRoute>
               <StudentGradebook />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Student Analytics */}
+        <Route
+          path="/courses/:courseId/analytics"
+          element={
+            <ProtectedRoute>
+              <StudentAnalytics />
             </ProtectedRoute>
           }
         />
@@ -696,6 +708,16 @@ function App() {
           }
         />
 
+        {/* Instructor Analytics */}
+        <Route
+          path="/teach/courses/:id/analytics"
+          element={
+            <ProtectedRoute requireInstructor>
+              <CourseAnalytics />
+            </ProtectedRoute>
+          }
+        />
+
         {/* Admin routes */}
         <Route
           path="/admin"
@@ -778,7 +800,7 @@ function App() {
           element={<Navigate to="/admin/settings?tab=llm" replace />}
         />
         <Route
-          path="/admin/dashboard"
+          path="/admin/analytics"
           element={
             <ProtectedRoute requireAdmin>
               <AdminDashboard_Analytics />
