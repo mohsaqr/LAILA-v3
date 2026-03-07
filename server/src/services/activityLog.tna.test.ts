@@ -29,7 +29,7 @@ describe('activityLogService.getTnaSequences', () => {
     expect(result.sequences).toHaveLength(2);
     expect(result.sequences).toContainEqual(['viewed', 'completed']);
     expect(result.sequences).toContainEqual(['viewed', 'viewed', 'submitted']);
-    expect(result.metadata.totalUsers).toBe(2);
+    expect(result.metadata.totalSequences).toBe(2);
     expect(result.metadata.totalEvents).toBe(5);
   });
 
@@ -46,7 +46,7 @@ describe('activityLogService.getTnaSequences', () => {
 
     expect(result.sequences).toHaveLength(1);
     expect(result.sequences[0]).toEqual(['viewed', 'viewed', 'submitted']);
-    expect(result.metadata.totalUsers).toBe(1);
+    expect(result.metadata.totalSequences).toBe(1);
   });
 
   it('should respect custom minSequenceLength', async () => {
@@ -92,7 +92,7 @@ describe('activityLogService.getTnaSequences', () => {
     const result = await activityLogService.getTnaSequences();
 
     expect(result.sequences).toHaveLength(0);
-    expect(result.metadata.totalUsers).toBe(0);
+    expect(result.metadata.totalSequences).toBe(0);
     expect(result.metadata.totalEvents).toBe(0);
     expect(result.metadata.uniqueVerbs).toEqual([]);
     expect(result.metadata.dateRange).toBeNull();

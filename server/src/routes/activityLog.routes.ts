@@ -4,6 +4,7 @@ import { authenticateToken, optionalAuth, requireAdmin } from '../middleware/aut
 import { asyncHandler } from '../middleware/error.middleware.js';
 import { AuthRequest } from '../types/index.js';
 import { z } from 'zod';
+import prisma from '../utils/prisma.js';
 
 const router = Router();
 
@@ -191,15 +192,67 @@ router.get('/export/excel', authenticateToken, asyncHandler(async (req: AuthRequ
 
 /**
  * GET /api/activity-log/tna-sequences
- * Get activity verb sequences grouped by user for TNA analysis (admin only)
+ * Get activity verb sequences grouped by user for TNA analysis.
+ *
+ * Authorization:
+ * - Admin: full access, any courseId or none (all courses)
+ * - Instructor: must provide courseId, must own the course
+ * - Student: must provide courseId, must be enrolled, results filtered to own userId
  */
-router.get('/tna-sequences', authenticateToken, requireAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
+router.get('/tna-sequences', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const user = req.user!;
+  const courseId = req.query.courseId ? parseInt(req.query.courseId as string) : undefined;
+  let userId = req.query.userId ? parseInt(req.query.userId as string) : undefined;
+
+  // Authorization checks
+  if (!user.isAdmin) {
+    // Non-admins must specify a courseId
+    if (!courseId) {
+      res.status(403).json({ success: false, error: 'Course ID is required' });
+      return;
+    }
+
+    if (user.isInstructor) {
+      // Instructors must own the course
+      const course = await prisma.course.findFirst({
+        where: { id: courseId, instructorId: user.id },
+        select: { id: true },
+      });
+      if (!course) {
+        // Also check course roles (TA, co-instructor)
+        const courseRole = await prisma.courseRole.findFirst({
+          where: { courseId, userId: user.id },
+          select: { id: true },
+        });
+        if (!courseRole) {
+          res.status(403).json({ success: false, error: 'Access denied to this course' });
+          return;
+        }
+      }
+    } else {
+      // Students must be enrolled and can only see their own data
+      const enrollment = await prisma.enrollment.findFirst({
+        where: { courseId, userId: user.id },
+        select: { id: true },
+      });
+      if (!enrollment) {
+        res.status(403).json({ success: false, error: 'Access denied to this course' });
+        return;
+      }
+      // Force userId to their own
+      userId = user.id;
+    }
+  }
+
   const filters = {
-    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    courseId,
+    userId,
     startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
     endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
     minSequenceLength: req.query.minSequenceLength ? parseInt(req.query.minSequenceLength as string) : undefined,
     minVerbPct: req.query.minVerbPct !== undefined ? parseFloat(req.query.minVerbPct as string) : undefined,
+    skipMerges: req.query.skipMerges === 'true',
+    groupBy: (req.query.groupBy === 'actor' ? 'actor' : 'actor-session') as 'actor' | 'actor-session',
   };
 
   const result = await activityLogService.getTnaSequences(filters);

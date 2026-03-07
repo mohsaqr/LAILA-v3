@@ -544,13 +544,17 @@ class ActivityLogService {
    */
   async getTnaSequences(filters?: {
     courseId?: number;
+    userId?: number;
     startDate?: Date;
     endDate?: Date;
     minSequenceLength?: number;
     minVerbPct?: number;
+    skipMerges?: boolean;
+    groupBy?: 'actor' | 'actor-session';
   }) {
     const where: Prisma.LearningActivityLogWhereInput = {};
     if (filters?.courseId) where.courseId = filters.courseId;
+    if (filters?.userId) where.userId = filters.userId;
     if (filters?.startDate || filters?.endDate) {
       where.timestamp = {};
       if (filters?.startDate) where.timestamp.gte = filters.startDate;
@@ -559,18 +563,21 @@ class ActivityLogService {
 
     const minLen = filters?.minSequenceLength ?? 2;
     const minVerbPct = filters?.minVerbPct ?? 0.05;
+    const groupBy = filters?.groupBy ?? 'actor-session';
 
     const logs = await prisma.learningActivityLog.findMany({
       where,
-      select: { userId: true, verb: true, timestamp: true, courseTitle: true },
+      select: { userId: true, verb: true, objectType: true, timestamp: true, courseTitle: true, sessionId: true },
       orderBy: [{ userId: 'asc' }, { timestamp: 'asc' }],
       take: 50000,
     });
 
-    // 1. Apply verb merges
-    const merges = ActivityLogService.VERB_MERGES;
-    for (const log of logs) {
-      if (merges[log.verb]) log.verb = merges[log.verb];
+    // 1. Apply verb merges (unless skipped — client handles its own merging)
+    if (!filters?.skipMerges) {
+      const merges = ActivityLogService.VERB_MERGES;
+      for (const log of logs) {
+        if (merges[log.verb]) log.verb = merges[log.verb];
+      }
     }
 
     // 2. Count verb frequencies across all events
@@ -590,28 +597,65 @@ class ActivityLogService {
       }
     }
 
-    // 4. Group by userId into sequences, replacing rare verbs with "other"
-    const userSequences: Record<number, string[]> = {};
+    // 4. Group into sequences by actor or actor-session
+    const seqMap: Record<string, string[]> = {};
+    const objMap: Record<string, string[]> = {};
     for (const log of logs) {
-      if (!userSequences[log.userId]) {
-        userSequences[log.userId] = [];
+      const key = groupBy === 'actor-session' && log.sessionId
+        ? `${log.userId}::${log.sessionId}`
+        : String(log.userId);
+      if (!seqMap[key]) {
+        seqMap[key] = [];
+        objMap[key] = [];
       }
       const verb = rareVerbs.has(log.verb) ? 'other' : log.verb;
-      userSequences[log.userId].push(verb);
+      seqMap[key].push(verb);
+      objMap[key].push(log.objectType);
     }
 
     // Filter by min sequence length
-    const sequences: string[][] = [];
-    for (const verbs of Object.values(userSequences)) {
-      if (verbs.length >= minLen) {
-        sequences.push(verbs);
+    const rawSeqs: string[][] = [];
+    const rawObjSeqs: string[][] = [];
+    for (const key of Object.keys(seqMap)) {
+      if (seqMap[key].length >= minLen) {
+        rawSeqs.push(seqMap[key]);
+        rawObjSeqs.push(objMap[key]);
       }
     }
 
-    // Collect unique verbs
+    // Split overly long sequences (beyond 95th percentile) into chunks
+    const sequences: string[][] = [];
+    const objectTypeSequences: string[][] = [];
+    if (rawSeqs.length > 0) {
+      const lengths = rawSeqs.map(s => s.length).sort((a, b) => a - b);
+      const p95Idx = Math.floor(lengths.length * 0.95);
+      const p95 = lengths[Math.min(p95Idx, lengths.length - 1)];
+      const maxLen = Math.max(p95, minLen * 2); // never split below 2× minLen
+
+      for (let i = 0; i < rawSeqs.length; i++) {
+        if (rawSeqs[i].length <= maxLen) {
+          sequences.push(rawSeqs[i]);
+          objectTypeSequences.push(rawObjSeqs[i]);
+        } else {
+          // Split into chunks of maxLen with no overlap
+          for (let start = 0; start < rawSeqs[i].length; start += maxLen) {
+            const chunk = rawSeqs[i].slice(start, start + maxLen);
+            const objChunk = rawObjSeqs[i].slice(start, start + maxLen);
+            if (chunk.length >= minLen) {
+              sequences.push(chunk);
+              objectTypeSequences.push(objChunk);
+            }
+          }
+        }
+      }
+    }
+
+    // Collect unique verbs and object types
     const uniqueVerbs = new Set<string>();
-    for (const seq of sequences) {
-      for (const v of seq) uniqueVerbs.add(v);
+    const uniqueObjectTypes = new Set<string>();
+    for (let i = 0; i < sequences.length; i++) {
+      for (const v of sequences[i]) uniqueVerbs.add(v);
+      for (const o of objectTypeSequences[i]) uniqueObjectTypes.add(o);
     }
 
     // Date range
@@ -628,10 +672,13 @@ class ActivityLogService {
 
     return {
       sequences,
+      objectTypeSequences,
       metadata: {
-        totalUsers: sequences.length,
+        totalSequences: sequences.length,
         totalEvents: totalEvents,
+        groupBy,
         uniqueVerbs: Array.from(uniqueVerbs).sort(),
+        uniqueObjectTypes: Array.from(uniqueObjectTypes).sort(),
         courseTitle,
         dateRange,
       },
