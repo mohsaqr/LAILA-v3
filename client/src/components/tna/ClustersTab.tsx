@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Expand } from 'lucide-react';
 import { clusterData, tna, prune, centralities, stateFrequencies } from 'dynajs';
+import { Loading } from '../common/Loading';
 import type { TNA } from 'dynajs';
 import { TnaNetworkGraph } from './TnaNetworkGraph';
 import { TnaDistributionPlot } from './TnaDistributionPlot';
@@ -51,77 +52,83 @@ export const ClustersTab = ({
 
   const colorMap = useMemo(() => createColorMap(labels, palette), [labels, palette]);
 
-  const result = useMemo(() => {
-    if (!sequences?.length) return null;
-    try {
-      // Filter out very short sequences that would form trivial outlier clusters.
-      // Use 10% of the median length as the minimum threshold.
-      const sorted = sequences.map(s => s.length).sort((a, b) => a - b);
-      const median = sorted[Math.floor(sorted.length / 2)] ?? 0;
-      const minLen = Math.max(5, Math.floor(median * 0.1));
-      const filtered = sequences.filter(s => s.length >= minLen);
-      const seqsForClustering = filtered.length >= k ? filtered : sequences;
+  const [result, setResult] = useState<{ clusters: any; details: ClusterDetail[] } | null>(null);
+  const computeIdRef = useRef(0);
 
-      const clusters = clusterData(seqsForClustering, k, { dissimilarity, method: clusterMethod });
-      const totalSeqs = clusters.assignments.length;
+  useEffect(() => {
+    if (!sequences?.length) { setResult(null); return; }
+    const id = ++computeIdRef.current;
+    setResult(null); // null = computing
+    const timer = setTimeout(() => {
+      if (id !== computeIdRef.current) return;
+      try {
+        // Cap sequences to avoid freezing — sample evenly when too large
+        let seqsForClustering = sequences;
+        const MAX = 1000;
+        if (sequences.length > MAX) {
+          const step = sequences.length / MAX;
+          seqsForClustering = [];
+          for (let i = 0; i < MAX; i++) seqsForClustering.push(sequences[Math.floor(i * step)]);
+        }
 
-      const details: ClusterDetail[] = clusters.sizes.map((size, cIdx) => {
-        const clusterNum = cIdx + 1;
-        const indices = clusters.assignments
-          .map((a, i) => (a === clusterNum ? i : -1))
-          .filter(i => i >= 0);
+        const clusters = clusterData(seqsForClustering, k, { dissimilarity, method: clusterMethod });
+        const totalSeqs = clusters.assignments.length;
 
-        const clusterSeqs = indices.map(i => seqsForClustering[i]);
-        const freqs = stateFrequencies(clusterSeqs);
-        const sortedFreqs = Object.entries(freqs).sort((a, b) => b[1] - a[1]) as [string, number][];
+        const details: ClusterDetail[] = clusters.sizes.map((size: number, cIdx: number) => {
+          const clusterNum = cIdx + 1;
+          const indices = clusters.assignments
+            .map((a: number, i: number) => (a === clusterNum ? i : -1))
+            .filter((i: number) => i >= 0);
 
-        const avgLen =
-          indices.length > 0
-            ? indices.reduce(
-                (sum, idx) => sum + seqsForClustering[idx].filter((v: any) => v != null).length,
-                0,
-              ) / indices.length
-            : 0;
+          const clusterSeqs = indices.map((i: number) => seqsForClustering[i]);
+          const freqs = stateFrequencies(clusterSeqs);
+          const sortedFreqs = Object.entries(freqs).sort((a, b) => b[1] - a[1]) as [string, number][];
 
-        let clusterModel: TNA | null = null;
-        let instrength: { label: string; value: number }[] | null = null;
-        try {
-          if (clusterSeqs.length >= 1) {
-            const raw = tna(clusterSeqs, { labels });
-            clusterModel = prune(raw, clusterPruneThreshold) as TNA;
-            try {
-              const cent = centralities(raw);
-              const vals = Array.from(cent.measures.InStrength);
-              instrength = cent.labels
-                .map((l, i) => ({ label: l, value: vals[i] }))
-                .sort((a, b) => b.value - a.value);
-            } catch { /* ignore */ }
-          }
-        } catch { /* not enough data */ }
+          const avgLen =
+            indices.length > 0
+              ? indices.reduce(
+                  (sum: number, idx: number) => sum + seqsForClustering[idx].filter((v: any) => v != null).length,
+                  0,
+                ) / indices.length
+              : 0;
 
-        return { clusterNum, size, pct: (size / totalSeqs) * 100, avgLen, sortedFreqs, clusterSeqs, clusterModel, instrength };
-      });
+          let clusterModel: TNA | null = null;
+          let instrength: { label: string; value: number }[] | null = null;
+          try {
+            if (clusterSeqs.length >= 1) {
+              const raw = tna(clusterSeqs, { labels });
+              clusterModel = prune(raw, clusterPruneThreshold) as TNA;
+              try {
+                const cent = centralities(raw);
+                const vals = Array.from(cent.measures.InStrength);
+                instrength = cent.labels
+                  .map((l: string, i: number) => ({ label: l, value: vals[i] }))
+                  .sort((a: { value: number }, b: { value: number }) => b.value - a.value);
+              } catch { /* ignore */ }
+            }
+          } catch { /* not enough data */ }
 
-      return { clusters, details };
-    } catch {
-      return null;
-    }
+          return { clusterNum, size, pct: (size / totalSeqs) * 100, avgLen, sortedFreqs, clusterSeqs, clusterModel, instrength };
+        });
+
+        if (id === computeIdRef.current) setResult({ clusters, details });
+      } catch {
+        if (id === computeIdRef.current) setResult(null);
+      }
+    }, 50);
+    return () => clearTimeout(timer);
   }, [sequences, labels, k, clusterPruneThreshold, dissimilarity, clusterMethod]);
 
+  if (!result) {
+    return <div className="py-16"><Loading text={t('computing_clusters')} /></div>;
+  }
+
   const silQuality =
-    result && result.clusters.silhouette > 0.5
+    result.clusters.silhouette > 0.5
       ? t('cluster_good')
-      : result && result.clusters.silhouette > 0.25
+      : result.clusters.silhouette > 0.25
         ? t('cluster_fair')
         : t('cluster_weak');
-
-  if (!result) {
-    return (
-      <div className="text-center py-16 text-gray-500 dark:text-gray-400">
-        {t('analysis_error')}
-      </div>
-    );
-  }
 
   return (
     <div>

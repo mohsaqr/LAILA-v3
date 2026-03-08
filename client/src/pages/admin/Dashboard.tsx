@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Users, Activity, Hash, Settings2, Network, GitBranch, Expand, Search, Pencil, X } from 'lucide-react';
+import { Users, Activity, Hash, Settings2, Network, GitBranch, Expand, Search, Pencil, X, TrendingUp, Clock, RefreshCw } from 'lucide-react';
 import {
   tna, ftna, ctna, atna,
   centralities, prune, summary,
@@ -20,6 +20,8 @@ import { NetworkModal, ModalShell, useEscapeClose } from '../../components/tna/N
 import { ClustersTab } from '../../components/tna/ClustersTab';
 import { PatternsTab } from '../../components/tna/PatternsTab';
 import { ActivityTimelineChart } from '../../components/tna/ActivityTimelineChart';
+import { ActivityDonutChart } from '../../components/tna/ActivityDonutChart';
+import { ActivityHeatmap } from '../../components/tna/ActivityHeatmap';
 import { createColorMap, PALETTE_NAMES } from '../../components/tna/colorFix';
 import type { PaletteName } from '../../components/tna/colorFix';
 
@@ -208,6 +210,10 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  // Student selector (admin/instructor only)
+  const [selectedUserId, setSelectedUserId] = useState<number | undefined>(undefined);
+  const effectiveUserId = fixedUserId ?? selectedUserId;
+
   // Analytics-specific filters
   const [pruneThreshold, setPruneThreshold] = useState(0.05);
   const [modelType, setModelType] = useState<ModelType>('relative');
@@ -263,34 +269,113 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
 
   /* --- Data fetching --- */
 
+  const queryClient = useQueryClient();
+  const STALE_1H = 3_600_000; // 1 hour — data served from cache, no refetch
+
   const { data: filterOptions } = useQuery({
     queryKey: ['activityLogFilterOptions'],
     queryFn: () => activityLogApi.getFilterOptions(),
+    staleTime: STALE_1H,
   });
 
-  const { data: tnaData, isLoading } = useQuery({
-    queryKey: ['tnaSequences', courseId, fixedUserId, startDate, endDate, groupBy, minSequenceLength],
+  const isActivityTab = activeTab === 'activity';
+  const isAnalyticsRelatedTab = activeTab === 'analytics' || activeTab === 'clusters' || activeTab === 'patterns' || activeTab === 'settings';
+
+  const { data: tnaData, isLoading, dataUpdatedAt: tnaUpdatedAt, isFetching: tnaFetching } = useQuery({
+    queryKey: ['tnaSequences', courseId, effectiveUserId, startDate, endDate, groupBy, minSequenceLength],
     queryFn: () =>
       activityLogApi.getTnaSequences({
         courseId,
-        userId: fixedUserId,
+        userId: effectiveUserId,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
         minSequenceLength,
         groupBy,
       }),
+    enabled: isAnalyticsRelatedTab,
+    staleTime: STALE_1H,
   });
 
   const { data: dailyCounts, isLoading: dailyCountsLoading } = useQuery({
-    queryKey: ['dailyCounts', courseId, fixedUserId, startDate, endDate],
+    queryKey: ['dailyCounts', courseId, effectiveUserId, startDate, endDate],
     queryFn: () =>
       activityLogApi.getDailyCounts({
         courseId,
-        userId: fixedUserId,
+        userId: effectiveUserId,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
       }),
+    enabled: isActivityTab,
+    staleTime: STALE_1H,
   });
+
+  const { data: summaryData, isLoading: summaryLoading, dataUpdatedAt: activityUpdatedAt, isFetching: activityFetching } = useQuery({
+    queryKey: ['activitySummary', courseId, effectiveUserId, startDate, endDate],
+    queryFn: () =>
+      activityLogApi.getSummary({
+        courseId,
+        userId: effectiveUserId,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      }),
+    enabled: isActivityTab,
+    staleTime: STALE_1H,
+  });
+
+  const { data: hourlyCounts, isLoading: hourlyLoading } = useQuery({
+    queryKey: ['hourlyCounts', courseId, effectiveUserId, startDate, endDate],
+    queryFn: () =>
+      activityLogApi.getHourlyCounts({
+        courseId,
+        userId: effectiveUserId,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      }),
+    enabled: isActivityTab,
+    staleTime: STALE_1H,
+  });
+
+  const { data: activityStats } = useQuery({
+    queryKey: ['activityStats', courseId, startDate, endDate],
+    queryFn: () =>
+      activityLogApi.getStats({
+        courseId,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      }),
+    enabled: isActivityTab,
+    staleTime: STALE_1H,
+  });
+
+  const { data: topResources } = useQuery({
+    queryKey: ['topResources', courseId, effectiveUserId, startDate, endDate],
+    queryFn: () =>
+      activityLogApi.getTopResources({
+        courseId,
+        userId: effectiveUserId,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        limit: 10,
+      }),
+    enabled: isActivityTab,
+    staleTime: STALE_1H,
+  });
+
+  /** Invalidate all queries for the current tab and refetch */
+  const refreshCurrentTab = () => {
+    if (isActivityTab) {
+      queryClient.invalidateQueries({ queryKey: ['activitySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['hourlyCounts'] });
+      queryClient.invalidateQueries({ queryKey: ['dailyCounts'] });
+      queryClient.invalidateQueries({ queryKey: ['activityStats'] });
+      queryClient.invalidateQueries({ queryKey: ['topResources'] });
+    } else {
+      queryClient.invalidateQueries({ queryKey: ['tnaSequences'] });
+    }
+  };
+
+  const lastUpdated = isActivityTab ? activityUpdatedAt : tnaUpdatedAt;
+  const isRefreshing = isActivityTab ? activityFetching : tnaFetching;
 
   /* --- Transform sequences with verb edits --- */
 
@@ -360,7 +445,7 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
     return [...set].sort();
   }, [tnaData]);
 
-  /* --- TNA analysis (only for analytics tab, but computed always for stat cards) --- */
+  /* --- TNA analysis (useMemo — stays cached across tab switches since Dashboard doesn't unmount) --- */
 
   const analysis = useMemo(() => {
     if (!transformedData?.sequences?.length) return null;
@@ -371,7 +456,7 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
       const builder = MODEL_BUILDERS[modelType];
       const rawModel = builder(seqs, { labels: lbls });
       const prunedM = prune(rawModel, pruneThreshold) as TNA;
-      const colorMap = createColorMap(lbls, palette);
+      const cm = createColorMap(lbls, palette);
 
       let cent: { labels: string[]; measures: Record<string, number[]> } | null = null;
       try {
@@ -386,7 +471,7 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
       let sum = null;
       try { sum = summary(rawModel); } catch { /* ignore */ }
 
-      return { prunedModel: prunedM, labels: lbls, colorMap, centralityData: cent, summaryData: sum };
+      return { prunedModel: prunedM, labels: lbls, colorMap: cm, centralityData: cent, summaryData: sum };
     } catch {
       return null;
     }
@@ -412,7 +497,7 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
 
   /* --- Render --- */
 
-  if (isLoading) {
+  if (isLoading && isAnalyticsRelatedTab) {
     return <Loading fullScreen text={t('loading_analytics')} />;
   }
 
@@ -459,11 +544,25 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
             <div className="flex flex-col gap-1">
               <label className="text-xs text-gray-500 dark:text-gray-400">{t('course')}</label>
               <select value={courseId ?? ''}
-                onChange={e => setCourseId(e.target.value ? parseInt(e.target.value) : undefined)}
+                onChange={e => { setCourseId(e.target.value ? parseInt(e.target.value) : undefined); setSelectedUserId(undefined); }}
                 className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300">
                 <option value="">{t('all_courses')}</option>
                 {filterOptions?.courses?.map((co: any) => (
                   <option key={co.id} value={co.id!}>{co.title}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          {/* Student selector (admin/instructor only) */}
+          {!isStudent && activeTab === 'activity' && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-gray-500 dark:text-gray-400">{t('select_student')}</label>
+              <select value={selectedUserId ?? ''}
+                onChange={e => setSelectedUserId(e.target.value ? parseInt(e.target.value) : undefined)}
+                className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                <option value="">{t('all_students')}</option>
+                {filterOptions?.users?.map((u: any) => (
+                  <option key={u.id} value={u.id}>{u.fullname} ({u.email})</option>
                 ))}
               </select>
             </div>
@@ -501,6 +600,20 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
               </div>
             </>
           )}
+
+          {/* Refresh + last-updated indicator */}
+          <div className="flex items-center gap-1.5">
+            {lastUpdated > 0 && (
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                {new Date(lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+            <button onClick={refreshCurrentTab} disabled={isRefreshing}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-40"
+              title={t('refresh')}>
+              <RefreshCw className={`w-4 h-4 text-gray-500 dark:text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
 
           {/* Settings icon for quick access (hidden for students) */}
           {!isStudent && activeTab !== 'settings' && (
@@ -542,24 +655,147 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
 
         {/* ========== Activity tab (independent data source) ========== */}
         {activeTab === 'activity' ? (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
-            <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-4">
-              {t('activity_timeline')}
-            </h3>
-            {dailyCountsLoading ? (
+          <div className="space-y-4">
+            {/* Row 1: Summary stat cards */}
+            {summaryLoading ? (
               <Loading />
-            ) : dailyCounts && dailyCounts.days.length > 0 ? (
-              <ActivityTimelineChart
-                days={dailyCounts.days}
-                verbs={dailyCounts.verbs}
-                series={dailyCounts.series}
-                palette={palette}
-              />
-            ) : (
-              <div className="text-center py-16 text-gray-500 dark:text-gray-400">
-                {t('no_tna_data')}
+            ) : summaryData ? (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatCard
+                  icon={<Activity className="w-5 h-5" style={{ color: c.txBlue }} />}
+                  iconBgColor={c.bgBlue}
+                  value={summaryData.totalActivities.toLocaleString()}
+                  label={t('total_activities')}
+                  size="sm"
+                />
+                <StatCard
+                  icon={<Users className="w-5 h-5" style={{ color: c.txGreen }} />}
+                  iconBgColor={c.bgGreen}
+                  value={isStudent ? summaryData.uniqueSessions : summaryData.uniqueUsers}
+                  label={isStudent ? t('my_sessions') : t('unique_users')}
+                  size="sm"
+                />
+                <StatCard
+                  icon={<Clock className="w-5 h-5" style={{ color: c.txTeal }} />}
+                  iconBgColor={c.bgTeal}
+                  value={isStudent ? summaryData.totalActivities : summaryData.uniqueSessions}
+                  label={isStudent ? t('total_activities') : t('unique_sessions')}
+                  size="sm"
+                />
+                <StatCard
+                  icon={<TrendingUp className="w-5 h-5" style={{ color: c.txPurple }} />}
+                  iconBgColor={c.bgPurple}
+                  value={summaryData.avgPerUser}
+                  label={t('avg_per_user')}
+                  size="sm"
+                />
+              </div>
+            ) : null}
+
+            {/* Row 2: Donut charts */}
+            {activityStats ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <ActivityDonutChart
+                  data={activityStats.activitiesByVerb ?? {}}
+                  title={t('verb_distribution')}
+                  palette={palette}
+                />
+                <ActivityDonutChart
+                  data={activityStats.activitiesByObjectType ?? {}}
+                  title={t('object_type_distribution')}
+                  palette={palette}
+                />
+              </div>
+            ) : null}
+
+            {/* Row 3: Heatmap */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+              <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-1">
+                {t('activity_heatmap')}
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{t('activity_heatmap_desc')}</p>
+              {hourlyLoading ? (
+                <Loading />
+              ) : hourlyCounts && hourlyCounts.data.length > 0 ? (
+                <ActivityHeatmap data={hourlyCounts.data} />
+              ) : (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
+                  {t('no_tna_data')}
+                </div>
+              )}
+            </div>
+
+            {/* Row 4: Top Resources */}
+            {topResources && topResources.data.length > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+                <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-3">
+                  {t('top_resources')}
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-gray-700">
+                        <th className="text-left py-2 px-3 text-gray-500 dark:text-gray-400 font-medium">#</th>
+                        <th className="text-left py-2 px-3 text-gray-500 dark:text-gray-400 font-medium">{t('object')}</th>
+                        <th className="text-left py-2 px-3 text-gray-500 dark:text-gray-400 font-medium">{t('object_type')}</th>
+                        <th className="text-right py-2 px-3 text-gray-500 dark:text-gray-400 font-medium">{t('total_activities')}</th>
+                        {!isStudent && (
+                          <th className="text-right py-2 px-3 text-gray-500 dark:text-gray-400 font-medium">{t('unique_users')}</th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topResources.data.map((item, idx) => {
+                        const barPct = topResources.data[0].count > 0 ? (item.count / topResources.data[0].count) * 100 : 0;
+                        return (
+                          <tr key={`${item.objectType}-${item.objectId}-${idx}`}
+                            className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                            <td className="py-2 px-3 text-gray-400 dark:text-gray-500 font-mono text-xs">{idx + 1}</td>
+                            <td className="py-2 px-3">
+                              <div className="relative">
+                                <div className="absolute inset-0 rounded"
+                                  style={{ width: `${barPct}%`, backgroundColor: isDark ? 'rgba(90,180,172,0.15)' : 'rgba(90,180,172,0.1)' }} />
+                                <span className="relative text-gray-800 dark:text-gray-200 font-medium">{item.objectTitle}</span>
+                              </div>
+                            </td>
+                            <td className="py-2 px-3">
+                              <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                                {item.objectType}
+                              </span>
+                            </td>
+                            <td className="py-2 px-3 text-right font-semibold text-gray-700 dark:text-gray-300">{item.count.toLocaleString()}</td>
+                            {!isStudent && (
+                              <td className="py-2 px-3 text-right text-gray-500 dark:text-gray-400">{item.uniqueUsers}</td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
+
+            {/* Row 5: Timeline (existing) */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+              <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-4">
+                {t('activity_timeline')}
+              </h3>
+              {dailyCountsLoading ? (
+                <Loading />
+              ) : dailyCounts && dailyCounts.days.length > 0 ? (
+                <ActivityTimelineChart
+                  days={dailyCounts.days}
+                  verbs={dailyCounts.verbs}
+                  series={dailyCounts.series}
+                  palette={palette}
+                />
+              ) : (
+                <div className="text-center py-16 text-gray-500 dark:text-gray-400">
+                  {t('no_tna_data')}
+                </div>
+              )}
+            </div>
           </div>
         ) : !transformedData?.sequences?.length ? (
           <div className="text-center py-16 text-gray-500 dark:text-gray-400">

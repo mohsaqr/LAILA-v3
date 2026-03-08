@@ -138,6 +138,55 @@ router.get('/filter-options', authenticateToken, asyncHandler(async (_req: AuthR
 }));
 
 /**
+ * GET /api/activity-log/summary
+ * Get summary stats (total, unique users, unique sessions, avg per user)
+ */
+router.get('/summary', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const filters = {
+    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    userId: req.query.userId ? parseInt(req.query.userId as string) : undefined,
+    startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+    endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+  };
+
+  const data = await activityLogService.getSummary(filters);
+  res.json({ success: true, data });
+}));
+
+/**
+ * GET /api/activity-log/hourly-counts
+ * Get activity counts grouped by day-of-week and hour
+ */
+router.get('/hourly-counts', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const filters = {
+    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    userId: req.query.userId ? parseInt(req.query.userId as string) : undefined,
+    startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+    endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+  };
+
+  const data = await activityLogService.getHourlyCounts(filters);
+  res.json({ success: true, data });
+}));
+
+/**
+ * GET /api/activity-log/top-resources
+ * Get top N most visited resources/activities
+ */
+router.get('/top-resources', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const filters = {
+    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    userId: req.query.userId ? parseInt(req.query.userId as string) : undefined,
+    startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+    endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+    limit: req.query.limit ? parseInt(req.query.limit as string) : 10,
+  };
+
+  const data = await activityLogService.getTopResources(filters);
+  res.json({ success: true, data });
+}));
+
+/**
  * GET /api/activity-log/daily-counts
  * Get daily activity counts grouped by verb
  */
