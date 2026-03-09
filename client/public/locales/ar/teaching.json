@@ -369,6 +369,7 @@
   "failed_to_reorder_modules": "فشل في إعادة ترتيب الوحدات",
   "failed_to_reorder_code_labs": "فشل في إعادة ترتيب مختبرات الكود",
   "save": "حفظ",
+  "save_settings": "حفظ الإعدادات",
   "loading": "جاري التحميل...",
   "loading_chatbot_logs": "جاري تحميل سجلات الدردشة...",
   "chatbot_conversations_analytics": "محادثات الدردشة والتحليلات",

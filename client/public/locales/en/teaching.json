@@ -369,6 +369,7 @@
   "failed_to_reorder_modules": "Failed to reorder modules",
   "failed_to_reorder_code_labs": "Failed to reorder code labs",
   "save": "Save",
+  "save_settings": "Save Settings",
   "loading": "Loading...",
   "loading_chatbot_logs": "Loading chatbot logs...",
   "chatbot_conversations_analytics": "Chatbot Conversations & Analytics",

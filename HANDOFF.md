@@ -1,6 +1,7 @@
 # Session Handoff — 2026-03-09
 
 ## Completed
+- **Save button moved to settings card**: In LectureEditor, removed the save button from the page header and placed it inside the "Lesson Settings" sidebar card. The button now reads "Save Settings" to clarify it only saves lesson settings (content type, duration, video URL, free preview) — sections auto-save independently.
 - **Editable file section names**: Instructors can now rename file sections. After uploading a file, the name input auto-focuses for renaming. An edit (pencil) icon next to the file name allows renaming at any time. The name is saved as `fileName` in the database via the existing `updateSection` API. Enter to save, Escape to cancel.
 - **Agent chatbots in Chatbot Registry**: Student-designed AI agents from agent assignments are now visible in the admin Chatbot Registry as a third type (`agent`) alongside `global` and `section`.
   - Server: `chatbotRegistry.service.ts` — added `StudentAgentConfig` query with `AgentTestConversation`/`AgentTestMessage` stats, updated `getStats()` and `getFilterOptions()` to include agent data

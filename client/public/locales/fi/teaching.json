@@ -369,6 +369,7 @@
   "failed_to_reorder_modules": "Moduulien järjestyksen muutos epäonnistui",
   "failed_to_reorder_code_labs": "Koodilaborien järjestyksen muutos epäonnistui",
   "save": "Tallenna",
+  "save_settings": "Tallenna asetukset",
   "loading": "Ladataan...",
   "loading_chatbot_logs": "Ladataan chatbot-lokeja...",
   "chatbot_conversations_analytics": "Chatbot-keskustelut ja analytiikka",

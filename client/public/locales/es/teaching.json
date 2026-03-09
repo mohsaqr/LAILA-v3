@@ -369,6 +369,7 @@
   "failed_to_reorder_modules": "Error al reordenar módulos",
   "failed_to_reorder_code_labs": "Error al reordenar laboratorios de código",
   "save": "Guardar",
+  "save_settings": "Guardar configuración",
   "loading": "Cargando...",
   "loading_chatbot_logs": "Cargando registros del chatbot...",
   "chatbot_conversations_analytics": "Conversaciones y Analíticas del Chatbot",
