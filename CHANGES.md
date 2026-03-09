@@ -1,3 +1,14 @@
+### 2026-03-09 — Rich text editor for forum replies and thread creation
+
+- `client/src/components/forum/ForumReplyInput.tsx`: Replaced plain textarea with tiptap rich text editor. Toolbar: Bold, Italic, Underline, Heading, Bullet/Ordered List, Code Block, Link, Image upload, Undo, Redo. Value is now HTML string. Images uploaded to server (not base64) and compressed to max 500 KB before upload.
+- `client/src/components/forum/RichTextEditor.tsx`: New reusable rich text editor component for thread creation modal. Same tiptap config and toolbar as ForumReplyInput.
+- `client/src/utils/imageCompress.ts`: New utility that compresses images client-side using canvas. Scales down to max 1200px and re-encodes as JPEG with decreasing quality until under target size.
+- `client/src/pages/Forum.tsx`: Post and thread content rendered as sanitized HTML via `DOMPurify.sanitize()` + `dangerouslySetInnerHTML` with `prose` typography classes. Thread list preview strips HTML tags for clean text. Thread creation modal uses `RichTextEditor` instead of textarea.
+- `client/src/styles/index.css`: Added tiptap editor styles (placeholder, image max-width 300px, link color) and rendered content image sizing.
+- `client/tailwind.config.js`: Added `@tailwindcss/typography` plugin for `prose` classes.
+- `server/src/routes/forum.routes.ts`: Increased content validation limit from 10,000 to 50,000 chars (3 schemas: createThread, createPost, updatePost) to accommodate HTML content.
+- New dependencies: `@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/extension-image`, `@tiptap/extension-link`, `@tiptap/extension-placeholder`, `@tiptap/extension-underline`, `@tailwindcss/typography`.
+
 ### 2026-03-09 — Create assignment via popup in curriculum editor
 
 - `client/src/components/teach/ModuleItem.tsx`: Assignment button now opens a modal instead of redirecting to the lecture editor. Modal shows the full assignment creation form (title, description, instructions, submission type, points, due date, publish). On submit, creates the assignment via `assignmentsApi.createAssignment()` then creates an assignment section via `coursesApi.createSection()`.

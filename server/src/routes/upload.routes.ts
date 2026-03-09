@@ -124,6 +124,52 @@ router.post(
   }
 );
 
+// Upload image endpoint - any authenticated user (for forum posts, etc.)
+const imageFilter = (req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+  if (!imageExts.includes(ext)) {
+    cb(new Error('Only image files (jpg, png, gif, webp) are allowed'));
+    return;
+  }
+  const allowedMimes = allowedExtensions[ext];
+  if (!allowedMimes || !allowedMimes.includes(file.mimetype)) {
+    cb(new Error(`File type mismatch: ${ext} file with ${file.mimetype} MIME type`));
+    return;
+  }
+  cb(null, true);
+};
+
+const imageUpload = multer({
+  storage,
+  fileFilter: imageFilter,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+});
+
+router.post(
+  '/image',
+  authenticateToken,
+  imageUpload.single('file'),
+  (req: AuthRequest, res: Response) => {
+    if (!req.file) {
+      res.status(400).json({ success: false, error: 'No file uploaded' });
+      return;
+    }
+    const fileUrl = `/uploads/${req.file.filename}`;
+    res.json({
+      success: true,
+      data: {
+        url: fileUrl,
+        path: fileUrl,
+        originalName: req.file.originalname,
+        filename: req.file.filename,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+      },
+    });
+  }
+);
+
 // Error handling for multer errors
 router.use((err: Error, req: AuthRequest, res: Response, next: Function) => {
   if (err instanceof multer.MulterError) {

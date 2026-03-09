@@ -230,3 +230,33 @@ html.dark {
 .prose blockquote {
   @apply border-l-4 border-primary-500 pl-4 italic text-gray-600 my-4 dark:text-gray-400;
 }
+
+/* Tiptap editor styles */
+.forum-reply-editor .tiptap {
+  outline: none;
+  min-height: 80px;
+}
+
+.forum-reply-editor .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  @apply text-gray-400 dark:text-gray-500;
+}
+
+.forum-reply-editor .tiptap img {
+  max-width: 300px;
+  height: auto;
+  @apply rounded-lg my-2;
+}
+
+.forum-reply-editor .tiptap a {
+  @apply text-cyan-600 underline;
+}
+
+/* Rendered forum content images */
+.prose img {
+  max-width: 300px;
+  height: auto;
+}

@@ -49,7 +49,7 @@ export const ForumAgentSelector = ({
       style={{ backgroundColor: colors.bg }}
     >
       {/* Header */}
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-2 mb-2" p-2>
         <Bot size={compact ? 14 : 16} style={{ color: colors.accent }} />
         <span
           className={`${compact ? 'text-xs' : 'text-sm'} font-medium`}
@@ -65,7 +65,7 @@ export const ForumAgentSelector = ({
       </div>
 
       {/* Agent Chips */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 p-2">
         {agents.map((agent) => {
           const isSelected = selectedAgent?.id === agent.id;
           const chipDisabled = disabled;

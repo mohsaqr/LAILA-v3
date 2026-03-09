@@ -1,6 +1,7 @@
 # Session Handoff — 2026-03-09
 
 ## Completed
+- **Rich text editor for forum replies and thread creation**: Replaced plain textarea in `ForumReplyInput` with tiptap rich text editor (bold, italic, underline, heading, lists, code block, link, image upload). Images compressed to max 500 KB client-side then uploaded to server (not base64). Images display at max 300px width in editor and rendered content. Created reusable `RichTextEditor` for thread creation. Content rendered as sanitized HTML with DOMPurify and Tailwind typography. Server content limit increased from 10K to 50K chars.
 - **Assignment creation popup in curriculum editor**: Clicking the Assignment button in the curriculum editor now opens a modal with the full assignment creation form instead of redirecting. Creates both the assignment and the assignment section in one flow.
 - **File upload popup in curriculum editor**: Clicking the File button in the curriculum editor now opens a modal with drag-and-drop upload and file name editing, instead of redirecting to the lecture editor. Creates the file section directly via API.
 - **Section buttons for empty lectures only**: In curriculum editor, section add buttons (Text, File, AI, Chatbot, Assignment) now only appear for lectures with no sections. Lectures with content just show "Manage Content". File sections display inline with download and rename. Server query updated to include section data.
