@@ -1,3 +1,7 @@
+### 2026-03-09 — Guard against ai_agent submissions via regular endpoint
+
+- `server/src/services/assignment.service.ts`: Added guard in `submitAssignment()` that rejects assignments with `submissionType === 'ai_agent'` (throws 400). This prevents agent assignment resubmissions from being saved as text submissions. Agent assignments must go through `agentAssignment.service.submitAgentConfig()` which properly preserves the `agentConfigId` link and all analytics.
+
 ### 2026-03-09 — Fix templateUsage null in agent design analytics
 
 - `server/src/services/agentDesignLog.service.ts`: `calculateAnalytics()` now accepts optional `config` parameter. `templateUsage.roleUsed` falls back to `config.pedagogicalRole` and `templateUsage.personalityUsed` falls back to `config.personality` from `StudentAgentConfig` when design events don't contain role/personality selections (early events logged with null `agentConfigId` are excluded from the query).
