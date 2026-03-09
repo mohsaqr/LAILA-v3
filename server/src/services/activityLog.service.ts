@@ -357,6 +357,153 @@ class ActivityLogService {
   }
 
   /**
+   * Get summary stats: total activities, unique users, unique sessions, avg per user
+   */
+  async getSummary(filters?: { courseId?: number; userId?: number; startDate?: Date; endDate?: Date }) {
+    const conditions: string[] = [];
+    const params: (string | number)[] = [];
+
+    if (filters?.courseId) {
+      conditions.push('course_id = ?');
+      params.push(filters.courseId);
+    }
+    if (filters?.userId) {
+      conditions.push('user_id = ?');
+      params.push(filters.userId);
+    }
+    if (filters?.startDate) {
+      conditions.push('timestamp >= ?');
+      params.push(filters.startDate.getTime());
+    }
+    if (filters?.endDate) {
+      conditions.push('timestamp <= ?');
+      params.push(filters.endDate.getTime());
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const rows = await prisma.$queryRawUnsafe<Array<{ total: bigint; uniqueUsers: bigint; uniqueSessions: bigint }>>(
+      `SELECT COUNT(*) as total,
+              COUNT(DISTINCT user_id) as uniqueUsers,
+              COUNT(DISTINCT session_id) as uniqueSessions
+       FROM learning_activity_logs
+       ${whereClause}`,
+      ...params,
+    );
+
+    const row = rows[0];
+    const totalActivities = Number(row?.total ?? 0);
+    const uniqueUsers = Number(row?.uniqueUsers ?? 0);
+    const uniqueSessions = Number(row?.uniqueSessions ?? 0);
+    const avgPerUser = uniqueUsers > 0 ? Math.round((totalActivities / uniqueUsers) * 10) / 10 : 0;
+
+    return { totalActivities, uniqueUsers, uniqueSessions, avgPerUser };
+  }
+
+  /**
+   * Get hourly activity counts grouped by day-of-week and hour
+   */
+  async getHourlyCounts(filters?: { courseId?: number; userId?: number; startDate?: Date; endDate?: Date }) {
+    const conditions: string[] = [];
+    const params: (string | number)[] = [];
+
+    if (filters?.courseId) {
+      conditions.push('course_id = ?');
+      params.push(filters.courseId);
+    }
+    if (filters?.userId) {
+      conditions.push('user_id = ?');
+      params.push(filters.userId);
+    }
+    if (filters?.startDate) {
+      conditions.push('timestamp >= ?');
+      params.push(filters.startDate.getTime());
+    }
+    if (filters?.endDate) {
+      conditions.push('timestamp <= ?');
+      params.push(filters.endDate.getTime());
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const rows = await prisma.$queryRawUnsafe<Array<{ dow: bigint; hour: bigint; count: bigint }>>(
+      `SELECT cast(strftime('%w', timestamp/1000, 'unixepoch') as integer) as dow,
+              cast(strftime('%H', timestamp/1000, 'unixepoch') as integer) as hour,
+              COUNT(*) as count
+       FROM learning_activity_logs
+       ${whereClause}
+       GROUP BY dow, hour
+       ORDER BY dow, hour`,
+      ...params,
+    );
+
+    return {
+      data: rows.map(r => ({ dow: Number(r.dow), hour: Number(r.hour), count: Number(r.count) })),
+    };
+  }
+
+  /**
+   * Get top N most visited resources/activities by count
+   */
+  async getTopResources(filters?: { courseId?: number; userId?: number; startDate?: Date; endDate?: Date; limit?: number }) {
+    const conditions: string[] = [];
+    const params: (string | number)[] = [];
+
+    if (filters?.courseId) {
+      conditions.push('course_id = ?');
+      params.push(filters.courseId);
+    }
+    if (filters?.userId) {
+      conditions.push('user_id = ?');
+      params.push(filters.userId);
+    }
+    if (filters?.startDate) {
+      conditions.push('timestamp >= ?');
+      params.push(filters.startDate.getTime());
+    }
+    if (filters?.endDate) {
+      conditions.push('timestamp <= ?');
+      params.push(filters.endDate.getTime());
+    }
+
+    conditions.push("object_title IS NOT NULL");
+    conditions.push("object_title != ''");
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    const lim = filters?.limit ?? 10;
+
+    const rows = await prisma.$queryRawUnsafe<Array<{
+      objectType: string;
+      objectTitle: string | null;
+      objectId: number | null;
+      count: bigint;
+      uniqueUsers: bigint;
+    }>>(
+      `SELECT object_type as objectType,
+              object_title as objectTitle,
+              object_id as objectId,
+              COUNT(*) as count,
+              COUNT(DISTINCT user_id) as uniqueUsers
+       FROM learning_activity_logs
+       ${whereClause}
+       GROUP BY object_type, object_title, object_id
+       ORDER BY count DESC
+       LIMIT ?`,
+      ...params,
+      lim,
+    );
+
+    return {
+      data: rows.map(r => ({
+        objectType: r.objectType,
+        objectTitle: r.objectTitle ?? 'Unknown',
+        objectId: r.objectId ? Number(r.objectId) : null,
+        count: Number(r.count),
+        uniqueUsers: Number(r.uniqueUsers),
+      })),
+    };
+  }
+
+  /**
    * Export logs to CSV with all 28+ fields
    */
   async exportToCsv(filters: LogQueryFilters): Promise<string> {

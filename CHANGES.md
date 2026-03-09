@@ -1,3 +1,11 @@
+### 2026-03-09 — Add agent assignment chatbots to Chatbot Registry
+
+- `server/src/services/chatbotRegistry.service.ts`: Added third chatbot type `'agent'` that queries `StudentAgentConfig` with `AgentTestConversation`/`AgentTestMessage` for usage stats. Updated `getStats()` to count agent chatbots/conversations/messages. Updated `getFilterOptions()` to include courses with agent assignments and student creators (deduplicated with existing sources).
+- `client/src/api/admin.ts`: Updated `ChatbotRegistryFilters.type`, `UnifiedChatbot.type` to include `'agent'`; added `agentChatbots` to `ChatbotRegistryStats`.
+- `client/src/pages/admin/logs/ChatbotRegistryTab.tsx`: Added `Puzzle` icon import, agent filter option in type dropdown, agent stats card (amber), agent type badge rendering, `agent_assignment` label in context column, course context section in expanded row details with "Designed by" info.
+- `client/src/pages/admin/logs/constants.ts`: Added amber color for `agent` type badge.
+- `client/public/locales/{en,fi,es,ar}/admin.json`: Added keys: `agent_chatbots`, `agent`, `agent_assignment`, `course_context`, `designed_by`.
+
 ### 2026-03-07 — Rename clusters tab to "Learning Tactics"
 
 - `client/public/locales/en/admin.json`: `clusters_title` -> "Learning Tactics"

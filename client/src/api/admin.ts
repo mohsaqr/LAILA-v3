@@ -593,6 +593,46 @@ export const activityLogApi = {
     return response.data.data;
   },
 
+  getSummary: async (filters?: { courseId?: number; userId?: number; startDate?: string; endDate?: string }): Promise<{
+    totalActivities: number;
+    uniqueUsers: number;
+    uniqueSessions: number;
+    avgPerUser: number;
+  }> => {
+    const params = new URLSearchParams();
+    if (filters?.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters?.userId) params.append('userId', filters.userId.toString());
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    const response = await apiClient.get<any>(`/activity-log/summary?${params.toString()}`);
+    return response.data.data;
+  },
+
+  getHourlyCounts: async (filters?: { courseId?: number; userId?: number; startDate?: string; endDate?: string }): Promise<{
+    data: Array<{ dow: number; hour: number; count: number }>;
+  }> => {
+    const params = new URLSearchParams();
+    if (filters?.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters?.userId) params.append('userId', filters.userId.toString());
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    const response = await apiClient.get<any>(`/activity-log/hourly-counts?${params.toString()}`);
+    return response.data.data;
+  },
+
+  getTopResources: async (filters?: { courseId?: number; userId?: number; startDate?: string; endDate?: string; limit?: number }): Promise<{
+    data: Array<{ objectType: string; objectTitle: string; objectId: number | null; count: number; uniqueUsers: number }>;
+  }> => {
+    const params = new URLSearchParams();
+    if (filters?.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters?.userId) params.append('userId', filters.userId.toString());
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    const response = await apiClient.get<any>(`/activity-log/top-resources?${params.toString()}`);
+    return response.data.data;
+  },
+
   // Helper to build query string from filters
   _buildQueryString: (filters: ActivityLogFilters) => {
     const params = new URLSearchParams();
@@ -1018,7 +1058,7 @@ export const messagesApi = {
 // =============================================================================
 
 export interface ChatbotRegistryFilters {
-  type?: 'global' | 'section';
+  type?: 'global' | 'section' | 'agent';
   courseId?: number;
   creatorId?: number;
   isActive?: boolean;
@@ -1034,7 +1074,7 @@ export interface ChatbotRegistryFilters {
 
 export interface UnifiedChatbot {
   id: string;
-  type: 'global' | 'section';
+  type: 'global' | 'section' | 'agent';
   name: string;
   displayName: string;
   description: string | null;
@@ -1075,6 +1115,7 @@ export interface ChatbotRegistryStats {
   totalChatbots: number;
   globalChatbots: number;
   sectionChatbots: number;
+  agentChatbots: number;
   totalConversations: number;
   totalMessages: number;
   uniqueUsers: number;

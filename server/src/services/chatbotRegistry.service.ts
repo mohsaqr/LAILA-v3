@@ -12,7 +12,7 @@ import ExcelJS from 'exceljs';
 // =============================================================================
 
 export interface ChatbotRegistryFilters {
-  type?: 'global' | 'section';
+  type?: 'global' | 'section' | 'agent';
   courseId?: number;
   creatorId?: number;
   isActive?: boolean;
@@ -27,8 +27,8 @@ export interface ChatbotRegistryFilters {
 }
 
 export interface UnifiedChatbot {
-  id: string; // 'global-{id}' or 'section-{id}'
-  type: 'global' | 'section';
+  id: string; // 'global-{id}', 'section-{id}', or 'agent-{id}'
+  type: 'global' | 'section' | 'agent';
 
   // Basic info
   name: string;
@@ -83,6 +83,7 @@ export interface ChatbotRegistryStats {
   totalChatbots: number;
   globalChatbots: number;
   sectionChatbots: number;
+  agentChatbots: number;
   totalConversations: number;
   totalMessages: number;
   uniqueUsers: number;
@@ -357,6 +358,121 @@ class ChatbotRegistryService {
     }
 
     // =========================================================================
+    // QUERY AGENT ASSIGNMENT CHATBOTS
+    // =========================================================================
+    if (!type || type === 'agent') {
+      const agentWhere: any = {};
+
+      if (startDate) {
+        agentWhere.createdAt = { ...agentWhere.createdAt, gte: new Date(startDate) };
+      }
+      if (endDate) {
+        agentWhere.createdAt = { ...agentWhere.createdAt, lte: new Date(endDate) };
+      }
+      if (search) {
+        agentWhere.OR = [
+          { agentName: { contains: search } },
+          { agentTitle: { contains: search } },
+          { personaDescription: { contains: search } },
+          { systemPrompt: { contains: search } },
+        ];
+      }
+
+      const agentConfigs = await prisma.studentAgentConfig.findMany({
+        where: agentWhere,
+        include: {
+          assignment: {
+            include: {
+              course: {
+                include: {
+                  instructor: {
+                    select: { id: true, fullname: true, email: true },
+                  },
+                },
+              },
+              module: { select: { id: true, title: true } },
+              lecture: { select: { id: true, title: true } },
+            },
+          },
+          testConversations: {
+            include: {
+              messages: true,
+            },
+          },
+        },
+      });
+
+      for (const config of agentConfigs) {
+        const course = config.assignment?.course;
+        const instructor = course?.instructor;
+
+        // Apply course filter
+        if (courseId && course?.id !== courseId) continue;
+
+        // Apply creator filter (creator = student who designed the agent)
+        if (creatorId && config.userId !== creatorId) continue;
+
+        // Calculate usage stats from AgentTestConversation
+        const conversationCount = config.testConversations.length;
+        const messageCount = config.testConversations.reduce(
+          (sum, conv) => sum + conv.messages.length,
+          0
+        );
+        const uniqueUserIds = new Set(config.testConversations.map(c => c.testerId));
+
+        // Get last activity
+        const lastMessage = config.testConversations
+          .flatMap(c => c.messages)
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+
+        // Get student info for creator fields
+        const student = await prisma.user.findUnique({
+          where: { id: config.userId },
+          select: { id: true, fullname: true, email: true },
+        });
+
+        allChatbots.push({
+          id: `agent-${config.id}`,
+          type: 'agent',
+          name: config.agentName,
+          displayName: config.agentTitle || config.agentName,
+          description: config.personaDescription,
+          category: 'agent_assignment',
+          isActive: !config.isDraft,
+          systemPrompt: config.systemPrompt,
+          welcomeMessage: config.welcomeMessage,
+          dosRules: parseJsonArray(config.dosRules),
+          dontsRules: parseJsonArray(config.dontsRules),
+          personality: config.personality,
+          personalityPrompt: config.personalityPrompt,
+          temperature: config.temperature,
+          maxTokens: null,
+          responseStyle: config.responseStyle,
+          modelPreference: null,
+          suggestedQuestions: parseJsonArray(config.suggestedQuestions),
+          knowledgeContext: config.knowledgeContext,
+          avatarUrl: config.avatarImageUrl,
+          courseId: course?.id || null,
+          courseTitle: course?.title || null,
+          moduleId: config.assignment?.module?.id || null,
+          moduleTitle: config.assignment?.module?.title || null,
+          lectureId: config.assignment?.lecture?.id || null,
+          lectureTitle: config.assignment?.lecture?.title || null,
+          sectionId: null,
+          creatorId: student?.id || config.userId,
+          creatorName: student?.fullname || null,
+          creatorEmail: student?.email || null,
+          conversationCount,
+          messageCount,
+          uniqueUsers: uniqueUserIds.size,
+          lastActivity: lastMessage?.createdAt?.toISOString() || null,
+          createdAt: config.createdAt.toISOString(),
+          updatedAt: config.updatedAt.toISOString(),
+        });
+      }
+    }
+
+    // =========================================================================
     // APPLY SORTING
     // =========================================================================
     const sortMultiplier = sortOrder === 'asc' ? 1 : -1;
@@ -506,9 +622,60 @@ class ChatbotRegistryService {
       categories.push({ category: 'course_chatbot', count: sectionChatbotCount });
     }
 
+    // Add agent assignment chatbot category
+    const agentChatbotCount = await prisma.studentAgentConfig.count();
+    if (agentChatbotCount > 0) {
+      categories.push({ category: 'agent_assignment', count: agentChatbotCount });
+    }
+
+    // Get courses that have agent assignments
+    const coursesWithAgents = await prisma.course.findMany({
+      where: {
+        assignments: {
+          some: {
+            studentAgentConfigs: { some: {} },
+          },
+        },
+      },
+      select: { id: true, title: true },
+      orderBy: { title: 'asc' },
+    });
+
+    // Merge course lists (deduplicate)
+    const courseMap = new Map<number, { id: number; title: string }>();
+    for (const c of coursesWithChatbots) courseMap.set(c.id, c);
+    for (const c of coursesWithAgents) courseMap.set(c.id, c);
+    const allCourses = Array.from(courseMap.values()).sort((a, b) =>
+      a.title.localeCompare(b.title)
+    );
+
+    // Get students who designed agent chatbots
+    const agentCreators = await prisma.user.findMany({
+      where: {
+        id: {
+          in: (
+            await prisma.studentAgentConfig.findMany({
+              select: { userId: true },
+              distinct: ['userId'],
+            })
+          ).map(c => c.userId),
+        },
+      },
+      select: { id: true, fullname: true, email: true },
+      orderBy: { fullname: 'asc' },
+    });
+
+    // Merge creator lists (deduplicate)
+    const creatorMap = new Map<number, { id: number; fullname: string | null; email: string }>();
+    for (const c of instructors) creatorMap.set(c.id, c);
+    for (const c of agentCreators) creatorMap.set(c.id, c);
+    const allCreators = Array.from(creatorMap.values()).sort((a, b) =>
+      (a.fullname || '').localeCompare(b.fullname || '')
+    );
+
     return {
-      courses: coursesWithChatbots,
-      creators: instructors,
+      courses: allCourses,
+      creators: allCreators,
       categories: categories.sort((a, b) => b.count - a.count),
     };
   }
@@ -533,6 +700,9 @@ class ChatbotRegistryService {
       where: { type: 'chatbot' },
     });
 
+    // Count agent assignment chatbots
+    const agentCount = await prisma.studentAgentConfig.count();
+
     // Count conversations and messages for global chatbots (TutorConversation)
     const tutorConversations = await prisma.tutorConversation.count();
     const tutorMessages = await prisma.tutorMessage.count();
@@ -541,7 +711,11 @@ class ChatbotRegistryService {
     const chatbotConversations = await prisma.chatbotConversation.count();
     const chatbotMessages = await prisma.chatbotConversationMessage.count();
 
-    // Unique users from both systems
+    // Count conversations and messages for agent chatbots
+    const agentConversations = await prisma.agentTestConversation.count();
+    const agentMessages = await prisma.agentTestMessage.count();
+
+    // Unique users from all three systems
     const tutorUsers = await prisma.tutorSession.findMany({
       select: { userId: true },
       distinct: ['userId'],
@@ -550,9 +724,14 @@ class ChatbotRegistryService {
       select: { userId: true },
       distinct: ['userId'],
     });
+    const agentUsers = await prisma.agentTestConversation.findMany({
+      select: { testerId: true },
+      distinct: ['testerId'],
+    });
     const allUserIds = new Set([
       ...tutorUsers.map(u => u.userId),
       ...chatbotUsers.map(u => u.userId),
+      ...agentUsers.map(u => u.testerId),
     ]);
 
     // Get category breakdown
@@ -565,6 +744,9 @@ class ChatbotRegistryService {
       count: g._count.id,
     }));
     byCategory.push({ category: 'course_chatbot', count: sectionCount });
+    if (agentCount > 0) {
+      byCategory.push({ category: 'agent_assignment', count: agentCount });
+    }
 
     // Get course breakdown for section chatbots
     const sectionsByCourse = await prisma.lectureSection.findMany({
@@ -594,6 +776,29 @@ class ChatbotRegistryService {
         }
       }
     }
+
+    // Add agent assignment chatbots by course
+    const agentsByCourse = await prisma.studentAgentConfig.findMany({
+      include: {
+        assignment: {
+          include: {
+            course: { select: { id: true, title: true } },
+          },
+        },
+      },
+    });
+    for (const config of agentsByCourse) {
+      const course = config.assignment?.course;
+      if (course) {
+        const existing = courseCountMap.get(course.id);
+        if (existing) {
+          existing.count++;
+        } else {
+          courseCountMap.set(course.id, { title: course.title, count: 1 });
+        }
+      }
+    }
+
     const byCourse = Array.from(courseCountMap.entries()).map(([courseId, data]) => ({
       courseId,
       courseTitle: data.title,
@@ -601,11 +806,12 @@ class ChatbotRegistryService {
     }));
 
     return {
-      totalChatbots: globalCount + sectionCount,
+      totalChatbots: globalCount + sectionCount + agentCount,
       globalChatbots: globalCount,
       sectionChatbots: sectionCount,
-      totalConversations: tutorConversations + chatbotConversations,
-      totalMessages: tutorMessages + chatbotMessages,
+      agentChatbots: agentCount,
+      totalConversations: tutorConversations + chatbotConversations + agentConversations,
+      totalMessages: tutorMessages + chatbotMessages + agentMessages,
       uniqueUsers: allUserIds.size,
       byCategory,
       byCourse: byCourse.sort((a, b) => b.count - a.count),

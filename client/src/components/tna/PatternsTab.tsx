@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { discoverPatterns } from 'dynajs';
+import { Loading } from '../common/Loading';
 import { PatternTable } from './PatternTable';
 
 interface PatternsTabProps {
@@ -15,25 +16,63 @@ interface PatternsTabProps {
 const SHORT_LENGTHS = [2, 3];
 const LONG_LENGTHS = [4, 5, 6, 7];
 
+/** Cap sequences to avoid freezing the browser; sample evenly when too large */
+const MAX_SEQS = 1000;
+function capSequences(seqs: string[][]): string[][] {
+  if (seqs.length <= MAX_SEQS) return seqs;
+  const step = seqs.length / MAX_SEQS;
+  const sampled: string[][] = [];
+  for (let i = 0; i < MAX_SEQS; i++) sampled.push(seqs[Math.floor(i * step)]);
+  return sampled;
+}
+
+/** Scale minSupport so larger datasets still find patterns */
+function adaptiveSupport(n: number): number {
+  if (n <= 100) return 0.01;
+  return Math.max(0.001, 2 / n);  // at least 2 occurrences
+}
+
 export const PatternsTab = ({ sequences, colorMap, shortEnabled, onShortEnabledChange: setShortEnabled, longEnabled, onLongEnabledChange: setLongEnabled }: PatternsTabProps) => {
   const { t } = useTranslation(['admin']);
 
-  const shortPatterns = useMemo(() => {
-    const lens = SHORT_LENGTHS.filter(l => shortEnabled[l]);
-    if (!sequences?.length || lens.length === 0) return [];
-    try {
-      return discoverPatterns(sequences, { len: lens }).patterns;
-    } catch { return []; }
-  }, [sequences, shortEnabled]);
+  const [result, setResult] = useState<{ short: any[]; long: any[] } | null>(null);
+  const computeIdRef = useRef(0);
 
-  const longPatterns = useMemo(() => {
-    const lens = LONG_LENGTHS.filter(l => longEnabled[l]);
-    if (!sequences?.length || lens.length === 0) return [];
-    try {
-      return discoverPatterns(sequences, { len: lens }).patterns;
-    } catch { return []; }
-  }, [sequences, longEnabled]);
+  useEffect(() => {
+    if (!sequences?.length) { setResult({ short: [], long: [] }); return; }
+    const id = ++computeIdRef.current;
+    setResult(null); // null = computing
+    const timer = setTimeout(() => {
+      if (id !== computeIdRef.current) return;
 
+      const capped = capSequences(sequences);
+      const minSupport = adaptiveSupport(capped.length);
+      let sp: any[] = [];
+      let lp: any[] = [];
+
+      const shortLens = SHORT_LENGTHS.filter(l => shortEnabled[l]);
+      if (shortLens.length > 0) {
+        try { sp = discoverPatterns(capped, { len: shortLens, minSupport, minFreq: 1 }).patterns; } catch { /* ignore */ }
+      }
+
+      const longLens = LONG_LENGTHS.filter(l => longEnabled[l]);
+      if (longLens.length > 0) {
+        try { lp = discoverPatterns(capped, { len: longLens, minSupport, minFreq: 1 }).patterns; } catch { /* ignore */ }
+      }
+
+      if (id === computeIdRef.current) {
+        setResult({ short: sp, long: lp });
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [sequences, shortEnabled, longEnabled]);
+
+  if (!result) {
+    return <div className="py-16"><Loading text={t('computing_patterns')} /></div>;
+  }
+
+  const shortPatterns = result.short;
+  const longPatterns = result.long;
   const total = shortPatterns.length + longPatterns.length;
 
   return (
