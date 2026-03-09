@@ -1,6 +1,7 @@
 # Session Handoff — 2026-03-09
 
 ## Completed
+- **Assignment creation popup in curriculum editor**: Clicking the Assignment button in the curriculum editor now opens a modal with the full assignment creation form instead of redirecting. Creates both the assignment and the assignment section in one flow.
 - **File upload popup in curriculum editor**: Clicking the File button in the curriculum editor now opens a modal with drag-and-drop upload and file name editing, instead of redirecting to the lecture editor. Creates the file section directly via API.
 - **Section buttons for empty lectures only**: In curriculum editor, section add buttons (Text, File, AI, Chatbot, Assignment) now only appear for lectures with no sections. Lectures with content just show "Manage Content". File sections display inline with download and rename. Server query updated to include section data.
 - **Guard ai_agent submissions**: Added server-side guard in `assignment.service.submitAssignment()` that rejects `ai_agent` type assignments with a 400 error. Previously, if the regular submit endpoint was called on an agent assignment, it would overwrite the submission with text content and lose the `agentConfigId` link. Agent assignments must go through the dedicated `agentAssignment.service.submitAgentConfig()` endpoint, which properly handles the unsubmit→edit→resubmit cycle.

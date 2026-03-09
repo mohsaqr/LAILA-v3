@@ -1,3 +1,7 @@
+### 2026-03-09 — Create assignment via popup in curriculum editor
+
+- `client/src/components/teach/ModuleItem.tsx`: Assignment button now opens a modal instead of redirecting to the lecture editor. Modal shows the full assignment creation form (title, description, instructions, submission type, points, due date, publish). On submit, creates the assignment via `assignmentsApi.createAssignment()` then creates an assignment section via `coursesApi.createSection()`.
+
 ### 2026-03-09 — Upload file via popup in curriculum editor
 
 - `client/src/components/teach/ModuleItem.tsx`: File button now opens an inline modal instead of redirecting to the lecture editor. Modal supports drag-and-drop or click-to-upload, file name editing, and saves as a new file section via `coursesApi.createSection()`. Uses existing upload endpoint (`/api/uploads/file`).

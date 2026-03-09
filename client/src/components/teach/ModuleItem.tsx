@@ -35,6 +35,8 @@ import { CodeLabItem } from './CodeLabItem';
 import { AssignmentItem } from './AssignmentItem';
 import { ForumItem } from './ForumItem';
 import { coursesApi } from '../../api/courses';
+import { assignmentsApi } from '../../api/assignments';
+import { Input, TextArea, Select } from '../common/Input';
 import { getAuthToken } from '../../utils/auth';
 
 interface ModuleItemProps {
@@ -184,6 +186,61 @@ export const ModuleItem = ({
     setFileName('');
     setIsUploading(false);
     setIsDragging(false);
+  };
+
+  // Assignment modal state
+  const [assignmentLectureId, setAssignmentLectureId] = useState<number | null>(null);
+  const [assignmentForm, setAssignmentForm] = useState({
+    title: '',
+    description: '',
+    instructions: '',
+    submissionType: 'text' as 'text' | 'file' | 'mixed',
+    dueDate: '',
+    points: 100,
+    isPublished: false,
+  });
+
+  const createAssignmentMutation = useMutation({
+    mutationFn: async ({ lectureId, form }: { lectureId: number; form: typeof assignmentForm }) => {
+      const newAssignment = await assignmentsApi.createAssignment(courseId, {
+        ...form,
+        moduleId: module.id,
+        lectureId,
+        dueDate: form.dueDate ? new Date(form.dueDate).toISOString() : null,
+      });
+      await coursesApi.createSection(lectureId, {
+        type: 'assignment',
+        assignmentId: newAssignment.id,
+      });
+      return newAssignment;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+      toast.success(t('assignment_created'));
+      closeAssignmentModal();
+    },
+    onError: () => toast.error(t('failed_to_create_assignment')),
+  });
+
+  const handleAssignmentFormChange = (field: string, value: string | number | boolean) => {
+    setAssignmentForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleCreateAssignment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignmentLectureId || !assignmentForm.title.trim()) {
+      toast.error(t('title_required'));
+      return;
+    }
+    createAssignmentMutation.mutate({ lectureId: assignmentLectureId, form: assignmentForm });
+  };
+
+  const closeAssignmentModal = () => {
+    setAssignmentLectureId(null);
+    setAssignmentForm({
+      title: '', description: '', instructions: '',
+      submissionType: 'text', dueDate: '', points: 100, isPublished: false,
+    });
   };
 
   const lectures = module.lectures || [];
@@ -350,14 +407,14 @@ export const ModuleItem = ({
                         <MessageCircle className="w-3 h-3" />
                         {t('section_type_chatbot')}
                       </Link>
-                      <Link
-                        to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=assignment`}
+                      <button
+                        onClick={() => setAssignmentLectureId(lecture.id)}
                         className="text-xs px-2 py-1 rounded-md border border-rose-200 hover:bg-rose-50 text-rose-600 hover:text-rose-700 transition-colors flex items-center gap-1"
                         title={t('add_assignment')}
                       >
                         <ClipboardList className="w-3 h-3" />
                         {t('assignment')}
-                      </Link>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -632,6 +689,84 @@ export const ModuleItem = ({
             </div>
           )}
         </div>
+      </Modal>
+
+      {/* Assignment Creation Modal */}
+      <Modal isOpen={assignmentLectureId !== null} onClose={closeAssignmentModal} title={t('create_assignment')} size="lg">
+        <form onSubmit={handleCreateAssignment} className="space-y-4">
+          <Input
+            label={t('title')}
+            value={assignmentForm.title}
+            onChange={e => handleAssignmentFormChange('title', e.target.value)}
+            placeholder={t('assignment_title_placeholder')}
+            required
+          />
+
+          <TextArea
+            label={t('description')}
+            value={assignmentForm.description}
+            onChange={e => handleAssignmentFormChange('description', e.target.value)}
+            placeholder={t('assignment_description_placeholder')}
+            rows={2}
+          />
+
+          <TextArea
+            label={t('instructions')}
+            value={assignmentForm.instructions}
+            onChange={e => handleAssignmentFormChange('instructions', e.target.value)}
+            placeholder={t('assignment_instructions_placeholder')}
+            rows={3}
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label={t('submission_type')}
+              value={assignmentForm.submissionType}
+              onChange={e => handleAssignmentFormChange('submissionType', e.target.value)}
+              options={[
+                { value: 'text', label: t('text_entry') },
+                { value: 'file', label: t('file_upload') },
+                { value: 'mixed', label: t('text_and_file') },
+              ]}
+            />
+            <Input
+              label={t('points')}
+              type="number"
+              value={assignmentForm.points}
+              onChange={e => handleAssignmentFormChange('points', parseInt(e.target.value) || 0)}
+              min={0}
+            />
+          </div>
+
+          <Input
+            label={t('due_date')}
+            type="datetime-local"
+            value={assignmentForm.dueDate}
+            onChange={e => handleAssignmentFormChange('dueDate', e.target.value)}
+          />
+
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id={`isPublished-${module.id}`}
+              checked={assignmentForm.isPublished}
+              onChange={e => handleAssignmentFormChange('isPublished', e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            />
+            <label htmlFor={`isPublished-${module.id}`} className="text-sm text-gray-700">
+              {t('publish_immediately')}
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button type="button" variant="ghost" size="sm" onClick={closeAssignmentModal}>
+              {t('cancel')}
+            </Button>
+            <Button type="submit" size="sm" loading={createAssignmentMutation.isPending}>
+              {t('create_assignment')}
+            </Button>
+          </div>
+        </form>
       </Modal>
     </div>
   );
