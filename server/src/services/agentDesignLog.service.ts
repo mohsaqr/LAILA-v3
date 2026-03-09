@@ -530,14 +530,36 @@ export class AgentDesignLogService {
       reflectionResponse?: string | null;
     }>
   ): Record<string, unknown> {
-    // Total design time (from last session end event)
-    const sessionEndEvents = events.filter(
-      (e) => e.eventType === 'design_session_end' && e.totalDesignTime
-    );
-    const totalDesignTime =
-      sessionEndEvents.length > 0
-        ? Math.max(...sessionEndEvents.map((e) => e.totalDesignTime || 0))
-        : 0;
+    // Total design time — computed from event timestamps.
+    // Sum durations between session start/resume and the next pause/end.
+    // Falls back to first-event-to-last-event span if no session events exist.
+    let totalDesignTime = 0;
+    if (events.length > 0) {
+      let activeStart: number | null = null;
+      for (const e of events) {
+        const ts = new Date(e.timestamp).getTime();
+        if (e.eventType === 'design_session_start' || e.eventType === 'design_session_resume') {
+          if (activeStart === null) activeStart = ts;
+        } else if (e.eventType === 'design_session_end' || e.eventType === 'design_session_pause') {
+          if (activeStart !== null) {
+            totalDesignTime += ts - activeStart;
+            activeStart = null;
+          }
+        }
+      }
+      // If session was never closed, count up to the last event
+      if (activeStart !== null) {
+        const lastTs = new Date(events[events.length - 1].timestamp).getTime();
+        totalDesignTime += lastTs - activeStart;
+      }
+      // If no session events at all, use first-to-last event span
+      if (totalDesignTime === 0 && events.length >= 2) {
+        const first = new Date(events[0].timestamp).getTime();
+        const last = new Date(events[events.length - 1].timestamp).getTime();
+        totalDesignTime = last - first;
+      }
+      totalDesignTime = Math.round(totalDesignTime / 1000); // convert ms to seconds
+    }
 
     // Iteration count (number of draft_saved after test events)
     let hasTestedSinceLastSave = false;

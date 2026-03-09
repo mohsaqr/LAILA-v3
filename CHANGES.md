@@ -1,3 +1,8 @@
+### 2026-03-09 — Fix totalDesignTime null in agent design analytics
+
+- `server/src/services/agentDesignLog.service.ts`: Replaced unreliable `design_session_end`-based `totalDesignTime` calculation with event-timestamp-based computation. Sums active session durations (start→end/pause, resume→end/pause pairs). Falls back to first-to-last event span if no session events exist. Previously returned 0/null because `design_session_end` events were lost due to `sendBeacon` content-type issue.
+- `client/src/services/agentDesignLogger.ts`: Fixed `flushSync()` to send `sendBeacon` with `Blob({ type: 'application/json' })` instead of plain string, so Express can parse the JSON body.
+
 ### 2026-03-09 — Move save button into lesson settings card
 
 - `client/src/pages/teach/LectureEditor.tsx`: Removed save button from page header. Moved it inside the "Lesson Settings" card as a full-width button after the isFree checkbox. Clarifies that save only applies to settings (content type, video URL, duration, free preview) — sections auto-save independently.
