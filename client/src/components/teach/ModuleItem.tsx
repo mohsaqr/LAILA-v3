@@ -236,51 +236,52 @@ export const ModuleItem = ({
                     onEditAssignment={onEditAssignment}
                     onDeleteAssignment={onDeleteAssignment}
                   />
-                  {/* Inline add options after each lesson */}
-                  <div className="flex items-center gap-1.5 py-2 px-3 ml-6 border-l-2 border-dashed border-gray-200 flex-wrap">
-                    <span className="text-xs text-gray-400 mr-1">{t('add')}:</span>
-                    {/* Section types - add directly to this lesson */}
-                    <Link
-                      to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=text`}
-                      className="text-xs px-2 py-1 rounded-md border border-blue-200 hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1"
-                      title={t('add_text_section')}
-                    >
-                      <FileText className="w-3 h-3" />
-                      {t('section_type_text')}
-                    </Link>
-                    <Link
-                      to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=file`}
-                      className="text-xs px-2 py-1 rounded-md border border-green-200 hover:bg-green-50 text-green-600 hover:text-green-700 transition-colors flex items-center gap-1"
-                      title={t('add_file_section')}
-                    >
-                      <Upload className="w-3 h-3" />
-                      {t('section_type_file')}
-                    </Link>
-                    <Link
-                      to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=ai-generated`}
-                      className="text-xs px-2 py-1 rounded-md border border-purple-200 hover:bg-purple-50 text-purple-600 hover:text-purple-700 transition-colors flex items-center gap-1"
-                      title={t('add_ai_section')}
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      {t('section_type_ai')}
-                    </Link>
-                    <Link
-                      to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=chatbot`}
-                      className="text-xs px-2 py-1 rounded-md border border-orange-200 hover:bg-orange-50 text-orange-600 hover:text-orange-700 transition-colors flex items-center gap-1"
-                      title={t('add_chatbot_section')}
-                    >
-                      <MessageCircle className="w-3 h-3" />
-                      {t('section_type_chatbot')}
-                    </Link>
-                    <Link
-                      to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=assignment`}
-                      className="text-xs px-2 py-1 rounded-md border border-rose-200 hover:bg-rose-50 text-rose-600 hover:text-rose-700 transition-colors flex items-center gap-1"
-                      title={t('add_assignment')}
-                    >
-                      <ClipboardList className="w-3 h-3" />
-                      {t('assignment')}
-                    </Link>
-                  </div>
+                  {/* Inline add options — only for empty lectures (no sections) */}
+                  {(!lecture.sections || lecture.sections.length === 0) && (
+                    <div className="flex items-center gap-1.5 py-2 px-3 ml-6 border-l-2 border-dashed border-gray-200 flex-wrap">
+                      <span className="text-xs text-gray-400 mr-1">{t('add')}:</span>
+                      <Link
+                        to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=text`}
+                        className="text-xs px-2 py-1 rounded-md border border-blue-200 hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1"
+                        title={t('add_text_section')}
+                      >
+                        <FileText className="w-3 h-3" />
+                        {t('section_type_text')}
+                      </Link>
+                      <Link
+                        to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=file`}
+                        className="text-xs px-2 py-1 rounded-md border border-green-200 hover:bg-green-50 text-green-600 hover:text-green-700 transition-colors flex items-center gap-1"
+                        title={t('add_file_section')}
+                      >
+                        <Upload className="w-3 h-3" />
+                        {t('section_type_file')}
+                      </Link>
+                      <Link
+                        to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=ai-generated`}
+                        className="text-xs px-2 py-1 rounded-md border border-purple-200 hover:bg-purple-50 text-purple-600 hover:text-purple-700 transition-colors flex items-center gap-1"
+                        title={t('add_ai_section')}
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        {t('section_type_ai')}
+                      </Link>
+                      <Link
+                        to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=chatbot`}
+                        className="text-xs px-2 py-1 rounded-md border border-orange-200 hover:bg-orange-50 text-orange-600 hover:text-orange-700 transition-colors flex items-center gap-1"
+                        title={t('add_chatbot_section')}
+                      >
+                        <MessageCircle className="w-3 h-3" />
+                        {t('section_type_chatbot')}
+                      </Link>
+                      <Link
+                        to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=assignment`}
+                        className="text-xs px-2 py-1 rounded-md border border-rose-200 hover:bg-rose-50 text-rose-600 hover:text-rose-700 transition-colors flex items-center gap-1"
+                        title={t('add_assignment')}
+                      >
+                        <ClipboardList className="w-3 h-3" />
+                        {t('assignment')}
+                      </Link>
+                    </div>
+                  )}
                 </div>
               ))
           ) : (

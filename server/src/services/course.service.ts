@@ -180,6 +180,12 @@ export class CourseService {
               select: {
                 id: true, title: true, contentType: true, duration: true,
                 orderIndex: true, isPublished: true, isFree: true,
+                sections: {
+                  orderBy: { order: 'asc' },
+                  select: {
+                    id: true, type: true, fileName: true, fileUrl: true, fileType: true, order: true,
+                  },
+                },
               },
             },
             codeLabs: {

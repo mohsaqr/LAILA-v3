@@ -1,3 +1,9 @@
+### 2026-03-09 — Show section buttons only for empty lectures in curriculum editor
+
+- `server/src/services/course.service.ts`: `getCourseDetails()` now includes `sections` (id, type, fileName, fileUrl, fileType, order) in the lecture select, so the curriculum editor knows which lectures have content.
+- `client/src/components/teach/ModuleItem.tsx`: Inline add section buttons (Text, File, AI, Chatbot, Assignment) now only display for lectures with no sections. Lectures with existing sections rely on "Manage Content" instead.
+- `client/src/components/teach/LectureItem.tsx`: When a lecture contains a file section, displays file info (name, download, rename) below the lecture card. Inline rename with Enter/Escape, download via fetch-blob.
+
 ### 2026-03-09 — Guard against ai_agent submissions via regular endpoint
 
 - `server/src/services/assignment.service.ts`: Added guard in `submitAssignment()` that rejects assignments with `submissionType === 'ai_agent'` (throws 400). This prevents agent assignment resubmissions from being saved as text submissions. Agent assignments must go through `agentAssignment.service.submitAgentConfig()` which properly preserves the `agentConfigId` link and all analytics.
