@@ -1,3 +1,8 @@
+### 2026-03-09 — Upload file via popup in curriculum editor
+
+- `client/src/components/teach/ModuleItem.tsx`: File button now opens an inline modal instead of redirecting to the lecture editor. Modal supports drag-and-drop or click-to-upload, file name editing, and saves as a new file section via `coursesApi.createSection()`. Uses existing upload endpoint (`/api/uploads/file`).
+- `client/public/locales/{en,fi,es,ar}/teaching.json`: Added `file_name`, `file_uploaded`, `failed_upload` keys.
+
 ### 2026-03-09 — Show section buttons only for empty lectures in curriculum editor
 
 - `server/src/services/course.service.ts`: `getCourseDetails()` now includes `sections` (id, type, fileName, fileUrl, fileType, order) in the lecture select, so the curriculum editor knows which lectures have content.
