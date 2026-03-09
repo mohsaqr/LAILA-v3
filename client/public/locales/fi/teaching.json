@@ -942,6 +942,7 @@
   "download": "Lataa",
   "file_section": "Tiedosto-osio",
   "remove_file": "Poista tiedosto",
+  "edit_file_name": "Muokkaa tiedoston nimeä",
   "uploading_file": "Ladataan tiedostoa...",
   "drag_drop_file": "Vedä ja pudota tiedosto tähän, tai",
   "choose_file": "Valitse tiedosto",

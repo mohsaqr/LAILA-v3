@@ -1,3 +1,8 @@
+### 2026-03-09 — Editable file section names for instructors
+
+- `client/src/components/teach/FileSection.tsx`: Added inline file name editing. After upload, auto-enters edit mode with focused input. Pencil icon next to file name toggles edit mode. Check icon or Enter saves, Escape cancels. Saves via existing `onFileChange({ fileName })` callback.
+- `client/public/locales/{en,fi,es,ar}/teaching.json`: Added `edit_file_name` key.
+
 ### 2026-03-09 — Add agent assignment chatbots to Chatbot Registry
 
 - `server/src/services/chatbotRegistry.service.ts`: Added third chatbot type `'agent'` that queries `StudentAgentConfig` with `AgentTestConversation`/`AgentTestMessage` for usage stats. Updated `getStats()` to count agent chatbots/conversations/messages. Updated `getFilterOptions()` to include courses with agent assignments and student creators (deduplicated with existing sources).

@@ -1,6 +1,7 @@
 # Session Handoff — 2026-03-09
 
 ## Completed
+- **Editable file section names**: Instructors can now rename file sections. After uploading a file, the name input auto-focuses for renaming. An edit (pencil) icon next to the file name allows renaming at any time. The name is saved as `fileName` in the database via the existing `updateSection` API. Enter to save, Escape to cancel.
 - **Agent chatbots in Chatbot Registry**: Student-designed AI agents from agent assignments are now visible in the admin Chatbot Registry as a third type (`agent`) alongside `global` and `section`.
   - Server: `chatbotRegistry.service.ts` — added `StudentAgentConfig` query with `AgentTestConversation`/`AgentTestMessage` stats, updated `getStats()` and `getFilterOptions()` to include agent data
   - Client: `ChatbotRegistryTab.tsx` — added agent filter, stats card, type badge (amber/Puzzle icon), course context in expanded details
