@@ -1,3 +1,7 @@
+### 2026-03-09 — Fix templateUsage null in agent design analytics
+
+- `server/src/services/agentDesignLog.service.ts`: `calculateAnalytics()` now accepts optional `config` parameter. `templateUsage.roleUsed` falls back to `config.pedagogicalRole` and `templateUsage.personalityUsed` falls back to `config.personality` from `StudentAgentConfig` when design events don't contain role/personality selections (early events logged with null `agentConfigId` are excluded from the query).
+
 ### 2026-03-09 — Fix totalDesignTime null in agent design analytics
 
 - `server/src/services/agentDesignLog.service.ts`: Replaced unreliable `design_session_end`-based `totalDesignTime` calculation with event-timestamp-based computation. Sums active session durations (start→end/pause, resume→end/pause pairs). Falls back to first-to-last event span if no session events exist. Previously returned 0/null because `design_session_end` events were lost due to `sendBeacon` content-type issue.

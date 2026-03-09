@@ -219,7 +219,7 @@ export class AgentDesignLogService {
     });
 
     // Calculate analytics
-    const analytics = this.calculateAnalytics(events);
+    const analytics = this.calculateAnalytics(events, config);
 
     return {
       events: events.map((e) => ({
@@ -528,7 +528,8 @@ export class AgentDesignLogService {
       usedTemplate?: boolean;
       reflectionPromptId?: string | null;
       reflectionResponse?: string | null;
-    }>
+    }>,
+    config?: { pedagogicalRole?: string | null; personality?: string | null }
   ): Record<string, unknown> {
     // Total design time — computed from event timestamps.
     // Sum durations between session start/resume and the next pause/end.
@@ -612,8 +613,8 @@ export class AgentDesignLogService {
       iterationCount,
       testConversationCount,
       templateUsage: {
-        roleUsed: roleEvent?.roleSelected || null,
-        personalityUsed: personalityEvent?.personalitySelected || null,
+        roleUsed: roleEvent?.roleSelected || config?.pedagogicalRole || null,
+        personalityUsed: personalityEvent?.personalitySelected || config?.personality || null,
         templatesApplied: templateAppliedCount,
       },
       reflectionResponses,
