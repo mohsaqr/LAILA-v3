@@ -1,3 +1,7 @@
+### 2026-03-09 — Fix incorrect Total Design Time in Summary/Analytics
+
+- `server/src/services/agentDesignLog.service.ts`: `calculateAnalytics()` now prefers the last event's cumulative `totalDesignTime` field (logged by the client as elapsed seconds since session start) over the session event pair calculation. Falls back to the previous 3-tier computation (session pairs → unclosed session → first-to-last span) only when the last event has no `totalDesignTime`. This ensures Summary/Analytics tabs show the same correct total as the last item in the Full Time Timeline.
+
 ### 2026-03-09 — Rich text editor for forum replies and thread creation
 
 - `client/src/components/forum/ForumReplyInput.tsx`: Replaced plain textarea with tiptap rich text editor. Toolbar: Bold, Italic, Underline, Heading, Bullet/Ordered List, Code Block, Link, Image upload, Undo, Redo. Value is now HTML string. Images uploaded to server (not base64) and compressed to max 500 KB before upload.

@@ -1,6 +1,7 @@
 # Session Handoff — 2026-03-09
 
 ## Completed
+- **Fix incorrect Total Design Time**: Summary/Analytics tabs now show the correct total design time by preferring the last event's cumulative `totalDesignTime` field (client-logged elapsed seconds) over the server's session event pair calculation. The Full Time Timeline's last item was already correct; now Summary/Analytics match it.
 - **Rich text editor for forum replies and thread creation**: Replaced plain textarea in `ForumReplyInput` with tiptap rich text editor (bold, italic, underline, heading, lists, code block, link, image upload). Images compressed to max 500 KB client-side then uploaded to server (not base64). Images display at max 300px width in editor and rendered content. Created reusable `RichTextEditor` for thread creation. Content rendered as sanitized HTML with DOMPurify and Tailwind typography. Server content limit increased from 10K to 50K chars.
 - **Assignment creation popup in curriculum editor**: Clicking the Assignment button in the curriculum editor now opens a modal with the full assignment creation form instead of redirecting. Creates both the assignment and the assignment section in one flow.
 - **File upload popup in curriculum editor**: Clicking the File button in the curriculum editor now opens a modal with drag-and-drop upload and file name editing, instead of redirecting to the lecture editor. Creates the file section directly via API.
