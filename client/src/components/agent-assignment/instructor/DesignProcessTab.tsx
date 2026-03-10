@@ -150,7 +150,7 @@ export const DesignProcessTab = ({ agentConfigId }: DesignProcessTabProps) => {
       </div>
 
       {/* Content */}
-      {viewMode === 'summary' && <DesignAnalyticsSummary analytics={analytics} />}
+      {viewMode === 'summary' && <DesignAnalyticsSummary analytics={analytics} events={events} />}
 
       {viewMode === 'timeline' && (
         <DesignTimeline

@@ -1,3 +1,11 @@
+### 2026-03-10 — Add TNA charts to agent design process analytics
+
+- `client/src/components/agent-assignment/instructor/DesignAnalyticsSummary.tsx`: Added three TNA visualization cards below the existing Activity Breakdown section. New `TnaChartsSection` helper converts event categories into TNA sequences and models. Added `events` prop to receive raw design events from parent.
+  - **ActivityDonutChart**: Shows activity distribution by category as an interactive donut chart.
+  - **TnaIndexPlot**: Renders the full design process as a single color-coded sequence (one row of timesteps).
+  - **TnaNetworkGraph**: Displays transition network between activity categories with weighted directed edges and self-loops.
+- `client/src/components/agent-assignment/instructor/DesignProcessTab.tsx`: Passes `events` array to `DesignAnalyticsSummary` for TNA chart generation.
+
 ### 2026-03-09 — Fix incorrect Total Design Time in Summary/Analytics
 
 - `server/src/services/agentDesignLog.service.ts`: `calculateAnalytics()` now prefers the last event's cumulative `totalDesignTime` field (logged by the client as elapsed seconds since session start) over the session event pair calculation. Falls back to the previous 3-tier computation (session pairs → unclosed session → first-to-last span) only when the last event has no `totalDesignTime`. This ensures Summary/Analytics tabs show the same correct total as the last item in the Full Time Timeline.
