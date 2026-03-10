@@ -167,20 +167,11 @@ export const Certificate = () => {
                   {verifyPercentage !== null && (
                     <div className="flex items-center gap-3 p-3 rounded-lg mb-3" style={{ backgroundColor: isDark ? 'rgba(30, 58, 95, 0.5)' : 'rgba(255,255,255,0.7)' }}>
                       <BarChart3 className="w-5 h-5 flex-shrink-0" style={{ color: isDark ? '#93c5fd' : '#3b82f6' }} />
-                      <div className="flex-1">
+                      <div>
                         <p className="text-xs" style={{ color: isDark ? '#93c5fd' : '#6b7280' }}>{t('achievement')}</p>
                         <p className="font-semibold text-sm" style={{ color: isDark ? '#f3f4f6' : '#1e3a5f' }}>
                           {verifyPercentage}%
                         </p>
-                        <div className="w-full h-2 rounded-full mt-1" style={{ backgroundColor: isDark ? '#1e40af' : '#bfdbfe' }}>
-                          <div
-                            className="h-2 rounded-full transition-all"
-                            style={{
-                              width: `${Math.min(verifyPercentage, 100)}%`,
-                              backgroundColor: isDark ? '#60a5fa' : '#3b82f6',
-                            }}
-                          />
-                        </div>
                       </div>
                     </div>
                   )}
@@ -258,39 +249,44 @@ export const Certificate = () => {
     if (!rightCardRef.current || !leftCardRef.current) return;
     setIsGeneratingPdf(true);
     try {
-      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdf = new jsPDF('l', 'mm', 'a4'); // landscape
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 10;
-      const contentWidth = pageWidth - margin * 2;
+      const gap = 6;
+      const leftWidth = (pageWidth - margin * 2 - gap) * 0.33;
+      const rightWidth = (pageWidth - margin * 2 - gap) * 0.67;
+      const maxHeight = pageHeight - margin * 2;
 
-      // Capture the left card (student info) first
-      const leftCanvas = await html2canvas(leftCardRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: isDark ? '#1e3a5f' : '#eff6ff',
-      });
+      // Capture both cards in parallel
+      const [leftCanvas, rightCanvas] = await Promise.all([
+        html2canvas(leftCardRef.current, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: isDark ? '#1e3a5f' : '#eff6ff',
+        }),
+        html2canvas(rightCardRef.current, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: isDark ? '#1f2937' : '#ffffff',
+        }),
+      ]);
+
       const leftImgData = leftCanvas.toDataURL('image/png');
-      const leftImgHeight = (leftCanvas.height / leftCanvas.width) * contentWidth;
-      pdf.addImage(leftImgData, 'PNG', margin, margin, contentWidth, leftImgHeight);
+      const leftAspect = leftCanvas.height / leftCanvas.width;
+      const leftImgHeight = Math.min(leftWidth * leftAspect, maxHeight);
+      const leftImgWidth = leftImgHeight / leftAspect;
 
-      // Capture the right card (certificate template)
-      const rightCanvas = await html2canvas(rightCardRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: isDark ? '#1f2937' : '#ffffff',
-      });
       const rightImgData = rightCanvas.toDataURL('image/png');
-      const rightImgHeight = (rightCanvas.height / rightCanvas.width) * contentWidth;
+      const rightAspect = rightCanvas.height / rightCanvas.width;
+      const rightImgHeight = Math.min(rightWidth * rightAspect, maxHeight);
+      const rightImgWidth = rightImgHeight / rightAspect;
 
-      // Check if right card fits on current page, otherwise add new page
-      const currentY = margin + leftImgHeight + 10;
-      if (currentY + rightImgHeight > pageHeight - margin) {
-        pdf.addPage();
-        pdf.addImage(rightImgData, 'PNG', margin, margin, contentWidth, rightImgHeight);
-      } else {
-        pdf.addImage(rightImgData, 'PNG', margin, currentY, contentWidth, rightImgHeight);
-      }
+      // Place left card on the left side
+      pdf.addImage(leftImgData, 'PNG', margin, margin, leftImgWidth, leftImgHeight);
+
+      // Place right card next to it
+      pdf.addImage(rightImgData, 'PNG', margin + leftWidth + gap, margin, rightImgWidth, rightImgHeight);
 
       pdf.save(`certificate-${certificate.verificationCode}.pdf`);
     } catch {
@@ -389,20 +385,11 @@ export const Certificate = () => {
                 {percentage !== null && (
                   <div className="flex items-center gap-3 p-3 rounded-lg mb-3" style={{ backgroundColor: isDark ? 'rgba(30, 58, 95, 0.5)' : 'rgba(255,255,255,0.7)' }}>
                     <BarChart3 className="w-5 h-5 flex-shrink-0" style={{ color: isDark ? '#93c5fd' : '#3b82f6' }} />
-                    <div className="flex-1">
+                    <div>
                       <p className="text-xs" style={{ color: isDark ? '#93c5fd' : '#6b7280' }}>{t('achievement')}</p>
                       <p className="font-semibold text-sm" style={{ color: isDark ? '#f3f4f6' : '#1e3a5f' }}>
                         {percentage}% ({certificate.grades!.earned} / {certificate.grades!.total} {t('points')})
                       </p>
-                      <div className="w-full h-2 rounded-full mt-1" style={{ backgroundColor: isDark ? '#1e40af' : '#bfdbfe' }}>
-                        <div
-                          className="h-2 rounded-full transition-all"
-                          style={{
-                            width: `${Math.min(percentage, 100)}%`,
-                            backgroundColor: isDark ? '#60a5fa' : '#3b82f6',
-                          }}
-                        />
-                      </div>
                     </div>
                   </div>
                 )}
