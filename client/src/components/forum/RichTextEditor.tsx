@@ -17,9 +17,10 @@ interface RichTextEditorProps {
   onChange: (html: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  maxImageSizeKB?: number;
 }
 
-export const RichTextEditor = ({ value, onChange, placeholder = '', disabled = false }: RichTextEditorProps) => {
+export const RichTextEditor = ({ value, onChange, placeholder = '', disabled = false, maxImageSizeKB = 500 }: RichTextEditorProps) => {
   const { isDark } = useTheme();
   const imageInputRef = useRef<HTMLInputElement>(null);
 
@@ -62,7 +63,7 @@ export const RichTextEditor = ({ value, onChange, placeholder = '', disabled = f
     if (!file || !editor) return;
 
     try {
-      const compressed = await compressImage(file, 500);
+      const compressed = await compressImage(file, maxImageSizeKB);
       const formData = new FormData();
       formData.append('file', compressed);
       const token = getAuthToken();
