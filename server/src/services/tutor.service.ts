@@ -472,7 +472,8 @@ export class TutorService {
     chatbotId: number,
     message: string,
     clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
-    collaborativeSettings?: CollaborativeSettings
+    collaborativeSettings?: CollaborativeSettings,
+    courseId?: number
   ): Promise<TutorMessageResponse> {
     const session = await prisma.tutorSession.findUnique({
       where: { userId },
@@ -498,11 +499,11 @@ export class TutorService {
     // Route to appropriate handler based on mode
     switch (mode) {
       case 'router':
-        return this.handleRouterMode(session, message, clientInfo);
+        return this.handleRouterMode(session, message, clientInfo, courseId);
       case 'collaborative':
-        return this.handleCollaborativeMode(session, message, clientInfo, collaborativeSettings);
+        return this.handleCollaborativeMode(session, message, clientInfo, collaborativeSettings, courseId);
       case 'random':
-        return this.handleRandomMode(session, message, clientInfo);
+        return this.handleRandomMode(session, message, clientInfo, courseId);
       case 'manual':
       default:
         return this.handleManualMode(
@@ -745,10 +746,11 @@ RESPONSE GUIDELINES:
   private async handleRouterMode(
     session: { id: number; userId: number; mode: string },
     message: string,
-    clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string }
+    clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
+    courseId?: number
   ): Promise<TutorMessageResponse> {
-    // Get all available tutor agents
-    const agents = await this.getAvailableAgents();
+    // Get available tutor agents (filtered by course if provided)
+    const agents = await this.getAvailableAgents(courseId);
 
     if (agents.length === 0) {
       throw new AppError('No agents available', 500);
@@ -825,10 +827,11 @@ RESPONSE GUIDELINES:
   private async handleRandomMode(
     session: { id: number; userId: number; mode: string },
     message: string,
-    clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string }
+    clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
+    courseId?: number
   ): Promise<TutorMessageResponse> {
-    // Get all available tutor agents
-    const agents = await this.getAvailableAgents();
+    // Get available tutor agents (filtered by course if provided)
+    const agents = await this.getAvailableAgents(courseId);
 
     if (agents.length === 0) {
       throw new AppError('No agents available', 500);
@@ -1302,7 +1305,8 @@ RESPONSE GUIDELINES:
     session: { id: number; userId: number; mode: string },
     message: string,
     clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
-    settings?: CollaborativeSettings
+    settings?: CollaborativeSettings,
+    courseId?: number
   ): Promise<TutorMessageResponse> {
     const startTime = Date.now();
     const style: CollaborativeStyle = settings?.style || 'parallel';
@@ -1311,8 +1315,8 @@ RESPONSE GUIDELINES:
 
     logger.info({ style, maxAgents, maxChars, selectedAgentIds: settings?.selectedAgentIds }, 'Collaborative mode settings');
 
-    // Get all available tutor agents
-    const allAgents = await this.getAvailableAgents();
+    // Get available tutor agents (filtered by course if provided)
+    const allAgents = await this.getAvailableAgents(courseId);
     if (allAgents.length === 0) {
       throw new AppError('No agents available', 500);
     }
@@ -1538,16 +1542,32 @@ RESPONSE GUIDELINES:
   // ==========================================================================
 
   /**
-   * Get available tutor agents (active chatbots with category 'tutor')
+   * Get available tutor agents (active chatbots with category 'tutor').
+   * When courseId is provided, returns only the tutors assigned to that course.
    */
-  async getAvailableAgents(): Promise<TutorAgent[]> {
-    const chatbots = await prisma.chatbot.findMany({
-      where: {
-        isActive: true,
-        category: 'tutor',
-      },
-      orderBy: { name: 'asc' },
-    });
+  async getAvailableAgents(courseId?: number): Promise<TutorAgent[]> {
+    let chatbots;
+
+    if (courseId) {
+      // Get only course-specific tutors via CourseTutor join
+      const courseTutors = await prisma.courseTutor.findMany({
+        where: { courseId, isActive: true },
+        include: {
+          chatbot: true,
+        },
+      });
+      chatbots = courseTutors
+        .map(ct => ct.chatbot)
+        .filter(c => c.isActive && c.category === 'tutor');
+    } else {
+      chatbots = await prisma.chatbot.findMany({
+        where: {
+          isActive: true,
+          category: 'tutor',
+        },
+        orderBy: { name: 'asc' },
+      });
+    }
 
     return chatbots.map((c) => ({
       id: c.id,

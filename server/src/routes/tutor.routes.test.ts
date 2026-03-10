@@ -234,7 +234,8 @@ describe('Tutor Routes', () => {
         5,
         'Hello',
         expect.any(Object),
-        undefined // collaborativeSettings
+        undefined, // collaborativeSettings
+        undefined  // courseId
       );
     });
 
@@ -288,7 +289,30 @@ describe('Tutor Routes', () => {
         5,
         'Hello',
         expect.any(Object),
-        { style: 'parallel', maxAgents: 3 }
+        { style: 'parallel', maxAgents: 3 },
+        undefined // courseId
+      );
+    });
+
+    it('should pass courseId to service for auto-routing', async () => {
+      const mockResponse = {
+        userMessage: { id: 1, role: 'user', content: 'Hello' },
+        assistantMessage: { id: 2, role: 'assistant', content: 'Hi!' },
+      };
+      vi.mocked(tutorService.sendMessage).mockResolvedValue(mockResponse);
+
+      await request(app)
+        .post('/api/tutors/conversations/5/message')
+        .send({ message: 'Hello', courseId: 4 })
+        .expect(200);
+
+      expect(tutorService.sendMessage).toHaveBeenCalledWith(
+        1,
+        5,
+        'Hello',
+        expect.any(Object),
+        undefined,
+        4 // courseId
       );
     });
 
@@ -310,7 +334,8 @@ describe('Tutor Routes', () => {
         5,
         'Hello',
         expect.objectContaining({ deviceType: 'mobile' }),
-        undefined
+        undefined,
+        undefined // courseId
       );
     });
 
@@ -332,7 +357,8 @@ describe('Tutor Routes', () => {
         5,
         'Hello',
         expect.objectContaining({ deviceType: 'tablet' }),
-        undefined
+        undefined,
+        undefined // courseId
       );
     });
 
@@ -354,7 +380,8 @@ describe('Tutor Routes', () => {
         5,
         'Hello',
         expect.objectContaining({ deviceType: 'desktop' }),
-        undefined
+        undefined,
+        undefined // courseId
       );
     });
   });

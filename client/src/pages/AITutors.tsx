@@ -215,7 +215,7 @@ export const AITutors = () => {
       chatbotId: number;
       message: string;
       collaborativeSettings?: CollaborativeSettings;
-    }) => tutorsApi.sendMessage(chatbotId, message, collaborativeSettings),
+    }) => tutorsApi.sendMessage(chatbotId, message, collaborativeSettings, courseIdFromUrl ? parseInt(courseIdFromUrl) : undefined),
     onSuccess: (response) => {
       // Add the new messages to the list
       const newMessages: MessageWithMeta[] = [

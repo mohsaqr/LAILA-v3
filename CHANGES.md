@@ -1,3 +1,11 @@
+### 2026-03-10 — Fix auto-route selecting tutors outside course list
+
+- `server/src/services/tutor.service.ts`: `getAvailableAgents()` now accepts optional `courseId`. When provided, queries `CourseTutor` to return only the tutors assigned to that course. `sendMessage()` accepts `courseId` and passes it through to `handleRouterMode`, `handleRandomMode`, and `handleCollaborativeMode`.
+- `server/src/routes/tutor.routes.ts`: Message endpoint now accepts optional `courseId` in request body and passes it to `sendMessage()`.
+- `client/src/api/tutors.ts`: `sendMessage()` now accepts optional `courseId` parameter and sends it in the request body.
+- `client/src/pages/AITutors.tsx`: Passes `courseIdFromUrl` to `sendMessage()` so router/random/collaborative modes only select from course-specific tutors.
+- `server/src/routes/tutor.routes.test.ts`: Updated 5 existing test assertions for new `courseId` parameter, added new test for courseId passthrough.
+
 ### 2026-03-10 — Add TNA charts to agent design process analytics
 
 - `client/src/components/agent-assignment/instructor/DesignAnalyticsSummary.tsx`: Added three TNA visualization cards below the existing Activity Breakdown section. New `TnaChartsSection` helper converts event categories into TNA sequences and models. Added `events` prop to receive raw design events from parent.

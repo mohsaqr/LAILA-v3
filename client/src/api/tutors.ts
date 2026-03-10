@@ -82,11 +82,13 @@ export const tutorsApi = {
   sendMessage: async (
     chatbotId: number,
     message: string,
-    collaborativeSettings?: CollaborativeSettings
+    collaborativeSettings?: CollaborativeSettings,
+    courseId?: number
   ): Promise<TutorMessageResponse> => {
     const response = await apiClient.post(`/tutors/conversations/${chatbotId}/message`, {
       message,
       collaborativeSettings,
+      courseId,
     });
     return response.data.data;
   },
