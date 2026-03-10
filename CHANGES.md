@@ -1,3 +1,7 @@
+### 2026-03-10 — Fix sidebar disappearing on multiple pages
+
+- `client/src/components/layout/Layout.tsx`: The `sidebarPages` array only included `/dashboard`, `/courses`, `/ai-tools`, `/ai-tutors`, `/settings`, `/profile`, `/teach`. Added `/course`, `/labs`, `/forums`, `/certificates`, `/certificate`, `/quizzes`, `/admin`. Removed the `!location.pathname.startsWith('/admin')` exclusion so the sidebar also shows on admin Logs and Analytics pages.
+
 ### 2026-03-10 — Replace plain selects with searchable dropdowns in Course Catalog and Course Create form
 
 - `client/src/pages/Catalog.tsx`: Added `SearchableSelect` component matching the `CategoryMultiSelect` style. Replaced the plain `<select>` for difficulty/level filter.

@@ -1,6 +1,7 @@
 # Session Handoff — 2026-03-10
 
 ## Completed
+- **Fix sidebar disappearing**: Sidebar was missing on Labs, Forums, Certificates, Quizzes (students), Labs/Forums (instructors), and Logs/Analytics (admins). Added missing paths to `sidebarPages` in `Layout.tsx` and removed the `/admin` exclusion.
 - **Searchable select dropdowns**: Replaced plain `<select>` elements with searchable dropdowns in Course Catalog (level filter) and Course Create/Edit form (difficulty + curriculum view mode). All match the category multi-select style. Replaced the plain `<select>` for difficulty/level with a `SearchableSelect` dropdown matching the category multi-select style (search, chips, consistent colors).
 - **Clean up navbar and sidebar navigation**: Removed Dashboard, Courses, and AI Tools (for instructors) from navbar. Renamed sidebar "My Courses" to "Courses". Moved AI Tools to third position in instructor sidebar.
 - **Fix auto-route/random chat history not persisting**: Router and random modes stored messages under the routed agent's conversation, but on reload the client fetched the first agent's (team chat) conversation. Fixed by using `agents[0]` for unified conversation storage (same pattern as collaborative mode). The routed agent's prompt/personality still drives the AI response.
