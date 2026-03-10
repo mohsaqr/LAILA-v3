@@ -1,3 +1,7 @@
+### 2026-03-10 — Fix auto-route and random mode chat history not persisting
+
+- `server/src/services/tutor.service.ts`: `handleRouterMode()` and `handleRandomMode()` were storing messages under the routed/random agent's conversation, so on page reload the client fetched the first agent's (team chat) conversation and found it empty. Fixed by using the same "team chat" unified conversation pattern as collaborative mode — `agents[0]` is always used for conversation storage. The routed agent's identity is preserved in `routingInfo` on the messages. The routed agent's system prompt and personality are still used for the AI response.
+
 ### 2026-03-10 — Fix "Reply to Thread" button doing nothing
 
 - `client/src/pages/Forum.tsx`: The "Reply to Thread" button set `replyingToId` to `null`, which was already the initial state, so nothing visibly happened. The reply form was already rendered at the bottom but off-screen. Fixed by adding a `replyFormRef` and scrolling to it with `scrollIntoView({ behavior: 'smooth', block: 'center' })` when the button is clicked.

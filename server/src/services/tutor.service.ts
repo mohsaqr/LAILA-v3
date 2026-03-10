@@ -801,13 +801,6 @@ RESPONSE GUIDELINES:
     // Analyze message to determine best agent
     const routingResult = await this.analyzeAndRoute(message, agents);
 
-    // Get or create conversation with the selected agent
-    const conversationData = await this.getOrCreateConversation(
-      session.userId,
-      routingResult.selectedAgent.id,
-      courseId
-    );
-
     const chatbot = await prisma.chatbot.findUnique({
       where: { id: routingResult.selectedAgent.id },
     });
@@ -816,7 +809,19 @@ RESPONSE GUIDELINES:
       throw new AppError('Selected agent not found', 500);
     }
 
-    // Handle the message with the selected agent
+    // Use the first available agent for unified conversation storage (like collaborative mode).
+    // This ensures all router messages appear in one conversation regardless of which agent
+    // was routed to, so history persists on page reload. The routed agent's identity is
+    // preserved in routingInfo on the messages.
+    const teamChatAgent = agents[0];
+    const conversationData = await this.getOrCreateConversation(
+      session.userId,
+      teamChatAgent.id,
+      courseId
+    );
+
+    // Handle the message with the routed agent (uses its system prompt/personality)
+    // but stores in the unified conversation
     const response = await this.handleManualMode(
       session,
       conversationData,
@@ -886,13 +891,6 @@ RESPONSE GUIDELINES:
     const randomIndex = Math.floor(Math.random() * agents.length);
     const selectedAgent = agents[randomIndex];
 
-    // Get or create conversation with the selected agent
-    const conversationData = await this.getOrCreateConversation(
-      session.userId,
-      selectedAgent.id,
-      courseId
-    );
-
     const chatbot = await prisma.chatbot.findUnique({
       where: { id: selectedAgent.id },
     });
@@ -900,6 +898,15 @@ RESPONSE GUIDELINES:
     if (!chatbot) {
       throw new AppError('Selected agent not found', 500);
     }
+
+    // Use the first available agent for unified conversation storage (like collaborative mode).
+    // History is preserved under one conversation regardless of which agent was randomly picked.
+    const teamChatAgent = agents[0];
+    const conversationData = await this.getOrCreateConversation(
+      session.userId,
+      teamChatAgent.id,
+      courseId
+    );
 
     // Handle the message with the randomly selected agent
     const response = await this.handleManualMode(
