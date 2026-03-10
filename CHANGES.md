@@ -1,3 +1,8 @@
+### 2026-03-10 — Fix button font size consistency
+
+- `client/src/components/common/Button.tsx`: Added `text-sm` to the `md` (default) size class. Previously `md` had no font-size class, so buttons inherited the parent's font size. Now all three sizes have explicit font sizes: `sm` = `text-sm`, `md` = `text-sm`, `lg` = `text-lg`.
+- `client/src/pages/Forum.tsx`: Added `whitespace-nowrap flex-shrink-0` to the "+ New Discussion" button so it never wraps. Added `min-w-0` and `truncate` to the forum title so it shrinks instead of pushing the button off-screen.
+
 ### 2026-03-10 — Fix auto-route/random/collaborative missing courseId in conversation lookup
 
 - `server/src/services/tutor.service.ts`: `handleRouterMode()`, `handleRandomMode()`, and `handleCollaborativeMode()` were calling `getOrCreateConversation()` without passing `courseId`. Since sessions use a `@@unique([userId, courseId])` compound key, the conversation lookup failed with "Session not found" when a courseId was present. Fixed by passing `courseId` to all three calls.

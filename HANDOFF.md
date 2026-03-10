@@ -1,6 +1,7 @@
 # Session Handoff — 2026-03-10
 
 ## Completed
+- **Fix button font size and Forum layout**: Added `text-sm` to the default (`md`) Button size class. On the Forum page, added `whitespace-nowrap flex-shrink-0` to the "+ New Discussion" button and `min-w-0`/`truncate` to the title so the button never wraps to two lines.
 - **Fix auto-route/random/collaborative missing courseId**: `handleRouterMode()`, `handleRandomMode()`, and `handleCollaborativeMode()` were calling `getOrCreateConversation()` without `courseId`, causing "Session not found" errors in course-scoped sessions. Fixed by passing `courseId` through.
 - **AI tutor responds to emotional pulses**: When a student selects an emotion via the EmotionalPulseWidget, it's stored client-side and sent with the next chat message. On the server, `sendMessage()` also falls back to the most recent DB pulse (within 30 min). The emotion is injected into every AI tutor's system prompt as a `STUDENT EMOTIONAL STATE` section with tailored guidance (e.g., "Be extra patient" for frustrated, "Re-spark interest" for bored). Works across all modes: manual, router, random, and collaborative.
 - **Course-specific tutor sessions**: `TutorSession` now has a `courseId` column with `@@unique([userId, courseId])`. Each course gets its own session, conversations, and message history. A student chatting with Carmen in course 2 won't see those messages in course 4. All API endpoints, service methods, and client queries pass `courseId` through. Existing sessions (with `courseId=null`) continue to work for the TestCorner page.

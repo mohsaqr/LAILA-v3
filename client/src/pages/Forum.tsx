@@ -713,9 +713,9 @@ export const Forum = () => {
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold truncate" style={{ color: colors.textPrimary }}>
                 {forum.title}
               </h1>
               {forum.description && (
@@ -723,7 +723,7 @@ export const Forum = () => {
               )}
             </div>
           </div>
-          <Button onClick={() => setIsCreateThreadOpen(true)}>
+          <Button onClick={() => setIsCreateThreadOpen(true)} className="whitespace-nowrap flex-shrink-0">
             <Plus size={18} />
             {t('new_discussion')}
           </Button>
