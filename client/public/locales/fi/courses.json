@@ -498,6 +498,7 @@
   "no_grades_description": "Ilmoittaudu kursseille ja suorita tehtäviä nähdäksesi arvosanasi täällä",
   "loading_calendar": "Ladataan kalenteria...",
   "calendar": "Kalenteri",
+  "gradebook": "Arvosanat",
   "calendar_description": "Tarkastele tulevia tehtäviä ja määräaikoja",
   "weekday_sun": "Su",
   "weekday_mon": "Ma",

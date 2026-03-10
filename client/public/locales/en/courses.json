@@ -497,6 +497,7 @@
   "no_grades_description": "Enroll in courses and complete assignments to see your grades here",
   "loading_calendar": "Loading calendar...",
   "calendar": "Calendar",
+  "gradebook": "Gradebook",
   "calendar_description": "View your upcoming assignments and deadlines",
   "weekday_sun": "Sun",
   "weekday_mon": "Mon",

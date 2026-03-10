@@ -23,6 +23,7 @@ import { Card, CardBody } from '../components/common/Card';
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
 import { Loading } from '../components/common/Loading';
+import { Breadcrumb } from '../components/common/Breadcrumb';
 import { Course, Enrollment, Category } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
@@ -333,6 +334,11 @@ export const Catalog = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Breadcrumb */}
+      <div className="mb-6">
+        <Breadcrumb items={[{ label: t('courses') }]} />
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>

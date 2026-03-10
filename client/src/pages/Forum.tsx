@@ -465,7 +465,7 @@ export const Forum = () => {
 
     return (
       <div className="min-h-screen py-8" style={{ backgroundColor: colors.bg }}>
-        <div className="max-w-4xl mx-auto px-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Breadcrumb navigation */}
           <div className="mb-6">
             <Breadcrumb items={threadBreadcrumbs} />
@@ -712,7 +712,7 @@ export const Forum = () => {
 
   return (
     <div className="min-h-screen py-8" style={{ backgroundColor: colors.bg }}>
-      <div className="max-w-4xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb navigation */}
         <div className="mb-6">
           <Breadcrumb items={forumBreadcrumbs} />
