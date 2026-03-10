@@ -353,6 +353,7 @@ model Course {
   activityLogs               LearningActivityLog[] @relation("CourseActivityLogs")
   quizzes                    Quiz[]
   surveys                    Survey[]
+  certificates               Certificate[]
   tutorSessions              TutorSession[]
 
   @@index([instructorId])
@@ -1799,6 +1800,7 @@ model Certificate {
   issueDate        DateTime            @default(now()) @map("issue_date")
   expiryDate       DateTime?           @map("expiry_date")
   metadata         String?
+  course           Course              @relation(fields: [courseId], references: [id])
   template         CertificateTemplate @relation(fields: [templateId], references: [id])
 
   @@unique([userId, courseId])

@@ -134,6 +134,7 @@ class CertificateService {
       where: { userId },
       include: {
         template: { select: { id: true, name: true } },
+        course: { select: { id: true, title: true } },
       },
       orderBy: { issueDate: 'desc' },
     });
