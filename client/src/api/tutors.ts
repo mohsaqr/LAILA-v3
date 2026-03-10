@@ -87,12 +87,14 @@ export const tutorsApi = {
     chatbotId: number,
     message: string,
     collaborativeSettings?: CollaborativeSettings,
-    courseId?: number
+    courseId?: number,
+    emotionalPulse?: string
   ): Promise<TutorMessageResponse> => {
     const response = await apiClient.post(`/tutors/conversations/${chatbotId}/message`, {
       message,
       collaborativeSettings,
       courseId,
+      emotionalPulse,
     });
     return response.data.data;
   },

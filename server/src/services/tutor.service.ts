@@ -4,6 +4,17 @@ import { chatService } from './chat.service.js';
 import { activityLogService } from './activityLog.service.js';
 import { createLogger } from '../utils/logger.js';
 
+// Emotional tone guidance for each pulse type
+const EMOTION_GUIDANCE: Record<string, string> = {
+  productive: 'The student feels productive and focused. Maintain their momentum — be concise, challenge them slightly, and encourage deeper exploration.',
+  stimulated: 'The student feels intellectually stimulated. Match their energy — offer thought-provoking ideas, connections, and build on their enthusiasm.',
+  frustrated: 'The student feels frustrated. Be extra patient, empathetic, and supportive. Break things into smaller steps. Validate their effort and reassure them.',
+  learning: 'The student feels they are learning well. Reinforce this positive state — affirm their progress, introduce the next concept gently, and keep the pace steady.',
+  enjoying: 'The student is enjoying the experience. Keep the tone warm and engaging. Add interesting tidbits and maintain the enjoyable atmosphere.',
+  bored: 'The student feels bored. Make your response more engaging — ask a provocative question, use an unexpected example, or introduce a challenge to re-spark their interest.',
+  quitting: 'The student feels like quitting. This is urgent — be very encouraging, acknowledge the difficulty, remind them of progress made, and suggest a small achievable next step to rebuild confidence.',
+};
+
 const logger = createLogger('tutor');
 import {
   TutorMode,
@@ -478,7 +489,8 @@ export class TutorService {
     message: string,
     clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
     collaborativeSettings?: CollaborativeSettings,
-    courseId?: number
+    courseId?: number,
+    emotionalPulse?: string
   ): Promise<TutorMessageResponse> {
     const session = await prisma.tutorSession.findUnique({
       where: { userId_courseId: { userId, courseId: courseId ?? null } },
@@ -501,14 +513,31 @@ export class TutorService {
 
     const mode = session.mode as TutorMode;
 
+    // Resolve the student's current emotional state:
+    // prefer the pulse sent with this request, else fetch the most recent one from DB
+    let currentEmotion = emotionalPulse;
+    if (!currentEmotion) {
+      const recentPulse = await prisma.emotionalPulse.findFirst({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+      });
+      // Only use pulses from the last 30 minutes
+      if (recentPulse) {
+        const ageMs = Date.now() - new Date(recentPulse.createdAt).getTime();
+        if (ageMs < 30 * 60 * 1000) {
+          currentEmotion = recentPulse.emotion;
+        }
+      }
+    }
+
     // Route to appropriate handler based on mode
     switch (mode) {
       case 'router':
-        return this.handleRouterMode(session, message, clientInfo, courseId);
+        return this.handleRouterMode(session, message, clientInfo, courseId, currentEmotion);
       case 'collaborative':
-        return this.handleCollaborativeMode(session, message, clientInfo, collaborativeSettings, courseId);
+        return this.handleCollaborativeMode(session, message, clientInfo, collaborativeSettings, courseId, currentEmotion);
       case 'random':
-        return this.handleRandomMode(session, message, clientInfo, courseId);
+        return this.handleRandomMode(session, message, clientInfo, courseId, currentEmotion);
       case 'manual':
       default:
         return this.handleManualMode(
@@ -516,7 +545,8 @@ export class TutorService {
           conversationData,
           chatbot,
           message,
-          clientInfo
+          clientInfo,
+          currentEmotion
         );
     }
   }
@@ -529,7 +559,8 @@ export class TutorService {
     conversation: TutorConversationData & { messages: TutorMessageData[] },
     chatbot: any,
     message: string,
-    clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string }
+    clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
+    emotionalPulse?: string
   ): Promise<TutorMessageResponse> {
     const startTime = Date.now();
 
@@ -619,6 +650,11 @@ RESPONSE GUIDELINES:
           systemPrompt += `\n\nDON'T:\n${donts.map((d: string) => `- ${d}`).join('\n')}`;
         }
       } catch {}
+    }
+
+    // Inject emotional pulse context if available
+    if (emotionalPulse && EMOTION_GUIDANCE[emotionalPulse]) {
+      systemPrompt += `\n\nSTUDENT EMOTIONAL STATE: The student recently indicated they feel "${emotionalPulse}". ${EMOTION_GUIDANCE[emotionalPulse]}`;
     }
 
     // Get AI response
@@ -752,7 +788,8 @@ RESPONSE GUIDELINES:
     session: { id: number; userId: number; mode: string },
     message: string,
     clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
-    courseId?: number
+    courseId?: number,
+    emotionalPulse?: string
   ): Promise<TutorMessageResponse> {
     // Get available tutor agents (filtered by course if provided)
     const agents = await this.getAvailableAgents(courseId);
@@ -767,7 +804,8 @@ RESPONSE GUIDELINES:
     // Get or create conversation with the selected agent
     const conversationData = await this.getOrCreateConversation(
       session.userId,
-      routingResult.selectedAgent.id
+      routingResult.selectedAgent.id,
+      courseId
     );
 
     const chatbot = await prisma.chatbot.findUnique({
@@ -784,7 +822,8 @@ RESPONSE GUIDELINES:
       conversationData,
       chatbot,
       message,
-      clientInfo
+      clientInfo,
+      emotionalPulse
     );
 
     // Update messages with routing info
@@ -833,7 +872,8 @@ RESPONSE GUIDELINES:
     session: { id: number; userId: number; mode: string },
     message: string,
     clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
-    courseId?: number
+    courseId?: number,
+    emotionalPulse?: string
   ): Promise<TutorMessageResponse> {
     // Get available tutor agents (filtered by course if provided)
     const agents = await this.getAvailableAgents(courseId);
@@ -849,7 +889,8 @@ RESPONSE GUIDELINES:
     // Get or create conversation with the selected agent
     const conversationData = await this.getOrCreateConversation(
       session.userId,
-      selectedAgent.id
+      selectedAgent.id,
+      courseId
     );
 
     const chatbot = await prisma.chatbot.findUnique({
@@ -866,7 +907,8 @@ RESPONSE GUIDELINES:
       conversationData,
       chatbot,
       message,
-      clientInfo
+      clientInfo,
+      emotionalPulse
     );
 
     // Log random selection
@@ -1241,7 +1283,8 @@ Consider:
     conversationHistory: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
     userId: number,
     context?: string,
-    maxChars: number = 500
+    maxChars: number = 500,
+    emotionalPulse?: string
   ): Promise<AgentContribution> {
     const startTime = Date.now();
     try {
@@ -1261,6 +1304,11 @@ RESPONSE GUIDELINES:
 - NO markdown: no headers, tables, code blocks, or horizontal rules
 - Plain text only with occasional **bold** for emphasis
 - Be direct and concise`;
+
+      // Inject emotional pulse context if available
+      if (emotionalPulse && EMOTION_GUIDANCE[emotionalPulse]) {
+        systemPrompt += `\n\nSTUDENT EMOTIONAL STATE: The student recently indicated they feel "${emotionalPulse}". ${EMOTION_GUIDANCE[emotionalPulse]}`;
+      }
 
       const response = await chatService.chat(
         {
@@ -1311,7 +1359,8 @@ RESPONSE GUIDELINES:
     message: string,
     clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
     settings?: CollaborativeSettings,
-    courseId?: number
+    courseId?: number,
+    emotionalPulse?: string
   ): Promise<TutorMessageResponse> {
     const startTime = Date.now();
     const style: CollaborativeStyle = settings?.style || 'parallel';
@@ -1357,7 +1406,7 @@ RESPONSE GUIDELINES:
     // ALWAYS use the first available agent for team chat storage (unified conversation)
     // This ensures all collaborative messages go to the same place regardless of which agents respond
     const teamChatAgent = allAgents[0];
-    const conversationData = await this.getOrCreateConversation(session.userId, teamChatAgent.id);
+    const conversationData = await this.getOrCreateConversation(session.userId, teamChatAgent.id, courseId);
     const conversationHistory = conversationData.messages.slice(-10).map(m => ({
       role: m.role as 'user' | 'assistant' | 'system',
       content: m.content,
@@ -1389,7 +1438,7 @@ RESPONSE GUIDELINES:
 
           const contribution = await this.getAgentResponse(
             agent, contextMsg, conversationHistory, session.userId,
-            i === 0 ? 'Answer the student directly.' : 'Reference what was said before, then add your perspective for the student.', maxChars
+            i === 0 ? 'Answer the student directly.' : 'Reference what was said before, then add your perspective for the student.', maxChars, emotionalPulse
           );
           contribution.round = i + 1;
           agentContributions.push(contribution);
@@ -1409,7 +1458,7 @@ RESPONSE GUIDELINES:
 
             const contribution = await this.getAgentResponse(
               agent, debatePrompt, conversationHistory, session.userId,
-              round === 1 ? 'Share your view with the student.' : 'Engage with previous points, then share your view with the student.', maxChars
+              round === 1 ? 'Share your view with the student.' : 'Engage with previous points, then share your view with the student.', maxChars, emotionalPulse
             );
             contribution.round = round;
             agentContributions.push(contribution);
@@ -1435,7 +1484,7 @@ RESPONSE GUIDELINES:
 
           const contribution = await this.getAgentResponse(
             agent, discussionPrompt, conversationHistory, session.userId,
-            i === 0 ? 'Answer the student directly.' : 'Reference what was said before, then add your perspective for the student.', maxChars
+            i === 0 ? 'Answer the student directly.' : 'Reference what was said before, then add your perspective for the student.', maxChars, emotionalPulse
           );
           contribution.round = i + 1;
           agentContributions.push(contribution);
@@ -1448,7 +1497,7 @@ RESPONSE GUIDELINES:
         // All selected agents respond simultaneously
         agentContributions = await Promise.all(
           agents.map(agent => this.getAgentResponse(
-            agent, cleanMessage, conversationHistory, session.userId, undefined, maxChars
+            agent, cleanMessage, conversationHistory, session.userId, undefined, maxChars, emotionalPulse
           ))
         );
         break;

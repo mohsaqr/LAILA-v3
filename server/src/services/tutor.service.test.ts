@@ -34,6 +34,9 @@ vi.mock('../utils/prisma.js', () => ({
       findUnique: vi.fn(),
       findMany: vi.fn(),
     },
+    emotionalPulse: {
+      findFirst: vi.fn(),
+    },
   },
 }));
 

@@ -235,7 +235,8 @@ describe('Tutor Routes', () => {
         'Hello',
         expect.any(Object),
         undefined, // collaborativeSettings
-        undefined  // courseId
+        undefined, // courseId
+        undefined  // emotionalPulse
       );
     });
 
@@ -290,7 +291,8 @@ describe('Tutor Routes', () => {
         'Hello',
         expect.any(Object),
         { style: 'parallel', maxAgents: 3 },
-        undefined // courseId
+        undefined, // courseId
+        undefined  // emotionalPulse
       );
     });
 
@@ -312,7 +314,8 @@ describe('Tutor Routes', () => {
         'Hello',
         expect.any(Object),
         undefined,
-        4 // courseId
+        4, // courseId
+        undefined  // emotionalPulse
       );
     });
 
@@ -335,7 +338,8 @@ describe('Tutor Routes', () => {
         'Hello',
         expect.objectContaining({ deviceType: 'mobile' }),
         undefined,
-        undefined // courseId
+        undefined, // courseId
+        undefined  // emotionalPulse
       );
     });
 
@@ -358,7 +362,8 @@ describe('Tutor Routes', () => {
         'Hello',
         expect.objectContaining({ deviceType: 'tablet' }),
         undefined,
-        undefined // courseId
+        undefined, // courseId
+        undefined  // emotionalPulse
       );
     });
 
@@ -381,7 +386,8 @@ describe('Tutor Routes', () => {
         'Hello',
         expect.objectContaining({ deviceType: 'desktop' }),
         undefined,
-        undefined // courseId
+        undefined, // courseId
+        undefined  // emotionalPulse
       );
     });
   });

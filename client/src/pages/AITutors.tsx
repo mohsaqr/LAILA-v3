@@ -74,6 +74,7 @@ export const AITutors = () => {
   const [historyOpen, setHistoryOpen] = useState(true);
   const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
   const [pulseRefreshTrigger, setPulseRefreshTrigger] = useState(0);
+  const [latestEmotion, setLatestEmotion] = useState<EmotionType | null>(null);
 
   const parsedCourseId = courseIdFromUrl ? parseInt(courseIdFromUrl) : undefined;
 
@@ -213,11 +214,12 @@ export const AITutors = () => {
 
   // Send message mutation
   const sendMessageMutation = useMutation({
-    mutationFn: ({ chatbotId, message, collaborativeSettings }: {
+    mutationFn: ({ chatbotId, message, collaborativeSettings, emotionalPulse }: {
       chatbotId: number;
       message: string;
       collaborativeSettings?: CollaborativeSettings;
-    }) => tutorsApi.sendMessage(chatbotId, message, collaborativeSettings, parsedCourseId),
+      emotionalPulse?: string;
+    }) => tutorsApi.sendMessage(chatbotId, message, collaborativeSettings, parsedCourseId, emotionalPulse),
     onSuccess: (response) => {
       // Add the new messages to the list
       const newMessages: MessageWithMeta[] = [
@@ -293,6 +295,7 @@ export const AITutors = () => {
           chatbotId: selectedAgent.id,
           message,
           collaborativeSettings,
+          emotionalPulse: latestEmotion || undefined,
         });
         // Remove optimistic message as real messages were added in onSuccess
         setMessages((prev) => prev.filter((m) => m.id !== optimisticUserMessage.id));
@@ -303,7 +306,7 @@ export const AITutors = () => {
         console.error('Failed to send message:', error);
       }
     },
-    [selectedAgent, sendMessageMutation]
+    [selectedAgent, sendMessageMutation, latestEmotion]
   );
 
   // Handle clear conversation
@@ -313,7 +316,9 @@ export const AITutors = () => {
   }, [selectedAgent, clearConversationMutation]);
 
   // Handle emotional pulse
-  const handleEmotionalPulse = useCallback((_emotion: EmotionType) => {
+  const handleEmotionalPulse = useCallback((emotion: EmotionType) => {
+    // Store the latest emotion so the next message includes it
+    setLatestEmotion(emotion);
     // Trigger refresh of history sidebar
     setPulseRefreshTrigger(prev => prev + 1);
   }, []);

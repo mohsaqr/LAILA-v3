@@ -1,3 +1,16 @@
+### 2026-03-10 — Fix auto-route/random/collaborative missing courseId in conversation lookup
+
+- `server/src/services/tutor.service.ts`: `handleRouterMode()`, `handleRandomMode()`, and `handleCollaborativeMode()` were calling `getOrCreateConversation()` without passing `courseId`. Since sessions use a `@@unique([userId, courseId])` compound key, the conversation lookup failed with "Session not found" when a courseId was present. Fixed by passing `courseId` to all three calls.
+
+### 2026-03-10 — AI tutor responds to student emotional pulses
+
+- `server/src/services/tutor.service.ts`: Added `EMOTION_GUIDANCE` map with tailored tone instructions for all 7 emotions (productive, stimulated, frustrated, learning, enjoying, bored, quitting). `sendMessage()` accepts optional `emotionalPulse` param; if not provided, fetches the student's most recent pulse from DB (within 30 min). Passes emotion to `handleManualMode()`, `handleRouterMode()`, `handleRandomMode()`, `handleCollaborativeMode()`, and `getAgentResponse()`. Each injects a `STUDENT EMOTIONAL STATE` section into the system prompt with the emotion name and behavioral guidance.
+- `server/src/routes/tutor.routes.ts`: Message endpoint extracts `emotionalPulse` from request body and passes it to `sendMessage()`.
+- `client/src/api/tutors.ts`: `sendMessage()` accepts optional `emotionalPulse` parameter and sends it in the request body.
+- `client/src/pages/AITutors.tsx`: Added `latestEmotion` state. `handleEmotionalPulse` stores the selected emotion. `sendMessageMutation` passes `latestEmotion` to the API so the next message includes the student's current emotional state.
+- `server/src/services/tutor.service.test.ts`: Added `emotionalPulse.findFirst` mock to prisma mock object.
+- `server/src/routes/tutor.routes.test.ts`: Updated 6 message endpoint assertions to include `emotionalPulse` parameter.
+
 ### 2026-03-10 — Make AI tutor chat sessions course-specific
 
 - `server/prisma/schema.prisma`: Added `courseId` column to `TutorSession`. Changed unique constraint from `@unique` on `userId` to `@@unique([userId, courseId])`. Added `Course` relation. Changed User relation from one-to-one (`TutorSession?`) to one-to-many (`TutorSession[]`).

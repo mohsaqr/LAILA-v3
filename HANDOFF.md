@@ -1,6 +1,8 @@
-# Session Handoff — 2026-03-09
+# Session Handoff — 2026-03-10
 
 ## Completed
+- **Fix auto-route/random/collaborative missing courseId**: `handleRouterMode()`, `handleRandomMode()`, and `handleCollaborativeMode()` were calling `getOrCreateConversation()` without `courseId`, causing "Session not found" errors in course-scoped sessions. Fixed by passing `courseId` through.
+- **AI tutor responds to emotional pulses**: When a student selects an emotion via the EmotionalPulseWidget, it's stored client-side and sent with the next chat message. On the server, `sendMessage()` also falls back to the most recent DB pulse (within 30 min). The emotion is injected into every AI tutor's system prompt as a `STUDENT EMOTIONAL STATE` section with tailored guidance (e.g., "Be extra patient" for frustrated, "Re-spark interest" for bored). Works across all modes: manual, router, random, and collaborative.
 - **Course-specific tutor sessions**: `TutorSession` now has a `courseId` column with `@@unique([userId, courseId])`. Each course gets its own session, conversations, and message history. A student chatting with Carmen in course 2 won't see those messages in course 4. All API endpoints, service methods, and client queries pass `courseId` through. Existing sessions (with `courseId=null`) continue to work for the TestCorner page.
 - **Fix auto-route selecting tutors outside course**: Router, random, and collaborative modes now filter available tutors to only those assigned to the current course (via `CourseTutor` model). `courseId` flows from client URL → request body → `sendMessage()` → mode handlers → `getAvailableAgents(courseId)`. When no `courseId` is provided (e.g., global tutor page), falls back to all tutors.
 - **TNA charts in agent design analytics**: Added ActivityDonutChart, TnaIndexPlot, and TnaNetworkGraph below the Activity Breakdown on the submission review page. Charts visualize the student's design process as a transition network using `dynajs`. Events are mapped from raw categories to human-readable labels (Sessions, Field Changes, Testing, etc.).
@@ -23,7 +25,7 @@
 
 ## Current State
 - Branch: `main`
-- Server: 930 tests passing
+- Server: 931 tests passing
 - Client: compiles cleanly (only pre-existing type warnings in unrelated files)
 
 ## Key Decisions

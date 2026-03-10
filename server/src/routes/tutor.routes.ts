@@ -151,7 +151,7 @@ router.post(
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
     const chatbotId = parseInt(req.params.chatbotId);
-    const { message, collaborativeSettings, courseId } = req.body;
+    const { message, collaborativeSettings, courseId, emotionalPulse } = req.body;
 
     if (isNaN(chatbotId)) {
       res.status(400).json({ success: false, error: 'Invalid chatbotId' });
@@ -176,7 +176,8 @@ router.post(
       message.trim(),
       clientInfo,
       collaborativeSettings,
-      courseId ? Number(courseId) : undefined
+      courseId ? Number(courseId) : undefined,
+      emotionalPulse || undefined
     );
 
     res.json({ success: true, data: response });
