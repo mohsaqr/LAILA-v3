@@ -1,6 +1,7 @@
 # Session Handoff — 2026-03-10
 
 ## Completed
+- **Clean up navbar and sidebar navigation**: Removed Dashboard, Courses, and AI Tools (for instructors) from navbar. Renamed sidebar "My Courses" to "Courses". Moved AI Tools to third position in instructor sidebar.
 - **Fix auto-route/random chat history not persisting**: Router and random modes stored messages under the routed agent's conversation, but on reload the client fetched the first agent's (team chat) conversation. Fixed by using `agents[0]` for unified conversation storage (same pattern as collaborative mode). The routed agent's prompt/personality still drives the AI response.
 - **Fix "Reply to Thread" button**: The button appeared to do nothing because the reply form was already rendered at the bottom (with `replyingToId === null`). Now scrolls to the form on click.
 - **Fix button font size and Forum layout**: Added `text-sm` to the default (`md`) Button size class. On the Forum page, added `whitespace-nowrap flex-shrink-0` to the "+ New Discussion" button and `min-w-0`/`truncate` to the title so the button never wraps to two lines.

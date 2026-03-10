@@ -2,8 +2,6 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  BookOpen,
-  GraduationCap,
   BrainCircuit,
   Settings,
   Shield,
@@ -81,9 +79,7 @@ export const Navbar = () => {
       ];
 
   const navItems = [
-    { path: '/dashboard', label: t('dashboard'), icon: BookOpen },
-    { path: '/courses', label: t('courses'), icon: GraduationCap },
-    ...(isAdmin || isInstructor ? [{ path: '/ai-tools', label: t('ai_tools'), icon: BrainCircuit }] : []),
+    ...(isAdmin ? [{ path: '/ai-tools', label: t('ai_tools'), icon: BrainCircuit }] : []),
     ...(isAdmin ? [{ path: '/admin', label: t('admin'), icon: Shield }] : []),
   ];
 

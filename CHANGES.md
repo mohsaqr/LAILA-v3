@@ -1,3 +1,8 @@
+### 2026-03-10 — Clean up navbar and sidebar navigation
+
+- `client/src/components/layout/Navbar.tsx`: Removed Dashboard and Courses from `navItems` (already in sidebar). Removed AI Tools for instructors (only admins see it in navbar now). Removed unused `BookOpen` and `GraduationCap` imports.
+- `client/src/components/layout/DashboardSidebar.tsx`: Changed `t('my_courses')` to `t('courses')` for both student and instructor nav items. Moved AI Tools from last position to third (after Dashboard and Courses) in instructor sidebar.
+
 ### 2026-03-10 — Fix auto-route and random mode chat history not persisting
 
 - `server/src/services/tutor.service.ts`: `handleRouterMode()` and `handleRandomMode()` were storing messages under the routed/random agent's conversation, so on page reload the client fetched the first agent's (team chat) conversation and found it empty. Fixed by using the same "team chat" unified conversation pattern as collaborative mode — `agents[0]` is always used for conversation storage. The routed agent's identity is preserved in `routingInfo` on the messages. The routed agent's system prompt and personality are still used for the AI response.
