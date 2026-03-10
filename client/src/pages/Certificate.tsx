@@ -1,7 +1,10 @@
+import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
-import { Award, Download, CheckCircle, XCircle, ChevronLeft, Calendar, User, BarChart3, Share2, BrainCircuit } from 'lucide-react';
+import { Award, Download, CheckCircle, XCircle, ChevronLeft, Calendar, User, BarChart3, Share2, BrainCircuit, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import { useTranslation } from 'react-i18next';
 import { certificatesApi } from '../api/certificates';
 import { useTheme } from '../hooks/useTheme';
@@ -15,6 +18,9 @@ export const Certificate = () => {
   const { t } = useTranslation(['courses', 'common', 'navigation']);
   const { certificateId, verificationCode } = useParams<{ certificateId?: string; verificationCode?: string }>();
   const { isDark } = useTheme();
+  const rightCardRef = useRef<HTMLDivElement>(null);
+  const leftCardRef = useRef<HTMLDivElement>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const colors = {
     bg: isDark ? '#111827' : '#f9fafb',
@@ -151,30 +157,48 @@ export const Certificate = () => {
   }
 
   const handleDownload = async () => {
+    if (!rightCardRef.current || !leftCardRef.current) return;
+    setIsGeneratingPdf(true);
     try {
-      const html = await certificatesApi.renderCertificate(certificate.id);
-      const blob = new Blob([html], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `certificate-${certificate.verificationCode}.html`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      // Handle error silently
-    }
-  };
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const contentWidth = pageWidth - margin * 2;
 
-  const handleView = async () => {
-    try {
-      const html = await certificatesApi.renderCertificate(certificate.id);
-      const win = window.open('', '_blank');
-      if (win) {
-        win.document.write(html);
-        win.document.close();
+      // Capture the left card (student info) first
+      const leftCanvas = await html2canvas(leftCardRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: isDark ? '#1e3a5f' : '#eff6ff',
+      });
+      const leftImgData = leftCanvas.toDataURL('image/png');
+      const leftImgHeight = (leftCanvas.height / leftCanvas.width) * contentWidth;
+      pdf.addImage(leftImgData, 'PNG', margin, margin, contentWidth, leftImgHeight);
+
+      // Capture the right card (certificate template)
+      const rightCanvas = await html2canvas(rightCardRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: isDark ? '#1f2937' : '#ffffff',
+      });
+      const rightImgData = rightCanvas.toDataURL('image/png');
+      const rightImgHeight = (rightCanvas.height / rightCanvas.width) * contentWidth;
+
+      // Check if right card fits on current page, otherwise add new page
+      const currentY = margin + leftImgHeight + 10;
+      if (currentY + rightImgHeight > pageHeight - margin) {
+        pdf.addPage();
+        pdf.addImage(rightImgData, 'PNG', margin, margin, contentWidth, rightImgHeight);
+      } else {
+        pdf.addImage(rightImgData, 'PNG', margin, currentY, contentWidth, rightImgHeight);
       }
+
+      pdf.save(`certificate-${certificate.verificationCode}.pdf`);
     } catch {
-      // Handle error silently
+      toast.error(t('common:error'));
+    } finally {
+      setIsGeneratingPdf(false);
     }
   };
 
@@ -212,7 +236,7 @@ export const Certificate = () => {
           {/* Left Card — Student Info */}
           <div className="lg:col-span-1">
             <Card className="overflow-hidden">
-              <div className="p-6" style={{ backgroundColor: isDark ? '#1e3a5f' : '#eff6ff' }}>
+              <div ref={leftCardRef} className="p-6" style={{ backgroundColor: isDark ? '#1e3a5f' : '#eff6ff' }}>
                 {/* LAILA Branding */}
                 <div className="flex items-center justify-center gap-2 mb-6">
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center">
@@ -308,9 +332,9 @@ export const Certificate = () => {
                   <Share2 size={16} />
                   {t('common:share')}
                 </Button>
-                <Button onClick={handleDownload} className="flex-1">
-                  <Download size={16} />
-                  {t('common:download')}
+                <Button onClick={handleDownload} disabled={isGeneratingPdf} className="flex-1">
+                  {isGeneratingPdf ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                  {isGeneratingPdf ? t('common:loading') : t('common:download')}
                 </Button>
               </CardBody>
             </Card>
@@ -319,7 +343,7 @@ export const Certificate = () => {
           {/* Right Card — Certificate Template */}
           <div className="lg:col-span-2">
             <Card>
-              <CardBody>
+              <div ref={rightCardRef} className="p-6">
                 {templateHtml ? (
                   <div
                     className="prose prose-sm dark:prose-invert max-w-none"
@@ -342,7 +366,7 @@ export const Certificate = () => {
                     </p>
                   </div>
                 )}
-              </CardBody>
+              </div>
             </Card>
           </div>
         </div>
