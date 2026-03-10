@@ -1,3 +1,10 @@
+### 2026-03-10 — Replace plain selects with searchable dropdowns in Course Catalog and Course Create form
+
+- `client/src/pages/Catalog.tsx`: Added `SearchableSelect` component matching the `CategoryMultiSelect` style. Replaced the plain `<select>` for difficulty/level filter.
+- `client/src/components/teach/CourseForm.tsx`: Added `SearchableSelect` component with optional `label` and `infoPopup` props. Replaced both plain `<Select>` elements (difficulty level and curriculum view mode) with searchable dropdowns. Removed unused `Select` import.
+
+- `client/src/pages/Catalog.tsx`: Added `SearchableSelect` component matching the `CategoryMultiSelect` style (same border, focus ring, chip display, search input, dropdown list). Replaced the plain `<select>` for difficulty/level filter with `SearchableSelect`. Selected value shows as a removable chip, dropdown has a search field and radio-style indicators.
+
 ### 2026-03-10 — Clean up navbar and sidebar navigation
 
 - `client/src/components/layout/Navbar.tsx`: Removed Dashboard and Courses from `navItems` (already in sidebar). Removed AI Tools for instructors (only admins see it in navbar now). Removed unused `BookOpen` and `GraduationCap` imports.
