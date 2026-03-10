@@ -56,81 +56,179 @@ export const Certificate = () => {
 
   // Verification View
   if (verificationCode) {
+    if (!verificationResult?.valid || !verificationResult.certificate) {
+      return (
+        <div className="min-h-screen py-12" style={{ backgroundColor: colors.bg }}>
+          <div className="max-w-md mx-auto px-4">
+            <Card>
+              <CardBody className="text-center py-8">
+                <div
+                  className="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: colors.bgRed }}
+                >
+                  <XCircle className="w-10 h-10" style={{ color: colors.textRed }} />
+                </div>
+                <h1 className="text-2xl font-bold mb-2" style={{ color: colors.textPrimary }}>
+                  {t('certificate_not_found')}
+                </h1>
+                <p style={{ color: colors.textSecondary }}>
+                  {verificationResult?.message || t('certificate_not_found_description')}
+                </p>
+              </CardBody>
+            </Card>
+          </div>
+        </div>
+      );
+    }
+
+    const cert = verificationResult.certificate;
+    const verifyPercentage = cert.grades && cert.grades.total > 0
+      ? Math.round((cert.grades.earned / cert.grades.total) * 100)
+      : null;
+
+    const renderVerifyTemplate = () => {
+      let html = cert.template?.templateHtml || '';
+      if (!html) return null;
+      html = html.replace(/\{\{studentName\}\}/gi, cert.user?.fullname || '');
+      html = html.replace(/\{\{date\}\}/gi, new Date(cert.issueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }));
+      html = html.replace(/\{\{courseName\}\}/gi, cert.course?.title || '');
+      html = html.replace(/\{\{instructor\}\}/gi, cert.course?.instructor?.fullname || '');
+      return html;
+    };
+
+    const verifyTemplateHtml = renderVerifyTemplate();
+
     return (
-      <div className="min-h-screen py-12" style={{ backgroundColor: colors.bg }}>
-        <div className="max-w-md mx-auto px-4">
-          <Card>
-            <CardBody className="text-center py-8">
-              {verificationResult?.valid ? (
-                <>
-                  <div
-                    className="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center"
-                    style={{ backgroundColor: colors.bgGreen }}
-                  >
-                    <CheckCircle className="w-10 h-10" style={{ color: colors.textGreen }} />
-                  </div>
-                  <h1 className="text-2xl font-bold mb-2" style={{ color: colors.textPrimary }}>
-                    {t('certificate_verified')}
-                  </h1>
-                  <p className="text-sm mb-6" style={{ color: colors.textSecondary }}>
-                    {t('certificate_not_found_description').replace('could not be found or may have been revoked.', 'is authentic and valid')}
-                  </p>
+      <div className="min-h-screen py-8" style={{ backgroundColor: colors.bg }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Verified Badge */}
+          <div className="flex items-center justify-center gap-2 mb-6">
+            <CheckCircle className="w-5 h-5" style={{ color: colors.textGreen }} />
+            <span className="text-sm font-medium" style={{ color: colors.textGreen }}>
+              {t('certificate_verified')}
+            </span>
+          </div>
 
-                  <div className="space-y-4 text-left p-4 rounded-lg" style={{ backgroundColor: colors.bg }}>
-                    <div>
-                      <p className="text-xs uppercase" style={{ color: colors.textSecondary }}>{t('recipient')}</p>
-                      <p className="font-medium" style={{ color: colors.textPrimary }}>
-                        {verificationResult.certificate?.recipientName}
-                      </p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Card — Student Info */}
+            <div className="lg:col-span-1">
+              <Card className="overflow-hidden">
+                <div className="p-6" style={{ backgroundColor: isDark ? '#1e3a5f' : '#eff6ff' }}>
+                  {/* LAILA Branding */}
+                  <div className="flex items-center justify-center gap-2 mb-6">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center">
+                      <BrainCircuit className="w-5 h-5 text-white" />
                     </div>
-                    <div>
-                      <p className="text-xs uppercase" style={{ color: colors.textSecondary }}>{t('course')}</p>
-                      <p className="font-medium" style={{ color: colors.textPrimary }}>
-                        {verificationResult.certificate?.courseName}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase" style={{ color: colors.textSecondary }}>{t('issue_date')}</p>
-                      <p className="font-medium" style={{ color: colors.textPrimary }}>
-                        {verificationResult.certificate?.issueDate &&
-                          new Date(verificationResult.certificate.issueDate).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase" style={{ color: colors.textSecondary }}>{t('verification_code')}</p>
-                      <p className="font-mono text-sm" style={{ color: colors.textSecondary }}>
-                        {verificationResult.certificate?.verificationCode}
-                      </p>
-                    </div>
+                    <span className="text-lg font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
+                      LAILA
+                    </span>
                   </div>
-                </>
-              ) : (
-                <>
-                  <div
-                    className="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center"
-                    style={{ backgroundColor: colors.bgRed }}
-                  >
-                    <XCircle className="w-10 h-10" style={{ color: colors.textRed }} />
-                  </div>
-                  <h1 className="text-2xl font-bold mb-2" style={{ color: colors.textPrimary }}>
-                    {t('certificate_not_found')}
-                  </h1>
-                  <p style={{ color: colors.textSecondary }}>
-                    {verificationResult?.message || t('certificate_not_found_description')}
-                  </p>
-                </>
-              )}
 
-              <div className="mt-8">
-                <Link to="/dashboard">
-                  <Button variant="secondary">
-                    <ChevronLeft size={18} />
-                    {t('navigation:dashboard')}
-                  </Button>
-                </Link>
-              </div>
-            </CardBody>
-          </Card>
+                  <div className="flex flex-col items-center text-center">
+                    {cert.user?.avatarUrl ? (
+                      <img
+                        src={cert.user.avatarUrl}
+                        alt={cert.user.fullname}
+                        className="w-24 h-24 rounded-full object-cover border-4 mb-4"
+                        style={{ borderColor: isDark ? '#3b82f6' : '#bfdbfe' }}
+                      />
+                    ) : (
+                      <div
+                        className="w-24 h-24 rounded-full flex items-center justify-center border-4 mb-4"
+                        style={{
+                          backgroundColor: isDark ? '#1e40af' : '#dbeafe',
+                          borderColor: isDark ? '#3b82f6' : '#bfdbfe',
+                        }}
+                      >
+                        <User className="w-10 h-10" style={{ color: isDark ? '#93c5fd' : '#3b82f6' }} />
+                      </div>
+                    )}
+
+                    <h2 className="text-xl font-bold mb-1" style={{ color: isDark ? '#f3f4f6' : '#1e3a5f' }}>
+                      {cert.user?.fullname}
+                    </h2>
+                    <p className="text-sm mb-4" style={{ color: isDark ? '#93c5fd' : '#3b82f6' }}>
+                      {cert.course?.title}
+                    </p>
+                  </div>
+
+                  {/* Issue Date */}
+                  <div className="flex items-center gap-3 p-3 rounded-lg mb-3" style={{ backgroundColor: isDark ? 'rgba(30, 58, 95, 0.5)' : 'rgba(255,255,255,0.7)' }}>
+                    <Calendar className="w-5 h-5 flex-shrink-0" style={{ color: isDark ? '#93c5fd' : '#3b82f6' }} />
+                    <div>
+                      <p className="text-xs" style={{ color: isDark ? '#93c5fd' : '#6b7280' }}>{t('issue_date')}</p>
+                      <p className="font-semibold text-sm" style={{ color: isDark ? '#f3f4f6' : '#1e3a5f' }}>
+                        {new Date(cert.issueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Achievement */}
+                  {verifyPercentage !== null && (
+                    <div className="flex items-center gap-3 p-3 rounded-lg mb-3" style={{ backgroundColor: isDark ? 'rgba(30, 58, 95, 0.5)' : 'rgba(255,255,255,0.7)' }}>
+                      <BarChart3 className="w-5 h-5 flex-shrink-0" style={{ color: isDark ? '#93c5fd' : '#3b82f6' }} />
+                      <div className="flex-1">
+                        <p className="text-xs" style={{ color: isDark ? '#93c5fd' : '#6b7280' }}>{t('achievement')}</p>
+                        <p className="font-semibold text-sm" style={{ color: isDark ? '#f3f4f6' : '#1e3a5f' }}>
+                          {verifyPercentage}%
+                        </p>
+                        <div className="w-full h-2 rounded-full mt-1" style={{ backgroundColor: isDark ? '#1e40af' : '#bfdbfe' }}>
+                          <div
+                            className="h-2 rounded-full transition-all"
+                            style={{
+                              width: `${Math.min(verifyPercentage, 100)}%`,
+                              backgroundColor: isDark ? '#60a5fa' : '#3b82f6',
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Instructor */}
+                  <div className="flex items-center gap-3 p-3 rounded-lg mb-3" style={{ backgroundColor: isDark ? 'rgba(30, 58, 95, 0.5)' : 'rgba(255,255,255,0.7)' }}>
+                    <Award className="w-5 h-5 flex-shrink-0" style={{ color: isDark ? '#93c5fd' : '#3b82f6' }} />
+                    <div>
+                      <p className="text-xs" style={{ color: isDark ? '#93c5fd' : '#6b7280' }}>{t('instructor')}</p>
+                      <p className="font-semibold text-sm" style={{ color: isDark ? '#f3f4f6' : '#1e3a5f' }}>
+                        {cert.course?.instructor?.fullname}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            {/* Right Card — Certificate Template */}
+            <div className="lg:col-span-2">
+              <Card>
+                <div className="p-6">
+                  {verifyTemplateHtml ? (
+                    <div
+                      className="prose prose-sm dark:prose-invert max-w-none"
+                      dangerouslySetInnerHTML={{ __html: verifyTemplateHtml }}
+                    />
+                  ) : (
+                    <div className="text-center py-16">
+                      <Award className="w-16 h-16 mx-auto mb-4" style={{ color: colors.textSecondary }} />
+                      <h3 className="text-xl font-semibold mb-2" style={{ color: colors.textPrimary }}>
+                        {t('certificate_completion')}
+                      </h3>
+                      <p className="text-lg mb-1" style={{ color: colors.textPrimary }}>
+                        {cert.user?.fullname}
+                      </p>
+                      <p className="mb-4" style={{ color: colors.textSecondary }}>
+                        {cert.course?.title}
+                      </p>
+                      <p className="text-sm" style={{ color: colors.textSecondary }}>
+                        {new Date(cert.issueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            </div>
+          </div>
         </div>
       </div>
     );

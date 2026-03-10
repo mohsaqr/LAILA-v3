@@ -361,7 +361,7 @@ class CertificateService {
     const certificate = await prisma.certificate.findUnique({
       where: { verificationCode },
       include: {
-        template: { select: { id: true, name: true } },
+        template: { select: { id: true, name: true, templateHtml: true } },
       },
     });
 
@@ -374,15 +374,32 @@ class CertificateService {
       return { valid: false, message: 'Certificate has expired' };
     }
 
-    // Get user and course info
-    const [user, course] = await Promise.all([
+    // Get user, course, and grades info
+    const [user, course, gradesAgg] = await Promise.all([
       prisma.user.findUnique({
         where: { id: certificate.userId },
-        select: { fullname: true },
+        select: { id: true, fullname: true, email: true, avatarUrl: true },
       }),
       prisma.course.findUnique({
         where: { id: certificate.courseId },
-        select: { title: true },
+        select: { id: true, title: true, instructor: { select: { id: true, fullname: true } } },
+      }),
+      prisma.assignmentSubmission.aggregate({
+        where: {
+          userId: certificate.userId,
+          assignment: { courseId: certificate.courseId },
+          grade: { not: null },
+        },
+        _sum: { grade: true },
+      }).then(async (agg) => {
+        const totalPoints = await prisma.assignment.aggregate({
+          where: { courseId: certificate.courseId },
+          _sum: { points: true },
+        });
+        return {
+          earned: agg._sum.grade || 0,
+          total: totalPoints._sum.points || 0,
+        };
       }),
     ]);
 
@@ -390,10 +407,12 @@ class CertificateService {
       valid: true,
       certificate: {
         id: certificate.id,
-        recipientName: user?.fullname,
-        courseName: course?.title,
         issueDate: certificate.issueDate,
         verificationCode: certificate.verificationCode,
+        template: certificate.template,
+        user,
+        course,
+        grades: gradesAgg,
       },
     };
   }
