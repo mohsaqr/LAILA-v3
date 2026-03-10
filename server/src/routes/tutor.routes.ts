@@ -20,7 +20,8 @@ router.get(
   authenticateToken,
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
-    const sessionData = await tutorService.getOrCreateSession(userId);
+    const courseId = req.query.courseId ? Number(req.query.courseId) : undefined;
+    const sessionData = await tutorService.getOrCreateSession(userId, courseId);
     res.json({ success: true, data: sessionData });
   })
 );
@@ -34,7 +35,7 @@ router.put(
   authenticateToken,
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
-    const { mode } = req.body;
+    const { mode, courseId } = req.body;
 
     if (!mode || !['manual', 'router', 'collaborative'].includes(mode)) {
       res.status(400).json({
@@ -44,7 +45,7 @@ router.put(
       return;
     }
 
-    const session = await tutorService.updateMode(userId, mode as TutorMode);
+    const session = await tutorService.updateMode(userId, mode as TutorMode, courseId ? Number(courseId) : undefined);
     res.json({ success: true, data: session });
   })
 );
@@ -58,7 +59,7 @@ router.put(
   authenticateToken,
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
-    const { chatbotId } = req.body;
+    const { chatbotId, courseId } = req.body;
 
     if (!chatbotId || typeof chatbotId !== 'number') {
       res.status(400).json({
@@ -68,7 +69,7 @@ router.put(
       return;
     }
 
-    const session = await tutorService.setActiveAgent(userId, chatbotId);
+    const session = await tutorService.setActiveAgent(userId, chatbotId, courseId ? Number(courseId) : undefined);
     res.json({ success: true, data: session });
   })
 );
@@ -86,7 +87,8 @@ router.get(
   authenticateToken,
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
-    const conversations = await tutorService.getConversations(userId);
+    const courseId = req.query.courseId ? Number(req.query.courseId) : undefined;
+    const conversations = await tutorService.getConversations(userId, courseId);
     res.json({ success: true, data: conversations });
   })
 );
@@ -107,7 +109,8 @@ router.get(
       return;
     }
 
-    const conversation = await tutorService.getOrCreateConversation(userId, chatbotId);
+    const courseId = req.query.courseId ? Number(req.query.courseId) : undefined;
+    const conversation = await tutorService.getOrCreateConversation(userId, chatbotId, courseId);
     res.json({ success: true, data: conversation });
   })
 );
@@ -128,7 +131,8 @@ router.delete(
       return;
     }
 
-    await tutorService.clearConversation(userId, chatbotId);
+    const courseId = req.query.courseId ? Number(req.query.courseId) : undefined;
+    await tutorService.clearConversation(userId, chatbotId, courseId);
     res.json({ success: true, message: 'Conversation cleared' });
   })
 );

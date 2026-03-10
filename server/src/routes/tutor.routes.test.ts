@@ -89,7 +89,7 @@ describe('Tutor Routes', () => {
 
       expect(response.body.success).toBe(true);
       expect(response.body.data.session.mode).toBe('manual');
-      expect(tutorService.getOrCreateSession).toHaveBeenCalledWith(1);
+      expect(tutorService.getOrCreateSession).toHaveBeenCalledWith(1, undefined);
     });
   });
 
@@ -105,7 +105,7 @@ describe('Tutor Routes', () => {
 
       expect(response.body.success).toBe(true);
       expect(response.body.data.mode).toBe('router');
-      expect(tutorService.updateMode).toHaveBeenCalledWith(1, 'router');
+      expect(tutorService.updateMode).toHaveBeenCalledWith(1, 'router', undefined);
     });
 
     it('should reject invalid mode', async () => {
@@ -139,7 +139,7 @@ describe('Tutor Routes', () => {
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(tutorService.setActiveAgent).toHaveBeenCalledWith(1, 5);
+      expect(tutorService.setActiveAgent).toHaveBeenCalledWith(1, 5, undefined);
     });
 
     it('should reject missing chatbotId', async () => {
@@ -204,7 +204,7 @@ describe('Tutor Routes', () => {
 
       expect(response.body.success).toBe(true);
       expect(response.body.message).toBe('Conversation cleared');
-      expect(tutorService.clearConversation).toHaveBeenCalledWith(1, 5);
+      expect(tutorService.clearConversation).toHaveBeenCalledWith(1, 5, undefined);
     });
   });
 

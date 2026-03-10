@@ -24,24 +24,25 @@ export const tutorsApi = {
   /**
    * Get or create session + conversations for current user
    */
-  getSession: async (): Promise<TutorSessionResponse> => {
-    const response = await apiClient.get('/tutors/session');
+  getSession: async (courseId?: number): Promise<TutorSessionResponse> => {
+    const params = courseId ? `?courseId=${courseId}` : '';
+    const response = await apiClient.get(`/tutors/session${params}`);
     return response.data.data;
   },
 
   /**
    * Update session mode
    */
-  setMode: async (mode: TutorMode): Promise<TutorSession> => {
-    const response = await apiClient.put('/tutors/session/mode', { mode });
+  setMode: async (mode: TutorMode, courseId?: number): Promise<TutorSession> => {
+    const response = await apiClient.put('/tutors/session/mode', { mode, courseId });
     return response.data.data;
   },
 
   /**
    * Set active agent for manual mode
    */
-  setActiveAgent: async (chatbotId: number): Promise<TutorSession> => {
-    const response = await apiClient.put('/tutors/session/active-agent', { chatbotId });
+  setActiveAgent: async (chatbotId: number, courseId?: number): Promise<TutorSession> => {
+    const response = await apiClient.put('/tutors/session/active-agent', { chatbotId, courseId });
     return response.data.data;
   },
 
@@ -52,24 +53,27 @@ export const tutorsApi = {
   /**
    * List all conversations with previews
    */
-  getConversations: async (): Promise<TutorConversation[]> => {
-    const response = await apiClient.get('/tutors/conversations');
+  getConversations: async (courseId?: number): Promise<TutorConversation[]> => {
+    const params = courseId ? `?courseId=${courseId}` : '';
+    const response = await apiClient.get(`/tutors/conversations${params}`);
     return response.data.data;
   },
 
   /**
    * Get specific conversation with message history
    */
-  getConversation: async (chatbotId: number): Promise<TutorConversationWithMessages> => {
-    const response = await apiClient.get(`/tutors/conversations/${chatbotId}`);
+  getConversation: async (chatbotId: number, courseId?: number): Promise<TutorConversationWithMessages> => {
+    const params = courseId ? `?courseId=${courseId}` : '';
+    const response = await apiClient.get(`/tutors/conversations/${chatbotId}${params}`);
     return response.data.data;
   },
 
   /**
    * Clear conversation messages
    */
-  clearConversation: async (chatbotId: number): Promise<void> => {
-    await apiClient.delete(`/tutors/conversations/${chatbotId}`);
+  clearConversation: async (chatbotId: number, courseId?: number): Promise<void> => {
+    const params = courseId ? `?courseId=${courseId}` : '';
+    await apiClient.delete(`/tutors/conversations/${chatbotId}${params}`);
   },
 
   // ===========================================================================

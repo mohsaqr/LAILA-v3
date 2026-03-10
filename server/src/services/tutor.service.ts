@@ -31,9 +31,9 @@ export class TutorService {
    * Get or create tutor session for user
    * Creates session with default settings if doesn't exist
    */
-  async getOrCreateSession(userId: number): Promise<TutorSessionResponse> {
+  async getOrCreateSession(userId: number, courseId?: number): Promise<TutorSessionResponse> {
     let session = await prisma.tutorSession.findUnique({
-      where: { userId },
+      where: { userId_courseId: { userId, courseId: courseId ?? null } },
       include: {
         conversations: {
           include: {
@@ -61,6 +61,7 @@ export class TutorService {
       session = await prisma.tutorSession.create({
         data: {
           userId,
+          courseId: courseId ?? null,
           mode: 'manual',
         },
         include: {
@@ -106,8 +107,8 @@ export class TutorService {
       }).catch(err => logger.warn({ err }, 'Failed to log session start activity'));
     }
 
-    // Get available agents
-    const agents = await this.getAvailableAgents();
+    // Get available agents (filtered by course if session is course-specific)
+    const agents = await this.getAvailableAgents(courseId);
 
     // Transform conversations to include preview
     const conversations: ConversationWithPreview[] = session.conversations.map((conv) => ({
@@ -131,6 +132,7 @@ export class TutorService {
       session: {
         id: session.id,
         userId: session.userId,
+        courseId: session.courseId,
         mode: session.mode as TutorMode,
         activeAgentId: session.activeAgentId,
         createdAt: session.createdAt,
@@ -144,9 +146,9 @@ export class TutorService {
   /**
    * Update session mode (manual/router/collaborative)
    */
-  async updateMode(userId: number, mode: TutorMode): Promise<TutorSessionData> {
+  async updateMode(userId: number, mode: TutorMode, courseId?: number): Promise<TutorSessionData> {
     const session = await prisma.tutorSession.update({
-      where: { userId },
+      where: { userId_courseId: { userId, courseId: courseId ?? null } },
       data: { mode },
     });
 
@@ -172,6 +174,7 @@ export class TutorService {
     return {
       id: session.id,
       userId: session.userId,
+      courseId: session.courseId,
       mode: session.mode as TutorMode,
       activeAgentId: session.activeAgentId,
       createdAt: session.createdAt,
@@ -182,7 +185,7 @@ export class TutorService {
   /**
    * Set active agent for manual mode
    */
-  async setActiveAgent(userId: number, chatbotId: number): Promise<TutorSessionData> {
+  async setActiveAgent(userId: number, chatbotId: number, courseId?: number): Promise<TutorSessionData> {
     // Verify chatbot exists and is active
     const chatbot = await prisma.chatbot.findUnique({
       where: { id: chatbotId },
@@ -193,7 +196,7 @@ export class TutorService {
     }
 
     const session = await prisma.tutorSession.update({
-      where: { userId },
+      where: { userId_courseId: { userId, courseId: courseId ?? null } },
       data: { activeAgentId: chatbotId },
     });
 
@@ -227,6 +230,7 @@ export class TutorService {
     return {
       id: session.id,
       userId: session.userId,
+      courseId: session.courseId,
       mode: session.mode as TutorMode,
       activeAgentId: session.activeAgentId,
       createdAt: session.createdAt,
@@ -241,9 +245,9 @@ export class TutorService {
   /**
    * Get all conversations for user with recent message preview
    */
-  async getConversations(userId: number): Promise<ConversationWithPreview[]> {
+  async getConversations(userId: number, courseId?: number): Promise<ConversationWithPreview[]> {
     const session = await prisma.tutorSession.findUnique({
-      where: { userId },
+      where: { userId_courseId: { userId, courseId: courseId ?? null } },
     });
 
     if (!session) {
@@ -295,10 +299,11 @@ export class TutorService {
    */
   async getOrCreateConversation(
     userId: number,
-    chatbotId: number
+    chatbotId: number,
+    courseId?: number
   ): Promise<TutorConversationData & { messages: TutorMessageData[] }> {
     const session = await prisma.tutorSession.findUnique({
-      where: { userId },
+      where: { userId_courseId: { userId, courseId: courseId ?? null } },
     });
 
     if (!session) {
@@ -392,9 +397,9 @@ export class TutorService {
   /**
    * Clear conversation messages
    */
-  async clearConversation(userId: number, chatbotId: number): Promise<void> {
+  async clearConversation(userId: number, chatbotId: number, courseId?: number): Promise<void> {
     const session = await prisma.tutorSession.findUnique({
-      where: { userId },
+      where: { userId_courseId: { userId, courseId: courseId ?? null } },
     });
 
     if (!session) {
@@ -476,7 +481,7 @@ export class TutorService {
     courseId?: number
   ): Promise<TutorMessageResponse> {
     const session = await prisma.tutorSession.findUnique({
-      where: { userId },
+      where: { userId_courseId: { userId, courseId: courseId ?? null } },
     });
 
     if (!session) {
@@ -492,7 +497,7 @@ export class TutorService {
     }
 
     // Get or create conversation
-    const conversationData = await this.getOrCreateConversation(userId, chatbotId);
+    const conversationData = await this.getOrCreateConversation(userId, chatbotId, courseId);
 
     const mode = session.mode as TutorMode;
 

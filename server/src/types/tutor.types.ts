@@ -6,6 +6,7 @@
 export interface TutorSessionData {
   id: number;
   userId: number;
+  courseId: number | null;
   mode: TutorMode;
   activeAgentId: number | null;
   createdAt: Date;

@@ -75,10 +75,12 @@ export const AITutors = () => {
   const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
   const [pulseRefreshTrigger, setPulseRefreshTrigger] = useState(0);
 
-  // Fetch session data (includes agents and conversations)
+  const parsedCourseId = courseIdFromUrl ? parseInt(courseIdFromUrl) : undefined;
+
+  // Fetch session data (includes agents and conversations) — scoped by course
   const { data: sessionData, isLoading: sessionLoading } = useQuery({
-    queryKey: ['tutorSession'],
-    queryFn: tutorsApi.getSession,
+    queryKey: ['tutorSession', parsedCourseId],
+    queryFn: () => tutorsApi.getSession(parsedCourseId),
     staleTime: 30000, // 30 seconds
   });
 
@@ -103,9 +105,9 @@ export const AITutors = () => {
 
   // Mode change mutation - defined early so it can be used in initialization effect
   const modeMutation = useMutation({
-    mutationFn: tutorsApi.setMode,
+    mutationFn: (mode: TutorMode) => tutorsApi.setMode(mode, parsedCourseId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tutorSession'] });
+      queryClient.invalidateQueries({ queryKey: ['tutorSession', parsedCourseId] });
     },
   });
 
@@ -162,8 +164,8 @@ export const AITutors = () => {
 
   // Fetch conversation when agent is selected
   const { data: conversationData, isLoading: conversationLoading } = useQuery({
-    queryKey: ['tutorConversation', selectedAgent?.id],
-    queryFn: () => tutorsApi.getConversation(selectedAgent!.id),
+    queryKey: ['tutorConversation', selectedAgent?.id, parsedCourseId],
+    queryFn: () => tutorsApi.getConversation(selectedAgent!.id, parsedCourseId),
     enabled: !!selectedAgent,
     staleTime: 10000, // 10 seconds
   });
@@ -203,9 +205,9 @@ export const AITutors = () => {
 
   // Active agent mutation
   const activeAgentMutation = useMutation({
-    mutationFn: tutorsApi.setActiveAgent,
+    mutationFn: (chatbotId: number) => tutorsApi.setActiveAgent(chatbotId, parsedCourseId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tutorSession'] });
+      queryClient.invalidateQueries({ queryKey: ['tutorSession', parsedCourseId] });
     },
   });
 
@@ -215,7 +217,7 @@ export const AITutors = () => {
       chatbotId: number;
       message: string;
       collaborativeSettings?: CollaborativeSettings;
-    }) => tutorsApi.sendMessage(chatbotId, message, collaborativeSettings, courseIdFromUrl ? parseInt(courseIdFromUrl) : undefined),
+    }) => tutorsApi.sendMessage(chatbotId, message, collaborativeSettings, parsedCourseId),
     onSuccess: (response) => {
       // Add the new messages to the list
       const newMessages: MessageWithMeta[] = [
@@ -229,17 +231,17 @@ export const AITutors = () => {
       setMessages((prev) => [...prev, ...newMessages]);
 
       // Invalidate conversations to update previews
-      queryClient.invalidateQueries({ queryKey: ['tutorSession'] });
+      queryClient.invalidateQueries({ queryKey: ['tutorSession', parsedCourseId] });
     },
   });
 
   // Clear conversation mutation
   const clearConversationMutation = useMutation({
-    mutationFn: tutorsApi.clearConversation,
+    mutationFn: (chatbotId: number) => tutorsApi.clearConversation(chatbotId, parsedCourseId),
     onSuccess: () => {
       setMessages([]);
-      queryClient.invalidateQueries({ queryKey: ['tutorSession'] });
-      queryClient.invalidateQueries({ queryKey: ['tutorConversation', selectedAgent?.id] });
+      queryClient.invalidateQueries({ queryKey: ['tutorSession', parsedCourseId] });
+      queryClient.invalidateQueries({ queryKey: ['tutorConversation', selectedAgent?.id, parsedCourseId] });
     },
   });
 

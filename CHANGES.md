@@ -1,3 +1,15 @@
+### 2026-03-10 — Make AI tutor chat sessions course-specific
+
+- `server/prisma/schema.prisma`: Added `courseId` column to `TutorSession`. Changed unique constraint from `@unique` on `userId` to `@@unique([userId, courseId])`. Added `Course` relation. Changed User relation from one-to-one (`TutorSession?`) to one-to-many (`TutorSession[]`).
+- `server/src/services/tutor.service.ts`: All session lookups now use compound key `{ userId_courseId: { userId, courseId } }`. Methods `getOrCreateSession`, `updateMode`, `setActiveAgent`, `getConversations`, `getOrCreateConversation`, `clearConversation`, and `sendMessage` all accept optional `courseId`. Session responses now include `courseId`.
+- `server/src/routes/tutor.routes.ts`: All session/conversation endpoints accept `courseId` — GET endpoints via query param, PUT/POST/DELETE via request body or query param.
+- `server/src/types/tutor.types.ts`: Added `courseId` to `TutorSessionData`.
+- `client/src/types/tutor.ts`: Added `courseId` to `TutorSession`.
+- `client/src/api/tutors.ts`: All API methods now accept optional `courseId` and pass it as query param or body field.
+- `client/src/pages/AITutors.tsx`: All mutations and queries pass `parsedCourseId` from URL. Query keys include courseId for proper cache isolation.
+- `client/src/pages/TestCorner.tsx`: Updated `getSession` call for new signature.
+- Test files updated for new compound key and courseId parameters.
+
 ### 2026-03-10 — Fix auto-route selecting tutors outside course list
 
 - `server/src/services/tutor.service.ts`: `getAvailableAgents()` now accepts optional `courseId`. When provided, queries `CourseTutor` to return only the tutors assigned to that course. `sendMessage()` accepts `courseId` and passes it through to `handleRouterMode`, `handleRandomMode`, and `handleCollaborativeMode`.

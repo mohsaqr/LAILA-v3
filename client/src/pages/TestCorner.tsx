@@ -42,7 +42,7 @@ export const TestCorner = () => {
   // Fetch session data
   const { data: sessionData, refetch: refetchSession } = useQuery({
     queryKey: ['tutorSession'],
-    queryFn: tutorsApi.getSession,
+    queryFn: () => tutorsApi.getSession(),
   });
 
   // Fetch agents
