@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, Link, useNavigate } from 'react-router-dom';
@@ -57,6 +57,7 @@ export const Forum = () => {
   const [aiReplyToId, setAiReplyToId] = useState<number | null>(null); // null = reply to thread, number = reply to post
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showThreadActions, setShowThreadActions] = useState(false);
+  const replyFormRef = useRef<HTMLDivElement>(null);
 
   const colors = {
     bg: isDark ? '#111827' : '#f9fafb',
@@ -222,6 +223,10 @@ export const Forum = () => {
     setReplyingToId(null);
     setReplyingToName('');
     setReplyContent('');
+    // Scroll to the reply form at the bottom
+    setTimeout(() => {
+      replyFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
   };
 
   const handleSubmitReply = () => {
@@ -620,6 +625,7 @@ export const Forum = () => {
 
           {/* New reply form (replying to thread) - shown at the bottom */}
           {replyingToId === null && !thread.isLocked && (
+            <div ref={replyFormRef}>
             <Card className="mt-6">
               <CardBody>
                 <h3 className="font-medium mb-3 flex items-center gap-2" style={{ color: colors.textPrimary }}>
@@ -640,6 +646,7 @@ export const Forum = () => {
                 />
               </CardBody>
             </Card>
+            </div>
           )}
 
           {thread.isLocked && (

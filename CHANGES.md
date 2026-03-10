@@ -1,3 +1,7 @@
+### 2026-03-10 — Fix "Reply to Thread" button doing nothing
+
+- `client/src/pages/Forum.tsx`: The "Reply to Thread" button set `replyingToId` to `null`, which was already the initial state, so nothing visibly happened. The reply form was already rendered at the bottom but off-screen. Fixed by adding a `replyFormRef` and scrolling to it with `scrollIntoView({ behavior: 'smooth', block: 'center' })` when the button is clicked.
+
 ### 2026-03-10 — Fix button font size consistency
 
 - `client/src/components/common/Button.tsx`: Added `text-sm` to the `md` (default) size class. Previously `md` had no font-size class, so buttons inherited the parent's font size. Now all three sizes have explicit font sizes: `sm` = `text-sm`, `md` = `text-sm`, `lg` = `text-lg`.

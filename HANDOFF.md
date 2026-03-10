@@ -1,6 +1,7 @@
 # Session Handoff — 2026-03-10
 
 ## Completed
+- **Fix "Reply to Thread" button**: The button appeared to do nothing because the reply form was already rendered at the bottom (with `replyingToId === null`). Now scrolls to the form on click.
 - **Fix button font size and Forum layout**: Added `text-sm` to the default (`md`) Button size class. On the Forum page, added `whitespace-nowrap flex-shrink-0` to the "+ New Discussion" button and `min-w-0`/`truncate` to the title so the button never wraps to two lines.
 - **Fix auto-route/random/collaborative missing courseId**: `handleRouterMode()`, `handleRandomMode()`, and `handleCollaborativeMode()` were calling `getOrCreateConversation()` without `courseId`, causing "Session not found" errors in course-scoped sessions. Fixed by passing `courseId` through.
 - **AI tutor responds to emotional pulses**: When a student selects an emotion via the EmotionalPulseWidget, it's stored client-side and sent with the next chat message. On the server, `sendMessage()` also falls back to the most recent DB pulse (within 30 min). The emotion is injected into every AI tutor's system prompt as a `STUDENT EMOTIONAL STATE` section with tailored guidance (e.g., "Be extra patient" for frustrated, "Re-spark interest" for bored). Works across all modes: manual, router, random, and collaborative.
