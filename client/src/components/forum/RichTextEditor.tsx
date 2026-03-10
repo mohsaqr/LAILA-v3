@@ -1,11 +1,12 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Heading2, ImagePlus, Link as LinkIcon, Code } from 'lucide-react';
+import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Heading2, ImagePlus, Link as LinkIcon, Code, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
+import TextAlign from '@tiptap/extension-text-align';
 import toast from 'react-hot-toast';
 import { useTheme } from '../../hooks/useTheme';
 import { getAuthToken } from '../../utils/auth';
@@ -33,7 +34,8 @@ export const RichTextEditor = ({ value, onChange, placeholder = '', disabled = f
     extensions: [
       StarterKit.configure({ heading: { levels: [2, 3] } }),
       Underline,
-      Image.configure({ inline: false, allowBase64: true }),
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      Image.configure({ inline: true, allowBase64: true }),
       Link.configure({ openOnClick: false, HTMLAttributes: { class: 'text-cyan-600 underline' } }),
       Placeholder.configure({ placeholder }),
     ],
@@ -118,6 +120,10 @@ export const RichTextEditor = ({ value, onChange, placeholder = '', disabled = f
         <Btn onClick={() => editor.chain().focus().toggleBulletList().run()} isActive={editor.isActive('bulletList')} title="Bullet List"><List size={16} /></Btn>
         <Btn onClick={() => editor.chain().focus().toggleOrderedList().run()} isActive={editor.isActive('orderedList')} title="Numbered List"><ListOrdered size={16} /></Btn>
         <Btn onClick={() => editor.chain().focus().toggleCodeBlock().run()} isActive={editor.isActive('codeBlock')} title="Code Block"><Code size={16} /></Btn>
+        <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1" />
+        <Btn onClick={() => editor.chain().focus().setTextAlign('left').run()} isActive={editor.isActive({ textAlign: 'left' })} title="Align Left"><AlignLeft size={16} /></Btn>
+        <Btn onClick={() => editor.chain().focus().setTextAlign('center').run()} isActive={editor.isActive({ textAlign: 'center' })} title="Align Center"><AlignCenter size={16} /></Btn>
+        <Btn onClick={() => editor.chain().focus().setTextAlign('right').run()} isActive={editor.isActive({ textAlign: 'right' })} title="Align Right"><AlignRight size={16} /></Btn>
         <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1" />
         <Btn onClick={addLink} isActive={editor.isActive('link')} title="Add Link"><LinkIcon size={16} /></Btn>
         <Btn onClick={() => imageInputRef.current?.click()} title="Add Image"><ImagePlus size={16} /></Btn>

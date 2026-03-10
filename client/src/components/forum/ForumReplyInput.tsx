@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Send, Bot, X, Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Heading2, ImagePlus, Link as LinkIcon, Undo, Redo, Code } from 'lucide-react';
+import { Send, Bot, X, Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Heading2, ImagePlus, Link as LinkIcon, Undo, Redo, Code, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
+import TextAlign from '@tiptap/extension-text-align';
 import { useTheme } from '../../hooks/useTheme';
 import { ForumAgentSelector } from './ForumAgentSelector';
 import { Button } from '../common/Button';
@@ -68,7 +69,8 @@ export const ForumReplyInput = ({
         heading: { levels: [2, 3] },
       }),
       Underline,
-      Image.configure({ inline: false, allowBase64: true }),
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      Image.configure({ inline: true, allowBase64: true }),
       Link.configure({ openOnClick: false, HTMLAttributes: { class: 'text-cyan-600 underline' } }),
       Placeholder.configure({ placeholder: effectivePlaceholder }),
     ],
@@ -211,6 +213,16 @@ export const ForumReplyInput = ({
           </ToolbarButton>
           <ToolbarButton onClick={() => editor.chain().focus().toggleCodeBlock().run()} isActive={editor.isActive('codeBlock')} title="Code Block">
             <Code size={16} />
+          </ToolbarButton>
+          <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1" />
+          <ToolbarButton onClick={() => editor.chain().focus().setTextAlign('left').run()} isActive={editor.isActive({ textAlign: 'left' })} title="Align Left">
+            <AlignLeft size={16} />
+          </ToolbarButton>
+          <ToolbarButton onClick={() => editor.chain().focus().setTextAlign('center').run()} isActive={editor.isActive({ textAlign: 'center' })} title="Align Center">
+            <AlignCenter size={16} />
+          </ToolbarButton>
+          <ToolbarButton onClick={() => editor.chain().focus().setTextAlign('right').run()} isActive={editor.isActive({ textAlign: 'right' })} title="Align Right">
+            <AlignRight size={16} />
           </ToolbarButton>
           <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1" />
           <ToolbarButton onClick={addLink} isActive={editor.isActive('link')} title="Add Link">
