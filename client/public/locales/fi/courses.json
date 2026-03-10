@@ -492,6 +492,8 @@
   "total_points": "Kokonaispisteet",
   "graded": "Arvioitu",
   "points": "pistettä",
+  "achievement": "Saavutus",
+  "link_copied": "Linkki kopioitu leikepöydälle",
   "grades_by_course": "Arvosanat kursseittain",
   "last_grade": "Viimeisin arvosana",
   "no_grades_yet": "Ei vielä arvosanoja",

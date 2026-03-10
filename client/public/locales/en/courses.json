@@ -491,6 +491,8 @@
   "total_points": "Total Points",
   "graded": "Graded",
   "points": "points",
+  "achievement": "Achievement",
+  "link_copied": "Link copied to clipboard",
   "grades_by_course": "Grades by Course",
   "last_grade": "Last grade",
   "no_grades_yet": "No grades yet",

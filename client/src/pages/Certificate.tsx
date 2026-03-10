@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
-import { Award, Download, CheckCircle, XCircle, ChevronLeft } from 'lucide-react';
+import { Award, Download, CheckCircle, XCircle, ChevronLeft, Calendar, User, BarChart3, Share2, BrainCircuit } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { certificatesApi } from '../api/certificates';
 import { useTheme } from '../hooks/useTheme';
@@ -183,6 +184,22 @@ export const Certificate = () => {
     'Certificate'
   );
 
+  const percentage = certificate.grades && certificate.grades.total > 0
+    ? Math.round((certificate.grades.earned / certificate.grades.total) * 100)
+    : null;
+
+  const renderTemplate = () => {
+    let html = certificate.template?.templateHtml || '';
+    if (!html) return null;
+    html = html.replace(/\{\{studentName\}\}/gi, certificate.user?.fullname || '');
+    html = html.replace(/\{\{date\}\}/gi, new Date(certificate.issueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }));
+    html = html.replace(/\{\{courseName\}\}/gi, certificate.course?.title || '');
+    html = html.replace(/\{\{instructor\}\}/gi, certificate.course?.instructor?.fullname || '');
+    return html;
+  };
+
+  const templateHtml = renderTemplate();
+
   return (
     <div className="min-h-screen py-8" style={{ backgroundColor: colors.bg }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -191,69 +208,144 @@ export const Certificate = () => {
           <Breadcrumb items={breadcrumbItems} />
         </div>
 
-        <Card>
-          <CardBody className="text-center py-8">
-            <div
-              className="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: 'rgba(102, 126, 234, 0.1)' }}
-            >
-              <Award className="w-10 h-10 text-indigo-500" />
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Card — Student Info */}
+          <div className="lg:col-span-1">
+            <Card className="overflow-hidden">
+              <div className="p-6" style={{ backgroundColor: isDark ? '#1e3a5f' : '#eff6ff' }}>
+                {/* LAILA Branding */}
+                <div className="flex items-center justify-center gap-2 mb-6">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center">
+                    <BrainCircuit className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="text-lg font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
+                    LAILA
+                  </span>
+                </div>
 
-            <h1 className="text-2xl font-bold mb-2" style={{ color: colors.textPrimary }}>
-              {t('certificate_completion')}
-            </h1>
+                <div className="flex flex-col items-center text-center">
+                  {/* Profile Picture */}
+                  {certificate.user?.avatarUrl ? (
+                    <img
+                      src={certificate.user.avatarUrl}
+                      alt={certificate.user.fullname}
+                      className="w-24 h-24 rounded-full object-cover border-4 mb-4"
+                      style={{ borderColor: isDark ? '#3b82f6' : '#bfdbfe' }}
+                    />
+                  ) : (
+                    <div
+                      className="w-24 h-24 rounded-full flex items-center justify-center border-4 mb-4"
+                      style={{
+                        backgroundColor: isDark ? '#1e40af' : '#dbeafe',
+                        borderColor: isDark ? '#3b82f6' : '#bfdbfe',
+                      }}
+                    >
+                      <User className="w-10 h-10" style={{ color: isDark ? '#93c5fd' : '#3b82f6' }} />
+                    </div>
+                  )}
 
-            <p className="text-lg mb-1" style={{ color: colors.textPrimary }}>
-              {certificate.user?.fullname}
-            </p>
-            <p className="mb-6" style={{ color: colors.textSecondary }}>
-              {t('complete_to_earn').replace('Complete the course to earn this certificate', 'has successfully completed')}
-            </p>
+                  <h2 className="text-xl font-bold mb-1" style={{ color: isDark ? '#f3f4f6' : '#1e3a5f' }}>
+                    {certificate.user?.fullname}
+                  </h2>
+                  <p className="text-sm mb-4" style={{ color: isDark ? '#93c5fd' : '#3b82f6' }}>
+                    {certificate.course?.title}
+                  </p>
+                </div>
 
-            <h2 className="text-xl font-semibold mb-6" style={{ color: colors.textPrimary }}>
-              {certificate.course?.title}
-            </h2>
+                {/* Issue Date */}
+                <div className="flex items-center gap-3 p-3 rounded-lg mb-3" style={{ backgroundColor: isDark ? 'rgba(30, 58, 95, 0.5)' : 'rgba(255,255,255,0.7)' }}>
+                  <Calendar className="w-5 h-5 flex-shrink-0" style={{ color: isDark ? '#93c5fd' : '#3b82f6' }} />
+                  <div>
+                    <p className="text-xs" style={{ color: isDark ? '#93c5fd' : '#6b7280' }}>{t('issue_date')}</p>
+                    <p className="font-semibold text-sm" style={{ color: isDark ? '#f3f4f6' : '#1e3a5f' }}>
+                      {new Date(certificate.issueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-8 text-sm">
-              <div>
-                <p style={{ color: colors.textSecondary }}>{t('issue_date')}</p>
-                <p className="font-medium" style={{ color: colors.textPrimary }}>
-                  {new Date(certificate.issueDate).toLocaleDateString()}
-                </p>
+                {/* Achievement */}
+                {percentage !== null && (
+                  <div className="flex items-center gap-3 p-3 rounded-lg mb-3" style={{ backgroundColor: isDark ? 'rgba(30, 58, 95, 0.5)' : 'rgba(255,255,255,0.7)' }}>
+                    <BarChart3 className="w-5 h-5 flex-shrink-0" style={{ color: isDark ? '#93c5fd' : '#3b82f6' }} />
+                    <div className="flex-1">
+                      <p className="text-xs" style={{ color: isDark ? '#93c5fd' : '#6b7280' }}>{t('achievement')}</p>
+                      <p className="font-semibold text-sm" style={{ color: isDark ? '#f3f4f6' : '#1e3a5f' }}>
+                        {percentage}% ({certificate.grades!.earned} / {certificate.grades!.total} {t('points')})
+                      </p>
+                      <div className="w-full h-2 rounded-full mt-1" style={{ backgroundColor: isDark ? '#1e40af' : '#bfdbfe' }}>
+                        <div
+                          className="h-2 rounded-full transition-all"
+                          style={{
+                            width: `${Math.min(percentage, 100)}%`,
+                            backgroundColor: isDark ? '#60a5fa' : '#3b82f6',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Instructor */}
+                <div className="flex items-center gap-3 p-3 rounded-lg mb-3" style={{ backgroundColor: isDark ? 'rgba(30, 58, 95, 0.5)' : 'rgba(255,255,255,0.7)' }}>
+                  <Award className="w-5 h-5 flex-shrink-0" style={{ color: isDark ? '#93c5fd' : '#3b82f6' }} />
+                  <div>
+                    <p className="text-xs" style={{ color: isDark ? '#93c5fd' : '#6b7280' }}>{t('instructor')}</p>
+                    <p className="font-semibold text-sm" style={{ color: isDark ? '#f3f4f6' : '#1e3a5f' }}>
+                      {certificate.course?.instructor?.fullname}
+                    </p>
+                  </div>
+                </div>
+
               </div>
-              <div>
-                <p style={{ color: colors.textSecondary }}>{t('instructor')}</p>
-                <p className="font-medium" style={{ color: colors.textPrimary }}>
-                  {certificate.course?.instructor?.fullname}
-                </p>
-              </div>
-            </div>
 
-            <div
-              className="p-4 rounded-lg mb-8"
-              style={{ backgroundColor: colors.bg }}
-            >
-              <p className="text-xs uppercase mb-1" style={{ color: colors.textSecondary }}>
-                {t('verification_code')}
-              </p>
-              <p className="font-mono" style={{ color: colors.textPrimary }}>
-                {certificate.verificationCode}
-              </p>
-            </div>
+              {/* Action Buttons */}
+              <CardBody className="flex gap-3">
+                <Button variant="secondary" onClick={() => {
+                  const url = `${window.location.origin}/verify/${certificate.verificationCode}`;
+                  navigator.clipboard.writeText(url);
+                  toast.success(t('link_copied'));
+                }} className="flex-1">
+                  <Share2 size={16} />
+                  {t('common:share')}
+                </Button>
+                <Button onClick={handleDownload} className="flex-1">
+                  <Download size={16} />
+                  {t('common:download')}
+                </Button>
+              </CardBody>
+            </Card>
+          </div>
 
-            <div className="flex justify-center gap-4">
-              <Button variant="secondary" onClick={handleView}>
-                <Award size={18} />
-                {t('view_certificate')}
-              </Button>
-              <Button onClick={handleDownload}>
-                <Download size={18} />
-                {t('common:download')}
-              </Button>
-            </div>
-          </CardBody>
-        </Card>
+          {/* Right Card — Certificate Template */}
+          <div className="lg:col-span-2">
+            <Card>
+              <CardBody>
+                {templateHtml ? (
+                  <div
+                    className="prose prose-sm dark:prose-invert max-w-none"
+                    dangerouslySetInnerHTML={{ __html: templateHtml }}
+                  />
+                ) : (
+                  <div className="text-center py-16">
+                    <Award className="w-16 h-16 mx-auto mb-4" style={{ color: colors.textSecondary }} />
+                    <h3 className="text-xl font-semibold mb-2" style={{ color: colors.textPrimary }}>
+                      {t('certificate_completion')}
+                    </h3>
+                    <p className="text-lg mb-1" style={{ color: colors.textPrimary }}>
+                      {certificate.user?.fullname}
+                    </p>
+                    <p className="mb-4" style={{ color: colors.textSecondary }}>
+                      {certificate.course?.title}
+                    </p>
+                    <p className="text-sm" style={{ color: colors.textSecondary }}>
+                      {new Date(certificate.issueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  </div>
+                )}
+              </CardBody>
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -492,6 +492,8 @@
   "total_points": "Puntos Totales",
   "graded": "Calificado",
   "points": "puntos",
+  "achievement": "Logro",
+  "link_copied": "Enlace copiado al portapapeles",
   "grades_by_course": "Calificaciones por Curso",
   "last_grade": "Última calificación",
   "no_grades_yet": "Sin calificaciones aún",

@@ -10,9 +10,10 @@ export interface Certificate {
   issueDate: string;
   expiryDate?: string;
   metadata?: Record<string, any>;
-  template?: { id: number; name: string };
-  user?: { id: number; fullname: string; email: string };
+  template?: { id: number; name: string; templateHtml?: string };
+  user?: { id: number; fullname: string; email: string; avatarUrl?: string | null };
   course?: { id: number; title: string; instructor: { id: number; fullname: string } };
+  grades?: { earned: number; total: number };
 }
 
 export interface CertificateTemplate {
