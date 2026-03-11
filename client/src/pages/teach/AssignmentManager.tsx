@@ -180,7 +180,7 @@ export const AssignmentManager = () => {
 
   if (!course) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 text-center">
+      <div className="max-w-7xl mx-auto px-4 py-8 text-center">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('course_not_found')}</h1>
         <Button onClick={() => navigate('/teach')}>{t('back_to_dashboard')}</Button>
       </div>
@@ -190,7 +190,7 @@ export const AssignmentManager = () => {
   const breadcrumbItems = buildTeachingBreadcrumb(id, course?.title || 'Course', 'Assignments');
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Breadcrumb navigation */}
       <div className="mb-6">
         <Breadcrumb items={breadcrumbItems} />

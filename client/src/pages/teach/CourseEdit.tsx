@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Settings, Users } from 'lucide-react';
+import { Settings, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../../api/courses';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
+import { Breadcrumb } from '../../components/common/Breadcrumb';
+import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { CourseForm, CourseFormData } from '../../components/teach/CourseForm';
 import { CourseRoleManager } from '../../components/admin/CourseRoleManager';
 
@@ -64,17 +66,9 @@ export const CourseEdit = () => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(`/teach/courses/${courseId}/curriculum`)}
-          icon={<ArrowLeft className="w-4 h-4" />}
-        >
-          {t('back_to_curriculum')}
-        </Button>
+        <Breadcrumb items={buildTeachingBreadcrumb(courseId, course?.title || '', t('navigation:settings'))} />
       </div>
 
       {/* Tab Navigation */}

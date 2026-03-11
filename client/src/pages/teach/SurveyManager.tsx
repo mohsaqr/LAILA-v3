@@ -327,6 +327,7 @@ export const SurveyManager = () => {
       <Breadcrumb
         items={[
           { label: t('navigation:home'), href: '/' },
+          { label: t('navigation:courses'), href: '/teach' },
           ...(courseId && course
             ? [{ label: course.title, href: `/teach/courses/${courseId}/curriculum` }]
             : []),
@@ -408,7 +409,7 @@ export const SurveyManager = () => {
                         {(survey as any).moduleSurveys.map((ms: any) => (
                           <Link
                             key={ms.id}
-                            to={`/teach/surveys/${survey.id}/responses?moduleId=${ms.module.id}`}
+                            to={`/teach/surveys/${survey.id}/responses?moduleId=${ms.module.id}${courseId ? `&courseId=${courseId}` : ''}`}
                             onClick={e => e.stopPropagation()}
                             className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
                           >

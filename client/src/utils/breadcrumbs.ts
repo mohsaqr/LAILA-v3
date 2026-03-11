@@ -104,10 +104,11 @@ export const buildTeachingBreadcrumb = (
   section?: string
 ): BreadcrumbItem[] => {
   const items: BreadcrumbItem[] = [
-    { label: 'Teaching', href: '/courses' },
+    { label: 'Home', href: '/' },
+    { label: 'Courses', href: '/teach' },
   ];
   if (courseId && courseTitle) {
-    items.push({ label: courseTitle, href: `/courses/${courseId}` });
+    items.push({ label: courseTitle, href: `/teach/courses/${courseId}/curriculum` });
   }
   if (section) {
     items.push({ label: section });

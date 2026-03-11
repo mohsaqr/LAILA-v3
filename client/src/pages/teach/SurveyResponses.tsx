@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Download, Users, FileText } from 'lucide-react';
+import { Download, Users, FileText } from 'lucide-react';
 import { SurveyResponsesData } from '../../types';
 import { surveysApi } from '../../api/surveys';
+import { coursesApi } from '../../api/courses';
 import { Card, CardHeader, CardBody } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
@@ -11,10 +13,27 @@ import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { useTheme } from '../../hooks/useTheme';
 
 export const SurveyResponses = () => {
-  const { t } = useTranslation(['teaching', 'common']);
-  const { id: courseId, surveyId } = useParams<{ id: string; surveyId: string }>();
+  const { t } = useTranslation(['teaching', 'common', 'navigation']);
+  const { id: paramCourseId, surveyId } = useParams<{ id: string; surveyId: string }>();
+  const [searchParams] = useSearchParams();
+  const courseId = paramCourseId || searchParams.get('courseId') || undefined;
+  const moduleId = searchParams.get('moduleId') || undefined;
   const navigate = useNavigate();
   const { isDark } = useTheme();
+
+  const { data: course } = useQuery({
+    queryKey: ['course', courseId],
+    queryFn: () => coursesApi.getCourseById(parseInt(courseId!)),
+    enabled: !!courseId,
+  });
+
+  const { data: modules } = useQuery({
+    queryKey: ['modules', courseId],
+    queryFn: () => coursesApi.getModules(parseInt(courseId!)),
+    enabled: !!courseId && !!moduleId,
+  });
+
+  const moduleName = modules?.find((m: any) => m.id === parseInt(moduleId!))?.title;
 
   const [data, setData] = useState<SurveyResponsesData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -69,7 +88,7 @@ export const SurveyResponses = () => {
 
   if (error || !data) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Card>
           <CardBody className="text-center py-12">
             <p className="text-red-600 dark:text-red-400 mb-4">{error || 'No data found'}</p>
@@ -81,26 +100,22 @@ export const SurveyResponses = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <Breadcrumb
         items={[
-          { label: t('teaching'), href: '/teach' },
-          { label: t('surveys'), href: courseId ? `/teach/courses/${courseId}/surveys` : '/teach/surveys' },
-          { label: t('responses') },
+          { label: t('navigation:home'), href: '/' },
+          { label: t('navigation:courses'), href: '/teach' },
+          ...(courseId && course
+            ? [{ label: course.title, href: `/teach/courses/${courseId}/curriculum` }]
+            : []),
+          { label: t('surveys'), href: courseId ? `/teach/surveys?courseId=${courseId}` : '/teach/surveys' },
+          { label: data.survey.title },
+          ...(moduleName ? [{ label: moduleName }] : []),
         ]}
       />
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate(-1)}
-            className="mb-2"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            {t('common:back')}
-          </Button>
           <h1
             className="text-2xl font-bold"
             style={{ color: isDark ? '#f3f4f6' : '#111827' }}
