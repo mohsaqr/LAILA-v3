@@ -303,7 +303,7 @@ export const AssignmentManager = () => {
         isOpen={formModal.isOpen}
         onClose={closeModal}
         title={formModal.assignment ? t('edit_assignment') : t('create_assignment')}
-        size="lg"
+        size="3xl"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { coursesApi } from '../../api/courses';
 import {
   Plus,
   Edit2,
@@ -33,6 +35,12 @@ export const SurveyManager = () => {
   const [searchParams] = useSearchParams();
   const courseId = paramCourseId || searchParams.get('courseId') || undefined;
   const { isDark } = useTheme();
+
+  const { data: course } = useQuery({
+    queryKey: ['course', courseId],
+    queryFn: () => coursesApi.getCourseById(parseInt(courseId!)),
+    enabled: !!courseId,
+  });
 
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [loading, setLoading] = useState(true);
@@ -317,7 +325,18 @@ export const SurveyManager = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
-        <Breadcrumb homeHref="/" items={[{ label: t('surveys') }]} />
+        <Breadcrumb
+          homeHref="/"
+          items={[
+            ...(courseId && course
+              ? [
+                  { label: t('navigation:courses'), href: '/teach' },
+                  { label: course.title, href: `/teach/courses/${courseId}/curriculum` },
+                ]
+              : []),
+            { label: t('surveys') },
+          ]}
+        />
       </div>
 
       <div className="flex items-center justify-between mb-6">
@@ -410,12 +429,6 @@ export const SurveyManager = () => {
                         style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
                       >
                         {t('questions_stat', { count: survey._count?.questions || 0 })}
-                      </span>
-                      <span
-                        className="text-sm"
-                        style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
-                      >
-                        {t('responses_stat', { count: survey._count?.responses || 0 })}
                       </span>
                       {survey.isAnonymous && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">

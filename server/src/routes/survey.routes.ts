@@ -143,7 +143,8 @@ router.get('/:id/my-response', authenticateToken, asyncHandler(async (req: AuthR
 // Get all responses for a survey
 router.get('/:id/responses', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
   const surveyId = parseInt(req.params.id);
-  const data = await surveyService.getResponses(surveyId, req.user!.id, req.user!.isAdmin);
+  const moduleId = req.query.moduleId ? parseInt(req.query.moduleId as string) : undefined;
+  const data = await surveyService.getResponses(surveyId, req.user!.id, req.user!.isAdmin, moduleId);
   res.json({ success: true, data });
 }));
 

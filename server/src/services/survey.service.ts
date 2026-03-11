@@ -416,7 +416,7 @@ export class SurveyService {
   // ANALYTICS (Instructor)
   // =============================================================================
 
-  async getResponses(surveyId: number, userId: number, isAdmin = false) {
+  async getResponses(surveyId: number, userId: number, isAdmin = false, moduleId?: number) {
     const survey = await prisma.survey.findUnique({
       where: { id: surveyId },
       include: {
@@ -435,7 +435,10 @@ export class SurveyService {
     }
 
     const responses = await prisma.surveyResponse.findMany({
-      where: { surveyId },
+      where: {
+        surveyId,
+        ...(moduleId !== undefined ? { moduleId } : {}),
+      },
       orderBy: { completedAt: 'desc' },
       include: {
         user: survey.isAnonymous

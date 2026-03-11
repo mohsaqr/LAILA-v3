@@ -119,9 +119,11 @@ export const surveysApi = {
   // ANALYTICS (Instructor)
   // =============================================================================
 
-  getResponses: async (surveyId: number) => {
+  getResponses: async (surveyId: number, moduleId?: number) => {
+    const params = moduleId !== undefined ? { moduleId } : {};
     const response = await apiClient.get<ApiResponse<SurveyResponsesData>>(
-      `/surveys/${surveyId}/responses`
+      `/surveys/${surveyId}/responses`,
+      { params }
     );
     return response.data.data!;
   },
