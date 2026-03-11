@@ -137,17 +137,17 @@ export const surveysApi = {
 
   // Module surveys
   getModuleSurveys: async (moduleId: number) => {
-    const response = await apiClient.get<ApiResponse<any[]>>(`/surveys/module/${moduleId}`);
+    const response = await apiClient.get<ApiResponse<Survey[]>>(`/surveys/module/${moduleId}`);
     return response.data.data!;
   },
 
   addSurveyToModule: async (courseId: number, moduleId: number, surveyId: number) => {
-    const response = await apiClient.post<ApiResponse<any>>(`/surveys/module/${moduleId}`, { courseId, surveyId });
+    const response = await apiClient.post<ApiResponse<Survey>>(`/surveys/module/${moduleId}`, { courseId, surveyId });
     return response.data.data!;
   },
 
   removeSurveyFromModule: async (moduleId: number, surveyId: number) => {
-    const response = await apiClient.delete<ApiResponse<any>>(`/surveys/module/${moduleId}/${surveyId}`);
-    return response.data;
+    const response = await apiClient.delete<ApiResponse<Survey>>(`/surveys/module/${moduleId}/${surveyId}`);
+    return response.data.data!;
   },
 };
