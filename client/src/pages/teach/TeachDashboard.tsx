@@ -220,7 +220,7 @@ export const TeachDashboard = () => {
                       <StatusBadge status={course.status} />
                     </div>
                     <p className="text-sm truncate mb-2" style={{ color: colors.textSecondary }}>
-                      {course.description || t('no_description')}
+                      {course.description?.replace(/<[^>]*>/g, '') || t('no_description')}
                     </p>
                     <div className="flex items-center gap-4 text-xs" style={{ color: colors.textMuted }}>
                       <span>{course._count?.modules || 0} modules</span>

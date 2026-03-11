@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { sanitizeHtml } from '../../utils/sanitize';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -845,7 +846,11 @@ export const CurriculumEditor = () => {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{course.title}</h1>
           <StatusBadge status={course.status} />
         </div>
-        <p className="text-gray-600 dark:text-gray-400">{course.description || t('no_description')}</p>
+        {course.description ? (
+          <div className="text-gray-600 dark:text-gray-400 prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(course.description) }} />
+        ) : (
+          <p className="text-gray-600 dark:text-gray-400">{t('no_description')}</p>
+        )}
       </div>
 
       {/* Course Management Card - Dark theme */}

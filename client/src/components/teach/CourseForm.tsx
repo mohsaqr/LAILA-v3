@@ -2,12 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, X, Search, HelpCircle, ImageIcon, Trash2 } from 'lucide-react';
-import { Input, TextArea } from '../common/Input';
+import { Input } from '../common/Input';
 import { Button } from '../common/Button';
 import { Course, CurriculumViewMode, Category } from '../../types';
 import { categoriesApi } from '../../api/categories';
 import { uploadsApi } from '../../api/uploads';
 import { resolveFileUrl } from '../../api/client';
+import { RichTextEditor } from '../forum/RichTextEditor';
 
 export interface CourseFormData {
   title: string;
@@ -477,13 +478,16 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
         required
       />
 
-      <TextArea
-        label={t('description')}
-        value={formData.description}
-        onChange={e => handleChange('description', e.target.value)}
-        placeholder={t('course_description_placeholder')}
-        rows={4}
-      />
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+          {t('common:description')}
+        </label>
+        <RichTextEditor
+          value={formData.description}
+          onChange={val => handleChange('description', val)}
+          placeholder={t('course_description_placeholder')}
+        />
+      </div>
 
       <CategoryMultiSelect
         label={t('category')}

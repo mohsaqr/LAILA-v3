@@ -753,7 +753,7 @@ const CourseCard = ({ course }: { course: Course }) => {
           <h3 className="font-semibold mb-2 line-clamp-2" style={{ color: colors.textPrimary }}>{course.title}</h3>
 
           {/* Description */}
-          <p className="text-sm mb-4 line-clamp-2" style={{ color: colors.textSecondary }}>{course.description}</p>
+          <p className="text-sm mb-4 line-clamp-2" style={{ color: colors.textSecondary }}>{course.description?.replace(/<[^>]*>/g, '') || ''}</p>
 
           {/* Footer */}
           <div className="flex items-center justify-between text-sm" style={{ color: colors.textSecondary }}>
