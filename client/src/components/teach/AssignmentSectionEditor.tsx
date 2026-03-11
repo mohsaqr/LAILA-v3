@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ClipboardList, Calendar, Award, AlertCircle, Link as LinkIcon, Edit2 } from 'lucide-react';
+import { ClipboardList, Calendar, Award, AlertCircle, Link as LinkIcon, Edit2, Upload, FileText, Trash2, Pencil, Check, X } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Assignment, LectureSection, UpdateSectionData } from '../../types';
+import { Assignment, AssignmentAttachment, LectureSection, UpdateSectionData } from '../../types';
 import { coursesApi } from '../../api/courses';
 import { assignmentsApi } from '../../api/assignments';
+import { uploadsApi } from '../../api/uploads';
 import { Select, Input, TextArea } from '../common/Input';
 import { RichTextEditor } from '../forum/RichTextEditor';
 import { Button } from '../common/Button';
@@ -50,6 +51,160 @@ const assignmentToFormData = (a: Assignment): AssignmentFormData => ({
   isPublished: a.isPublished,
 });
 
+const ALLOWED_EXTENSIONS = '.csv,.xlsx,.png,.jpg,.jpeg,.pdf';
+const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB
+
+export const AttachmentManager = ({ assignmentId }: { assignmentId: number }) => {
+  const { t } = useTranslation(['teaching']);
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState('');
+  const [uploading, setUploading] = useState(false);
+
+  const { data: attachments = [] } = useQuery({
+    queryKey: ['assignmentAttachments', assignmentId],
+    queryFn: () => assignmentsApi.getAttachments(assignmentId),
+    enabled: !!assignmentId,
+  });
+
+  const addMutation = useMutation({
+    mutationFn: (data: { fileName: string; fileUrl: string; fileType: string; fileSize?: number }) =>
+      assignmentsApi.addAttachment(assignmentId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assignmentAttachments', assignmentId] });
+    },
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: ({ id, fileName }: { id: number; fileName: string }) =>
+      assignmentsApi.updateAttachment(id, { fileName }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assignmentAttachments', assignmentId] });
+      setEditingId(null);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => assignmentsApi.deleteAttachment(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assignmentAttachments', assignmentId] });
+    },
+  });
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files?.length) return;
+
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        if (file.size > MAX_FILE_SIZE) {
+          toast.error(t('file_too_large', { name: file.name, limit: '3MB' }));
+          continue;
+        }
+        const result = await uploadsApi.uploadAssignmentFile(file);
+        const ext = file.name.split('.').pop() || '';
+        await addMutation.mutateAsync({
+          fileName: file.name,
+          fileUrl: result.url,
+          fileType: ext.toLowerCase(),
+          fileSize: file.size,
+        });
+      }
+      toast.success(t('files_uploaded'));
+    } catch {
+      toast.error(t('file_upload_failed'));
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const startRename = (att: AssignmentAttachment) => {
+    setEditingId(att.id);
+    setEditName(att.fileName);
+  };
+
+  const confirmRename = (id: number) => {
+    if (editName.trim()) {
+      renameMutation.mutate({ id, fileName: editName.trim() });
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        {t('file_attachments')}
+      </label>
+
+      {attachments.length > 0 && (
+        <div className="space-y-2">
+          {attachments.map(att => (
+            <div key={att.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+              <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              {editingId === att.id ? (
+                <>
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') confirmRename(att.id);
+                      if (e.key === 'Escape') setEditingId(null);
+                    }}
+                    className="flex-1 text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    autoFocus
+                  />
+                  <button onClick={() => confirmRename(att.id)} className="p-1 hover:bg-gray-200 rounded">
+                    <Check className="w-3.5 h-3.5 text-green-600" />
+                  </button>
+                  <button onClick={() => setEditingId(null)} className="p-1 hover:bg-gray-200 rounded">
+                    <X className="w-3.5 h-3.5 text-gray-500" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="flex-1 text-sm text-gray-700 truncate">{att.fileName}</span>
+                  <span className="text-xs text-gray-400 uppercase">{att.fileType}</span>
+                  <button onClick={() => startRename(att)} className="p-1 hover:bg-gray-200 rounded" title={t('rename')}>
+                    <Pencil className="w-3.5 h-3.5 text-gray-500" />
+                  </button>
+                  <button onClick={() => deleteMutation.mutate(att.id)} className="p-1 hover:bg-red-100 rounded" title={t('common:delete')}>
+                    <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                  </button>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div
+        className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-primary-400 transition-colors"
+        onClick={() => fileInputRef.current?.click()}
+      >
+        <Upload className="w-5 h-5 mx-auto mb-1 text-gray-400" />
+        <p className="text-sm text-gray-500">
+          {uploading ? t('uploading') : t('click_to_upload_files')}
+        </p>
+        <p className="text-xs text-gray-400 mt-1">
+          {t('allowed_file_formats')} &middot; {t('max_3mb')}
+        </p>
+      </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={ALLOWED_EXTENSIONS}
+        multiple
+        onChange={handleFileSelect}
+        className="hidden"
+      />
+    </div>
+  );
+};
+
 export const AssignmentSectionEditor = ({
   section,
   courseId,
@@ -69,6 +224,9 @@ export const AssignmentSectionEditor = ({
   const [showSelectExisting, setShowSelectExisting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<AssignmentFormData>(initialFormData);
+  // Staged files for the create form (uploaded after assignment creation)
+  const [stagedFiles, setStagedFiles] = useState<File[]>([]);
+  const createFileInputRef = useRef<HTMLInputElement>(null);
   // Cache the full assignment object so title/details are available immediately after create/edit
   const [cachedAssignment, setCachedAssignment] = useState<Assignment | null>(
     section.assignment || null
@@ -103,8 +261,27 @@ export const AssignmentSectionEditor = ({
         lectureId: lectureId ?? null,
         dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
       }),
-    onSuccess: (newAssignment) => {
+    onSuccess: async (newAssignment) => {
+      // Upload any staged files
+      if (stagedFiles.length > 0) {
+        try {
+          for (const file of stagedFiles) {
+            const result = await uploadsApi.uploadAssignmentFile(file);
+            const ext = file.name.split('.').pop() || '';
+            await assignmentsApi.addAttachment(newAssignment.id, {
+              fileName: file.name,
+              fileUrl: result.url,
+              fileType: ext.toLowerCase(),
+              fileSize: file.size,
+            });
+          }
+        } catch {
+          toast.error(t('file_upload_failed'));
+        }
+        setStagedFiles([]);
+      }
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['assignmentAttachments', newAssignment.id] });
       toast.success(t('assignment_created'));
       setCachedAssignment(newAssignment);
       setSelectedAssignmentId(newAssignment.id);
@@ -257,6 +434,8 @@ export const AssignmentSectionEditor = ({
             editorClassName="forum-reply-editor px-3 py-2 min-h-[200px] max-h-[400px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
           />
         </div>
+
+        {selectedAssignmentId && <AttachmentManager assignmentId={selectedAssignmentId} />}
 
         <div className="grid grid-cols-2 gap-4">
           <Select
@@ -436,6 +615,65 @@ export const AssignmentSectionEditor = ({
               value={formData.instructions}
               onChange={val => handleFormChange('instructions', val)}
               editorClassName="forum-reply-editor px-3 py-2 min-h-[200px] max-h-[400px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
+            />
+          </div>
+
+          {/* Staged file attachments (uploaded after assignment creation) */}
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('file_attachments')}
+            </label>
+
+            {stagedFiles.length > 0 && (
+              <div className="space-y-2">
+                {stagedFiles.map((file, idx) => (
+                  <div key={idx} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                    <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    <span className="flex-1 text-sm text-gray-700 truncate">{file.name}</span>
+                    <span className="text-xs text-gray-400">{(file.size / 1024).toFixed(0)} KB</span>
+                    <button
+                      type="button"
+                      onClick={() => setStagedFiles(prev => prev.filter((_, i) => i !== idx))}
+                      className="p-1 hover:bg-red-100 rounded"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div
+              className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-primary-400 transition-colors"
+              onClick={() => createFileInputRef.current?.click()}
+            >
+              <Upload className="w-5 h-5 mx-auto mb-1 text-gray-400" />
+              <p className="text-sm text-gray-500">{t('click_to_upload_files')}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {t('allowed_file_formats')} &middot; {t('max_3mb')}
+              </p>
+            </div>
+
+            <input
+              ref={createFileInputRef}
+              type="file"
+              accept={ALLOWED_EXTENSIONS}
+              multiple
+              onChange={e => {
+                const files = e.target.files;
+                if (!files?.length) return;
+                const valid: File[] = [];
+                for (const file of Array.from(files)) {
+                  if (file.size > MAX_FILE_SIZE) {
+                    toast.error(t('file_too_large', { name: file.name, limit: '3MB' }));
+                  } else {
+                    valid.push(file);
+                  }
+                }
+                setStagedFiles(prev => [...prev, ...valid]);
+                if (createFileInputRef.current) createFileInputRef.current.value = '';
+              }}
+              className="hidden"
             />
           </div>
 

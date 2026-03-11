@@ -27,6 +27,7 @@ import { Input, TextArea, Select } from '../../components/common/Input';
 import { RichTextEditor } from '../../components/forum/RichTextEditor';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
+import { AttachmentManager } from '../../components/teach/AssignmentSectionEditor';
 import { Assignment, CourseModule } from '../../types';
 
 interface AssignmentFormData {
@@ -331,6 +332,10 @@ export const AssignmentManager = () => {
               editorClassName="forum-reply-editor px-3 py-2 min-h-[200px] max-h-[400px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
             />
           </div>
+
+          {formModal.assignment && (
+            <AttachmentManager assignmentId={formModal.assignment.id} />
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <Select

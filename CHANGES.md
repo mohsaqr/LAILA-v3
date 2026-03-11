@@ -1,3 +1,18 @@
+### 2026-03-11 — Add file attachment support to assignments
+
+- `server/prisma/schema.prisma`: Added `AssignmentAttachment` model (id, assignmentId, fileName, fileUrl, fileType, fileSize, createdAt) with cascade delete on assignment. Added `attachments` relation to `Assignment` model.
+- `server/src/routes/upload.routes.ts`: Added `.csv` to `allowedExtensions`. Added `POST /api/uploads/assignment-file` endpoint (3 MB limit, csv/xlsx/png/jpg/jpeg/pdf only, instructor-only).
+- `server/src/services/assignment.service.ts`: Added `getAttachments()`, `addAttachment()`, `updateAttachment()` (rename), `deleteAttachment()` methods with authorization checks. Updated `getAssignmentById()` to include attachments ordered by `createdAt`.
+- `server/src/routes/assignment.routes.ts`: Added 4 attachment routes — `GET /:id/attachments`, `POST /:id/attachments`, `PUT /attachments/:attachmentId`, `DELETE /attachments/:attachmentId`.
+- `client/src/types/index.ts`: Added `AssignmentAttachment` interface and `attachments?` field to `Assignment`.
+- `client/src/api/assignments.ts`: Added `getAttachments()`, `addAttachment()`, `updateAttachment()`, `deleteAttachment()` API methods.
+- `client/src/api/uploads.ts`: Added `uploadAssignmentFile()` method.
+- `client/src/components/teach/AssignmentSectionEditor.tsx`: Added `AttachmentManager` component (exported) with file upload, rename, delete. Renders after instructions in both edit and create forms.
+- `client/src/pages/teach/AssignmentManager.tsx`: Added `AttachmentManager` in edit modal (only visible when editing existing assignment).
+- `client/src/pages/AssignmentView.tsx`: Added attachments card between instructions and submission area. Files are downloadable with file type and size display.
+- i18n: Added 10 keys (`file_attachments`, `click_to_upload_files`, `allowed_file_formats`, `max_3mb`, `files_uploaded`, `file_upload_failed`, `file_too_large`, `uploading`, `rename`) in all 4 locales (en, fi, ar, es).
+- `server/src/services/assignment.service.test.ts`: Added 8 tests for attachment CRUD — get, add, rename, delete, authorization, 404 handling, and inclusion in getAssignmentById.
+
 ### 2026-03-11 — Use rich text editor for assignment instructions
 
 - `client/src/pages/teach/AssignmentManager.tsx`: Replaced `TextArea` for the instructions field with `RichTextEditor`. Added import.

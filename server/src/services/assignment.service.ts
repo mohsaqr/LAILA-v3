@@ -85,6 +85,9 @@ export class AssignmentService {
         module: {
           select: { id: true, title: true },
         },
+        attachments: {
+          orderBy: { createdAt: 'asc' },
+        },
       },
     });
 
@@ -179,6 +182,62 @@ export class AssignmentService {
     });
 
     return { message: 'Assignment deleted successfully' };
+  }
+
+  // Attachment methods
+  async getAttachments(assignmentId: number) {
+    const assignment = await prisma.assignment.findUnique({ where: { id: assignmentId } });
+    if (!assignment) throw new AppError('Assignment not found', 404);
+
+    return prisma.assignmentAttachment.findMany({
+      where: { assignmentId },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async addAttachment(assignmentId: number, instructorId: number, data: { fileName: string; fileUrl: string; fileType: string; fileSize?: number }, isAdmin = false) {
+    const assignment = await prisma.assignment.findUnique({
+      where: { id: assignmentId },
+      include: { course: true },
+    });
+    if (!assignment) throw new AppError('Assignment not found', 404);
+    if (assignment.course.instructorId !== instructorId && !isAdmin) throw new AppError('Not authorized', 403);
+
+    return prisma.assignmentAttachment.create({
+      data: {
+        assignmentId,
+        fileName: data.fileName,
+        fileUrl: data.fileUrl,
+        fileType: data.fileType,
+        fileSize: data.fileSize || null,
+      },
+    });
+  }
+
+  async updateAttachment(attachmentId: number, instructorId: number, data: { fileName: string }, isAdmin = false) {
+    const attachment = await prisma.assignmentAttachment.findUnique({
+      where: { id: attachmentId },
+      include: { assignment: { include: { course: true } } },
+    });
+    if (!attachment) throw new AppError('Attachment not found', 404);
+    if (attachment.assignment.course.instructorId !== instructorId && !isAdmin) throw new AppError('Not authorized', 403);
+
+    return prisma.assignmentAttachment.update({
+      where: { id: attachmentId },
+      data: { fileName: data.fileName },
+    });
+  }
+
+  async deleteAttachment(attachmentId: number, instructorId: number, isAdmin = false) {
+    const attachment = await prisma.assignmentAttachment.findUnique({
+      where: { id: attachmentId },
+      include: { assignment: { include: { course: true } } },
+    });
+    if (!attachment) throw new AppError('Attachment not found', 404);
+    if (attachment.assignment.course.instructorId !== instructorId && !isAdmin) throw new AppError('Not authorized', 403);
+
+    await prisma.assignmentAttachment.delete({ where: { id: attachmentId } });
+    return { message: 'Attachment deleted successfully' };
   }
 
   // Submission methods

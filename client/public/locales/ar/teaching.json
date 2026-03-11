@@ -1079,5 +1079,14 @@
   "x_interactive_labs_plural": "{{count}} مختبرات تفاعلية",
   "already_added": "مضاف بالفعل",
   "interactive": "تفاعلي",
-  "interactive_labs": "المختبرات التفاعلية"
+  "interactive_labs": "المختبرات التفاعلية",
+  "file_attachments": "المرفقات",
+  "click_to_upload_files": "انقر لتحميل الملفات",
+  "allowed_file_formats": "CSV, XLSX, PNG, JPG, PDF",
+  "max_3mb": "الحد الأقصى 3 ميجابايت لكل ملف",
+  "files_uploaded": "تم تحميل الملفات بنجاح",
+  "file_upload_failed": "فشل تحميل الملف",
+  "file_too_large": "{{name}} يتجاوز حد الحجم {{limit}}",
+  "uploading": "جارٍ التحميل...",
+  "rename": "إعادة تسمية"
 }

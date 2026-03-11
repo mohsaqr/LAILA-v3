@@ -1084,5 +1084,14 @@
   "x_interactive_labs_plural": "{{count}} interaktiivista laboratoriota",
   "already_added": "Jo lisätty",
   "interactive": "Interaktiivinen",
-  "interactive_labs": "Interaktiiviset laboratoriot"
+  "interactive_labs": "Interaktiiviset laboratoriot",
+  "file_attachments": "Tiedostoliitteet",
+  "click_to_upload_files": "Napsauta ladataksesi tiedostoja",
+  "allowed_file_formats": "CSV, XLSX, PNG, JPG, PDF",
+  "max_3mb": "Enintään 3 MB per tiedosto",
+  "files_uploaded": "Tiedostot ladattu onnistuneesti",
+  "file_upload_failed": "Tiedoston lataus epäonnistui",
+  "file_too_large": "{{name}} ylittää {{limit}} kokorajan",
+  "uploading": "Ladataan...",
+  "rename": "Nimeä uudelleen"
 }

@@ -5,6 +5,7 @@
 - **Rich text course description**: Replaced plain TextArea with RichTextEditor for course description. HTML rendered with sanitization on view pages (CourseDetails, CurriculumEditor, CourseHeader). Tags stripped for card previews (Catalog, TeachDashboard).
 - **Rich text lecture sections**: Replaced plain textarea + markdown preview in TextSection with RichTextEditor (300px min height). LectureView detects HTML vs legacy markdown and renders accordingly. Added `editorClassName` prop to RichTextEditor for custom sizing.
 - **Rich text assignment instructions**: Replaced TextArea with RichTextEditor for instructions in AssignmentManager and AssignmentSectionEditor (both edit and create forms). AssignmentView renders HTML with sanitization, falling back to wrapping plain text in `<p>` tags. Added 3 tests for HTML instructions handling.
+- **Assignment file attachments**: Instructors can upload multiple files (csv, xlsx, png, jpg, pdf; 3 MB limit) to assignments. Files appear after instructions in the editor with rename/delete. Students see downloadable attachments on AssignmentView. New `AssignmentAttachment` model, `POST /api/uploads/assignment-file` endpoint, full CRUD API. 8 tests added.
 
 ## Completed (2026-03-10)
 - **Fix sidebar disappearing**: Sidebar was missing on Labs, Forums, Certificates, Quizzes (students), Labs/Forums (instructors), and Logs/Analytics (admins). Added missing paths to `sidebarPages` in `Layout.tsx` and removed the `/admin` exclusion.
@@ -37,7 +38,7 @@
 
 ## Current State
 - Branch: `fix_issues`
-- Server: 937 tests passing
+- Server: 942 tests passing
 - Client: compiles cleanly (only pre-existing type warnings in unrelated files)
 
 ## Key Decisions

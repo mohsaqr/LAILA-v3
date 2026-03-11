@@ -37,6 +37,7 @@ const allowedExtensions: Record<string, string[]> = {
   '.xls': ['application/vnd.ms-excel'],
   '.xlsx': ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
   '.txt': ['text/plain'],
+  '.csv': ['text/csv', 'application/vnd.ms-excel'],
   // Images (SVG excluded due to XSS risk)
   '.jpg': ['image/jpeg'],
   '.jpeg': ['image/jpeg'],
@@ -197,6 +198,52 @@ router.post(
   authenticateToken,
   requireInstructor,
   thumbnailUpload.single('file'),
+  (req: AuthRequest, res: Response) => {
+    if (!req.file) {
+      res.status(400).json({ success: false, error: 'No file uploaded' });
+      return;
+    }
+    const fileUrl = `/uploads/${req.file.filename}`;
+    res.json({
+      success: true,
+      data: {
+        url: fileUrl,
+        originalName: req.file.originalname,
+        filename: req.file.filename,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+      },
+    });
+  }
+);
+
+// Upload assignment file endpoint - instructors only, 3MB limit, csv/xlsx/png/jpg/pdf
+const assignmentFileFilter = (req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  const assignmentFileExts = ['.csv', '.xlsx', '.png', '.jpg', '.jpeg', '.pdf'];
+  if (!assignmentFileExts.includes(ext)) {
+    cb(new Error('Only csv, xlsx, png, jpg, jpeg, pdf files are allowed'));
+    return;
+  }
+  const allowedMimes = allowedExtensions[ext];
+  if (!allowedMimes || !allowedMimes.includes(file.mimetype)) {
+    cb(new Error(`File type mismatch: ${ext} file with ${file.mimetype} MIME type`));
+    return;
+  }
+  cb(null, true);
+};
+
+const assignmentFileUpload = multer({
+  storage,
+  fileFilter: assignmentFileFilter,
+  limits: { fileSize: 3 * 1024 * 1024 }, // 3MB
+});
+
+router.post(
+  '/assignment-file',
+  authenticateToken,
+  requireInstructor,
+  assignmentFileUpload.single('file'),
   (req: AuthRequest, res: Response) => {
     if (!req.file) {
       res.status(400).json({ success: false, error: 'No file uploaded' });

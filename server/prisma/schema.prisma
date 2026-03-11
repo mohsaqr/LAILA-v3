@@ -599,12 +599,26 @@ model Assignment {
   course                Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
   lectureSections       LectureSection[]
   studentAgentConfigs   StudentAgentConfig[]
+  attachments           AssignmentAttachment[]
 
   @@index([courseId])
   @@index([postSurveyId])
   @@index([lectureId])
   @@index([moduleId])
   @@map("assignments")
+}
+
+model AssignmentAttachment {
+  id           Int        @id @default(autoincrement())
+  assignmentId Int        @map("assignment_id")
+  fileName     String     @map("file_name")
+  fileUrl      String     @map("file_url")
+  fileType     String     @map("file_type")
+  fileSize     Int?       @map("file_size")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@map("assignment_attachments")
 }
 
 model AssignmentSubmission {

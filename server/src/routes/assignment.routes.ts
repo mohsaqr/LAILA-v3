@@ -62,6 +62,38 @@ router.delete('/:id', authenticateToken, requireInstructor, asyncHandler(async (
   res.json({ success: true, ...result });
 }));
 
+// ============= ATTACHMENTS =============
+
+// Get attachments for an assignment
+router.get('/:id/attachments', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const id = parseInt(req.params.id);
+  const attachments = await assignmentService.getAttachments(id);
+  res.json({ success: true, data: attachments });
+}));
+
+// Add attachment to an assignment
+router.post('/:id/attachments', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const id = parseInt(req.params.id);
+  const { fileName, fileUrl, fileType, fileSize } = req.body;
+  const attachment = await assignmentService.addAttachment(id, req.user!.id, { fileName, fileUrl, fileType, fileSize }, req.user!.isAdmin);
+  res.status(201).json({ success: true, data: attachment });
+}));
+
+// Update attachment (rename)
+router.put('/attachments/:attachmentId', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const attachmentId = parseInt(req.params.attachmentId);
+  const { fileName } = req.body;
+  const attachment = await assignmentService.updateAttachment(attachmentId, req.user!.id, { fileName }, req.user!.isAdmin);
+  res.json({ success: true, data: attachment });
+}));
+
+// Delete attachment
+router.delete('/attachments/:attachmentId', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const attachmentId = parseInt(req.params.attachmentId);
+  const result = await assignmentService.deleteAttachment(attachmentId, req.user!.id, req.user!.isAdmin);
+  res.json({ success: true, ...result });
+}));
+
 // ============= SUBMISSIONS =============
 
 // Get submissions for an assignment (instructor)

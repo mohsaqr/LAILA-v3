@@ -1079,5 +1079,14 @@
   "x_interactive_labs_plural": "{{count}} laboratorios interactivos",
   "already_added": "Ya agregado",
   "interactive": "Interactivo",
-  "interactive_labs": "Laboratorios interactivos"
+  "interactive_labs": "Laboratorios interactivos",
+  "file_attachments": "Archivos adjuntos",
+  "click_to_upload_files": "Haz clic para subir archivos",
+  "allowed_file_formats": "CSV, XLSX, PNG, JPG, PDF",
+  "max_3mb": "Máximo 3 MB por archivo",
+  "files_uploaded": "Archivos subidos correctamente",
+  "file_upload_failed": "Error al subir el archivo",
+  "file_too_large": "{{name}} supera el límite de {{limit}}",
+  "uploading": "Subiendo...",
+  "rename": "Renombrar"
 }

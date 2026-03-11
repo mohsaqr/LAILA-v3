@@ -1,5 +1,5 @@
 import apiClient from './client';
-import { Assignment, AssignmentSubmission, ApiResponse } from '../types';
+import { Assignment, AssignmentSubmission, AssignmentAttachment, ApiResponse } from '../types';
 
 export const assignmentsApi = {
   // Assignments
@@ -77,5 +77,26 @@ export const assignmentsApi = {
   getMyGradebook: async () => {
     const response = await apiClient.get<ApiResponse<any>>('/assignments/my-gradebook');
     return response.data.data!;
+  },
+
+  // Attachments
+  getAttachments: async (assignmentId: number) => {
+    const response = await apiClient.get<ApiResponse<AssignmentAttachment[]>>(`/assignments/${assignmentId}/attachments`);
+    return response.data.data!;
+  },
+
+  addAttachment: async (assignmentId: number, data: { fileName: string; fileUrl: string; fileType: string; fileSize?: number }) => {
+    const response = await apiClient.post<ApiResponse<AssignmentAttachment>>(`/assignments/${assignmentId}/attachments`, data);
+    return response.data.data!;
+  },
+
+  updateAttachment: async (attachmentId: number, data: { fileName: string }) => {
+    const response = await apiClient.put<ApiResponse<AssignmentAttachment>>(`/assignments/attachments/${attachmentId}`, data);
+    return response.data.data!;
+  },
+
+  deleteAttachment: async (attachmentId: number) => {
+    const response = await apiClient.delete<ApiResponse<{ message: string }>>(`/assignments/attachments/${attachmentId}`);
+    return response.data;
   },
 };

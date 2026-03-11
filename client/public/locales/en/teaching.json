@@ -1084,5 +1084,14 @@
   "x_interactive_labs_plural": "{{count}} interactive labs",
   "already_added": "Already added",
   "interactive": "Interactive",
-  "interactive_labs": "Interactive Labs"
+  "interactive_labs": "Interactive Labs",
+  "file_attachments": "File Attachments",
+  "click_to_upload_files": "Click to upload files",
+  "allowed_file_formats": "CSV, XLSX, PNG, JPG, PDF",
+  "max_3mb": "Max 3 MB per file",
+  "files_uploaded": "Files uploaded successfully",
+  "file_upload_failed": "Failed to upload file",
+  "file_too_large": "{{name}} exceeds the {{limit}} size limit",
+  "uploading": "Uploading...",
+  "rename": "Rename"
 }

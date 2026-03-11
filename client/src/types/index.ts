@@ -403,10 +403,21 @@ export interface Assignment {
     title: string;
     instructorId: number;
   };
+  attachments?: AssignmentAttachment[];
   mySubmission?: AssignmentSubmission | null;
   _count?: {
     submissions: number;
   };
+}
+
+export interface AssignmentAttachment {
+  id: number;
+  assignmentId: number;
+  fileName: string;
+  fileUrl: string;
+  fileType: string;
+  fileSize: number | null;
+  createdAt: string;
 }
 
 export interface AssignmentSubmission {
