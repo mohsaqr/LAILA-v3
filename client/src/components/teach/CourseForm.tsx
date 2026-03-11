@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, X, Search, HelpCircle } from 'lucide-react';
+import { ChevronDown, X, Search, HelpCircle, ImageIcon, Trash2 } from 'lucide-react';
 import { Input, TextArea } from '../common/Input';
 import { Button } from '../common/Button';
 import { Course, CurriculumViewMode, Category } from '../../types';
 import { categoriesApi } from '../../api/categories';
+import { uploadsApi } from '../../api/uploads';
+import { resolveFileUrl } from '../../api/client';
 
 export interface CourseFormData {
   title: string;
@@ -387,6 +389,9 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
     curriculumViewMode: 'mini-cards',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [thumbnailPreview, setThumbnailPreview] = useState<string>('');
+  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initialData) {
@@ -399,6 +404,9 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
         isPublic: initialData.isPublic ?? true,
         curriculumViewMode: initialData.curriculumViewMode || 'mini-cards',
       });
+      if (initialData.thumbnail) {
+        setThumbnailPreview(resolveFileUrl(initialData.thumbnail));
+      }
     }
   }, [initialData]);
 
@@ -422,6 +430,40 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
   const handleChange = (field: keyof CourseFormData, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
+  };
+
+  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ['image/png', 'image/jpeg'];
+    if (!allowedTypes.includes(file.type)) {
+      setErrors(prev => ({ ...prev, thumbnail: t('thumbnail_invalid_type') }));
+      return;
+    }
+    if (file.size > 1 * 1024 * 1024) {
+      setErrors(prev => ({ ...prev, thumbnail: t('thumbnail_too_large') }));
+      return;
+    }
+
+    setUploadingThumbnail(true);
+    setErrors(prev => ({ ...prev, thumbnail: '' }));
+    try {
+      const result = await uploadsApi.uploadThumbnail(file);
+      setFormData(prev => ({ ...prev, thumbnail: result.url }));
+      setThumbnailPreview(resolveFileUrl(result.url));
+    } catch (err: any) {
+      setErrors(prev => ({ ...prev, thumbnail: err.message || t('thumbnail_upload_failed') }));
+    } finally {
+      setUploadingThumbnail(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveThumbnail = () => {
+    setFormData(prev => ({ ...prev, thumbnail: '' }));
+    setThumbnailPreview('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
@@ -472,15 +514,53 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
       <div>
         <div className="flex items-center gap-1.5 mb-1.5">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t('thumbnail_url')}
+            {t('course_thumbnail')}
           </label>
           <InfoPopup text={t('thumbnail_help')} />
         </div>
-        <Input
-          value={formData.thumbnail}
-          onChange={e => handleChange('thumbnail', e.target.value)}
-          placeholder="https://example.com/image.jpg"
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".png,.jpg,.jpeg"
+          onChange={handleThumbnailUpload}
+          className="hidden"
         />
+        {thumbnailPreview ? (
+          <div className="relative w-full max-w-xs">
+            <img
+              src={thumbnailPreview}
+              alt={t('course_thumbnail')}
+              className="w-full h-40 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+            />
+            <button
+              type="button"
+              onClick={handleRemoveThumbnail}
+              className="absolute top-2 right-2 p-1.5 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors shadow-sm"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadingThumbnail}
+            className="w-full max-w-xs h-40 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-primary-400 dark:hover:border-primary-500 bg-gray-50 dark:bg-gray-800/50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {uploadingThumbnail ? (
+              <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <>
+                <ImageIcon className="w-8 h-8 text-gray-400 dark:text-gray-500" />
+                <span className="text-sm text-gray-500 dark:text-gray-400">{t('thumbnail_upload')}</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">{t('thumbnail_formats')}</span>
+              </>
+            )}
+          </button>
+        )}
+        {errors.thumbnail && (
+          <p className="mt-1.5 text-sm text-red-500">{errors.thumbnail}</p>
+        )}
       </div>
 
       <div className="flex items-center gap-3">

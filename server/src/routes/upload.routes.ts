@@ -170,6 +170,52 @@ router.post(
   }
 );
 
+// Upload thumbnail endpoint - instructors only, 1MB limit, png/jpg/jpeg only
+const thumbnailFilter = (req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  const thumbnailExts = ['.jpg', '.jpeg', '.png'];
+  if (!thumbnailExts.includes(ext)) {
+    cb(new Error('Only image files (jpg, jpeg, png) are allowed for thumbnails'));
+    return;
+  }
+  const allowedMimes = allowedExtensions[ext];
+  if (!allowedMimes || !allowedMimes.includes(file.mimetype)) {
+    cb(new Error(`File type mismatch: ${ext} file with ${file.mimetype} MIME type`));
+    return;
+  }
+  cb(null, true);
+};
+
+const thumbnailUpload = multer({
+  storage,
+  fileFilter: thumbnailFilter,
+  limits: { fileSize: 1 * 1024 * 1024 }, // 1MB
+});
+
+router.post(
+  '/thumbnail',
+  authenticateToken,
+  requireInstructor,
+  thumbnailUpload.single('file'),
+  (req: AuthRequest, res: Response) => {
+    if (!req.file) {
+      res.status(400).json({ success: false, error: 'No file uploaded' });
+      return;
+    }
+    const fileUrl = `/uploads/${req.file.filename}`;
+    res.json({
+      success: true,
+      data: {
+        url: fileUrl,
+        originalName: req.file.originalname,
+        filename: req.file.filename,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+      },
+    });
+  }
+);
+
 // Error handling for multer errors
 router.use((err: Error, req: AuthRequest, res: Response, next: Function) => {
   if (err instanceof multer.MulterError) {
