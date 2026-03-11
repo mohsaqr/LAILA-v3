@@ -1,3 +1,32 @@
+### 2026-03-11 — Use rich text editor for assignment instructions
+
+- `client/src/pages/teach/AssignmentManager.tsx`: Replaced `TextArea` for the instructions field with `RichTextEditor`. Added import.
+- `client/src/components/teach/AssignmentSectionEditor.tsx`: Replaced all `TextArea` instances for instructions (edit and create forms, different indentation levels) with `RichTextEditor`. Added import.
+- `client/src/pages/AssignmentView.tsx`: Replaced `<ReactMarkdown>` rendering of instructions with `dangerouslySetInnerHTML` + `sanitizeHtml()`. Detects HTML vs plain text content. Added `sanitizeHtml` import.
+- `server/src/services/assignment.service.test.ts`: Added 3 tests for HTML instructions support — create, update, and getById all correctly pass through HTML content.
+
+### 2026-03-11 — Use rich text editor for lecture text sections
+
+- `client/src/components/teach/TextSection.tsx`: Replaced plain `<textarea>` + manual markdown renderer + preview toggle with `RichTextEditor`. Removed label and placeholder. Set larger editor height via `editorClassName` (min-h 300px, max-h 600px).
+- `client/src/components/forum/RichTextEditor.tsx`: Added `editorClassName` prop to allow custom sizing per use case.
+- `client/src/pages/LectureView.tsx`: Text and AI-generated sections now detect HTML content (starts with `<`) and sanitize directly, falling back to markdown parsing for legacy content.
+
+### 2026-03-11 — Use rich text editor for course description
+
+- `client/src/components/teach/CourseForm.tsx`: Replaced `TextArea` with `RichTextEditor` for description. Label uses `common:description` for capitalized "Description".
+- `client/src/pages/CourseDetails.tsx`: Render description as sanitized HTML with `prose prose-invert`.
+- `client/src/pages/teach/CurriculumEditor.tsx`: Render description as sanitized HTML with `prose dark:prose-invert`.
+- `client/src/components/course/CourseHeader.tsx`: Render description as sanitized HTML.
+- `client/src/pages/Catalog.tsx`: Strip HTML tags for card preview text.
+- `client/src/pages/teach/TeachDashboard.tsx`: Strip HTML tags for card preview text.
+
+### 2026-03-11 — Replace thumbnail URL input with file upload
+
+- `client/src/components/teach/CourseForm.tsx`: Replaced "Thumbnail URL" text input with file upload widget (drag-and-drop area, preview with remove button, client-side validation for type and size).
+- `client/src/api/uploads.ts`: New file with `uploadsApi.uploadThumbnail()` function.
+- `server/src/routes/upload.routes.ts`: Added `POST /api/uploads/thumbnail` endpoint — requires instructor auth, 1 MB limit, png/jpg/jpeg only with MIME validation.
+- `client/public/locales/{en,ar,es,fi}/teaching.json`: Added 5 new i18n keys for thumbnail upload, updated `thumbnail_help` text.
+
 ### 2026-03-10 — Fix sidebar disappearing on multiple pages
 
 - `client/src/components/layout/Layout.tsx`: The `sidebarPages` array only included `/dashboard`, `/courses`, `/ai-tools`, `/ai-tutors`, `/settings`, `/profile`, `/teach`. Added `/course`, `/labs`, `/forums`, `/certificates`, `/certificate`, `/quizzes`, `/admin`. Removed the `!location.pathname.startsWith('/admin')` exclusion so the sidebar also shows on admin Logs and Analytics pages.

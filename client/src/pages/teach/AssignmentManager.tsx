@@ -24,6 +24,7 @@ import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { EmptyState } from '../../components/common/EmptyState';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Input, TextArea, Select } from '../../components/common/Input';
+import { RichTextEditor } from '../../components/forum/RichTextEditor';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { Assignment, CourseModule } from '../../types';
@@ -320,13 +321,16 @@ export const AssignmentManager = () => {
             rows={2}
           />
 
-          <TextArea
-            label={t('instructions')}
-            value={formData.instructions}
-            onChange={e => handleChange('instructions', e.target.value)}
-            placeholder=""
-            rows={4}
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              {t('instructions')}
+            </label>
+            <RichTextEditor
+              value={formData.instructions}
+              onChange={val => handleChange('instructions', val)}
+              editorClassName="forum-reply-editor px-3 py-2 min-h-[200px] max-h-[400px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
+            />
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <Select

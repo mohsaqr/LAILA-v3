@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
+import { sanitizeHtml } from '../utils/sanitize';
 import { useTranslation } from 'react-i18next';
 import { assignmentsApi } from '../api/assignments';
 import { enrollmentsApi } from '../api/enrollments';
@@ -297,9 +298,11 @@ export const AssignmentView = () => {
                 <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{t('assignment_instructions')}</h2>
               </CardHeader>
               <CardBody>
-                <div className="prose max-w-none" style={{ color: colors.textSecondary }}>
-                  <ReactMarkdown>{assignment.instructions}</ReactMarkdown>
-                </div>
+                <div
+                  className="prose dark:prose-invert max-w-none"
+                  style={{ color: colors.textSecondary }}
+                  dangerouslySetInnerHTML={{ __html: assignment.instructions?.trim().startsWith('<') ? sanitizeHtml(assignment.instructions) : sanitizeHtml(`<p>${assignment.instructions}</p>`) }}
+                />
               </CardBody>
             </Card>
           )}

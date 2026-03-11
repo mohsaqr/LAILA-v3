@@ -7,6 +7,7 @@ import { Assignment, LectureSection, UpdateSectionData } from '../../types';
 import { coursesApi } from '../../api/courses';
 import { assignmentsApi } from '../../api/assignments';
 import { Select, Input, TextArea } from '../common/Input';
+import { RichTextEditor } from '../forum/RichTextEditor';
 import { Button } from '../common/Button';
 import { Loading } from '../common/Loading';
 
@@ -246,13 +247,16 @@ export const AssignmentSectionEditor = ({
           rows={2}
         />
 
-        <TextArea
-          label={t('instructions')}
-          value={formData.instructions}
-          onChange={e => handleFormChange('instructions', e.target.value)}
-          placeholder={t('assignment_instructions_placeholder')}
-          rows={3}
-        />
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+            {t('instructions')}
+          </label>
+          <RichTextEditor
+            value={formData.instructions}
+            onChange={val => handleFormChange('instructions', val)}
+            editorClassName="forum-reply-editor px-3 py-2 min-h-[200px] max-h-[400px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
+          />
+        </div>
 
         <div className="grid grid-cols-2 gap-4">
           <Select
@@ -424,13 +428,16 @@ export const AssignmentSectionEditor = ({
             rows={2}
           />
 
-          <TextArea
-            label={t('instructions')}
-            value={formData.instructions}
-            onChange={e => handleFormChange('instructions', e.target.value)}
-            placeholder={t('assignment_instructions_placeholder')}
-            rows={3}
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              {t('instructions')}
+            </label>
+            <RichTextEditor
+              value={formData.instructions}
+              onChange={val => handleFormChange('instructions', val)}
+              editorClassName="forum-reply-editor px-3 py-2 min-h-[200px] max-h-[400px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
+            />
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <Select
