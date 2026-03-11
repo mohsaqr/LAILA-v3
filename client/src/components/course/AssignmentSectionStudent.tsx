@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ClipboardList, Calendar, Award, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { LectureSection } from '../../types';
@@ -12,6 +12,7 @@ interface AssignmentSectionStudentProps {
 
 export const AssignmentSectionStudent = ({ section, courseId }: AssignmentSectionStudentProps) => {
   const { t } = useTranslation(['courses']);
+  const navigate = useNavigate();
   const assignment = section.assignment;
 
   if (!assignment) {
@@ -132,11 +133,12 @@ export const AssignmentSectionStudent = ({ section, courseId }: AssignmentSectio
           </div>
         )}
 
-        <Link to={`/courses/${courseId}/assignments/${assignment.id}`}>
-          <Button variant={hasSubmission ? 'outline' : 'primary'}>
-            {hasSubmission ? t('view_submission') : t('start_assignment')}
-          </Button>
-        </Link>
+        <Button
+          variant={hasSubmission ? 'outline' : 'primary'}
+          onClick={() => navigate(`/courses/${courseId}/assignments/${assignment.id}`)}
+        >
+          {hasSubmission ? t('view_submission') : t('start_assignment')}
+        </Button>
       </CardBody>
     </Card>
   );

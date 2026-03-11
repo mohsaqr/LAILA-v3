@@ -156,10 +156,10 @@ export const AttachmentManager = ({ assignmentId }: { assignmentId: number }) =>
                     className="flex-1 text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500"
                     autoFocus
                   />
-                  <button onClick={() => confirmRename(att.id)} className="p-1 hover:bg-gray-200 rounded">
+                  <button type="button" onClick={() => confirmRename(att.id)} className="p-1 hover:bg-gray-200 rounded">
                     <Check className="w-3.5 h-3.5 text-green-600" />
                   </button>
-                  <button onClick={() => setEditingId(null)} className="p-1 hover:bg-gray-200 rounded">
+                  <button type="button" onClick={() => setEditingId(null)} className="p-1 hover:bg-gray-200 rounded">
                     <X className="w-3.5 h-3.5 text-gray-500" />
                   </button>
                 </>
@@ -167,10 +167,10 @@ export const AttachmentManager = ({ assignmentId }: { assignmentId: number }) =>
                 <>
                   <span className="flex-1 text-sm text-gray-700 truncate">{att.fileName}</span>
                   <span className="text-xs text-gray-400 uppercase">{att.fileType}</span>
-                  <button onClick={() => startRename(att)} className="p-1 hover:bg-gray-200 rounded" title={t('rename')}>
+                  <button type="button" onClick={() => startRename(att)} className="p-1 hover:bg-gray-200 rounded" title={t('rename')}>
                     <Pencil className="w-3.5 h-3.5 text-gray-500" />
                   </button>
-                  <button onClick={() => deleteMutation.mutate(att.id)} className="p-1 hover:bg-red-100 rounded" title={t('common:delete')}>
+                  <button type="button" onClick={() => deleteMutation.mutate(att.id)} className="p-1 hover:bg-red-100 rounded" title={t('common:delete')}>
                     <Trash2 className="w-3.5 h-3.5 text-red-500" />
                   </button>
                 </>
