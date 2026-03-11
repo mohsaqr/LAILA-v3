@@ -128,7 +128,7 @@ export const QuizManager = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb navigation */}
         <div className="mb-6">
-          <Breadcrumb items={breadcrumbItems} />
+          <Breadcrumb homeHref="/" items={breadcrumbItems} />
         </div>
 
         {/* Header */}

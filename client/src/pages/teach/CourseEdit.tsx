@@ -68,7 +68,7 @@ export const CourseEdit = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
-        <Breadcrumb items={buildTeachingBreadcrumb(courseId, course?.title || '', t('navigation:settings'))} />
+        <Breadcrumb homeHref="/" items={buildTeachingBreadcrumb(courseId, course?.title || '', t('navigation:settings'))} />
       </div>
 
       {/* Tab Navigation */}

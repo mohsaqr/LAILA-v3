@@ -220,7 +220,7 @@ export const QuizEditor = () => {
       <div className="max-w-4xl mx-auto px-4">
         {/* Breadcrumb navigation */}
         <div className="mb-6">
-          <Breadcrumb items={breadcrumbItems} />
+          <Breadcrumb homeHref="/" items={breadcrumbItems} />
         </div>
 
         {/* Header */}

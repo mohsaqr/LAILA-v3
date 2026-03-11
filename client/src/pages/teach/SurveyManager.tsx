@@ -325,8 +325,8 @@ export const SurveyManager = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <Breadcrumb
+        homeHref="/"
         items={[
-          { label: t('navigation:home'), href: '/' },
           { label: t('navigation:courses'), href: '/teach' },
           ...(courseId && course
             ? [{ label: course.title, href: `/teach/courses/${courseId}/curriculum` }]
