@@ -531,6 +531,7 @@
   "content_forum": "Forum",
   "content_ai": "AI Content",
   "content_interactive_lab": "Interactive Lab",
+  "content_survey": "Survey",
   "no_assignments_available": "No Assignments Available",
   "no_assignments_description": "This course doesn't have any assignments yet.",
   "due_date_format": "Due: {{date}}",

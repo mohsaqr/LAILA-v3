@@ -31,7 +31,7 @@ export const Breadcrumb = ({ items, className = '', homeHref = '/dashboard', sho
 
   return (
     <nav className={`flex items-center text-sm ${className}`} aria-label="Breadcrumb">
-      <ol className="flex items-center flex-wrap gap-1">
+      <ol className="flex items-center gap-1 overflow-hidden">
         {/* Home link */}
         {showHome && (
           <li>
@@ -54,7 +54,7 @@ export const Breadcrumb = ({ items, className = '', homeHref = '/dashboard', sho
               <ChevronRight className="w-4 h-4 mx-1 flex-shrink-0" style={{ color: colors.separator }} />
               {isLast || !item.href ? (
                 <span
-                  className="flex items-center gap-1.5 font-medium truncate max-w-[200px]"
+                  className="flex items-center gap-1.5 font-medium truncate max-w-[300px]"
                   style={{ color: colors.activeText }}
                 >
                   {item.icon}
@@ -63,7 +63,7 @@ export const Breadcrumb = ({ items, className = '', homeHref = '/dashboard', sho
               ) : (
                 <Link
                   to={item.href}
-                  className="flex items-center gap-1.5 transition-colors truncate max-w-[200px] hover:underline"
+                  className="flex items-center gap-1.5 transition-colors truncate max-w-[300px] hover:underline"
                   style={{ color: colors.linkText }}
                 >
                   {item.icon}

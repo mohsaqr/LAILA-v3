@@ -102,13 +102,12 @@ export const SurveyResponses = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <Breadcrumb
+        homeHref="/"
         items={[
-          { label: t('navigation:home'), href: '/' },
           { label: t('navigation:courses'), href: '/teach' },
           ...(courseId && course
             ? [{ label: course.title, href: `/teach/courses/${courseId}/curriculum` }]
             : []),
-          { label: t('surveys'), href: courseId ? `/teach/surveys?courseId=${courseId}` : '/teach/surveys' },
           { label: data.survey.title },
           ...(moduleName ? [{ label: moduleName }] : []),
         ]}
@@ -232,9 +231,10 @@ export const SurveyResponses = () => {
                     ))}
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {stat.optionCounts &&
-                      Object.entries(stat.optionCounts).map(([option, count]) => {
+                      (stat.options || Object.keys(stat.optionCounts)).map((option: string) => {
+                        const count = stat.optionCounts?.[option] || 0;
                         const percentage =
                           stat.totalResponses > 0
                             ? Math.round((count / stat.totalResponses) * 100)

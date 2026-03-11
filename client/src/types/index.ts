@@ -1310,7 +1310,7 @@ export interface AdminAuditLog {
 // =============================================================================
 
 export type SurveyQuestionType = 'single_choice' | 'multiple_choice' | 'free_text';
-export type SurveyContext = 'standalone' | 'lecture' | 'post_assignment';
+export type SurveyContext = 'standalone' | 'lecture' | 'post_assignment' | 'module';
 
 export interface Survey {
   id: number;
@@ -1347,6 +1347,7 @@ export interface SurveyResponse {
   id: number;
   surveyId: number;
   userId: number | null;
+  moduleId: number | null;
   context: SurveyContext;
   contextId: number | null;
   completedAt: string;
@@ -1408,6 +1409,7 @@ export interface SubmitSurveyAnswerData {
 export interface SubmitSurveyResponseData {
   context?: SurveyContext;
   contextId?: number | null;
+  moduleId?: number | null;
   answers: SubmitSurveyAnswerData[];
 }
 
@@ -1427,6 +1429,7 @@ export interface SurveyQuestionStats {
   questionText: string;
   questionType: SurveyQuestionType;
   totalResponses: number;
+  options?: string[];
   optionCounts?: Record<string, number>;
   responses?: string[];
 }

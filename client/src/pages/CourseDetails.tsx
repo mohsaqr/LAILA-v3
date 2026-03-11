@@ -20,6 +20,7 @@ import { enrollmentsApi } from '../api/enrollments';
 import { assignmentsApi } from '../api/assignments';
 import { forumsApi, Forum } from '../api/forums';
 import { quizzesApi, Quiz } from '../api/quizzes';
+import { surveysApi } from '../api/surveys';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import { Card, CardBody } from '../components/common/Card';
@@ -29,7 +30,7 @@ import { Breadcrumb } from '../components/common/Breadcrumb';
 import { CollaborativeModule } from '../components/course/CollaborativeModule';
 import { ModuleSection } from '../components/course/ModuleSection';
 import { useEffect, useRef } from 'react';
-import { Assignment, CurriculumViewMode } from '../types';
+import { Assignment, Survey, CurriculumViewMode } from '../types';
 import activityLogger from '../services/activityLogger';
 
 export const CourseDetails = () => {
@@ -92,6 +93,13 @@ export const CourseDetails = () => {
     enabled: isAuthenticated && (enrollmentData?.enrolled || isActualAdmin || isActualInstructor),
   });
 
+  // Fetch surveys for the course (via moduleSurveys relation)
+  const { data: courseSurveys } = useQuery({
+    queryKey: ['courseSurveys', id],
+    queryFn: () => surveysApi.getSurveys(parseInt(id!)),
+    enabled: isAuthenticated && (enrollmentData?.enrolled || isActualAdmin || isActualInstructor),
+  });
+
   // Group items by moduleId
   // Filter out lecture-level assignments (they display on the lecture page instead)
   const moduleLevelAssignments = (assignments || []).filter(a => !a.lectureId);
@@ -119,6 +127,20 @@ export const CourseDetails = () => {
     }
     return acc;
   }, {} as Record<number, Forum[]>);
+
+  // Group surveys by moduleId (via moduleSurveys join data)
+  const surveysByModule = (courseSurveys || []).reduce((acc: Record<number, Survey[]>, survey: Survey) => {
+    if (survey.isPublished && (survey as any).moduleSurveys) {
+      for (const ms of (survey as any).moduleSurveys) {
+        const modId = ms.module?.id || ms.moduleId;
+        if (modId) {
+          if (!acc[modId]) acc[modId] = [];
+          acc[modId].push(survey);
+        }
+      }
+    }
+    return acc;
+  }, {} as Record<number, Survey[]>);
 
   // Standalone items (not assigned to a module)
   const standaloneAssignments = moduleLevelAssignments.filter(a => !a.moduleId && a.isPublished);
@@ -266,6 +288,7 @@ export const CourseDetails = () => {
                       quizzes={quizzesByModule[module.id]}
                       assignments={assignmentsByModule[module.id]}
                       forums={forumsByModule[module.id]}
+                      surveys={surveysByModule[module.id]}
                       hasAccess={hasAccess}
                       viewMode={viewMode}
                     />

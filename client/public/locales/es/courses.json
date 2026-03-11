@@ -532,6 +532,7 @@
   "content_forum": "Foro",
   "content_ai": "Contenido IA",
   "content_interactive_lab": "Laboratorio interactivo",
+  "content_survey": "Encuesta",
   "no_assignments_available": "No Hay Tareas Disponibles",
   "no_assignments_description": "Este curso aún no tiene tareas.",
   "due_date_format": "Fecha límite: {{date}}",

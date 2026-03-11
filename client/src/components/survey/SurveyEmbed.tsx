@@ -12,6 +12,7 @@ interface SurveyEmbedProps {
   surveyId: number;
   context?: SurveyContext;
   contextId?: number;
+  moduleId?: number;
   onComplete?: () => void;
   compact?: boolean;
   showTitle?: boolean;
@@ -29,6 +30,7 @@ export const SurveyEmbed = ({
   surveyId,
   context = 'standalone',
   contextId,
+  moduleId,
   onComplete,
   compact = false,
   showTitle = true,
@@ -55,7 +57,7 @@ export const SurveyEmbed = ({
         if (user && !surveyData.isAnonymous) {
           setCheckingCompletion(true);
           try {
-            const { completed: isCompleted } = await surveysApi.checkIfCompleted(surveyId);
+            const { completed: isCompleted } = await surveysApi.checkIfCompleted(surveyId, moduleId);
             setCompleted(isCompleted);
           } catch {
             // If check fails, assume not completed
@@ -134,6 +136,7 @@ export const SurveyEmbed = ({
           survey={survey}
           context={context}
           contextId={contextId}
+          moduleId={moduleId}
           onComplete={handleComplete}
           compact
         />
@@ -166,6 +169,7 @@ export const SurveyEmbed = ({
           survey={survey}
           context={context}
           contextId={contextId}
+          moduleId={moduleId}
           onComplete={handleComplete}
         />
       </CardBody>

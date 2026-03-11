@@ -107,9 +107,10 @@ export const surveysApi = {
     return response.data.data!;
   },
 
-  checkIfCompleted: async (surveyId: number) => {
+  checkIfCompleted: async (surveyId: number, moduleId?: number) => {
+    const params = moduleId ? `?moduleId=${moduleId}` : '';
     const response = await apiClient.get<ApiResponse<{ completed: boolean }>>(
-      `/surveys/${surveyId}/my-response`
+      `/surveys/${surveyId}/my-response${params}`
     );
     return response.data.data!;
   },

@@ -337,6 +337,7 @@ export class SurveyService {
         where: {
           surveyId,
           userId,
+          ...(data.moduleId ? { moduleId: data.moduleId } : {}),
         },
       });
 
@@ -365,6 +366,7 @@ export class SurveyService {
       data: {
         surveyId,
         userId: survey.isAnonymous ? null : userId,
+        moduleId: data.moduleId ?? null,
         context: data.context ?? 'standalone',
         contextId: data.contextId,
         answers: {
@@ -398,11 +400,12 @@ export class SurveyService {
     return response;
   }
 
-  async checkIfCompleted(surveyId: number, userId: number) {
+  async checkIfCompleted(surveyId: number, userId: number, moduleId?: number) {
     const response = await prisma.surveyResponse.findFirst({
       where: {
         surveyId,
         userId,
+        ...(moduleId ? { moduleId } : {}),
       },
     });
 
@@ -500,6 +503,7 @@ export class SurveyService {
         questionText: q.questionText,
         questionType: q.questionType,
         totalResponses: questionAnswers.length,
+        options,
         optionCounts,
       };
     });

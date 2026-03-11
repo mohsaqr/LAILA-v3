@@ -399,8 +399,9 @@ model CourseModule {
   forums          Forum[]
   labAssignments  LabAssignment[]
   lectures        Lecture[]
-  moduleSurveys   ModuleSurvey[]
-  quizzes         Quiz[]
+  moduleSurveys    ModuleSurvey[]
+  quizzes          Quiz[]
+  surveyResponses  SurveyResponse[]
 
   @@index([courseId])
   @@map("course_modules")
@@ -1507,15 +1508,18 @@ model SurveyResponse {
   id          Int            @id @default(autoincrement())
   surveyId    Int            @map("survey_id")
   userId      Int?           @map("user_id")
+  moduleId    Int?           @map("module_id")
   context     String         @default("standalone")
   contextId   Int?           @map("context_id")
   completedAt DateTime       @default(now()) @map("completed_at")
   answers     SurveyAnswer[]
   user        User?          @relation("SurveyResponses", fields: [userId], references: [id])
   survey      Survey         @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  module      CourseModule?  @relation(fields: [moduleId], references: [id], onDelete: SetNull)
 
   @@index([surveyId])
   @@index([userId])
+  @@index([moduleId])
   @@map("survey_responses")
 }
 

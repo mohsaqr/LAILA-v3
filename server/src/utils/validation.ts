@@ -426,8 +426,9 @@ export const reorderQuestionsSchema = z.object({
 });
 
 export const submitSurveyResponseSchema = z.object({
-  context: z.enum(['standalone', 'lecture', 'post_assignment']).optional(),
+  context: z.enum(['standalone', 'lecture', 'post_assignment', 'module']).optional(),
   contextId: z.number().int().positive().optional().nullable(),
+  moduleId: z.number().int().positive().optional().nullable(),
   answers: z.array(z.object({
     questionId: z.number().int().positive(),
     answerValue: z.union([z.string(), z.array(z.string())]), // string for single/free_text, array for multiple_choice

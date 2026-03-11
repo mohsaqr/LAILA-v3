@@ -131,7 +131,8 @@ router.post('/:id/submit', authenticateToken, asyncHandler(async (req: AuthReque
 // Check if user already completed survey
 router.get('/:id/my-response', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const surveyId = parseInt(req.params.id);
-  const result = await surveyService.checkIfCompleted(surveyId, req.user!.id);
+  const moduleId = req.query.moduleId ? parseInt(req.query.moduleId as string) : undefined;
+  const result = await surveyService.checkIfCompleted(surveyId, req.user!.id, moduleId);
   res.json({ success: true, data: result });
 }));
 
