@@ -3,7 +3,7 @@ import { sanitizeHtml } from '../../utils/sanitize';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Settings, Eye, EyeOff, Layers, FileEdit, Bot, ChevronDown, Heart, Beaker, Check, ExternalLink, FileQuestion, MessageSquare, Trash2, ClipboardList, Network } from 'lucide-react';
+import { Plus, Settings, Eye, EyeOff, Layers, FileEdit, Bot, ChevronDown, Heart, Beaker, Check, ExternalLink, FileQuestion, MessageSquare, Trash2, ClipboardList, Network, ListChecks } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../../api/courses';
 import { codeLabsApi } from '../../api/codeLabs';
@@ -859,7 +859,7 @@ export const CurriculumEditor = () => {
         style={{ backgroundColor: isDark ? '#0f172a' : '#1e293b' }}
       >
         <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">{t('course_management')}</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-9 gap-2">
           {/* View Course */}
           <Link
             to={`/courses/${courseId}`}
@@ -912,6 +912,15 @@ export const CurriculumEditor = () => {
           >
             <ClipboardList className="w-5 h-5 text-rose-400" />
             <span className="text-white text-xs font-medium">{t('assignments')}</span>
+          </Link>
+
+          {/* Surveys */}
+          <Link
+            to={`/teach/surveys?courseId=${courseId}`}
+            className="flex flex-col items-center gap-2 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors text-center"
+          >
+            <ListChecks className="w-5 h-5 text-indigo-400" />
+            <span className="text-white text-xs font-medium">{t('surveys')}</span>
           </Link>
 
           {/* Publish/Unpublish */}

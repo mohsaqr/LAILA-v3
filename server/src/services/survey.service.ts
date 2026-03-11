@@ -13,7 +13,7 @@ export class SurveyService {
   // SURVEY CRUD
   // =============================================================================
 
-  async getSurveys(userId?: number, isInstructor = false, isAdmin = false) {
+  async getSurveys(userId?: number, isInstructor = false, isAdmin = false, courseId?: number) {
     const where: any = {};
 
     // Non-instructors only see published surveys
@@ -24,6 +24,11 @@ export class SurveyService {
       where.createdById = userId;
     }
 
+    // Filter by course via ModuleSurvey relation
+    if (courseId) {
+      where.moduleSurveys = { some: { courseId } };
+    }
+
     const surveys = await prisma.survey.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -31,6 +36,14 @@ export class SurveyService {
         _count: {
           select: { questions: true, responses: true },
         },
+        ...(courseId && {
+          moduleSurveys: {
+            where: { courseId },
+            include: {
+              module: { select: { id: true, title: true } },
+            },
+          },
+        }),
       },
     });
 

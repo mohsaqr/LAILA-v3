@@ -16,8 +16,9 @@ export const surveysApi = {
   // SURVEY CRUD (Instructor)
   // =============================================================================
 
-  getSurveys: async () => {
-    const response = await apiClient.get<ApiResponse<Survey[]>>('/surveys');
+  getSurveys: async (courseId?: number) => {
+    const params = courseId ? `?courseId=${courseId}` : '';
+    const response = await apiClient.get<ApiResponse<Survey[]>>(`/surveys${params}`);
     return response.data.data!;
   },
 

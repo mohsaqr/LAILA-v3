@@ -37,7 +37,8 @@ router.post('/generate', authenticateToken, requireInstructor, asyncHandler(asyn
 
 // Get surveys (for a course or all user's surveys)
 router.get('/', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const surveys = await surveyService.getSurveys(req.user!.id, true, req.user!.isAdmin);
+  const courseId = req.query.courseId ? parseInt(req.query.courseId as string) : undefined;
+  const surveys = await surveyService.getSurveys(req.user!.id, true, req.user!.isAdmin, courseId);
   res.json({ success: true, data: surveys });
 }));
 

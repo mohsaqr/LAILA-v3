@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { coursesApi } from '../../api/courses';
 import { useTranslation } from 'react-i18next';
 import {
   Plus,
   Edit2,
   Trash2,
   BarChart3,
-  Link2,
   Eye,
   GripVertical,
   ChevronDown,
@@ -29,9 +30,17 @@ import { useTheme } from '../../hooks/useTheme';
 import { SurveyGenerator } from '../../components/teaching/SurveyGenerator';
 
 export const SurveyManager = () => {
-  const { t } = useTranslation(['teaching', 'common']);
-  const { id: courseId } = useParams<{ id: string }>();
+  const { t } = useTranslation(['teaching', 'common', 'navigation']);
+  const { id: paramCourseId } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const courseId = paramCourseId || searchParams.get('courseId') || undefined;
   const { isDark } = useTheme();
+
+  const { data: course } = useQuery({
+    queryKey: ['course', courseId],
+    queryFn: () => coursesApi.getCourseById(parseInt(courseId!)),
+    enabled: !!courseId,
+  });
 
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,6 +69,8 @@ export const SurveyManager = () => {
     isRequired: true,
   });
   const [submitting, setSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
     fetchSurveys();
@@ -68,7 +79,7 @@ export const SurveyManager = () => {
   const fetchSurveys = async () => {
     try {
       setLoading(true);
-      const data = await surveysApi.getSurveys();
+      const data = await surveysApi.getSurveys(courseId ? parseInt(courseId) : undefined);
       setSurveys(data);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load surveys');
@@ -80,6 +91,7 @@ export const SurveyManager = () => {
   const handleSurveyGenerated = (survey: Survey) => {
     setSurveys(prev => [survey, ...prev]);
     setExpandedSurveyId(survey.id);
+    setCurrentPage(1);
   };
 
   const handleCreateSurvey = async () => {
@@ -90,8 +102,8 @@ export const SurveyManager = () => {
       setSurveys(prev => [newSurvey, ...prev]);
       setShowCreateModal(false);
       setSurveyForm({ title: '', description: '', isAnonymous: false });
-      // Expand the new survey to add questions
       setExpandedSurveyId(newSurvey.id);
+      setCurrentPage(1);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to create survey');
     } finally {
@@ -302,11 +314,6 @@ export const SurveyManager = () => {
     }
   };
 
-  const copyShareLink = (surveyId: number) => {
-    const link = `${window.location.origin}/surveys/${surveyId}`;
-    navigator.clipboard.writeText(link);
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -316,12 +323,12 @@ export const SurveyManager = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <Breadcrumb
         items={[
-          { label: t('teaching'), href: '/teach' },
-          ...(courseId
-            ? [{ label: t('course'), href: `/teach/courses/${courseId}/curriculum` }]
+          { label: t('navigation:home'), href: '/' },
+          ...(courseId && course
+            ? [{ label: course.title, href: `/teach/courses/${courseId}/curriculum` }]
             : []),
           { label: t('surveys') },
         ]}
@@ -382,7 +389,7 @@ export const SurveyManager = () => {
         </Card>
       ) : (
         <div className="space-y-4">
-          {surveys.map(survey => (
+          {surveys.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map(survey => (
             <Card key={survey.id}>
               <div
                 className="p-4 flex items-center justify-between cursor-pointer"
@@ -396,6 +403,21 @@ export const SurveyManager = () => {
                     >
                       {survey.title}
                     </h3>
+                    {(survey as any).moduleSurveys?.length > 0 && (
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        {(survey as any).moduleSurveys.map((ms: any) => (
+                          <Link
+                            key={ms.id}
+                            to={`/teach/surveys/${survey.id}/responses?moduleId=${ms.module.id}`}
+                            onClick={e => e.stopPropagation()}
+                            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
+                          >
+                            <BarChart3 className="w-3 h-3" />
+                            {ms.module.title}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
                     <div className="flex items-center gap-3 mt-1">
                       <span
                         className="text-sm"
@@ -427,29 +449,6 @@ export const SurveyManager = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {survey.isPublished && (
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={e => {
-                          e.stopPropagation();
-                          copyShareLink(survey.id);
-                        }}
-                        title={t('copy_share_link')}
-                      >
-                        <Link2 className="w-4 h-4" />
-                      </Button>
-                      <Link
-                        to={courseId ? `/teach/courses/${courseId}/surveys/${survey.id}/responses` : `/teach/surveys/${survey.id}/responses`}
-                        onClick={e => e.stopPropagation()}
-                      >
-                        <Button variant="ghost" size="sm" title={t('view_responses')}>
-                          <BarChart3 className="w-4 h-4" />
-                        </Button>
-                      </Link>
-                    </>
-                  )}
                   {!survey.isPublished && (
                     <Button
                       variant="ghost"
@@ -595,6 +594,25 @@ export const SurveyManager = () => {
               )}
             </Card>
           ))}
+
+          {/* Pagination */}
+          {Math.ceil(surveys.length / ITEMS_PER_PAGE) > 1 && (
+            <div className="mt-8 flex justify-center gap-2">
+              {Array.from({ length: Math.ceil(surveys.length / ITEMS_PER_PAGE) }, (_, i) => i + 1).map(p => (
+                <button
+                  key={p}
+                  onClick={() => { setCurrentPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  className={`px-4 py-2 rounded-lg ${
+                    p === currentPage
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

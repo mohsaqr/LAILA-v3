@@ -616,27 +616,27 @@ export const ModuleItem = ({
 
           {/* Surveys */}
           {moduleSurveys.length > 0 && (
-            <div className="pt-2 border-t border-gray-100 mt-2 space-y-2">
+            <div className="pt-2 border-t border-gray-100 mt-2 grid grid-cols-2 gap-1.5">
               {moduleSurveys.map((ms: any) => (
                 <div
                   key={ms.id}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800"
+                  className="flex items-center gap-2 p-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800"
                 >
-                  <ListChecks className="w-5 h-5 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
+                  <ListChecks className="w-4 h-4 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                    <span className="text-sm font-medium text-gray-900 dark:text-white truncate block">
                       {ms.survey.title}
                     </span>
-                    <span className="text-xs text-gray-500 ml-2">
+                    <span className="text-xs text-gray-500">
                       {ms.survey._count?.questions || 0} {t('questions')}
                     </span>
                   </div>
                   <button
                     onClick={() => removeSurveyMutation.mutate(ms.survey.id)}
-                    className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                    className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
                     title={t('remove_from_module')}
                   >
-                    <Trash2 className="w-4 h-4 text-red-500" />
+                    <Trash2 className="w-3.5 h-3.5 text-red-500" />
                   </button>
                 </div>
               ))}
