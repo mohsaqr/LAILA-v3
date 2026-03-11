@@ -1,3 +1,13 @@
+### 2026-03-11 — Add surveys to course modules
+
+- `server/prisma/schema.prisma`: Added `ModuleSurvey` model (many-to-many between modules and surveys) with `@@unique([moduleId, surveyId])`, cascade deletes, and indexes. Added `moduleSurveys` relation to `CourseModule`, `Survey`, and `Course` models.
+- `server/src/services/survey.service.ts`: Added `getModuleSurveys()`, `addSurveyToModule()`, `removeSurveyFromModule()` methods with authorization checks.
+- `server/src/routes/survey.routes.ts`: Added 3 module survey routes — `GET /module/:moduleId`, `POST /module/:moduleId`, `DELETE /module/:moduleId/:surveyId`.
+- `client/src/api/surveys.ts`: Added `getModuleSurveys()`, `addSurveyToModule()`, `removeSurveyFromModule()` API methods.
+- `client/src/components/teach/ModuleItem.tsx`: Added "Add Survey" button in module footer, survey display section (indigo styling), and searchable survey selection modal. Self-contained with own queries/mutations.
+- `server/src/services/survey.service.test.ts`: Created with 11 tests for module survey CRUD — get, add, remove, authorization, admin override, 404 handling.
+- i18n: Added 9 keys (`add_survey`, `survey_added`, `survey_removed`, `failed_to_add_survey`, `select_survey`, `search_surveys`, `no_surveys_available`, `questions`) in all 4 locales.
+
 ### 2026-03-11 — Fix lecture-level assignments showing on course page
 
 - `client/src/pages/CourseDetails.tsx`: Filter out assignments with `lectureId` from both module-grouped and standalone assignment lists. Lecture-level assignments now only appear on their lecture page.

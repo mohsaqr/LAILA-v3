@@ -68,7 +68,7 @@ export const SurveyManager = () => {
   const fetchSurveys = async () => {
     try {
       setLoading(true);
-      const data = await surveysApi.getSurveys(courseId ? parseInt(courseId) : undefined);
+      const data = await surveysApi.getSurveys();
       setSurveys(data);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load surveys');
@@ -86,10 +86,7 @@ export const SurveyManager = () => {
     if (!surveyForm.title.trim()) return;
     setSubmitting(true);
     try {
-      const newSurvey = await surveysApi.createSurvey({
-        ...surveyForm,
-        courseId: courseId ? parseInt(courseId) : null,
-      });
+      const newSurvey = await surveysApi.createSurvey(surveyForm);
       setSurveys(prev => [newSurvey, ...prev]);
       setShowCreateModal(false);
       setSurveyForm({ title: '', description: '', isAnonymous: false });
@@ -737,7 +734,6 @@ export const SurveyManager = () => {
 
       {/* AI Survey Generator Modal */}
       <SurveyGenerator
-        courseId={courseId ? parseInt(courseId) : undefined}
         isOpen={showGenerateModal}
         onClose={() => setShowGenerateModal(false)}
         onSurveyGenerated={handleSurveyGenerated}

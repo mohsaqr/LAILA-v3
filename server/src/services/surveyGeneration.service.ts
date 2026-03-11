@@ -24,7 +24,6 @@ export interface SurveyGenerationInput {
   topic: string;
   questionCount: number;       // 1-15
   surveyType: SurveyType;
-  courseId?: number;
   isAnonymous?: boolean;
   additionalInstructions?: string;
 }
@@ -191,21 +190,6 @@ export class SurveyGenerationService {
     input: SurveyGenerationInput,
     isAdmin = false
   ) {
-    // Verify course ownership if courseId provided
-    if (input.courseId) {
-      const course = await prisma.course.findUnique({
-        where: { id: input.courseId },
-      });
-
-      if (!course) {
-        throw new AppError('Course not found', 404);
-      }
-
-      if (course.instructorId !== userId && !isAdmin) {
-        throw new AppError('Not authorized to create survey for this course', 403);
-      }
-    }
-
     const result = await this.generateSurvey(input);
 
     // Create survey and all questions in a transaction
@@ -214,7 +198,6 @@ export class SurveyGenerationService {
         data: {
           title: result.title,
           description: result.description || null,
-          courseId: input.courseId || null,
           createdById: userId,
           isPublished: false,
           isAnonymous: input.isAnonymous ?? false,

@@ -37,9 +37,13 @@
   - Client: `constants.ts` — added amber color for agent type badge
   - i18n: `agent_chatbots`, `agent`, `agent_assignment`, `course_context`, `designed_by` keys in all 4 locales
 
+## Completed (2026-03-11, continued)
+- **Curriculum editor UI fixes**: Changed main content width from `max-w-4xl` to `max-w-7xl` to match course page. File sections displayed in two-column grid instead of full-width. Breadcrumb changed from "Teaching" to "Courses".
+- **Add surveys to course modules**: Many-to-many `ModuleSurvey` model linking surveys to modules. "Add Survey" button in module footer opens searchable modal showing published surveys not yet linked. Surveys display with indigo styling and remove button. Full server CRUD with authorization. 11 tests added.
+
 ## Current State
 - Branch: `fix_issues`
-- Server: 942 tests passing
+- Server: 953 tests passing
 - Client: compiles cleanly (only pre-existing type warnings in unrelated files)
 
 ## Key Decisions

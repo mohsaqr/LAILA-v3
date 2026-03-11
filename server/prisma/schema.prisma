@@ -352,7 +352,7 @@ model Course {
   labAssignments             LabAssignment[]
   activityLogs               LearningActivityLog[] @relation("CourseActivityLogs")
   quizzes                    Quiz[]
-  surveys                    Survey[]
+  moduleSurveys              ModuleSurvey[]
   certificates               Certificate[]
   tutorSessions              TutorSession[]
 
@@ -399,6 +399,7 @@ model CourseModule {
   forums          Forum[]
   labAssignments  LabAssignment[]
   lectures        Lecture[]
+  moduleSurveys   ModuleSurvey[]
   quizzes         Quiz[]
 
   @@index([courseId])
@@ -1454,21 +1455,36 @@ model Survey {
   id          Int              @id @default(autoincrement())
   title       String
   description String?
-  courseId    Int?             @map("course_id")
   createdById Int              @map("created_by_id")
   isPublished Boolean          @default(false) @map("is_published")
   isAnonymous Boolean          @default(false) @map("is_anonymous")
   createdAt   DateTime         @default(now()) @map("created_at")
   updatedAt   DateTime         @updatedAt @map("updated_at")
-  assignments Assignment[]     @relation("PostAssignmentSurvey")
-  questions   SurveyQuestion[]
-  responses   SurveyResponse[]
-  createdBy   User             @relation("SurveyCreator", fields: [createdById], references: [id])
-  course      Course?          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  assignments   Assignment[]     @relation("PostAssignmentSurvey")
+  moduleSurveys ModuleSurvey[]
+  questions     SurveyQuestion[]
+  responses     SurveyResponse[]
+  createdBy     User             @relation("SurveyCreator", fields: [createdById], references: [id])
 
-  @@index([courseId])
   @@index([createdById])
   @@map("surveys")
+}
+
+model ModuleSurvey {
+  id       Int          @id @default(autoincrement())
+  courseId  Int          @map("course_id")
+  moduleId Int          @map("module_id")
+  surveyId Int          @map("survey_id")
+  addedAt  DateTime     @default(now()) @map("added_at")
+  course   Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  module   CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  survey   Survey       @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+
+  @@unique([moduleId, surveyId])
+  @@index([courseId])
+  @@index([moduleId])
+  @@index([surveyId])
+  @@map("module_surveys")
 }
 
 model SurveyQuestion {

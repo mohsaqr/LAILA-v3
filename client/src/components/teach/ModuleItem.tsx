@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
   ChevronDown,
@@ -26,6 +26,8 @@ import {
   Loader2,
   Pencil,
   X,
+  Search,
+  ListChecks,
 } from 'lucide-react';
 import { CourseModule, Lecture, CodeLab, Assignment, LabAssignment, Forum } from '../../types';
 import { Button } from '../common/Button';
@@ -36,6 +38,7 @@ import { AssignmentItem } from './AssignmentItem';
 import { ForumItem } from './ForumItem';
 import { coursesApi } from '../../api/courses';
 import { assignmentsApi } from '../../api/assignments';
+import { surveysApi } from '../../api/surveys';
 import { Input, TextArea, Select } from '../common/Input';
 import { getAuthToken } from '../../utils/auth';
 
@@ -125,6 +128,48 @@ export const ModuleItem = ({
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Survey state
+  const [surveyModalOpen, setSurveyModalOpen] = useState(false);
+  const [surveySearch, setSurveySearch] = useState('');
+
+  const { data: moduleSurveys = [] } = useQuery({
+    queryKey: ['moduleSurveys', module.id],
+    queryFn: () => surveysApi.getModuleSurveys(module.id),
+  });
+
+  const { data: allSurveys = [] } = useQuery({
+    queryKey: ['surveys'],
+    queryFn: () => surveysApi.getSurveys(),
+    enabled: surveyModalOpen,
+  });
+
+  const linkedSurveyIds = useMemo(() => new Set(moduleSurveys.map((ms: any) => ms.survey.id)), [moduleSurveys]);
+
+  const filteredSurveys = useMemo(() => {
+    return allSurveys
+      .filter((s: any) => s.isPublished && !linkedSurveyIds.has(s.id))
+      .filter((s: any) => !surveySearch || s.title.toLowerCase().includes(surveySearch.toLowerCase()));
+  }, [allSurveys, linkedSurveyIds, surveySearch]);
+
+  const addSurveyMutation = useMutation({
+    mutationFn: (surveyId: number) => surveysApi.addSurveyToModule(courseId, module.id, surveyId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['moduleSurveys', module.id] });
+      toast.success(t('survey_added'));
+      setSurveyModalOpen(false);
+      setSurveySearch('');
+    },
+    onError: () => toast.error(t('failed_to_add_survey')),
+  });
+
+  const removeSurveyMutation = useMutation({
+    mutationFn: (surveyId: number) => surveysApi.removeSurveyFromModule(module.id, surveyId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['moduleSurveys', module.id] });
+      toast.success(t('survey_removed'));
+    },
+  });
 
   const createFileSectionMutation = useMutation({
     mutationFn: ({ lectureId, file }: { lectureId: number; file: { name: string; url: string; type: string; size: number } }) =>
@@ -569,6 +614,35 @@ export const ModuleItem = ({
             </div>
           )}
 
+          {/* Surveys */}
+          {moduleSurveys.length > 0 && (
+            <div className="pt-2 border-t border-gray-100 mt-2 space-y-2">
+              {moduleSurveys.map((ms: any) => (
+                <div
+                  key={ms.id}
+                  className="flex items-center gap-3 p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800"
+                >
+                  <ListChecks className="w-5 h-5 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      {ms.survey.title}
+                    </span>
+                    <span className="text-xs text-gray-500 ml-2">
+                      {ms.survey._count?.questions || 0} {t('questions')}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => removeSurveyMutation.mutate(ms.survey.id)}
+                    className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                    title={t('remove_from_module')}
+                  >
+                    <Trash2 className="w-4 h-4 text-red-500" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Module-level add buttons — always visible at module footer */}
           <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100 flex-wrap">
             <Button
@@ -609,6 +683,15 @@ export const ModuleItem = ({
                 {t('add_forum')}
               </Button>
             )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSurveyModalOpen(true)}
+              icon={<ListChecks className="w-4 h-4" />}
+              className="flex-1 min-w-[120px] text-indigo-600 hover:bg-indigo-50"
+            >
+              {t('add_survey')}
+            </Button>
           </div>
         </div>
       )}
@@ -767,6 +850,43 @@ export const ModuleItem = ({
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Survey Selection Modal */}
+      <Modal isOpen={surveyModalOpen} onClose={() => { setSurveyModalOpen(false); setSurveySearch(''); }} title={t('select_survey')} size="md">
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            <input
+              autoFocus
+              type="text"
+              value={surveySearch}
+              onChange={e => setSurveySearch(e.target.value)}
+              placeholder={t('search_surveys')}
+              className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            />
+          </div>
+          <div className="max-h-80 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
+            {filteredSurveys.length === 0 ? (
+              <p className="px-4 py-8 text-sm text-gray-400 text-center">{t('no_surveys_available')}</p>
+            ) : (
+              filteredSurveys.map((survey: any) => (
+                <button
+                  key={survey.id}
+                  onClick={() => addSurveyMutation.mutate(survey.id)}
+                  disabled={addSurveyMutation.isPending}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left transition-colors text-gray-700 hover:bg-indigo-50"
+                >
+                  <ListChecks className="w-4 h-4 text-indigo-500 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium truncate block">{survey.title}</span>
+                    <span className="text-xs text-gray-400">{survey._count?.questions || 0} {t('questions')}</span>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
       </Modal>
     </div>
   );

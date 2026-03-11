@@ -16,9 +16,8 @@ export const surveysApi = {
   // SURVEY CRUD (Instructor)
   // =============================================================================
 
-  getSurveys: async (courseId?: number) => {
-    const params = courseId ? `?courseId=${courseId}` : '';
-    const response = await apiClient.get<ApiResponse<Survey[]>>(`/surveys${params}`);
+  getSurveys: async () => {
+    const response = await apiClient.get<ApiResponse<Survey[]>>('/surveys');
     return response.data.data!;
   },
 
@@ -129,6 +128,22 @@ export const surveysApi = {
     const response = await apiClient.get(`/surveys/${surveyId}/export`, {
       responseType: 'blob',
     });
+    return response.data;
+  },
+
+  // Module surveys
+  getModuleSurveys: async (moduleId: number) => {
+    const response = await apiClient.get<ApiResponse<any[]>>(`/surveys/module/${moduleId}`);
+    return response.data.data!;
+  },
+
+  addSurveyToModule: async (courseId: number, moduleId: number, surveyId: number) => {
+    const response = await apiClient.post<ApiResponse<any>>(`/surveys/module/${moduleId}`, { courseId, surveyId });
+    return response.data.data!;
+  },
+
+  removeSurveyFromModule: async (moduleId: number, surveyId: number) => {
+    const response = await apiClient.delete<ApiResponse<any>>(`/surveys/module/${moduleId}/${surveyId}`);
     return response.data;
   },
 };

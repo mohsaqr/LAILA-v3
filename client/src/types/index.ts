@@ -1316,18 +1316,12 @@ export interface Survey {
   id: number;
   title: string;
   description: string | null;
-  courseId: number | null;
   createdById: number;
   isPublished: boolean;
   isAnonymous: boolean;
   createdAt: string;
   updatedAt: string;
   questions?: SurveyQuestion[];
-  course?: {
-    id: number;
-    title: string;
-    instructorId?: number;
-  } | null;
   createdBy?: {
     id: number;
     fullname: string;
@@ -1379,7 +1373,6 @@ export interface SurveyAnswer {
 export interface CreateSurveyData {
   title: string;
   description?: string;
-  courseId?: number | null;
   isPublished?: boolean;
   isAnonymous?: boolean;
 }
@@ -1395,7 +1388,6 @@ export interface GenerateSurveyData {
   topic: string;
   questionCount: number;
   surveyType: SurveyGenerationType;
-  courseId?: number;
   isAnonymous?: boolean;
   additionalInstructions?: string;
 }

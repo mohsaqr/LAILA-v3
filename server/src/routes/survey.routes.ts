@@ -37,8 +37,7 @@ router.post('/generate', authenticateToken, requireInstructor, asyncHandler(asyn
 
 // Get surveys (for a course or all user's surveys)
 router.get('/', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const courseId = req.query.courseId ? parseInt(req.query.courseId as string) : undefined;
-  const surveys = await surveyService.getSurveys(courseId, req.user!.id, true, req.user!.isAdmin);
+  const surveys = await surveyService.getSurveys(req.user!.id, true, req.user!.isAdmin);
   res.json({ success: true, data: surveys });
 }));
 
@@ -154,6 +153,33 @@ router.get('/:id/export', authenticateToken, requireInstructor, asyncHandler(asy
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
   res.send(content);
+}));
+
+// =============================================================================
+// MODULE SURVEYS (many-to-many: modules ↔ surveys)
+// =============================================================================
+
+// Get surveys linked to a module
+router.get('/module/:moduleId', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const moduleId = parseInt(req.params.moduleId);
+  const moduleSurveys = await surveyService.getModuleSurveys(moduleId);
+  res.json({ success: true, data: moduleSurveys });
+}));
+
+// Link a survey to a module
+router.post('/module/:moduleId', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const moduleId = parseInt(req.params.moduleId);
+  const { courseId, surveyId } = req.body;
+  const result = await surveyService.addSurveyToModule(courseId, moduleId, surveyId, req.user!.id, req.user!.isAdmin);
+  res.status(201).json({ success: true, data: result });
+}));
+
+// Remove a survey from a module
+router.delete('/module/:moduleId/:surveyId', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const moduleId = parseInt(req.params.moduleId);
+  const surveyId = parseInt(req.params.surveyId);
+  const result = await surveyService.removeSurveyFromModule(moduleId, surveyId, req.user!.id, req.user!.isAdmin);
+  res.json({ success: true, ...result });
 }));
 
 export default router;

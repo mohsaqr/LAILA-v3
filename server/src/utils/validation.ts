@@ -405,7 +405,6 @@ export type UpdateCourseRoleInput = z.infer<typeof updateCourseRoleSchema>;
 export const createSurveySchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
   description: z.string().optional(),
-  courseId: z.number().int().positive().optional().nullable(),
   isPublished: z.boolean().optional(),
   isAnonymous: z.boolean().optional(),
 });
@@ -450,7 +449,6 @@ export const generateSurveySchema = z.object({
   topic: z.string().min(3, 'Topic must be at least 3 characters').max(500),
   questionCount: z.number().int().min(1).max(15),
   surveyType: z.enum(['general_feedback', 'course_evaluation', 'likert_scale', 'learning_strategies', 'custom']),
-  courseId: z.number().int().positive().optional(),
   isAnonymous: z.boolean().optional(),
   additionalInstructions: z.string().max(1000).optional(),
 });
