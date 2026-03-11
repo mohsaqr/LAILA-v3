@@ -14,6 +14,7 @@ import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { LectureAIHelper } from '../components/lecture';
 import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStudent';
+import { AssignmentSectionStudent } from '../components/course/AssignmentSectionStudent';
 import { marked } from 'marked';
 import { sanitizeHtml } from '../utils/sanitize';
 import activityLogger from '../services/activityLogger';
@@ -262,6 +263,16 @@ export const LectureView = () => {
               </h2>
             )}
             <ChatbotSectionStudent
+              section={section}
+              courseId={parseInt(courseId!)}
+            />
+          </div>
+        );
+
+      case 'assignment':
+        return (
+          <div key={section.id} className="mb-8">
+            <AssignmentSectionStudent
               section={section}
               courseId={parseInt(courseId!)}
             />

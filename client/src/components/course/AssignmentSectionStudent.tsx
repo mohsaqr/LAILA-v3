@@ -133,7 +133,7 @@ export const AssignmentSectionStudent = ({ section, courseId }: AssignmentSectio
         )}
 
         <Link to={`/courses/${courseId}/assignments/${assignment.id}`}>
-          <Button className="w-full" variant={hasSubmission ? 'outline' : 'primary'}>
+          <Button variant={hasSubmission ? 'outline' : 'primary'}>
             {hasSubmission ? t('view_submission') : t('start_assignment')}
           </Button>
         </Link>

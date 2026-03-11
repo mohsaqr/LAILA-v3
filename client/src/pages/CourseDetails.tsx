@@ -93,7 +93,10 @@ export const CourseDetails = () => {
   });
 
   // Group items by moduleId
-  const assignmentsByModule = (assignments || []).reduce((acc: Record<number, Assignment[]>, assignment: Assignment) => {
+  // Filter out lecture-level assignments (they display on the lecture page instead)
+  const moduleLevelAssignments = (assignments || []).filter(a => !a.lectureId);
+
+  const assignmentsByModule = moduleLevelAssignments.reduce((acc: Record<number, Assignment[]>, assignment: Assignment) => {
     if (assignment.moduleId && assignment.isPublished) {
       if (!acc[assignment.moduleId]) acc[assignment.moduleId] = [];
       acc[assignment.moduleId].push(assignment);
@@ -118,7 +121,7 @@ export const CourseDetails = () => {
   }, {} as Record<number, Forum[]>);
 
   // Standalone items (not assigned to a module)
-  const standaloneAssignments = (assignments || []).filter(a => !a.moduleId && a.isPublished);
+  const standaloneAssignments = moduleLevelAssignments.filter(a => !a.moduleId && a.isPublished);
   const standaloneQuizzes = (quizzes || []).filter(q => !q.moduleId && q.isPublished);
   const standaloneForums = (forums || []).filter(f => !f.moduleId && f.isPublished);
 

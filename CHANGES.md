@@ -1,3 +1,8 @@
+### 2026-03-11 — Fix lecture-level assignments showing on course page
+
+- `client/src/pages/CourseDetails.tsx`: Filter out assignments with `lectureId` from both module-grouped and standalone assignment lists. Lecture-level assignments now only appear on their lecture page.
+- `client/src/pages/LectureView.tsx`: Added `'assignment'` case to `renderSection()` switch, rendering `AssignmentSectionStudent` component. Lecture-level assignments now display inline with a link to the full assignment page.
+
 ### 2026-03-11 — Add file attachment support to assignments
 
 - `server/prisma/schema.prisma`: Added `AssignmentAttachment` model (id, assignmentId, fileName, fileUrl, fileType, fileSize, createdAt) with cascade delete on assignment. Added `attachments` relation to `Assignment` model.

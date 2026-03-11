@@ -5,6 +5,7 @@
 - **Rich text course description**: Replaced plain TextArea with RichTextEditor for course description. HTML rendered with sanitization on view pages (CourseDetails, CurriculumEditor, CourseHeader). Tags stripped for card previews (Catalog, TeachDashboard).
 - **Rich text lecture sections**: Replaced plain textarea + markdown preview in TextSection with RichTextEditor (300px min height). LectureView detects HTML vs legacy markdown and renders accordingly. Added `editorClassName` prop to RichTextEditor for custom sizing.
 - **Rich text assignment instructions**: Replaced TextArea with RichTextEditor for instructions in AssignmentManager and AssignmentSectionEditor (both edit and create forms). AssignmentView renders HTML with sanitization, falling back to wrapping plain text in `<p>` tags. Added 3 tests for HTML instructions handling.
+- **Fix lecture-level assignments display**: Assignments with `lectureId` no longer appear on the course page (`CourseDetails.tsx`). Added `'assignment'` case to `LectureView.tsx` `renderSection()` so they render inline on the lecture page via `AssignmentSectionStudent`.
 - **Assignment file attachments**: Instructors can upload multiple files (csv, xlsx, png, jpg, pdf; 3 MB limit) to assignments. Files appear after instructions in the editor with rename/delete. Students see downloadable attachments on AssignmentView. New `AssignmentAttachment` model, `POST /api/uploads/assignment-file` endpoint, full CRUD API. 8 tests added.
 
 ## Completed (2026-03-10)
