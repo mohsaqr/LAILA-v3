@@ -163,6 +163,7 @@ export const LectureView = () => {
     switch (section.type) {
       case 'text':
       case 'ai-generated': {
+        const isHtml = section.content?.trim().startsWith('<');
         return (
           <div key={section.id} className="mb-8">
             {section.title && (
@@ -175,9 +176,9 @@ export const LectureView = () => {
             )}
             {section.content && (
               <div
-                className="prose max-w-none"
+                className="prose dark:prose-invert max-w-none"
                 style={{ color: colors.textPrimary }}
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(section.content) }}
+                dangerouslySetInnerHTML={{ __html: isHtml ? sanitizeHtml(section.content) : renderMarkdown(section.content) }}
               />
             )}
           </div>

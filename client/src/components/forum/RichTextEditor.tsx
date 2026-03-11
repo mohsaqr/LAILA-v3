@@ -18,9 +18,10 @@ interface RichTextEditorProps {
   placeholder?: string;
   disabled?: boolean;
   maxImageSizeKB?: number;
+  editorClassName?: string;
 }
 
-export const RichTextEditor = ({ value, onChange, placeholder = '', disabled = false, maxImageSizeKB = 500 }: RichTextEditorProps) => {
+export const RichTextEditor = ({ value, onChange, placeholder = '', disabled = false, maxImageSizeKB = 500, editorClassName }: RichTextEditorProps) => {
   const { isDark } = useTheme();
   const imageInputRef = useRef<HTMLInputElement>(null);
 
@@ -131,7 +132,7 @@ export const RichTextEditor = ({ value, onChange, placeholder = '', disabled = f
       </div>
       <EditorContent
         editor={editor}
-        className="forum-reply-editor px-3 py-2 min-h-[120px] max-h-[300px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
+        className={editorClassName || "forum-reply-editor px-3 py-2 min-h-[120px] max-h-[300px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"}
         style={{ color: colors.textPrimary }}
       />
       <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
