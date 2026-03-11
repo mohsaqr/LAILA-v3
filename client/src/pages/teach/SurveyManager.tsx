@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { coursesApi } from '../../api/courses';
 import { useTranslation } from 'react-i18next';
 import {
   Plus,
@@ -35,12 +33,6 @@ export const SurveyManager = () => {
   const [searchParams] = useSearchParams();
   const courseId = paramCourseId || searchParams.get('courseId') || undefined;
   const { isDark } = useTheme();
-
-  const { data: course } = useQuery({
-    queryKey: ['course', courseId],
-    queryFn: () => coursesApi.getCourseById(parseInt(courseId!)),
-    enabled: !!courseId,
-  });
 
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [loading, setLoading] = useState(true);
@@ -324,16 +316,9 @@ export const SurveyManager = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <Breadcrumb
-        homeHref="/"
-        items={[
-          { label: t('navigation:courses'), href: '/teach' },
-          ...(courseId && course
-            ? [{ label: course.title, href: `/teach/courses/${courseId}/curriculum` }]
-            : []),
-          { label: t('surveys') },
-        ]}
-      />
+      <div className="mb-6">
+        <Breadcrumb homeHref="/" items={[{ label: t('surveys') }]} />
+      </div>
 
       <div className="flex items-center justify-between mb-6">
         <div>

@@ -26,7 +26,6 @@ import { Card, CardBody } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
-import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { useTheme } from '../../hooks/useTheme';
 import { CustomLab, LabTemplate, LabType, Course } from '../../types';
 import toast from 'react-hot-toast';
@@ -319,14 +318,12 @@ export const LabManager = () => {
     return <Loading text={t('loading_labs')} />;
   }
 
-  const breadcrumbItems = buildTeachingBreadcrumb(undefined, undefined, t('navigation:labs'));
-
   return (
     <div className="min-h-screen" style={{ backgroundColor: colors.bg }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Breadcrumb navigation */}
         <div className="mb-6">
-          <Breadcrumb homeHref="/" items={breadcrumbItems} />
+          <Breadcrumb homeHref="/" items={[{ label: t('navigation:labs') }]} />
         </div>
 
         {/* Header */}

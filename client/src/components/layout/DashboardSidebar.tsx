@@ -11,7 +11,6 @@ import {
   ChevronRight,
   Activity,
   Network,
-  Bot,
   FlaskConical,
   MessageSquare,
   Award,
@@ -101,51 +100,22 @@ export const DashboardSidebar = () => {
     { label: t('calendar'), icon: Calendar, path: '/dashboard/calendar' },
   ];
 
-  // Build instructor nav items - only show admin logs to actual admins
+  // Build instructor nav items - static sidebar, no course-specific switching
   const instructorNavItems: NavItem[] = [
     { label: t('dashboard'), icon: LayoutDashboard, path: '/dashboard' },
     { label: t('courses'), icon: GraduationCap, path: '/courses' },
     { label: t('ai_tools'), icon: BrainCircuit, path: '/ai-tools' },
-    {
-      label: currentCourseId ? t('course_labs') : t('labs'),
-      icon: FlaskConical,
-      path: currentCourseId ? `/courses/${currentCourseId}/labs` : '/labs',
-    },
+    { label: t('labs'), icon: FlaskConical, path: '/labs' },
     { label: t('lab_templates'), icon: FlaskConical, path: '/teach/labs' },
-    {
-      label: currentCourseId ? t('course_quizzes') : t('quizzes'),
-      icon: FileQuestion,
-      path: currentCourseId ? `/teach/courses/${currentCourseId}/quizzes` : '/teach/quizzes',
-    },
-    {
-      label: t('ai_tutors'),
-      icon: Bot,
-      path: currentCourseId ? `/teach/courses/${currentCourseId}/tutors` : '#',
-      disabled: !currentCourseId,
-    },
+    { label: t('quizzes'), icon: FileQuestion, path: '/teach/quizzes' },
     { label: t('surveys'), icon: ClipboardCheck, path: '/teach/surveys' },
-    {
-      label: currentCourseId ? t('course_forums') : t('forums'),
-      icon: MessageSquare,
-      path: currentCourseId ? `/teach/courses/${currentCourseId}/forums` : '/forums',
-    },
-    {
-      label: currentCourseId ? t('course_certificates') : t('certificates'),
-      icon: Award,
-      path: currentCourseId ? `/teach/courses/${currentCourseId}/certificates` : '/teach/certificates',
-    },
-    ...(currentCourseId ? [{
-      label: t('analytics'),
-      icon: Network,
-      path: `/teach/courses/${currentCourseId}/analytics`,
-    }] : []),
-    // Only show admin logs link to actual admins (not just instructors)
+    { label: t('forums'), icon: MessageSquare, path: '/forums' },
+    { label: t('certificate_templates'), icon: Award, path: '/teach/certificates' },
+    // Only show admin links to actual admins (not just instructors)
     ...(isActualAdmin ? [
       { label: t('logs'), icon: Activity, path: '/admin/logs' },
       { label: t('analytics'), icon: Network, path: '/admin/analytics' },
     ] : []),
-    { label: t('gradebook'), icon: ClipboardList, path: '/dashboard/gradebook' },
-    { label: t('calendar'), icon: Calendar, path: '/dashboard/calendar' },
   ];
 
   const navItems = isInstructor ? instructorNavItems : studentNavItems;
@@ -161,7 +131,7 @@ export const DashboardSidebar = () => {
     <aside
       className="fixed left-0 top-16 h-[calc(100vh-4rem)] z-40 transition-all duration-300 border-r"
       style={{
-        width: isCollapsed ? '64px' : '200px',
+        width: isCollapsed ? '64px' : '240px',
         backgroundColor: colors.bg,
         borderColor: colors.border,
       }}
@@ -241,5 +211,5 @@ export const DashboardSidebar = () => {
 
 export const useSidebarWidth = () => {
   // This hook can be used by pages to get the sidebar width for proper margin
-  return { collapsed: 64, expanded: 200 };
+  return { collapsed: 64, expanded: 240 };
 };
