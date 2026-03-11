@@ -18,6 +18,7 @@ import { customLabsApi } from '../api/customLabs';
 import { Card, CardBody } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Loading } from '../components/common/Loading';
+import { Breadcrumb } from '../components/common/Breadcrumb';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import { CustomLab, LabType } from '../types';
@@ -79,6 +80,11 @@ export const Labs = () => {
   return (
     <div className="min-h-screen" style={{ backgroundColor: isDark ? '#111827' : '#f3f4f6' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Breadcrumb */}
+        <div className="mb-6">
+          <Breadcrumb items={[{ label: t('labs_title') }]} />
+        </div>
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>

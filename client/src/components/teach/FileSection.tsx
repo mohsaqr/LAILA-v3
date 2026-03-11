@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Upload, File, FileText, Image, Film, Music, Archive, Download, X, Loader2 } from 'lucide-react';
+import { Upload, File, FileText, Image, Film, Music, Archive, Download, X, Loader2, Pencil, Check } from 'lucide-react';
 import { LectureSection, UpdateSectionData } from '../../types';
 import { Button } from '../common/Button';
 import { getAuthToken } from '../../utils/auth';
@@ -53,7 +53,10 @@ export const FileSection = ({ section, onFileChange, onRemoveFile, readOnly = fa
   const { t } = useTranslation(['teaching']);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState(section.fileName || '');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const hasFile = section.fileUrl && section.fileName;
 
@@ -118,6 +121,10 @@ export const FileSection = ({ section, onFileChange, onRemoveFile, readOnly = fa
         fileType: file.name.split('.').pop() || '',
         fileSize: file.size,
       });
+      // Auto-enter edit mode so instructor can rename the file
+      setEditedName(file.name);
+      setIsEditingName(true);
+      setTimeout(() => nameInputRef.current?.focus(), 100);
     } catch (error) {
       console.error('File upload error:', error);
       // For now, just store file info locally (demo mode)
@@ -134,6 +141,20 @@ export const FileSection = ({ section, onFileChange, onRemoveFile, readOnly = fa
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const handleSaveName = () => {
+    const trimmed = editedName.trim();
+    if (trimmed && trimmed !== section.fileName) {
+      onFileChange({ fileName: trimmed });
+    }
+    setIsEditingName(false);
+  };
+
+  const handleStartEditing = () => {
+    setEditedName(section.fileName || '');
+    setIsEditingName(true);
+    setTimeout(() => nameInputRef.current?.focus(), 0);
   };
 
   if (readOnly && hasFile) {
@@ -172,7 +193,39 @@ export const FileSection = ({ section, onFileChange, onRemoveFile, readOnly = fa
             <FileIcon className="w-8 h-8 text-gray-500" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-medium text-gray-900 truncate">{section.fileName}</p>
+            {isEditingName ? (
+              <div className="flex items-center gap-2">
+                <input
+                  ref={nameInputRef}
+                  type="text"
+                  value={editedName}
+                  onChange={(e) => setEditedName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveName();
+                    if (e.key === 'Escape') setIsEditingName(false);
+                  }}
+                  className="flex-1 px-2 py-1 text-sm font-medium text-gray-900 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+                <button
+                  onClick={handleSaveName}
+                  className="p-1.5 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
+                  title={t('save')}
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <p className="font-medium text-gray-900 truncate">{section.fileName}</p>
+                <button
+                  onClick={handleStartEditing}
+                  className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors flex-shrink-0"
+                  title={t('edit_file_name')}
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
             <p className="text-sm text-gray-500">
               {section.fileType?.toUpperCase()} - {formatFileSize(section.fileSize, t)}
             </p>

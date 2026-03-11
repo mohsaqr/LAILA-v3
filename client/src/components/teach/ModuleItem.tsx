@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import {
   ChevronDown,
   ChevronRight,
@@ -21,13 +23,21 @@ import {
   ExternalLink,
   MessageSquare,
   Network,
+  Loader2,
+  Pencil,
+  X,
 } from 'lucide-react';
 import { CourseModule, Lecture, CodeLab, Assignment, LabAssignment, Forum } from '../../types';
 import { Button } from '../common/Button';
+import { Modal } from '../common/Modal';
 import { LectureItem } from './LectureItem';
 import { CodeLabItem } from './CodeLabItem';
 import { AssignmentItem } from './AssignmentItem';
 import { ForumItem } from './ForumItem';
+import { coursesApi } from '../../api/courses';
+import { assignmentsApi } from '../../api/assignments';
+import { Input, TextArea, Select } from '../common/Input';
+import { getAuthToken } from '../../utils/auth';
 
 interface ModuleItemProps {
   module: CourseModule & { labAssignments?: LabAssignment[] };
@@ -107,7 +117,132 @@ export const ModuleItem = ({
   lectureAssignments = {},
 }: ModuleItemProps) => {
   const { t } = useTranslation(['teaching']);
+  const queryClient = useQueryClient();
   const [isExpanded, setIsExpanded] = useState(true);
+  const [fileUploadLectureId, setFileUploadLectureId] = useState<number | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<{ name: string; url: string; type: string; size: number } | null>(null);
+  const [fileName, setFileName] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const createFileSectionMutation = useMutation({
+    mutationFn: ({ lectureId, file }: { lectureId: number; file: { name: string; url: string; type: string; size: number } }) =>
+      coursesApi.createSection(lectureId, {
+        type: 'file',
+        fileName: file.name,
+        fileUrl: file.url,
+        fileType: file.type,
+        fileSize: file.size,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+      toast.success(t('file_uploaded'));
+      closeFileModal();
+    },
+    onError: () => toast.error(t('failed_upload')),
+  });
+
+  const handleFileUpload = async (file: File) => {
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const token = getAuthToken();
+      const response = await fetch('/api/uploads/file', {
+        method: 'POST',
+        body: formData,
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) throw new Error('Upload failed');
+      const data = await response.json();
+      const fileData = data.data || data;
+      const uploaded = {
+        name: file.name,
+        url: fileData.url || fileData.path,
+        type: file.name.split('.').pop() || '',
+        size: file.size,
+      };
+      setUploadedFile(uploaded);
+      setFileName(file.name);
+    } catch {
+      toast.error(t('failed_upload'));
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleSaveFileSection = () => {
+    if (!fileUploadLectureId || !uploadedFile) return;
+    createFileSectionMutation.mutate({
+      lectureId: fileUploadLectureId,
+      file: { ...uploadedFile, name: fileName.trim() || uploadedFile.name },
+    });
+  };
+
+  const closeFileModal = () => {
+    setFileUploadLectureId(null);
+    setUploadedFile(null);
+    setFileName('');
+    setIsUploading(false);
+    setIsDragging(false);
+  };
+
+  // Assignment modal state
+  const [assignmentLectureId, setAssignmentLectureId] = useState<number | null>(null);
+  const [assignmentForm, setAssignmentForm] = useState({
+    title: '',
+    description: '',
+    instructions: '',
+    submissionType: 'text' as 'text' | 'file' | 'mixed',
+    dueDate: '',
+    points: 100,
+    isPublished: false,
+  });
+
+  const createAssignmentMutation = useMutation({
+    mutationFn: async ({ lectureId, form }: { lectureId: number; form: typeof assignmentForm }) => {
+      const newAssignment = await assignmentsApi.createAssignment(courseId, {
+        ...form,
+        moduleId: module.id,
+        lectureId,
+        dueDate: form.dueDate ? new Date(form.dueDate).toISOString() : null,
+      });
+      await coursesApi.createSection(lectureId, {
+        type: 'assignment',
+        assignmentId: newAssignment.id,
+      });
+      return newAssignment;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+      toast.success(t('assignment_created'));
+      closeAssignmentModal();
+    },
+    onError: () => toast.error(t('failed_to_create_assignment')),
+  });
+
+  const handleAssignmentFormChange = (field: string, value: string | number | boolean) => {
+    setAssignmentForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleCreateAssignment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignmentLectureId || !assignmentForm.title.trim()) {
+      toast.error(t('title_required'));
+      return;
+    }
+    createAssignmentMutation.mutate({ lectureId: assignmentLectureId, form: assignmentForm });
+  };
+
+  const closeAssignmentModal = () => {
+    setAssignmentLectureId(null);
+    setAssignmentForm({
+      title: '', description: '', instructions: '',
+      submissionType: 'text', dueDate: '', points: 100, isPublished: false,
+    });
+  };
+
   const lectures = module.lectures || [];
   const codeLabs = module.codeLabs || [];
   const assignments = module.assignments || [];
@@ -236,51 +371,52 @@ export const ModuleItem = ({
                     onEditAssignment={onEditAssignment}
                     onDeleteAssignment={onDeleteAssignment}
                   />
-                  {/* Inline add options after each lesson */}
-                  <div className="flex items-center gap-1.5 py-2 px-3 ml-6 border-l-2 border-dashed border-gray-200 flex-wrap">
-                    <span className="text-xs text-gray-400 mr-1">{t('add')}:</span>
-                    {/* Section types - add directly to this lesson */}
-                    <Link
-                      to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=text`}
-                      className="text-xs px-2 py-1 rounded-md border border-blue-200 hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1"
-                      title={t('add_text_section')}
-                    >
-                      <FileText className="w-3 h-3" />
-                      {t('section_type_text')}
-                    </Link>
-                    <Link
-                      to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=file`}
-                      className="text-xs px-2 py-1 rounded-md border border-green-200 hover:bg-green-50 text-green-600 hover:text-green-700 transition-colors flex items-center gap-1"
-                      title={t('add_file_section')}
-                    >
-                      <Upload className="w-3 h-3" />
-                      {t('section_type_file')}
-                    </Link>
-                    <Link
-                      to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=ai-generated`}
-                      className="text-xs px-2 py-1 rounded-md border border-purple-200 hover:bg-purple-50 text-purple-600 hover:text-purple-700 transition-colors flex items-center gap-1"
-                      title={t('add_ai_section')}
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      {t('section_type_ai')}
-                    </Link>
-                    <Link
-                      to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=chatbot`}
-                      className="text-xs px-2 py-1 rounded-md border border-orange-200 hover:bg-orange-50 text-orange-600 hover:text-orange-700 transition-colors flex items-center gap-1"
-                      title={t('add_chatbot_section')}
-                    >
-                      <MessageCircle className="w-3 h-3" />
-                      {t('section_type_chatbot')}
-                    </Link>
-                    <Link
-                      to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=assignment`}
-                      className="text-xs px-2 py-1 rounded-md border border-rose-200 hover:bg-rose-50 text-rose-600 hover:text-rose-700 transition-colors flex items-center gap-1"
-                      title={t('add_assignment')}
-                    >
-                      <ClipboardList className="w-3 h-3" />
-                      {t('assignment')}
-                    </Link>
-                  </div>
+                  {/* Inline add options — only for empty lectures (no sections) */}
+                  {(!lecture.sections || lecture.sections.length === 0) && (
+                    <div className="flex items-center gap-1.5 py-2 px-3 ml-6 border-l-2 border-dashed border-gray-200 flex-wrap">
+                      <span className="text-xs text-gray-400 mr-1">{t('add')}:</span>
+                      <Link
+                        to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=text`}
+                        className="text-xs px-2 py-1 rounded-md border border-blue-200 hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1"
+                        title={t('add_text_section')}
+                      >
+                        <FileText className="w-3 h-3" />
+                        {t('section_type_text')}
+                      </Link>
+                      <button
+                        onClick={() => setFileUploadLectureId(lecture.id)}
+                        className="text-xs px-2 py-1 rounded-md border border-green-200 hover:bg-green-50 text-green-600 hover:text-green-700 transition-colors flex items-center gap-1"
+                        title={t('add_file_section')}
+                      >
+                        <Upload className="w-3 h-3" />
+                        {t('section_type_file')}
+                      </button>
+                      <Link
+                        to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=ai-generated`}
+                        className="text-xs px-2 py-1 rounded-md border border-purple-200 hover:bg-purple-50 text-purple-600 hover:text-purple-700 transition-colors flex items-center gap-1"
+                        title={t('add_ai_section')}
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        {t('section_type_ai')}
+                      </Link>
+                      <Link
+                        to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=chatbot`}
+                        className="text-xs px-2 py-1 rounded-md border border-orange-200 hover:bg-orange-50 text-orange-600 hover:text-orange-700 transition-colors flex items-center gap-1"
+                        title={t('add_chatbot_section')}
+                      >
+                        <MessageCircle className="w-3 h-3" />
+                        {t('section_type_chatbot')}
+                      </Link>
+                      <button
+                        onClick={() => setAssignmentLectureId(lecture.id)}
+                        className="text-xs px-2 py-1 rounded-md border border-rose-200 hover:bg-rose-50 text-rose-600 hover:text-rose-700 transition-colors flex items-center gap-1"
+                        title={t('add_assignment')}
+                      >
+                        <ClipboardList className="w-3 h-3" />
+                        {t('assignment')}
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))
           ) : (
@@ -476,6 +612,162 @@ export const ModuleItem = ({
           </div>
         </div>
       )}
+
+      {/* File Upload Modal */}
+      <Modal isOpen={fileUploadLectureId !== null} onClose={closeFileModal} title={t('upload_file')} size="md">
+        <div className="space-y-4">
+          {!uploadedFile ? (
+            <div
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                isDragging ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-gray-400'
+              }`}
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+              onDrop={(e) => { e.preventDefault(); setIsDragging(false); if (e.dataTransfer.files[0]) handleFileUpload(e.dataTransfer.files[0]); }}
+            >
+              {isUploading ? (
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="w-10 h-10 text-green-500 animate-spin" />
+                  <p className="text-sm text-gray-600">{t('uploading_file')}</p>
+                </div>
+              ) : (
+                <>
+                  <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-600 mb-2">{t('drag_drop_file')}</p>
+                  <Button variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()}>
+                    {t('choose_file')}
+                  </Button>
+                  <p className="text-xs text-gray-400 mt-2">{t('file_types_limit')}</p>
+                </>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                onChange={(e) => { if (e.target.files?.[0]) handleFileUpload(e.target.files[0]); }}
+                className="hidden"
+                accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.mp4,.mov,.mp3,.wav,.zip"
+              />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <FileText className="w-5 h-5 text-green-600 flex-shrink-0" />
+                <span className="text-sm text-green-800 truncate flex-1">{uploadedFile.name}</span>
+                <button
+                  onClick={() => { setUploadedFile(null); setFileName(''); }}
+                  className="p-1 rounded hover:bg-green-100 transition-colors"
+                >
+                  <X className="w-4 h-4 text-green-600" />
+                </button>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('file_name')}</label>
+                <div className="flex items-center gap-2">
+                  <Pencil className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <input
+                    type="text"
+                    value={fileName}
+                    onChange={(e) => setFileName(e.target.value)}
+                    className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="ghost" size="sm" onClick={closeFileModal}>
+                  {t('cancel')}
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSaveFileSection}
+                  loading={createFileSectionMutation.isPending}
+                  disabled={!fileName.trim()}
+                >
+                  {t('save')}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Assignment Creation Modal */}
+      <Modal isOpen={assignmentLectureId !== null} onClose={closeAssignmentModal} title={t('create_assignment')} size="lg">
+        <form onSubmit={handleCreateAssignment} className="space-y-4">
+          <Input
+            label={t('title')}
+            value={assignmentForm.title}
+            onChange={e => handleAssignmentFormChange('title', e.target.value)}
+            placeholder={t('assignment_title_placeholder')}
+            required
+          />
+
+          <TextArea
+            label={t('description')}
+            value={assignmentForm.description}
+            onChange={e => handleAssignmentFormChange('description', e.target.value)}
+            placeholder={t('assignment_description_placeholder')}
+            rows={2}
+          />
+
+          <TextArea
+            label={t('instructions')}
+            value={assignmentForm.instructions}
+            onChange={e => handleAssignmentFormChange('instructions', e.target.value)}
+            placeholder={t('assignment_instructions_placeholder')}
+            rows={3}
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label={t('submission_type')}
+              value={assignmentForm.submissionType}
+              onChange={e => handleAssignmentFormChange('submissionType', e.target.value)}
+              options={[
+                { value: 'text', label: t('text_entry') },
+                { value: 'file', label: t('file_upload') },
+                { value: 'mixed', label: t('text_and_file') },
+              ]}
+            />
+            <Input
+              label={t('points')}
+              type="number"
+              value={assignmentForm.points}
+              onChange={e => handleAssignmentFormChange('points', parseInt(e.target.value) || 0)}
+              min={0}
+            />
+          </div>
+
+          <Input
+            label={t('due_date')}
+            type="datetime-local"
+            value={assignmentForm.dueDate}
+            onChange={e => handleAssignmentFormChange('dueDate', e.target.value)}
+          />
+
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id={`isPublished-${module.id}`}
+              checked={assignmentForm.isPublished}
+              onChange={e => handleAssignmentFormChange('isPublished', e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            />
+            <label htmlFor={`isPublished-${module.id}`} className="text-sm text-gray-700">
+              {t('publish_immediately')}
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button type="button" variant="ghost" size="sm" onClick={closeAssignmentModal}>
+              {t('cancel')}
+            </Button>
+            <Button type="submit" size="sm" loading={createAssignmentMutation.isPending}>
+              {t('create_assignment')}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

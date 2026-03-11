@@ -4,6 +4,17 @@ import { chatService } from './chat.service.js';
 import { activityLogService } from './activityLog.service.js';
 import { createLogger } from '../utils/logger.js';
 
+// Emotional tone guidance for each pulse type
+const EMOTION_GUIDANCE: Record<string, string> = {
+  productive: 'The student feels productive and focused. Maintain their momentum — be concise, challenge them slightly, and encourage deeper exploration.',
+  stimulated: 'The student feels intellectually stimulated. Match their energy — offer thought-provoking ideas, connections, and build on their enthusiasm.',
+  frustrated: 'The student feels frustrated. Be extra patient, empathetic, and supportive. Break things into smaller steps. Validate their effort and reassure them.',
+  learning: 'The student feels they are learning well. Reinforce this positive state — affirm their progress, introduce the next concept gently, and keep the pace steady.',
+  enjoying: 'The student is enjoying the experience. Keep the tone warm and engaging. Add interesting tidbits and maintain the enjoyable atmosphere.',
+  bored: 'The student feels bored. Make your response more engaging — ask a provocative question, use an unexpected example, or introduce a challenge to re-spark their interest.',
+  quitting: 'The student feels like quitting. This is urgent — be very encouraging, acknowledge the difficulty, remind them of progress made, and suggest a small achievable next step to rebuild confidence.',
+};
+
 const logger = createLogger('tutor');
 import {
   TutorMode,
@@ -31,9 +42,9 @@ export class TutorService {
    * Get or create tutor session for user
    * Creates session with default settings if doesn't exist
    */
-  async getOrCreateSession(userId: number): Promise<TutorSessionResponse> {
+  async getOrCreateSession(userId: number, courseId?: number): Promise<TutorSessionResponse> {
     let session = await prisma.tutorSession.findUnique({
-      where: { userId },
+      where: { userId_courseId: { userId, courseId: courseId ?? null } },
       include: {
         conversations: {
           include: {
@@ -61,6 +72,7 @@ export class TutorService {
       session = await prisma.tutorSession.create({
         data: {
           userId,
+          courseId: courseId ?? null,
           mode: 'manual',
         },
         include: {
@@ -106,8 +118,8 @@ export class TutorService {
       }).catch(err => logger.warn({ err }, 'Failed to log session start activity'));
     }
 
-    // Get available agents
-    const agents = await this.getAvailableAgents();
+    // Get available agents (filtered by course if session is course-specific)
+    const agents = await this.getAvailableAgents(courseId);
 
     // Transform conversations to include preview
     const conversations: ConversationWithPreview[] = session.conversations.map((conv) => ({
@@ -131,6 +143,7 @@ export class TutorService {
       session: {
         id: session.id,
         userId: session.userId,
+        courseId: session.courseId,
         mode: session.mode as TutorMode,
         activeAgentId: session.activeAgentId,
         createdAt: session.createdAt,
@@ -144,9 +157,9 @@ export class TutorService {
   /**
    * Update session mode (manual/router/collaborative)
    */
-  async updateMode(userId: number, mode: TutorMode): Promise<TutorSessionData> {
+  async updateMode(userId: number, mode: TutorMode, courseId?: number): Promise<TutorSessionData> {
     const session = await prisma.tutorSession.update({
-      where: { userId },
+      where: { userId_courseId: { userId, courseId: courseId ?? null } },
       data: { mode },
     });
 
@@ -172,6 +185,7 @@ export class TutorService {
     return {
       id: session.id,
       userId: session.userId,
+      courseId: session.courseId,
       mode: session.mode as TutorMode,
       activeAgentId: session.activeAgentId,
       createdAt: session.createdAt,
@@ -182,7 +196,7 @@ export class TutorService {
   /**
    * Set active agent for manual mode
    */
-  async setActiveAgent(userId: number, chatbotId: number): Promise<TutorSessionData> {
+  async setActiveAgent(userId: number, chatbotId: number, courseId?: number): Promise<TutorSessionData> {
     // Verify chatbot exists and is active
     const chatbot = await prisma.chatbot.findUnique({
       where: { id: chatbotId },
@@ -193,7 +207,7 @@ export class TutorService {
     }
 
     const session = await prisma.tutorSession.update({
-      where: { userId },
+      where: { userId_courseId: { userId, courseId: courseId ?? null } },
       data: { activeAgentId: chatbotId },
     });
 
@@ -227,6 +241,7 @@ export class TutorService {
     return {
       id: session.id,
       userId: session.userId,
+      courseId: session.courseId,
       mode: session.mode as TutorMode,
       activeAgentId: session.activeAgentId,
       createdAt: session.createdAt,
@@ -241,9 +256,9 @@ export class TutorService {
   /**
    * Get all conversations for user with recent message preview
    */
-  async getConversations(userId: number): Promise<ConversationWithPreview[]> {
+  async getConversations(userId: number, courseId?: number): Promise<ConversationWithPreview[]> {
     const session = await prisma.tutorSession.findUnique({
-      where: { userId },
+      where: { userId_courseId: { userId, courseId: courseId ?? null } },
     });
 
     if (!session) {
@@ -295,10 +310,11 @@ export class TutorService {
    */
   async getOrCreateConversation(
     userId: number,
-    chatbotId: number
+    chatbotId: number,
+    courseId?: number
   ): Promise<TutorConversationData & { messages: TutorMessageData[] }> {
     const session = await prisma.tutorSession.findUnique({
-      where: { userId },
+      where: { userId_courseId: { userId, courseId: courseId ?? null } },
     });
 
     if (!session) {
@@ -392,9 +408,9 @@ export class TutorService {
   /**
    * Clear conversation messages
    */
-  async clearConversation(userId: number, chatbotId: number): Promise<void> {
+  async clearConversation(userId: number, chatbotId: number, courseId?: number): Promise<void> {
     const session = await prisma.tutorSession.findUnique({
-      where: { userId },
+      where: { userId_courseId: { userId, courseId: courseId ?? null } },
     });
 
     if (!session) {
@@ -472,10 +488,12 @@ export class TutorService {
     chatbotId: number,
     message: string,
     clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
-    collaborativeSettings?: CollaborativeSettings
+    collaborativeSettings?: CollaborativeSettings,
+    courseId?: number,
+    emotionalPulse?: string
   ): Promise<TutorMessageResponse> {
     const session = await prisma.tutorSession.findUnique({
-      where: { userId },
+      where: { userId_courseId: { userId, courseId: courseId ?? null } },
     });
 
     if (!session) {
@@ -491,18 +509,35 @@ export class TutorService {
     }
 
     // Get or create conversation
-    const conversationData = await this.getOrCreateConversation(userId, chatbotId);
+    const conversationData = await this.getOrCreateConversation(userId, chatbotId, courseId);
 
     const mode = session.mode as TutorMode;
+
+    // Resolve the student's current emotional state:
+    // prefer the pulse sent with this request, else fetch the most recent one from DB
+    let currentEmotion = emotionalPulse;
+    if (!currentEmotion) {
+      const recentPulse = await prisma.emotionalPulse.findFirst({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+      });
+      // Only use pulses from the last 30 minutes
+      if (recentPulse) {
+        const ageMs = Date.now() - new Date(recentPulse.createdAt).getTime();
+        if (ageMs < 30 * 60 * 1000) {
+          currentEmotion = recentPulse.emotion;
+        }
+      }
+    }
 
     // Route to appropriate handler based on mode
     switch (mode) {
       case 'router':
-        return this.handleRouterMode(session, message, clientInfo);
+        return this.handleRouterMode(session, message, clientInfo, courseId, currentEmotion);
       case 'collaborative':
-        return this.handleCollaborativeMode(session, message, clientInfo, collaborativeSettings);
+        return this.handleCollaborativeMode(session, message, clientInfo, collaborativeSettings, courseId, currentEmotion);
       case 'random':
-        return this.handleRandomMode(session, message, clientInfo);
+        return this.handleRandomMode(session, message, clientInfo, courseId, currentEmotion);
       case 'manual':
       default:
         return this.handleManualMode(
@@ -510,7 +545,8 @@ export class TutorService {
           conversationData,
           chatbot,
           message,
-          clientInfo
+          clientInfo,
+          currentEmotion
         );
     }
   }
@@ -523,7 +559,8 @@ export class TutorService {
     conversation: TutorConversationData & { messages: TutorMessageData[] },
     chatbot: any,
     message: string,
-    clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string }
+    clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
+    emotionalPulse?: string
   ): Promise<TutorMessageResponse> {
     const startTime = Date.now();
 
@@ -613,6 +650,11 @@ RESPONSE GUIDELINES:
           systemPrompt += `\n\nDON'T:\n${donts.map((d: string) => `- ${d}`).join('\n')}`;
         }
       } catch {}
+    }
+
+    // Inject emotional pulse context if available
+    if (emotionalPulse && EMOTION_GUIDANCE[emotionalPulse]) {
+      systemPrompt += `\n\nSTUDENT EMOTIONAL STATE: The student recently indicated they feel "${emotionalPulse}". ${EMOTION_GUIDANCE[emotionalPulse]}`;
     }
 
     // Get AI response
@@ -745,10 +787,12 @@ RESPONSE GUIDELINES:
   private async handleRouterMode(
     session: { id: number; userId: number; mode: string },
     message: string,
-    clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string }
+    clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
+    courseId?: number,
+    emotionalPulse?: string
   ): Promise<TutorMessageResponse> {
-    // Get all available tutor agents
-    const agents = await this.getAvailableAgents();
+    // Get available tutor agents (filtered by course if provided)
+    const agents = await this.getAvailableAgents(courseId);
 
     if (agents.length === 0) {
       throw new AppError('No agents available', 500);
@@ -756,12 +800,6 @@ RESPONSE GUIDELINES:
 
     // Analyze message to determine best agent
     const routingResult = await this.analyzeAndRoute(message, agents);
-
-    // Get or create conversation with the selected agent
-    const conversationData = await this.getOrCreateConversation(
-      session.userId,
-      routingResult.selectedAgent.id
-    );
 
     const chatbot = await prisma.chatbot.findUnique({
       where: { id: routingResult.selectedAgent.id },
@@ -771,13 +809,26 @@ RESPONSE GUIDELINES:
       throw new AppError('Selected agent not found', 500);
     }
 
-    // Handle the message with the selected agent
+    // Use the first available agent for unified conversation storage (like collaborative mode).
+    // This ensures all router messages appear in one conversation regardless of which agent
+    // was routed to, so history persists on page reload. The routed agent's identity is
+    // preserved in routingInfo on the messages.
+    const teamChatAgent = agents[0];
+    const conversationData = await this.getOrCreateConversation(
+      session.userId,
+      teamChatAgent.id,
+      courseId
+    );
+
+    // Handle the message with the routed agent (uses its system prompt/personality)
+    // but stores in the unified conversation
     const response = await this.handleManualMode(
       session,
       conversationData,
       chatbot,
       message,
-      clientInfo
+      clientInfo,
+      emotionalPulse
     );
 
     // Update messages with routing info
@@ -825,10 +876,12 @@ RESPONSE GUIDELINES:
   private async handleRandomMode(
     session: { id: number; userId: number; mode: string },
     message: string,
-    clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string }
+    clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
+    courseId?: number,
+    emotionalPulse?: string
   ): Promise<TutorMessageResponse> {
-    // Get all available tutor agents
-    const agents = await this.getAvailableAgents();
+    // Get available tutor agents (filtered by course if provided)
+    const agents = await this.getAvailableAgents(courseId);
 
     if (agents.length === 0) {
       throw new AppError('No agents available', 500);
@@ -838,12 +891,6 @@ RESPONSE GUIDELINES:
     const randomIndex = Math.floor(Math.random() * agents.length);
     const selectedAgent = agents[randomIndex];
 
-    // Get or create conversation with the selected agent
-    const conversationData = await this.getOrCreateConversation(
-      session.userId,
-      selectedAgent.id
-    );
-
     const chatbot = await prisma.chatbot.findUnique({
       where: { id: selectedAgent.id },
     });
@@ -852,13 +899,23 @@ RESPONSE GUIDELINES:
       throw new AppError('Selected agent not found', 500);
     }
 
+    // Use the first available agent for unified conversation storage (like collaborative mode).
+    // History is preserved under one conversation regardless of which agent was randomly picked.
+    const teamChatAgent = agents[0];
+    const conversationData = await this.getOrCreateConversation(
+      session.userId,
+      teamChatAgent.id,
+      courseId
+    );
+
     // Handle the message with the randomly selected agent
     const response = await this.handleManualMode(
       session,
       conversationData,
       chatbot,
       message,
-      clientInfo
+      clientInfo,
+      emotionalPulse
     );
 
     // Log random selection
@@ -1233,7 +1290,8 @@ Consider:
     conversationHistory: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
     userId: number,
     context?: string,
-    maxChars: number = 500
+    maxChars: number = 500,
+    emotionalPulse?: string
   ): Promise<AgentContribution> {
     const startTime = Date.now();
     try {
@@ -1253,6 +1311,11 @@ RESPONSE GUIDELINES:
 - NO markdown: no headers, tables, code blocks, or horizontal rules
 - Plain text only with occasional **bold** for emphasis
 - Be direct and concise`;
+
+      // Inject emotional pulse context if available
+      if (emotionalPulse && EMOTION_GUIDANCE[emotionalPulse]) {
+        systemPrompt += `\n\nSTUDENT EMOTIONAL STATE: The student recently indicated they feel "${emotionalPulse}". ${EMOTION_GUIDANCE[emotionalPulse]}`;
+      }
 
       const response = await chatService.chat(
         {
@@ -1302,7 +1365,9 @@ RESPONSE GUIDELINES:
     session: { id: number; userId: number; mode: string },
     message: string,
     clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
-    settings?: CollaborativeSettings
+    settings?: CollaborativeSettings,
+    courseId?: number,
+    emotionalPulse?: string
   ): Promise<TutorMessageResponse> {
     const startTime = Date.now();
     const style: CollaborativeStyle = settings?.style || 'parallel';
@@ -1311,8 +1376,8 @@ RESPONSE GUIDELINES:
 
     logger.info({ style, maxAgents, maxChars, selectedAgentIds: settings?.selectedAgentIds }, 'Collaborative mode settings');
 
-    // Get all available tutor agents
-    const allAgents = await this.getAvailableAgents();
+    // Get available tutor agents (filtered by course if provided)
+    const allAgents = await this.getAvailableAgents(courseId);
     if (allAgents.length === 0) {
       throw new AppError('No agents available', 500);
     }
@@ -1348,7 +1413,7 @@ RESPONSE GUIDELINES:
     // ALWAYS use the first available agent for team chat storage (unified conversation)
     // This ensures all collaborative messages go to the same place regardless of which agents respond
     const teamChatAgent = allAgents[0];
-    const conversationData = await this.getOrCreateConversation(session.userId, teamChatAgent.id);
+    const conversationData = await this.getOrCreateConversation(session.userId, teamChatAgent.id, courseId);
     const conversationHistory = conversationData.messages.slice(-10).map(m => ({
       role: m.role as 'user' | 'assistant' | 'system',
       content: m.content,
@@ -1380,7 +1445,7 @@ RESPONSE GUIDELINES:
 
           const contribution = await this.getAgentResponse(
             agent, contextMsg, conversationHistory, session.userId,
-            i === 0 ? 'Answer the student directly.' : 'Reference what was said before, then add your perspective for the student.', maxChars
+            i === 0 ? 'Answer the student directly.' : 'Reference what was said before, then add your perspective for the student.', maxChars, emotionalPulse
           );
           contribution.round = i + 1;
           agentContributions.push(contribution);
@@ -1400,7 +1465,7 @@ RESPONSE GUIDELINES:
 
             const contribution = await this.getAgentResponse(
               agent, debatePrompt, conversationHistory, session.userId,
-              round === 1 ? 'Share your view with the student.' : 'Engage with previous points, then share your view with the student.', maxChars
+              round === 1 ? 'Share your view with the student.' : 'Engage with previous points, then share your view with the student.', maxChars, emotionalPulse
             );
             contribution.round = round;
             agentContributions.push(contribution);
@@ -1426,7 +1491,7 @@ RESPONSE GUIDELINES:
 
           const contribution = await this.getAgentResponse(
             agent, discussionPrompt, conversationHistory, session.userId,
-            i === 0 ? 'Answer the student directly.' : 'Reference what was said before, then add your perspective for the student.', maxChars
+            i === 0 ? 'Answer the student directly.' : 'Reference what was said before, then add your perspective for the student.', maxChars, emotionalPulse
           );
           contribution.round = i + 1;
           agentContributions.push(contribution);
@@ -1439,7 +1504,7 @@ RESPONSE GUIDELINES:
         // All selected agents respond simultaneously
         agentContributions = await Promise.all(
           agents.map(agent => this.getAgentResponse(
-            agent, cleanMessage, conversationHistory, session.userId, undefined, maxChars
+            agent, cleanMessage, conversationHistory, session.userId, undefined, maxChars, emotionalPulse
           ))
         );
         break;
@@ -1538,16 +1603,32 @@ RESPONSE GUIDELINES:
   // ==========================================================================
 
   /**
-   * Get available tutor agents (active chatbots with category 'tutor')
+   * Get available tutor agents (active chatbots with category 'tutor').
+   * When courseId is provided, returns only the tutors assigned to that course.
    */
-  async getAvailableAgents(): Promise<TutorAgent[]> {
-    const chatbots = await prisma.chatbot.findMany({
-      where: {
-        isActive: true,
-        category: 'tutor',
-      },
-      orderBy: { name: 'asc' },
-    });
+  async getAvailableAgents(courseId?: number): Promise<TutorAgent[]> {
+    let chatbots;
+
+    if (courseId) {
+      // Get only course-specific tutors via CourseTutor join
+      const courseTutors = await prisma.courseTutor.findMany({
+        where: { courseId, isActive: true },
+        include: {
+          chatbot: true,
+        },
+      });
+      chatbots = courseTutors
+        .map(ct => ct.chatbot)
+        .filter(c => c.isActive && c.category === 'tutor');
+    } else {
+      chatbots = await prisma.chatbot.findMany({
+        where: {
+          isActive: true,
+          category: 'tutor',
+        },
+        orderBy: { name: 'asc' },
+      });
+    }
 
     return chatbots.map((c) => ({
       id: c.id,

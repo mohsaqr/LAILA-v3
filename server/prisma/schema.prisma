@@ -44,7 +44,7 @@ model User {
   explainThreads              LectureExplainThread[]    @relation("UserExplainThreads")
   surveyResponses             SurveyResponse[]          @relation("SurveyResponses")
   createdSurveys              Survey[]                  @relation("SurveyCreator")
-  tutorSession                TutorSession?
+  tutorSessions               TutorSession[]
   userInteractionLogs         UserInteractionLog[]
   userInteractions            UserInteraction[]
   settings                    UserSetting[]
@@ -353,6 +353,8 @@ model Course {
   activityLogs               LearningActivityLog[] @relation("CourseActivityLogs")
   quizzes                    Quiz[]
   surveys                    Survey[]
+  certificates               Certificate[]
+  tutorSessions              TutorSession[]
 
   @@index([instructorId])
   @@index([status])
@@ -1339,14 +1341,17 @@ model PromptBlockCategory {
 
 model TutorSession {
   id            Int                 @id @default(autoincrement())
-  userId        Int                 @unique @map("user_id")
+  userId        Int                 @map("user_id")
+  courseId       Int?                @map("course_id")
   mode          String              @default("manual")
   activeAgentId Int?                @map("active_agent_id")
   createdAt     DateTime            @default(now()) @map("created_at")
   updatedAt     DateTime            @updatedAt @map("updated_at")
   conversations TutorConversation[]
   user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course        Course?             @relation(fields: [courseId], references: [id], onDelete: SetNull)
 
+  @@unique([userId, courseId])
   @@map("tutor_sessions")
 }
 
@@ -1795,6 +1800,7 @@ model Certificate {
   issueDate        DateTime            @default(now()) @map("issue_date")
   expiryDate       DateTime?           @map("expiry_date")
   metadata         String?
+  course           Course              @relation(fields: [courseId], references: [id])
   template         CertificateTemplate @relation(fields: [templateId], references: [id])
 
   @@unique([userId, courseId])

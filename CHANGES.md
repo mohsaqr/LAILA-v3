@@ -1,3 +1,134 @@
+### 2026-03-10 — Fix sidebar disappearing on multiple pages
+
+- `client/src/components/layout/Layout.tsx`: The `sidebarPages` array only included `/dashboard`, `/courses`, `/ai-tools`, `/ai-tutors`, `/settings`, `/profile`, `/teach`. Added `/course`, `/labs`, `/forums`, `/certificates`, `/certificate`, `/quizzes`, `/admin`. Removed the `!location.pathname.startsWith('/admin')` exclusion so the sidebar also shows on admin Logs and Analytics pages.
+
+### 2026-03-10 — Replace plain selects with searchable dropdowns in Course Catalog and Course Create form
+
+- `client/src/pages/Catalog.tsx`: Added `SearchableSelect` component matching the `CategoryMultiSelect` style. Replaced the plain `<select>` for difficulty/level filter.
+- `client/src/components/teach/CourseForm.tsx`: Added `SearchableSelect` component with optional `label` and `infoPopup` props. Replaced both plain `<Select>` elements (difficulty level and curriculum view mode) with searchable dropdowns. Removed unused `Select` import.
+
+- `client/src/pages/Catalog.tsx`: Added `SearchableSelect` component matching the `CategoryMultiSelect` style (same border, focus ring, chip display, search input, dropdown list). Replaced the plain `<select>` for difficulty/level filter with `SearchableSelect`. Selected value shows as a removable chip, dropdown has a search field and radio-style indicators.
+
+### 2026-03-10 — Clean up navbar and sidebar navigation
+
+- `client/src/components/layout/Navbar.tsx`: Removed Dashboard and Courses from `navItems` (already in sidebar). Removed AI Tools for instructors (only admins see it in navbar now). Removed unused `BookOpen` and `GraduationCap` imports.
+- `client/src/components/layout/DashboardSidebar.tsx`: Changed `t('my_courses')` to `t('courses')` for both student and instructor nav items. Moved AI Tools from last position to third (after Dashboard and Courses) in instructor sidebar.
+
+### 2026-03-10 — Fix auto-route and random mode chat history not persisting
+
+- `server/src/services/tutor.service.ts`: `handleRouterMode()` and `handleRandomMode()` were storing messages under the routed/random agent's conversation, so on page reload the client fetched the first agent's (team chat) conversation and found it empty. Fixed by using the same "team chat" unified conversation pattern as collaborative mode — `agents[0]` is always used for conversation storage. The routed agent's identity is preserved in `routingInfo` on the messages. The routed agent's system prompt and personality are still used for the AI response.
+
+### 2026-03-10 — Fix "Reply to Thread" button doing nothing
+
+- `client/src/pages/Forum.tsx`: The "Reply to Thread" button set `replyingToId` to `null`, which was already the initial state, so nothing visibly happened. The reply form was already rendered at the bottom but off-screen. Fixed by adding a `replyFormRef` and scrolling to it with `scrollIntoView({ behavior: 'smooth', block: 'center' })` when the button is clicked.
+
+### 2026-03-10 — Fix button font size consistency
+
+- `client/src/components/common/Button.tsx`: Added `text-sm` to the `md` (default) size class. Previously `md` had no font-size class, so buttons inherited the parent's font size. Now all three sizes have explicit font sizes: `sm` = `text-sm`, `md` = `text-sm`, `lg` = `text-lg`.
+- `client/src/pages/Forum.tsx`: Added `whitespace-nowrap flex-shrink-0` to the "+ New Discussion" button so it never wraps. Added `min-w-0` and `truncate` to the forum title so it shrinks instead of pushing the button off-screen.
+
+### 2026-03-10 — Fix auto-route/random/collaborative missing courseId in conversation lookup
+
+- `server/src/services/tutor.service.ts`: `handleRouterMode()`, `handleRandomMode()`, and `handleCollaborativeMode()` were calling `getOrCreateConversation()` without passing `courseId`. Since sessions use a `@@unique([userId, courseId])` compound key, the conversation lookup failed with "Session not found" when a courseId was present. Fixed by passing `courseId` to all three calls.
+
+### 2026-03-10 — AI tutor responds to student emotional pulses
+
+- `server/src/services/tutor.service.ts`: Added `EMOTION_GUIDANCE` map with tailored tone instructions for all 7 emotions (productive, stimulated, frustrated, learning, enjoying, bored, quitting). `sendMessage()` accepts optional `emotionalPulse` param; if not provided, fetches the student's most recent pulse from DB (within 30 min). Passes emotion to `handleManualMode()`, `handleRouterMode()`, `handleRandomMode()`, `handleCollaborativeMode()`, and `getAgentResponse()`. Each injects a `STUDENT EMOTIONAL STATE` section into the system prompt with the emotion name and behavioral guidance.
+- `server/src/routes/tutor.routes.ts`: Message endpoint extracts `emotionalPulse` from request body and passes it to `sendMessage()`.
+- `client/src/api/tutors.ts`: `sendMessage()` accepts optional `emotionalPulse` parameter and sends it in the request body.
+- `client/src/pages/AITutors.tsx`: Added `latestEmotion` state. `handleEmotionalPulse` stores the selected emotion. `sendMessageMutation` passes `latestEmotion` to the API so the next message includes the student's current emotional state.
+- `server/src/services/tutor.service.test.ts`: Added `emotionalPulse.findFirst` mock to prisma mock object.
+- `server/src/routes/tutor.routes.test.ts`: Updated 6 message endpoint assertions to include `emotionalPulse` parameter.
+
+### 2026-03-10 — Make AI tutor chat sessions course-specific
+
+- `server/prisma/schema.prisma`: Added `courseId` column to `TutorSession`. Changed unique constraint from `@unique` on `userId` to `@@unique([userId, courseId])`. Added `Course` relation. Changed User relation from one-to-one (`TutorSession?`) to one-to-many (`TutorSession[]`).
+- `server/src/services/tutor.service.ts`: All session lookups now use compound key `{ userId_courseId: { userId, courseId } }`. Methods `getOrCreateSession`, `updateMode`, `setActiveAgent`, `getConversations`, `getOrCreateConversation`, `clearConversation`, and `sendMessage` all accept optional `courseId`. Session responses now include `courseId`.
+- `server/src/routes/tutor.routes.ts`: All session/conversation endpoints accept `courseId` — GET endpoints via query param, PUT/POST/DELETE via request body or query param.
+- `server/src/types/tutor.types.ts`: Added `courseId` to `TutorSessionData`.
+- `client/src/types/tutor.ts`: Added `courseId` to `TutorSession`.
+- `client/src/api/tutors.ts`: All API methods now accept optional `courseId` and pass it as query param or body field.
+- `client/src/pages/AITutors.tsx`: All mutations and queries pass `parsedCourseId` from URL. Query keys include courseId for proper cache isolation.
+- `client/src/pages/TestCorner.tsx`: Updated `getSession` call for new signature.
+- Test files updated for new compound key and courseId parameters.
+
+### 2026-03-10 — Fix auto-route selecting tutors outside course list
+
+- `server/src/services/tutor.service.ts`: `getAvailableAgents()` now accepts optional `courseId`. When provided, queries `CourseTutor` to return only the tutors assigned to that course. `sendMessage()` accepts `courseId` and passes it through to `handleRouterMode`, `handleRandomMode`, and `handleCollaborativeMode`.
+- `server/src/routes/tutor.routes.ts`: Message endpoint now accepts optional `courseId` in request body and passes it to `sendMessage()`.
+- `client/src/api/tutors.ts`: `sendMessage()` now accepts optional `courseId` parameter and sends it in the request body.
+- `client/src/pages/AITutors.tsx`: Passes `courseIdFromUrl` to `sendMessage()` so router/random/collaborative modes only select from course-specific tutors.
+- `server/src/routes/tutor.routes.test.ts`: Updated 5 existing test assertions for new `courseId` parameter, added new test for courseId passthrough.
+
+### 2026-03-10 — Add TNA charts to agent design process analytics
+
+- `client/src/components/agent-assignment/instructor/DesignAnalyticsSummary.tsx`: Added three TNA visualization cards below the existing Activity Breakdown section. New `TnaChartsSection` helper converts event categories into TNA sequences and models. Added `events` prop to receive raw design events from parent.
+  - **ActivityDonutChart**: Shows activity distribution by category as an interactive donut chart.
+  - **TnaIndexPlot**: Renders the full design process as a single color-coded sequence (one row of timesteps).
+  - **TnaNetworkGraph**: Displays transition network between activity categories with weighted directed edges and self-loops.
+- `client/src/components/agent-assignment/instructor/DesignProcessTab.tsx`: Passes `events` array to `DesignAnalyticsSummary` for TNA chart generation.
+
+### 2026-03-09 — Fix incorrect Total Design Time in Summary/Analytics
+
+- `server/src/services/agentDesignLog.service.ts`: `calculateAnalytics()` now prefers the last event's cumulative `totalDesignTime` field (logged by the client as elapsed seconds since session start) over the session event pair calculation. Falls back to the previous 3-tier computation (session pairs → unclosed session → first-to-last span) only when the last event has no `totalDesignTime`. This ensures Summary/Analytics tabs show the same correct total as the last item in the Full Time Timeline.
+
+### 2026-03-09 — Rich text editor for forum replies and thread creation
+
+- `client/src/components/forum/ForumReplyInput.tsx`: Replaced plain textarea with tiptap rich text editor. Toolbar: Bold, Italic, Underline, Heading, Bullet/Ordered List, Code Block, Link, Image upload, Undo, Redo. Value is now HTML string. Images uploaded to server (not base64) and compressed to max 500 KB before upload.
+- `client/src/components/forum/RichTextEditor.tsx`: New reusable rich text editor component for thread creation modal. Same tiptap config and toolbar as ForumReplyInput.
+- `client/src/utils/imageCompress.ts`: New utility that compresses images client-side using canvas. Scales down to max 1200px and re-encodes as JPEG with decreasing quality until under target size.
+- `client/src/pages/Forum.tsx`: Post and thread content rendered as sanitized HTML via `DOMPurify.sanitize()` + `dangerouslySetInnerHTML` with `prose` typography classes. Thread list preview strips HTML tags for clean text. Thread creation modal uses `RichTextEditor` instead of textarea.
+- `client/src/styles/index.css`: Added tiptap editor styles (placeholder, image max-width 300px, link color) and rendered content image sizing.
+- `client/tailwind.config.js`: Added `@tailwindcss/typography` plugin for `prose` classes.
+- `server/src/routes/forum.routes.ts`: Increased content validation limit from 10,000 to 50,000 chars (3 schemas: createThread, createPost, updatePost) to accommodate HTML content.
+- New dependencies: `@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/extension-image`, `@tiptap/extension-link`, `@tiptap/extension-placeholder`, `@tiptap/extension-underline`, `@tailwindcss/typography`.
+
+### 2026-03-09 — Create assignment via popup in curriculum editor
+
+- `client/src/components/teach/ModuleItem.tsx`: Assignment button now opens a modal instead of redirecting to the lecture editor. Modal shows the full assignment creation form (title, description, instructions, submission type, points, due date, publish). On submit, creates the assignment via `assignmentsApi.createAssignment()` then creates an assignment section via `coursesApi.createSection()`.
+
+### 2026-03-09 — Upload file via popup in curriculum editor
+
+- `client/src/components/teach/ModuleItem.tsx`: File button now opens an inline modal instead of redirecting to the lecture editor. Modal supports drag-and-drop or click-to-upload, file name editing, and saves as a new file section via `coursesApi.createSection()`. Uses existing upload endpoint (`/api/uploads/file`).
+- `client/public/locales/{en,fi,es,ar}/teaching.json`: Added `file_name`, `file_uploaded`, `failed_upload` keys.
+
+### 2026-03-09 — Show section buttons only for empty lectures in curriculum editor
+
+- `server/src/services/course.service.ts`: `getCourseDetails()` now includes `sections` (id, type, fileName, fileUrl, fileType, order) in the lecture select, so the curriculum editor knows which lectures have content.
+- `client/src/components/teach/ModuleItem.tsx`: Inline add section buttons (Text, File, AI, Chatbot, Assignment) now only display for lectures with no sections. Lectures with existing sections rely on "Manage Content" instead.
+- `client/src/components/teach/LectureItem.tsx`: When a lecture contains a file section, displays file info (name, download, rename) below the lecture card. Inline rename with Enter/Escape, download via fetch-blob.
+
+### 2026-03-09 — Guard against ai_agent submissions via regular endpoint
+
+- `server/src/services/assignment.service.ts`: Added guard in `submitAssignment()` that rejects assignments with `submissionType === 'ai_agent'` (throws 400). This prevents agent assignment resubmissions from being saved as text submissions. Agent assignments must go through `agentAssignment.service.submitAgentConfig()` which properly preserves the `agentConfigId` link and all analytics.
+
+### 2026-03-09 — Fix templateUsage null in agent design analytics
+
+- `server/src/services/agentDesignLog.service.ts`: `calculateAnalytics()` now accepts optional `config` parameter. `templateUsage.roleUsed` falls back to `config.pedagogicalRole` and `templateUsage.personalityUsed` falls back to `config.personality` from `StudentAgentConfig` when design events don't contain role/personality selections (early events logged with null `agentConfigId` are excluded from the query).
+
+### 2026-03-09 — Fix totalDesignTime null in agent design analytics
+
+- `server/src/services/agentDesignLog.service.ts`: Replaced unreliable `design_session_end`-based `totalDesignTime` calculation with event-timestamp-based computation. Sums active session durations (start→end/pause, resume→end/pause pairs). Falls back to first-to-last event span if no session events exist. Previously returned 0/null because `design_session_end` events were lost due to `sendBeacon` content-type issue.
+- `client/src/services/agentDesignLogger.ts`: Fixed `flushSync()` to send `sendBeacon` with `Blob({ type: 'application/json' })` instead of plain string, so Express can parse the JSON body.
+
+### 2026-03-09 — Move save button into lesson settings card
+
+- `client/src/pages/teach/LectureEditor.tsx`: Removed save button from page header. Moved it inside the "Lesson Settings" card as a full-width button after the isFree checkbox. Clarifies that save only applies to settings (content type, video URL, duration, free preview) — sections auto-save independently.
+- `client/public/locales/{en,fi,es,ar}/teaching.json`: Added `save_settings` key.
+
+### 2026-03-09 — Editable file section names for instructors
+
+- `client/src/components/teach/FileSection.tsx`: Added inline file name editing. After upload, auto-enters edit mode with focused input. Pencil icon next to file name toggles edit mode. Check icon or Enter saves, Escape cancels. Saves via existing `onFileChange({ fileName })` callback.
+- `client/public/locales/{en,fi,es,ar}/teaching.json`: Added `edit_file_name` key.
+
+### 2026-03-09 — Add agent assignment chatbots to Chatbot Registry
+
+- `server/src/services/chatbotRegistry.service.ts`: Added third chatbot type `'agent'` that queries `StudentAgentConfig` with `AgentTestConversation`/`AgentTestMessage` for usage stats. Updated `getStats()` to count agent chatbots/conversations/messages. Updated `getFilterOptions()` to include courses with agent assignments and student creators (deduplicated with existing sources).
+- `client/src/api/admin.ts`: Updated `ChatbotRegistryFilters.type`, `UnifiedChatbot.type` to include `'agent'`; added `agentChatbots` to `ChatbotRegistryStats`.
+- `client/src/pages/admin/logs/ChatbotRegistryTab.tsx`: Added `Puzzle` icon import, agent filter option in type dropdown, agent stats card (amber), agent type badge rendering, `agent_assignment` label in context column, course context section in expanded row details with "Designed by" info.
+- `client/src/pages/admin/logs/constants.ts`: Added amber color for `agent` type badge.
+- `client/public/locales/{en,fi,es,ar}/admin.json`: Added keys: `agent_chatbots`, `agent`, `agent_assignment`, `course_context`, `designed_by`.
+
 ### 2026-03-07 — Rename clusters tab to "Learning Tactics"
 
 - `client/public/locales/en/admin.json`: `clusters_title` -> "Learning Tactics"

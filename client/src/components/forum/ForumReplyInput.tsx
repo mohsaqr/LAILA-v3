@@ -1,9 +1,19 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Send, Bot, X } from 'lucide-react';
+import { Send, Bot, X, Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Heading2, ImagePlus, Link as LinkIcon, Undo, Redo, Code, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Image from '@tiptap/extension-image';
+import Link from '@tiptap/extension-link';
+import Placeholder from '@tiptap/extension-placeholder';
+import Underline from '@tiptap/extension-underline';
+import TextAlign from '@tiptap/extension-text-align';
 import { useTheme } from '../../hooks/useTheme';
 import { ForumAgentSelector } from './ForumAgentSelector';
 import { Button } from '../common/Button';
+import toast from 'react-hot-toast';
+import { getAuthToken } from '../../utils/auth';
+import { compressImage } from '../../utils/imageCompress';
 import type { TutorAgent } from '../../api/forums';
 
 interface ForumReplyInputProps {
@@ -38,14 +48,10 @@ export const ForumReplyInput = ({
   const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
   const effectivePlaceholder = placeholder || t('write_your_reply');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const [showMentionDropdown, setShowMentionDropdown] = useState(false);
-  const [mentionQuery, setMentionQuery] = useState('');
-  const [mentionPosition, setMentionPosition] = useState({ top: 0, left: 0 });
   const [selectedAgent, setSelectedAgent] = useState<TutorAgent | null>(null);
   const [showAgentChips, setShowAgentChips] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const colors = {
     bg: isDark ? '#1f2937' : '#ffffff',
@@ -57,76 +63,43 @@ export const ForumReplyInput = ({
     accent: '#0891b2',
   };
 
-  // Filter agents based on mention query
-  const filteredAgents = agents.filter(agent =>
-    agent.displayName.toLowerCase().includes(mentionQuery.toLowerCase()) ||
-    agent.name.toLowerCase().includes(mentionQuery.toLowerCase())
-  );
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: { levels: [2, 3] },
+      }),
+      Underline,
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      Image.configure({ inline: true, allowBase64: true }),
+      Link.configure({ openOnClick: false, HTMLAttributes: { class: 'text-cyan-600 underline' } }),
+      Placeholder.configure({ placeholder: effectivePlaceholder }),
+    ],
+    content: value || '',
+    editable: !disabled && !isSubmitting && !isAiLoading,
+    onUpdate: ({ editor: ed }) => {
+      onChange(ed.isEmpty ? '' : ed.getHTML());
+    },
+  });
 
-  // Detect @mention while typing
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newValue = e.target.value;
-    onChange(newValue);
-
-    // Check for @mention pattern
-    const cursorPos = e.target.selectionStart;
-    const textBeforeCursor = newValue.slice(0, cursorPos);
-    const mentionMatch = textBeforeCursor.match(/@(\w*)$/);
-
-    if (mentionMatch) {
-      setMentionQuery(mentionMatch[1]);
-      setShowMentionDropdown(true);
-
-      // Calculate dropdown position based on @ symbol position
-      if (textareaRef.current) {
-        // Simple positioning - show below the textarea
-        const rect = textareaRef.current.getBoundingClientRect();
-        setMentionPosition({
-          top: rect.height + 4,
-          left: 0,
-        });
+  // Sync external value changes (e.g., after submit clears content)
+  useEffect(() => {
+    if (editor && !editor.isFocused) {
+      const editorEmpty = editor.isEmpty;
+      if (value === '' && !editorEmpty) {
+        editor.commands.clearContent();
+      } else if (value && value !== editor.getHTML()) {
+        editor.commands.setContent(value);
       }
-    } else {
-      setShowMentionDropdown(false);
-      setMentionQuery('');
     }
+  }, [value, editor]);
 
-    // Show agent chips if @mention detected anywhere in text
-    const hasAtMention = /@\w+/.test(newValue);
-    if (hasAtMention && !showAgentChips) {
-      setShowAgentChips(true);
+  // Update editable state
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(!disabled && !isSubmitting && !isAiLoading);
     }
-  }, [onChange, showAgentChips]);
+  }, [editor, disabled, isSubmitting, isAiLoading]);
 
-  // Handle agent selection from dropdown
-  const handleMentionSelect = (agent: TutorAgent) => {
-    if (!textareaRef.current) return;
-
-    const cursorPos = textareaRef.current.selectionStart;
-    const textBeforeCursor = value.slice(0, cursorPos);
-    const textAfterCursor = value.slice(cursorPos);
-
-    // Replace @partial with @AgentName
-    const newTextBefore = textBeforeCursor.replace(/@\w*$/, `@${agent.displayName} `);
-    const newValue = newTextBefore + textAfterCursor;
-
-    onChange(newValue);
-    setShowMentionDropdown(false);
-    setMentionQuery('');
-    setSelectedAgent(agent);
-    setShowAgentChips(true);
-
-    // Focus back on textarea
-    setTimeout(() => {
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-        const newCursorPos = newTextBefore.length;
-        textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
-      }
-    }, 0);
-  };
-
-  // Handle agent selection from chips
   const handleAgentChipSelect = (agent: TutorAgent) => {
     setSelectedAgent(agent);
     if (onAiRequest) {
@@ -134,37 +107,65 @@ export const ForumReplyInput = ({
     }
   };
 
-  // Handle keyboard navigation in dropdown
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (showMentionDropdown && filteredAgents.length > 0) {
-      if (e.key === 'Escape') {
-        setShowMentionDropdown(false);
-        e.preventDefault();
-      } else if (e.key === 'Enter' && !e.shiftKey) {
-        handleMentionSelect(filteredAgents[0]);
-        e.preventDefault();
-      }
-    } else if (e.key === 'Enter' && !e.shiftKey) {
-      // Submit on Enter (without Shift)
-      e.preventDefault();
-      if (value.trim() && !isSubmitting) {
-        onSubmit();
-      }
+  const handleSubmit = useCallback(() => {
+    if (editor && !editor.isEmpty && !isSubmitting) {
+      onSubmit();
     }
-  };
+  }, [editor, isSubmitting, onSubmit]);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node) &&
-          textareaRef.current && !textareaRef.current.contains(event.target as Node)) {
-        setShowMentionDropdown(false);
+  const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editor) return;
+
+    try {
+      const compressed = await compressImage(file, 500);
+      const formData = new FormData();
+      formData.append('file', compressed);
+      const token = getAuthToken();
+      const res = await fetch('/api/uploads/image', {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      });
+      const json = await res.json();
+      if (json.success && json.data?.url) {
+        editor.chain().focus().setImage({ src: json.data.url }).run();
+      } else {
+        toast.error(json.error || t('common:error'));
       }
-    };
+    } catch {
+      toast.error(t('common:error'));
+    }
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    if (imageInputRef.current) imageInputRef.current.value = '';
+  }, [editor]);
+
+  const addLink = useCallback(() => {
+    if (!editor) return;
+    const url = window.prompt('URL');
+    if (url) {
+      editor.chain().focus().setLink({ href: url }).run();
+    }
+  }, [editor]);
+
+  if (!editor) return null;
+
+  const ToolbarButton = ({ onClick, isActive, children, title }: {
+    onClick: () => void; isActive?: boolean; children: React.ReactNode; title: string;
+  }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className={`p-1.5 rounded transition-colors ${
+        isActive
+          ? 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white'
+          : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200'
+      }`}
+    >
+      {children}
+    </button>
+  );
 
   return (
     <div className="space-y-3">
@@ -184,77 +185,78 @@ export const ForumReplyInput = ({
         </div>
       )}
 
-      {/* Textarea with mention dropdown */}
-      <div className="relative">
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          placeholder={effectivePlaceholder}
-          rows={4}
-          disabled={disabled || isSubmitting || isAiLoading}
-          className="w-full px-3 py-2 rounded-lg resize-none"
-          style={{
-            backgroundColor: colors.bgInput,
-            borderColor: colors.border,
-            borderWidth: 1,
-            color: colors.textPrimary,
-            opacity: (disabled || isAiLoading) ? 0.6 : 1,
-          }}
+      {/* Rich text editor */}
+      <div
+        className="rounded-lg border overflow-hidden"
+        style={{ borderColor: colors.border, backgroundColor: colors.bgInput, opacity: (disabled || isAiLoading) ? 0.6 : 1 }}
+      >
+        {/* Toolbar */}
+        <div className="flex items-center gap-0.5 px-2 py-1.5 border-b flex-wrap" style={{ borderColor: colors.border, backgroundColor: isDark ? '#2d3748' : '#f9fafb' }}>
+          <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive('bold')} title="Bold">
+            <Bold size={16} />
+          </ToolbarButton>
+          <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} isActive={editor.isActive('italic')} title="Italic">
+            <Italic size={16} />
+          </ToolbarButton>
+          <ToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} isActive={editor.isActive('underline')} title="Underline">
+            <UnderlineIcon size={16} />
+          </ToolbarButton>
+          <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1" />
+          <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} isActive={editor.isActive('heading', { level: 2 })} title="Heading">
+            <Heading2 size={16} />
+          </ToolbarButton>
+          <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} isActive={editor.isActive('bulletList')} title="Bullet List">
+            <List size={16} />
+          </ToolbarButton>
+          <ToolbarButton onClick={() => editor.chain().focus().toggleOrderedList().run()} isActive={editor.isActive('orderedList')} title="Numbered List">
+            <ListOrdered size={16} />
+          </ToolbarButton>
+          <ToolbarButton onClick={() => editor.chain().focus().toggleCodeBlock().run()} isActive={editor.isActive('codeBlock')} title="Code Block">
+            <Code size={16} />
+          </ToolbarButton>
+          <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1" />
+          <ToolbarButton onClick={() => editor.chain().focus().setTextAlign('left').run()} isActive={editor.isActive({ textAlign: 'left' })} title="Align Left">
+            <AlignLeft size={16} />
+          </ToolbarButton>
+          <ToolbarButton onClick={() => editor.chain().focus().setTextAlign('center').run()} isActive={editor.isActive({ textAlign: 'center' })} title="Align Center">
+            <AlignCenter size={16} />
+          </ToolbarButton>
+          <ToolbarButton onClick={() => editor.chain().focus().setTextAlign('right').run()} isActive={editor.isActive({ textAlign: 'right' })} title="Align Right">
+            <AlignRight size={16} />
+          </ToolbarButton>
+          <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1" />
+          <ToolbarButton onClick={addLink} isActive={editor.isActive('link')} title="Add Link">
+            <LinkIcon size={16} />
+          </ToolbarButton>
+          <ToolbarButton onClick={() => imageInputRef.current?.click()} title="Add Image">
+            <ImagePlus size={16} />
+          </ToolbarButton>
+          <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1" />
+          <ToolbarButton onClick={() => editor.chain().focus().undo().run()} title="Undo">
+            <Undo size={16} />
+          </ToolbarButton>
+          <ToolbarButton onClick={() => editor.chain().focus().redo().run()} title="Redo">
+            <Redo size={16} />
+          </ToolbarButton>
+        </div>
+
+        {/* Editor content */}
+        <EditorContent
+          editor={editor}
+          className="forum-reply-editor px-3 py-2 min-h-[120px] max-h-[300px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
+          style={{ color: colors.textPrimary }}
         />
 
-        {/* @mention dropdown */}
-        {showMentionDropdown && filteredAgents.length > 0 && (
-          <div
-            ref={dropdownRef}
-            className="absolute z-10 w-64 rounded-lg shadow-lg border overflow-hidden"
-            style={{
-              top: mentionPosition.top,
-              left: mentionPosition.left,
-              backgroundColor: colors.bg,
-              borderColor: colors.border,
-            }}
-          >
-            <div className="px-3 py-2 border-b text-xs font-medium" style={{
-              borderColor: colors.border,
-              color: colors.textSecondary
-            }}>
-              <Bot size={12} className="inline mr-1" />
-              {t('ai_tutors')}
-            </div>
-            {filteredAgents.map((agent) => (
-              <button
-                key={agent.id}
-                onClick={() => handleMentionSelect(agent)}
-                className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                style={{ color: colors.textPrimary }}
-              >
-                {agent.avatarUrl ? (
-                  <img src={agent.avatarUrl} alt="" className="w-6 h-6 rounded-full" />
-                ) : (
-                  <div
-                    className="w-6 h-6 rounded-full flex items-center justify-center"
-                    style={{ backgroundColor: colors.accent }}
-                  >
-                    <Bot size={14} className="text-white" />
-                  </div>
-                )}
-                <div>
-                  <div className="text-sm font-medium">{agent.displayName}</div>
-                  {agent.description && (
-                    <div className="text-xs" style={{ color: colors.textSecondary }}>
-                      {agent.description.slice(0, 40)}...
-                    </div>
-                  )}
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleImageUpload}
+          className="hidden"
+        />
       </div>
 
-      {/* Agent selector chips (shown when @ detected or Ask AI clicked) */}
+      {/* Agent selector chips */}
       {showAgentSelector && showAgentChips && agents.length > 0 && (
         <ForumAgentSelector
           agents={agents}
@@ -269,13 +271,12 @@ export const ForumReplyInput = ({
       {/* Action buttons */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {/* Ask AI toggle button */}
           {showAgentSelector && agents.length > 0 && !showAgentChips && (
             <button
               onClick={() => setShowAgentChips(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
               style={{
-                backgroundColor: isDark ? 'rgba(8, 145, 178, 0.1)' : 'rgba(8, 145, 178, 0.1)',
+                backgroundColor: 'rgba(8, 145, 178, 0.1)',
                 color: colors.accent,
               }}
               disabled={disabled || isAiLoading}
@@ -293,7 +294,7 @@ export const ForumReplyInput = ({
             </Button>
           )}
           <Button
-            onClick={onSubmit}
+            onClick={handleSubmit}
             disabled={!value.trim() || isSubmitting || isAiLoading}
             size="sm"
           >

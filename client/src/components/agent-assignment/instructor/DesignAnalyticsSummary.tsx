@@ -4,6 +4,7 @@
  * Shows summary statistics and analytics for a student's design process.
  */
 
+import { useMemo } from 'react';
 import {
   Clock,
   RefreshCw,
@@ -12,7 +13,15 @@ import {
   Sparkles,
   FileText,
   BarChart2,
+  Network,
+  LayoutList,
 } from 'lucide-react';
+import { tna } from 'dynajs';
+import type { TNA } from 'dynajs';
+import { TnaIndexPlot } from '../../tna/TnaIndexPlot';
+import { TnaNetworkGraph } from '../../tna/TnaNetworkGraph';
+import { ActivityDonutChart } from '../../tna/ActivityDonutChart';
+import { createColorMap } from '../../tna/colorFix';
 
 interface DesignAnalytics {
   totalDesignTime: number;
@@ -28,11 +37,16 @@ interface DesignAnalytics {
   totalEvents?: number;
 }
 
-interface DesignAnalyticsSummaryProps {
-  analytics: DesignAnalytics;
+interface DesignEvent {
+  eventCategory: string;
 }
 
-export const DesignAnalyticsSummary = ({ analytics }: DesignAnalyticsSummaryProps) => {
+interface DesignAnalyticsSummaryProps {
+  analytics: DesignAnalytics;
+  events?: DesignEvent[];
+}
+
+export const DesignAnalyticsSummary = ({ analytics, events }: DesignAnalyticsSummaryProps) => {
   const formatDuration = (seconds: number) => {
     if (seconds < 60) return `${seconds}s`;
     if (seconds < 3600) {
@@ -204,6 +218,102 @@ export const DesignAnalyticsSummary = ({ analytics }: DesignAnalyticsSummaryProp
           </div>
         </div>
       )}
+
+      {/* TNA Charts */}
+      <TnaChartsSection events={events} categoryBreakdown={analytics.categoryBreakdown} categoryLabels={categoryLabels} />
     </div>
   );
 };
+
+/**
+ * TNA Charts Section — renders ActivityDonutChart, TnaIndexPlot, and TnaNetworkGraph
+ * from the design process event sequence.
+ */
+function TnaChartsSection({
+  events,
+  categoryBreakdown,
+  categoryLabels,
+}: {
+  events?: DesignEvent[];
+  categoryBreakdown?: Record<string, number>;
+  categoryLabels: Record<string, string>;
+}) {
+  const { sequence, labels, colorMap, tnaModel, donutData } = useMemo(() => {
+    if (!events || events.length < 2) {
+      return { sequence: [], labels: [], colorMap: {}, tnaModel: null, donutData: null };
+    }
+
+    // Build the sequence of category labels from events
+    const seq = events.map(e => categoryLabels[e.eventCategory] || e.eventCategory);
+
+    // Derive unique labels preserving order of first appearance
+    const seen = new Set<string>();
+    const uniqueLabels: string[] = [];
+    for (const s of seq) {
+      if (!seen.has(s)) {
+        seen.add(s);
+        uniqueLabels.push(s);
+      }
+    }
+
+    const cm = createColorMap(uniqueLabels);
+
+    // Build TNA model from the single sequence
+    let model: TNA | null = null;
+    try {
+      model = tna([seq], { labels: uniqueLabels });
+    } catch {
+      // If TNA computation fails (e.g., too few states), skip network graph
+    }
+
+    // Build donut data from categoryBreakdown with human-readable labels
+    let donut: Record<string, number> | null = null;
+    if (categoryBreakdown) {
+      donut = {};
+      for (const [cat, count] of Object.entries(categoryBreakdown)) {
+        donut[categoryLabels[cat] || cat] = count;
+      }
+    }
+
+    return { sequence: seq, labels: uniqueLabels, colorMap: cm, tnaModel: model, donutData: donut };
+  }, [events, categoryBreakdown, categoryLabels]);
+
+  if (!events || events.length < 2) return null;
+
+  return (
+    <>
+      {/* Activity Donut Chart */}
+      {donutData && (
+        <ActivityDonutChart data={donutData} title="Activity Distribution" />
+      )}
+
+      {/* TNA Index Plot */}
+      {sequence.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <LayoutList className="w-4 h-4 text-violet-600" />
+            Design Process Sequence
+          </h4>
+          <TnaIndexPlot sequences={[sequence]} labels={labels} colorMap={colorMap} />
+        </div>
+      )}
+
+      {/* TNA Network Graph */}
+      {tnaModel && (
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <Network className="w-4 h-4 text-violet-600" />
+            Activity Transition Network
+          </h4>
+          <TnaNetworkGraph
+            model={tnaModel}
+            colorMap={colorMap}
+            showSelfLoops={true}
+            showEdgeLabels={true}
+            height={400}
+          />
+        </div>
+      )}
+    </>
+  );
+}

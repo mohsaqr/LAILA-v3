@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, Link, useNavigate } from 'react-router-dom';
@@ -31,6 +31,8 @@ import { Breadcrumb } from '../components/common/Breadcrumb';
 import { ForumAgentSelector } from '../components/forum/ForumAgentSelector';
 import { ForumReplyInput } from '../components/forum/ForumReplyInput';
 import { buildForumBreadcrumb, buildThreadBreadcrumb } from '../utils/breadcrumbs';
+import DOMPurify from 'dompurify';
+import { RichTextEditor } from '../components/forum/RichTextEditor';
 
 interface ThreadedPost extends ForumPost {
   replies?: ThreadedPost[];
@@ -55,6 +57,7 @@ export const Forum = () => {
   const [aiReplyToId, setAiReplyToId] = useState<number | null>(null); // null = reply to thread, number = reply to post
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showThreadActions, setShowThreadActions] = useState(false);
+  const replyFormRef = useRef<HTMLDivElement>(null);
 
   const colors = {
     bg: isDark ? '#111827' : '#f9fafb',
@@ -220,6 +223,10 @@ export const Forum = () => {
     setReplyingToId(null);
     setReplyingToName('');
     setReplyContent('');
+    // Scroll to the reply form at the bottom
+    setTimeout(() => {
+      replyFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
   };
 
   const handleSubmitReply = () => {
@@ -281,13 +288,12 @@ export const Forum = () => {
     return (
       <div key={post.id} className={isNested ? 'mt-3' : ''}>
         <div
-          className={`rounded-lg ${isNested ? 'ml-6 border-l-2' : ''}`}
+          className={isNested ? 'ml-4 mr-2 mb-2 pl-4 py-3 pr-3 rounded-lg' : 'p-4'}
           style={{
             backgroundColor: isAiPost ? colors.bgAi : (isNested ? colors.bgReply : colors.bgCard),
-            borderLeftColor: isNested ? (isAiPost ? colors.aiAccent : colors.accent) : undefined,
           }}
         >
-          <div className="p-4">
+          <div>
             {/* Reply indicator for nested posts */}
             {isNested && (
               <div className="flex items-center gap-1 text-xs mb-2" style={{ color: colors.textSecondary }}>
@@ -360,9 +366,11 @@ export const Forum = () => {
                   </p>
                 )}
 
-                <p className="mt-2 text-sm whitespace-pre-wrap" style={{ color: colors.textPrimary }}>
-                  {post.content}
-                </p>
+                <div
+                  className="mt-2 text-sm prose prose-sm dark:prose-invert max-w-none break-words"
+                  style={{ color: colors.textPrimary }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
+                />
 
                 {/* Reply and Ask AI buttons */}
                 {showReplyButton && (
@@ -428,7 +436,7 @@ export const Forum = () => {
 
         {/* Render nested replies */}
         {post.replies && post.replies.length > 0 && (
-          <div className="ml-4">
+          <div className="ml-6">
             {post.replies.map(reply => renderPost(reply, depth + 1))}
           </div>
         )}
@@ -457,7 +465,7 @@ export const Forum = () => {
 
     return (
       <div className="min-h-screen py-8" style={{ backgroundColor: colors.bg }}>
-        <div className="max-w-4xl mx-auto px-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Breadcrumb navigation */}
           <div className="mb-6">
             <Breadcrumb items={threadBreadcrumbs} />
@@ -473,7 +481,7 @@ export const Forum = () => {
                 >
                   <User size={24} style={{ color: colors.textSecondary }} />
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
                       {thread.isPinned && <Pin size={14} className="text-yellow-500" />}
@@ -542,9 +550,11 @@ export const Forum = () => {
                   <p className="text-sm mb-4" style={{ color: colors.textSecondary }}>
                     {thread.author ? thread.author.fullname : t('anonymous')} · {formatDate(thread.createdAt)} · {thread.viewCount} {t('views')}
                   </p>
-                  <p style={{ color: colors.textPrimary }} className="whitespace-pre-wrap">
-                    {thread.content}
-                  </p>
+                  <div
+                    className="prose prose-sm dark:prose-invert max-w-none break-words"
+                    style={{ color: colors.textPrimary }}
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(thread.content) }}
+                  />
 
                   {/* Reply to thread button and Ask AI */}
                   {!thread.isLocked && (
@@ -573,7 +583,7 @@ export const Forum = () => {
 
                       {/* AI selector for thread-level reply */}
                       {showAiSelector && aiReplyToId === null && (
-                        <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: colors.bgHover }}>
+                        <div className="mt-3 rounded-lg" style={{ backgroundColor: colors.bgHover }}>
                           <ForumAgentSelector
                             agents={agents}
                             onSelect={(agent) => handleAiRequest(agent)}
@@ -615,6 +625,7 @@ export const Forum = () => {
 
           {/* New reply form (replying to thread) - shown at the bottom */}
           {replyingToId === null && !thread.isLocked && (
+            <div ref={replyFormRef}>
             <Card className="mt-6">
               <CardBody>
                 <h3 className="font-medium mb-3 flex items-center gap-2" style={{ color: colors.textPrimary }}>
@@ -635,6 +646,7 @@ export const Forum = () => {
                 />
               </CardBody>
             </Card>
+            </div>
           )}
 
           {thread.isLocked && (
@@ -700,7 +712,7 @@ export const Forum = () => {
 
   return (
     <div className="min-h-screen py-8" style={{ backgroundColor: colors.bg }}>
-      <div className="max-w-4xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb navigation */}
         <div className="mb-6">
           <Breadcrumb items={forumBreadcrumbs} />
@@ -708,9 +720,9 @@ export const Forum = () => {
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold truncate" style={{ color: colors.textPrimary }}>
                 {forum.title}
               </h1>
               {forum.description && (
@@ -718,7 +730,7 @@ export const Forum = () => {
               )}
             </div>
           </div>
-          <Button onClick={() => setIsCreateThreadOpen(true)}>
+          <Button onClick={() => setIsCreateThreadOpen(true)} className="whitespace-nowrap flex-shrink-0">
             <Plus size={18} />
             {t('new_discussion')}
           </Button>
@@ -754,7 +766,7 @@ export const Forum = () => {
                           </h3>
                         </div>
                         <p className="text-sm line-clamp-2 mb-2" style={{ color: colors.textSecondary }}>
-                          {thread.content}
+                          {thread.content.replace(/<[^>]*>/g, '')}
                         </p>
                         <div className="flex items-center gap-4 text-xs" style={{ color: colors.textSecondary }}>
                           <span>{thread.author ? thread.author.fullname : t('anonymous')}</span>
@@ -815,13 +827,10 @@ export const Forum = () => {
             <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
               {t('discussion_content')}
             </label>
-            <textarea
+            <RichTextEditor
               value={newThread.content}
-              onChange={(e) => setNewThread({ ...newThread, content: e.target.value })}
+              onChange={(html) => setNewThread({ ...newThread, content: html })}
               placeholder={t('discussion_content_placeholder')}
-              rows={6}
-              className="w-full px-3 py-2 rounded-lg"
-              style={{ backgroundColor: colors.bgInput, borderColor: colors.border, borderWidth: 1, color: colors.textPrimary }}
             />
           </div>
           {forum?.allowAnonymous && (

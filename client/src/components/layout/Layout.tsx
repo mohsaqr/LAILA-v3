@@ -28,10 +28,10 @@ export const Layout = () => {
   };
 
   // Pages where sidebar should be shown (authenticated main dashboard pages)
-  const sidebarPages = ['/dashboard', '/courses', '/ai-tools', '/ai-tutors', '/settings', '/profile', '/teach'];
+  const sidebarPages = ['/dashboard', '/courses', '/course', '/ai-tools', '/ai-tutors', '/settings', '/profile', '/teach', '/labs', '/forums', '/certificates', '/certificate', '/quizzes', '/admin'];
   const showSidebar = isAuthenticated && sidebarPages.some(path =>
     location.pathname === path || location.pathname.startsWith(path + '/')
-  ) && !location.pathname.startsWith('/admin');
+  );
 
   // Sync viewAsRole with analytics service for test mode logging
   useEffect(() => {

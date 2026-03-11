@@ -1,7 +1,7 @@
 /**
  * Chatbot Registry Tab Component for the Logs Dashboard.
- * Shows all chatbots (both Global AI Tutors and Section Chatbots) with comprehensive details
- * including system prompts, rules, creator info, course context, and usage statistics.
+ * Shows all chatbots (Global AI Tutors, Section Chatbots, and Agent Assignment Chatbots)
+ * with comprehensive details including system prompts, rules, creator info, course context, and usage statistics.
  */
 
 import { useState, Fragment } from 'react';
@@ -29,6 +29,7 @@ import {
   BookOpen,
   MessageSquare,
   Users,
+  Puzzle,
 } from 'lucide-react';
 import {
   chatbotRegistryApi,
@@ -259,6 +260,19 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
         <Card>
           <CardBody className="p-4">
             <div className="flex items-center gap-2">
+              <Puzzle className="w-5 h-5 text-amber-500" />
+              <div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">{t('agent_chatbots')}</div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {(stats?.agentChatbots || 0).toLocaleString()}
+                </div>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardBody className="p-4">
+            <div className="flex items-center gap-2">
               <MessageSquare className="w-5 h-5 text-green-500" />
               <div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">{t('total_conversations')}</div>
@@ -366,12 +380,13 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 value={filters.type || ''}
                 onChange={(e) =>
-                  updateFilter('type', e.target.value as 'global' | 'section' | undefined)
+                  updateFilter('type', e.target.value as 'global' | 'section' | 'agent' | undefined)
                 }
               >
                 <option value="">{t('all_types')}</option>
                 <option value="global">{t('global_ai_tutors')}</option>
                 <option value="section">{t('section_chatbots')}</option>
+                <option value="agent">{t('agent_chatbots')}</option>
               </select>
             </div>
 
@@ -629,10 +644,12 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                           >
                             {chatbot.type === 'global' ? (
                               <Globe className="w-3 h-3 mr-1" />
+                            ) : chatbot.type === 'agent' ? (
+                              <Puzzle className="w-3 h-3 mr-1" />
                             ) : (
                               <BookOpen className="w-3 h-3 mr-1" />
                             )}
-                            {chatbot.type === 'global' ? t('global') : t('section')}
+                            {chatbot.type === 'global' ? t('global') : chatbot.type === 'agent' ? t('agent') : t('section')}
                           </span>
                         </td>
                         <td className="px-4 py-3">
@@ -669,6 +686,11 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                               {chatbot.lectureTitle && (
                                 <div className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[150px]">
                                   {chatbot.lectureTitle}
+                                </div>
+                              )}
+                              {chatbot.type === 'agent' && (
+                                <div className="text-xs text-amber-600 dark:text-amber-400">
+                                  {t('agent_assignment')}
                                 </div>
                               )}
                             </div>
@@ -908,6 +930,36 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                                       &rarr;
                                     </span>
                                     <span className="font-medium">{t('section')}:</span>#{chatbot.sectionId}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Course Context (for agent assignment chatbots) */}
+                              {chatbot.type === 'agent' && chatbot.courseId && (
+                                <div className="space-y-2 md:col-span-2">
+                                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
+                                    {t('course_context')}
+                                  </h4>
+                                  <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                                    <span className="font-medium">{t('course')}:</span>
+                                    {chatbot.courseTitle} (#{chatbot.courseId})
+                                    {chatbot.moduleTitle && (
+                                      <>
+                                        <span className="text-gray-400 dark:text-gray-500">&rarr;</span>
+                                        <span className="font-medium">{t('module')}:</span>
+                                        {chatbot.moduleTitle}
+                                      </>
+                                    )}
+                                    {chatbot.lectureTitle && (
+                                      <>
+                                        <span className="text-gray-400 dark:text-gray-500">&rarr;</span>
+                                        <span className="font-medium">{t('lecture')}:</span>
+                                        {chatbot.lectureTitle} (#{chatbot.lectureId})
+                                      </>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-amber-600 dark:text-amber-400">
+                                    {t('designed_by')}: {chatbot.creatorName || chatbot.creatorEmail}
                                   </div>
                                 </div>
                               )}

@@ -1058,7 +1058,7 @@ export const messagesApi = {
 // =============================================================================
 
 export interface ChatbotRegistryFilters {
-  type?: 'global' | 'section';
+  type?: 'global' | 'section' | 'agent';
   courseId?: number;
   creatorId?: number;
   isActive?: boolean;
@@ -1074,7 +1074,7 @@ export interface ChatbotRegistryFilters {
 
 export interface UnifiedChatbot {
   id: string;
-  type: 'global' | 'section';
+  type: 'global' | 'section' | 'agent';
   name: string;
   displayName: string;
   description: string | null;
@@ -1115,6 +1115,7 @@ export interface ChatbotRegistryStats {
   totalChatbots: number;
   globalChatbots: number;
   sectionChatbots: number;
+  agentChatbots: number;
   totalConversations: number;
   totalMessages: number;
   uniqueUsers: number;

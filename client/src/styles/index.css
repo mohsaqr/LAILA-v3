@@ -204,11 +204,15 @@ html.dark {
 }
 
 .prose ul {
-  @apply list-disc list-inside mb-4 space-y-1;
+  @apply list-disc mb-4 space-y-1 pl-6;
 }
 
 .prose ol {
-  @apply list-decimal list-inside mb-4 space-y-1;
+  @apply list-decimal mb-4 space-y-1 pl-6;
+}
+
+.prose li > p {
+  @apply inline;
 }
 
 .prose code {
@@ -229,4 +233,62 @@ html.dark {
 
 .prose blockquote {
   @apply border-l-4 border-primary-500 pl-4 italic text-gray-600 my-4 dark:text-gray-400;
+}
+
+/* Tiptap editor styles */
+.forum-reply-editor .tiptap {
+  outline: none;
+  min-height: 80px;
+}
+
+.forum-reply-editor .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  @apply text-gray-400 dark:text-gray-500;
+}
+
+.forum-reply-editor .tiptap img {
+  display: inline-block;
+  max-width: 300px;
+  height: auto;
+  @apply rounded-lg my-2;
+}
+
+.forum-reply-editor .tiptap a {
+  @apply text-cyan-600 underline;
+}
+
+.forum-reply-editor .tiptap [style*="text-align: center"],
+.forum-reply-editor .tiptap [style*="text-align:center"] {
+  text-align: center !important;
+}
+
+.forum-reply-editor .tiptap [style*="text-align: right"],
+.forum-reply-editor .tiptap [style*="text-align:right"] {
+  text-align: right !important;
+}
+
+.forum-reply-editor .tiptap [style*="text-align: left"],
+.forum-reply-editor .tiptap [style*="text-align:left"] {
+  text-align: left !important;
+}
+
+/* Respect text-align in rendered prose content */
+.prose [style*="text-align: center"],
+.prose [style*="text-align:center"] {
+  text-align: center !important;
+}
+
+.prose [style*="text-align: right"],
+.prose [style*="text-align:right"] {
+  text-align: right !important;
+}
+
+/* Rendered forum content images */
+.prose img {
+  display: inline-block;
+  max-width: 300px;
+  height: auto;
 }

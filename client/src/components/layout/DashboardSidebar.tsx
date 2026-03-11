@@ -71,7 +71,7 @@ export const DashboardSidebar = () => {
 
   const studentNavItems: NavItem[] = [
     { label: t('dashboard'), icon: LayoutDashboard, path: '/dashboard' },
-    { label: t('my_courses'), icon: GraduationCap, path: '/courses' },
+    { label: t('courses'), icon: GraduationCap, path: '/courses' },
     {
       label: currentCourseId ? t('course_labs') : t('labs'),
       icon: FlaskConical,
@@ -104,7 +104,8 @@ export const DashboardSidebar = () => {
   // Build instructor nav items - only show admin logs to actual admins
   const instructorNavItems: NavItem[] = [
     { label: t('dashboard'), icon: LayoutDashboard, path: '/dashboard' },
-    { label: t('my_courses'), icon: GraduationCap, path: '/courses' },
+    { label: t('courses'), icon: GraduationCap, path: '/courses' },
+    { label: t('ai_tools'), icon: BrainCircuit, path: '/ai-tools' },
     {
       label: currentCourseId ? t('course_labs') : t('labs'),
       icon: FlaskConical,
@@ -145,7 +146,6 @@ export const DashboardSidebar = () => {
     ] : []),
     { label: t('gradebook'), icon: ClipboardList, path: '/dashboard/gradebook' },
     { label: t('calendar'), icon: Calendar, path: '/dashboard/calendar' },
-    { label: t('ai_tools'), icon: BrainCircuit, path: '/ai-tools' },
   ];
 
   const navItems = isInstructor ? instructorNavItems : studentNavItems;

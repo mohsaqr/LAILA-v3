@@ -12,10 +12,10 @@ import apiClient from '../api/client';
 interface CertificateItem {
   id: number;
   courseId: number;
-  courseName: string;
-  issuedAt: string;
+  issueDate: string;
   verificationCode: string;
-  templateName: string;
+  course: { id: number; title: string };
+  template: { id: number; name: string };
 }
 
 export const CertificateList = () => {
@@ -45,10 +45,10 @@ export const CertificateList = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Breadcrumb navigation */}
       <div className="mb-6">
-        <Breadcrumb items={[{ label: t('my_certificates') }]} />
+        <Breadcrumb items={[{ label: t('certificates') }]} />
       </div>
 
       <div className="mb-8">
@@ -95,20 +95,17 @@ export const CertificateList = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-lg truncate" style={{ color: colors.textPrimary }}>
-                      {cert.courseName}
+                      {cert.template?.name || t('certificate')}
                     </h3>
                     <p className="text-sm" style={{ color: colors.textSecondary }}>
-                      {cert.templateName}
+                      {cert.course?.title}
                     </p>
                     <div className="flex items-center gap-2 mt-2" style={{ color: colors.textSecondary }}>
                       <Calendar className="w-4 h-4" />
                       <span className="text-sm">
-                        {t('issued_on', { date: new Date(cert.issuedAt).toLocaleDateString() })}
+                        {t('issued_on', { date: new Date(cert.issueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) })}
                       </span>
                     </div>
-                    <p className="text-xs mt-1 font-mono" style={{ color: colors.textSecondary }}>
-                      ID: {cert.verificationCode}
-                    </p>
                   </div>
                 </div>
                 <div className="flex gap-2 mt-4 pt-4 border-t" style={{ borderColor: colors.border }}>

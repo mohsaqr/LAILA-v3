@@ -19,12 +19,12 @@ const createForumSchema = z.object({
 
 const createThreadSchema = z.object({
   title: z.string().min(1).max(300),
-  content: z.string().min(1).max(10000),
+  content: z.string().min(1).max(50000),
   isAnonymous: z.boolean().optional(),
 });
 
 const createPostSchema = z.object({
-  content: z.string().min(1).max(10000),
+  content: z.string().min(1).max(50000),
   parentId: z.number().positive().optional(),
   isAnonymous: z.boolean().optional(),
 });
@@ -205,7 +205,7 @@ router.post('/threads/:threadId/posts', authenticateToken, asyncHandler(async (r
 router.put('/posts/:postId', authenticateToken, asyncHandler(async (req, res) => {
   const postId = parseInt(req.params.postId);
   const user = (req as any).user;
-  const { content } = z.object({ content: z.string().min(1).max(10000) }).parse(req.body);
+  const { content } = z.object({ content: z.string().min(1).max(50000) }).parse(req.body);
 
   const post = await forumService.updatePost(postId, user.id, content, user.isAdmin);
   res.json({ success: true, data: post });

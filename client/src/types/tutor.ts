@@ -9,6 +9,7 @@ export type TutorMode = 'manual' | 'router' | 'collaborative' | 'random';
 export interface TutorSession {
   id: number;
   userId: number;
+  courseId: number | null;
   mode: TutorMode;
   activeAgentId: number | null;
   createdAt: string;

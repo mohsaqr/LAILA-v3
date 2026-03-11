@@ -253,6 +253,11 @@ export class AssignmentService {
       throw new AppError('Assignment is not available', 400);
     }
 
+    // AI agent assignments must be submitted through the agent-specific endpoint
+    if (assignment.submissionType === 'ai_agent') {
+      throw new AppError('AI agent assignments must be submitted through the agent builder', 400);
+    }
+
     // Check enrollment
     const enrollment = await prisma.enrollment.findUnique({
       where: {

@@ -12,6 +12,7 @@ import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
+import { RichTextEditor } from '../../components/forum/RichTextEditor';
 import apiClient from '../../api/client';
 
 interface CertificateTemplate {
@@ -243,6 +244,7 @@ export const CertificateManager = () => {
         isOpen={showCreateModal || !!editingTemplate}
         onClose={closeModal}
         title={editingTemplate ? t('edit_template') : t('create_certificate_template')}
+        size="3xl"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -284,18 +286,11 @@ export const CertificateManager = () => {
             <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
               {t('certificate_content_html')}
             </label>
-            <textarea
+            <RichTextEditor
               value={formData.templateHtml}
-              onChange={(e) => setFormData({ ...formData, templateHtml: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg border font-mono text-sm"
-              style={{
-                backgroundColor: colors.cardBg,
-                borderColor: colors.border,
-                color: colors.textPrimary,
-              }}
-              rows={10}
+              onChange={(html) => setFormData({ ...formData, templateHtml: html })}
               placeholder={t('certificate_html_placeholder')}
-              required
+              maxImageSizeKB={1024}
             />
             <p className="text-xs mt-1" style={{ color: colors.textSecondary }}>
               {t('available_placeholders')}

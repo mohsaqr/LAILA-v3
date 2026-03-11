@@ -164,4 +164,5 @@ export type TabType = 'activity' | 'interactions' | 'messages' | 'chatbots' | 'f
 export const chatbotTypeColors: Record<string, string> = {
   global: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
   section: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300',
+  agent: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300',
 };

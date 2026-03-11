@@ -14,6 +14,7 @@ import { assignmentsApi } from '../api/assignments';
 import { useTheme } from '../hooks/useTheme';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
+import { Breadcrumb } from '../components/common/Breadcrumb';
 
 export const DashboardCalendar = () => {
   const { t } = useTranslation(['courses', 'common']);
@@ -130,7 +131,12 @@ export const DashboardCalendar = () => {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: colors.bg }}>
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Breadcrumb */}
+        <div className="mb-6">
+          <Breadcrumb items={[{ label: t('calendar') }]} />
+        </div>
+
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">

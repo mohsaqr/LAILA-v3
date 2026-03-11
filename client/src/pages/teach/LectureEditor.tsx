@@ -205,14 +205,6 @@ export const LectureEditor = () => {
             { label: lecture.title || t('lesson_title') },
           ]}
         />
-        <Button
-          size="sm"
-          onClick={handleSave}
-          loading={updateLectureMutation.isPending}
-          icon={<Save className="w-4 h-4" />}
-        >
-          {t('save')}
-        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -331,6 +323,16 @@ export const LectureEditor = () => {
                   {t('allow_free_preview')}
                 </label>
               </div>
+
+              <Button
+                size="sm"
+                onClick={handleSave}
+                loading={updateLectureMutation.isPending}
+                icon={<Save className="w-4 h-4" />}
+                className="w-full"
+              >
+                {t('save_settings')}
+              </Button>
             </CardBody>
           </Card>
 

@@ -169,6 +169,7 @@ function App() {
       {/* Public auth routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/verify/:verificationCode" element={<Certificate />} />
 
       {/* Main layout routes */}
       <Route element={<Layout />}>
@@ -341,7 +342,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="/verify/:verificationCode" element={<Certificate />} />
 
         {/* Forums list (all forums across courses) */}
         <Route

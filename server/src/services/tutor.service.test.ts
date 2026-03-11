@@ -34,6 +34,9 @@ vi.mock('../utils/prisma.js', () => ({
       findUnique: vi.fn(),
       findMany: vi.fn(),
     },
+    emotionalPulse: {
+      findFirst: vi.fn(),
+    },
   },
 }));
 
@@ -111,7 +114,7 @@ describe('TutorService', () => {
       expect(result.session.id).toBe(1);
       expect(result.session.mode).toBe('manual');
       expect(prisma.tutorSession.findUnique).toHaveBeenCalledWith({
-        where: { userId: 123 },
+        where: { userId_courseId: { userId: 123, courseId: null } },
         include: expect.any(Object),
       });
     });
@@ -177,7 +180,7 @@ describe('TutorService', () => {
 
       expect(result.mode).toBe('router');
       expect(prisma.tutorSession.update).toHaveBeenCalledWith({
-        where: { userId: 123 },
+        where: { userId_courseId: { userId: 123, courseId: null } },
         data: { mode: 'router' },
       });
     });
@@ -423,7 +426,7 @@ describe('TutorService', () => {
       expect(result.activeAgentId).toBe(5);
       expect(prisma.chatbot.findUnique).toHaveBeenCalledWith({ where: { id: 5 } });
       expect(prisma.tutorSession.update).toHaveBeenCalledWith({
-        where: { userId: 123 },
+        where: { userId_courseId: { userId: 123, courseId: null } },
         data: { activeAgentId: 5 },
       });
     });

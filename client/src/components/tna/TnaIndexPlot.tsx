@@ -17,18 +17,19 @@ export const TnaIndexPlot = ({ sequences, labels, colorMap: externalColorMap }: 
   if (maxLen === 0) return null;
 
   const svgWidth = 700;
-  const svgHeight = 350;
-  const margin = { top: 20, right: 120, bottom: 40, left: 50 };
+  const margin = { top: 40, right: 130, bottom: 40, left: 50 };
   const plotW = svgWidth - margin.left - margin.right;
-  const plotH = svgHeight - margin.top - margin.bottom;
+  const plotH = 350 - margin.top - margin.bottom;
 
   const cellW = plotW / maxLen;
   const cellH = Math.min(plotH / sequences.length, 8);
   const actualH = cellH * sequences.length;
+  const legendH = labels.length * 18;
+  const contentH = Math.max(actualH + margin.top + margin.bottom, legendH + margin.top + 10);
 
   return (
     <div className="overflow-x-auto">
-      <svg width={svgWidth} height={margin.top + actualH + margin.bottom} className="mx-auto">
+      <svg width={svgWidth} height={contentH} className="mx-auto">
         <g transform={`translate(${margin.left},${margin.top})`}>
           {/* Y-axis label */}
           <text x={-actualH / 2} y={-35} transform="rotate(-90)" textAnchor="middle"

@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   FileText,
   Video,
@@ -10,9 +12,14 @@ import {
   FileEdit,
   Eye,
   EyeOff,
+  Download,
+  Pencil,
+  Check,
+  X,
 } from 'lucide-react';
 import { Assignment, Lecture } from '../../types';
 import { AssignmentItem } from './AssignmentItem';
+import { coursesApi } from '../../api/courses';
 
 interface LectureItemProps {
   lecture: Lecture;
@@ -44,6 +51,36 @@ export const LectureItem = ({
   onDeleteAssignment,
 }: LectureItemProps) => {
   const { t } = useTranslation(['teaching']);
+  const queryClient = useQueryClient();
+
+  // File rename state
+  const fileSection = lecture.sections?.find(s => s.type === 'file' && s.fileUrl);
+  const [isEditingFileName, setIsEditingFileName] = useState(false);
+  const [editFileName, setEditFileName] = useState(fileSection?.fileName || '');
+
+  const renameMutation = useMutation({
+    mutationFn: ({ sectionId, fileName }: { sectionId: number; fileName: string }) =>
+      coursesApi.updateSection(sectionId, { fileName }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+      setIsEditingFileName(false);
+    },
+  });
+
+  const handleFileDownload = async (url: string, name: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      window.open(url, '_blank');
+    }
+  };
 
   const getIcon = () => {
     switch (lecture.contentType) {
@@ -152,6 +189,76 @@ export const LectureItem = ({
         </button>
       </div>
     </div>
+
+    {/* File section display */}
+    {fileSection && (
+      <div className="ml-6 mt-1 flex items-center gap-2 p-2 rounded-md bg-green-50 border border-green-200">
+        <FileText className="w-4 h-4 text-green-600 flex-shrink-0" />
+        {isEditingFileName ? (
+          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+            <input
+              type="text"
+              value={editFileName}
+              onChange={(e) => setEditFileName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && editFileName.trim()) {
+                  renameMutation.mutate({ sectionId: fileSection.id, fileName: editFileName.trim() });
+                }
+                if (e.key === 'Escape') {
+                  setIsEditingFileName(false);
+                  setEditFileName(fileSection.fileName || '');
+                }
+              }}
+              className="flex-1 min-w-0 text-xs px-2 py-1 border border-green-300 rounded focus:outline-none focus:ring-1 focus:ring-green-500"
+              autoFocus
+            />
+            <button
+              onClick={() => {
+                if (editFileName.trim()) {
+                  renameMutation.mutate({ sectionId: fileSection.id, fileName: editFileName.trim() });
+                }
+              }}
+              className="p-1 rounded hover:bg-green-100 transition-colors"
+            >
+              <Check className="w-3.5 h-3.5 text-green-600" />
+            </button>
+            <button
+              onClick={() => { setIsEditingFileName(false); setEditFileName(fileSection.fileName || ''); }}
+              className="p-1 rounded hover:bg-gray-200 transition-colors"
+            >
+              <X className="w-3.5 h-3.5 text-gray-500" />
+            </button>
+          </div>
+        ) : (
+          <>
+            <span className="text-xs text-green-800 truncate flex-1 min-w-0">
+              {fileSection.fileName || t('file')}
+            </span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditFileName(fileSection.fileName || '');
+                setIsEditingFileName(true);
+              }}
+              className="p-1 rounded hover:bg-green-100 transition-colors"
+              title={t('edit_file_name')}
+            >
+              <Pencil className="w-3 h-3 text-green-600" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleFileDownload(fileSection.fileUrl!, fileSection.fileName || 'file');
+              }}
+              className="p-1 rounded hover:bg-green-100 transition-colors"
+              title={t('download')}
+            >
+              <Download className="w-3 h-3 text-green-600" />
+            </button>
+          </>
+        )}
+      </div>
+    )}
 
     {/* Lecture-level assignments nested below this lecture */}
     {assignments.length > 0 && (
