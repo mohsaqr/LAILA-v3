@@ -229,7 +229,6 @@ export const CourseDetails = () => {
           <Breadcrumb
             items={[
               { label: t('courses'), href: '/courses' },
-              { label: course.categories?.[0]?.category.title || t('general'), href: '/courses' },
               { label: course.title },
             ]}
           />
@@ -268,8 +267,17 @@ export const CourseDetails = () => {
       <div className="gradient-bg text-white py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 className="text-2xl md:text-3xl font-bold mb-2">{course.title}</h1>
+          {course.categories && course.categories.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {course.categories.map(({ category }) => (
+                <span key={category.id} className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-white/20 text-white">
+                  {category.title}
+                </span>
+              ))}
+            </div>
+          )}
           {course.description && (
-            <div className="text-white/90 mb-4 prose prose-sm prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(course.description) }} />
+            <div className="text-white mb-4 prose prose-sm max-w-none [&_*]:text-white/95 [&_a]:text-white [&_a]:underline" dangerouslySetInnerHTML={{ __html: sanitizeHtml(course.description) }} />
           )}
           <div className="flex flex-wrap items-center gap-4 text-sm">
             <span className="flex items-center gap-1"><Users className="w-4 h-4" /> {t('n_students', { count: course._count?.enrollments || 0 })}</span>
@@ -448,7 +456,7 @@ export const CourseDetails = () => {
 
           {/* Sidebar */}
           {hasAccess && (
-            <div className="lg:w-80 flex-shrink-0">
+            <div className="lg:w-96 flex-shrink-0">
               <div className="lg:sticky lg:top-4 space-y-4">
                 {/* Module Navigation */}
                 {course.modules && course.modules.length > 0 && (

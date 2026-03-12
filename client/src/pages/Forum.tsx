@@ -719,16 +719,14 @@ export const Forum = () => {
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4 min-w-0">
-            <div className="min-w-0">
-              <h1 className="text-2xl font-bold truncate" style={{ color: colors.textPrimary }}>
-                {forum.title}
-              </h1>
-              {forum.description && (
-                <p className="text-sm" style={{ color: colors.textSecondary }}>{forum.description}</p>
-              )}
-            </div>
+        <div className="flex items-start justify-between gap-4 mb-6">
+          <div className="w-4/5 min-w-0">
+            <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
+              {forum.title}
+            </h1>
+            {forum.description && (
+              <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>{forum.description}</p>
+            )}
           </div>
           <Button onClick={() => setIsCreateThreadOpen(true)} className="whitespace-nowrap flex-shrink-0">
             <Plus size={18} />
