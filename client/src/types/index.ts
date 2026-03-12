@@ -72,12 +72,20 @@ export interface CourseModule {
   codeLabs?: CodeLab[];
   assignments?: Assignment[];
   forums?: ForumType[];
+  quizzes?: ModuleQuiz[];
   _count?: {
     lectures: number;
     codeLabs?: number;
     assignments?: number;
     forums?: number;
   };
+}
+
+export interface ModuleQuiz {
+  id: number;
+  title: string;
+  isPublished: boolean;
+  _count?: { questions: number };
 }
 
 // Re-export Forum type for convenience

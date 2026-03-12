@@ -200,6 +200,10 @@ export class CourseService {
               orderBy: { orderIndex: 'asc' },
               select: { id: true, title: true, description: true, orderIndex: true, isPublished: true },
             },
+            quizzes: {
+              orderBy: { createdAt: 'asc' },
+              select: { id: true, title: true, isPublished: true, _count: { select: { questions: true } } },
+            },
           },
         },
 

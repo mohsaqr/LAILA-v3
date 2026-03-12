@@ -23,7 +23,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { Input, TextArea, Select } from '../../components/common/Input';
 import { RichTextEditor } from '../../components/forum/RichTextEditor';
 import { ModuleItem } from '../../components/teach/ModuleItem';
-import { CourseModule, Lecture, CodeLab, Assignment, CustomLab, LabTemplate, LabAssignment } from '../../types';
+import { CourseModule, Lecture, CodeLab, Assignment, CustomLab, LabTemplate, LabAssignment, ModuleQuiz } from '../../types';
 
 interface ModuleFormData {
   title: string;
@@ -457,6 +457,18 @@ export const CurriculumEditor = () => {
       closeQuizModal();
     },
     onError: () => toast.error(t('failed_to_create_quiz')),
+  });
+
+  const [deleteQuizConfirm, setDeleteQuizConfirm] = useState<ModuleQuiz | null>(null);
+
+  const deleteQuizMutation = useMutation({
+    mutationFn: (id: number) => quizzesApi.deleteQuiz(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+      toast.success(t('quiz_deleted'));
+      setDeleteQuizConfirm(null);
+    },
+    onError: () => toast.error(t('failed_to_delete_quiz')),
   });
 
   // Modal handlers
@@ -1185,6 +1197,7 @@ export const CurriculumEditor = () => {
                   onMoveForumDown={handleMoveForumDown}
                   onRemoveInteractiveLab={handleRemoveInteractiveLab}
                   onAddQuiz={openAddQuizModal}
+                  onDeleteQuiz={setDeleteQuizConfirm}
                 />
               ))}
             </div>
@@ -1966,6 +1979,19 @@ export const CurriculumEditor = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Delete Quiz Confirmation */}
+      <ConfirmDialog
+        isOpen={!!deleteQuizConfirm}
+        onClose={() => setDeleteQuizConfirm(null)}
+        onConfirm={() =>
+          deleteQuizConfirm && deleteQuizMutation.mutate(deleteQuizConfirm.id)
+        }
+        title={t('delete_quiz')}
+        message={t('delete_quiz_confirm', { title: deleteQuizConfirm?.title })}
+        confirmText={t('common:delete')}
+        loading={deleteQuizMutation.isPending}
+      />
 
       {/* Delete Course Confirmation */}
       <ConfirmDialog
