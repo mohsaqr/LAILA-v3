@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronRight, FileText, PlayCircle, Layers, FlaskConical, FileQuestion, ClipboardList, MessageSquare, Bot, Network } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileText, PlayCircle, Layers, FlaskConical, FileQuestion, ClipboardList, MessageSquare, Bot, Network, ListChecks } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { ContentCard, ContentType, ContentCardSize } from './ContentCard';
-import type { CourseModule, Lecture, CodeLab, Assignment, CurriculumViewMode } from '../../types';
+import type { CourseModule, Lecture, CodeLab, Assignment, Survey, CurriculumViewMode } from '../../types';
 import type { Forum } from '../../api/forums';
 import type { Quiz } from '../../api/quizzes';
 
@@ -17,6 +17,7 @@ interface ModuleSectionProps {
   quizzes?: Quiz[];
   assignments?: Assignment[];
   forums?: Forum[];
+  surveys?: Survey[];
   hasAccess: boolean;
   viewMode?: CurriculumViewMode;
 }
@@ -43,6 +44,7 @@ const iconMap: Record<ContentType, React.ElementType> = {
   forum: MessageSquare,
   ai: FileText,
   interactive_lab: Network,
+  survey: ListChecks,
 };
 
 // Color mapping for list view
@@ -57,6 +59,7 @@ const colorMap: Record<ContentType, { bg: string; bgDark: string; text: string; 
   forum: { bg: 'bg-cyan-50', bgDark: 'rgba(6, 182, 212, 0.15)', text: '#0891b2', textDark: '#67e8f9' },
   ai: { bg: 'bg-teal-50', bgDark: 'rgba(20, 184, 166, 0.15)', text: '#0d9488', textDark: '#5eead4' },
   interactive_lab: { bg: 'bg-violet-50', bgDark: 'rgba(139, 92, 246, 0.15)', text: '#7c3aed', textDark: '#c4b5fd' },
+  survey: { bg: 'bg-rose-50', bgDark: 'rgba(244, 63, 94, 0.15)', text: '#e11d48', textDark: '#fb7185' },
 };
 
 export const ModuleSection = ({
@@ -68,6 +71,7 @@ export const ModuleSection = ({
   quizzes = [],
   assignments = [],
   forums = [],
+  surveys = [],
   hasAccess,
   viewMode = 'mini-cards',
 }: ModuleSectionProps) => {
@@ -92,6 +96,7 @@ export const ModuleSection = ({
   const publishedQuizzes = quizzes.filter(q => q.isPublished);
   const publishedAssignments = assignments.filter(a => a.isPublished);
   const publishedForums = forums.filter(f => f.isPublished);
+  const publishedSurveys = surveys.filter(s => s.isPublished);
 
   // Check if module has any content
   const hasContent =
@@ -99,7 +104,8 @@ export const ModuleSection = ({
     publishedLabs.length > 0 ||
     publishedQuizzes.length > 0 ||
     publishedAssignments.length > 0 ||
-    publishedForums.length > 0;
+    publishedForums.length > 0 ||
+    publishedSurveys.length > 0;
 
   // Helper to determine lecture content type
   const getLectureContentType = (lecture: Lecture): ContentType => {
@@ -150,6 +156,14 @@ export const ModuleSection = ({
       subtitle: forum.description || undefined,
       metadata: forum._count?.threads ? t('x_threads', { count: forum._count.threads }) : undefined,
       href: `/courses/${courseId}/forums/${forum.id}`,
+    })),
+    ...publishedSurveys.map(survey => ({
+      id: survey.id,
+      type: 'survey' as ContentType,
+      title: survey.title,
+      subtitle: survey.description || undefined,
+      metadata: survey._count?.questions ? t('x_questions', { count: survey._count.questions }) : undefined,
+      href: `/surveys/${survey.id}?moduleId=${module.id}&courseId=${courseId}`,
     })),
     ...(module.interactiveLabs
       ? module.interactiveLabs.split(',').map((key: string) => key.trim()).filter(Boolean).map((key: string, idx: number) => ({

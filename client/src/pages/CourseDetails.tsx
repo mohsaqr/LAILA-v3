@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { sanitizeHtml } from '../utils/sanitize';
 import { useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -19,6 +20,7 @@ import { enrollmentsApi } from '../api/enrollments';
 import { assignmentsApi } from '../api/assignments';
 import { forumsApi, Forum } from '../api/forums';
 import { quizzesApi, Quiz } from '../api/quizzes';
+import { surveysApi } from '../api/surveys';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import { Card, CardBody } from '../components/common/Card';
@@ -28,7 +30,7 @@ import { Breadcrumb } from '../components/common/Breadcrumb';
 import { CollaborativeModule } from '../components/course/CollaborativeModule';
 import { ModuleSection } from '../components/course/ModuleSection';
 import { useEffect, useRef } from 'react';
-import { Assignment, CurriculumViewMode } from '../types';
+import { Assignment, Survey, CurriculumViewMode } from '../types';
 import activityLogger from '../services/activityLogger';
 
 export const CourseDetails = () => {
@@ -91,8 +93,18 @@ export const CourseDetails = () => {
     enabled: isAuthenticated && (enrollmentData?.enrolled || isActualAdmin || isActualInstructor),
   });
 
+  // Fetch surveys for the course (via moduleSurveys relation)
+  const { data: courseSurveys } = useQuery({
+    queryKey: ['courseSurveys', id],
+    queryFn: () => surveysApi.getSurveys(parseInt(id!)),
+    enabled: isAuthenticated && (enrollmentData?.enrolled || isActualAdmin || isActualInstructor),
+  });
+
   // Group items by moduleId
-  const assignmentsByModule = (assignments || []).reduce((acc: Record<number, Assignment[]>, assignment: Assignment) => {
+  // Filter out lecture-level assignments (they display on the lecture page instead)
+  const moduleLevelAssignments = (assignments || []).filter(a => !a.lectureId);
+
+  const assignmentsByModule = moduleLevelAssignments.reduce((acc: Record<number, Assignment[]>, assignment: Assignment) => {
     if (assignment.moduleId && assignment.isPublished) {
       if (!acc[assignment.moduleId]) acc[assignment.moduleId] = [];
       acc[assignment.moduleId].push(assignment);
@@ -116,8 +128,22 @@ export const CourseDetails = () => {
     return acc;
   }, {} as Record<number, Forum[]>);
 
+  // Group surveys by moduleId (via moduleSurveys join data)
+  const surveysByModule = (courseSurveys || []).reduce((acc: Record<number, Survey[]>, survey: Survey) => {
+    if (survey.isPublished && (survey as any).moduleSurveys) {
+      for (const ms of (survey as any).moduleSurveys) {
+        const modId = ms.module?.id || ms.moduleId;
+        if (modId) {
+          if (!acc[modId]) acc[modId] = [];
+          acc[modId].push(survey);
+        }
+      }
+    }
+    return acc;
+  }, {} as Record<number, Survey[]>);
+
   // Standalone items (not assigned to a module)
-  const standaloneAssignments = (assignments || []).filter(a => !a.moduleId && a.isPublished);
+  const standaloneAssignments = moduleLevelAssignments.filter(a => !a.moduleId && a.isPublished);
   const standaloneQuizzes = (quizzes || []).filter(q => !q.moduleId && q.isPublished);
   const standaloneForums = (forums || []).filter(f => !f.moduleId && f.isPublished);
 
@@ -217,7 +243,9 @@ export const CourseDetails = () => {
       <div className="gradient-bg text-white py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 className="text-2xl md:text-3xl font-bold mb-2">{course.title}</h1>
-          <p className="text-white/90 mb-4">{course.description}</p>
+          {course.description && (
+            <div className="text-white/90 mb-4 prose prose-sm prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(course.description) }} />
+          )}
           <div className="flex flex-wrap items-center gap-4 text-sm">
             <span className="flex items-center gap-1"><Users className="w-4 h-4" /> {t('n_students', { count: course._count?.enrollments || 0 })}</span>
             <span className="flex items-center gap-1"><BookOpen className="w-4 h-4" /> {t('n_modules', { count: course.modules?.length || 0 })}</span>
@@ -260,6 +288,7 @@ export const CourseDetails = () => {
                       quizzes={quizzesByModule[module.id]}
                       assignments={assignmentsByModule[module.id]}
                       forums={forumsByModule[module.id]}
+                      surveys={surveysByModule[module.id]}
                       hasAccess={hasAccess}
                       viewMode={viewMode}
                     />

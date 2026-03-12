@@ -352,7 +352,7 @@ model Course {
   labAssignments             LabAssignment[]
   activityLogs               LearningActivityLog[] @relation("CourseActivityLogs")
   quizzes                    Quiz[]
-  surveys                    Survey[]
+  moduleSurveys              ModuleSurvey[]
   certificates               Certificate[]
   tutorSessions              TutorSession[]
 
@@ -399,7 +399,9 @@ model CourseModule {
   forums          Forum[]
   labAssignments  LabAssignment[]
   lectures        Lecture[]
-  quizzes         Quiz[]
+  moduleSurveys    ModuleSurvey[]
+  quizzes          Quiz[]
+  surveyResponses  SurveyResponse[]
 
   @@index([courseId])
   @@map("course_modules")
@@ -599,12 +601,26 @@ model Assignment {
   course                Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
   lectureSections       LectureSection[]
   studentAgentConfigs   StudentAgentConfig[]
+  attachments           AssignmentAttachment[]
 
   @@index([courseId])
   @@index([postSurveyId])
   @@index([lectureId])
   @@index([moduleId])
   @@map("assignments")
+}
+
+model AssignmentAttachment {
+  id           Int        @id @default(autoincrement())
+  assignmentId Int        @map("assignment_id")
+  fileName     String     @map("file_name")
+  fileUrl      String     @map("file_url")
+  fileType     String     @map("file_type")
+  fileSize     Int?       @map("file_size")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@map("assignment_attachments")
 }
 
 model AssignmentSubmission {
@@ -1440,21 +1456,36 @@ model Survey {
   id          Int              @id @default(autoincrement())
   title       String
   description String?
-  courseId    Int?             @map("course_id")
   createdById Int              @map("created_by_id")
   isPublished Boolean          @default(false) @map("is_published")
   isAnonymous Boolean          @default(false) @map("is_anonymous")
   createdAt   DateTime         @default(now()) @map("created_at")
   updatedAt   DateTime         @updatedAt @map("updated_at")
-  assignments Assignment[]     @relation("PostAssignmentSurvey")
-  questions   SurveyQuestion[]
-  responses   SurveyResponse[]
-  createdBy   User             @relation("SurveyCreator", fields: [createdById], references: [id])
-  course      Course?          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  assignments   Assignment[]     @relation("PostAssignmentSurvey")
+  moduleSurveys ModuleSurvey[]
+  questions     SurveyQuestion[]
+  responses     SurveyResponse[]
+  createdBy     User             @relation("SurveyCreator", fields: [createdById], references: [id])
 
-  @@index([courseId])
   @@index([createdById])
   @@map("surveys")
+}
+
+model ModuleSurvey {
+  id       Int          @id @default(autoincrement())
+  courseId  Int          @map("course_id")
+  moduleId Int          @map("module_id")
+  surveyId Int          @map("survey_id")
+  addedAt  DateTime     @default(now()) @map("added_at")
+  course   Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  module   CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  survey   Survey       @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+
+  @@unique([moduleId, surveyId])
+  @@index([courseId])
+  @@index([moduleId])
+  @@index([surveyId])
+  @@map("module_surveys")
 }
 
 model SurveyQuestion {
@@ -1477,15 +1508,18 @@ model SurveyResponse {
   id          Int            @id @default(autoincrement())
   surveyId    Int            @map("survey_id")
   userId      Int?           @map("user_id")
+  moduleId    Int?           @map("module_id")
   context     String         @default("standalone")
   contextId   Int?           @map("context_id")
   completedAt DateTime       @default(now()) @map("completed_at")
   answers     SurveyAnswer[]
   user        User?          @relation("SurveyResponses", fields: [userId], references: [id])
   survey      Survey         @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  module      CourseModule?  @relation(fields: [moduleId], references: [id], onDelete: SetNull)
 
   @@index([surveyId])
   @@index([userId])
+  @@index([moduleId])
   @@map("survey_responses")
 }
 

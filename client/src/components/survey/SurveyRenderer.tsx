@@ -9,6 +9,7 @@ interface SurveyRendererProps {
   survey: Survey;
   context?: SurveyContext;
   contextId?: number;
+  moduleId?: number;
   onComplete?: () => void;
   compact?: boolean;
 }
@@ -17,6 +18,7 @@ export const SurveyRenderer = ({
   survey,
   context = 'standalone',
   contextId,
+  moduleId,
   onComplete,
   compact = false,
 }: SurveyRendererProps) => {
@@ -71,6 +73,7 @@ export const SurveyRenderer = ({
       await surveysApi.submitResponse(survey.id, {
         context,
         contextId,
+        moduleId,
         answers: formattedAnswers,
       });
 
@@ -85,26 +88,7 @@ export const SurveyRenderer = ({
   const questions = survey.questions || [];
 
   return (
-    <div className={compact ? '' : 'max-w-2xl mx-auto'}>
-      {!compact && (
-        <div className="mb-6">
-          <h2
-            className="text-2xl font-bold mb-2"
-            style={{ color: isDark ? '#f3f4f6' : '#111827' }}
-          >
-            {survey.title}
-          </h2>
-          {survey.description && (
-            <p
-              className="text-base"
-              style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
-            >
-              {survey.description}
-            </p>
-          )}
-        </div>
-      )}
-
+    <div>
       {compact && survey.description && (
         <p
           className="text-sm mb-4"
@@ -133,7 +117,7 @@ export const SurveyRenderer = ({
         </div>
       )}
 
-      <div className={`mt-6 ${compact ? '' : 'flex justify-end'}`}>
+      <div className={`mt-6 ${compact ? '' : ''}`}>
         <Button
           onClick={handleSubmit}
           loading={submitting}

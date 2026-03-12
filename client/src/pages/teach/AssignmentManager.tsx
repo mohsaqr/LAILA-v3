@@ -24,8 +24,10 @@ import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { EmptyState } from '../../components/common/EmptyState';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Input, TextArea, Select } from '../../components/common/Input';
+import { RichTextEditor } from '../../components/forum/RichTextEditor';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
+import { AttachmentManager } from '../../components/teach/AssignmentSectionEditor';
 import { Assignment, CourseModule } from '../../types';
 
 interface AssignmentFormData {
@@ -178,7 +180,7 @@ export const AssignmentManager = () => {
 
   if (!course) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 text-center">
+      <div className="max-w-7xl mx-auto px-4 py-8 text-center">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('course_not_found')}</h1>
         <Button onClick={() => navigate('/teach')}>{t('back_to_dashboard')}</Button>
       </div>
@@ -188,10 +190,10 @@ export const AssignmentManager = () => {
   const breadcrumbItems = buildTeachingBreadcrumb(id, course?.title || 'Course', 'Assignments');
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Breadcrumb navigation */}
       <div className="mb-6">
-        <Breadcrumb items={breadcrumbItems} />
+        <Breadcrumb homeHref="/" items={breadcrumbItems} />
       </div>
 
       {/* Course Header */}
@@ -301,7 +303,7 @@ export const AssignmentManager = () => {
         isOpen={formModal.isOpen}
         onClose={closeModal}
         title={formModal.assignment ? t('edit_assignment') : t('create_assignment')}
-        size="lg"
+        size="3xl"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
@@ -320,13 +322,20 @@ export const AssignmentManager = () => {
             rows={2}
           />
 
-          <TextArea
-            label={t('instructions')}
-            value={formData.instructions}
-            onChange={e => handleChange('instructions', e.target.value)}
-            placeholder=""
-            rows={4}
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              {t('instructions')}
+            </label>
+            <RichTextEditor
+              value={formData.instructions}
+              onChange={val => handleChange('instructions', val)}
+              editorClassName="forum-reply-editor px-3 py-2 min-h-[200px] max-h-[400px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
+            />
+          </div>
+
+          {formModal.assignment && (
+            <AttachmentManager assignmentId={formModal.assignment.id} />
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <Select

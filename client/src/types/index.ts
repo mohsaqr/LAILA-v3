@@ -403,10 +403,21 @@ export interface Assignment {
     title: string;
     instructorId: number;
   };
+  attachments?: AssignmentAttachment[];
   mySubmission?: AssignmentSubmission | null;
   _count?: {
     submissions: number;
   };
+}
+
+export interface AssignmentAttachment {
+  id: number;
+  assignmentId: number;
+  fileName: string;
+  fileUrl: string;
+  fileType: string;
+  fileSize: number | null;
+  createdAt: string;
 }
 
 export interface AssignmentSubmission {
@@ -1299,24 +1310,18 @@ export interface AdminAuditLog {
 // =============================================================================
 
 export type SurveyQuestionType = 'single_choice' | 'multiple_choice' | 'free_text';
-export type SurveyContext = 'standalone' | 'lecture' | 'post_assignment';
+export type SurveyContext = 'standalone' | 'lecture' | 'post_assignment' | 'module';
 
 export interface Survey {
   id: number;
   title: string;
   description: string | null;
-  courseId: number | null;
   createdById: number;
   isPublished: boolean;
   isAnonymous: boolean;
   createdAt: string;
   updatedAt: string;
   questions?: SurveyQuestion[];
-  course?: {
-    id: number;
-    title: string;
-    instructorId?: number;
-  } | null;
   createdBy?: {
     id: number;
     fullname: string;
@@ -1342,6 +1347,7 @@ export interface SurveyResponse {
   id: number;
   surveyId: number;
   userId: number | null;
+  moduleId: number | null;
   context: SurveyContext;
   contextId: number | null;
   completedAt: string;
@@ -1368,7 +1374,6 @@ export interface SurveyAnswer {
 export interface CreateSurveyData {
   title: string;
   description?: string;
-  courseId?: number | null;
   isPublished?: boolean;
   isAnonymous?: boolean;
 }
@@ -1384,7 +1389,6 @@ export interface GenerateSurveyData {
   topic: string;
   questionCount: number;
   surveyType: SurveyGenerationType;
-  courseId?: number;
   isAnonymous?: boolean;
   additionalInstructions?: string;
 }
@@ -1405,6 +1409,7 @@ export interface SubmitSurveyAnswerData {
 export interface SubmitSurveyResponseData {
   context?: SurveyContext;
   contextId?: number | null;
+  moduleId?: number | null;
   answers: SubmitSurveyAnswerData[];
 }
 
@@ -1424,6 +1429,7 @@ export interface SurveyQuestionStats {
   questionText: string;
   questionType: SurveyQuestionType;
   totalResponses: number;
+  options?: string[];
   optionCounts?: Record<string, number>;
   responses?: string[];
 }

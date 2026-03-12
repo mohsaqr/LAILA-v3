@@ -53,7 +53,7 @@ export const Layout = () => {
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
-  const sidebarWidth = showSidebar ? (sidebarCollapsed ? 64 : 200) : 0;
+  const sidebarWidth = showSidebar ? (sidebarCollapsed ? 64 : 240) : 0;
 
   return (
     <div

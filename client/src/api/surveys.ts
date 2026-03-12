@@ -107,9 +107,10 @@ export const surveysApi = {
     return response.data.data!;
   },
 
-  checkIfCompleted: async (surveyId: number) => {
+  checkIfCompleted: async (surveyId: number, moduleId?: number) => {
+    const params = moduleId ? `?moduleId=${moduleId}` : '';
     const response = await apiClient.get<ApiResponse<{ completed: boolean }>>(
-      `/surveys/${surveyId}/my-response`
+      `/surveys/${surveyId}/my-response${params}`
     );
     return response.data.data!;
   },
@@ -118,9 +119,11 @@ export const surveysApi = {
   // ANALYTICS (Instructor)
   // =============================================================================
 
-  getResponses: async (surveyId: number) => {
+  getResponses: async (surveyId: number, moduleId?: number) => {
+    const params = moduleId !== undefined ? { moduleId } : {};
     const response = await apiClient.get<ApiResponse<SurveyResponsesData>>(
-      `/surveys/${surveyId}/responses`
+      `/surveys/${surveyId}/responses`,
+      { params }
     );
     return response.data.data!;
   },
@@ -130,5 +133,21 @@ export const surveysApi = {
       responseType: 'blob',
     });
     return response.data;
+  },
+
+  // Module surveys
+  getModuleSurveys: async (moduleId: number) => {
+    const response = await apiClient.get<ApiResponse<Survey[]>>(`/surveys/module/${moduleId}`);
+    return response.data.data!;
+  },
+
+  addSurveyToModule: async (courseId: number, moduleId: number, surveyId: number) => {
+    const response = await apiClient.post<ApiResponse<Survey>>(`/surveys/module/${moduleId}`, { courseId, surveyId });
+    return response.data.data!;
+  },
+
+  removeSurveyFromModule: async (moduleId: number, surveyId: number) => {
+    const response = await apiClient.delete<ApiResponse<Survey>>(`/surveys/module/${moduleId}/${surveyId}`);
+    return response.data.data!;
   },
 };

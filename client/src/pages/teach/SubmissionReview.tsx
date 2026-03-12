@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  ArrowLeft,
   User,
   Calendar,
   Award,
@@ -12,19 +11,27 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { assignmentsApi } from '../../api/assignments';
+import { coursesApi } from '../../api/courses';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
+import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { EmptyState } from '../../components/common/EmptyState';
 import { AssignmentSubmission } from '../../types';
 
 export const SubmissionReview = () => {
-  const { t } = useTranslation('teaching');
+  const { t } = useTranslation(['teaching', 'navigation']);
   const { id, assignmentId } = useParams<{ id: string; assignmentId: string }>();
   const courseId = parseInt(id!, 10);
   const assId = parseInt(assignmentId!, 10);
   const navigate = useNavigate();
+
+  const { data: course } = useQuery({
+    queryKey: ['course', courseId],
+    queryFn: () => coursesApi.getCourseById(courseId),
+    enabled: !!courseId,
+  });
 
   const { data: assignment, isLoading: assignmentLoading } = useQuery({
     queryKey: ['assignment', assId],
@@ -81,17 +88,23 @@ export const SubmissionReview = () => {
   const gradedCount = submissions?.filter(s => s.status === 'graded').length || 0;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Back button */}
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Breadcrumb */}
       <div className="mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(`/teach/courses/${courseId}/assignments`)}
-          icon={<ArrowLeft className="w-4 h-4" />}
-        >
-          {t('back_to_assignments')}
-        </Button>
+        <Breadcrumb
+          homeHref="/"
+          items={[
+            { label: t('navigation:courses'), href: '/teach' },
+            ...(course
+              ? [{ label: course.title, href: `/teach/courses/${courseId}/curriculum` }]
+              : []),
+            { label: t('navigation:assignments'), href: `/teach/courses/${courseId}/assignments` },
+            ...(assignment
+              ? [{ label: assignment.title }]
+              : []),
+            { label: t('submissions') },
+          ]}
+        />
       </div>
 
       {/* Assignment Header */}

@@ -14,6 +14,7 @@ import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { LectureAIHelper } from '../components/lecture';
 import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStudent';
+import { AssignmentSectionStudent } from '../components/course/AssignmentSectionStudent';
 import { marked } from 'marked';
 import { sanitizeHtml } from '../utils/sanitize';
 import activityLogger from '../services/activityLogger';
@@ -163,6 +164,7 @@ export const LectureView = () => {
     switch (section.type) {
       case 'text':
       case 'ai-generated': {
+        const isHtml = section.content?.trim().startsWith('<');
         return (
           <div key={section.id} className="mb-8">
             {section.title && (
@@ -175,9 +177,9 @@ export const LectureView = () => {
             )}
             {section.content && (
               <div
-                className="prose max-w-none"
+                className="prose dark:prose-invert max-w-none"
                 style={{ color: colors.textPrimary }}
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(section.content) }}
+                dangerouslySetInnerHTML={{ __html: isHtml ? sanitizeHtml(section.content) : renderMarkdown(section.content) }}
               />
             )}
           </div>
@@ -261,6 +263,16 @@ export const LectureView = () => {
               </h2>
             )}
             <ChatbotSectionStudent
+              section={section}
+              courseId={parseInt(courseId!)}
+            />
+          </div>
+        );
+
+      case 'assignment':
+        return (
+          <div key={section.id} className="mb-8">
+            <AssignmentSectionStudent
               section={section}
               courseId={parseInt(courseId!)}
             />

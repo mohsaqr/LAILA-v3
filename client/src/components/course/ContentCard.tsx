@@ -11,10 +11,11 @@ import {
   Sparkles,
   Bot,
   Network,
+  ListChecks,
 } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 
-export type ContentType = 'lecture' | 'video' | 'mixed' | 'lab' | 'quiz' | 'assignment' | 'forum' | 'ai' | 'ai_agent' | 'interactive_lab';
+export type ContentType = 'lecture' | 'video' | 'mixed' | 'lab' | 'quiz' | 'assignment' | 'forum' | 'ai' | 'ai_agent' | 'interactive_lab' | 'survey';
 export type ContentCardSize = 'mini' | 'icon' | 'normal';
 
 interface ContentCardProps {
@@ -138,6 +139,16 @@ const contentConfigBase: Record<ContentType, {
     textDark: '#c4b5fd',
     borderLight: '#ddd6fe',
     borderDark: 'rgba(139, 92, 246, 0.3)',
+  },
+  survey: {
+    icon: ListChecks,
+    labelKey: 'content_survey',
+    bgLight: 'bg-rose-50',
+    bgDark: 'rgba(244, 63, 94, 0.15)',
+    textLight: '#e11d48',
+    textDark: '#fb7185',
+    borderLight: '#fecdd3',
+    borderDark: 'rgba(244, 63, 94, 0.3)',
   },
 };
 

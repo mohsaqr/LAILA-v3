@@ -13,12 +13,8 @@ export class SurveyService {
   // SURVEY CRUD
   // =============================================================================
 
-  async getSurveys(courseId?: number, userId?: number, isInstructor = false, isAdmin = false) {
+  async getSurveys(userId?: number, isInstructor = false, isAdmin = false, courseId?: number) {
     const where: any = {};
-
-    if (courseId) {
-      where.courseId = courseId;
-    }
 
     // Non-instructors only see published surveys
     if (!isInstructor && !isAdmin) {
@@ -28,6 +24,11 @@ export class SurveyService {
       where.createdById = userId;
     }
 
+    // Filter by course via ModuleSurvey relation
+    if (courseId) {
+      where.moduleSurveys = { some: { courseId } };
+    }
+
     const surveys = await prisma.survey.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -35,9 +36,14 @@ export class SurveyService {
         _count: {
           select: { questions: true, responses: true },
         },
-        course: {
-          select: { id: true, title: true },
-        },
+        ...(courseId && {
+          moduleSurveys: {
+            where: { courseId },
+            include: {
+              module: { select: { id: true, title: true } },
+            },
+          },
+        }),
       },
     });
 
@@ -50,9 +56,6 @@ export class SurveyService {
       include: {
         questions: {
           orderBy: { orderIndex: 'asc' },
-        },
-        course: {
-          select: { id: true, title: true, instructorId: true },
         },
         createdBy: {
           select: { id: true, fullname: true },
@@ -82,26 +85,10 @@ export class SurveyService {
   }
 
   async createSurvey(userId: number, data: CreateSurveyInput, isAdmin = false) {
-    // If courseId provided, verify ownership
-    if (data.courseId) {
-      const course = await prisma.course.findUnique({
-        where: { id: data.courseId },
-      });
-
-      if (!course) {
-        throw new AppError('Course not found', 404);
-      }
-
-      if (course.instructorId !== userId && !isAdmin) {
-        throw new AppError('Not authorized to create survey for this course', 403);
-      }
-    }
-
     const survey = await prisma.survey.create({
       data: {
         title: data.title,
         description: data.description,
-        courseId: data.courseId,
         createdById: userId,
         isPublished: data.isPublished ?? false,
         isAnonymous: data.isAnonymous ?? false,
@@ -119,7 +106,6 @@ export class SurveyService {
   async updateSurvey(surveyId: number, userId: number, data: UpdateSurveyInput, isAdmin = false) {
     const survey = await prisma.survey.findUnique({
       where: { id: surveyId },
-      include: { course: true },
     });
 
     if (!survey) {
@@ -351,6 +337,7 @@ export class SurveyService {
         where: {
           surveyId,
           userId,
+          ...(data.moduleId ? { moduleId: data.moduleId } : {}),
         },
       });
 
@@ -379,6 +366,7 @@ export class SurveyService {
       data: {
         surveyId,
         userId: survey.isAnonymous ? null : userId,
+        moduleId: data.moduleId ?? null,
         context: data.context ?? 'standalone',
         contextId: data.contextId,
         answers: {
@@ -412,11 +400,12 @@ export class SurveyService {
     return response;
   }
 
-  async checkIfCompleted(surveyId: number, userId: number) {
+  async checkIfCompleted(surveyId: number, userId: number, moduleId?: number) {
     const response = await prisma.surveyResponse.findFirst({
       where: {
         surveyId,
         userId,
+        ...(moduleId ? { moduleId } : {}),
       },
     });
 
@@ -427,7 +416,7 @@ export class SurveyService {
   // ANALYTICS (Instructor)
   // =============================================================================
 
-  async getResponses(surveyId: number, userId: number, isAdmin = false) {
+  async getResponses(surveyId: number, userId: number, isAdmin = false, moduleId?: number) {
     const survey = await prisma.survey.findUnique({
       where: { id: surveyId },
       include: {
@@ -446,7 +435,10 @@ export class SurveyService {
     }
 
     const responses = await prisma.surveyResponse.findMany({
-      where: { surveyId },
+      where: {
+        surveyId,
+        ...(moduleId !== undefined ? { moduleId } : {}),
+      },
       orderBy: { completedAt: 'desc' },
       include: {
         user: survey.isAnonymous
@@ -514,6 +506,7 @@ export class SurveyService {
         questionText: q.questionText,
         questionType: q.questionType,
         totalResponses: questionAnswers.length,
+        options,
         optionCounts,
       };
     });
@@ -583,6 +576,54 @@ export class SurveyService {
       filename: `survey-${surveyId}-responses-${new Date().toISOString().split('T')[0]}.csv`,
       content: csvContent,
     };
+  }
+  // =========================================================================
+  // MODULE SURVEYS
+  // =========================================================================
+
+  async getModuleSurveys(moduleId: number) {
+    return prisma.moduleSurvey.findMany({
+      where: { moduleId },
+      include: {
+        survey: {
+          select: { id: true, title: true, description: true, isPublished: true, _count: { select: { questions: true, responses: true } } },
+        },
+      },
+      orderBy: { addedAt: 'asc' },
+    });
+  }
+
+  async addSurveyToModule(courseId: number, moduleId: number, surveyId: number, userId: number, isAdmin = false) {
+    const course = await prisma.course.findUnique({ where: { id: courseId } });
+    if (!course) throw new AppError('Course not found', 404);
+    if (course.instructorId !== userId && !isAdmin) throw new AppError('Not authorized', 403);
+
+    const module = await prisma.courseModule.findUnique({ where: { id: moduleId } });
+    if (!module || module.courseId !== courseId) throw new AppError('Module not found', 404);
+
+    const survey = await prisma.survey.findUnique({ where: { id: surveyId } });
+    if (!survey) throw new AppError('Survey not found', 404);
+
+    return prisma.moduleSurvey.create({
+      data: { courseId, moduleId, surveyId },
+      include: {
+        survey: {
+          select: { id: true, title: true, description: true, isPublished: true, _count: { select: { questions: true, responses: true } } },
+        },
+      },
+    });
+  }
+
+  async removeSurveyFromModule(moduleId: number, surveyId: number, userId: number, isAdmin = false) {
+    const ms = await prisma.moduleSurvey.findUnique({
+      where: { moduleId_surveyId: { moduleId, surveyId } },
+      include: { course: true },
+    });
+    if (!ms) throw new AppError('Module survey not found', 404);
+    if (ms.course.instructorId !== userId && !isAdmin) throw new AppError('Not authorized', 403);
+
+    await prisma.moduleSurvey.delete({ where: { id: ms.id } });
+    return { message: 'Survey removed from module' };
   }
 }
 

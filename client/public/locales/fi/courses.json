@@ -532,6 +532,7 @@
   "content_forum": "Foorumi",
   "content_ai": "Tekoälysisältö",
   "content_interactive_lab": "Interaktiivinen laboratorio",
+  "content_survey": "Kysely",
   "no_assignments_available": "Ei tehtäviä saatavilla",
   "no_assignments_description": "Tällä kurssilla ei ole vielä tehtäviä.",
   "due_date_format": "Määräaika: {{date}}",

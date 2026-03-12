@@ -36,19 +36,13 @@ export const SurveyQuestion = ({
   };
 
   return (
-    <div className="mb-6">
-      <div className="mb-3">
-        <span
-          className="text-sm font-medium"
-          style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
-        >
-          Question {questionNumber}
-        </span>
+    <div className="mb-5">
+      <div className="mb-2">
         <p
-          className="font-medium mt-1"
+          className="font-medium"
           style={{ color: isDark ? '#f3f4f6' : '#111827' }}
         >
-          {question.questionText}
+          {questionNumber}. {question.questionText}
           {question.isRequired && (
             <span className="text-red-500 ml-1">*</span>
           )}
@@ -56,28 +50,11 @@ export const SurveyQuestion = ({
       </div>
 
       {question.questionType === 'single_choice' && question.options && (
-        <div className="space-y-2">
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
           {question.options.map((option, index) => (
             <label
               key={index}
-              className="flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors"
-              style={{
-                backgroundColor:
-                  value === option
-                    ? isDark
-                      ? '#374151'
-                      : '#eff6ff'
-                    : isDark
-                    ? '#1f2937'
-                    : '#f9fafb',
-                borderColor:
-                  value === option
-                    ? '#3b82f6'
-                    : isDark
-                    ? '#374151'
-                    : '#e5e7eb',
-                border: '1px solid',
-              }}
+              className="flex items-center gap-2 py-1 cursor-pointer"
             >
               <input
                 type="radio"
@@ -87,7 +64,7 @@ export const SurveyQuestion = ({
                 onChange={() => handleSingleChoiceChange(option)}
                 className="w-4 h-4 text-blue-600 focus:ring-blue-500"
               />
-              <span style={{ color: isDark ? '#e5e7eb' : '#374151' }}>
+              <span className="text-sm" style={{ color: isDark ? '#e5e7eb' : '#374151' }}>
                 {option}
               </span>
             </label>
@@ -96,29 +73,14 @@ export const SurveyQuestion = ({
       )}
 
       {question.questionType === 'multiple_choice' && question.options && (
-        <div className="space-y-2">
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
           {question.options.map((option, index) => {
             const currentValues = Array.isArray(value) ? value : [];
             const isChecked = currentValues.includes(option);
             return (
               <label
                 key={index}
-                className="flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors"
-                style={{
-                  backgroundColor: isChecked
-                    ? isDark
-                      ? '#374151'
-                      : '#eff6ff'
-                    : isDark
-                    ? '#1f2937'
-                    : '#f9fafb',
-                  borderColor: isChecked
-                    ? '#3b82f6'
-                    : isDark
-                    ? '#374151'
-                    : '#e5e7eb',
-                  border: '1px solid',
-                }}
+                className="flex items-center gap-2 py-1 cursor-pointer"
               >
                 <input
                   type="checkbox"
@@ -128,7 +90,7 @@ export const SurveyQuestion = ({
                   }
                   className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                 />
-                <span style={{ color: isDark ? '#e5e7eb' : '#374151' }}>
+                <span className="text-sm" style={{ color: isDark ? '#e5e7eb' : '#374151' }}>
                   {option}
                 </span>
               </label>

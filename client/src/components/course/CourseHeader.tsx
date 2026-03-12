@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { sanitizeHtml } from '../../utils/sanitize';
 import { useTranslation } from 'react-i18next';
 import { Users, BookOpen, PlayCircle, Edit, Settings, PenSquare } from 'lucide-react';
 import { Button } from '../common/Button';
@@ -68,7 +69,7 @@ export const CourseHeader = ({
       <div className="gradient-bg text-white py-6 px-4 sm:px-6 lg:px-8">
         <h1 className="text-xl md:text-2xl font-bold mb-2">{course.title}</h1>
         {course.description && (
-          <p className="text-white/90 mb-3 text-sm md:text-base line-clamp-2">{course.description}</p>
+          <div className="text-white/90 mb-3 text-sm md:text-base line-clamp-2 prose prose-sm prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(course.description) }} />
         )}
         <div className="flex flex-wrap items-center gap-4 text-sm">
           <span className="flex items-center gap-1">

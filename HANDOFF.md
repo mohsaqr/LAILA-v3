@@ -1,6 +1,14 @@
-# Session Handoff — 2026-03-10
+# Session Handoff — 2026-03-11
 
-## Completed
+## Completed (2026-03-11)
+- **Thumbnail file upload**: Replaced "Thumbnail URL" text input on `/teach/create` with image file upload (png/jpg/jpeg, 1 MB limit). New `POST /api/uploads/thumbnail` endpoint, client upload API, preview with remove button, i18n in all 4 languages.
+- **Rich text course description**: Replaced plain TextArea with RichTextEditor for course description. HTML rendered with sanitization on view pages (CourseDetails, CurriculumEditor, CourseHeader). Tags stripped for card previews (Catalog, TeachDashboard).
+- **Rich text lecture sections**: Replaced plain textarea + markdown preview in TextSection with RichTextEditor (300px min height). LectureView detects HTML vs legacy markdown and renders accordingly. Added `editorClassName` prop to RichTextEditor for custom sizing.
+- **Rich text assignment instructions**: Replaced TextArea with RichTextEditor for instructions in AssignmentManager and AssignmentSectionEditor (both edit and create forms). AssignmentView renders HTML with sanitization, falling back to wrapping plain text in `<p>` tags. Added 3 tests for HTML instructions handling.
+- **Fix lecture-level assignments display**: Assignments with `lectureId` no longer appear on the course page (`CourseDetails.tsx`). Added `'assignment'` case to `LectureView.tsx` `renderSection()` so they render inline on the lecture page via `AssignmentSectionStudent`.
+- **Assignment file attachments**: Instructors can upload multiple files (csv, xlsx, png, jpg, pdf; 3 MB limit) to assignments. Files appear after instructions in the editor with rename/delete. Students see downloadable attachments on AssignmentView. New `AssignmentAttachment` model, `POST /api/uploads/assignment-file` endpoint, full CRUD API. 8 tests added.
+
+## Completed (2026-03-10)
 - **Fix sidebar disappearing**: Sidebar was missing on Labs, Forums, Certificates, Quizzes (students), Labs/Forums (instructors), and Logs/Analytics (admins). Added missing paths to `sidebarPages` in `Layout.tsx` and removed the `/admin` exclusion.
 - **Searchable select dropdowns**: Replaced plain `<select>` elements with searchable dropdowns in Course Catalog (level filter) and Course Create/Edit form (difficulty + curriculum view mode). All match the category multi-select style. Replaced the plain `<select>` for difficulty/level with a `SearchableSelect` dropdown matching the category multi-select style (search, chips, consistent colors).
 - **Clean up navbar and sidebar navigation**: Removed Dashboard, Courses, and AI Tools (for instructors) from navbar. Renamed sidebar "My Courses" to "Courses". Moved AI Tools to third position in instructor sidebar.
@@ -29,9 +37,13 @@
   - Client: `constants.ts` — added amber color for agent type badge
   - i18n: `agent_chatbots`, `agent`, `agent_assignment`, `course_context`, `designed_by` keys in all 4 locales
 
+## Completed (2026-03-11, continued)
+- **Curriculum editor UI fixes**: Changed main content width from `max-w-4xl` to `max-w-7xl` to match course page. File sections displayed in two-column grid instead of full-width. Breadcrumb changed from "Teaching" to "Courses".
+- **Add surveys to course modules**: Many-to-many `ModuleSurvey` model linking surveys to modules. "Add Survey" button in module footer opens searchable modal showing published surveys not yet linked. Surveys display with indigo styling and remove button. Full server CRUD with authorization. 11 tests added.
+
 ## Current State
-- Branch: `main`
-- Server: 931 tests passing
+- Branch: `fix_issues`
+- Server: 953 tests passing
 - Client: compiles cleanly (only pre-existing type warnings in unrelated files)
 
 ## Key Decisions

@@ -25,6 +25,13 @@ vi.mock('../utils/prisma.js', () => ({
     course: {
       findUnique: vi.fn(),
     },
+    assignmentAttachment: {
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+    },
   },
 }));
 
@@ -948,6 +955,174 @@ describe('AssignmentService', () => {
           },
         })
       );
+    });
+  });
+
+  // ===========================================================================
+  // Rich text (HTML) instructions support
+  // ===========================================================================
+
+  describe('HTML instructions support', () => {
+    const mockCourse = {
+      id: 1,
+      title: 'Test Course',
+      instructorId: 10,
+    };
+
+    it('should create assignment with HTML instructions', async () => {
+      const htmlInstructions = '<h2>Step 1</h2><p>Write your <strong>essay</strong> about the topic.</p><ul><li>Use APA format</li><li>Minimum 500 words</li></ul>';
+      const input = {
+        title: 'Essay Assignment',
+        description: 'Write an essay',
+        instructions: htmlInstructions,
+        points: 100,
+        submissionType: 'text' as const,
+      };
+
+      vi.mocked(prisma.course.findUnique).mockResolvedValue(mockCourse as any);
+      vi.mocked(prisma.assignment.create).mockResolvedValue({
+        id: 1,
+        ...input,
+        courseId: 1,
+        module: null,
+      } as any);
+
+      const result = await assignmentService.createAssignment(1, 10, input);
+
+      expect(result.instructions).toBe(htmlInstructions);
+      expect(prisma.assignment.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            instructions: htmlInstructions,
+          }),
+        })
+      );
+    });
+
+    it('should update assignment with HTML instructions', async () => {
+      const htmlInstructions = '<p>Updated instructions with <em>rich text</em></p>';
+      const mockAssignment = {
+        id: 1,
+        title: 'Test Assignment',
+        courseId: 1,
+        course: { id: 1, instructorId: 10 },
+      };
+
+      vi.mocked(prisma.assignment.findUnique).mockResolvedValue(mockAssignment as any);
+      vi.mocked(prisma.assignment.update).mockResolvedValue({
+        ...mockAssignment,
+        instructions: htmlInstructions,
+      } as any);
+
+      const result = await assignmentService.updateAssignment(1, 10, { instructions: htmlInstructions });
+
+      expect(result.instructions).toBe(htmlInstructions);
+    });
+
+    it('should return HTML instructions via getAssignmentById', async () => {
+      const htmlInstructions = '<ol><li>Read chapter 5</li><li>Answer questions</li></ol>';
+      const mockAssignment = {
+        id: 1,
+        title: 'Reading Assignment',
+        instructions: htmlInstructions,
+        courseId: 1,
+        course: { id: 1, title: 'Test Course', instructorId: 10 },
+        module: null,
+      };
+
+      vi.mocked(prisma.assignment.findUnique).mockResolvedValue(mockAssignment as any);
+
+      const result = await assignmentService.getAssignmentById(1);
+
+      expect(result.instructions).toBe(htmlInstructions);
+    });
+  });
+
+  describe('Assignment Attachments', () => {
+    it('should get attachments for an assignment', async () => {
+      vi.mocked(prisma.assignment.findUnique).mockResolvedValue({ id: 1 } as any);
+      const mockAttachments = [
+        { id: 1, assignmentId: 1, fileName: 'data.csv', fileUrl: '/uploads/abc.csv', fileType: 'csv', fileSize: 1024, createdAt: new Date() },
+        { id: 2, assignmentId: 1, fileName: 'image.png', fileUrl: '/uploads/def.png', fileType: 'png', fileSize: 2048, createdAt: new Date() },
+      ];
+      vi.mocked(prisma.assignmentAttachment.findMany).mockResolvedValue(mockAttachments as any);
+
+      const result = await assignmentService.getAttachments(1);
+      expect(result).toHaveLength(2);
+      expect(result[0].fileName).toBe('data.csv');
+    });
+
+    it('should throw 404 when getting attachments for non-existent assignment', async () => {
+      vi.mocked(prisma.assignment.findUnique).mockResolvedValue(null);
+      await expect(assignmentService.getAttachments(999)).rejects.toThrow(AppError);
+    });
+
+    it('should add an attachment to an assignment', async () => {
+      vi.mocked(prisma.assignment.findUnique).mockResolvedValue({
+        id: 1, course: { instructorId: 10 },
+      } as any);
+      const mockAttachment = { id: 1, assignmentId: 1, fileName: 'report.pdf', fileUrl: '/uploads/xyz.pdf', fileType: 'pdf', fileSize: 5000 };
+      vi.mocked(prisma.assignmentAttachment.create).mockResolvedValue(mockAttachment as any);
+
+      const result = await assignmentService.addAttachment(1, 10, {
+        fileName: 'report.pdf', fileUrl: '/uploads/xyz.pdf', fileType: 'pdf', fileSize: 5000,
+      });
+      expect(result.fileName).toBe('report.pdf');
+      expect(prisma.assignmentAttachment.create).toHaveBeenCalledWith({
+        data: { assignmentId: 1, fileName: 'report.pdf', fileUrl: '/uploads/xyz.pdf', fileType: 'pdf', fileSize: 5000 },
+      });
+    });
+
+    it('should reject adding attachment if not authorized', async () => {
+      vi.mocked(prisma.assignment.findUnique).mockResolvedValue({
+        id: 1, course: { instructorId: 10 },
+      } as any);
+      await expect(assignmentService.addAttachment(1, 99, {
+        fileName: 'file.csv', fileUrl: '/uploads/a.csv', fileType: 'csv',
+      })).rejects.toThrow('Not authorized');
+    });
+
+    it('should rename an attachment', async () => {
+      vi.mocked(prisma.assignmentAttachment.findUnique).mockResolvedValue({
+        id: 1, assignment: { course: { instructorId: 10 } },
+      } as any);
+      vi.mocked(prisma.assignmentAttachment.update).mockResolvedValue({
+        id: 1, fileName: 'renamed.csv',
+      } as any);
+
+      const result = await assignmentService.updateAttachment(1, 10, { fileName: 'renamed.csv' });
+      expect(result.fileName).toBe('renamed.csv');
+    });
+
+    it('should delete an attachment', async () => {
+      vi.mocked(prisma.assignmentAttachment.findUnique).mockResolvedValue({
+        id: 1, assignment: { course: { instructorId: 10 } },
+      } as any);
+      vi.mocked(prisma.assignmentAttachment.delete).mockResolvedValue({} as any);
+
+      const result = await assignmentService.deleteAttachment(1, 10);
+      expect(result.message).toBe('Attachment deleted successfully');
+    });
+
+    it('should throw 404 when deleting non-existent attachment', async () => {
+      vi.mocked(prisma.assignmentAttachment.findUnique).mockResolvedValue(null);
+      await expect(assignmentService.deleteAttachment(999, 10)).rejects.toThrow(AppError);
+    });
+
+    it('should include attachments in getAssignmentById', async () => {
+      const mockAssignment = {
+        id: 1, title: 'Test', courseId: 1,
+        course: { id: 1, title: 'Course', instructorId: 10 },
+        module: null,
+        attachments: [
+          { id: 1, fileName: 'data.xlsx', fileUrl: '/uploads/x.xlsx', fileType: 'xlsx', fileSize: 1000 },
+        ],
+      };
+      vi.mocked(prisma.assignment.findUnique).mockResolvedValue(mockAssignment as any);
+
+      const result = await assignmentService.getAssignmentById(1);
+      expect(result.attachments).toHaveLength(1);
+      expect(result.attachments[0].fileName).toBe('data.xlsx');
     });
   });
 });

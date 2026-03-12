@@ -10,7 +10,6 @@ import { Button } from '../common/Button';
 import { Modal } from '../common/Modal';
 
 interface SurveyGeneratorProps {
-  courseId?: number;
   isOpen: boolean;
   onClose: () => void;
   onSurveyGenerated: (survey: Survey) => void;
@@ -25,7 +24,6 @@ const SURVEY_TYPES: { value: SurveyGenerationType; labelKey: string }[] = [
 ];
 
 export const SurveyGenerator = ({
-  courseId,
   isOpen,
   onClose,
   onSurveyGenerated,
@@ -55,7 +53,6 @@ export const SurveyGenerator = ({
         topic,
         questionCount,
         surveyType,
-        courseId,
         isAnonymous,
         additionalInstructions: additionalInstructions || undefined,
       }),

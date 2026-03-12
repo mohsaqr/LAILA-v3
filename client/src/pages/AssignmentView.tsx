@@ -13,9 +13,13 @@ import {
   Upload,
   X,
   MessageSquare,
+  Download,
+  Paperclip,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
+import { sanitizeHtml } from '../utils/sanitize';
+import { resolveFileUrl } from '../api/client';
 import { useTranslation } from 'react-i18next';
 import { assignmentsApi } from '../api/assignments';
 import { enrollmentsApi } from '../api/enrollments';
@@ -273,9 +277,9 @@ export const AssignmentView = () => {
         </CardBody>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className={`grid grid-cols-1 ${isGraded ? 'lg:grid-cols-3' : ''} gap-6`}>
         {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className={`${isGraded ? 'lg:col-span-2' : ''} space-y-6`}>
           {/* Assignment Description */}
           {assignment.description && (
             <Card>
@@ -297,8 +301,46 @@ export const AssignmentView = () => {
                 <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{t('assignment_instructions')}</h2>
               </CardHeader>
               <CardBody>
-                <div className="prose max-w-none" style={{ color: colors.textSecondary }}>
-                  <ReactMarkdown>{assignment.instructions}</ReactMarkdown>
+                <div
+                  className="prose dark:prose-invert max-w-none"
+                  style={{ color: colors.textSecondary }}
+                  dangerouslySetInnerHTML={{ __html: assignment.instructions?.trim().startsWith('<') ? sanitizeHtml(assignment.instructions) : sanitizeHtml(`<p>${assignment.instructions}</p>`) }}
+                />
+              </CardBody>
+            </Card>
+          )}
+
+          {/* Attachments */}
+          {assignment.attachments && assignment.attachments.length > 0 && (
+            <Card>
+              <CardHeader>
+                <h2 className="font-semibold flex items-center gap-2" style={{ color: colors.textPrimary }}>
+                  <Paperclip className="w-4 h-4" />
+                  {t('attachments')}
+                </h2>
+              </CardHeader>
+              <CardBody>
+                <div className="space-y-2">
+                  {assignment.attachments.map(att => (
+                    <a
+                      key={att.id}
+                      href={resolveFileUrl(att.fileUrl)}
+                      download={att.fileName}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group"
+                      style={{ backgroundColor: colors.bgFile }}
+                    >
+                      <FileText className="w-5 h-5 flex-shrink-0" style={{ color: colors.textMuted }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate" style={{ color: colors.textPrimary }}>{att.fileName}</p>
+                        <p className="text-xs" style={{ color: colors.textMuted }}>
+                          {att.fileType.toUpperCase()}{att.fileSize ? ` · ${(att.fileSize / 1024).toFixed(0)} KB` : ''}
+                        </p>
+                      </div>
+                      <Download className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: colors.textSecondary }} />
+                    </a>
+                  ))}
                 </div>
               </CardBody>
             </Card>
@@ -463,44 +505,6 @@ export const AssignmentView = () => {
             </Card>
           )}
 
-          {/* Submission Info */}
-          <Card>
-            <CardHeader>
-              <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{t('submission_info')}</h2>
-            </CardHeader>
-            <CardBody className="space-y-3 text-sm">
-              <div className="flex items-center justify-between">
-                <span style={{ color: colors.textSecondary }}>{t('status_label')}</span>
-                <span className="font-medium capitalize" style={{ color: colors.textPrimary }}>
-                  {mySubmission?.status || t('not_started_status')}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span style={{ color: colors.textSecondary }}>{t('common:type')}</span>
-                <span className="font-medium capitalize" style={{ color: colors.textPrimary }}>{assignment.submissionType}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span style={{ color: colors.textSecondary }}>{t('n_points', { count: assignment.points }).replace(/^\d+\s*/, '')}</span>
-                <span className="font-medium" style={{ color: colors.textPrimary }}>{assignment.points}</span>
-              </div>
-              {dueDate && (
-                <div className="flex items-center justify-between">
-                  <span style={{ color: colors.textSecondary }}>{t('due_date_label')}</span>
-                  <span className="font-medium" style={{ color: isPastDue ? colors.textRed : colors.textPrimary }}>
-                    {dueDate.toLocaleDateString()}
-                  </span>
-                </div>
-              )}
-              {mySubmission?.submittedAt && (
-                <div className="flex items-center justify-between">
-                  <span style={{ color: colors.textSecondary }}>{t('submitted_status')}</span>
-                  <span className="font-medium" style={{ color: colors.textPrimary }}>
-                    {new Date(mySubmission.submittedAt).toLocaleDateString()}
-                  </span>
-                </div>
-              )}
-            </CardBody>
-          </Card>
         </div>
       </div>
 

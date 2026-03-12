@@ -11,7 +11,6 @@ import { Modal } from '../../components/common/Modal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
-import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { RichTextEditor } from '../../components/forum/RichTextEditor';
 import apiClient from '../../api/client';
 
@@ -131,13 +130,11 @@ export const CertificateManager = () => {
     return <Loading text={t('loading_certificate_templates')} />;
   }
 
-  const breadcrumbItems = buildTeachingBreadcrumb(undefined, undefined, 'Certificates');
-
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Breadcrumb navigation */}
       <div className="mb-6">
-        <Breadcrumb items={breadcrumbItems} />
+        <Breadcrumb homeHref="/" items={[{ label: t('certificate_templates') }]} />
       </div>
 
       <div className="flex items-center justify-between mb-8">

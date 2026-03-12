@@ -532,6 +532,7 @@
   "content_forum": "منتدى",
   "content_ai": "محتوى الذكاء الاصطناعي",
   "content_interactive_lab": "مختبر تفاعلي",
+  "content_survey": "استبيان",
   "no_assignments_available": "لا توجد واجبات متاحة",
   "no_assignments_description": "هذه الدورة لا تحتوي على أي واجبات بعد.",
   "due_date_format": "تاريخ الاستحقاق: {{date}}",

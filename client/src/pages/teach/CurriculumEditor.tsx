@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
+import { sanitizeHtml } from '../../utils/sanitize';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Settings, Eye, EyeOff, Layers, FileEdit, Bot, ChevronDown, Heart, Beaker, Check, ExternalLink, FileQuestion, MessageSquare, Trash2, ClipboardList, Network } from 'lucide-react';
+import { Plus, Settings, Eye, EyeOff, Layers, FileEdit, Bot, ChevronDown, Heart, Beaker, Check, ExternalLink, FileQuestion, MessageSquare, Trash2, ClipboardList, Network, ListChecks, BarChart3, Award } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../../api/courses';
 import { codeLabsApi } from '../../api/codeLabs';
@@ -809,7 +810,7 @@ export const CurriculumEditor = () => {
 
   if (!course) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 text-center">
+      <div className="max-w-7xl mx-auto px-4 py-8 text-center">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('course_not_found')}</h1>
         <Button onClick={() => navigate('/teach')}>{t('back_to_dashboard')}</Button>
       </div>
@@ -827,12 +828,12 @@ export const CurriculumEditor = () => {
     }));
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Breadcrumb */}
       <div className="mb-6">
         <Breadcrumb
           items={[
-            { label: t('teaching'), href: '/teach' },
+            { label: t('navigation:courses'), href: '/teach' },
             { label: course.title, href: `/courses/${courseId}` },
             { label: t('curriculum_editor') },
           ]}
@@ -845,7 +846,11 @@ export const CurriculumEditor = () => {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{course.title}</h1>
           <StatusBadge status={course.status} />
         </div>
-        <p className="text-gray-600 dark:text-gray-400">{course.description || t('no_description')}</p>
+        {course.description ? (
+          <div className="text-gray-600 dark:text-gray-400 prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(course.description) }} />
+        ) : (
+          <p className="text-gray-600 dark:text-gray-400">{t('no_description')}</p>
+        )}
       </div>
 
       {/* Course Management Card - Dark theme */}
@@ -854,7 +859,7 @@ export const CurriculumEditor = () => {
         style={{ backgroundColor: isDark ? '#0f172a' : '#1e293b' }}
       >
         <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">{t('course_management')}</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-11 gap-2">
           {/* View Course */}
           <Link
             to={`/courses/${courseId}`}
@@ -907,6 +912,33 @@ export const CurriculumEditor = () => {
           >
             <ClipboardList className="w-5 h-5 text-rose-400" />
             <span className="text-white text-xs font-medium">{t('assignments')}</span>
+          </Link>
+
+          {/* Surveys */}
+          <Link
+            to={`/teach/surveys?courseId=${courseId}`}
+            className="flex flex-col items-center gap-2 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors text-center"
+          >
+            <ListChecks className="w-5 h-5 text-indigo-400" />
+            <span className="text-white text-xs font-medium">{t('surveys')}</span>
+          </Link>
+
+          {/* Certificates */}
+          <Link
+            to={`/teach/courses/${courseId}/certificates`}
+            className="flex flex-col items-center gap-2 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors text-center"
+          >
+            <Award className="w-5 h-5 text-yellow-400" />
+            <span className="text-white text-xs font-medium">{t('navigation:certificates')}</span>
+          </Link>
+
+          {/* Analytics */}
+          <Link
+            to={`/teach/courses/${courseId}/analytics`}
+            className="flex flex-col items-center gap-2 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors text-center"
+          >
+            <BarChart3 className="w-5 h-5 text-orange-400" />
+            <span className="text-white text-xs font-medium">{t('navigation:analytics')}</span>
           </Link>
 
           {/* Publish/Unpublish */}

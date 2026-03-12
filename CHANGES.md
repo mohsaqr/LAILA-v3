@@ -1,3 +1,62 @@
+### 2026-03-11 — Add surveys to course modules
+
+- `server/prisma/schema.prisma`: Added `ModuleSurvey` model (many-to-many between modules and surveys) with `@@unique([moduleId, surveyId])`, cascade deletes, and indexes. Added `moduleSurveys` relation to `CourseModule`, `Survey`, and `Course` models.
+- `server/src/services/survey.service.ts`: Added `getModuleSurveys()`, `addSurveyToModule()`, `removeSurveyFromModule()` methods with authorization checks.
+- `server/src/routes/survey.routes.ts`: Added 3 module survey routes — `GET /module/:moduleId`, `POST /module/:moduleId`, `DELETE /module/:moduleId/:surveyId`.
+- `client/src/api/surveys.ts`: Added `getModuleSurveys()`, `addSurveyToModule()`, `removeSurveyFromModule()` API methods.
+- `client/src/components/teach/ModuleItem.tsx`: Added "Add Survey" button in module footer, survey display section (indigo styling), and searchable survey selection modal. Self-contained with own queries/mutations.
+- `server/src/services/survey.service.test.ts`: Created with 11 tests for module survey CRUD — get, add, remove, authorization, admin override, 404 handling.
+- i18n: Added 9 keys (`add_survey`, `survey_added`, `survey_removed`, `failed_to_add_survey`, `select_survey`, `search_surveys`, `no_surveys_available`, `questions`) in all 4 locales.
+
+### 2026-03-11 — Fix lecture-level assignments showing on course page
+
+- `client/src/pages/CourseDetails.tsx`: Filter out assignments with `lectureId` from both module-grouped and standalone assignment lists. Lecture-level assignments now only appear on their lecture page.
+- `client/src/pages/LectureView.tsx`: Added `'assignment'` case to `renderSection()` switch, rendering `AssignmentSectionStudent` component. Lecture-level assignments now display inline with a link to the full assignment page.
+
+### 2026-03-11 — Add file attachment support to assignments
+
+- `server/prisma/schema.prisma`: Added `AssignmentAttachment` model (id, assignmentId, fileName, fileUrl, fileType, fileSize, createdAt) with cascade delete on assignment. Added `attachments` relation to `Assignment` model.
+- `server/src/routes/upload.routes.ts`: Added `.csv` to `allowedExtensions`. Added `POST /api/uploads/assignment-file` endpoint (3 MB limit, csv/xlsx/png/jpg/jpeg/pdf only, instructor-only).
+- `server/src/services/assignment.service.ts`: Added `getAttachments()`, `addAttachment()`, `updateAttachment()` (rename), `deleteAttachment()` methods with authorization checks. Updated `getAssignmentById()` to include attachments ordered by `createdAt`.
+- `server/src/routes/assignment.routes.ts`: Added 4 attachment routes — `GET /:id/attachments`, `POST /:id/attachments`, `PUT /attachments/:attachmentId`, `DELETE /attachments/:attachmentId`.
+- `client/src/types/index.ts`: Added `AssignmentAttachment` interface and `attachments?` field to `Assignment`.
+- `client/src/api/assignments.ts`: Added `getAttachments()`, `addAttachment()`, `updateAttachment()`, `deleteAttachment()` API methods.
+- `client/src/api/uploads.ts`: Added `uploadAssignmentFile()` method.
+- `client/src/components/teach/AssignmentSectionEditor.tsx`: Added `AttachmentManager` component (exported) with file upload, rename, delete. Renders after instructions in both edit and create forms.
+- `client/src/pages/teach/AssignmentManager.tsx`: Added `AttachmentManager` in edit modal (only visible when editing existing assignment).
+- `client/src/pages/AssignmentView.tsx`: Added attachments card between instructions and submission area. Files are downloadable with file type and size display.
+- i18n: Added 10 keys (`file_attachments`, `click_to_upload_files`, `allowed_file_formats`, `max_3mb`, `files_uploaded`, `file_upload_failed`, `file_too_large`, `uploading`, `rename`) in all 4 locales (en, fi, ar, es).
+- `server/src/services/assignment.service.test.ts`: Added 8 tests for attachment CRUD — get, add, rename, delete, authorization, 404 handling, and inclusion in getAssignmentById.
+
+### 2026-03-11 — Use rich text editor for assignment instructions
+
+- `client/src/pages/teach/AssignmentManager.tsx`: Replaced `TextArea` for the instructions field with `RichTextEditor`. Added import.
+- `client/src/components/teach/AssignmentSectionEditor.tsx`: Replaced all `TextArea` instances for instructions (edit and create forms, different indentation levels) with `RichTextEditor`. Added import.
+- `client/src/pages/AssignmentView.tsx`: Replaced `<ReactMarkdown>` rendering of instructions with `dangerouslySetInnerHTML` + `sanitizeHtml()`. Detects HTML vs plain text content. Added `sanitizeHtml` import.
+- `server/src/services/assignment.service.test.ts`: Added 3 tests for HTML instructions support — create, update, and getById all correctly pass through HTML content.
+
+### 2026-03-11 — Use rich text editor for lecture text sections
+
+- `client/src/components/teach/TextSection.tsx`: Replaced plain `<textarea>` + manual markdown renderer + preview toggle with `RichTextEditor`. Removed label and placeholder. Set larger editor height via `editorClassName` (min-h 300px, max-h 600px).
+- `client/src/components/forum/RichTextEditor.tsx`: Added `editorClassName` prop to allow custom sizing per use case.
+- `client/src/pages/LectureView.tsx`: Text and AI-generated sections now detect HTML content (starts with `<`) and sanitize directly, falling back to markdown parsing for legacy content.
+
+### 2026-03-11 — Use rich text editor for course description
+
+- `client/src/components/teach/CourseForm.tsx`: Replaced `TextArea` with `RichTextEditor` for description. Label uses `common:description` for capitalized "Description".
+- `client/src/pages/CourseDetails.tsx`: Render description as sanitized HTML with `prose prose-invert`.
+- `client/src/pages/teach/CurriculumEditor.tsx`: Render description as sanitized HTML with `prose dark:prose-invert`.
+- `client/src/components/course/CourseHeader.tsx`: Render description as sanitized HTML.
+- `client/src/pages/Catalog.tsx`: Strip HTML tags for card preview text.
+- `client/src/pages/teach/TeachDashboard.tsx`: Strip HTML tags for card preview text.
+
+### 2026-03-11 — Replace thumbnail URL input with file upload
+
+- `client/src/components/teach/CourseForm.tsx`: Replaced "Thumbnail URL" text input with file upload widget (drag-and-drop area, preview with remove button, client-side validation for type and size).
+- `client/src/api/uploads.ts`: New file with `uploadsApi.uploadThumbnail()` function.
+- `server/src/routes/upload.routes.ts`: Added `POST /api/uploads/thumbnail` endpoint — requires instructor auth, 1 MB limit, png/jpg/jpeg only with MIME validation.
+- `client/public/locales/{en,ar,es,fi}/teaching.json`: Added 5 new i18n keys for thumbnail upload, updated `thumbnail_help` text.
+
 ### 2026-03-10 — Fix sidebar disappearing on multiple pages
 
 - `client/src/components/layout/Layout.tsx`: The `sidebarPages` array only included `/dashboard`, `/courses`, `/ai-tools`, `/ai-tutors`, `/settings`, `/profile`, `/teach`. Added `/course`, `/labs`, `/forums`, `/certificates`, `/certificate`, `/quizzes`, `/admin`. Removed the `!location.pathname.startsWith('/admin')` exclusion so the sidebar also shows on admin Logs and Analytics pages.
