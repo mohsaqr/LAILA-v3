@@ -28,6 +28,7 @@ import {
   X,
   Search,
   ListChecks,
+  FileQuestion,
 } from 'lucide-react';
 import { CourseModule, Lecture, CodeLab, Assignment, LabAssignment, Forum } from '../../types';
 import { Button } from '../common/Button';
@@ -80,6 +81,8 @@ interface ModuleItemProps {
   onMoveForumDown?: (forum: Forum, module: CourseModule) => void;
   // Interactive lab handlers
   onRemoveInteractiveLab?: (module: CourseModule, labKey: string) => void;
+  // Quiz handlers
+  onAddQuiz?: (module: CourseModule) => void;
   // Lecture-level assignments keyed by lectureId
   lectureAssignments?: Record<number, Assignment[]>;
 }
@@ -117,6 +120,7 @@ export const ModuleItem = ({
   onMoveForumUp,
   onMoveForumDown,
   onRemoveInteractiveLab,
+  onAddQuiz,
   lectureAssignments = {},
 }: ModuleItemProps) => {
   const { t } = useTranslation(['teaching']);
@@ -681,6 +685,17 @@ export const ModuleItem = ({
                 className="flex-1 min-w-[120px] text-teal-600 hover:bg-teal-50"
               >
                 {t('add_forum')}
+              </Button>
+            )}
+            {onAddQuiz && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onAddQuiz(module)}
+                icon={<FileQuestion className="w-4 h-4" />}
+                className="flex-1 min-w-[120px] text-cyan-600 hover:bg-cyan-50"
+              >
+                {t('add_quiz')}
               </Button>
             )}
             <Button

@@ -553,6 +553,8 @@
   "allow_retakes": "Salli uudelleenyritykset",
   "show_correct_answers": "Näytä oikeat vastaukset lähetyksen jälkeen",
   "shuffle_questions": "Sekoita kysymykset",
+  "quiz_title_required": "Tentin otsikko on pakollinen",
+  "no_limit": "Ei rajaa",
   "quiz_created": "Tentti luotu",
   "quiz_updated": "Tentti päivitetty",
   "quiz_deleted": "Tentti poistettu",

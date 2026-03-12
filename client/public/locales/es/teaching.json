@@ -553,6 +553,8 @@
   "allow_retakes": "Permitir Reintentos",
   "show_correct_answers": "Mostrar Respuestas Correctas Después del Envío",
   "shuffle_questions": "Mezclar Preguntas",
+  "quiz_title_required": "El título del cuestionario es obligatorio",
+  "no_limit": "Sin límite",
   "quiz_created": "Cuestionario creado",
   "quiz_updated": "Cuestionario actualizado",
   "quiz_deleted": "Cuestionario eliminado",

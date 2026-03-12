@@ -553,6 +553,8 @@
   "allow_retakes": "Allow Retakes",
   "show_correct_answers": "Show Correct Answers After Submission",
   "shuffle_questions": "Shuffle Questions",
+  "quiz_title_required": "Quiz title is required",
+  "no_limit": "No limit",
   "quiz_created": "Quiz created",
   "quiz_updated": "Quiz updated",
   "quiz_deleted": "Quiz deleted",

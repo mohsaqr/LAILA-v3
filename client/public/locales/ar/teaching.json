@@ -553,6 +553,8 @@
   "allow_retakes": "السماح بإعادة المحاولة",
   "show_correct_answers": "إظهار الإجابات الصحيحة بعد التسليم",
   "shuffle_questions": "خلط الأسئلة",
+  "quiz_title_required": "عنوان الاختبار مطلوب",
+  "no_limit": "بدون حد",
   "quiz_created": "تم إنشاء الاختبار",
   "quiz_updated": "تم تحديث الاختبار",
   "quiz_deleted": "تم حذف الاختبار",

@@ -10,6 +10,7 @@ import { codeLabsApi } from '../../api/codeLabs';
 import { assignmentsApi } from '../../api/assignments';
 import { customLabsApi } from '../../api/customLabs';
 import { forumsApi, Forum, CreateForumInput } from '../../api/forums';
+import { quizzesApi, CreateQuizInput } from '../../api/quizzes';
 import { useTheme } from '../../hooks/useTheme';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
@@ -60,6 +61,16 @@ interface ForumFormData {
   allowAnonymous: boolean;
 }
 
+interface QuizFormData {
+  title: string;
+  description: string;
+  instructions: string;
+  timeLimit: string;
+  maxAttempts: string;
+  passingScore: string;
+  isPublished: boolean;
+}
+
 export const CurriculumEditor = () => {
   const { t } = useTranslation('teaching');
   const { id } = useParams<{ id: string }>();
@@ -102,6 +113,10 @@ export const CurriculumEditor = () => {
     forum?: Forum;
   }>({ isOpen: false });
   const [deleteForumConfirm, setDeleteForumConfirm] = useState<Forum | null>(null);
+  const [quizModal, setQuizModal] = useState<{
+    isOpen: boolean;
+    moduleId?: number;
+  }>({ isOpen: false });
   const [deleteCourseConfirm, setDeleteCourseConfirm] = useState(false);
 
   // Form states
@@ -126,6 +141,15 @@ export const CurriculumEditor = () => {
     description: '',
     isPublished: true,
     allowAnonymous: false,
+  });
+  const [quizForm, setQuizForm] = useState<QuizFormData>({
+    title: '',
+    description: '',
+    instructions: '',
+    timeLimit: '',
+    maxAttempts: '1',
+    passingScore: '60',
+    isPublished: false,
   });
 
   // Single query: fetches course, assignments, tutors, labs, and forums in one request
@@ -424,6 +448,17 @@ export const CurriculumEditor = () => {
     onError: () => toast.error(t('failed_to_delete_forum')),
   });
 
+  // Quiz mutation
+  const createQuizMutation = useMutation({
+    mutationFn: (data: CreateQuizInput) => quizzesApi.createQuiz(courseId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+      toast.success(t('quiz_created'));
+      closeQuizModal();
+    },
+    onError: () => toast.error(t('failed_to_create_quiz')),
+  });
+
   // Modal handlers
   const openAddModuleModal = () => {
     setModuleForm({ title: '', description: '', label: '' });
@@ -533,6 +568,32 @@ export const CurriculumEditor = () => {
     setForumForm({ title: '', description: '', isPublished: true, allowAnonymous: false });
   };
 
+  const openAddQuizModal = (module: CourseModule) => {
+    setQuizForm({
+      title: '',
+      description: '',
+      instructions: '',
+      timeLimit: '',
+      maxAttempts: '1',
+      passingScore: '60',
+      isPublished: false,
+    });
+    setQuizModal({ isOpen: true, moduleId: module.id });
+  };
+
+  const closeQuizModal = () => {
+    setQuizModal({ isOpen: false });
+    setQuizForm({
+      title: '',
+      description: '',
+      instructions: '',
+      timeLimit: '',
+      maxAttempts: '1',
+      passingScore: '60',
+      isPublished: false,
+    });
+  };
+
   // Interactive lab handlers
   const handleAddInteractiveLab = (moduleId: number, labKey: string) => {
     const mod = modules.find((m: CourseModule) => m.id === moduleId);
@@ -639,6 +700,27 @@ export const CurriculumEditor = () => {
         ...forumForm,
         moduleId: forumModal.moduleId,
       });
+    }
+  };
+
+  const handleQuizSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quizForm.title.trim()) {
+      toast.error(t('quiz_title_required'));
+      return;
+    }
+
+    if (quizModal.moduleId) {
+      const data: CreateQuizInput = {
+        title: quizForm.title,
+        description: quizForm.description || undefined,
+        instructions: quizForm.instructions || undefined,
+        timeLimit: quizForm.timeLimit ? parseInt(quizForm.timeLimit) : undefined,
+        maxAttempts: quizForm.maxAttempts ? parseInt(quizForm.maxAttempts) : undefined,
+        passingScore: quizForm.passingScore ? parseInt(quizForm.passingScore) : undefined,
+        moduleId: quizModal.moduleId,
+      };
+      createQuizMutation.mutate(data);
     }
   };
 
@@ -1102,6 +1184,7 @@ export const CurriculumEditor = () => {
                   onMoveForumUp={handleMoveForumUp}
                   onMoveForumDown={handleMoveForumDown}
                   onRemoveInteractiveLab={handleRemoveInteractiveLab}
+                  onAddQuiz={openAddQuizModal}
                 />
               ))}
             </div>
@@ -1797,6 +1880,92 @@ export const CurriculumEditor = () => {
         confirmText={t('common:delete')}
         loading={deleteForumMutation.isPending}
       />
+
+      {/* Quiz Modal */}
+      <Modal
+        isOpen={quizModal.isOpen}
+        onClose={closeQuizModal}
+        title={t('create_quiz')}
+        size="3xl"
+      >
+        <form onSubmit={handleQuizSubmit} className="space-y-4">
+          <Input
+            label={t('quiz_title')}
+            value={quizForm.title}
+            onChange={e => setQuizForm(f => ({ ...f, title: e.target.value }))}
+            placeholder={t('quiz_title_placeholder')}
+            required
+          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              {t('quiz_description')}
+            </label>
+            <RichTextEditor
+              value={quizForm.description}
+              onChange={val => setQuizForm(f => ({ ...f, description: val }))}
+              editorClassName="forum-reply-editor px-3 py-2 min-h-[200px] max-h-[400px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              {t('quiz_instructions')}
+            </label>
+            <RichTextEditor
+              value={quizForm.instructions}
+              onChange={val => setQuizForm(f => ({ ...f, instructions: val }))}
+              editorClassName="forum-reply-editor px-3 py-2 min-h-[120px] max-h-[300px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <Input
+              label={t('time_limit_minutes')}
+              type="number"
+              value={quizForm.timeLimit}
+              onChange={e => setQuizForm(f => ({ ...f, timeLimit: e.target.value }))}
+              min={0}
+              placeholder={t('no_limit')}
+            />
+            <Input
+              label={t('max_attempts')}
+              type="number"
+              value={quizForm.maxAttempts}
+              onChange={e => setQuizForm(f => ({ ...f, maxAttempts: e.target.value }))}
+              min={0}
+            />
+            <Input
+              label={t('passing_score')}
+              type="number"
+              value={quizForm.passingScore}
+              onChange={e => setQuizForm(f => ({ ...f, passingScore: e.target.value }))}
+              min={0}
+              max={100}
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="quizIsPublished"
+              checked={quizForm.isPublished}
+              onChange={e => setQuizForm(f => ({ ...f, isPublished: e.target.checked }))}
+              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            />
+            <label htmlFor="quizIsPublished" className="text-sm text-gray-700 dark:text-gray-300">
+              {t('publish_immediately')}
+            </label>
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button type="button" variant="secondary" onClick={closeQuizModal}>
+              {t('common:cancel')}
+            </Button>
+            <Button
+              type="submit"
+              loading={createQuizMutation.isPending}
+            >
+              {t('common:create')}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Delete Course Confirmation */}
       <ConfirmDialog
