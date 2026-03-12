@@ -1,4 +1,17 @@
-# Session Handoff — 2026-03-11
+# Session Handoff — 2026-03-12
+
+## Completed (2026-03-12)
+- **Unified SubmissionReview (#48)**: `SubmissionReview.tsx` now handles both regular and AI agent submissions inline. Conditionally queries the right API based on `assignment.submissionType`.
+- **Fix agent assignment redirect URLs (#49)**: All instructor submission list URLs unified under `/teach/courses/{ID}/assignments/{ID}/submissions`. Removed `/agent-assignments/.../submissions` route. Agent submission detail at `/assignments/{ID}/agent-submissions/{submissionId}`.
+- **RichTextEditor for assignment description (#50)**: Replaced TextArea with RichTextEditor in CurriculumEditor, AssignmentManager, AssignmentSectionEditor. HTML rendered with sanitization in all student/instructor views. Fixed StudentAgentBuilder to render instructions/description as HTML.
+- **Due date time picker + timezone (#51)**: Changed to `datetime-local` input. Fixed timezone by sending literal time as UTC (`value + ':00.000Z'`). All displays use `timeZone: 'UTC'`. Instructor picks 20:00 → DB stores 20:00Z → everyone sees 20:00.
+- **Static instructor sidebar (#33)**: No course-context switching, removed gradebook/calendar for instructors.
+- **Margins/breadcrumbs for teach pages (#38)**: Standardized `max-w-7xl` and simplified breadcrumbs for labs, quizzes, surveys, certificates.
+- **Certificates button in CurriculumEditor (#43)**: Added Certificates + Analytics buttons to management card.
+- **Survey responses filter by moduleId (#45)**: Full stack fix: client → API → route → service → Prisma query.
+- **Assignment edit modal width (#46)**: `lg` → `3xl`.
+- **Survey API type fixes**: Replaced `any` with `Survey` in module survey API methods.
+- **Interactive element fixes**: Fixed nested Link>Button, missing type="button" on attachment buttons.
 
 ## Completed (2026-03-11)
 - **Thumbnail file upload**: Replaced "Thumbnail URL" text input on `/teach/create` with image file upload (png/jpg/jpeg, 1 MB limit). New `POST /api/uploads/thumbnail` endpoint, client upload API, preview with remove button, i18n in all 4 languages.
@@ -43,7 +56,6 @@
 
 ## Current State
 - Branch: `fix_issues`
-- Server: 953 tests passing
 - Client: compiles cleanly (only pre-existing type warnings in unrelated files)
 
 ## Key Decisions
@@ -52,9 +64,13 @@
 - Creator for agent chatbots is the student who designed the agent (not the instructor)
 - Usage stats come from `AgentTestConversation`/`AgentTestMessage` tables
 - Filter options merge courses and creators from all three sources (global, section, agent) with deduplication
+- Due dates use "wall clock" pattern: stored as literal UTC, displayed with `timeZone: 'UTC'` — no timezone conversion
+- Instructor submission routes unified: `/teach/courses/{ID}/assignments/{ID}/submissions` handles both regular and agent types
+- Student-facing agent routes (`/courses/{ID}/agent-assignments/{ID}`) unchanged
 
 ## Open Issues
 - Lectures, assignments, quizzes, codeLabs, codeBlocks in seed.ts still use `prisma.*.create()` — will create duplicates on re-seed. Low priority.
+- **Bug #47 (discarded)**: AI agent assignment creation in lecture editor — changes were coded then discarded at user's request. Bug remains unfixed.
 
 ## Context
 - Dev servers: client on port 5174, server on port 5001
