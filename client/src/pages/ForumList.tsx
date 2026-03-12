@@ -80,46 +80,49 @@ export const ForumList = () => {
               className="block"
             >
               <Card className="hover:shadow-lg transition-shadow">
-                <CardBody className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div
-                      className="w-12 h-12 rounded-lg flex items-center justify-center"
-                      style={{ backgroundColor: `${colors.accent}20` }}
-                    >
-                      <MessageSquare className="w-6 h-6" style={{ color: colors.accent }} />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold" style={{ color: colors.textPrimary }}>
-                        {forum.title}
-                      </h3>
-                      <p className="text-sm" style={{ color: colors.textSecondary }}>
-                        {forum.courseName}
-                      </p>
-                      {forum.description && (
-                        <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-                          {forum.description}
-                        </p>
-                      )}
-                    </div>
+                <CardBody className="flex items-center gap-4">
+                  {/* Icon */}
+                  <div
+                    className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: `${colors.accent}20` }}
+                  >
+                    <MessageSquare className="w-6 h-6" style={{ color: colors.accent }} />
                   </div>
-                  <div className="flex items-center gap-6">
-                    <div className="text-center">
-                      <div className="flex items-center gap-1" style={{ color: colors.textSecondary }}>
-                        <Users className="w-4 h-4" />
-                        <span className="text-sm">{t('n_threads', { count: forum.threadCount })}</span>
-                      </div>
+
+                  {/* Description — 3/5 */}
+                  <div className="w-3/5 min-w-0">
+                    <h3 className="font-semibold" style={{ color: colors.textPrimary }}>
+                      {forum.title}
+                    </h3>
+                    <p className="text-sm" style={{ color: colors.textSecondary }}>
+                      {forum.courseName}
+                    </p>
+                    {forum.description && (
+                      <p className="text-sm mt-1 line-clamp-2" style={{ color: colors.textSecondary }}>
+                        {forum.description}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Stats — 2/5 */}
+                  <div className="w-2/5 flex items-center justify-end gap-6">
+                    <div className="flex items-center gap-1.5" style={{ color: colors.textSecondary }}>
+                      <Users className="w-4 h-4 flex-shrink-0" />
+                      <span className="text-sm whitespace-nowrap">{t('n_threads', { count: forum.threadCount })}</span>
                     </div>
                     {forum.lastActivity && (
-                      <div className="text-center">
-                        <div className="flex items-center gap-1" style={{ color: colors.textSecondary }}>
-                          <Clock className="w-4 h-4" />
-                          <span className="text-sm">
-                            {new Date(forum.lastActivity).toLocaleDateString()}
-                          </span>
-                        </div>
+                      <div className="flex items-center gap-1.5" style={{ color: colors.textSecondary }}>
+                        <Clock className="w-4 h-4 flex-shrink-0" />
+                        <span className="text-sm whitespace-nowrap">
+                          {new Date(forum.lastActivity).toLocaleDateString('en-GB', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </span>
                       </div>
                     )}
-                    <ChevronRight className="w-5 h-5" style={{ color: colors.textSecondary }} />
+                    <ChevronRight className="w-5 h-5 flex-shrink-0" style={{ color: colors.textSecondary }} />
                   </div>
                 </CardBody>
               </Card>

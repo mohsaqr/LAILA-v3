@@ -1,3 +1,7 @@
+### 2026-03-12 — Fix forum card layout and date format
+
+- **#52 Forum card layout**: `client/src/pages/ForumList.tsx` and `client/src/pages/CourseForumList.tsx` — redesigned forum cards to use 3/5 width for description (title, course name, description with `line-clamp-2`) and 2/5 for stats (thread count, date, chevron). Date format changed from `toLocaleDateString()` (locale-dependent) to `en-GB` format: `24 Aug 2025`. Added `flex-shrink-0` on icon/stats, `min-w-0` on description for proper truncation.
+
 ### 2026-03-12 — Unify submission routes, rich text descriptions, due date timezone
 
 - **#48 Unified SubmissionReview**: `client/src/pages/teach/SubmissionReview.tsx` rewritten to handle both regular and AI agent submissions inline. Checks `assignment.submissionType === 'ai_agent'` and conditionally fetches via `agentAssignmentsApi.getAgentSubmissions()` or `assignmentsApi.getSubmissions()`. Agent submissions display Bot icon, agent name, version, test conversation count.

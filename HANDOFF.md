@@ -5,6 +5,7 @@
 - **Fix agent assignment redirect URLs (#49)**: All instructor submission list URLs unified under `/teach/courses/{ID}/assignments/{ID}/submissions`. Removed `/agent-assignments/.../submissions` route. Agent submission detail at `/assignments/{ID}/agent-submissions/{submissionId}`.
 - **RichTextEditor for assignment description (#50)**: Replaced TextArea with RichTextEditor in CurriculumEditor, AssignmentManager, AssignmentSectionEditor. HTML rendered with sanitization in all student/instructor views. Fixed StudentAgentBuilder to render instructions/description as HTML.
 - **Due date time picker + timezone (#51)**: Changed to `datetime-local` input. Fixed timezone by sending literal time as UTC (`value + ':00.000Z'`). All displays use `timeZone: 'UTC'`. Instructor picks 20:00 → DB stores 20:00Z → everyone sees 20:00.
+- **Forum card layout (#52)**: Redesigned forum cards with 3/5 description + 2/5 stats, date format `24 Aug 2025`.
 - **Static instructor sidebar (#33)**: No course-context switching, removed gradebook/calendar for instructors.
 - **Margins/breadcrumbs for teach pages (#38)**: Standardized `max-w-7xl` and simplified breadcrumbs for labs, quizzes, surveys, certificates.
 - **Certificates button in CurriculumEditor (#43)**: Added Certificates + Analytics buttons to management card.
