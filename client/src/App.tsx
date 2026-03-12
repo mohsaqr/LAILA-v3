@@ -102,7 +102,6 @@ import { SurveyStandalone } from './pages/SurveyStandalone';
 // Agent Assignment pages
 import {
   StudentAgentBuilder,
-  AgentSubmissionsList,
   AgentSubmissionReview,
   UseMyAgent,
 } from './pages/agent-assignment';
@@ -635,17 +634,9 @@ function App() {
           }
         />
 
-        {/* AI Agent Assignment routes (Instructor) */}
+        {/* AI Agent submission detail (Instructor) */}
         <Route
-          path="/teach/courses/:id/agent-assignments/:assignmentId/submissions"
-          element={
-            <ProtectedRoute requireInstructor>
-              <AgentSubmissionsList />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/teach/courses/:id/agent-assignments/:assignmentId/submissions/:submissionId"
+          path="/teach/courses/:id/assignments/:assignmentId/agent-submissions/:submissionId"
           element={
             <ProtectedRoute requireInstructor>
               <AgentSubmissionReview />

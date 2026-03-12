@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ClipboardList, Calendar, Award, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { LectureSection } from '../../types';
+import { sanitizeHtml } from '../../utils/sanitize';
 import { Card, CardBody } from '../common/Card';
 import { Button } from '../common/Button';
 
@@ -35,6 +36,7 @@ export const AssignmentSectionStudent = ({ section, courseId }: AssignmentSectio
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: 'UTC',
     });
   };
 
@@ -87,7 +89,9 @@ export const AssignmentSectionStudent = ({ section, courseId }: AssignmentSectio
 
       <CardBody>
         {assignment.description && (
-          <p className="text-gray-600 mb-4">{assignment.description}</p>
+          assignment.description.trim().startsWith('<')
+            ? <div className="text-gray-600 mb-4 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(assignment.description) }} />
+            : <p className="text-gray-600 mb-4">{assignment.description}</p>
         )}
 
         <div className="flex flex-wrap items-center gap-4 mb-4 text-sm">

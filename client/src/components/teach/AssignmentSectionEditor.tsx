@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ClipboardList, Calendar, Award, AlertCircle, Link as LinkIcon, Edit2, Upload, FileText, Trash2, Pencil, Check, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Assignment, AssignmentAttachment, LectureSection, UpdateSectionData } from '../../types';
+import { sanitizeHtml } from '../../utils/sanitize';
 import { coursesApi } from '../../api/courses';
 import { assignmentsApi } from '../../api/assignments';
 import { uploadsApi } from '../../api/uploads';
@@ -259,7 +260,7 @@ export const AssignmentSectionEditor = ({
         ...data,
         moduleId: moduleId ?? null,
         lectureId: lectureId ?? null,
-        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
+        dueDate: data.dueDate ? data.dueDate + ':00.000Z' : null,
       }),
     onSuccess: async (newAssignment) => {
       // Upload any staged files
@@ -294,7 +295,7 @@ export const AssignmentSectionEditor = ({
     mutationFn: (data: AssignmentFormData) =>
       assignmentsApi.updateAssignment(selectedAssignmentId!, {
         ...data,
-        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
+        dueDate: data.dueDate ? data.dueDate + ':00.000Z' : null,
       }),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
@@ -357,6 +358,7 @@ export const AssignmentSectionEditor = ({
     return new Date(dateStr).toLocaleDateString('en-US', {
       weekday: 'short', month: 'short', day: 'numeric',
       year: 'numeric', hour: '2-digit', minute: '2-digit',
+      timeZone: 'UTC',
     });
   };
 
@@ -379,7 +381,9 @@ export const AssignmentSectionEditor = ({
           <div className="flex-1">
             <h4 className="font-medium text-gray-900">{selectedAssignment.title}</h4>
             {selectedAssignment.description && (
-              <p className="text-sm text-gray-600 mt-1">{selectedAssignment.description}</p>
+              selectedAssignment.description.trim().startsWith('<')
+                ? <div className="text-sm text-gray-600 mt-1 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedAssignment.description) }} />
+                : <p className="text-sm text-gray-600 mt-1">{selectedAssignment.description}</p>
             )}
             <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
               {showDeadline && selectedAssignment.dueDate && (

@@ -143,7 +143,7 @@ export const ModuleSection = ({
       type: (assignment.submissionType === 'ai_agent' ? 'ai_agent' : 'assignment') as ContentType,
       title: assignment.title,
       metadata: assignment.dueDate
-        ? t('due_date_short', { date: new Date(assignment.dueDate).toLocaleDateString() })
+        ? t('due_date_short', { date: new Date(assignment.dueDate).toLocaleDateString(undefined, { timeZone: 'UTC' }) })
         : t('x_pts', { count: assignment.points }),
       href: assignment.submissionType === 'ai_agent'
         ? `/courses/${courseId}/agent-assignments/${assignment.id}`

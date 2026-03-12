@@ -251,7 +251,7 @@ export const ModuleItem = ({
         ...form,
         moduleId: module.id,
         lectureId,
-        dueDate: form.dueDate ? new Date(form.dueDate).toISOString() : null,
+        dueDate: form.dueDate ? form.dueDate + ':00.000Z' : null,
       });
       await coursesApi.createSection(lectureId, {
         type: 'assignment',

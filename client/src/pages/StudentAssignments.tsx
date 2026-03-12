@@ -258,7 +258,7 @@ const AssignmentCard = ({ assignment, courseId, colors }: AssignmentCardProps) =
                   style={{ color: isPastDue && !isSubmitted ? colors.textRed : colors.textSecondary }}
                 >
                   <Calendar className="w-4 h-4" />
-                  {t('due_at', { date: dueDate.toLocaleDateString(), time: dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) })}
+                  {t('due_at', { date: dueDate.toLocaleDateString(undefined, { timeZone: 'UTC' }), time: dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) })}
                 </span>
               )}
               {assignment.module && (

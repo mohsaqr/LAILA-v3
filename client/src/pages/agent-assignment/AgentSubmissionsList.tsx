@@ -210,7 +210,7 @@ export const AgentSubmissionsList = () => {
                         size="sm"
                         onClick={() =>
                           navigate(
-                            `/teach/courses/${courseId}/agent-assignments/${assId}/submissions/${config.submission!.id}`
+                            `/teach/courses/${courseId}/assignments/${assId}/agent-submissions/${config.submission!.id}`
                           )
                         }
                       >

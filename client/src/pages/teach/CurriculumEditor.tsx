@@ -20,6 +20,7 @@ import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { EmptyState } from '../../components/common/EmptyState';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Input, TextArea, Select } from '../../components/common/Input';
+import { RichTextEditor } from '../../components/forum/RichTextEditor';
 import { ModuleItem } from '../../components/teach/ModuleItem';
 import { CourseModule, Lecture, CodeLab, Assignment, CustomLab, LabTemplate, LabAssignment } from '../../types';
 
@@ -349,7 +350,7 @@ export const CurriculumEditor = () => {
     mutationFn: (data: AssignmentFormData & { moduleId: number }) =>
       assignmentsApi.createAssignment(courseId, {
         ...data,
-        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
+        dueDate: data.dueDate ? data.dueDate + ':00.000Z' : null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
@@ -367,7 +368,7 @@ export const CurriculumEditor = () => {
     mutationFn: ({ id, data }: { id: number; data: AssignmentFormData & { moduleId?: number } }) =>
       assignmentsApi.updateAssignment(id, {
         ...data,
-        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
+        dueDate: data.dueDate ? data.dueDate + ':00.000Z' : null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
@@ -494,7 +495,7 @@ export const CurriculumEditor = () => {
       description: assignment.description || '',
       submissionType: assignment.submissionType,
       points: assignment.points,
-      dueDate: assignment.dueDate ? assignment.dueDate.split('T')[0] : '',
+      dueDate: assignment.dueDate ? new Date(assignment.dueDate).toISOString().slice(0, 16) : '',
       isPublished: assignment.isPublished,
     });
     setAssignmentModal({ isOpen: true, assignment });
@@ -1591,7 +1592,7 @@ export const CurriculumEditor = () => {
         isOpen={assignmentModal.isOpen}
         onClose={closeAssignmentModal}
         title={assignmentModal.assignment ? t('edit_assignment') : t('add_assignment')}
-        size="md"
+        size="3xl"
       >
         <form onSubmit={handleAssignmentSubmit} className="space-y-4">
           <Input
@@ -1617,13 +1618,16 @@ export const CurriculumEditor = () => {
               { value: 'ai_agent', label: t('ai_agent_submission') },
             ]}
           />
-          <TextArea
-            label={t('assignment_description')}
-            value={assignmentForm.description}
-            onChange={e => setAssignmentForm(f => ({ ...f, description: e.target.value }))}
-            placeholder={t('assignment_description_placeholder')}
-            rows={3}
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              {t('assignment_description')}
+            </label>
+            <RichTextEditor
+              value={assignmentForm.description}
+              onChange={val => setAssignmentForm(f => ({ ...f, description: val }))}
+              editorClassName="forum-reply-editor px-3 py-2 min-h-[200px] max-h-[400px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
+            />
+          </div>
           {assignmentForm.submissionType === 'ai_agent' && (
             <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700">
               {t('ai_agent_info')}
@@ -1639,10 +1643,9 @@ export const CurriculumEditor = () => {
             />
             <Input
               label={t('due_date_optional')}
-              type="date"
+              type="datetime-local"
               value={assignmentForm.dueDate}
               onChange={e => setAssignmentForm(f => ({ ...f, dueDate: e.target.value }))}
-              min={new Date().toISOString().split('T')[0]}
             />
           </div>
           <div className="flex items-center gap-3">
