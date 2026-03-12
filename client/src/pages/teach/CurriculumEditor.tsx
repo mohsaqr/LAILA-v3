@@ -1288,7 +1288,7 @@ export const CurriculumEditor = () => {
         isOpen={moduleModal.isOpen}
         onClose={closeModuleModal}
         title={moduleModal.module ? t('edit_module') : t('add_module')}
-        size="md"
+        size="3xl"
       >
         <form onSubmit={handleModuleSubmit} className="space-y-4">
           <Input
@@ -1331,7 +1331,7 @@ export const CurriculumEditor = () => {
         isOpen={lectureModal.isOpen}
         onClose={closeLectureModal}
         title={lectureModal.lecture ? t('edit_lesson') : t('add_lesson')}
-        size="md"
+        size="3xl"
       >
         <form onSubmit={handleLectureSubmit} className="space-y-4">
           <Input
@@ -1435,7 +1435,7 @@ export const CurriculumEditor = () => {
         isOpen={codeLabModal.isOpen}
         onClose={closeCodeLabModal}
         title={codeLabModal.codeLab ? t('edit_code_lab') : t('add_code_lab')}
-        size="lg"
+        size="3xl"
       >
         {/* Tabs - only show for new code labs */}
         {!codeLabModal.codeLab && (
@@ -1812,7 +1812,7 @@ export const CurriculumEditor = () => {
         isOpen={forumModal.isOpen}
         onClose={closeForumModal}
         title={forumModal.forum ? t('edit_forum') : t('add_forum')}
-        size="md"
+        size="3xl"
       >
         <form onSubmit={handleForumSubmit} className="space-y-4">
           <Input

@@ -1,10 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { FileQuestion, Clock, Users, ChevronRight, Plus } from 'lucide-react';
+import { FileQuestion, Clock, Users, ChevronRight } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { Card, CardBody } from '../../components/common/Card';
-import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import apiClient from '../../api/client';
@@ -69,18 +68,9 @@ export const QuizList = () => {
         <Card>
           <CardBody className="text-center py-12">
             <FileQuestion className="w-12 h-12 mx-auto mb-4" style={{ color: colors.textSecondary }} />
-            <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>
-              {t('no_quizzes_created')}
-            </h3>
             <p style={{ color: colors.textSecondary }}>
-              {t('create_quizzes_from_course')}
+              {t('quizzes_appear_here')}
             </p>
-            <Link to="/courses" className="mt-4 inline-block">
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                {t('go_to_courses')}
-              </Button>
-            </Link>
           </CardBody>
         </Card>
       ) : (

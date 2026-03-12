@@ -712,7 +712,7 @@ export const ModuleItem = ({
       )}
 
       {/* File Upload Modal */}
-      <Modal isOpen={fileUploadLectureId !== null} onClose={closeFileModal} title={t('upload_file')} size="md">
+      <Modal isOpen={fileUploadLectureId !== null} onClose={closeFileModal} title={t('upload_file')} size="3xl">
         <div className="space-y-4">
           {!uploadedFile ? (
             <div
@@ -790,7 +790,7 @@ export const ModuleItem = ({
       </Modal>
 
       {/* Assignment Creation Modal */}
-      <Modal isOpen={assignmentLectureId !== null} onClose={closeAssignmentModal} title={t('create_assignment')} size="lg">
+      <Modal isOpen={assignmentLectureId !== null} onClose={closeAssignmentModal} title={t('create_assignment')} size="3xl">
         <form onSubmit={handleCreateAssignment} className="space-y-4">
           <Input
             label={t('title')}
@@ -868,7 +868,7 @@ export const ModuleItem = ({
       </Modal>
 
       {/* Survey Selection Modal */}
-      <Modal isOpen={surveyModalOpen} onClose={() => { setSurveyModalOpen(false); setSurveySearch(''); }} title={t('select_survey')} size="md">
+      <Modal isOpen={surveyModalOpen} onClose={() => { setSurveyModalOpen(false); setSurveySearch(''); }} title={t('select_survey')} size="3xl">
         <div className="space-y-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />

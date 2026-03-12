@@ -720,6 +720,7 @@
   "add_first_question": "Lisää ensimmäinen kysymys aloittaaksesi",
   "manage_quizzes_all": "Hallitse tenttejä kaikilla kursseillasi",
   "no_quizzes_created": "Tenttejä ei ole luotu",
+  "quizzes_appear_here": "Tentit näkyvät täällä kun luot niitä kursseistasi.",
   "create_quizzes_from_course": "Luo tenttejä kurssin opetussuunnitelmasta.",
   "go_to_courses": "Siirry kursseihin",
   "loading_forums": "Ladataan keskusteluita...",
