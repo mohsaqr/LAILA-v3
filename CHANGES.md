@@ -1,3 +1,9 @@
+### 2026-03-12 — Course activation code for enrollment
+
+- **#56 Activation code for enrollment**: Added `activationCode` column (nullable String) to Course model in `server/prisma/schema.prisma`. Auto-generates random 8-character hex code on course creation in `course.service.ts` using `crypto.randomBytes(4).toString('hex').toUpperCase()`. Modified `enrollment.service.ts` `enroll()` to accept optional `activationCode` param — validates case-insensitively against course's code, throws 400 on mismatch. Updated `enrollment.routes.ts` to pass `activationCode` from request body.
+- Client: `CourseDetails.tsx` — if course has activation code, "Enroll Now" opens a modal asking for the code instead of enrolling directly. Modal has text input, submit/cancel buttons. `enrollmentsApi.enroll()` accepts optional `activationCode` param. `CurriculumEditor.tsx` — displays activation code in the management card header with amber styling and a copy-to-clipboard button. Added `activationCode` to client `Course` type.
+- i18n: Added 7 keys (`activation_code`, `enter_activation_code`, `activation_code_required`, `activation_code_placeholder`, `enroll`, `code_copied`, `copy_code`) in `courses.json` for all 4 locales.
+
 ### 2026-03-12 — Allow re-registration for unverified users
 
 - **#55 Re-registration for unverified emails**: Modified `auth.service.ts` `register()` — if existing user has `isConfirmed: false`, deletes the old record (cascade deletes verification codes) and allows fresh registration. Only throws "Email already registered" for confirmed users. Updated `login()` error for unverified users: "Your account is not verified. Please sign up again and complete the verification." Updated test for duplicate email to set `isConfirmed: true`.

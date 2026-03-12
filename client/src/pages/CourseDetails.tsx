@@ -29,7 +29,9 @@ import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { CollaborativeModule } from '../components/course/CollaborativeModule';
 import { ModuleSection } from '../components/course/ModuleSection';
-import { useEffect, useRef } from 'react';
+import { Modal } from '../components/common/Modal';
+import { Input } from '../components/common/Input';
+import { useEffect, useRef, useState } from 'react';
 import { Assignment, Survey, CurriculumViewMode } from '../types';
 import activityLogger from '../services/activityLogger';
 
@@ -40,6 +42,10 @@ export const CourseDetails = () => {
   const { isDark } = useTheme();
   const { t } = useTranslation(['courses', 'common']);
   const moduleRefs = useRef<Record<number, HTMLElement | null>>({});
+
+  // Activation code modal state
+  const [showCodeModal, setShowCodeModal] = useState(false);
+  const [activationCode, setActivationCode] = useState('');
 
   // Theme colors
   const colors = {
@@ -148,9 +154,11 @@ export const CourseDetails = () => {
   const standaloneForums = (forums || []).filter(f => !f.moduleId && f.isPublished);
 
   const enrollMutation = useMutation({
-    mutationFn: () => enrollmentsApi.enroll(parseInt(id!), course?.title),
+    mutationFn: (code?: string) => enrollmentsApi.enroll(parseInt(id!), course?.title, code),
     onSuccess: () => {
       toast.success(t('successfully_enrolled'));
+      setShowCodeModal(false);
+      setActivationCode('');
       queryClient.invalidateQueries({ queryKey: ['enrollment', id] });
       queryClient.invalidateQueries({ queryKey: ['enrollments'] });
     },
@@ -158,6 +166,23 @@ export const CourseDetails = () => {
       toast.error(error.message);
     },
   });
+
+  const handleEnrollClick = () => {
+    if (course?.activationCode) {
+      setShowCodeModal(true);
+    } else {
+      enrollMutation.mutate(undefined);
+    }
+  };
+
+  const handleCodeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activationCode.trim()) {
+      toast.error(t('enter_activation_code'));
+      return;
+    }
+    enrollMutation.mutate(activationCode.trim());
+  };
 
   // Log course view when course loads
   useEffect(() => {
@@ -256,8 +281,8 @@ export const CourseDetails = () => {
           {/* Action buttons for non-enrolled users */}
           <div className="mt-4 flex flex-wrap gap-3">
             {!hasAccess && isAuthenticated && (
-              <Button onClick={() => enrollMutation.mutate()} loading={enrollMutation.isPending} className="bg-white text-primary-600 hover:bg-gray-100">
-                {t('enroll_now_free')}
+              <Button onClick={handleEnrollClick} loading={enrollMutation.isPending} className="bg-white text-primary-600 hover:bg-gray-100">
+                {t('enroll_now')}
               </Button>
             )}
             {!isAuthenticated && (
@@ -491,6 +516,30 @@ export const CourseDetails = () => {
           )}
         </div>
       </div>
+
+      {/* Activation Code Modal */}
+      <Modal isOpen={showCodeModal} onClose={() => { setShowCodeModal(false); setActivationCode(''); }} title={t('enter_activation_code')} size="sm">
+        <form onSubmit={handleCodeSubmit} className="space-y-4 p-4">
+          <p className="text-sm" style={{ color: colors.textSecondary }}>
+            {t('activation_code_required')}
+          </p>
+          <Input
+            type="text"
+            placeholder={t('activation_code_placeholder')}
+            value={activationCode}
+            onChange={(e) => setActivationCode(e.target.value)}
+            autoFocus
+          />
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="secondary" onClick={() => { setShowCodeModal(false); setActivationCode(''); }}>
+              {t('common:cancel')}
+            </Button>
+            <Button type="submit" loading={enrollMutation.isPending}>
+              {t('enroll')}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

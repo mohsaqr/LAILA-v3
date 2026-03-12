@@ -1101,5 +1101,8 @@
   "file_upload_failed": "Failed to upload file",
   "file_too_large": "{{name}} exceeds the {{limit}} size limit",
   "uploading": "Uploading...",
-  "rename": "Rename"
+  "rename": "Rename",
+  "activation_code": "Activation Code",
+  "code_copied": "Activation code copied!",
+  "copy_code": "Copy code"
 }

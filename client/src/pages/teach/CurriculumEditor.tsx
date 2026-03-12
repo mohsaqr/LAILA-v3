@@ -3,7 +3,7 @@ import { sanitizeHtml } from '../../utils/sanitize';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Settings, Eye, EyeOff, Layers, FileEdit, Bot, ChevronDown, Heart, Beaker, Check, ExternalLink, FileQuestion, MessageSquare, Trash2, ClipboardList, Network, ListChecks, BarChart3, Award } from 'lucide-react';
+import { Plus, Settings, Eye, EyeOff, Layers, FileEdit, Bot, ChevronDown, Heart, Beaker, Check, ExternalLink, FileQuestion, MessageSquare, Trash2, ClipboardList, Network, ListChecks, BarChart3, Award, Copy, KeyRound } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../../api/courses';
 import { codeLabsApi } from '../../api/codeLabs';
@@ -859,7 +859,27 @@ export const CurriculumEditor = () => {
         className="mb-6 p-4 rounded-xl"
         style={{ backgroundColor: isDark ? '#0f172a' : '#1e293b' }}
       >
-        <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">{t('course_management')}</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">{t('course_management')}</h3>
+          {course.activationCode && (
+            <div className="flex items-center gap-2">
+              <KeyRound className="w-4 h-4 text-amber-400" />
+              <span className="text-xs text-slate-400">{t('activation_code')}:</span>
+              <code className="text-sm font-mono font-bold text-amber-300 bg-slate-700/50 px-2 py-0.5 rounded">{course.activationCode}</code>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(course.activationCode!);
+                  toast.success(t('code_copied'));
+                }}
+                className="p-1 rounded hover:bg-slate-700 transition-colors text-slate-400 hover:text-white"
+                title={t('copy_code')}
+              >
+                <Copy className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-11 gap-2">
           {/* View Course */}
           <Link

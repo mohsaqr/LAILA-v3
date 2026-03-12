@@ -1101,5 +1101,8 @@
   "file_upload_failed": "Tiedoston lataus epäonnistui",
   "file_too_large": "{{name}} ylittää {{limit}} kokorajan",
   "uploading": "Ladataan...",
-  "rename": "Nimeä uudelleen"
+  "rename": "Nimeä uudelleen",
+  "activation_code": "Aktivointikoodi",
+  "code_copied": "Aktivointikoodi kopioitu!",
+  "copy_code": "Kopioi koodi"
 }

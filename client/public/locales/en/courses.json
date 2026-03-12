@@ -123,6 +123,7 @@
   "n_modules": "{{count}} modules",
   "instructor_view": "Instructor View",
   "enroll_now_free": "Enroll Now - Free",
+  "enroll_now": "Enroll Now",
   "sign_in_to_enroll": "Sign in to Enroll",
   "no_content_available": "No content available yet",
   "content_not_found": "Content Not Found",
@@ -882,5 +883,12 @@
   "ai_gen.generate": "Generate",
   "ai_gen.max_attempts": "Maximum attempts reached. The AI could not produce a valid dataset. Please try a different description.",
   "ai_gen.parse_error": "The generated format was invalid. You have {{remaining}} attempt(s) left. Try again or rephrase your description.",
-  "ai_gen.or_generate": "or generate with AI"
+  "ai_gen.or_generate": "or generate with AI",
+  "activation_code": "Activation Code",
+  "enter_activation_code": "Enter Activation Code",
+  "activation_code_required": "This course requires an activation code to enroll. Please enter the code provided by your instructor.",
+  "activation_code_placeholder": "Enter code",
+  "enroll": "Enroll",
+  "code_copied": "Activation code copied!",
+  "copy_code": "Copy code"
 }

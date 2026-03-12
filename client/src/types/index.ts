@@ -46,6 +46,7 @@ export interface Course {
   publishedAt: string | null;
   curriculumViewMode?: CurriculumViewMode;
   enabledLabs?: string | null;
+  activationCode?: string | null;
   instructor?: {
     id: number;
     fullname: string;

@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { CreateCourseInput, UpdateCourseInput } from '../utils/validation.js';
@@ -11,6 +12,13 @@ export interface SystemEventContext {
 }
 
 export class CourseService {
+  // Generate a random 8-character alphanumeric activation code (letters + numbers)
+  private generateActivationCode(): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous chars (0/O, 1/I)
+    const bytes = crypto.randomBytes(8);
+    return Array.from(bytes, b => chars[b % chars.length]).join('');
+  }
+
   // Generate slug from title
   private generateSlug(title: string): string {
     return title
@@ -365,11 +373,14 @@ export class CourseService {
     const slug = this.generateSlug(data.title);
     const { categoryIds, ...courseData } = data;
 
+    const activationCode = this.generateActivationCode();
+
     const course = await prisma.course.create({
       data: {
         ...courseData,
         slug,
         instructorId,
+        activationCode,
       },
       include: {
         instructor: {

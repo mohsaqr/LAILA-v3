@@ -18,8 +18,8 @@ export const enrollmentsApi = {
     };
   },
 
-  enroll: async (courseId: number, courseTitle?: string) => {
-    const response = await apiClient.post<ApiResponse<Enrollment>>('/enrollments', { courseId });
+  enroll: async (courseId: number, courseTitle?: string, activationCode?: string) => {
+    const response = await apiClient.post<ApiResponse<Enrollment>>('/enrollments', { courseId, activationCode });
     // Log enrollment activity
     activityLogger.logCourseEnrolled(courseId, courseTitle).catch(() => {});
     return response.data.data!;

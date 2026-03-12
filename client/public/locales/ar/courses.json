@@ -123,6 +123,7 @@
   "n_modules": "{{count}} وحدة",
   "instructor_view": "عرض المدرس",
   "enroll_now_free": "سجل الآن - مجاناً",
+  "enroll_now": "سجل الآن",
   "sign_in_to_enroll": "سجل دخول للتسجيل",
   "no_content_available": "لا يوجد محتوى متاح بعد",
   "content_not_found": "المحتوى غير موجود",
@@ -881,5 +882,12 @@
   "ai_gen.generate": "توليد",
   "ai_gen.max_attempts": "تم الوصول إلى الحد الأقصى من المحاولات. لم يتمكن الذكاء الاصطناعي من إنتاج بيانات صالحة. يرجى تجربة وصف مختلف.",
   "ai_gen.parse_error": "التنسيق المُنشأ غير صالح. لديك {{remaining}} محاولة(محاولات) متبقية. حاول مرة أخرى أو أعد صياغة وصفك.",
-  "ai_gen.or_generate": "أو توليد بالذكاء الاصطناعي"
+  "ai_gen.or_generate": "أو توليد بالذكاء الاصطناعي",
+  "activation_code": "رمز التفعيل",
+  "enter_activation_code": "أدخل رمز التفعيل",
+  "activation_code_required": "يتطلب هذا المقرر رمز تفعيل للتسجيل. يرجى إدخال الرمز الذي حصلت عليه من المدرّس.",
+  "activation_code_placeholder": "أدخل الرمز",
+  "enroll": "تسجيل",
+  "code_copied": "تم نسخ رمز التفعيل!",
+  "copy_code": "نسخ الرمز"
 }

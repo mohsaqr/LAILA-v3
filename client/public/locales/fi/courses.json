@@ -123,6 +123,7 @@
   "n_modules": "{{count}} moduulia",
   "instructor_view": "Opettajan näkymä",
   "enroll_now_free": "Ilmoittaudu nyt - Ilmainen",
+  "enroll_now": "Ilmoittaudu nyt",
   "sign_in_to_enroll": "Kirjaudu ilmoittautuaksesi",
   "no_content_available": "Ei vielä sisältöä saatavilla",
   "content_not_found": "Sisältöä ei löytynyt",
@@ -881,5 +882,12 @@
   "ai_gen.generate": "Luo",
   "ai_gen.max_attempts": "Yrityskertojen enimmäismäärä saavutettu. Tekoäly ei pystynyt tuottamaan kelvollista aineistoa. Kokeile eri kuvausta.",
   "ai_gen.parse_error": "Luotu muoto oli virheellinen. Sinulla on {{remaining}} yritys(tä) jäljellä. Yritä uudelleen tai muotoile kuvauksesi uudelleen.",
-  "ai_gen.or_generate": "tai luo tekoälyllä"
+  "ai_gen.or_generate": "tai luo tekoälyllä",
+  "activation_code": "Aktivointikoodi",
+  "enter_activation_code": "Syötä aktivointikoodi",
+  "activation_code_required": "Tämä kurssi vaatii aktivointikoodin ilmoittautumiseen. Syötä opettajaltasi saamasi koodi.",
+  "activation_code_placeholder": "Syötä koodi",
+  "enroll": "Ilmoittaudu",
+  "code_copied": "Aktivointikoodi kopioitu!",
+  "copy_code": "Kopioi koodi"
 }

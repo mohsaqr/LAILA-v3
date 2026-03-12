@@ -30,6 +30,7 @@ interface ContentItem {
   subtitle?: string;
   metadata?: string;
   href: string;
+  isFree?: boolean;
 }
 
 // Icon mapping for list/accordion views
@@ -122,6 +123,7 @@ export const ModuleSection = ({
       title: lecture.title,
       metadata: lecture.duration ? t('x_min', { count: lecture.duration }) : undefined,
       href: `/courses/${courseId}/lectures/${lecture.id}`,
+      isFree: lecture.isFree,
     })),
     ...publishedLabs.map(lab => ({
       id: lab.id,
@@ -205,13 +207,14 @@ export const ModuleSection = ({
   const renderListItem = (item: ContentItem) => {
     const Icon = iconMap[item.type];
     const colorConfig = colorMap[item.type];
+    const canAccess = hasAccess || item.isFree;
 
     const content = (
       <div
         className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors ${
-          hasAccess ? 'hover:bg-opacity-50 cursor-pointer' : 'opacity-50 cursor-not-allowed'
+          canAccess ? 'hover:bg-opacity-50 cursor-pointer' : 'opacity-50 cursor-not-allowed'
         }`}
-        style={{ backgroundColor: hasAccess && isDark ? colors.bgHover : 'transparent' }}
+        style={{ backgroundColor: canAccess && isDark ? colors.bgHover : 'transparent' }}
       >
         <div
           className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${!isDark ? colorConfig.bg : ''}`}
@@ -239,7 +242,7 @@ export const ModuleSection = ({
       </div>
     );
 
-    if (hasAccess) {
+    if (canAccess) {
       return (
         <Link key={`${item.type}-${item.id}`} to={item.href}>
           {content}
@@ -253,13 +256,14 @@ export const ModuleSection = ({
   const renderAccordionItem = (item: ContentItem) => {
     const Icon = iconMap[item.type];
     const colorConfig = colorMap[item.type];
+    const canAccess = hasAccess || item.isFree;
 
     const content = (
       <div
         className={`flex items-center gap-3 px-3 py-2 transition-colors ${
-          hasAccess ? 'hover:bg-opacity-50 cursor-pointer' : 'opacity-50 cursor-not-allowed'
+          canAccess ? 'hover:bg-opacity-50 cursor-pointer' : 'opacity-50 cursor-not-allowed'
         }`}
-        style={{ backgroundColor: hasAccess && isDark ? colors.bgHover : 'transparent' }}
+        style={{ backgroundColor: canAccess && isDark ? colors.bgHover : 'transparent' }}
       >
         <Icon
           className="w-4 h-4 flex-shrink-0"
@@ -274,7 +278,7 @@ export const ModuleSection = ({
       </div>
     );
 
-    if (hasAccess) {
+    if (canAccess) {
       return (
         <Link key={`${item.type}-${item.id}`} to={item.href}>
           {content}
@@ -400,18 +404,21 @@ export const ModuleSection = ({
             </div>
           ) : (
             <div className={getGridClasses()}>
-              {contentItems.map((item) => (
-                <ContentCard
-                  key={`${item.type}-${item.id}`}
-                  type={item.type}
-                  title={item.title}
-                  subtitle={item.subtitle}
-                  metadata={viewMode === 'mini-cards' ? undefined : item.metadata}
-                  href={hasAccess ? item.href : undefined}
-                  disabled={!hasAccess}
-                  size={getCardSize()}
-                />
-              ))}
+              {contentItems.map((item) => {
+                const canAccess = hasAccess || item.isFree;
+                return (
+                  <ContentCard
+                    key={`${item.type}-${item.id}`}
+                    type={item.type}
+                    title={item.title}
+                    subtitle={item.subtitle}
+                    metadata={viewMode === 'mini-cards' ? undefined : item.metadata}
+                    href={canAccess ? item.href : undefined}
+                    disabled={!canAccess}
+                    size={getCardSize()}
+                  />
+                );
+              })}
             </div>
           )
         ) : (

@@ -351,6 +351,7 @@ model Course {
   defaultTutorId             Int?                  @map("default_tutor_id")
   curriculumViewMode         String                @default("mini-cards") @map("curriculum_view_mode")
   enabledLabs                String?               @map("enabled_labs")
+  activationCode             String?               @map("activation_code")
   assignments                Assignment[]
   batchEnrollmentJobs        BatchEnrollmentJob[]
   announcements              CourseAnnouncement[]

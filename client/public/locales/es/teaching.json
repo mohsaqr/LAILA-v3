@@ -1096,5 +1096,8 @@
   "file_upload_failed": "Error al subir el archivo",
   "file_too_large": "{{name}} supera el límite de {{limit}}",
   "uploading": "Subiendo...",
-  "rename": "Renombrar"
+  "rename": "Renombrar",
+  "activation_code": "Código de activación",
+  "code_copied": "¡Código de activación copiado!",
+  "copy_code": "Copiar código"
 }

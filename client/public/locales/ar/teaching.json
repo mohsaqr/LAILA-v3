@@ -1096,5 +1096,8 @@
   "file_upload_failed": "فشل تحميل الملف",
   "file_too_large": "{{name}} يتجاوز حد الحجم {{limit}}",
   "uploading": "جارٍ التحميل...",
-  "rename": "إعادة تسمية"
+  "rename": "إعادة تسمية",
+  "activation_code": "رمز التفعيل",
+  "code_copied": "تم نسخ رمز التفعيل!",
+  "copy_code": "نسخ الرمز"
 }
