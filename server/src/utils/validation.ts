@@ -31,7 +31,10 @@ const strongPasswordSchema = z.string()
 // Auth validation schemas
 export const registerSchema = z.object({
   fullname: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
+  email: z.string().email('Invalid email address').refine(
+    (email) => email.endsWith('@uef.fi'),
+    'You can only use your UEF account (@uef.fi)'
+  ),
   password: strongPasswordSchema,
 });
 

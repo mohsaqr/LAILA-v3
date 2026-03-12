@@ -1,3 +1,18 @@
+### 2026-03-12 — Allow re-registration for unverified users
+
+- **#55 Re-registration for unverified emails**: Modified `auth.service.ts` `register()` — if existing user has `isConfirmed: false`, deletes the old record (cascade deletes verification codes) and allows fresh registration. Only throws "Email already registered" for confirmed users. Updated `login()` error for unverified users: "Your account is not verified. Please sign up again and complete the verification." Updated test for duplicate email to set `isConfirmed: true`.
+
+### 2026-03-12 — Restrict registration to UEF emails
+
+- **#54 UEF email restriction**: Added `.refine()` to `registerSchema` in `server/src/utils/validation.ts` — email must end with `@uef.fi`, returns "Only UEF email addresses (@uef.fi) are allowed" on failure. Client-side validation in `Register.tsx` checks before form submission. Added `uef_email_only` i18n key in all 4 locales. Updated test fixtures to use `@uef.fi` emails.
+
+### 2026-03-12 — Email verification with activation code on signup
+
+- **#53 Activation code verification**: Added `VerificationCode` model to `server/prisma/schema.prisma` (id, userId, code, expiresAt, createdAt) with cascade delete on user. Modified `auth.service.ts` `register()`: user created with `isConfirmed: false`, generates 6-digit code (hardcoded `123456` — no SMTP), stores with 2-minute expiry, returns `{ userId, message }` instead of `{ user, token }`. Added `verifyCode()`: validates code + expiry, sets `isConfirmed: true`, deletes code, returns user + JWT token. Added `resendCode()`: regenerates code with fresh 2-minute expiry. Added `isConfirmed` check to `login()` — blocks unverified users with 403. Added `POST /auth/verify-code` and `POST /auth/resend-code` routes in `auth.routes.ts`.
+- Client: `client/src/api/auth.ts` — register returns `RegisterResponse` (userId + message), added `verifyCode()` and `resendCode()` methods. `client/src/hooks/useAuth.ts` — register no longer sets auth, added `verifyCode()` hook that sets auth after verification. `client/src/pages/auth/Register.tsx` — two-step UI: (1) registration form, (2) 6-digit code input with individual digit boxes, auto-advance, paste support, resend button, back-to-register link. Uses `ShieldCheck` icon in verify step.
+- i18n: Added 13 keys (`verify_email_title`, `verify_email_subtitle`, `verification_code_sent`, `verify_code`, `enter_full_code`, `invalid_code`, `didnt_receive_code`, `resend_code`, `resending`, `code_resent`, `resend_failed`, `back_to_register`, `email_not_verified`) in all 4 locales.
+- Tests: Updated `auth.service.test.ts` — mocked `prisma.verificationCode`, updated register tests to expect `{ userId, message }`, added `isConfirmed: true` to login mock users. Updated `auth.routes.test.ts` register test expectations.
+
 ### 2026-03-12 — Fix forum card layout and date format
 
 - **#52 Forum card layout**: `client/src/pages/ForumList.tsx` and `client/src/pages/CourseForumList.tsx` — redesigned forum cards to use 3/5 width for description (title, course name, description with `line-clamp-2`) and 2/5 for stats (thread count, date, chevron). Date format changed from `toLocaleDateString()` (locale-dependent) to `en-GB` format: `24 Aug 2025`. Added `flex-shrink-0` on icon/stats, `min-w-0` on description for proper truncation.

@@ -74,6 +74,28 @@ router.post('/register', asyncHandler(async (req, res: Response) => {
   res.status(201).json({ success: true, data: result });
 }));
 
+// Verify activation code
+router.post('/verify-code', asyncHandler(async (req, res: Response) => {
+  const { userId, code } = req.body;
+  if (!userId || !code) {
+    res.status(400).json({ success: false, error: 'userId and code are required' });
+    return;
+  }
+  const result = await authService.verifyCode(Number(userId), String(code));
+  res.json({ success: true, data: result });
+}));
+
+// Resend activation code
+router.post('/resend-code', asyncHandler(async (req, res: Response) => {
+  const { userId } = req.body;
+  if (!userId) {
+    res.status(400).json({ success: false, error: 'userId is required' });
+    return;
+  }
+  const result = await authService.resendCode(Number(userId));
+  res.json({ success: true, data: result });
+}));
+
 // Login
 router.post('/login', asyncHandler(async (req, res: Response) => {
   const data = loginSchema.parse(req.body);

@@ -1,6 +1,9 @@
 # Session Handoff — 2026-03-12
 
 ## Completed (2026-03-12)
+- **Re-registration for unverified users (#55)**: Unverified users can sign up again — old unconfirmed record is deleted (cascade). Login for unverified users shows "sign up again and verify" message.
+- **UEF email restriction (#54)**: Registration limited to `@uef.fi` emails via Zod `.refine()` on server + client-side check. i18n key `uef_email_only` in 4 locales.
+- **Email verification on signup (#53)**: Two-step registration flow. `VerificationCode` Prisma model stores 6-digit code with 2-minute expiry. Register creates unverified user + code, returns userId. Verify endpoint validates code, confirms user, returns JWT. Login blocks unverified users. Client shows 6-digit code input UI with auto-advance, paste support, resend. Hardcoded code `123456` (no SMTP). 13 i18n keys in 4 locales. Tests updated.
 - **Unified SubmissionReview (#48)**: `SubmissionReview.tsx` now handles both regular and AI agent submissions inline. Conditionally queries the right API based on `assignment.submissionType`.
 - **Fix agent assignment redirect URLs (#49)**: All instructor submission list URLs unified under `/teach/courses/{ID}/assignments/{ID}/submissions`. Removed `/agent-assignments/.../submissions` route. Agent submission detail at `/assignments/{ID}/agent-submissions/{submissionId}`.
 - **RichTextEditor for assignment description (#50)**: Replaced TextArea with RichTextEditor in CurriculumEditor, AssignmentManager, AssignmentSectionEditor. HTML rendered with sanitization in all student/instructor views. Fixed StudentAgentBuilder to render instructions/description as HTML.
@@ -66,6 +69,7 @@
 - Usage stats come from `AgentTestConversation`/`AgentTestMessage` tables
 - Filter options merge courses and creators from all three sources (global, section, agent) with deduplication
 - Due dates use "wall clock" pattern: stored as literal UTC, displayed with `timeZone: 'UTC'` — no timezone conversion
+- Registration uses two-step flow: register → verify code. Hardcoded code `123456` until SMTP is configured. Code expires after 2 minutes
 - Instructor submission routes unified: `/teach/courses/{ID}/assignments/{ID}/submissions` handles both regular and agent types
 - Student-facing agent routes (`/courses/{ID}/agent-assignments/{ID}`) unchanged
 

@@ -28,19 +28,23 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new AppError('Email already registered', 409);
+      if (existingUser.isConfirmed) {
+        throw new AppError('Email already registered', 409);
+      }
+      // Unverified user — delete old record so they can re-register
+      await prisma.user.delete({ where: { id: existingUser.id } });
     }
 
     // Hash password
     const passwordHash = await bcrypt.hash(data.password, 10);
 
-    // Create user
+    // Create user (unconfirmed until code verification)
     const user = await prisma.user.create({
       data: {
         fullname: data.fullname,
         email: data.email,
         passwordHash,
-        isConfirmed: true, // Auto-confirm for now
+        isConfirmed: false,
       },
       select: {
         id: true,
@@ -54,16 +58,15 @@ export class AuthService {
       },
     });
 
-    // Generate token with tokenVersion for invalidation support
-    const payload: UserPayload = {
-      id: user.id,
-      email: user.email,
-      fullname: user.fullname,
-      isAdmin: user.isAdmin,
-      isInstructor: user.isInstructor,
-      tokenVersion: user.tokenVersion,
-    };
-    const token = generateToken(payload);
+    // Generate verification code (hardcoded 123456 — no SMTP server yet)
+    const code = '123456';
+    const expiresAt = new Date(Date.now() + 2 * 60 * 1000); // 2 minutes
+
+    // Delete any existing codes for this user, then create new one
+    await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+    await prisma.verificationCode.create({
+      data: { userId: user.id, code, expiresAt },
+    });
 
     // Log registration event
     try {
@@ -83,7 +86,70 @@ export class AuthService {
       authLogger.warn({ err: error, userId: user.id }, 'Failed to log registration event');
     }
 
+    // Return userId only — no token until verified
+    return { userId: user.id, message: 'Verification code sent' };
+  }
+
+  async verifyCode(userId: number, code: string) {
+    const record = await prisma.verificationCode.findFirst({
+      where: { userId, code },
+    });
+
+    if (!record) {
+      throw new AppError('Invalid verification code', 400);
+    }
+
+    if (record.expiresAt < new Date()) {
+      // Expired — delete and reject
+      await prisma.verificationCode.deleteMany({ where: { userId } });
+      throw new AppError('Verification code has expired', 400);
+    }
+
+    // Confirm user and delete code
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { isConfirmed: true },
+      select: {
+        id: true,
+        fullname: true,
+        email: true,
+        isAdmin: true,
+        isInstructor: true,
+        avatarUrl: true,
+        tokenVersion: true,
+      },
+    });
+
+    await prisma.verificationCode.deleteMany({ where: { userId } });
+
+    // Generate token
+    const payload: UserPayload = {
+      id: user.id,
+      email: user.email,
+      fullname: user.fullname,
+      isAdmin: user.isAdmin,
+      isInstructor: user.isInstructor,
+      tokenVersion: user.tokenVersion,
+    };
+    const token = generateToken(payload);
+
     return { user, token };
+  }
+
+  async resendCode(userId: number) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new AppError('User not found', 404);
+    if (user.isConfirmed) throw new AppError('User already verified', 400);
+
+    const code = '123456';
+    const expiresAt = new Date(Date.now() + 2 * 60 * 1000);
+
+    await prisma.verificationCode.deleteMany({ where: { userId } });
+    await prisma.verificationCode.create({
+      data: { userId, code, expiresAt },
+    });
+
+    return { message: 'Verification code resent' };
   }
 
   // Account lockout settings
@@ -138,6 +204,10 @@ export class AuthService {
         authLogger.warn({ err: error, email: data.email }, 'Failed to log login failure event');
       }
       throw new AppError(`Account is locked. Please try again in ${remainingMinutes} minute(s).`, 423);
+    }
+
+    if (!user.isConfirmed) {
+      throw new AppError('Your account is not verified. Please sign up again and complete the verification.', 403);
     }
 
     if (!user.isActive) {

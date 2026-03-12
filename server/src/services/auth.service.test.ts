@@ -21,6 +21,11 @@ vi.mock('../utils/prisma.js', () => ({
     userSetting: {
       findUnique: vi.fn(),
     },
+    verificationCode: {
+      findFirst: vi.fn(),
+      create: vi.fn(),
+      deleteMany: vi.fn(),
+    },
   },
 }));
 
@@ -80,22 +85,25 @@ describe('AuthService', () => {
         tokenVersion: 0,
         createdAt: new Date(),
       } as any);
+      vi.mocked(prisma.verificationCode.deleteMany).mockResolvedValue({ count: 0 });
+      vi.mocked(prisma.verificationCode.create).mockResolvedValue({} as any);
 
       const result = await authService.register(validRegistration);
 
-      expect(result.user.email).toBe('test@example.com');
-      expect(result.token).toBe('mock_jwt_token');
+      expect(result.userId).toBe(1);
+      expect(result.message).toBe('Verification code sent');
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
         where: { email: 'test@example.com' },
       });
       expect(prisma.user.create).toHaveBeenCalled();
-      expect(generateToken).toHaveBeenCalled();
+      expect(prisma.verificationCode.create).toHaveBeenCalled();
     });
 
-    it('should throw error if email already exists', async () => {
+    it('should throw error if verified email already exists', async () => {
       vi.mocked(prisma.user.findUnique).mockResolvedValue({
         id: 1,
         email: 'test@example.com',
+        isConfirmed: true,
       } as any);
 
       await expect(authService.register(validRegistration)).rejects.toThrow(AppError);
@@ -113,6 +121,8 @@ describe('AuthService', () => {
         tokenVersion: 0,
         createdAt: new Date(),
       } as any);
+      vi.mocked(prisma.verificationCode.deleteMany).mockResolvedValue({ count: 0 });
+      vi.mocked(prisma.verificationCode.create).mockResolvedValue({} as any);
 
       await authService.register(validRegistration);
 
@@ -132,12 +142,14 @@ describe('AuthService', () => {
         tokenVersion: 0,
         createdAt: new Date(),
       } as any);
+      vi.mocked(prisma.verificationCode.deleteMany).mockResolvedValue({ count: 0 });
+      vi.mocked(prisma.verificationCode.create).mockResolvedValue({} as any);
       vi.mocked(learningAnalyticsService.logAuthEvent).mockRejectedValueOnce(new Error('Log failed'));
 
       const result = await authService.register(validRegistration);
 
-      expect(result.user.email).toBe('test@example.com');
-      expect(result.token).toBe('mock_jwt_token');
+      expect(result.userId).toBe(1);
+      expect(result.message).toBe('Verification code sent');
     });
   });
 
@@ -154,6 +166,7 @@ describe('AuthService', () => {
       passwordHash: 'hashed_password',
       isAdmin: false,
       isInstructor: false,
+      isConfirmed: true,
       isActive: true,
       tokenVersion: 0,
       failedLoginAttempts: 0,
@@ -435,6 +448,7 @@ describe('AuthService', () => {
       fullname: 'Test User',
       email: 'test@example.com',
       passwordHash: 'hashed_password',
+      isConfirmed: true,
       isActive: true,
       isAdmin: false,
       isInstructor: false,
