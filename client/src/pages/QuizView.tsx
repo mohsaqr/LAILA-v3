@@ -4,6 +4,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   AlertCircle,
+  AlertTriangle,
+  CheckCircle,
   ChevronLeft,
   ChevronRight,
   Send,
@@ -15,6 +17,7 @@ import { useTheme } from '../hooks/useTheme';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { Button } from '../components/common/Button';
+import { Modal } from '../components/common/Modal';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { buildQuizBreadcrumb } from '../utils/breadcrumbs';
 import { sanitizeHtml } from '../utils/sanitize';
@@ -32,6 +35,7 @@ export const QuizView = () => {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
 
   // Use cached course data (already fetched by RequireEnrollment wrapper)
   const course = queryClient.getQueryData<any>(['course', courseId]);
@@ -69,6 +73,7 @@ export const QuizView = () => {
   const submitAttemptMutation = useMutation({
     mutationFn: () => quizzesApi.submitAttempt(attemptData!.attempt.id),
     onSuccess: (result) => {
+      queryClient.removeQueries({ queryKey: ['quizAttempt', parsedQuizId] });
       queryClient.invalidateQueries({ queryKey: ['quizzes'] });
       toast.success(t('quiz_submitted_score', { score: result.score?.toFixed(1) }));
       navigate(`/courses/${courseId}/quizzes/${quizId}/results/${result.id}`);
@@ -107,7 +112,8 @@ export const QuizView = () => {
       setTimeRemaining(prev => {
         if (prev === null || prev <= 1) {
           // Auto-submit when time runs out
-          handleSubmit();
+          setIsSubmitting(true);
+          submitAttemptMutation.mutate();
           return 0;
         }
         return prev - 1;
@@ -123,15 +129,13 @@ export const QuizView = () => {
     saveAnswerMutation.mutate({ questionId, answer });
   }, [saveAnswerMutation]);
 
-  const handleSubmit = async () => {
+  const handleSubmitClick = () => {
     if (isSubmitting) return;
+    setShowSubmitModal(true);
+  };
 
-    const unanswered = attemptData?.questions.filter(q => !answers[q.id]).length || 0;
-    if (unanswered > 0 && timeRemaining !== 0) {
-      const confirmed = window.confirm(t('unanswered_questions', { count: unanswered }));
-      if (!confirmed) return;
-    }
-
+  const handleConfirmSubmit = () => {
+    setShowSubmitModal(false);
     setIsSubmitting(true);
     submitAttemptMutation.mutate();
   };
@@ -354,7 +358,7 @@ export const QuizView = () => {
         {/* Submit button */}
         <div className="flex justify-center">
           <Button
-            onClick={handleSubmit}
+            onClick={handleSubmitClick}
             disabled={isSubmitting}
             className="px-8 py-3"
           >
@@ -369,6 +373,55 @@ export const QuizView = () => {
           </Button>
         </div>
       </div>
+
+      {/* Submit Confirmation Modal */}
+      <Modal
+        isOpen={showSubmitModal}
+        onClose={() => setShowSubmitModal(false)}
+        title={t('confirm_submit')}
+        size="sm"
+      >
+        <div className="p-4 space-y-4">
+          {(() => {
+            const totalQuestions = attemptData?.questions.length || 0;
+            const answeredCount = Object.keys(answers).length;
+            const unansweredCount = totalQuestions - answeredCount;
+            return (
+              <>
+                <div className="flex items-start gap-3">
+                  {unansweredCount > 0 ? (
+                    <AlertTriangle className="w-6 h-6 text-amber-500 flex-shrink-0 mt-0.5" />
+                  ) : (
+                    <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" />
+                  )}
+                  <div>
+                    <p className="font-medium" style={{ color: colors.textPrimary }}>
+                      {unansweredCount > 0
+                        ? t('submit_with_unanswered', { count: unansweredCount })
+                        : t('all_questions_answered')}
+                    </p>
+                    <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
+                      {t('answered_of_total', { answered: answeredCount, total: totalQuestions })}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-sm" style={{ color: colors.textSecondary }}>
+                  {t('submit_warning')}
+                </p>
+                <div className="flex justify-end gap-3 pt-2">
+                  <Button variant="secondary" onClick={() => setShowSubmitModal(false)}>
+                    {t('common:cancel')}
+                  </Button>
+                  <Button onClick={handleConfirmSubmit}>
+                    <Send size={16} />
+                    {t('submit_quiz')}
+                  </Button>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      </Modal>
     </div>
   );
 };
