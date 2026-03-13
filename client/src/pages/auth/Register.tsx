@@ -22,7 +22,7 @@ export const Register = () => {
 
   // Verification state
   const [step, setStep] = useState<'register' | 'verify'>('register');
-  const [userId, setUserId] = useState<number | null>(null);
+  const [verifyEmail, setVerifyEmail] = useState<string | null>(null);
   const [codeDigits, setCodeDigits] = useState(['', '', '', '', '', '']);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
@@ -74,7 +74,7 @@ export const Register = () => {
 
     try {
       const result = await register(fullname, email, password);
-      setUserId(result.userId);
+      setVerifyEmail(result.email);
       setStep('verify');
       toast.success(t('verification_code_sent'));
     } catch (error: any) {
@@ -131,7 +131,7 @@ export const Register = () => {
 
     setIsVerifying(true);
     try {
-      await verifyCode(userId!, code);
+      await verifyCode(verifyEmail!, code);
       toast.success(t('account_created'));
       navigate('/dashboard');
     } catch (error: any) {
@@ -146,7 +146,7 @@ export const Register = () => {
   const handleResend = async () => {
     setIsResending(true);
     try {
-      await authApi.resendCode(userId!);
+      await authApi.resendCode(verifyEmail!);
       toast.success(t('code_resent'));
       setCodeDigits(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();

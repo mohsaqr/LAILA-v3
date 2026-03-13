@@ -49,6 +49,19 @@ vi.mock('../utils/logger.js', () => ({
     info: vi.fn(),
     error: vi.fn(),
   },
+  createLogger: vi.fn(() => ({
+    warn: vi.fn(),
+    info: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  })),
+}));
+
+// Mock email service
+vi.mock('./email.service.js', () => ({
+  emailService: {
+    sendVerificationCode: vi.fn().mockResolvedValue(true),
+  },
 }));
 
 import prisma from '../utils/prisma.js';
@@ -90,7 +103,7 @@ describe('AuthService', () => {
 
       const result = await authService.register(validRegistration);
 
-      expect(result.userId).toBe(1);
+      expect(result.email).toBe('test@example.com');
       expect(result.message).toBe('Verification code sent');
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
         where: { email: 'test@example.com' },
@@ -148,7 +161,7 @@ describe('AuthService', () => {
 
       const result = await authService.register(validRegistration);
 
-      expect(result.userId).toBe(1);
+      expect(result.email).toBe('test@example.com');
       expect(result.message).toBe('Verification code sent');
     });
   });

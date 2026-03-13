@@ -86,7 +86,7 @@ describe('Auth Routes', () => {
 
     it('should register a new user successfully', async () => {
       const mockResult = {
-        userId: 1,
+        email: 'test@uef.fi',
         message: 'Verification code sent',
       };
       vi.mocked(authService.register).mockResolvedValue(mockResult);
@@ -97,7 +97,7 @@ describe('Auth Routes', () => {
         .expect(201);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data.userId).toBe(1);
+      expect(response.body.data.email).toBe('test@uef.fi');
       expect(response.body.data.message).toBe('Verification code sent');
       expect(authService.register).toHaveBeenCalledWith(
         validRegistration,

@@ -76,23 +76,23 @@ router.post('/register', asyncHandler(async (req, res: Response) => {
 
 // Verify activation code
 router.post('/verify-code', asyncHandler(async (req, res: Response) => {
-  const { userId, code } = req.body;
-  if (!userId || !code) {
-    res.status(400).json({ success: false, error: 'userId and code are required' });
+  const { email, code } = req.body;
+  if (!email || !code) {
+    res.status(400).json({ success: false, error: 'email and code are required' });
     return;
   }
-  const result = await authService.verifyCode(Number(userId), String(code));
+  const result = await authService.verifyCode(String(email), String(code));
   res.json({ success: true, data: result });
 }));
 
 // Resend activation code
 router.post('/resend-code', asyncHandler(async (req, res: Response) => {
-  const { userId } = req.body;
-  if (!userId) {
-    res.status(400).json({ success: false, error: 'userId is required' });
+  const { email } = req.body;
+  if (!email) {
+    res.status(400).json({ success: false, error: 'email is required' });
     return;
   }
-  const result = await authService.resendCode(Number(userId));
+  const result = await authService.resendCode(String(email));
   res.json({ success: true, data: result });
 }));
 

@@ -1,4 +1,4 @@
-### 2026-03-13 — Bug fixes #58–#66
+### 2026-03-13 — Bug fixes #58–#66, auth security improvements
 
 - **#58 Quiz creation in CurriculumEditor**: Added full quiz creation modal with RichTextEditor for description/instructions, time limit, max attempts, passing score, and publish toggle. All modal sizes unified to `3xl`.
 - **#59 Unify popup/modal sizes**: Changed all modals in CurriculumEditor, ModuleItem, QuizEditor, QuizManager, MCQGenerator to `size="3xl"`. Simplified empty quiz list page to show only icon + message.
@@ -9,6 +9,9 @@
 - **#65 Rich text rendering on student quiz pages**: Fixed `StudentQuizList.tsx` and `CourseQuizList.tsx` to render quiz description as HTML via `sanitizeHtml()` + `dangerouslySetInnerHTML`. Added instructions display to `QuizView.tsx` header.
 - **Assignment page margin**: Changed `AssignmentView.tsx` container from `max-w-4xl` to `max-w-7xl`.
 - **#66 Enrollment permission checking**: Created `RequireEnrollment` wrapper component that checks enrollment via API before rendering course content pages. Shows 403 "Access Denied" page with "View Course" and "Browse Courses" buttons for unauthenticated students. Admins and instructors bypass the check. Applied to 15 routes: lectures, forums, quizzes, analytics, assignments, agent-assignments, code-labs, grades, and ai-tutors. Supports courseId from both URL params and query string.
+- **SMTP email verification**: Replaced hardcoded `123456` verification code with `crypto.randomInt(100000, 999999)` random codes. Added `sendVerificationCode()` to `email.service.ts` with styled HTML email template. Extended code expiry from 2 to 10 minutes. Fixed `fromEmail` to check `SMTP_FROM` env var.
+- **Analytics auth page skip**: Added `isAuthPage()` guard in `client/src/services/analytics.ts` to skip `/api/analytics/interactions` calls on login/register pages.
+- **Auth API security — email-based verification flow**: Changed register response from `{ userId, message }` to `{ email, message }` to avoid exposing internal user IDs. Switched verify-code and resend-code endpoints from userId to email-based lookup. Updated client API types, hooks, Register page state, and all related tests.
 
 ### 2026-03-12 — Course activation code for enrollment
 

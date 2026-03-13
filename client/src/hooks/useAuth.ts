@@ -44,12 +44,12 @@ export const useAuth = () => {
 
   const register = async (fullname: string, email: string, password: string) => {
     const response = await authApi.register({ fullname, email, password });
-    // Returns userId only — user must verify code before getting a token
+    // Returns email only — user must verify code before getting a token
     return response;
   };
 
-  const verifyCode = async (userId: number, code: string) => {
-    const response = await authApi.verifyCode({ userId, code });
+  const verifyCode = async (email: string, code: string) => {
+    const response = await authApi.verifyCode({ email, code });
     setAuth(response.user, response.token);
     return response;
   };

@@ -7,6 +7,8 @@ import { UserPayload } from '../types/index.js';
 import { learningAnalyticsService, AuthEventData } from './learningAnalytics.service.js';
 import { authLogger } from '../utils/logger.js';
 import { userService } from './user.service.js';
+import { emailService } from './email.service.js';
+import crypto from 'crypto';
 
 // Context for auth logging
 export interface AuthContext {
@@ -58,15 +60,18 @@ export class AuthService {
       },
     });
 
-    // Generate verification code (hardcoded 123456 — no SMTP server yet)
-    const code = '123456';
-    const expiresAt = new Date(Date.now() + 2 * 60 * 1000); // 2 minutes
+    // Generate 6-digit verification code
+    const code = crypto.randomInt(100000, 999999).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     // Delete any existing codes for this user, then create new one
     await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
     await prisma.verificationCode.create({
       data: { userId: user.id, code, expiresAt },
     });
+
+    // Send verification email
+    await emailService.sendVerificationCode(user.email, code, user.fullname);
 
     // Log registration event
     try {
@@ -86,13 +91,16 @@ export class AuthService {
       authLogger.warn({ err: error, userId: user.id }, 'Failed to log registration event');
     }
 
-    // Return userId only — no token until verified
-    return { userId: user.id, message: 'Verification code sent' };
+    // Return email only — no token until verified
+    return { email: user.email, message: 'Verification code sent' };
   }
 
-  async verifyCode(userId: number, code: string) {
+  async verifyCode(email: string, code: string) {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) throw new AppError('User not found', 404);
+
     const record = await prisma.verificationCode.findFirst({
-      where: { userId, code },
+      where: { userId: user.id, code },
     });
 
     if (!record) {
@@ -101,13 +109,13 @@ export class AuthService {
 
     if (record.expiresAt < new Date()) {
       // Expired — delete and reject
-      await prisma.verificationCode.deleteMany({ where: { userId } });
+      await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
       throw new AppError('Verification code has expired', 400);
     }
 
     // Confirm user and delete code
-    const user = await prisma.user.update({
-      where: { id: userId },
+    const confirmedUser = await prisma.user.update({
+      where: { id: user.id },
       data: { isConfirmed: true },
       select: {
         id: true,
@@ -120,34 +128,37 @@ export class AuthService {
       },
     });
 
-    await prisma.verificationCode.deleteMany({ where: { userId } });
+    await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
 
     // Generate token
     const payload: UserPayload = {
-      id: user.id,
-      email: user.email,
-      fullname: user.fullname,
-      isAdmin: user.isAdmin,
-      isInstructor: user.isInstructor,
-      tokenVersion: user.tokenVersion,
+      id: confirmedUser.id,
+      email: confirmedUser.email,
+      fullname: confirmedUser.fullname,
+      isAdmin: confirmedUser.isAdmin,
+      isInstructor: confirmedUser.isInstructor,
+      tokenVersion: confirmedUser.tokenVersion,
     };
     const token = generateToken(payload);
 
-    return { user, token };
+    return { user: confirmedUser, token };
   }
 
-  async resendCode(userId: number) {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+  async resendCode(email: string) {
+    const user = await prisma.user.findUnique({ where: { email } });
     if (!user) throw new AppError('User not found', 404);
     if (user.isConfirmed) throw new AppError('User already verified', 400);
 
-    const code = '123456';
-    const expiresAt = new Date(Date.now() + 2 * 60 * 1000);
+    const code = crypto.randomInt(100000, 999999).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    await prisma.verificationCode.deleteMany({ where: { userId } });
+    await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
     await prisma.verificationCode.create({
-      data: { userId, code, expiresAt },
+      data: { userId: user.id, code, expiresAt },
     });
+
+    // Send verification email
+    await emailService.sendVerificationCode(user.email, code, user.fullname);
 
     return { message: 'Verification code resent' };
   }

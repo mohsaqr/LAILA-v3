@@ -63,7 +63,7 @@ class EmailService {
 
     try {
       const fromName = process.env.EMAIL_FROM_NAME || 'LAILA LMS';
-      const fromEmail = process.env.EMAIL_FROM || process.env.SMTP_USER;
+      const fromEmail = process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.SMTP_USER;
 
       await this.transporter.sendMail({
         from: `"${fromName}" <${fromEmail}>`,
@@ -404,6 +404,26 @@ class EmailService {
       userId,
       type: 'announcement',
       data: { courseName, title, content },
+    });
+  }
+
+  async sendVerificationCode(email: string, code: string, fullname: string): Promise<boolean> {
+    const appName = process.env.APP_NAME || 'LAILA LMS';
+
+    return this.sendEmail({
+      to: email,
+      subject: `${code} is your verification code`,
+      text: `Hi ${fullname},\n\nYour verification code is: ${code}\n\nThis code will expire in 10 minutes.\n\nIf you didn't request this, you can safely ignore this email.\n\nBest,\n${appName}`,
+      html: this.wrapInTemplate(`
+        <h2>Verify Your Email</h2>
+        <p>Hi ${fullname},</p>
+        <p>Your verification code is:</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; background: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 12px; padding: 16px 32px; display: inline-block;">${code}</span>
+        </div>
+        <p>This code will expire in <strong>10 minutes</strong>.</p>
+        <p><small>If you didn't request this, you can safely ignore this email.</small></p>
+      `, fullname),
     });
   }
 
