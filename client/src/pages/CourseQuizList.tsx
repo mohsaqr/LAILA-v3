@@ -50,21 +50,16 @@ export const CourseQuizList = () => {
     warning: '#f59e0b',
   };
 
-  const { data: course } = useQuery({
-    queryKey: ['course', courseId],
+  const { data: quizData, isLoading } = useQuery({
+    queryKey: ['quizzes', 'course', courseId],
     queryFn: async () => {
-      const response = await apiClient.get<{ success: boolean; data: CourseInfo }>(`/courses/${courseId}`);
-      return response.data.data;
+      const response = await apiClient.get<{ success: boolean; data: Quiz[]; course: CourseInfo }>(`/quizzes/course/${courseId}`);
+      return { quizzes: response.data.data, course: response.data.course };
     },
   });
 
-  const { data: quizzes, isLoading } = useQuery({
-    queryKey: ['quizzes', 'course', courseId],
-    queryFn: async () => {
-      const response = await apiClient.get<{ success: boolean; data: Quiz[] }>(`/quizzes/course/${courseId}`);
-      return response.data.data;
-    },
-  });
+  const quizzes = quizData?.quizzes;
+  const course = quizData?.course;
 
   if (isLoading) {
     return <Loading text={t('loading_quizzes')} />;

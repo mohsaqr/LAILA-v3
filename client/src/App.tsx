@@ -417,9 +417,7 @@ function App() {
           path="/courses/:courseId/quizzes"
           element={
             <ProtectedRoute>
-              <RequireEnrollment>
-                <CourseQuizList />
-              </RequireEnrollment>
+              <CourseQuizList />
             </ProtectedRoute>
           }
         />
