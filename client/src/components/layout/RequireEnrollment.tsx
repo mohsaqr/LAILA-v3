@@ -2,7 +2,7 @@ import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { ShieldX } from 'lucide-react';
-import { enrollmentsApi } from '../../api/enrollments';
+import { coursesApi } from '../../api/courses';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
 import { Loading } from '../common/Loading';
@@ -30,11 +30,12 @@ export const RequireEnrollment = ({
   // Admins and instructors bypass enrollment check
   const shouldCheck = !!courseId && !isAdmin && !isInstructor;
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['enrollment-check', courseId],
-    queryFn: () => enrollmentsApi.getEnrollment(parseInt(courseId!)),
+  // Use the course API which already includes enrollment status
+  const { data: course, isLoading } = useQuery({
+    queryKey: ['course', courseId],
+    queryFn: () => coursesApi.getCourseById(parseInt(courseId!)),
     enabled: shouldCheck,
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    staleTime: 5 * 60 * 1000,
     retry: false,
   });
 
@@ -48,7 +49,7 @@ export const RequireEnrollment = ({
   }
 
   // If not enrolled, show forbidden page
-  if (!data?.enrolled) {
+  if (!(course as any)?.enrolled) {
     const colors = {
       bg: isDark ? '#111827' : '#f9fafb',
       cardBg: isDark ? '#1f2937' : '#ffffff',

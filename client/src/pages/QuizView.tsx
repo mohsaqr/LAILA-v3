@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { quizzesApi, StartAttemptResponse } from '../api/quizzes';
-import { coursesApi } from '../api/courses';
 import { useTheme } from '../hooks/useTheme';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
@@ -34,12 +33,8 @@ export const QuizView = () => {
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch course info for breadcrumbs
-  const { data: course } = useQuery({
-    queryKey: ['course', courseId],
-    queryFn: () => coursesApi.getCourseById(parseInt(courseId!)),
-    enabled: !!courseId,
-  });
+  // Use cached course data (already fetched by RequireEnrollment wrapper)
+  const course = queryClient.getQueryData<any>(['course', courseId]);
 
   const colors = {
     bg: isDark ? '#111827' : '#f9fafb',
@@ -56,30 +51,12 @@ export const QuizView = () => {
     textRed: isDark ? '#fca5a5' : '#dc2626',
   };
 
-  // Start or resume attempt
-  const startAttemptMutation = useMutation({
-    mutationFn: () => quizzesApi.startAttempt(parsedQuizId),
-    onSuccess: (data) => {
-      setAttemptData(data);
-      // Restore saved answers
-      const savedAnswers: Record<number, string> = {};
-      data.questions.forEach(q => {
-        if (q.savedAnswer) {
-          savedAnswers[q.id] = q.savedAnswer;
-        }
-      });
-      setAnswers(savedAnswers);
-
-      // Set timer if applicable
-      if (data.quiz.timeLimit) {
-        const elapsed = (Date.now() - new Date(data.attempt.startedAt).getTime()) / 1000 / 60;
-        const remaining = Math.max(0, data.quiz.timeLimit - elapsed);
-        setTimeRemaining(Math.floor(remaining * 60));
-      }
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || t('failed_start_quiz'));
-    },
+  // Start or resume attempt (POST but idempotent — returns existing in-progress attempt)
+  const { data: startData, isLoading: attemptLoading, error: attemptError } = useQuery({
+    queryKey: ['quizAttempt', parsedQuizId],
+    queryFn: () => quizzesApi.startAttempt(parsedQuizId),
+    staleTime: Infinity,
+    retry: false,
   });
 
   // Save answer
@@ -102,10 +79,25 @@ export const QuizView = () => {
     },
   });
 
-  // Start quiz on mount
+  // Populate state when attempt data arrives
   useEffect(() => {
-    startAttemptMutation.mutate();
-  }, []);
+    if (startData && !attemptData) {
+      setAttemptData(startData);
+      const savedAnswers: Record<number, string> = {};
+      startData.questions.forEach(q => {
+        if (q.savedAnswer) {
+          savedAnswers[q.id] = q.savedAnswer;
+        }
+      });
+      setAnswers(savedAnswers);
+
+      if (startData.quiz.timeLimit) {
+        const elapsed = (Date.now() - new Date(startData.attempt.startedAt).getTime()) / 1000 / 60;
+        const remaining = Math.max(0, startData.quiz.timeLimit - elapsed);
+        setTimeRemaining(Math.floor(remaining * 60));
+      }
+    }
+  }, [startData]);
 
   // Timer countdown
   useEffect(() => {
@@ -150,11 +142,11 @@ export const QuizView = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (startAttemptMutation.isPending) {
+  if (attemptLoading) {
     return <Loading text={t('loading_quiz')} />;
   }
 
-  if (!attemptData) {
+  if (attemptError || !attemptData) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: colors.bg }}>
         <Card>
