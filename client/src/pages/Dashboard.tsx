@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import {
   BookOpen,
   GraduationCap,
-  Clock,
   Award,
   Briefcase,
   Users,
@@ -256,7 +255,7 @@ export const Dashboard = () => {
         {/* Stats Section - Bottom */}
         <div>
           <h2 className="text-xl font-bold mb-4" style={{ color: colors.textPrimary }}>{t('your_progress')}</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Link to="/courses?filter=enrolled">
               <Card hover>
                 <CardBody className="text-center py-5">
@@ -280,18 +279,6 @@ export const Dashboard = () => {
                 </CardBody>
               </Card>
             </Link>
-
-            <Card>
-              <CardBody className="text-center py-5">
-                <div className="w-14 h-14 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mx-auto mb-3">
-                  <Clock className="w-7 h-7 text-purple-600 dark:text-purple-400" />
-                </div>
-                <p className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
-                  {Math.round((stats?.totalTimeSpent || 0) / 3600)}h
-                </p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>{t('learning_time')}</p>
-              </CardBody>
-            </Card>
 
             <Card>
               <CardBody className="text-center py-5">
