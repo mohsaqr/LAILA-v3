@@ -93,6 +93,7 @@ import {
 } from './pages/teach';
 import { CourseAnalytics } from './pages/teach/CourseAnalytics';
 import { StudentAnalytics } from './pages/StudentAnalytics';
+import { Reports } from './pages/Reports';
 import { TnaExercise } from './pages/TnaExercise';
 import { SnaExercise } from './pages/SnaExercise';
 import { CourseLabs } from './pages/CourseLabs';
@@ -245,6 +246,16 @@ function App() {
               <RequireEnrollment>
                 <StudentGradebook />
               </RequireEnrollment>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Reports (course selection for analytics) */}
+        <Route
+          path="/reports"
+          element={
+            <ProtectedRoute>
+              <Reports />
             </ProtectedRoute>
           }
         />

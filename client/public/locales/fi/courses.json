@@ -891,5 +891,8 @@
   "activation_code_placeholder": "Syötä koodi",
   "enroll": "Ilmoittaudu",
   "code_copied": "Aktivointikoodi kopioitu!",
-  "copy_code": "Kopioi koodi"
+  "copy_code": "Kopioi koodi",
+  "select_course_for_reports": "Valitse kurssi tarkastellaksesi oppimisanalytiikkaa",
+  "no_enrollments": "Ei ilmoittautuneita kursseja",
+  "enroll_to_see_reports": "Ilmoittaudu kurssille nähdäksesi oppimisraportit"
 }

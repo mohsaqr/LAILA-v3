@@ -892,5 +892,8 @@
   "activation_code_placeholder": "Enter code",
   "enroll": "Enroll",
   "code_copied": "Activation code copied!",
-  "copy_code": "Copy code"
+  "copy_code": "Copy code",
+  "select_course_for_reports": "Select a course to view your learning analytics",
+  "no_enrollments": "No enrolled courses",
+  "enroll_to_see_reports": "Enroll in a course to see your learning reports"
 }

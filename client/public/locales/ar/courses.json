@@ -891,5 +891,8 @@
   "activation_code_placeholder": "أدخل الرمز",
   "enroll": "تسجيل",
   "code_copied": "تم نسخ رمز التفعيل!",
-  "copy_code": "نسخ الرمز"
+  "copy_code": "نسخ الرمز",
+  "select_course_for_reports": "اختر مقرراً لعرض تحليلات التعلم الخاصة بك",
+  "no_enrollments": "لا توجد مقررات مسجلة",
+  "enroll_to_see_reports": "سجّل في مقرر لرؤية تقارير التعلم الخاصة بك"
 }

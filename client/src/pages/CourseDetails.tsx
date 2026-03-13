@@ -13,7 +13,6 @@ import {
   MessageSquare,
   PenSquare,
   FileText,
-  BarChart3,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../api/courses';
@@ -521,27 +520,6 @@ export const CourseDetails = () => {
                   </Card>
                 </Link>
 
-                {/* Analytics Card */}
-                <Link to={`/courses/${id}/analytics`}>
-                  <Card hover className="transition-shadow">
-                    <CardBody className="flex items-center gap-4 p-4">
-                      <div
-                        className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: isDark ? 'rgba(99, 102, 241, 0.2)' : '#eef2ff' }}
-                      >
-                        <BarChart3 className="w-6 h-6" style={{ color: isDark ? '#a5b4fc' : '#4f46e5' }} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium" style={{ color: colors.textPrimary }}>
-                          {t('analytics')}
-                        </h3>
-                        <p className="text-sm" style={{ color: colors.textSecondary }}>
-                          {t('view_your_analytics')}
-                        </p>
-                      </div>
-                    </CardBody>
-                  </Card>
-                </Link>
               </div>
             </div>
           )}

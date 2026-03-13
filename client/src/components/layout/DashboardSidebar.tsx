@@ -15,6 +15,7 @@ import {
   MessageSquare,
   Award,
   FileQuestion,
+  BarChart3,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
@@ -72,6 +73,7 @@ export const DashboardSidebar = () => {
     { label: t('certificates'), icon: Award, path: '/certificates' },
     { label: t('gradebook'), icon: ClipboardList, path: '/dashboard/gradebook' },
     { label: t('calendar'), icon: Calendar, path: '/dashboard/calendar' },
+    { label: t('reports'), icon: BarChart3, path: '/reports' },
   ];
 
   // Build instructor nav items - static sidebar, no course-specific switching

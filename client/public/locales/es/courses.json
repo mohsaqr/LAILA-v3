@@ -891,5 +891,8 @@
   "activation_code_placeholder": "Ingresa el código",
   "enroll": "Inscribirse",
   "code_copied": "¡Código de activación copiado!",
-  "copy_code": "Copiar código"
+  "copy_code": "Copiar código",
+  "select_course_for_reports": "Selecciona un curso para ver tus analíticas de aprendizaje",
+  "no_enrollments": "No hay cursos inscritos",
+  "enroll_to_see_reports": "Inscríbete en un curso para ver tus informes de aprendizaje"
 }

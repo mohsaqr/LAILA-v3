@@ -36,9 +36,18 @@ router.post('/generate', authenticateToken, requireInstructor, asyncHandler(asyn
 // =============================================================================
 
 // Get surveys (for a course or all user's surveys)
-router.get('/', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+// Students can fetch surveys for a specific course; listing all requires instructor
+router.get('/', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const courseId = req.query.courseId ? parseInt(req.query.courseId as string) : undefined;
-  const surveys = await surveyService.getSurveys(req.user!.id, true, req.user!.isAdmin, courseId);
+  const isInstructor = req.user!.isInstructor || req.user!.isAdmin || false;
+
+  // Students must provide courseId — they can't list all surveys
+  if (!isInstructor && !courseId) {
+    res.status(403).json({ success: false, error: 'Forbidden' });
+    return;
+  }
+
+  const surveys = await surveyService.getSurveys(req.user!.id, isInstructor, req.user!.isAdmin, courseId);
   res.json({ success: true, data: surveys });
 }));
 
