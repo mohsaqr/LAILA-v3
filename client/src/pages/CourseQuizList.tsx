@@ -8,6 +8,7 @@ import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { buildCourseBreadcrumb } from '../utils/breadcrumbs';
 import apiClient from '../api/client';
+import { sanitizeHtml } from '../utils/sanitize';
 
 interface QuizAttempt {
   attemptNumber: number;
@@ -148,9 +149,11 @@ export const CourseQuizList = () => {
                           {quiz.title}
                         </h3>
                         {quiz.description && (
-                          <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-                            {quiz.description}
-                          </p>
+                          <div
+                            className="text-sm mt-1 line-clamp-2"
+                            style={{ color: colors.textSecondary }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(quiz.description) }}
+                          />
                         )}
                         <div className="flex items-center gap-4 mt-2">
                           <span className="text-sm" style={{ color: colors.textSecondary }}>

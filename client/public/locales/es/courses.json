@@ -138,6 +138,8 @@
   "successfully_enrolled": "¡Inscripción exitosa!",
   "discussion_forums": "Foros de discusión",
   "join_course_discussions": "Únete a las discusiones del curso",
+  "analytics": "Analíticas",
+  "view_your_analytics": "Ver tus analíticas de aprendizaje",
   "due_date": "Fecha límite: {{date}}",
   "n_points": "{{count}} pts",
   "n_questions": "{{count}} preguntas",

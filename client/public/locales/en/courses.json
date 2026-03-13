@@ -138,6 +138,8 @@
   "successfully_enrolled": "Successfully enrolled!",
   "discussion_forums": "Discussion Forums",
   "join_course_discussions": "Join course discussions",
+  "analytics": "Analytics",
+  "view_your_analytics": "View your learning analytics",
   "due_date": "Due: {{date}}",
   "n_points": "{{count}} pts",
   "n_questions": "{{count}} questions",

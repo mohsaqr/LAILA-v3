@@ -138,6 +138,8 @@
   "successfully_enrolled": "Ilmoittautuminen onnistui!",
   "discussion_forums": "Keskustelufoorumit",
   "join_course_discussions": "Liity kurssin keskusteluihin",
+  "analytics": "Analytiikka",
+  "view_your_analytics": "Katso oppimisanalytiikkasi",
   "due_date": "Palautus: {{date}}",
   "n_points": "{{count}} pistettä",
   "n_questions": "{{count}} kysymystä",

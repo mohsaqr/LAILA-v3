@@ -46,11 +46,6 @@ export const DashboardSidebar = () => {
     window.dispatchEvent(new Event('storage'));
   }, [isCollapsed]);
 
-  // Extract courseId from URL for course-context aware navigation
-  // Handles: /courses/123, /course/123, /teach/courses/123
-  const courseIdMatch = location.pathname.match(/\/(?:teach\/)?courses?\/(\d+)/);
-  const currentCourseId = courseIdMatch ? courseIdMatch[1] : null;
-
   // Theme colors
   const colors = {
     bg: isDark ? '#1f2937' : '#ffffff',
@@ -71,31 +66,10 @@ export const DashboardSidebar = () => {
   const studentNavItems: NavItem[] = [
     { label: t('dashboard'), icon: LayoutDashboard, path: '/dashboard' },
     { label: t('courses'), icon: GraduationCap, path: '/courses' },
-    {
-      label: currentCourseId ? t('course_labs') : t('labs'),
-      icon: FlaskConical,
-      path: currentCourseId ? `/courses/${currentCourseId}/labs` : '/labs',
-    },
-    {
-      label: currentCourseId ? t('course_forums') : t('forums'),
-      icon: MessageSquare,
-      path: currentCourseId ? `/course/${currentCourseId}/forums` : '/forums',
-    },
-    {
-      label: currentCourseId ? t('course_quizzes') : t('quizzes'),
-      icon: FileQuestion,
-      path: currentCourseId ? `/course/${currentCourseId}/quizzes` : '/quizzes',
-    },
-    {
-      label: currentCourseId ? t('course_certificates') : t('certificates'),
-      icon: Award,
-      path: currentCourseId ? `/course/${currentCourseId}/certificates` : '/certificates',
-    },
-    ...(currentCourseId ? [{
-      label: t('analytics'),
-      icon: Network,
-      path: `/courses/${currentCourseId}/analytics`,
-    }] : []),
+    { label: t('labs'), icon: FlaskConical, path: '/labs' },
+    { label: t('forums'), icon: MessageSquare, path: '/forums' },
+    { label: t('quizzes'), icon: FileQuestion, path: '/quizzes' },
+    { label: t('certificates'), icon: Award, path: '/certificates' },
     { label: t('gradebook'), icon: ClipboardList, path: '/dashboard/gradebook' },
     { label: t('calendar'), icon: Calendar, path: '/dashboard/calendar' },
   ];

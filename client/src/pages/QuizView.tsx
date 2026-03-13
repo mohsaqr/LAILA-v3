@@ -18,6 +18,7 @@ import { Loading } from '../components/common/Loading';
 import { Button } from '../components/common/Button';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { buildQuizBreadcrumb } from '../utils/breadcrumbs';
+import { sanitizeHtml } from '../utils/sanitize';
 
 export const QuizView = () => {
   const { courseId, quizId } = useParams<{ courseId: string; quizId: string }>();
@@ -193,6 +194,14 @@ export const QuizView = () => {
                 {t('question_of_total', { current: currentQuestionIndex + 1, total: attemptData.questions.length })}
               </p>
             </div>
+
+            {attemptData.quiz.instructions && (
+              <div
+                className="text-sm max-w-xl line-clamp-2"
+                style={{ color: colors.textSecondary }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(attemptData.quiz.instructions) }}
+              />
+            )}
 
             {timeRemaining !== null && (
               <div

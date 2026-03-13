@@ -1,3 +1,15 @@
+### 2026-03-13 — Bug fixes #58–#66
+
+- **#58 Quiz creation in CurriculumEditor**: Added full quiz creation modal with RichTextEditor for description/instructions, time limit, max attempts, passing score, and publish toggle. All modal sizes unified to `3xl`.
+- **#59 Unify popup/modal sizes**: Changed all modals in CurriculumEditor, ModuleItem, QuizEditor, QuizManager, MCQGenerator to `size="3xl"`. Simplified empty quiz list page to show only icon + message.
+- **#61 Quiz list in module cards**: Added quiz display section to ModuleItem with `grid grid-cols-2 gap-1.5` layout (cyan-50 background), clickable links to quiz editor, delete button. Quiz count shown in module header stats.
+- **#62 Quiz editor/manager improvements**: QuizEditor/QuizManager pages updated with `max-w-7xl` margins, HTML rendering of description/instructions via `sanitizeHtml()`, RichTextEditor in settings modal, quiz cards wrapped in `<Link>` for clickability.
+- **#63 Analytics card on course page**: Added analytics shortcut card to CourseDetails right sidebar with `BarChart3` icon and indigo styling.
+- **#64 Static student sidebar**: Removed course-context switching from DashboardSidebar. Student nav items are now static (no URL-based course ID extraction).
+- **#65 Rich text rendering on student quiz pages**: Fixed `StudentQuizList.tsx` and `CourseQuizList.tsx` to render quiz description as HTML via `sanitizeHtml()` + `dangerouslySetInnerHTML`. Added instructions display to `QuizView.tsx` header.
+- **Assignment page margin**: Changed `AssignmentView.tsx` container from `max-w-4xl` to `max-w-7xl`.
+- **#66 Enrollment permission checking**: Created `RequireEnrollment` wrapper component that checks enrollment via API before rendering course content pages. Shows 403 "Access Denied" page with "View Course" and "Browse Courses" buttons for unauthenticated students. Admins and instructors bypass the check. Applied to 15 routes: lectures, forums, quizzes, analytics, assignments, agent-assignments, code-labs, grades, and ai-tutors. Supports courseId from both URL params and query string.
+
 ### 2026-03-12 — Course activation code for enrollment
 
 - **#56 Activation code for enrollment**: Added `activationCode` column (nullable String) to Course model in `server/prisma/schema.prisma`. Auto-generates random 8-character hex code on course creation in `course.service.ts` using `crypto.randomBytes(4).toString('hex').toUpperCase()`. Modified `enrollment.service.ts` `enroll()` to accept optional `activationCode` param — validates case-insensitively against course's code, throws 400 on mismatch. Updated `enrollment.routes.ts` to pass `activationCode` from request body.

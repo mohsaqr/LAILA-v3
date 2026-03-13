@@ -138,6 +138,8 @@
   "successfully_enrolled": "تم التسجيل بنجاح!",
   "discussion_forums": "منتديات النقاش",
   "join_course_discussions": "انضم إلى مناقشات الدورة",
+  "analytics": "التحليلات",
+  "view_your_analytics": "عرض تحليلات التعلم الخاصة بك",
   "due_date": "الموعد النهائي: {{date}}",
   "n_points": "{{count}} نقطة",
   "n_questions": "{{count}} سؤال",

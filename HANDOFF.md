@@ -1,4 +1,15 @@
-# Session Handoff — 2026-03-12
+# Session Handoff — 2026-03-13
+
+## Completed (2026-03-13)
+- **Quiz creation in CurriculumEditor (#58)**: Full quiz creation modal with RichTextEditor for description/instructions. All CurriculumEditor modal sizes unified to `3xl`.
+- **Unify popup/modal sizes (#59)**: All modals across CurriculumEditor, ModuleItem, QuizEditor, QuizManager, MCQGenerator changed to `size="3xl"`. Simplified empty quiz list page.
+- **Quiz list in module cards (#61)**: Quizzes displayed in ModuleItem with `grid grid-cols-2 gap-1.5` layout (cyan-50), clickable links to quiz editor, delete support. Quiz count in module header.
+- **Quiz editor/manager improvements (#62)**: `max-w-7xl` margins, HTML rendering via `sanitizeHtml()`, RichTextEditor in settings, clickable quiz cards with `<Link>`.
+- **Analytics card on course page (#63)**: Added to CourseDetails right sidebar with `BarChart3` icon and indigo styling.
+- **Static student sidebar (#64)**: Removed course-context switching from DashboardSidebar. Student nav items are static.
+- **Rich text rendering on student quiz pages (#65)**: Fixed `StudentQuizList.tsx`, `CourseQuizList.tsx`, and `QuizView.tsx` to render description/instructions as sanitized HTML.
+- **Assignment page margin**: `AssignmentView.tsx` container from `max-w-4xl` to `max-w-7xl`.
+- **Enrollment permission checking (#66)**: `RequireEnrollment` wrapper component checks enrollment via `enrollmentsApi.getEnrollment()` before rendering. Shows 403 page for unenrolled students. Admins/instructors bypass. Applied to 15 routes in App.tsx. Supports courseId from URL params and query string.
 
 ## Completed (2026-03-12)
 - **Course activation code (#56)**: Auto-generated 8-char hex code per course. Displayed in CurriculumEditor with copy button. Students must enter code to enroll (modal popup). Server validates case-insensitively. 7 i18n keys in 4 locales.
@@ -62,6 +73,7 @@
 ## Current State
 - Branch: `fix_issues`
 - Client: compiles cleanly (only pre-existing type warnings in unrelated files)
+- New component: `client/src/components/layout/RequireEnrollment.tsx` — reusable enrollment guard for routes
 
 ## Key Decisions
 - Agent chatbots use type `'agent'` with category `'agent_assignment'` to distinguish from global/section chatbots
