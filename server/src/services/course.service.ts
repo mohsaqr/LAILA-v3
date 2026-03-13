@@ -257,6 +257,19 @@ export class CourseService {
               orderBy: { createdAt: 'asc' },
               select: { id: true, title: true, description: true, isPublished: true, _count: { select: { questions: true } } },
             },
+            moduleSurveys: {
+              include: {
+                survey: {
+                  select: {
+                    id: true,
+                    title: true,
+                    description: true,
+                    isPublished: true,
+                    _count: { select: { questions: true, responses: true } },
+                  },
+                },
+              },
+            },
           },
         },
 
@@ -319,7 +332,20 @@ export class CourseService {
       totalMessages: conversations.reduce((sum: number, c: any) => sum + (c._count?.messages ?? 0), 0),
     }));
 
-    return { course: courseData, assignments, tutors, labs: labAssignments, forums };
+    // Fetch all surveys by this instructor (for "Add Survey" modal in curriculum editor)
+    const surveys = await prisma.survey.findMany({
+      where: isAdmin ? {} : { createdById: userId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        isPublished: true,
+        _count: { select: { questions: true, responses: true } },
+      },
+    });
+
+    return { course: courseData, assignments, tutors, labs: labAssignments, forums, surveys };
   }
 
   async getCourseBySlug(slug: string) {

@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
   ChevronDown,
@@ -40,6 +40,7 @@ import { ForumItem } from './ForumItem';
 import { coursesApi } from '../../api/courses';
 import { assignmentsApi } from '../../api/assignments';
 import { surveysApi } from '../../api/surveys';
+import type { ModuleSurvey } from '../../types';
 import { Input, TextArea, Select } from '../common/Input';
 import { getAuthToken } from '../../utils/auth';
 
@@ -86,6 +87,8 @@ interface ModuleItemProps {
   onDeleteQuiz?: (quiz: ModuleQuiz) => void;
   // Lecture-level assignments keyed by lectureId
   lectureAssignments?: Record<number, Assignment[]>;
+  // All surveys available for linking (from courseDetails)
+  allSurveys?: ModuleSurvey[];
 }
 
 export const ModuleItem = ({
@@ -124,6 +127,7 @@ export const ModuleItem = ({
   onAddQuiz,
   onDeleteQuiz,
   lectureAssignments = {},
+  allSurveys: allSurveysProp = [],
 }: ModuleItemProps) => {
   const { t } = useTranslation(['teaching']);
   const queryClient = useQueryClient();
@@ -139,29 +143,21 @@ export const ModuleItem = ({
   const [surveyModalOpen, setSurveyModalOpen] = useState(false);
   const [surveySearch, setSurveySearch] = useState('');
 
-  const { data: moduleSurveys = [] } = useQuery({
-    queryKey: ['moduleSurveys', module.id],
-    queryFn: () => surveysApi.getModuleSurveys(module.id),
-  });
-
-  const { data: allSurveys = [] } = useQuery({
-    queryKey: ['surveys'],
-    queryFn: () => surveysApi.getSurveys(),
-    enabled: surveyModalOpen,
-  });
+  // Use moduleSurveys from the module prop (loaded via courseDetails API)
+  const moduleSurveys = module.moduleSurveys || [];
 
   const linkedSurveyIds = useMemo(() => new Set(moduleSurveys.map((ms: any) => ms.survey.id)), [moduleSurveys]);
 
   const filteredSurveys = useMemo(() => {
-    return allSurveys
-      .filter((s: any) => s.isPublished && !linkedSurveyIds.has(s.id))
-      .filter((s: any) => !surveySearch || s.title.toLowerCase().includes(surveySearch.toLowerCase()));
-  }, [allSurveys, linkedSurveyIds, surveySearch]);
+    return allSurveysProp
+      .filter((s) => s.isPublished && !linkedSurveyIds.has(s.id))
+      .filter((s) => !surveySearch || s.title.toLowerCase().includes(surveySearch.toLowerCase()));
+  }, [allSurveysProp, linkedSurveyIds, surveySearch]);
 
   const addSurveyMutation = useMutation({
     mutationFn: (surveyId: number) => surveysApi.addSurveyToModule(courseId, module.id, surveyId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['moduleSurveys', module.id] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('survey_added'));
       setSurveyModalOpen(false);
       setSurveySearch('');
@@ -172,7 +168,7 @@ export const ModuleItem = ({
   const removeSurveyMutation = useMutation({
     mutationFn: (surveyId: number) => surveysApi.removeSurveyFromModule(module.id, surveyId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['moduleSurveys', module.id] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('survey_removed'));
     },
   });

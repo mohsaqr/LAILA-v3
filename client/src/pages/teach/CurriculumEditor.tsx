@@ -164,6 +164,7 @@ export const CurriculumEditor = () => {
   const courseTutors = courseDetails?.tutors;
   const courseLabAssignments: LabAssignment[] = courseDetails?.labs ?? [];
   const courseForums: Forum[] = courseDetails?.forums ?? [];
+  const allSurveys = courseDetails?.surveys ?? [];
 
   // Derive modules from course data (already includes modules with nested lectures/codeLabs)
   const modules = course?.modules ?? [];
@@ -1198,6 +1199,7 @@ export const CurriculumEditor = () => {
                   onRemoveInteractiveLab={handleRemoveInteractiveLab}
                   onAddQuiz={openAddQuizModal}
                   onDeleteQuiz={setDeleteQuizConfirm}
+                  allSurveys={allSurveys}
                 />
               ))}
             </div>
