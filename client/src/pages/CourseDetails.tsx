@@ -76,7 +76,7 @@ export const CourseDetails = () => {
   });
 
   const handleEnrollClick = () => {
-    if (course?.activationCode) {
+    if ((course as any)?.hasActivationCode) {
       setShowCodeModal(true);
     } else {
       enrollMutation.mutate(undefined);

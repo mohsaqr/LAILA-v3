@@ -87,7 +87,11 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: AuthRequest, res: Resp
     }
   }
 
-  res.json({ success: true, data: { ...course, enrolled, tutors } });
+  // Hide activation code from students (only instructors/admins need it)
+  const isInstructorOrAdmin = req.user?.isAdmin || (req.user?.isInstructor && course.instructorId === req.user?.id);
+  const { activationCode, ...courseWithoutCode } = course as any;
+
+  res.json({ success: true, data: { ...(isInstructorOrAdmin ? course : courseWithoutCode), enrolled, tutors, hasActivationCode: !!activationCode } });
 }));
 
 // Get course by slug (requires auth to see unpublished courses)
