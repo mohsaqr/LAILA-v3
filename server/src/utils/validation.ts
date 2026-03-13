@@ -32,8 +32,8 @@ const strongPasswordSchema = z.string()
 export const registerSchema = z.object({
   fullname: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address').refine(
-    (email) => email.endsWith('@uef.fi'),
-    'You can only use your UEF account (@uef.fi)'
+    (email) => email.endsWith('@uef.fi') || email.endsWith('@student.uef.fi'),
+    'Only UEF accounts (@uef.fi, @student.uef.fi) are allowed'
   ),
   password: strongPasswordSchema,
 });

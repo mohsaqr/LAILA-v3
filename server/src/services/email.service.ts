@@ -49,6 +49,9 @@ class EmailService {
       });
 
       this.isConfigured = true;
+      console.log('=== SMTP CONFIG ===');
+      console.log(`Host: ${smtpHost}, Port: ${smtpPort || '587'}, Secure: ${smtpPort === '465'}, User: ${smtpUser}`);
+      console.log('=== END SMTP CONFIG ===');
       emailLogger.info('Email service initialized');
     } catch (error) {
       emailLogger.error({ err: error }, 'Failed to initialize email service');
@@ -75,9 +78,22 @@ class EmailService {
 
       emailLogger.info({ to: options.to, subject: options.subject }, 'Email sent successfully');
       return true;
-    } catch (error) {
-      emailLogger.error({ err: error, to: options.to }, 'Failed to send email');
-      return false;
+    } catch (error: any) {
+      const details = {
+        message: error.message,
+        code: error.code,
+        command: error.command,
+        responseCode: error.responseCode,
+        response: error.response,
+        host: error.hostname || error.host,
+        port: error.port,
+        stack: error.stack,
+      };
+      emailLogger.error({ err: error, smtpDetails: details, to: options.to }, 'SMTP SEND FAILED');
+      console.error('=== SMTP ERROR DETAILS ===');
+      console.error(JSON.stringify(details, null, 2));
+      console.error('=== END SMTP ERROR ===');
+      throw new Error(`Email send failed: ${JSON.stringify(details)}`);
     }
   }
 
@@ -263,8 +279,8 @@ class EmailService {
       padding: 20px;
     }
     .header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
+      background-color: #088F8F;
+      background: linear-gradient(135deg, #088F8F 0%, #0d9488 100%);
       padding: 30px 20px;
       text-align: center;
       border-radius: 8px 8px 0 0;
@@ -272,6 +288,8 @@ class EmailService {
     .header h1 {
       margin: 0;
       font-size: 24px;
+      color: #ffffff !important;
+      font-weight: 700;
     }
     .content {
       background: white;
@@ -281,7 +299,7 @@ class EmailService {
     }
     .button {
       display: inline-block;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #088F8F 0%, #0d9488 100%);
       color: white !important;
       text-decoration: none;
       padding: 12px 30px;
@@ -306,7 +324,7 @@ class EmailService {
     }
     .announcement-content {
       background: #f9fafb;
-      border-left: 4px solid #667eea;
+      border-left: 4px solid #088F8F;
       padding: 15px;
       margin: 15px 0;
     }
@@ -317,14 +335,14 @@ class EmailService {
       font-size: 12px;
     }
     .footer a {
-      color: #667eea;
+      color: #088F8F;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <h1>${appName}</h1>
+    <div class="header" style="background-color:#088F8F;padding:30px 20px;text-align:center;border-radius:8px 8px 0 0;">
+      <h1 style="margin:0;font-size:24px;color:#ffffff;font-weight:700;">${appName}</h1>
     </div>
     <div class="content">
       ${content}
@@ -413,7 +431,7 @@ class EmailService {
     return this.sendEmail({
       to: email,
       subject: `${code} is your verification code`,
-      text: `Hi ${fullname},\n\nYour verification code is: ${code}\n\nThis code will expire in 10 minutes.\n\nIf you didn't request this, you can safely ignore this email.\n\nBest,\n${appName}`,
+      text: `Hi ${fullname},\n\nYour verification code is: ${code}\n\nThis code will expire in 2 minutes.\n\nIf you didn't request this, you can safely ignore this email.\n\nBest,\n${appName}`,
       html: this.wrapInTemplate(`
         <h2>Verify Your Email</h2>
         <p>Hi ${fullname},</p>
@@ -421,7 +439,7 @@ class EmailService {
         <div style="text-align: center; margin: 30px 0;">
           <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; background: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 12px; padding: 16px 32px; display: inline-block;">${code}</span>
         </div>
-        <p>This code will expire in <strong>10 minutes</strong>.</p>
+        <p>This code will expire in <strong>2 minutes</strong>.</p>
         <p><small>If you didn't request this, you can safely ignore this email.</small></p>
       `, fullname),
     });

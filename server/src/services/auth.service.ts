@@ -62,7 +62,7 @@ export class AuthService {
 
     // Generate 6-digit verification code
     const code = crypto.randomInt(100000, 999999).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const expiresAt = new Date(Date.now() + 2 * 60 * 1000); // 10 minutes
 
     // Delete any existing codes for this user, then create new one
     await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
@@ -70,8 +70,10 @@ export class AuthService {
       data: { userId: user.id, code, expiresAt },
     });
 
-    // Send verification email
-    await emailService.sendVerificationCode(user.email, code, user.fullname);
+    // Send verification email (non-blocking)
+    emailService.sendVerificationCode(user.email, code, user.fullname).catch((err) => {
+      authLogger.warn({ err, email: user.email }, 'Failed to send verification email');
+    });
 
     // Log registration event
     try {
@@ -150,15 +152,17 @@ export class AuthService {
     if (user.isConfirmed) throw new AppError('User already verified', 400);
 
     const code = crypto.randomInt(100000, 999999).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 2 * 60 * 1000);
 
     await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
     await prisma.verificationCode.create({
       data: { userId: user.id, code, expiresAt },
     });
 
-    // Send verification email
-    await emailService.sendVerificationCode(user.email, code, user.fullname);
+    // Send verification email (non-blocking)
+    emailService.sendVerificationCode(user.email, code, user.fullname).catch((err) => {
+      authLogger.warn({ err, email: user.email }, 'Failed to send verification email');
+    });
 
     return { message: 'Verification code resent' };
   }
