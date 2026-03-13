@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronRight, FileText, PlayCircle, Layers, FlaskConical, FileQuestion, ClipboardList, MessageSquare, Bot, Network, ListChecks } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { ContentCard, ContentType, ContentCardSize } from './ContentCard';
-import type { CourseModule, Lecture, CodeLab, Assignment, Survey, CurriculumViewMode } from '../../types';
+import type { CourseModule, Lecture, CodeLab, Assignment, Survey, ModuleSurvey, ModuleQuiz, CurriculumViewMode } from '../../types';
 import type { Forum } from '../../api/forums';
 import type { Quiz } from '../../api/quizzes';
 
@@ -14,10 +14,10 @@ interface ModuleSectionProps {
   courseId: number;
   lectures?: Lecture[];
   codeLabs?: CodeLab[];
-  quizzes?: Quiz[];
+  quizzes?: (Quiz | ModuleQuiz)[];
   assignments?: Assignment[];
   forums?: Forum[];
-  surveys?: Survey[];
+  surveys?: (Survey | ModuleSurvey)[];
   hasAccess: boolean;
   viewMode?: CurriculumViewMode;
 }

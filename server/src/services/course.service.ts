@@ -118,6 +118,59 @@ export class CourseService {
                 isPublished: true,
               },
             },
+            assignments: {
+              where: {
+                ...(includeUnpublished ? {} : { isPublished: true }),
+                lectureId: null, // exclude lecture-level assignments
+              },
+              orderBy: { createdAt: 'asc' },
+              select: {
+                id: true,
+                title: true,
+                points: true,
+                dueDate: true,
+                isPublished: true,
+                submissionType: true,
+                moduleId: true,
+              },
+            },
+            quizzes: {
+              where: includeUnpublished ? {} : { isPublished: true },
+              orderBy: { createdAt: 'asc' },
+              select: {
+                id: true,
+                title: true,
+                description: true,
+                isPublished: true,
+                moduleId: true,
+                _count: { select: { questions: true } },
+              },
+            },
+            forums: {
+              where: includeUnpublished ? {} : { isPublished: true },
+              orderBy: { orderIndex: 'asc' },
+              select: {
+                id: true,
+                title: true,
+                description: true,
+                isPublished: true,
+                moduleId: true,
+                _count: { select: { threads: true } },
+              },
+            },
+            moduleSurveys: {
+              include: {
+                survey: {
+                  select: {
+                    id: true,
+                    title: true,
+                    description: true,
+                    isPublished: true,
+                    _count: { select: { questions: true } },
+                  },
+                },
+              },
+            },
           },
         },
         _count: {
@@ -202,7 +255,7 @@ export class CourseService {
             },
             quizzes: {
               orderBy: { createdAt: 'asc' },
-              select: { id: true, title: true, isPublished: true, _count: { select: { questions: true } } },
+              select: { id: true, title: true, description: true, isPublished: true, _count: { select: { questions: true } } },
             },
           },
         },

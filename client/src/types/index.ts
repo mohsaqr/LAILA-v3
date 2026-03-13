@@ -73,6 +73,7 @@ export interface CourseModule {
   assignments?: Assignment[];
   forums?: ForumType[];
   quizzes?: ModuleQuiz[];
+  moduleSurveys?: { survey: ModuleSurvey }[];
   _count?: {
     lectures: number;
     codeLabs?: number;
@@ -81,10 +82,20 @@ export interface CourseModule {
   };
 }
 
+export interface ModuleSurvey {
+  id: number;
+  title: string;
+  description: string | null;
+  isPublished: boolean;
+  _count?: { questions: number };
+}
+
 export interface ModuleQuiz {
   id: number;
   title: string;
+  description?: string | null;
   isPublished: boolean;
+  moduleId?: number;
   _count?: { questions: number };
 }
 
