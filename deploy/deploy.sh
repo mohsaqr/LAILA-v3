@@ -473,15 +473,101 @@ NGINX_EOF
     fi
     rm -f /tmp/laila-nginx.conf
 else
-    # For real domain, use the template config with SSL
-    if $IS_MAC; then
-        cp "$DEPLOY_DIR/nginx/laila.conf" "$NGINX_CONF"
-        sed_i "s|__DOMAIN__|$DOMAIN|g"           "$NGINX_CONF"
-        sed_i "s|__INSTALL_DIR__|$INSTALL_DIR|g"  "$NGINX_CONF"
+    # For real domain, start with HTTP-only config (certbot will upgrade to HTTPS)
+    if [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
+        # SSL certs already exist — use the full HTTPS template
+        if $IS_MAC; then
+            cp "$DEPLOY_DIR/nginx/laila.conf" "$NGINX_CONF"
+            sed_i "s|__DOMAIN__|$DOMAIN|g"           "$NGINX_CONF"
+            sed_i "s|__INSTALL_DIR__|$INSTALL_DIR|g"  "$NGINX_CONF"
+        else
+            sudo cp "$DEPLOY_DIR/nginx/laila.conf" "$NGINX_CONF"
+            sudo sed -i "s|__DOMAIN__|$DOMAIN|g"           "$NGINX_CONF"
+            sudo sed -i "s|__INSTALL_DIR__|$INSTALL_DIR|g"  "$NGINX_CONF"
+        fi
     else
-        sudo cp "$DEPLOY_DIR/nginx/laila.conf" "$NGINX_CONF"
-        sudo sed -i "s|__DOMAIN__|$DOMAIN|g"           "$NGINX_CONF"
-        sudo sed -i "s|__INSTALL_DIR__|$INSTALL_DIR|g"  "$NGINX_CONF"
+        # No certs yet — use HTTP-only config so nginx can start, certbot will add SSL
+        cat > /tmp/laila-nginx.conf <<'NGINX_EOF'
+server {
+    listen 80;
+    listen [::]:80;
+    server_name __DOMAIN__;
+
+    # Let's Encrypt challenge
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_min_length 256;
+    gzip_types text/plain text/css text/javascript application/javascript application/json application/xml image/svg+xml;
+
+    client_max_body_size 10M;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout    120s;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout    120s;
+    }
+
+    location /socket.io/ {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        "upgrade";
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout    86400s;
+        proxy_send_timeout    86400s;
+    }
+
+    location /uploads/ {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /assets/ {
+        alias __INSTALL_DIR__/client/dist/assets/;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+    }
+
+    location / {
+        root __INSTALL_DIR__/client/dist;
+        try_files $uri $uri/ /index.html;
+
+        location = /index.html {
+            expires 5m;
+            add_header Cache-Control "public, must-revalidate";
+        }
+    }
+}
+NGINX_EOF
+
+        sed_i "s|__DOMAIN__|$DOMAIN|g" /tmp/laila-nginx.conf
+        sed_i "s|__INSTALL_DIR__|$INSTALL_DIR|g" /tmp/laila-nginx.conf
+
+        if $IS_MAC; then
+            cp /tmp/laila-nginx.conf "$NGINX_CONF"
+        else
+            sudo cp /tmp/laila-nginx.conf "$NGINX_CONF"
+        fi
+        rm -f /tmp/laila-nginx.conf
     fi
 fi
 
