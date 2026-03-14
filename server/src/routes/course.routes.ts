@@ -5,6 +5,8 @@ import { lectureService } from '../services/lecture.service.js';
 import { sectionService } from '../services/section.service.js';
 import { chatbotConversationService } from '../services/chatbotConversation.service.js';
 import { lectureAIHelperService } from '../services/lectureAIHelper.service.js';
+import { courseTutorService } from '../services/courseTutor.service.js';
+import prisma from '../utils/prisma.js';
 import { authenticateToken, requireInstructor, optionalAuth } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import {
@@ -64,7 +66,32 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: AuthRequest, res: Resp
     req.user?.isAdmin || false,
     req.user?.isInstructor || false
   );
-  res.json({ success: true, data: course });
+
+  // Include enrollment status and tutors if user is authenticated
+  let enrolled = false;
+  let tutors: any[] = [];
+  if (req.user?.id) {
+    const enrollment = await prisma.enrollment.findUnique({
+      where: { userId_courseId: { userId: req.user.id, courseId: id } },
+      select: { id: true },
+    });
+    enrolled = !!enrollment;
+
+    // Load tutors for enrolled students
+    if (enrolled) {
+      try {
+        tutors = await courseTutorService.getStudentTutors(id, req.user.id);
+      } catch {
+        // Ignore errors (e.g., no tutors configured)
+      }
+    }
+  }
+
+  // Hide activation code from students (only instructors/admins need it)
+  const isInstructorOrAdmin = req.user?.isAdmin || (req.user?.isInstructor && course.instructorId === req.user?.id);
+  const { activationCode, ...courseWithoutCode } = course as any;
+
+  res.json({ success: true, data: { ...(isInstructorOrAdmin ? course : courseWithoutCode), enrolled, tutors, hasActivationCode: !!activationCode } });
 }));
 
 // Get course by slug (requires auth to see unpublished courses)

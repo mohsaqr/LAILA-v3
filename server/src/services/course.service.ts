@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { CreateCourseInput, UpdateCourseInput } from '../utils/validation.js';
@@ -11,6 +12,13 @@ export interface SystemEventContext {
 }
 
 export class CourseService {
+  // Generate a random 8-character alphanumeric activation code (letters + numbers)
+  private generateActivationCode(): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous chars (0/O, 1/I)
+    const bytes = crypto.randomBytes(8);
+    return Array.from(bytes, b => chars[b % chars.length]).join('');
+  }
+
   // Generate slug from title
   private generateSlug(title: string): string {
     return title
@@ -110,6 +118,59 @@ export class CourseService {
                 isPublished: true,
               },
             },
+            assignments: {
+              where: {
+                ...(includeUnpublished ? {} : { isPublished: true }),
+                lectureId: null, // exclude lecture-level assignments
+              },
+              orderBy: { createdAt: 'asc' },
+              select: {
+                id: true,
+                title: true,
+                points: true,
+                dueDate: true,
+                isPublished: true,
+                submissionType: true,
+                moduleId: true,
+              },
+            },
+            quizzes: {
+              where: includeUnpublished ? {} : { isPublished: true },
+              orderBy: { createdAt: 'asc' },
+              select: {
+                id: true,
+                title: true,
+                description: true,
+                isPublished: true,
+                moduleId: true,
+                _count: { select: { questions: true } },
+              },
+            },
+            forums: {
+              where: includeUnpublished ? {} : { isPublished: true },
+              orderBy: { orderIndex: 'asc' },
+              select: {
+                id: true,
+                title: true,
+                description: true,
+                isPublished: true,
+                moduleId: true,
+                _count: { select: { threads: true } },
+              },
+            },
+            moduleSurveys: {
+              include: {
+                survey: {
+                  select: {
+                    id: true,
+                    title: true,
+                    description: true,
+                    isPublished: true,
+                    _count: { select: { questions: true } },
+                  },
+                },
+              },
+            },
           },
         },
         _count: {
@@ -192,6 +253,23 @@ export class CourseService {
               orderBy: { orderIndex: 'asc' },
               select: { id: true, title: true, description: true, orderIndex: true, isPublished: true },
             },
+            quizzes: {
+              orderBy: { createdAt: 'asc' },
+              select: { id: true, title: true, description: true, isPublished: true, _count: { select: { questions: true } } },
+            },
+            moduleSurveys: {
+              include: {
+                survey: {
+                  select: {
+                    id: true,
+                    title: true,
+                    description: true,
+                    isPublished: true,
+                    _count: { select: { questions: true, responses: true } },
+                  },
+                },
+              },
+            },
           },
         },
 
@@ -254,7 +332,20 @@ export class CourseService {
       totalMessages: conversations.reduce((sum: number, c: any) => sum + (c._count?.messages ?? 0), 0),
     }));
 
-    return { course: courseData, assignments, tutors, labs: labAssignments, forums };
+    // Fetch all surveys by this instructor (for "Add Survey" modal in curriculum editor)
+    const surveys = await prisma.survey.findMany({
+      where: isAdmin ? {} : { createdById: userId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        isPublished: true,
+        _count: { select: { questions: true, responses: true } },
+      },
+    });
+
+    return { course: courseData, assignments, tutors, labs: labAssignments, forums, surveys };
   }
 
   async getCourseBySlug(slug: string) {
@@ -365,11 +456,14 @@ export class CourseService {
     const slug = this.generateSlug(data.title);
     const { categoryIds, ...courseData } = data;
 
+    const activationCode = this.generateActivationCode();
+
     const course = await prisma.course.create({
       data: {
         ...courseData,
         slug,
         instructorId,
+        activationCode,
       },
       include: {
         instructor: {

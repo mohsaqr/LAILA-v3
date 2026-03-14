@@ -27,14 +27,14 @@ router.get('/course/:courseId', authenticateToken, asyncHandler(async (req: Auth
 
 // Enroll in course
 router.post('/', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { courseId } = req.body;
+  const { courseId, activationCode } = req.body;
 
   if (!courseId) {
     res.status(400).json({ success: false, error: 'Course ID is required' });
     return;
   }
 
-  const enrollment = await enrollmentService.enroll(req.user!.id, parseInt(courseId));
+  const enrollment = await enrollmentService.enroll(req.user!.id, parseInt(courseId), activationCode);
   res.status(201).json({ success: true, data: enrollment });
 }));
 

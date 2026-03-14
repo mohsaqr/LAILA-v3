@@ -80,14 +80,14 @@ describe('Auth Routes', () => {
   describe('POST /api/auth/register', () => {
     const validRegistration = {
       fullname: 'Test User',
-      email: 'test@example.com',
+      email: 'test@uef.fi',
       password: 'StrongPass123!',
     };
 
     it('should register a new user successfully', async () => {
       const mockResult = {
-        user: { id: 1, fullname: 'Test User', email: 'test@example.com' },
-        token: 'mock_jwt_token',
+        email: 'test@uef.fi',
+        message: 'Verification code sent',
       };
       vi.mocked(authService.register).mockResolvedValue(mockResult);
 
@@ -97,8 +97,8 @@ describe('Auth Routes', () => {
         .expect(201);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data.user.email).toBe('test@example.com');
-      expect(response.body.data.token).toBe('mock_jwt_token');
+      expect(response.body.data.email).toBe('test@uef.fi');
+      expect(response.body.data.message).toBe('Verification code sent');
       expect(authService.register).toHaveBeenCalledWith(
         validRegistration,
         expect.objectContaining({
@@ -124,7 +124,7 @@ describe('Auth Routes', () => {
     it('should return 422 for missing fullname', async () => {
       const response = await request(app)
         .post('/api/auth/register')
-        .send({ email: 'test@example.com', password: 'StrongPass123!' })
+        .send({ email: 'test@uef.fi', password: 'StrongPass123!' })
         .expect(422);
 
       expect(response.body.success).toBe(false);

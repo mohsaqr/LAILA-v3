@@ -519,16 +519,7 @@ export class QuizService {
       }
     }
 
-    // Check attempts
-    const existingAttempts = await prisma.quizAttempt.count({
-      where: { quizId, userId },
-    });
-
-    if (quiz.maxAttempts > 0 && existingAttempts >= quiz.maxAttempts) {
-      throw new AppError('Maximum attempts reached', 400);
-    }
-
-    // Check for in-progress attempt
+    // Check for in-progress attempt first
     const inProgress = await prisma.quizAttempt.findFirst({
       where: { quizId, userId, status: 'in_progress' },
     });
@@ -538,18 +529,47 @@ export class QuizService {
       return this.getAttemptWithQuestions(inProgress.id, quiz);
     }
 
-    // Create new attempt
-    const attempt = await prisma.quizAttempt.create({
-      data: {
-        quizId,
-        userId,
-        attemptNumber: existingAttempts + 1,
-        ipAddress,
-      },
+    // Check attempt count against max
+    const existingAttempts = await prisma.quizAttempt.count({
+      where: { quizId, userId },
     });
 
-    logger.info({ attemptId: attempt.id, quizId, userId }, 'Quiz attempt started');
-    return this.getAttemptWithQuestions(attempt.id, quiz);
+    if (quiz.maxAttempts > 0 && existingAttempts >= quiz.maxAttempts) {
+      throw new AppError('Maximum attempts reached', 400);
+    }
+
+    // Use max attemptNumber to avoid unique constraint violations (e.g. after deletions)
+    const maxAttempt = await prisma.quizAttempt.aggregate({
+      where: { quizId, userId },
+      _max: { attemptNumber: true },
+    });
+    const nextAttemptNumber = (maxAttempt._max.attemptNumber ?? 0) + 1;
+
+    // Create new attempt (handle race condition from double-calls)
+    try {
+      const attempt = await prisma.quizAttempt.create({
+        data: {
+          quizId,
+          userId,
+          attemptNumber: nextAttemptNumber,
+          ipAddress,
+        },
+      });
+
+      logger.info({ attemptId: attempt.id, quizId, userId }, 'Quiz attempt started');
+      return this.getAttemptWithQuestions(attempt.id, quiz);
+    } catch (err: any) {
+      // Unique constraint violation — a concurrent request already created this attempt
+      if (err.code === 'P2002') {
+        const existing = await prisma.quizAttempt.findFirst({
+          where: { quizId, userId, status: 'in_progress' },
+        });
+        if (existing) {
+          return this.getAttemptWithQuestions(existing.id, quiz);
+        }
+      }
+      throw err;
+    }
   }
 
   private async getAttemptWithQuestions(attemptId: number, quiz: any) {

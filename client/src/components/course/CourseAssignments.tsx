@@ -84,7 +84,7 @@ export const CourseAssignments = ({ courseId, assignments }: CourseAssignmentsPr
                 )}
                 <div className="flex items-center gap-3 mt-2 text-sm" style={{ color: colors.textSecondary }}>
                   {assignment.dueDate && (
-                    <span>{t('due_date_format', { date: new Date(assignment.dueDate).toLocaleDateString() })}</span>
+                    <span>{t('due_date_format', { date: new Date(assignment.dueDate).toLocaleDateString(undefined, { timeZone: 'UTC' }) })}</span>
                   )}
                   <span>{t('x_points', { count: assignment.points })}</span>
                   <span

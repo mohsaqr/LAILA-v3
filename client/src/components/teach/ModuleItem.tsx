@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
   ChevronDown,
@@ -28,8 +28,9 @@ import {
   X,
   Search,
   ListChecks,
+  FileQuestion,
 } from 'lucide-react';
-import { CourseModule, Lecture, CodeLab, Assignment, LabAssignment, Forum } from '../../types';
+import { CourseModule, Lecture, CodeLab, Assignment, LabAssignment, Forum, ModuleQuiz } from '../../types';
 import { Button } from '../common/Button';
 import { Modal } from '../common/Modal';
 import { LectureItem } from './LectureItem';
@@ -39,6 +40,7 @@ import { ForumItem } from './ForumItem';
 import { coursesApi } from '../../api/courses';
 import { assignmentsApi } from '../../api/assignments';
 import { surveysApi } from '../../api/surveys';
+import type { ModuleSurvey } from '../../types';
 import { Input, TextArea, Select } from '../common/Input';
 import { getAuthToken } from '../../utils/auth';
 
@@ -80,8 +82,13 @@ interface ModuleItemProps {
   onMoveForumDown?: (forum: Forum, module: CourseModule) => void;
   // Interactive lab handlers
   onRemoveInteractiveLab?: (module: CourseModule, labKey: string) => void;
+  // Quiz handlers
+  onAddQuiz?: (module: CourseModule) => void;
+  onDeleteQuiz?: (quiz: ModuleQuiz) => void;
   // Lecture-level assignments keyed by lectureId
   lectureAssignments?: Record<number, Assignment[]>;
+  // All surveys available for linking (from courseDetails)
+  allSurveys?: ModuleSurvey[];
 }
 
 export const ModuleItem = ({
@@ -117,7 +124,10 @@ export const ModuleItem = ({
   onMoveForumUp,
   onMoveForumDown,
   onRemoveInteractiveLab,
+  onAddQuiz,
+  onDeleteQuiz,
   lectureAssignments = {},
+  allSurveys: allSurveysProp = [],
 }: ModuleItemProps) => {
   const { t } = useTranslation(['teaching']);
   const queryClient = useQueryClient();
@@ -133,29 +143,21 @@ export const ModuleItem = ({
   const [surveyModalOpen, setSurveyModalOpen] = useState(false);
   const [surveySearch, setSurveySearch] = useState('');
 
-  const { data: moduleSurveys = [] } = useQuery({
-    queryKey: ['moduleSurveys', module.id],
-    queryFn: () => surveysApi.getModuleSurveys(module.id),
-  });
-
-  const { data: allSurveys = [] } = useQuery({
-    queryKey: ['surveys'],
-    queryFn: () => surveysApi.getSurveys(),
-    enabled: surveyModalOpen,
-  });
+  // Use moduleSurveys from the module prop (loaded via courseDetails API)
+  const moduleSurveys = module.moduleSurveys || [];
 
   const linkedSurveyIds = useMemo(() => new Set(moduleSurveys.map((ms: any) => ms.survey.id)), [moduleSurveys]);
 
   const filteredSurveys = useMemo(() => {
-    return allSurveys
-      .filter((s: any) => s.isPublished && !linkedSurveyIds.has(s.id))
-      .filter((s: any) => !surveySearch || s.title.toLowerCase().includes(surveySearch.toLowerCase()));
-  }, [allSurveys, linkedSurveyIds, surveySearch]);
+    return allSurveysProp
+      .filter((s) => s.isPublished && !linkedSurveyIds.has(s.id))
+      .filter((s) => !surveySearch || s.title.toLowerCase().includes(surveySearch.toLowerCase()));
+  }, [allSurveysProp, linkedSurveyIds, surveySearch]);
 
   const addSurveyMutation = useMutation({
     mutationFn: (surveyId: number) => surveysApi.addSurveyToModule(courseId, module.id, surveyId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['moduleSurveys', module.id] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('survey_added'));
       setSurveyModalOpen(false);
       setSurveySearch('');
@@ -166,7 +168,7 @@ export const ModuleItem = ({
   const removeSurveyMutation = useMutation({
     mutationFn: (surveyId: number) => surveysApi.removeSurveyFromModule(module.id, surveyId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['moduleSurveys', module.id] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('survey_removed'));
     },
   });
@@ -251,7 +253,7 @@ export const ModuleItem = ({
         ...form,
         moduleId: module.id,
         lectureId,
-        dueDate: form.dueDate ? new Date(form.dueDate).toISOString() : null,
+        dueDate: form.dueDate ? form.dueDate + ':00.000Z' : null,
       });
       await coursesApi.createSection(lectureId, {
         type: 'assignment',
@@ -293,6 +295,7 @@ export const ModuleItem = ({
   const assignments = module.assignments || [];
   const labAssignments = module.labAssignments || [];
   const forums = module.forums || [];
+  const quizzes = module.quizzes || [];
   const interactiveLabKeys = module.interactiveLabs
     ? module.interactiveLabs.split(',').map(s => s.trim()).filter(Boolean)
     : [];
@@ -337,6 +340,7 @@ export const ModuleItem = ({
             {labAssignments.length > 0 && ` • ${t('x_lab_templates', { count: labAssignments.length })}`}
             {assignments.length > 0 && ` • ${t('x_assignments', { count: assignments.length })}`}
             {forums.length > 0 && ` • ${t('x_forums', { count: forums.length })}`}
+            {quizzes.length > 0 && ` • ${t('x_quizzes', { count: quizzes.length })}`}
             {interactiveLabKeys.length > 0 && ` • ${t('x_interactive_labs', { count: interactiveLabKeys.length })}`}
           </span>
         </div>
@@ -583,6 +587,49 @@ export const ModuleItem = ({
             </div>
           )}
 
+          {/* Quizzes */}
+          {quizzes.length > 0 && (
+            <div className="pt-2 border-t border-gray-100 mt-2 grid grid-cols-2 gap-1.5">
+              {quizzes.map(quiz => (
+                <div
+                  key={quiz.id}
+                  className="flex items-center gap-3 p-3 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg hover:bg-cyan-100 dark:hover:bg-cyan-900/30 transition-colors"
+                >
+                  <FileQuestion className="w-4 h-4 text-cyan-600 dark:text-cyan-400 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Link
+                        to={`/teach/courses/${courseId}/quizzes/${quiz.id}`}
+                        className="text-sm font-medium text-gray-900 dark:text-white truncate hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
+                      >
+                        {quiz.title}
+                      </Link>
+                      <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                        quiz.isPublished
+                          ? 'bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300'
+                          : 'bg-amber-100 dark:bg-amber-800 text-amber-700 dark:text-amber-300'
+                      }`}>
+                        {quiz.isPublished ? t('published') : t('draft')}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-xs text-gray-400 flex-shrink-0">
+                    {quiz._count?.questions || 0} {t('questions')}
+                  </span>
+                  {onDeleteQuiz && (
+                    <button
+                      onClick={() => onDeleteQuiz(quiz)}
+                      className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                      title={t('delete_quiz')}
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Interactive Labs */}
           {interactiveLabKeys.length > 0 && (
             <div className="pt-2 border-t border-gray-100 mt-2 space-y-2">
@@ -683,6 +730,17 @@ export const ModuleItem = ({
                 {t('add_forum')}
               </Button>
             )}
+            {onAddQuiz && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onAddQuiz(module)}
+                icon={<FileQuestion className="w-4 h-4" />}
+                className="flex-1 min-w-[120px] text-cyan-600 hover:bg-cyan-50"
+              >
+                {t('add_quiz')}
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -697,7 +755,7 @@ export const ModuleItem = ({
       )}
 
       {/* File Upload Modal */}
-      <Modal isOpen={fileUploadLectureId !== null} onClose={closeFileModal} title={t('upload_file')} size="md">
+      <Modal isOpen={fileUploadLectureId !== null} onClose={closeFileModal} title={t('upload_file')} size="3xl">
         <div className="space-y-4">
           {!uploadedFile ? (
             <div
@@ -775,7 +833,7 @@ export const ModuleItem = ({
       </Modal>
 
       {/* Assignment Creation Modal */}
-      <Modal isOpen={assignmentLectureId !== null} onClose={closeAssignmentModal} title={t('create_assignment')} size="lg">
+      <Modal isOpen={assignmentLectureId !== null} onClose={closeAssignmentModal} title={t('create_assignment')} size="3xl">
         <form onSubmit={handleCreateAssignment} className="space-y-4">
           <Input
             label={t('title')}
@@ -853,7 +911,7 @@ export const ModuleItem = ({
       </Modal>
 
       {/* Survey Selection Modal */}
-      <Modal isOpen={surveyModalOpen} onClose={() => { setSurveyModalOpen(false); setSurveySearch(''); }} title={t('select_survey')} size="md">
+      <Modal isOpen={surveyModalOpen} onClose={() => { setSurveyModalOpen(false); setSurveySearch(''); }} title={t('select_survey')} size="3xl">
         <div className="space-y-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />

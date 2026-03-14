@@ -215,7 +215,7 @@ export class EnrollmentService {
     return enrollment;
   }
 
-  async enroll(userId: number, courseId: number, context?: EventContext) {
+  async enroll(userId: number, courseId: number, activationCode?: string, context?: EventContext) {
     // Check if user is admin or instructor - they cannot enroll as students
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -237,6 +237,16 @@ export class EnrollmentService {
 
     if (course.status !== 'published') {
       throw new AppError('Course is not available for enrollment', 400);
+    }
+
+    // Validate activation code
+    if (course.activationCode) {
+      if (!activationCode) {
+        throw new AppError('Activation code is required to enroll in this course', 400);
+      }
+      if (activationCode.toUpperCase() !== course.activationCode.toUpperCase()) {
+        throw new AppError('Invalid activation code', 400);
+      }
     }
 
     // Check if already enrolled

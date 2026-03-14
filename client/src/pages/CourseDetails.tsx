@@ -8,19 +8,12 @@ import {
   PlayCircle,
   Edit,
   Settings,
-  ClipboardList,
-  Bot,
   MessageSquare,
   PenSquare,
-  FileText,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../api/courses';
 import { enrollmentsApi } from '../api/enrollments';
-import { assignmentsApi } from '../api/assignments';
-import { forumsApi, Forum } from '../api/forums';
-import { quizzesApi, Quiz } from '../api/quizzes';
-import { surveysApi } from '../api/surveys';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import { Card, CardBody } from '../components/common/Card';
@@ -29,8 +22,10 @@ import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { CollaborativeModule } from '../components/course/CollaborativeModule';
 import { ModuleSection } from '../components/course/ModuleSection';
-import { useEffect, useRef } from 'react';
-import { Assignment, Survey, CurriculumViewMode } from '../types';
+import { Modal } from '../components/common/Modal';
+import { Input } from '../components/common/Input';
+import { useEffect, useRef, useState } from 'react';
+import { CurriculumViewMode } from '../types';
 import activityLogger from '../services/activityLogger';
 
 export const CourseDetails = () => {
@@ -40,6 +35,10 @@ export const CourseDetails = () => {
   const { isDark } = useTheme();
   const { t } = useTranslation(['courses', 'common']);
   const moduleRefs = useRef<Record<number, HTMLElement | null>>({});
+
+  // Activation code modal state
+  const [showCodeModal, setShowCodeModal] = useState(false);
+  const [activationCode, setActivationCode] = useState('');
 
   // Theme colors
   const colors = {
@@ -55,10 +54,6 @@ export const CourseDetails = () => {
     textPrimary600: isDark ? '#a5b4fc' : '#4f46e5',
     bgTeal: isDark ? 'rgba(8, 143, 143, 0.2)' : '#f0fdfd',
     textTeal: isDark ? '#5eecec' : '#088F8F',
-    bgAmber: isDark ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7',
-    textAmber: isDark ? '#fcd34d' : '#d97706',
-    bgEmerald: isDark ? 'rgba(16, 185, 129, 0.2)' : '#d1fae5',
-    textEmerald: isDark ? '#6ee7b7' : '#059669',
   };
 
   const { data: course, isLoading } = useQuery({
@@ -66,98 +61,36 @@ export const CourseDetails = () => {
     queryFn: () => coursesApi.getCourseById(parseInt(id!)),
   });
 
-  const { data: enrollmentData } = useQuery({
-    queryKey: ['enrollment', id],
-    queryFn: () => enrollmentsApi.getEnrollment(parseInt(id!)),
-    enabled: isAuthenticated,
-  });
-
-  // Fetch assignments for the course
-  const { data: assignments } = useQuery({
-    queryKey: ['courseAssignments', id],
-    queryFn: () => assignmentsApi.getAssignments(parseInt(id!)),
-    enabled: isAuthenticated && (enrollmentData?.enrolled || isActualAdmin || isActualInstructor),
-  });
-
-  // Fetch quizzes for the course
-  const { data: quizzes } = useQuery({
-    queryKey: ['courseQuizzes', id],
-    queryFn: () => quizzesApi.getQuizzes(parseInt(id!)),
-    enabled: isAuthenticated && (enrollmentData?.enrolled || isActualAdmin || isActualInstructor),
-  });
-
-  // Fetch forums for the course
-  const { data: forums } = useQuery({
-    queryKey: ['courseForums', id],
-    queryFn: () => forumsApi.getForums(parseInt(id!)),
-    enabled: isAuthenticated && (enrollmentData?.enrolled || isActualAdmin || isActualInstructor),
-  });
-
-  // Fetch surveys for the course (via moduleSurveys relation)
-  const { data: courseSurveys } = useQuery({
-    queryKey: ['courseSurveys', id],
-    queryFn: () => surveysApi.getSurveys(parseInt(id!)),
-    enabled: isAuthenticated && (enrollmentData?.enrolled || isActualAdmin || isActualInstructor),
-  });
-
-  // Group items by moduleId
-  // Filter out lecture-level assignments (they display on the lecture page instead)
-  const moduleLevelAssignments = (assignments || []).filter(a => !a.lectureId);
-
-  const assignmentsByModule = moduleLevelAssignments.reduce((acc: Record<number, Assignment[]>, assignment: Assignment) => {
-    if (assignment.moduleId && assignment.isPublished) {
-      if (!acc[assignment.moduleId]) acc[assignment.moduleId] = [];
-      acc[assignment.moduleId].push(assignment);
-    }
-    return acc;
-  }, {} as Record<number, Assignment[]>);
-
-  const quizzesByModule = (quizzes || []).reduce((acc: Record<number, Quiz[]>, quiz: Quiz) => {
-    if (quiz.moduleId && quiz.isPublished) {
-      if (!acc[quiz.moduleId]) acc[quiz.moduleId] = [];
-      acc[quiz.moduleId].push(quiz);
-    }
-    return acc;
-  }, {} as Record<number, Quiz[]>);
-
-  const forumsByModule = (forums || []).reduce((acc: Record<number, Forum[]>, forum: Forum) => {
-    if (forum.moduleId && forum.isPublished) {
-      if (!acc[forum.moduleId]) acc[forum.moduleId] = [];
-      acc[forum.moduleId].push(forum);
-    }
-    return acc;
-  }, {} as Record<number, Forum[]>);
-
-  // Group surveys by moduleId (via moduleSurveys join data)
-  const surveysByModule = (courseSurveys || []).reduce((acc: Record<number, Survey[]>, survey: Survey) => {
-    if (survey.isPublished && (survey as any).moduleSurveys) {
-      for (const ms of (survey as any).moduleSurveys) {
-        const modId = ms.module?.id || ms.moduleId;
-        if (modId) {
-          if (!acc[modId]) acc[modId] = [];
-          acc[modId].push(survey);
-        }
-      }
-    }
-    return acc;
-  }, {} as Record<number, Survey[]>);
-
-  // Standalone items (not assigned to a module)
-  const standaloneAssignments = moduleLevelAssignments.filter(a => !a.moduleId && a.isPublished);
-  const standaloneQuizzes = (quizzes || []).filter(q => !q.moduleId && q.isPublished);
-  const standaloneForums = (forums || []).filter(f => !f.moduleId && f.isPublished);
-
   const enrollMutation = useMutation({
-    mutationFn: () => enrollmentsApi.enroll(parseInt(id!), course?.title),
+    mutationFn: (code?: string) => enrollmentsApi.enroll(parseInt(id!), course?.title, code),
     onSuccess: () => {
       toast.success(t('successfully_enrolled'));
-      queryClient.invalidateQueries({ queryKey: ['enrollment', id] });
+      setShowCodeModal(false);
+      setActivationCode('');
+      queryClient.invalidateQueries({ queryKey: ['course', id] });
       queryClient.invalidateQueries({ queryKey: ['enrollments'] });
     },
     onError: (error: Error) => {
       toast.error(error.message);
     },
   });
+
+  const handleEnrollClick = () => {
+    if ((course as any)?.hasActivationCode) {
+      setShowCodeModal(true);
+    } else {
+      enrollMutation.mutate(undefined);
+    }
+  };
+
+  const handleCodeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activationCode.trim()) {
+      toast.error(t('enter_activation_code'));
+      return;
+    }
+    enrollMutation.mutate(activationCode.trim());
+  };
 
   // Log course view when course loads
   useEffect(() => {
@@ -187,7 +120,7 @@ export const CourseDetails = () => {
     );
   }
 
-  const isEnrolled = enrollmentData?.enrolled;
+  const isEnrolled = (course as any).enrolled;
   const isCourseInstructor = user?.id === course.instructorId;
   const showInstructorControls = isCourseInstructor && isUserInstructor;
   const hasAccess = isEnrolled || isActualAdmin || isActualInstructor;
@@ -204,7 +137,6 @@ export const CourseDetails = () => {
           <Breadcrumb
             items={[
               { label: t('courses'), href: '/courses' },
-              { label: course.categories?.[0]?.category.title || t('general'), href: '/courses' },
               { label: course.title },
             ]}
           />
@@ -243,8 +175,17 @@ export const CourseDetails = () => {
       <div className="gradient-bg text-white py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 className="text-2xl md:text-3xl font-bold mb-2">{course.title}</h1>
+          {course.categories && course.categories.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {course.categories.map(({ category }) => (
+                <span key={category.id} className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-white/20 text-white">
+                  {category.title}
+                </span>
+              ))}
+            </div>
+          )}
           {course.description && (
-            <div className="text-white/90 mb-4 prose prose-sm prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(course.description) }} />
+            <div className="text-white mb-4 prose prose-sm max-w-none [&_*]:text-white/95 [&_a]:text-white [&_a]:underline" dangerouslySetInnerHTML={{ __html: sanitizeHtml(course.description) }} />
           )}
           <div className="flex flex-wrap items-center gap-4 text-sm">
             <span className="flex items-center gap-1"><Users className="w-4 h-4" /> {t('n_students', { count: course._count?.enrollments || 0 })}</span>
@@ -256,8 +197,8 @@ export const CourseDetails = () => {
           {/* Action buttons for non-enrolled users */}
           <div className="mt-4 flex flex-wrap gap-3">
             {!hasAccess && isAuthenticated && (
-              <Button onClick={() => enrollMutation.mutate()} loading={enrollMutation.isPending} className="bg-white text-primary-600 hover:bg-gray-100">
-                {t('enroll_now_free')}
+              <Button onClick={handleEnrollClick} loading={enrollMutation.isPending} className="bg-white text-primary-600 hover:bg-gray-100">
+                {t('enroll_now')}
               </Button>
             )}
             {!isAuthenticated && (
@@ -285,10 +226,10 @@ export const CourseDetails = () => {
                       courseId={parseInt(id!)}
                       lectures={module.lectures}
                       codeLabs={module.codeLabs}
-                      quizzes={quizzesByModule[module.id]}
-                      assignments={assignmentsByModule[module.id]}
-                      forums={forumsByModule[module.id]}
-                      surveys={surveysByModule[module.id]}
+                      quizzes={module.quizzes}
+                      assignments={module.assignments}
+                      forums={module.forums}
+                      surveys={module.moduleSurveys?.map(ms => ms.survey)}
                       hasAccess={hasAccess}
                       viewMode={viewMode}
                     />
@@ -305,125 +246,11 @@ export const CourseDetails = () => {
             )}
 
 
-            {/* Standalone Assignments Section */}
-            {hasAccess && standaloneAssignments.length > 0 && (
-              <div className="mt-8">
-                <h2 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
-                  <ClipboardList className="w-6 h-6" style={{ color: colors.textAmber }} />
-                  {t('course_assignments')}
-                </h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {standaloneAssignments.map((assignment) => (
-                    <Link
-                      key={assignment.id}
-                      to={assignment.submissionType === 'ai_agent'
-                        ? `/courses/${course.id}/agent-assignments/${assignment.id}`
-                        : `/courses/${course.id}/assignments/${assignment.id}`}
-                    >
-                      <Card hover className="h-full">
-                        <CardBody className="flex items-start gap-4">
-                          <div
-                            className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
-                            style={{
-                              backgroundColor: assignment.submissionType === 'ai_agent' ? colors.bgTeal : colors.bgAmber
-                            }}
-                          >
-                            {assignment.submissionType === 'ai_agent' ? (
-                              <Bot className="w-6 h-6" style={{ color: colors.textTeal }} />
-                            ) : (
-                              <ClipboardList className="w-6 h-6" style={{ color: colors.textAmber }} />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-medium line-clamp-2" style={{ color: colors.textPrimary }}>{assignment.title}</h3>
-                            <div className="flex items-center gap-2 mt-1 text-sm" style={{ color: colors.textSecondary }}>
-                              {assignment.dueDate && (
-                                <span>{t('due_date', { date: new Date(assignment.dueDate).toLocaleDateString() })}</span>
-                              )}
-                              <span>{t('n_points', { count: assignment.points })}</span>
-                            </div>
-                          </div>
-                        </CardBody>
-                      </Card>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Standalone Quizzes Section */}
-            {hasAccess && standaloneQuizzes.length > 0 && (
-              <div className="mt-8">
-                <h2 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
-                  <FileText className="w-6 h-6" style={{ color: colors.textEmerald }} />
-                  {t('course_quizzes')}
-                </h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {standaloneQuizzes.map((quiz) => (
-                    <Link key={quiz.id} to={`/courses/${course.id}/quizzes/${quiz.id}`}>
-                      <Card hover className="h-full">
-                        <CardBody className="flex items-start gap-4">
-                          <div
-                            className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
-                            style={{ backgroundColor: colors.bgEmerald }}
-                          >
-                            <FileText className="w-6 h-6" style={{ color: colors.textEmerald }} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-medium line-clamp-2" style={{ color: colors.textPrimary }}>{quiz.title}</h3>
-                            <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-                              {t('n_questions', { count: quiz._count?.questions || 0 })}
-                            </p>
-                          </div>
-                        </CardBody>
-                      </Card>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Standalone Forums Section */}
-            {hasAccess && standaloneForums.length > 0 && (
-              <div className="mt-8">
-                <h2 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
-                  <MessageSquare className="w-6 h-6" style={{ color: colors.textTeal }} />
-                  {t('course_forums')}
-                </h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {standaloneForums.map((forum) => (
-                    <Link key={forum.id} to={`/courses/${course.id}/forums/${forum.id}`}>
-                      <Card hover className="h-full">
-                        <CardBody className="flex items-start gap-4">
-                          <div
-                            className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
-                            style={{ backgroundColor: colors.bgTeal }}
-                          >
-                            <MessageSquare className="w-6 h-6" style={{ color: colors.textTeal }} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-medium line-clamp-2" style={{ color: colors.textPrimary }}>{forum.title}</h3>
-                            {forum.description && (
-                              <p className="text-sm mt-1 line-clamp-1" style={{ color: colors.textSecondary }}>
-                                {forum.description}
-                              </p>
-                            )}
-                            <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-                              {t('n_threads', { count: forum._count?.threads || 0 })}
-                            </p>
-                          </div>
-                        </CardBody>
-                      </Card>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Sidebar */}
           {hasAccess && (
-            <div className="lg:w-80 flex-shrink-0">
+            <div className="lg:w-96 flex-shrink-0">
               <div className="lg:sticky lg:top-4 space-y-4">
                 {/* Module Navigation */}
                 {course.modules && course.modules.length > 0 && (
@@ -486,11 +313,36 @@ export const CourseDetails = () => {
                     </CardBody>
                   </Card>
                 </Link>
+
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Activation Code Modal */}
+      <Modal isOpen={showCodeModal} onClose={() => { setShowCodeModal(false); setActivationCode(''); }} title={t('enter_activation_code')} size="sm">
+        <form onSubmit={handleCodeSubmit} className="space-y-4 p-4">
+          <p className="text-sm" style={{ color: colors.textSecondary }}>
+            {t('activation_code_required')}
+          </p>
+          <Input
+            type="text"
+            placeholder={t('activation_code_placeholder')}
+            value={activationCode}
+            onChange={(e) => setActivationCode(e.target.value)}
+            autoFocus
+          />
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="secondary" onClick={() => { setShowCodeModal(false); setActivationCode(''); }}>
+              {t('common:cancel')}
+            </Button>
+            <Button type="submit" loading={enrollMutation.isPending}>
+              {t('enroll')}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

@@ -25,6 +25,8 @@ import { Modal } from '../../components/common/Modal';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { MCQGenerator } from '../../components/teaching/MCQGenerator';
+import { RichTextEditor } from '../../components/forum/RichTextEditor';
+import { sanitizeHtml } from '../../utils/sanitize';
 
 interface QuestionFormData {
   questionType: 'multiple_choice' | 'true_false' | 'short_answer' | 'fill_in_blank';
@@ -53,6 +55,8 @@ export const QuizEditor = () => {
   const { isDark } = useTheme();
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsDescription, setSettingsDescription] = useState('');
+  const [settingsInstructions, setSettingsInstructions] = useState('');
   const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false);
   const [isAIGeneratorOpen, setIsAIGeneratorOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<QuizQuestion | null>(null);
@@ -217,7 +221,7 @@ export const QuizEditor = () => {
 
   return (
     <div className="min-h-screen py-8" style={{ backgroundColor: colors.bg }}>
-      <div className="max-w-4xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb navigation */}
         <div className="mb-6">
           <Breadcrumb homeHref="/" items={breadcrumbItems} />
@@ -236,7 +240,11 @@ export const QuizEditor = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={() => setIsSettingsOpen(true)}>
+            <Button variant="secondary" onClick={() => {
+              setSettingsDescription(quiz.description || '');
+              setSettingsInstructions(quiz.instructions || '');
+              setIsSettingsOpen(true);
+            }}>
               <Settings size={18} />
               {t('settings')}
             </Button>
@@ -291,6 +299,38 @@ export const QuizEditor = () => {
             </div>
           </CardBody>
         </Card>
+
+        {/* Description & Instructions */}
+        {(quiz.description || quiz.instructions) && (
+          <Card className="mb-6">
+            <CardBody className="space-y-4">
+              {quiz.description && (
+                <div>
+                  <h3 className="text-sm font-semibold mb-2" style={{ color: colors.textSecondary }}>
+                    {t('description_label')}
+                  </h3>
+                  <div
+                    className="prose prose-sm dark:prose-invert max-w-none"
+                    style={{ color: colors.textPrimary }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(quiz.description) }}
+                  />
+                </div>
+              )}
+              {quiz.instructions && (
+                <div>
+                  <h3 className="text-sm font-semibold mb-2" style={{ color: colors.textSecondary }}>
+                    {t('instructions_label')}
+                  </h3>
+                  <div
+                    className="prose prose-sm dark:prose-invert max-w-none"
+                    style={{ color: colors.textPrimary }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(quiz.instructions) }}
+                  />
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        )}
 
         {/* Questions List */}
         <div className="flex items-center justify-between mb-4">
@@ -407,6 +447,7 @@ export const QuizEditor = () => {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         title={t('quiz_settings')}
+        size="3xl"
       >
         <form
           onSubmit={(e) => {
@@ -414,8 +455,8 @@ export const QuizEditor = () => {
             const formData = new FormData(e.currentTarget);
             updateQuizMutation.mutate({
               title: formData.get('title') as string,
-              description: formData.get('description') as string || undefined,
-              instructions: formData.get('instructions') as string || undefined,
+              description: settingsDescription || undefined,
+              instructions: settingsInstructions || undefined,
               timeLimit: formData.get('timeLimit') ? parseInt(formData.get('timeLimit') as string) : undefined,
               maxAttempts: parseInt(formData.get('maxAttempts') as string) || 1,
               passingScore: parseInt(formData.get('passingScore') as string) || 70,
@@ -426,44 +467,39 @@ export const QuizEditor = () => {
           className="space-y-4"
         >
           <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
               {t('title_label')}
             </label>
             <input
               name="title"
               defaultValue={quiz.title}
               required
-              className="w-full px-3 py-2 rounded-lg"
-              style={{ backgroundColor: colors.bgInput, borderColor: colors.border, borderWidth: 1, color: colors.textPrimary }}
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
               {t('description_label')}
             </label>
-            <textarea
-              name="description"
-              defaultValue={quiz.description || ''}
-              rows={2}
-              className="w-full px-3 py-2 rounded-lg"
-              style={{ backgroundColor: colors.bgInput, borderColor: colors.border, borderWidth: 1, color: colors.textPrimary }}
+            <RichTextEditor
+              value={settingsDescription}
+              onChange={setSettingsDescription}
+              editorClassName="forum-reply-editor px-3 py-2 min-h-[200px] max-h-[400px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
               {t('instructions_label')}
             </label>
-            <textarea
-              name="instructions"
-              defaultValue={quiz.instructions || ''}
-              rows={3}
-              className="w-full px-3 py-2 rounded-lg"
-              style={{ backgroundColor: colors.bgInput, borderColor: colors.border, borderWidth: 1, color: colors.textPrimary }}
+            <RichTextEditor
+              value={settingsInstructions}
+              onChange={setSettingsInstructions}
+              editorClassName="forum-reply-editor px-3 py-2 min-h-[120px] max-h-[300px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
             />
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 {t('time_limit_minutes')}
               </label>
               <input
@@ -472,12 +508,11 @@ export const QuizEditor = () => {
                 min="0"
                 defaultValue={quiz.timeLimit || ''}
                 placeholder={t('no_time_limit')}
-                className="w-full px-3 py-2 rounded-lg"
-                style={{ backgroundColor: colors.bgInput, borderColor: colors.border, borderWidth: 1, color: colors.textPrimary }}
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 {t('max_attempts')}
               </label>
               <input
@@ -485,12 +520,11 @@ export const QuizEditor = () => {
                 type="number"
                 min="0"
                 defaultValue={quiz.maxAttempts}
-                className="w-full px-3 py-2 rounded-lg"
-                style={{ backgroundColor: colors.bgInput, borderColor: colors.border, borderWidth: 1, color: colors.textPrimary }}
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 {t('passing_score_percent')}
               </label>
               <input
@@ -499,8 +533,7 @@ export const QuizEditor = () => {
                 min="0"
                 max="100"
                 defaultValue={quiz.passingScore}
-                className="w-full px-3 py-2 rounded-lg"
-                style={{ backgroundColor: colors.bgInput, borderColor: colors.border, borderWidth: 1, color: colors.textPrimary }}
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
             </div>
           </div>
@@ -510,18 +543,18 @@ export const QuizEditor = () => {
                 name="shuffleQuestions"
                 type="checkbox"
                 defaultChecked={quiz.shuffleQuestions}
-                className="w-4 h-4"
+                className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
-              <span className="text-sm" style={{ color: colors.textPrimary }}>{t('shuffle_questions')}</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">{t('shuffle_questions')}</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 name="shuffleOptions"
                 type="checkbox"
                 defaultChecked={quiz.shuffleOptions}
-                className="w-4 h-4"
+                className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
-              <span className="text-sm" style={{ color: colors.textPrimary }}>{t('shuffle_options')}</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">{t('shuffle_options')}</span>
             </label>
           </div>
           <div className="flex justify-end gap-2 pt-4">
@@ -555,6 +588,7 @@ export const QuizEditor = () => {
           setQuestionForm(defaultQuestionForm);
         }}
         title={editingQuestion ? t('edit_question') : t('add_question')}
+        size="3xl"
       >
         <div className="space-y-4">
           <div>

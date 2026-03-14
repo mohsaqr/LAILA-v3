@@ -1,9 +1,24 @@
 import apiClient from './client';
 import { AuthResponse, User, ApiResponse } from '../types';
 
+export interface RegisterResponse {
+  email: string;
+  message: string;
+}
+
 export const authApi = {
   register: async (data: { fullname: string; email: string; password: string }) => {
-    const response = await apiClient.post<ApiResponse<AuthResponse>>('/auth/register', data);
+    const response = await apiClient.post<ApiResponse<RegisterResponse>>('/auth/register', data);
+    return response.data.data!;
+  },
+
+  verifyCode: async (data: { email: string; code: string }) => {
+    const response = await apiClient.post<ApiResponse<AuthResponse>>('/auth/verify-code', data);
+    return response.data.data!;
+  },
+
+  resendCode: async (email: string) => {
+    const response = await apiClient.post<ApiResponse<{ message: string }>>('/auth/resend-code', { email });
     return response.data.data!;
   },
 

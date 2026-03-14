@@ -5,13 +5,13 @@ import { useTranslation } from 'react-i18next';
 import {
   Plus,
   Trash2,
-  Edit,
   Eye,
   EyeOff,
   Clock,
   Users,
   CheckCircle,
   BarChart3,
+  ChevronRight,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { quizzesApi, CreateQuizInput } from '../../api/quizzes';
@@ -23,6 +23,7 @@ import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
+import { sanitizeHtml } from '../../utils/sanitize';
 
 export const QuizManager = () => {
   const { t } = useTranslation(['teaching', 'common']);
@@ -43,7 +44,6 @@ export const QuizManager = () => {
 
   const colors = {
     bg: isDark ? '#111827' : '#f9fafb',
-    bgCard: isDark ? '#1f2937' : '#ffffff',
     textPrimary: isDark ? '#f3f4f6' : '#111827',
     textSecondary: isDark ? '#9ca3af' : '#6b7280',
     border: isDark ? '#374151' : '#e5e7eb',
@@ -74,7 +74,6 @@ export const QuizManager = () => {
       toast.success(t('quiz_created'));
       setIsCreateModalOpen(false);
       setNewQuizForm({ title: '', description: '', timeLimit: undefined, maxAttempts: 1, passingScore: 70 });
-      // Navigate to quiz editor
       navigate(`/teach/courses/${courseId}/quizzes/${quiz.id}`);
     },
     onError: (error: any) => {
@@ -106,7 +105,9 @@ export const QuizManager = () => {
     },
   });
 
-  const handleDeleteQuiz = (quizId: number, title: string) => {
+  const handleDeleteQuiz = (e: React.MouseEvent, quizId: number, title: string) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (window.confirm(t('delete_quiz_confirm', { title }))) {
       deleteQuizMutation.mutate(quizId);
     }
@@ -152,91 +153,106 @@ export const QuizManager = () => {
         {quizzes && quizzes.length > 0 ? (
           <div className="grid gap-4">
             {quizzes.map((quiz) => (
-              <Card key={quiz.id}>
-                <CardBody>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
-                          {quiz.title}
-                        </h3>
-                        {quiz.isPublished ? (
-                          <span
-                            className="flex items-center gap-1 text-xs px-2 py-1 rounded"
-                            style={{ backgroundColor: colors.bgGreen, color: colors.textGreen }}
-                          >
-                            <Eye size={12} />
-                            {t('published')}
-                          </span>
-                        ) : (
-                          <span
-                            className="flex items-center gap-1 text-xs px-2 py-1 rounded"
-                            style={{ backgroundColor: colors.bgHover, color: colors.textSecondary }}
-                          >
-                            <EyeOff size={12} />
-                            {t('draft')}
-                          </span>
+              <Link
+                key={quiz.id}
+                to={`/teach/courses/${courseId}/quizzes/${quiz.id}`}
+                className="block"
+              >
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                  <CardBody>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
+                            {quiz.title}
+                          </h3>
+                          {quiz.isPublished ? (
+                            <span
+                              className="flex items-center gap-1 text-xs px-2 py-1 rounded"
+                              style={{ backgroundColor: colors.bgGreen, color: colors.textGreen }}
+                            >
+                              <Eye size={12} />
+                              {t('published')}
+                            </span>
+                          ) : (
+                            <span
+                              className="flex items-center gap-1 text-xs px-2 py-1 rounded"
+                              style={{ backgroundColor: colors.bgHover, color: colors.textSecondary }}
+                            >
+                              <EyeOff size={12} />
+                              {t('draft')}
+                            </span>
+                          )}
+                        </div>
+
+                        {quiz.description && (
+                          <div
+                            className="text-sm mb-3 prose prose-sm dark:prose-invert max-w-none line-clamp-2"
+                            style={{ color: colors.textSecondary }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(quiz.description) }}
+                          />
                         )}
-                      </div>
 
-                      {quiz.description && (
-                        <p className="text-sm mb-3" style={{ color: colors.textSecondary }}>
-                          {quiz.description}
-                        </p>
-                      )}
+                        {quiz.instructions && (
+                          <div
+                            className="text-sm mb-3 prose prose-sm dark:prose-invert max-w-none line-clamp-2"
+                            style={{ color: colors.textSecondary }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(quiz.instructions) }}
+                          />
+                        )}
 
-                      <div className="flex items-center gap-6 text-sm" style={{ color: colors.textSecondary }}>
-                        <span className="flex items-center gap-1">
-                          <CheckCircle size={14} />
-                          {t('x_questions', { count: quiz._count?.questions || 0 })}
-                        </span>
-                        {quiz.timeLimit && (
+                        <div className="flex items-center gap-6 text-sm" style={{ color: colors.textSecondary }}>
                           <span className="flex items-center gap-1">
-                            <Clock size={14} />
-                            {quiz.timeLimit} min
+                            <CheckCircle size={14} />
+                            {t('x_questions', { count: quiz._count?.questions || 0 })}
                           </span>
-                        )}
-                        <span className="flex items-center gap-1">
-                          <Users size={14} />
-                          {t('x_attempts', { count: quiz._count?.attempts || 0 })}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <BarChart3 size={14} />
-                          {t('percent_to_pass', { score: quiz.passingScore })}
-                        </span>
+                          {quiz.timeLimit && (
+                            <span className="flex items-center gap-1">
+                              <Clock size={14} />
+                              {quiz.timeLimit} min
+                            </span>
+                          )}
+                          <span className="flex items-center gap-1">
+                            <Users size={14} />
+                            {t('x_attempts', { count: quiz._count?.attempts || 0 })}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <BarChart3 size={14} />
+                            {t('percent_to_pass', { score: quiz.passingScore })}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={(e: React.MouseEvent) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            togglePublishMutation.mutate({
+                              quizId: quiz.id,
+                              isPublished: !quiz.isPublished,
+                            });
+                          }}
+                          disabled={togglePublishMutation.isPending}
+                        >
+                          {quiz.isPublished ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={(e: React.MouseEvent) => handleDeleteQuiz(e, quiz.id, quiz.title)}
+                          disabled={deleteQuizMutation.isPending}
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                        <ChevronRight className="w-5 h-5" style={{ color: colors.textSecondary }} />
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => togglePublishMutation.mutate({
-                          quizId: quiz.id,
-                          isPublished: !quiz.isPublished,
-                        })}
-                        disabled={togglePublishMutation.isPending}
-                      >
-                        {quiz.isPublished ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </Button>
-                      <Link to={`/teach/courses/${courseId}/quizzes/${quiz.id}`}>
-                        <Button variant="secondary" size="sm">
-                          <Edit size={16} />
-                          {t('edit')}
-                        </Button>
-                      </Link>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handleDeleteQuiz(quiz.id, quiz.title)}
-                        disabled={deleteQuizMutation.isPending}
-                      >
-                        <Trash2 size={16} />
-                      </Button>
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
+                  </CardBody>
+                </Card>
+              </Link>
             ))}
           </div>
         ) : (
@@ -261,6 +277,7 @@ export const QuizManager = () => {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         title={t('create_new_quiz')}
+        size="3xl"
       >
         <form onSubmit={handleCreateQuiz} className="space-y-4">
           <div>

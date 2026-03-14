@@ -7,6 +7,8 @@ import { UserPayload } from '../types/index.js';
 import { learningAnalyticsService, AuthEventData } from './learningAnalytics.service.js';
 import { authLogger } from '../utils/logger.js';
 import { userService } from './user.service.js';
+import { emailService } from './email.service.js';
+import crypto from 'crypto';
 
 // Context for auth logging
 export interface AuthContext {
@@ -28,19 +30,23 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new AppError('Email already registered', 409);
+      if (existingUser.isConfirmed) {
+        throw new AppError('Email already registered', 409);
+      }
+      // Unverified user — delete old record so they can re-register
+      await prisma.user.delete({ where: { id: existingUser.id } });
     }
 
     // Hash password
     const passwordHash = await bcrypt.hash(data.password, 10);
 
-    // Create user
+    // Create user (unconfirmed until code verification)
     const user = await prisma.user.create({
       data: {
         fullname: data.fullname,
         email: data.email,
         passwordHash,
-        isConfirmed: true, // Auto-confirm for now
+        isConfirmed: false,
       },
       select: {
         id: true,
@@ -54,16 +60,20 @@ export class AuthService {
       },
     });
 
-    // Generate token with tokenVersion for invalidation support
-    const payload: UserPayload = {
-      id: user.id,
-      email: user.email,
-      fullname: user.fullname,
-      isAdmin: user.isAdmin,
-      isInstructor: user.isInstructor,
-      tokenVersion: user.tokenVersion,
-    };
-    const token = generateToken(payload);
+    // Generate 6-digit verification code
+    const code = crypto.randomInt(100000, 999999).toString();
+    const expiresAt = new Date(Date.now() + 2 * 60 * 1000); // 10 minutes
+
+    // Delete any existing codes for this user, then create new one
+    await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+    await prisma.verificationCode.create({
+      data: { userId: user.id, code, expiresAt },
+    });
+
+    // Send verification email (non-blocking)
+    emailService.sendVerificationCode(user.email, code, user.fullname).catch((err) => {
+      authLogger.warn({ err, email: user.email }, 'Failed to send verification email');
+    });
 
     // Log registration event
     try {
@@ -83,7 +93,78 @@ export class AuthService {
       authLogger.warn({ err: error, userId: user.id }, 'Failed to log registration event');
     }
 
-    return { user, token };
+    // Return email only — no token until verified
+    return { email: user.email, message: 'Verification code sent' };
+  }
+
+  async verifyCode(email: string, code: string) {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) throw new AppError('User not found', 404);
+
+    const record = await prisma.verificationCode.findFirst({
+      where: { userId: user.id, code },
+    });
+
+    if (!record) {
+      throw new AppError('Invalid verification code', 400);
+    }
+
+    if (record.expiresAt < new Date()) {
+      // Expired — delete and reject
+      await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+      throw new AppError('Verification code has expired', 400);
+    }
+
+    // Confirm user and delete code
+    const confirmedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: { isConfirmed: true },
+      select: {
+        id: true,
+        fullname: true,
+        email: true,
+        isAdmin: true,
+        isInstructor: true,
+        avatarUrl: true,
+        tokenVersion: true,
+      },
+    });
+
+    await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+
+    // Generate token
+    const payload: UserPayload = {
+      id: confirmedUser.id,
+      email: confirmedUser.email,
+      fullname: confirmedUser.fullname,
+      isAdmin: confirmedUser.isAdmin,
+      isInstructor: confirmedUser.isInstructor,
+      tokenVersion: confirmedUser.tokenVersion,
+    };
+    const token = generateToken(payload);
+
+    return { user: confirmedUser, token };
+  }
+
+  async resendCode(email: string) {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) throw new AppError('User not found', 404);
+    if (user.isConfirmed) throw new AppError('User already verified', 400);
+
+    const code = crypto.randomInt(100000, 999999).toString();
+    const expiresAt = new Date(Date.now() + 2 * 60 * 1000);
+
+    await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+    await prisma.verificationCode.create({
+      data: { userId: user.id, code, expiresAt },
+    });
+
+    // Send verification email (non-blocking)
+    emailService.sendVerificationCode(user.email, code, user.fullname).catch((err) => {
+      authLogger.warn({ err, email: user.email }, 'Failed to send verification email');
+    });
+
+    return { message: 'Verification code resent' };
   }
 
   // Account lockout settings
@@ -138,6 +219,10 @@ export class AuthService {
         authLogger.warn({ err: error, email: data.email }, 'Failed to log login failure event');
       }
       throw new AppError(`Account is locked. Please try again in ${remainingMinutes} minute(s).`, 423);
+    }
+
+    if (!user.isConfirmed) {
+      throw new AppError('Your account is not verified. Please sign up again and complete the verification.', 403);
     }
 
     if (!user.isActive) {

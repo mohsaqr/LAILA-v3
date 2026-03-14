@@ -1,3 +1,50 @@
+### 2026-03-13 — Bug fixes #58–#66, auth security improvements
+
+- **#58 Quiz creation in CurriculumEditor**: Added full quiz creation modal with RichTextEditor for description/instructions, time limit, max attempts, passing score, and publish toggle. All modal sizes unified to `3xl`.
+- **#59 Unify popup/modal sizes**: Changed all modals in CurriculumEditor, ModuleItem, QuizEditor, QuizManager, MCQGenerator to `size="3xl"`. Simplified empty quiz list page to show only icon + message.
+- **#61 Quiz list in module cards**: Added quiz display section to ModuleItem with `grid grid-cols-2 gap-1.5` layout (cyan-50 background), clickable links to quiz editor, delete button. Quiz count shown in module header stats.
+- **#62 Quiz editor/manager improvements**: QuizEditor/QuizManager pages updated with `max-w-7xl` margins, HTML rendering of description/instructions via `sanitizeHtml()`, RichTextEditor in settings modal, quiz cards wrapped in `<Link>` for clickability.
+- **#63 Analytics card on course page**: Added analytics shortcut card to CourseDetails right sidebar with `BarChart3` icon and indigo styling.
+- **#64 Static student sidebar**: Removed course-context switching from DashboardSidebar. Student nav items are now static (no URL-based course ID extraction).
+- **#65 Rich text rendering on student quiz pages**: Fixed `StudentQuizList.tsx` and `CourseQuizList.tsx` to render quiz description as HTML via `sanitizeHtml()` + `dangerouslySetInnerHTML`. Added instructions display to `QuizView.tsx` header.
+- **Assignment page margin**: Changed `AssignmentView.tsx` container from `max-w-4xl` to `max-w-7xl`.
+- **#66 Enrollment permission checking**: Created `RequireEnrollment` wrapper component that checks enrollment via API before rendering course content pages. Shows 403 "Access Denied" page with "View Course" and "Browse Courses" buttons for unauthenticated students. Admins and instructors bypass the check. Applied to 15 routes: lectures, forums, quizzes, analytics, assignments, agent-assignments, code-labs, grades, and ai-tutors. Supports courseId from both URL params and query string.
+- **SMTP email verification**: Replaced hardcoded `123456` verification code with `crypto.randomInt(100000, 999999)` random codes. Added `sendVerificationCode()` to `email.service.ts` with styled HTML email template. Extended code expiry from 2 to 10 minutes. Fixed `fromEmail` to check `SMTP_FROM` env var.
+- **Analytics auth page skip**: Added `isAuthPage()` guard in `client/src/services/analytics.ts` to skip `/api/analytics/interactions` calls on login/register pages.
+- **Auth API security — email-based verification flow**: Changed register response from `{ userId, message }` to `{ email, message }` to avoid exposing internal user IDs. Switched verify-code and resend-code endpoints from userId to email-based lookup. Updated client API types, hooks, Register page state, and all related tests.
+
+### 2026-03-12 — Course activation code for enrollment
+
+- **#56 Activation code for enrollment**: Added `activationCode` column (nullable String) to Course model in `server/prisma/schema.prisma`. Auto-generates random 8-character hex code on course creation in `course.service.ts` using `crypto.randomBytes(4).toString('hex').toUpperCase()`. Modified `enrollment.service.ts` `enroll()` to accept optional `activationCode` param — validates case-insensitively against course's code, throws 400 on mismatch. Updated `enrollment.routes.ts` to pass `activationCode` from request body.
+- Client: `CourseDetails.tsx` — if course has activation code, "Enroll Now" opens a modal asking for the code instead of enrolling directly. Modal has text input, submit/cancel buttons. `enrollmentsApi.enroll()` accepts optional `activationCode` param. `CurriculumEditor.tsx` — displays activation code in the management card header with amber styling and a copy-to-clipboard button. Added `activationCode` to client `Course` type.
+- i18n: Added 7 keys (`activation_code`, `enter_activation_code`, `activation_code_required`, `activation_code_placeholder`, `enroll`, `code_copied`, `copy_code`) in `courses.json` for all 4 locales.
+
+### 2026-03-12 — Allow re-registration for unverified users
+
+- **#55 Re-registration for unverified emails**: Modified `auth.service.ts` `register()` — if existing user has `isConfirmed: false`, deletes the old record (cascade deletes verification codes) and allows fresh registration. Only throws "Email already registered" for confirmed users. Updated `login()` error for unverified users: "Your account is not verified. Please sign up again and complete the verification." Updated test for duplicate email to set `isConfirmed: true`.
+
+### 2026-03-12 — Restrict registration to UEF emails
+
+- **#54 UEF email restriction**: Added `.refine()` to `registerSchema` in `server/src/utils/validation.ts` — email must end with `@uef.fi`, returns "Only UEF email addresses (@uef.fi) are allowed" on failure. Client-side validation in `Register.tsx` checks before form submission. Added `uef_email_only` i18n key in all 4 locales. Updated test fixtures to use `@uef.fi` emails.
+
+### 2026-03-12 — Email verification with activation code on signup
+
+- **#53 Activation code verification**: Added `VerificationCode` model to `server/prisma/schema.prisma` (id, userId, code, expiresAt, createdAt) with cascade delete on user. Modified `auth.service.ts` `register()`: user created with `isConfirmed: false`, generates 6-digit code (hardcoded `123456` — no SMTP), stores with 2-minute expiry, returns `{ userId, message }` instead of `{ user, token }`. Added `verifyCode()`: validates code + expiry, sets `isConfirmed: true`, deletes code, returns user + JWT token. Added `resendCode()`: regenerates code with fresh 2-minute expiry. Added `isConfirmed` check to `login()` — blocks unverified users with 403. Added `POST /auth/verify-code` and `POST /auth/resend-code` routes in `auth.routes.ts`.
+- Client: `client/src/api/auth.ts` — register returns `RegisterResponse` (userId + message), added `verifyCode()` and `resendCode()` methods. `client/src/hooks/useAuth.ts` — register no longer sets auth, added `verifyCode()` hook that sets auth after verification. `client/src/pages/auth/Register.tsx` — two-step UI: (1) registration form, (2) 6-digit code input with individual digit boxes, auto-advance, paste support, resend button, back-to-register link. Uses `ShieldCheck` icon in verify step.
+- i18n: Added 13 keys (`verify_email_title`, `verify_email_subtitle`, `verification_code_sent`, `verify_code`, `enter_full_code`, `invalid_code`, `didnt_receive_code`, `resend_code`, `resending`, `code_resent`, `resend_failed`, `back_to_register`, `email_not_verified`) in all 4 locales.
+- Tests: Updated `auth.service.test.ts` — mocked `prisma.verificationCode`, updated register tests to expect `{ userId, message }`, added `isConfirmed: true` to login mock users. Updated `auth.routes.test.ts` register test expectations.
+
+### 2026-03-12 — Fix forum card layout and date format
+
+- **#52 Forum card layout**: `client/src/pages/ForumList.tsx` and `client/src/pages/CourseForumList.tsx` — redesigned forum cards to use 3/5 width for description (title, course name, description with `line-clamp-2`) and 2/5 for stats (thread count, date, chevron). Date format changed from `toLocaleDateString()` (locale-dependent) to `en-GB` format: `24 Aug 2025`. Added `flex-shrink-0` on icon/stats, `min-w-0` on description for proper truncation.
+
+### 2026-03-12 — Unify submission routes, rich text descriptions, due date timezone
+
+- **#48 Unified SubmissionReview**: `client/src/pages/teach/SubmissionReview.tsx` rewritten to handle both regular and AI agent submissions inline. Checks `assignment.submissionType === 'ai_agent'` and conditionally fetches via `agentAssignmentsApi.getAgentSubmissions()` or `assignmentsApi.getSubmissions()`. Agent submissions display Bot icon, agent name, version, test conversation count.
+- **#49 Fix agent assignment redirect URLs**: All instructor submission URLs unified under `/teach/courses/{ID}/assignments/{ID}/submissions`. Removed separate `/agent-assignments/.../submissions` list route from `App.tsx` and `AgentSubmissionsList` import. Agent detail route changed to `/assignments/{ID}/agent-submissions/{submissionId}`. Updated back-navigation in `AgentSubmissionReview.tsx` and view-answer links in `AgentSubmissionsList.tsx`.
+- **#50 RichTextEditor for assignment description**: Replaced `TextArea` with `RichTextEditor` for description field in `CurriculumEditor.tsx` (modal size `md` → `3xl`), `AssignmentManager.tsx` (removed unused TextArea import), and `AssignmentSectionEditor.tsx`. All views render description as sanitized HTML with plain-text fallback (`startsWith('<')` check): `AssignmentSectionStudent.tsx`, `AssignmentSectionEditor.tsx` (read-only), `SubmissionReview.tsx`. Also fixed `StudentAgentBuilder.tsx` to render both description and instructions as HTML.
+- **#51 Due date time picker + timezone fix**: Changed `CurriculumEditor.tsx` assignment modal from `type="date"` to `type="datetime-local"`. Fixed timezone: all assignment forms (`CurriculumEditor`, `AssignmentManager`, `AssignmentSectionEditor`, `ModuleItem`) now send `dueDate + ':00.000Z'` instead of `new Date(dueDate).toISOString()` — stores instructor's picked time as literal UTC with no timezone conversion. Fixed edit form population: `.split('T')[0]` → `.toISOString().slice(0, 16)`. All due date displays now use `timeZone: 'UTC'` (`AssignmentSectionStudent`, `AssignmentSectionEditor`, `StudentAssignments`, `CourseAssignments`, `ModuleSection`, `AssignmentItem`, `AssignmentManager`, `SubmissionReview`).
+
 ### 2026-03-11 — Add surveys to course modules
 
 - `server/prisma/schema.prisma`: Added `ModuleSurvey` model (many-to-many between modules and surveys) with `@@unique([moduleId, surveyId])`, cascade deletes, and indexes. Added `moduleSurveys` relation to `CourseModule`, `Survey`, and `Course` models.

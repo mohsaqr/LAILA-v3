@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import prisma from '../utils/prisma.js';
 import { quizService } from '../services/quiz.service.js';
 import { mcqGenerationService } from '../services/mcqGeneration.service.js';
 import { authenticateToken, requireInstructor, requireAdmin } from '../middleware/auth.middleware.js';
@@ -104,14 +105,12 @@ router.get('/course/:courseId', authenticateToken, asyncHandler(async (req, res)
   const courseId = parseInt(req.params.courseId);
   const user = (req as any).user;
 
-  const quizzes = await quizService.getQuizzes(
-    courseId,
-    user.id,
-    user.isInstructor,
-    user.isAdmin
-  );
+  const [quizzes, course] = await Promise.all([
+    quizService.getQuizzes(courseId, user.id, user.isInstructor, user.isAdmin),
+    prisma.course.findUnique({ where: { id: courseId }, select: { id: true, title: true } }),
+  ]);
 
-  res.json({ success: true, data: quizzes });
+  res.json({ success: true, data: quizzes, course });
 }));
 
 // Get quiz by ID (with questions)

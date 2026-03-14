@@ -49,8 +49,20 @@ model User {
   userInteractions            UserInteraction[]
   settings                    UserSetting[]
   userSubmissions             UserSubmission[]
+  verificationCodes           VerificationCode[]
 
   @@map("users")
+}
+
+model VerificationCode {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  code      String
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("verification_codes")
 }
 
 model UserSetting {
@@ -339,6 +351,7 @@ model Course {
   defaultTutorId             Int?                  @map("default_tutor_id")
   curriculumViewMode         String                @default("mini-cards") @map("curriculum_view_mode")
   enabledLabs                String?               @map("enabled_labs")
+  activationCode             String?               @map("activation_code")
   assignments                Assignment[]
   batchEnrollmentJobs        BatchEnrollmentJob[]
   announcements              CourseAnnouncement[]

@@ -23,7 +23,7 @@ import { Modal } from '../../components/common/Modal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { EmptyState } from '../../components/common/EmptyState';
 import { StatusBadge } from '../../components/common/StatusBadge';
-import { Input, TextArea, Select } from '../../components/common/Input';
+import { Input, Select } from '../../components/common/Input';
 import { RichTextEditor } from '../../components/forum/RichTextEditor';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
@@ -87,7 +87,7 @@ export const AssignmentManager = () => {
     mutationFn: (data: AssignmentFormData) =>
       assignmentsApi.createAssignment(courseId, {
         ...data,
-        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
+        dueDate: data.dueDate ? data.dueDate + ':00.000Z' : null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
@@ -101,7 +101,7 @@ export const AssignmentManager = () => {
     mutationFn: ({ id, data }: { id: number; data: AssignmentFormData }) =>
       assignmentsApi.updateAssignment(id, {
         ...data,
-        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
+        dueDate: data.dueDate ? data.dueDate + ':00.000Z' : null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
@@ -171,6 +171,7 @@ export const AssignmentManager = () => {
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: 'UTC',
     });
   };
 
@@ -219,9 +220,7 @@ export const AssignmentManager = () => {
             <div className="space-y-4">
               {assignments.map(assignment => {
                 const isAgentAssignment = assignment.submissionType === 'ai_agent';
-                const reviewUrl = isAgentAssignment
-                  ? `/teach/courses/${courseId}/agent-assignments/${assignment.id}/submissions`
-                  : `/teach/courses/${courseId}/assignments/${assignment.id}/submissions`;
+                const reviewUrl = `/teach/courses/${courseId}/assignments/${assignment.id}/submissions`;
 
                 return (
                 <div
@@ -314,13 +313,16 @@ export const AssignmentManager = () => {
             required
           />
 
-          <TextArea
-            label={t('common:description')}
-            value={formData.description}
-            onChange={e => handleChange('description', e.target.value)}
-            placeholder=""
-            rows={2}
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              {t('common:description')}
+            </label>
+            <RichTextEditor
+              value={formData.description}
+              onChange={val => handleChange('description', val)}
+              editorClassName="forum-reply-editor px-3 py-2 min-h-[150px] max-h-[300px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
+            />
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">

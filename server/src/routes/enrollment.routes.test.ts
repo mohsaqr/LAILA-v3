@@ -131,7 +131,7 @@ describe('Enrollment Routes', () => {
 
       expect(response.body.success).toBe(true);
       expect(response.body.data.courseId).toBe(5);
-      expect(enrollmentService.enroll).toHaveBeenCalledWith(1, 5);
+      expect(enrollmentService.enroll).toHaveBeenCalledWith(1, 5, undefined);
     });
 
     it('should return 400 when courseId is missing', async () => {

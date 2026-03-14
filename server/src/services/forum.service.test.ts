@@ -1391,9 +1391,8 @@ describe('ForumService', () => {
       expect(result[0].threadCount).toBe(5);
     });
 
-    it('should return forums for instructor including own courses', async () => {
+    it('should return forums for instructor from own courses only', async () => {
       vi.mocked(prisma.course.findMany).mockResolvedValue([{ id: 2 }] as any);
-      vi.mocked(prisma.enrollment.findMany).mockResolvedValue([{ courseId: 1 }] as any);
       vi.mocked(prisma.forum.findMany).mockResolvedValue(mockForums as any);
 
       const result = await forumService.getAllUserForums(10, true, false);
@@ -1404,6 +1403,8 @@ describe('ForumService', () => {
         where: { instructorId: 10 },
         select: { id: true },
       });
+      // Verify enrollment.findMany was NOT called for instructors
+      expect(prisma.enrollment.findMany).not.toHaveBeenCalled();
     });
 
     it('should return empty array when no enrollments', async () => {

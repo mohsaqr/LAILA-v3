@@ -45,21 +45,12 @@ class ForumService {
       });
       courseIds = courses.map(c => c.id);
     } else if (isInstructor) {
-      // Instructors see forums from their courses and enrolled courses
-      const [ownCourses, enrollments] = await Promise.all([
-        prisma.course.findMany({
-          where: { instructorId: userId },
-          select: { id: true },
-        }),
-        prisma.enrollment.findMany({
-          where: { userId, status: 'active' },
-          select: { courseId: true },
-        }),
-      ]);
-      courseIds = [
-        ...ownCourses.map(c => c.id),
-        ...enrollments.map(e => e.courseId),
-      ];
+      // Instructors see forums only from their own courses
+      const ownCourses = await prisma.course.findMany({
+        where: { instructorId: userId },
+        select: { id: true },
+      });
+      courseIds = ownCourses.map(c => c.id);
     } else {
       // Students see forums from enrolled courses
       const enrollments = await prisma.enrollment.findMany({

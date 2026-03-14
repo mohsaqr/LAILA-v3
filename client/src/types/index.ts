@@ -46,6 +46,7 @@ export interface Course {
   publishedAt: string | null;
   curriculumViewMode?: CurriculumViewMode;
   enabledLabs?: string | null;
+  activationCode?: string | null;
   instructor?: {
     id: number;
     fullname: string;
@@ -71,12 +72,31 @@ export interface CourseModule {
   codeLabs?: CodeLab[];
   assignments?: Assignment[];
   forums?: ForumType[];
+  quizzes?: ModuleQuiz[];
+  moduleSurveys?: { survey: ModuleSurvey }[];
   _count?: {
     lectures: number;
     codeLabs?: number;
     assignments?: number;
     forums?: number;
   };
+}
+
+export interface ModuleSurvey {
+  id: number;
+  title: string;
+  description: string | null;
+  isPublished: boolean;
+  _count?: { questions: number };
+}
+
+export interface ModuleQuiz {
+  id: number;
+  title: string;
+  description?: string | null;
+  isPublished: boolean;
+  moduleId?: number;
+  _count?: { questions: number };
 }
 
 // Re-export Forum type for convenience

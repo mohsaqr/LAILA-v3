@@ -160,7 +160,7 @@ export const MCQGenerator = ({ quizId, isOpen, onClose, onQuestionsAdded }: MCQG
       isOpen={isOpen}
       onClose={handleClose}
       title={t('generate_mcq_title')}
-      size="lg"
+      size="3xl"
     >
       <div className="space-y-6">
         {/* Generation Form */}

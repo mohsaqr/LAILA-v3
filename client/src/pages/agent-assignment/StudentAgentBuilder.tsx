@@ -9,6 +9,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { sanitizeHtml } from '../../utils/sanitize';
 import {
   Award,
   CheckCircle,
@@ -363,7 +364,9 @@ export const StudentAgentBuilder = () => {
             <div>
               <h1 className="text-2xl font-bold text-gray-900 mb-2">{assignment.title}</h1>
               {assignment.description && (
-                <p className="text-gray-600 mb-4">{assignment.description}</p>
+                assignment.description.trim().startsWith('<')
+                  ? <div className="text-gray-600 mb-4 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(assignment.description) }} />
+                  : <p className="text-gray-600 mb-4">{assignment.description}</p>
               )}
               <div className="flex flex-wrap items-center gap-4 text-sm">
                 <div className="flex items-center gap-1.5 text-gray-500">
@@ -476,7 +479,10 @@ export const StudentAgentBuilder = () => {
           {assignment.instructions && (
             <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <h3 className="font-medium text-blue-900 mb-2">{t('instructions_header')}</h3>
-              <p className="text-sm text-blue-800 whitespace-pre-wrap">{assignment.instructions}</p>
+              {assignment.instructions.trim().startsWith('<')
+                ? <div className="text-sm text-blue-800 prose prose-sm max-w-none prose-blue" dangerouslySetInnerHTML={{ __html: sanitizeHtml(assignment.instructions) }} />
+                : <p className="text-sm text-blue-800 whitespace-pre-wrap">{assignment.instructions}</p>
+              }
             </div>
           )}
         </CardBody>

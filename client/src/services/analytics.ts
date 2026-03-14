@@ -566,8 +566,15 @@ class AnalyticsService {
     });
   }
 
+  // Check if current page is an auth page (no tracking needed)
+  private isAuthPage(): boolean {
+    const path = window.location.pathname;
+    return path === '/login' || path === '/register' || path.startsWith('/verify');
+  }
+
   // Core track method
   private track(event: InteractionEvent) {
+    if (this.isAuthPage()) return;
     const enrichedEvent: InteractionEvent = {
       ...event,
       timestamp: Date.now(),

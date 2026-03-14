@@ -34,6 +34,7 @@ const LegacyCatalogRedirect = () => {
 // Layout
 import { Layout } from './components/layout/Layout';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
+import { RequireEnrollment } from './components/layout/RequireEnrollment';
 
 // Auth pages
 import { Login } from './pages/auth/Login';
@@ -92,6 +93,7 @@ import {
 } from './pages/teach';
 import { CourseAnalytics } from './pages/teach/CourseAnalytics';
 import { StudentAnalytics } from './pages/StudentAnalytics';
+import { Reports } from './pages/Reports';
 import { TnaExercise } from './pages/TnaExercise';
 import { SnaExercise } from './pages/SnaExercise';
 import { CourseLabs } from './pages/CourseLabs';
@@ -102,7 +104,6 @@ import { SurveyStandalone } from './pages/SurveyStandalone';
 // Agent Assignment pages
 import {
   StudentAgentBuilder,
-  AgentSubmissionsList,
   AgentSubmissionReview,
   UseMyAgent,
 } from './pages/agent-assignment';
@@ -222,7 +223,9 @@ function App() {
           path="/courses/:courseId/assignments"
           element={
             <ProtectedRoute>
-              <StudentAssignments />
+              <RequireEnrollment>
+                <StudentAssignments />
+              </RequireEnrollment>
             </ProtectedRoute>
           }
         />
@@ -230,7 +233,9 @@ function App() {
           path="/courses/:courseId/assignments/:assignmentId"
           element={
             <ProtectedRoute>
-              <AssignmentView />
+              <RequireEnrollment>
+                <AssignmentView />
+              </RequireEnrollment>
             </ProtectedRoute>
           }
         />
@@ -238,7 +243,19 @@ function App() {
           path="/courses/:courseId/grades"
           element={
             <ProtectedRoute>
-              <StudentGradebook />
+              <RequireEnrollment>
+                <StudentGradebook />
+              </RequireEnrollment>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Reports (course selection for analytics) */}
+        <Route
+          path="/reports"
+          element={
+            <ProtectedRoute>
+              <Reports />
             </ProtectedRoute>
           }
         />
@@ -248,7 +265,9 @@ function App() {
           path="/courses/:courseId/analytics"
           element={
             <ProtectedRoute>
-              <StudentAnalytics />
+              <RequireEnrollment>
+                <StudentAnalytics />
+              </RequireEnrollment>
             </ProtectedRoute>
           }
         />
@@ -258,7 +277,9 @@ function App() {
           path="/courses/:courseId/agent-assignments/:assignmentId"
           element={
             <ProtectedRoute>
-              <StudentAgentBuilder />
+              <RequireEnrollment>
+                <StudentAgentBuilder />
+              </RequireEnrollment>
             </ProtectedRoute>
           }
         />
@@ -266,7 +287,9 @@ function App() {
           path="/courses/:courseId/agent-assignments/:assignmentId/use"
           element={
             <ProtectedRoute>
-              <UseMyAgent />
+              <RequireEnrollment>
+                <UseMyAgent />
+              </RequireEnrollment>
             </ProtectedRoute>
           }
         />
@@ -276,7 +299,9 @@ function App() {
           path="/courses/:courseId/lectures/:lectureId"
           element={
             <ProtectedRoute>
-              <LectureView />
+              <RequireEnrollment>
+                <LectureView />
+              </RequireEnrollment>
             </ProtectedRoute>
           }
         />
@@ -286,7 +311,9 @@ function App() {
           path="/courses/:courseId/code-labs/:codeLabId"
           element={
             <ProtectedRoute>
-              <CodeLabPage />
+              <RequireEnrollment>
+                <CodeLabPage />
+              </RequireEnrollment>
             </ProtectedRoute>
           }
         />
@@ -296,7 +323,9 @@ function App() {
           path="/courses/:courseId/quizzes/:quizId"
           element={
             <ProtectedRoute>
-              <QuizView />
+              <RequireEnrollment>
+                <QuizView />
+              </RequireEnrollment>
             </ProtectedRoute>
           }
         />
@@ -304,7 +333,9 @@ function App() {
           path="/courses/:courseId/quizzes/:quizId/results/:attemptId"
           element={
             <ProtectedRoute>
-              <QuizResults />
+              <RequireEnrollment>
+                <QuizResults />
+              </RequireEnrollment>
             </ProtectedRoute>
           }
         />
@@ -317,7 +348,9 @@ function App() {
           path="/courses/:courseId/forums/:forumId"
           element={
             <ProtectedRoute>
-              <Forum />
+              <RequireEnrollment>
+                <Forum />
+              </RequireEnrollment>
             </ProtectedRoute>
           }
         />
@@ -325,7 +358,9 @@ function App() {
           path="/courses/:courseId/forums/:forumId/threads/:threadId"
           element={
             <ProtectedRoute>
-              <Forum />
+              <RequireEnrollment>
+                <Forum />
+              </RequireEnrollment>
             </ProtectedRoute>
           }
         />
@@ -368,7 +403,9 @@ function App() {
           path="/courses/:courseId/forums"
           element={
             <ProtectedRoute>
-              <CourseForumList />
+              <RequireEnrollment>
+                <CourseForumList />
+              </RequireEnrollment>
             </ProtectedRoute>
           }
         />
@@ -467,7 +504,9 @@ function App() {
           path="/ai-tutors"
           element={
             <ProtectedRoute>
-              <AITutors />
+              <RequireEnrollment>
+                <AITutors />
+              </RequireEnrollment>
             </ProtectedRoute>
           }
         />
@@ -635,17 +674,9 @@ function App() {
           }
         />
 
-        {/* AI Agent Assignment routes (Instructor) */}
+        {/* AI Agent submission detail (Instructor) */}
         <Route
-          path="/teach/courses/:id/agent-assignments/:assignmentId/submissions"
-          element={
-            <ProtectedRoute requireInstructor>
-              <AgentSubmissionsList />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/teach/courses/:id/agent-assignments/:assignmentId/submissions/:submissionId"
+          path="/teach/courses/:id/assignments/:assignmentId/agent-submissions/:submissionId"
           element={
             <ProtectedRoute requireInstructor>
               <AgentSubmissionReview />

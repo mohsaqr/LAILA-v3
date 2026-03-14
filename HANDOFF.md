@@ -1,4 +1,33 @@
-# Session Handoff — 2026-03-11
+# Session Handoff — 2026-03-13
+
+## Completed (2026-03-13)
+- **Quiz creation in CurriculumEditor (#58)**: Full quiz creation modal with RichTextEditor for description/instructions. All CurriculumEditor modal sizes unified to `3xl`.
+- **Unify popup/modal sizes (#59)**: All modals across CurriculumEditor, ModuleItem, QuizEditor, QuizManager, MCQGenerator changed to `size="3xl"`. Simplified empty quiz list page.
+- **Quiz list in module cards (#61)**: Quizzes displayed in ModuleItem with `grid grid-cols-2 gap-1.5` layout (cyan-50), clickable links to quiz editor, delete support. Quiz count in module header.
+- **Quiz editor/manager improvements (#62)**: `max-w-7xl` margins, HTML rendering via `sanitizeHtml()`, RichTextEditor in settings, clickable quiz cards with `<Link>`.
+- **Analytics card on course page (#63)**: Added to CourseDetails right sidebar with `BarChart3` icon and indigo styling.
+- **Static student sidebar (#64)**: Removed course-context switching from DashboardSidebar. Student nav items are static.
+- **Rich text rendering on student quiz pages (#65)**: Fixed `StudentQuizList.tsx`, `CourseQuizList.tsx`, and `QuizView.tsx` to render description/instructions as sanitized HTML.
+- **Assignment page margin**: `AssignmentView.tsx` container from `max-w-4xl` to `max-w-7xl`.
+- **Enrollment permission checking (#66)**: `RequireEnrollment` wrapper component checks enrollment via `enrollmentsApi.getEnrollment()` before rendering. Shows 403 page for unenrolled students. Admins/instructors bypass. Applied to 15 routes in App.tsx. Supports courseId from URL params and query string.
+
+## Completed (2026-03-12)
+- **Course activation code (#56)**: Auto-generated 8-char hex code per course. Displayed in CurriculumEditor with copy button. Students must enter code to enroll (modal popup). Server validates case-insensitively. 7 i18n keys in 4 locales.
+- **Re-registration for unverified users (#55)**: Unverified users can sign up again — old unconfirmed record is deleted (cascade). Login for unverified users shows "sign up again and verify" message.
+- **UEF email restriction (#54)**: Registration limited to `@uef.fi` emails via Zod `.refine()` on server + client-side check. i18n key `uef_email_only` in 4 locales.
+- **Email verification on signup (#53)**: Two-step registration flow. `VerificationCode` Prisma model stores 6-digit code with 10-minute expiry. Register creates unverified user + code, returns email (not userId). Verify/resend endpoints use email-based lookup. Verification code sent via SMTP email (`email.service.ts`). Client shows 6-digit code input UI with auto-advance, paste support, resend. 13 i18n keys in 4 locales. Tests updated.
+- **Unified SubmissionReview (#48)**: `SubmissionReview.tsx` now handles both regular and AI agent submissions inline. Conditionally queries the right API based on `assignment.submissionType`.
+- **Fix agent assignment redirect URLs (#49)**: All instructor submission list URLs unified under `/teach/courses/{ID}/assignments/{ID}/submissions`. Removed `/agent-assignments/.../submissions` route. Agent submission detail at `/assignments/{ID}/agent-submissions/{submissionId}`.
+- **RichTextEditor for assignment description (#50)**: Replaced TextArea with RichTextEditor in CurriculumEditor, AssignmentManager, AssignmentSectionEditor. HTML rendered with sanitization in all student/instructor views. Fixed StudentAgentBuilder to render instructions/description as HTML.
+- **Due date time picker + timezone (#51)**: Changed to `datetime-local` input. Fixed timezone by sending literal time as UTC (`value + ':00.000Z'`). All displays use `timeZone: 'UTC'`. Instructor picks 20:00 → DB stores 20:00Z → everyone sees 20:00.
+- **Forum card layout (#52)**: Redesigned forum cards with 3/5 description + 2/5 stats, date format `24 Aug 2025`.
+- **Static instructor sidebar (#33)**: No course-context switching, removed gradebook/calendar for instructors.
+- **Margins/breadcrumbs for teach pages (#38)**: Standardized `max-w-7xl` and simplified breadcrumbs for labs, quizzes, surveys, certificates.
+- **Certificates button in CurriculumEditor (#43)**: Added Certificates + Analytics buttons to management card.
+- **Survey responses filter by moduleId (#45)**: Full stack fix: client → API → route → service → Prisma query.
+- **Assignment edit modal width (#46)**: `lg` → `3xl`.
+- **Survey API type fixes**: Replaced `any` with `Survey` in module survey API methods.
+- **Interactive element fixes**: Fixed nested Link>Button, missing type="button" on attachment buttons.
 
 ## Completed (2026-03-11)
 - **Thumbnail file upload**: Replaced "Thumbnail URL" text input on `/teach/create` with image file upload (png/jpg/jpeg, 1 MB limit). New `POST /api/uploads/thumbnail` endpoint, client upload API, preview with remove button, i18n in all 4 languages.
@@ -43,8 +72,8 @@
 
 ## Current State
 - Branch: `fix_issues`
-- Server: 953 tests passing
 - Client: compiles cleanly (only pre-existing type warnings in unrelated files)
+- New component: `client/src/components/layout/RequireEnrollment.tsx` — reusable enrollment guard for routes
 
 ## Key Decisions
 - Agent chatbots use type `'agent'` with category `'agent_assignment'` to distinguish from global/section chatbots
@@ -52,9 +81,14 @@
 - Creator for agent chatbots is the student who designed the agent (not the instructor)
 - Usage stats come from `AgentTestConversation`/`AgentTestMessage` tables
 - Filter options merge courses and creators from all three sources (global, section, agent) with deduplication
+- Due dates use "wall clock" pattern: stored as literal UTC, displayed with `timeZone: 'UTC'` — no timezone conversion
+- Registration uses two-step flow: register → verify code. Hardcoded code `123456` until SMTP is configured. Code expires after 2 minutes
+- Instructor submission routes unified: `/teach/courses/{ID}/assignments/{ID}/submissions` handles both regular and agent types
+- Student-facing agent routes (`/courses/{ID}/agent-assignments/{ID}`) unchanged
 
 ## Open Issues
 - Lectures, assignments, quizzes, codeLabs, codeBlocks in seed.ts still use `prisma.*.create()` — will create duplicates on re-seed. Low priority.
+- **Bug #47 (discarded)**: AI agent assignment creation in lecture editor — changes were coded then discarded at user's request. Bug remains unfixed.
 
 ## Context
 - Dev servers: client on port 5174, server on port 5001

@@ -4,6 +4,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   AlertCircle,
+  AlertTriangle,
+  CheckCircle,
   ChevronLeft,
   ChevronRight,
   Send,
@@ -11,13 +13,14 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { quizzesApi, StartAttemptResponse } from '../api/quizzes';
-import { coursesApi } from '../api/courses';
 import { useTheme } from '../hooks/useTheme';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { Button } from '../components/common/Button';
+import { Modal } from '../components/common/Modal';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { buildQuizBreadcrumb } from '../utils/breadcrumbs';
+import { sanitizeHtml } from '../utils/sanitize';
 
 export const QuizView = () => {
   const { courseId, quizId } = useParams<{ courseId: string; quizId: string }>();
@@ -32,13 +35,10 @@ export const QuizView = () => {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
 
-  // Fetch course info for breadcrumbs
-  const { data: course } = useQuery({
-    queryKey: ['course', courseId],
-    queryFn: () => coursesApi.getCourseById(parseInt(courseId!)),
-    enabled: !!courseId,
-  });
+  // Use cached course data (already fetched by RequireEnrollment wrapper)
+  const course = queryClient.getQueryData<any>(['course', courseId]);
 
   const colors = {
     bg: isDark ? '#111827' : '#f9fafb',
@@ -55,30 +55,12 @@ export const QuizView = () => {
     textRed: isDark ? '#fca5a5' : '#dc2626',
   };
 
-  // Start or resume attempt
-  const startAttemptMutation = useMutation({
-    mutationFn: () => quizzesApi.startAttempt(parsedQuizId),
-    onSuccess: (data) => {
-      setAttemptData(data);
-      // Restore saved answers
-      const savedAnswers: Record<number, string> = {};
-      data.questions.forEach(q => {
-        if (q.savedAnswer) {
-          savedAnswers[q.id] = q.savedAnswer;
-        }
-      });
-      setAnswers(savedAnswers);
-
-      // Set timer if applicable
-      if (data.quiz.timeLimit) {
-        const elapsed = (Date.now() - new Date(data.attempt.startedAt).getTime()) / 1000 / 60;
-        const remaining = Math.max(0, data.quiz.timeLimit - elapsed);
-        setTimeRemaining(Math.floor(remaining * 60));
-      }
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || t('failed_start_quiz'));
-    },
+  // Start or resume attempt (POST but idempotent — returns existing in-progress attempt)
+  const { data: startData, isLoading: attemptLoading, error: attemptError } = useQuery({
+    queryKey: ['quizAttempt', parsedQuizId],
+    queryFn: () => quizzesApi.startAttempt(parsedQuizId),
+    staleTime: Infinity,
+    retry: false,
   });
 
   // Save answer
@@ -91,6 +73,7 @@ export const QuizView = () => {
   const submitAttemptMutation = useMutation({
     mutationFn: () => quizzesApi.submitAttempt(attemptData!.attempt.id),
     onSuccess: (result) => {
+      queryClient.removeQueries({ queryKey: ['quizAttempt', parsedQuizId] });
       queryClient.invalidateQueries({ queryKey: ['quizzes'] });
       toast.success(t('quiz_submitted_score', { score: result.score?.toFixed(1) }));
       navigate(`/courses/${courseId}/quizzes/${quizId}/results/${result.id}`);
@@ -101,10 +84,25 @@ export const QuizView = () => {
     },
   });
 
-  // Start quiz on mount
+  // Populate state when attempt data arrives
   useEffect(() => {
-    startAttemptMutation.mutate();
-  }, []);
+    if (startData && !attemptData) {
+      setAttemptData(startData);
+      const savedAnswers: Record<number, string> = {};
+      startData.questions.forEach(q => {
+        if (q.savedAnswer) {
+          savedAnswers[q.id] = q.savedAnswer;
+        }
+      });
+      setAnswers(savedAnswers);
+
+      if (startData.quiz.timeLimit) {
+        const elapsed = (Date.now() - new Date(startData.attempt.startedAt).getTime()) / 1000 / 60;
+        const remaining = Math.max(0, startData.quiz.timeLimit - elapsed);
+        setTimeRemaining(Math.floor(remaining * 60));
+      }
+    }
+  }, [startData]);
 
   // Timer countdown
   useEffect(() => {
@@ -114,7 +112,8 @@ export const QuizView = () => {
       setTimeRemaining(prev => {
         if (prev === null || prev <= 1) {
           // Auto-submit when time runs out
-          handleSubmit();
+          setIsSubmitting(true);
+          submitAttemptMutation.mutate();
           return 0;
         }
         return prev - 1;
@@ -130,15 +129,13 @@ export const QuizView = () => {
     saveAnswerMutation.mutate({ questionId, answer });
   }, [saveAnswerMutation]);
 
-  const handleSubmit = async () => {
+  const handleSubmitClick = () => {
     if (isSubmitting) return;
+    setShowSubmitModal(true);
+  };
 
-    const unanswered = attemptData?.questions.filter(q => !answers[q.id]).length || 0;
-    if (unanswered > 0 && timeRemaining !== 0) {
-      const confirmed = window.confirm(t('unanswered_questions', { count: unanswered }));
-      if (!confirmed) return;
-    }
-
+  const handleConfirmSubmit = () => {
+    setShowSubmitModal(false);
     setIsSubmitting(true);
     submitAttemptMutation.mutate();
   };
@@ -149,11 +146,11 @@ export const QuizView = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (startAttemptMutation.isPending) {
+  if (attemptLoading) {
     return <Loading text={t('loading_quiz')} />;
   }
 
-  if (!attemptData) {
+  if (attemptError || !attemptData) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: colors.bg }}>
         <Card>
@@ -193,6 +190,14 @@ export const QuizView = () => {
                 {t('question_of_total', { current: currentQuestionIndex + 1, total: attemptData.questions.length })}
               </p>
             </div>
+
+            {attemptData.quiz.instructions && (
+              <div
+                className="text-sm max-w-xl line-clamp-2"
+                style={{ color: colors.textSecondary }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(attemptData.quiz.instructions) }}
+              />
+            )}
 
             {timeRemaining !== null && (
               <div
@@ -353,7 +358,7 @@ export const QuizView = () => {
         {/* Submit button */}
         <div className="flex justify-center">
           <Button
-            onClick={handleSubmit}
+            onClick={handleSubmitClick}
             disabled={isSubmitting}
             className="px-8 py-3"
           >
@@ -368,6 +373,55 @@ export const QuizView = () => {
           </Button>
         </div>
       </div>
+
+      {/* Submit Confirmation Modal */}
+      <Modal
+        isOpen={showSubmitModal}
+        onClose={() => setShowSubmitModal(false)}
+        title={t('confirm_submit')}
+        size="sm"
+      >
+        <div className="p-4 space-y-4">
+          {(() => {
+            const totalQuestions = attemptData?.questions.length || 0;
+            const answeredCount = Object.keys(answers).length;
+            const unansweredCount = totalQuestions - answeredCount;
+            return (
+              <>
+                <div className="flex items-start gap-3">
+                  {unansweredCount > 0 ? (
+                    <AlertTriangle className="w-6 h-6 text-amber-500 flex-shrink-0 mt-0.5" />
+                  ) : (
+                    <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" />
+                  )}
+                  <div>
+                    <p className="font-medium" style={{ color: colors.textPrimary }}>
+                      {unansweredCount > 0
+                        ? t('submit_with_unanswered', { count: unansweredCount })
+                        : t('all_questions_answered')}
+                    </p>
+                    <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
+                      {t('answered_of_total', { answered: answeredCount, total: totalQuestions })}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-sm" style={{ color: colors.textSecondary }}>
+                  {t('submit_warning')}
+                </p>
+                <div className="flex justify-end gap-3 pt-2">
+                  <Button variant="secondary" onClick={() => setShowSubmitModal(false)}>
+                    {t('common:cancel')}
+                  </Button>
+                  <Button onClick={handleConfirmSubmit}>
+                    <Send size={16} />
+                    {t('submit_quiz')}
+                  </Button>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      </Modal>
     </div>
   );
 };
