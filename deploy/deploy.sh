@@ -233,6 +233,7 @@ info "SMTP configuration (leave blank to skip email features):"
 prompt_value SMTP_HOST   "  SMTP host (e.g. smtp.gmail.com)" ""
 prompt_value SMTP_PORT   "  SMTP port" "587"
 prompt_value SMTP_USER   "  SMTP username" ""
+prompt_value secure   "  SMTP secure" ""
 prompt_secret SMTP_PASS  "  SMTP password"
 prompt_value SMTP_FROM   "  From address (e.g. noreply@example.com)" ""
 
@@ -371,10 +372,12 @@ fi
 
 # For localhost, generate a simple config without SSL
 if [ "$DOMAIN" = "localhost" ] || [ "$DOMAIN" = "127.0.0.1" ]; then
-    NGINX_CONTENT="# LAILA — Nginx config (local, no SSL)
+    # Write to temp file using heredoc (single-quoted delimiter = no shell expansion)
+    cat > /tmp/laila-nginx.conf <<'NGINX_EOF'
+# LAILA — Nginx config (local, no SSL)
 server {
     listen 80;
-    server_name $DOMAIN;
+    server_name __DOMAIN__;
 
     # Gzip
     gzip on;
@@ -391,10 +394,10 @@ server {
     location /api/ {
         proxy_pass http://127.0.0.1:5001;
         proxy_http_version 1.1;
-        proxy_set_header Host              \\\$host;
-        proxy_set_header X-Real-IP         \\\$remote_addr;
-        proxy_set_header X-Forwarded-For   \\\$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \\\$scheme;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout    120s;
         proxy_connect_timeout 10s;
         proxy_send_timeout    120s;
@@ -404,12 +407,12 @@ server {
     location /socket.io/ {
         proxy_pass http://127.0.0.1:5001;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade           \\\$http_upgrade;
-        proxy_set_header Connection        \"upgrade\";
-        proxy_set_header Host              \\\$host;
-        proxy_set_header X-Real-IP         \\\$remote_addr;
-        proxy_set_header X-Forwarded-For   \\\$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \\\$scheme;
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        "upgrade";
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout    86400s;
         proxy_send_timeout    86400s;
     }
@@ -417,37 +420,44 @@ server {
     # Uploaded files proxy
     location /uploads/ {
         proxy_pass http://127.0.0.1:5001;
-        proxy_set_header Host              \\\$host;
-        proxy_set_header X-Real-IP         \\\$remote_addr;
-        proxy_set_header X-Forwarded-For   \\\$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \\\$scheme;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     # Static assets (client build)
     location /assets/ {
-        alias $INSTALL_DIR/client/dist/assets/;
+        alias __INSTALL_DIR__/client/dist/assets/;
         expires 1y;
-        add_header Cache-Control \"public, immutable\";
+        add_header Cache-Control "public, immutable";
         access_log off;
     }
 
     # SPA catch-all
     location / {
-        root $INSTALL_DIR/client/dist;
-        try_files \\\$uri \\\$uri/ /index.html;
+        root __INSTALL_DIR__/client/dist;
+        try_files $uri $uri/ /index.html;
 
         location = /index.html {
             expires 5m;
-            add_header Cache-Control \"public, must-revalidate\";
+            add_header Cache-Control "public, must-revalidate";
         }
     }
-}"
+}
+NGINX_EOF
 
+    # Replace placeholders with actual values
+    sed_i "s|__DOMAIN__|$DOMAIN|g" /tmp/laila-nginx.conf
+    sed_i "s|__INSTALL_DIR__|$INSTALL_DIR|g" /tmp/laila-nginx.conf
+
+    # Copy to final location
     if $IS_MAC; then
-        echo "$NGINX_CONTENT" > "$NGINX_CONF"
+        cp /tmp/laila-nginx.conf "$NGINX_CONF"
     else
-        echo "$NGINX_CONTENT" | sudo tee "$NGINX_CONF" > /dev/null
+        sudo cp /tmp/laila-nginx.conf "$NGINX_CONF"
     fi
+    rm -f /tmp/laila-nginx.conf
 else
     # For real domain, use the template config with SSL
     if $IS_MAC; then
