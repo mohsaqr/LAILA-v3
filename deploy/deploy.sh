@@ -228,6 +228,14 @@ info "AI provider API keys (leave blank to skip):"
 prompt_value OPENAI_KEY  "  OpenAI API key" ""
 prompt_value GEMINI_KEY  "  Gemini API key" ""
 
+echo ""
+info "SMTP configuration (leave blank to skip email features):"
+prompt_value SMTP_HOST   "  SMTP host (e.g. smtp.gmail.com)" ""
+prompt_value SMTP_PORT   "  SMTP port" "587"
+prompt_value SMTP_USER   "  SMTP username" ""
+prompt_secret SMTP_PASS  "  SMTP password"
+prompt_value SMTP_FROM   "  From address (e.g. noreply@example.com)" ""
+
 # Auto-generate secrets
 JWT_SECRET=$(openssl rand -base64 32)
 SESSION_SECRET=$(openssl rand -base64 32)
@@ -253,6 +261,15 @@ sed_i "s|^SESSION_SECRET=$|SESSION_SECRET=$SESSION_SECRET|" "$SERVER_DIR/.env"
 # Fill in AI keys (if provided)
 [ -n "$OPENAI_KEY" ] && sed_i "s|^OPENAI_API_KEY=$|OPENAI_API_KEY=$OPENAI_KEY|" "$SERVER_DIR/.env"
 [ -n "$GEMINI_KEY" ] && sed_i "s|^GEMINI_API_KEY=$|GEMINI_API_KEY=$GEMINI_KEY|" "$SERVER_DIR/.env"
+
+# Fill in SMTP settings (if provided)
+if [ -n "$SMTP_HOST" ]; then
+    sed_i "s|^# SMTP_HOST=.*|SMTP_HOST=$SMTP_HOST|"   "$SERVER_DIR/.env"
+    sed_i "s|^# SMTP_PORT=.*|SMTP_PORT=$SMTP_PORT|"  "$SERVER_DIR/.env"
+    sed_i "s|^# SMTP_USER=.*|SMTP_USER=$SMTP_USER|"  "$SERVER_DIR/.env"
+    sed_i "s|^# SMTP_PASS=.*|SMTP_PASS=$SMTP_PASS|"  "$SERVER_DIR/.env"
+    sed_i "s|^# SMTP_FROM=.*|SMTP_FROM=$SMTP_FROM|"   "$SERVER_DIR/.env"
+fi
 
 ok "server/.env configured"
 
