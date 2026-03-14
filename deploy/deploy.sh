@@ -229,6 +229,9 @@ prompt_value OPENAI_KEY  "  OpenAI API key" ""
 prompt_value GEMINI_KEY  "  Gemini API key" ""
 
 echo ""
+prompt_secret ADMIN_PASS "Admin password for initial seed user"
+
+echo ""
 info "SMTP configuration (leave blank to skip email features):"
 prompt_value SMTP_HOST   "  SMTP host (e.g. smtp.gmail.com)" ""
 prompt_value SMTP_PORT   "  SMTP port" "587"
@@ -271,6 +274,9 @@ if [ -n "$SMTP_HOST" ]; then
     sed_i "s|^# SMTP_PASS=.*|SMTP_PASS=$SMTP_PASS|"  "$SERVER_DIR/.env"
     sed_i "s|^# SMTP_FROM=.*|SMTP_FROM=$SMTP_FROM|"   "$SERVER_DIR/.env"
 fi
+
+# Fill in admin password (if provided)
+[ -n "$ADMIN_PASS" ] && sed_i "s|^# SEED_ADMIN_PASSWORD=.*|SEED_ADMIN_PASSWORD=$ADMIN_PASS|" "$SERVER_DIR/.env"
 
 ok "server/.env configured"
 
