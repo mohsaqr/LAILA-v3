@@ -322,7 +322,15 @@ ok "Server dependencies installed"
 
 info "Generating Prisma client & running migrations..."
 npx prisma generate
-npx prisma migrate deploy 2>/dev/null || npx prisma db push --accept-data-loss
+# Remove SQLite migrations (incompatible with PostgreSQL)
+if [ -f "$SERVER_DIR/prisma/migrations/migration_lock.toml" ]; then
+    LOCK_PROVIDER=$(grep 'provider' "$SERVER_DIR/prisma/migrations/migration_lock.toml" | tr -d ' "')
+    if [ "$LOCK_PROVIDER" = 'provider=sqlite' ]; then
+        info "Removing SQLite migrations (incompatible with PostgreSQL)..."
+        rm -rf "$SERVER_DIR/prisma/migrations"
+    fi
+fi
+npx prisma db push --accept-data-loss
 ok "Database schema applied"
 
 info "Building server (TypeScript)..."
