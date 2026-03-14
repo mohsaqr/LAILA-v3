@@ -11,6 +11,8 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed:chatbots": "tsx prisma/seed-chatbots.ts",
+    "db:seed:labs": "tsx prisma/seed-labs.ts",
     "db:studio": "prisma studio",
     "test": "vitest",
     "test:run": "vitest run",
