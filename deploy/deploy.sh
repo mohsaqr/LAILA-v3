@@ -329,7 +329,7 @@ npm ci 2>&1 | tail -1
 ok "Client dependencies installed"
 
 info "Building client (Vite)..."
-npm run build
+VITE_API_URL=/api npm run build
 ok "Client built -> client/dist/"
 
 # ---------------------------------------------------------------------------
