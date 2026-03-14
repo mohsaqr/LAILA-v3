@@ -3610,7 +3610,6 @@ for i, comm in enumerate(communities):
     data: {
       title: 'Course Experience Questionnaire',
       description: 'Based on the CEQ (Ramsden, 1991). This survey measures your experience across key dimensions of teaching quality. Your feedback helps improve the course.',
-      courseId: course4.id,
       createdById: instructor.id,
       isPublished: true,
       isAnonymous: true,
@@ -3636,7 +3635,6 @@ for i, comm in enumerate(communities):
     data: {
       title: 'Self-Regulated Learning Strategies',
       description: 'Based on Zimmerman & Pons (1986). This survey explores which self-regulated learning strategies you use during your studies. There are no right or wrong answers.',
-      courseId: course4.id,
       createdById: instructor.id,
       isPublished: true,
       isAnonymous: false,
@@ -3661,7 +3659,6 @@ for i, comm in enumerate(communities):
     data: {
       title: 'Technology in Learning Survey',
       description: 'Based on the Technology Acceptance Model (Davis, 1989) adapted for education. This survey examines your perceptions of AI and technology tools used in this course.',
-      courseId: course4.id,
       createdById: instructor.id,
       isPublished: true,
       isAnonymous: true,
@@ -3679,6 +3676,11 @@ for i, comm in enumerate(communities):
   for (const q of tamQuestions) {
     await prisma.surveyQuestion.create({ data: { surveyId: survey3.id, ...q, isRequired: true } });
   }
+
+  // Link surveys to course4 modules via ModuleSurvey
+  await prisma.moduleSurvey.create({ data: { courseId: course4.id, moduleId: c4m1.id, surveyId: survey1.id } });
+  await prisma.moduleSurvey.create({ data: { courseId: course4.id, moduleId: c4m2.id, surveyId: survey2.id } });
+  await prisma.moduleSurvey.create({ data: { courseId: course4.id, moduleId: c4m3.id, surveyId: survey3.id } });
 
   console.log('Created 3 pedagogical surveys for Pedagogy course');
 

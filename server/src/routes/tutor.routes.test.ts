@@ -81,7 +81,7 @@ describe('Tutor Routes', () => {
         agents: [{ id: 1, name: 'socratic-tutor', displayName: 'Socratic Guide' }],
       };
 
-      vi.mocked(tutorService.getOrCreateSession).mockResolvedValue(mockSessionData);
+      vi.mocked(tutorService.getOrCreateSession).mockResolvedValue(mockSessionData as any);
 
       const response = await request(app)
         .get('/api/tutors/session')
@@ -96,7 +96,7 @@ describe('Tutor Routes', () => {
   describe('PUT /api/tutors/session/mode', () => {
     it('should update session mode', async () => {
       const mockSession = { id: 1, userId: 1, mode: 'router' };
-      vi.mocked(tutorService.updateMode).mockResolvedValue(mockSession);
+      vi.mocked(tutorService.updateMode).mockResolvedValue(mockSession as any);
 
       const response = await request(app)
         .put('/api/tutors/session/mode')
@@ -131,7 +131,7 @@ describe('Tutor Routes', () => {
   describe('PUT /api/tutors/session/active-agent', () => {
     it('should set active agent', async () => {
       const mockSession = { id: 1, userId: 1, mode: 'manual', activeAgentId: 5 };
-      vi.mocked(tutorService.setActiveAgent).mockResolvedValue(mockSession);
+      vi.mocked(tutorService.setActiveAgent).mockResolvedValue(mockSession as any);
 
       const response = await request(app)
         .put('/api/tutors/session/active-agent')
@@ -162,7 +162,7 @@ describe('Tutor Routes', () => {
         { id: 1, chatbotId: 1, messageCount: 5 },
         { id: 2, chatbotId: 2, messageCount: 3 },
       ];
-      vi.mocked(tutorService.getConversations).mockResolvedValue(mockConversations);
+      vi.mocked(tutorService.getConversations).mockResolvedValue(mockConversations as any);
 
       const response = await request(app)
         .get('/api/tutors/conversations')
@@ -183,7 +183,7 @@ describe('Tutor Routes', () => {
           { id: 2, role: 'assistant', content: 'Hi there!' },
         ],
       };
-      vi.mocked(tutorService.getOrCreateConversation).mockResolvedValue(mockConversation);
+      vi.mocked(tutorService.getOrCreateConversation).mockResolvedValue(mockConversation as any);
 
       const response = await request(app)
         .get('/api/tutors/conversations/5')
@@ -220,7 +220,7 @@ describe('Tutor Routes', () => {
         model: 'gpt-4o-mini',
         responseTimeMs: 1500,
       };
-      vi.mocked(tutorService.sendMessage).mockResolvedValue(mockResponse);
+      vi.mocked(tutorService.sendMessage).mockResolvedValue(mockResponse as any);
 
       const response = await request(app)
         .post('/api/tutors/conversations/5/message')
@@ -275,7 +275,7 @@ describe('Tutor Routes', () => {
         assistantMessage: { id: 2, role: 'assistant', content: 'Team response' },
         collaborativeInfo: { style: 'parallel' },
       };
-      vi.mocked(tutorService.sendMessage).mockResolvedValue(mockResponse);
+      vi.mocked(tutorService.sendMessage).mockResolvedValue(mockResponse as any);
 
       await request(app)
         .post('/api/tutors/conversations/5/message')
@@ -301,7 +301,7 @@ describe('Tutor Routes', () => {
         userMessage: { id: 1, role: 'user', content: 'Hello' },
         assistantMessage: { id: 2, role: 'assistant', content: 'Hi!' },
       };
-      vi.mocked(tutorService.sendMessage).mockResolvedValue(mockResponse);
+      vi.mocked(tutorService.sendMessage).mockResolvedValue(mockResponse as any);
 
       await request(app)
         .post('/api/tutors/conversations/5/message')
@@ -324,7 +324,7 @@ describe('Tutor Routes', () => {
         userMessage: { id: 1, role: 'user', content: 'Hello' },
         assistantMessage: { id: 2, role: 'assistant', content: 'Hi!' },
       };
-      vi.mocked(tutorService.sendMessage).mockResolvedValue(mockResponse);
+      vi.mocked(tutorService.sendMessage).mockResolvedValue(mockResponse as any);
 
       await request(app)
         .post('/api/tutors/conversations/5/message')
@@ -348,7 +348,7 @@ describe('Tutor Routes', () => {
         userMessage: { id: 1, role: 'user', content: 'Hello' },
         assistantMessage: { id: 2, role: 'assistant', content: 'Hi!' },
       };
-      vi.mocked(tutorService.sendMessage).mockResolvedValue(mockResponse);
+      vi.mocked(tutorService.sendMessage).mockResolvedValue(mockResponse as any);
 
       await request(app)
         .post('/api/tutors/conversations/5/message')
@@ -372,7 +372,7 @@ describe('Tutor Routes', () => {
         userMessage: { id: 1, role: 'user', content: 'Hello' },
         assistantMessage: { id: 2, role: 'assistant', content: 'Hi!' },
       };
-      vi.mocked(tutorService.sendMessage).mockResolvedValue(mockResponse);
+      vi.mocked(tutorService.sendMessage).mockResolvedValue(mockResponse as any);
 
       await request(app)
         .post('/api/tutors/conversations/5/message')
@@ -403,7 +403,7 @@ describe('Tutor Routes', () => {
         { id: 2, name: 'helper-tutor', displayName: 'Helpful Guide' },
         { id: 3, name: 'beatrice-peer', displayName: 'Beatrice' },
       ];
-      vi.mocked(tutorService.getAvailableAgents).mockResolvedValue(mockAgents);
+      vi.mocked(tutorService.getAvailableAgents).mockResolvedValue(mockAgents as any);
 
       const response = await request(app)
         .get('/api/tutors/agents')
@@ -435,7 +435,7 @@ describe('Tutor Routes', () => {
         { id: 1, userId: 1, sessionId: 1, message: 'Hello', responseTimeMs: 100 },
         { id: 2, userId: 2, sessionId: 1, message: 'Hi there', responseTimeMs: 150 },
       ];
-      vi.mocked(tutorService.getInteractionLogs).mockResolvedValue(mockLogs);
+      vi.mocked(tutorService.getInteractionLogs).mockResolvedValue(mockLogs as any);
 
       const response = await request(app)
         .get('/api/tutors/logs')
@@ -491,7 +491,7 @@ describe('Tutor Routes', () => {
         averageResponseTime: 1500,
         activeUsers: 25,
       };
-      vi.mocked(tutorService.getStats).mockResolvedValue(mockStats);
+      vi.mocked(tutorService.getStats).mockResolvedValue(mockStats as any);
 
       const response = await request(app)
         .get('/api/tutors/logs/stats')
@@ -504,7 +504,7 @@ describe('Tutor Routes', () => {
 
     it('should apply date filters for stats', async () => {
       currentTestUser = { id: 1, email: 'admin@test.com', fullname: 'Admin User', isAdmin: true, isInstructor: true };
-      vi.mocked(tutorService.getStats).mockResolvedValue({});
+      vi.mocked(tutorService.getStats).mockResolvedValue({} as any);
 
       const response = await request(app)
         .get('/api/tutors/logs/stats?startDate=2024-01-01&endDate=2024-12-31')

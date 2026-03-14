@@ -138,14 +138,6 @@ export const DashboardGradebook = () => {
     return colors.gradeD;
   };
 
-  const getGradeLetter = (percentage: number) => {
-    if (percentage >= 90) return 'A';
-    if (percentage >= 80) return 'B';
-    if (percentage >= 70) return 'C';
-    if (percentage >= 60) return 'D';
-    return 'F';
-  };
-
   return (
     <div className="min-h-screen" style={{ backgroundColor: colors.bg }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

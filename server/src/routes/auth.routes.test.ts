@@ -165,7 +165,7 @@ describe('Auth Routes', () => {
 
     it('should login successfully with valid credentials', async () => {
       const mockResult = {
-        user: { id: 1, fullname: 'Test User', email: 'test@example.com', isAdmin: false, isInstructor: false, language: null },
+        user: { id: 1, fullname: 'Test User', email: 'test@example.com', isAdmin: false, isInstructor: false, avatarUrl: null, language: null },
         token: 'mock_jwt_token',
       };
       vi.mocked(authService.login).mockResolvedValue(mockResult);

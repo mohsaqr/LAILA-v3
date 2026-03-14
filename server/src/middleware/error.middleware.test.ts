@@ -31,8 +31,8 @@ describe('Error Middleware', () => {
       socket: { remoteAddress: '127.0.0.1' } as any,
     };
     mockResponse = {
-      status: statusMock,
-      json: jsonMock,
+      status: statusMock as any,
+      json: jsonMock as any,
     };
     mockNext = vi.fn();
     vi.clearAllMocks();

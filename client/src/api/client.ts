@@ -64,9 +64,9 @@ apiClient.interceptors.response.use(
                    'An error occurred';
 
     const err = new Error(message) as Error & { details?: { field: string; message: string }[]; statusCode?: number };
-    if (error.response?.data?.details) {
-      err.details = error.response.data.details;
-      err.statusCode = error.response.status;
+    if ((error.response?.data as any)?.details) {
+      err.details = (error.response!.data as any).details;
+      err.statusCode = error.response!.status;
     }
     return Promise.reject(err);
   }

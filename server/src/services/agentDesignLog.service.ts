@@ -521,6 +521,7 @@ export class AgentDesignLogService {
     events: Array<{
       eventType: string;
       eventCategory: string;
+      timestamp: Date;
       totalDesignTime?: number | null;
       testConversationId?: number | null;
       roleSelected?: string | null;

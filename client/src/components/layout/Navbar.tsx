@@ -25,7 +25,7 @@ import { resolveFileUrl } from '../../api/client';
 
 export const Navbar = () => {
   const { t } = useTranslation(['navigation', 'common']);
-  const { user, isAuthenticated, isAdmin, isInstructor, isActualAdmin, isActualInstructor, viewAsRole, setViewAs, isViewingAs, logout } = useAuth();
+  const { user, isAuthenticated, isAdmin, isActualAdmin, isActualInstructor, viewAsRole, setViewAs, isViewingAs, logout } = useAuth();
   const { isDark } = useTheme();
   const { language: currentLanguage, setLanguage } = useLanguageStore();
   const location = useLocation();

@@ -1,7 +1,19 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { LLMService } from './llm.service.js';
 import { AppError } from '../middleware/error.middleware.js';
-import { LLMError, ProviderParameterSupport } from '../types/llm.types.js';
+import { LLMError } from '../types/llm.types.js';
+
+// Define locally since it was removed from llm.types
+interface ProviderParameterSupport {
+  temperature: boolean;
+  maxTokens: boolean;
+  topP: boolean;
+  topK: boolean;
+  frequencyPenalty: boolean;
+  presencePenalty: boolean;
+  repeatPenalty: boolean;
+  stop: boolean;
+}
 
 // Store original getParameterSupport for controlled mocking
 let mockGetParameterSupport: ((providerName: string, model?: string) => ProviderParameterSupport) | null = null;

@@ -38,7 +38,7 @@ import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { useTheme } from '../../hooks/useTheme';
-import { useAuth } from '../../hooks/useAuth';
+
 import apiClient, { resolveFileUrl } from '../../api/client';
 import { getAuthToken } from '../../utils/auth';
 import { courseTutorApi } from '../../api/courseTutor';
@@ -206,7 +206,6 @@ export const AIBuilder = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { isDark } = useTheme();
-  const { isAdmin } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [showForm, setShowForm] = useState(false);
 
