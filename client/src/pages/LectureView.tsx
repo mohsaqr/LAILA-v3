@@ -12,7 +12,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
-// import { LectureAIHelper } from '../components/lecture';
+import { LectureAIHelper } from '../components/lecture';
 import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStudent';
 import { AssignmentSectionStudent } from '../components/course/AssignmentSectionStudent';
 import { marked } from 'marked';
