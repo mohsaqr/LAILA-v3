@@ -74,7 +74,7 @@ export const LecturePracticeMode = ({ lectureId, lectureTitle: _lectureTitle, on
       toast.success(t('practice_quiz_ready'));
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || t('failed_generate_practice'));
+      toast.error(error.message || t('failed_generate_practice'));
     },
   });
 
