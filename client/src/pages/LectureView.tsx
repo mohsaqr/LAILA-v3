@@ -400,7 +400,7 @@ export const LectureView = () => {
           </CardBody>
         </Card>
 
-        {/* AI Study Helper — temporarily disabled
+        {/* AI Study Helper */}
         <div className="mt-6">
           <LectureAIHelper
             lectureId={parseInt(lectureId!)}
@@ -408,7 +408,6 @@ export const LectureView = () => {
             courseId={parseInt(courseId!)}
           />
         </div>
-        */}
 
         {/* Navigation buttons */}
         <div className="mt-6 flex items-center justify-between">
