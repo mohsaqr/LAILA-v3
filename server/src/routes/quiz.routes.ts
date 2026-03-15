@@ -5,6 +5,7 @@ import { mcqGenerationService } from '../services/mcqGeneration.service.js';
 import { authenticateToken, requireInstructor, requireAdmin } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import { z } from 'zod';
+import { courseRoleService } from '../services/courseRole.service.js';
 
 const router = Router();
 
@@ -122,9 +123,12 @@ router.get('/:quizId', authenticateToken, asyncHandler(async (req, res) => {
   // First get quiz without answers to check ownership
   const quizBasic = await quizService.getQuizById(quizId, user.id, false);
 
-  // Only course owner or admin can see correct answers
+  // Course owner, admin, or team members can see correct answers
   const isCourseOwner = quizBasic.course?.instructorId === user.id;
-  const includeAnswers = user.isAdmin || isCourseOwner;
+  const isTeam = !isCourseOwner && !user.isAdmin && quizBasic.course?.id
+    ? await courseRoleService.isTeamMember(user.id, quizBasic.course.id)
+    : false;
+  const includeAnswers = user.isAdmin || isCourseOwner || isTeam;
 
   // If answers needed, refetch with answers
   const quiz = includeAnswers
@@ -218,10 +222,11 @@ router.post('/:quizId/generate', authenticateToken, requireInstructor, asyncHand
   const user = (req as any).user;
   const data = generateMCQSchema.parse(req.body);
 
-  // Verify quiz ownership
+  // Verify quiz ownership or team membership
   const quiz = await quizService.getQuizById(quizId, user.id, true);
   if (quiz.course?.instructorId !== user.id && !user.isAdmin) {
-    return res.status(403).json({ success: false, error: 'Not authorized' });
+    const isTeamGen = quiz.course?.id ? await courseRoleService.isTeamMember(user.id, quiz.course.id) : false;
+    if (!isTeamGen) return res.status(403).json({ success: false, error: 'Not authorized' });
   }
 
   const result = await mcqGenerationService.generateQuestions(data);

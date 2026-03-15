@@ -121,9 +121,10 @@ export const CourseDetails = () => {
   }
 
   const isEnrolled = (course as any).enrolled;
+  const isTeamMember = (course as any)?.isTeamMember;
   const isCourseInstructor = user?.id === course.instructorId;
-  const showInstructorControls = isCourseInstructor && isUserInstructor;
-  const hasAccess = isEnrolled || isActualAdmin || isActualInstructor;
+  const showInstructorControls = (isCourseInstructor || isTeamMember) && isUserInstructor;
+  const hasAccess = isEnrolled || isActualAdmin || isActualInstructor || isTeamMember;
   const totalLectures = course.modules?.reduce((sum, m) => sum + (m.lectures?.length || 0), 0) || 0;
 
   // Get the view mode from course settings, default to 'mini-cards'

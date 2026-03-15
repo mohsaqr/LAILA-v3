@@ -2,6 +2,7 @@ import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { CreateLectureInput, UpdateLectureInput } from '../utils/validation.js';
 import { activityLogService } from './activityLog.service.js';
+import { courseRoleService } from './courseRole.service.js';
 
 export class LectureService {
   private async verifyModuleOwnership(moduleId: number, instructorId: number, isAdmin = false) {
@@ -15,7 +16,10 @@ export class LectureService {
     }
 
     if (module.course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, module.course.id);
+      if (!isTeam) {
+        throw new AppError('Not authorized', 403);
+      }
     }
 
     return module;
@@ -57,29 +61,33 @@ export class LectureService {
     // Check if user has access
     const isCourseInstructor = module.course.instructorId === userId;
 
+    let isTeamMember = false;
     if (!isAdmin && !isCourseInstructor) {
-      // Check enrollment for students
-      const enrollment = await prisma.enrollment.findUnique({
-        where: {
-          userId_courseId: {
-            userId,
-            courseId: module.course.id,
+      isTeamMember = await courseRoleService.isTeamMember(userId, module.course.id);
+      if (!isTeamMember) {
+        // Check enrollment for students
+        const enrollment = await prisma.enrollment.findUnique({
+          where: {
+            userId_courseId: {
+              userId,
+              courseId: module.course.id,
+            },
           },
-        },
-      });
+        });
 
-      if (!enrollment) {
-        throw new AppError('You must be enrolled to access this content', 403);
-      }
+        if (!enrollment) {
+          throw new AppError('You must be enrolled to access this content', 403);
+        }
 
-      // If course is unpublished and user is just a student, deny access
-      if (module.course.status !== 'published') {
-        throw new AppError('Course content is not available', 403);
+        // If course is unpublished and user is just a student, deny access
+        if (module.course.status !== 'published') {
+          throw new AppError('Course content is not available', 403);
+        }
       }
     }
 
-    // Return lectures - instructors and admins see all, students see published only
-    const showUnpublished = isAdmin || isCourseInstructor;
+    // Return lectures - instructors, admins, and team members see all, students see published only
+    const showUnpublished = isAdmin || isCourseInstructor || isTeamMember;
 
     const lectures = await prisma.lecture.findMany({
       where: {
@@ -98,7 +106,7 @@ export class LectureService {
     return lectures;
   }
 
-  async getLectureById(lectureId: number, userId?: number) {
+  async getLectureById(lectureId: number, userId?: number, isAdmin = false) {
     const lecture = await prisma.lecture.findUnique({
       where: { id: lectureId },
       include: {
@@ -125,21 +133,26 @@ export class LectureService {
       throw new AppError('Lecture not found', 404);
     }
 
-    // Check if user has access (enrolled or free lecture or instructor)
-    if (userId && !lecture.isFree) {
-      const enrollment = await prisma.enrollment.findUnique({
-        where: {
-          userId_courseId: {
-            userId,
-            courseId: lecture.module.course.id,
-          },
-        },
-      });
-
+    // Check if user has access (admin, instructor, enrolled, or free lecture)
+    if (userId && !lecture.isFree && !isAdmin) {
       const isInstructor = lecture.module.course.instructorId === userId;
 
-      if (!enrollment && !isInstructor) {
-        throw new AppError('You must be enrolled to access this lecture', 403);
+      if (!isInstructor) {
+        const isTeam = await courseRoleService.isTeamMember(userId, lecture.module.course.id);
+        if (!isTeam) {
+          const enrollment = await prisma.enrollment.findUnique({
+            where: {
+              userId_courseId: {
+                userId,
+                courseId: lecture.module.course.id,
+              },
+            },
+          });
+
+          if (!enrollment) {
+            throw new AppError('You must be enrolled to access this lecture', 403);
+          }
+        }
       }
     }
 
@@ -202,7 +215,10 @@ export class LectureService {
     }
 
     if (lecture.module.course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, lecture.module.course.id);
+      if (!isTeam) {
+        throw new AppError('Not authorized', 403);
+      }
     }
 
     const updated = await prisma.lecture.update({
@@ -234,7 +250,10 @@ export class LectureService {
     }
 
     if (lecture.module.course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, lecture.module.course.id);
+      if (!isTeam) {
+        throw new AppError('Not authorized', 403);
+      }
     }
 
     await prisma.lecture.delete({
@@ -279,7 +298,10 @@ export class LectureService {
     }
 
     if (lecture.module.course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, lecture.module.course.id);
+      if (!isTeam) {
+        throw new AppError('Not authorized', 403);
+      }
     }
 
     const attachment = await prisma.lectureAttachment.create({
@@ -311,7 +333,10 @@ export class LectureService {
     }
 
     if (attachment.lecture.module.course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, attachment.lecture.module.course.id);
+      if (!isTeam) {
+        throw new AppError('Not authorized', 403);
+      }
     }
 
     await prisma.lectureAttachment.delete({

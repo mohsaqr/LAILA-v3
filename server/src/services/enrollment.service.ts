@@ -3,6 +3,7 @@ import { AppError } from '../middleware/error.middleware.js';
 import { learningAnalyticsService } from './learningAnalytics.service.js';
 import { emailService } from './email.service.js';
 import { enrollmentLogger } from '../utils/logger.js';
+import { courseRoleService } from './courseRole.service.js';
 
 // Context for event logging
 export interface EventContext {
@@ -54,12 +55,17 @@ export class EnrollmentService {
     }
 
     if (user?.isInstructor) {
-      // Instructors only see courses they own as virtual enrollments
+      // Instructors see courses they own + courses where they have a team role
+      const teamRoles = await prisma.courseRole.findMany({
+        where: { userId },
+        select: { courseId: true },
+      });
+      const teamCourseIds = teamRoles.map(r => r.courseId);
+
       const courses = await prisma.course.findMany({
-        where: {
-          instructorId: userId,
-          // Include both published and draft courses for the instructor
-        },
+        where: teamCourseIds.length > 0
+          ? { OR: [{ instructorId: userId }, { id: { in: teamCourseIds } }] }
+          : { instructorId: userId },
         include: {
           instructor: {
             select: { id: true, fullname: true },
@@ -164,21 +170,24 @@ export class EnrollmentService {
       };
     }
 
-    // Instructors can only access courses they own
-    if (user?.isInstructor && course.instructorId === userId) {
-      return {
-        id: -course.id,
-        userId,
-        courseId: course.id,
-        status: 'active' as const,
-        progress: 0,
-        enrolledAt: course.createdAt,
-        completedAt: null,
-        lastAccessAt: new Date(),
-        isVirtualEnrollment: true,
-        course,
-        lectureProgress: [],
-      };
+    // Instructors can access courses they own or where they have a team role
+    if (user?.isInstructor) {
+      const isOwnerOrTeam = course.instructorId === userId || await courseRoleService.isTeamMember(userId, courseId);
+      if (isOwnerOrTeam) {
+        return {
+          id: -course.id,
+          userId,
+          courseId: course.id,
+          status: 'active' as const,
+          progress: 0,
+          enrolledAt: course.createdAt,
+          completedAt: null,
+          lastAccessAt: new Date(),
+          isVirtualEnrollment: true,
+          course,
+          lectureProgress: [],
+        };
+      }
     }
 
     // Regular users need actual enrollment

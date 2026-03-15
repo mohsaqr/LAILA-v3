@@ -27,10 +27,10 @@ export const RequireEnrollment = ({
   // Get courseId from URL params or query string
   const courseId = params[courseIdParam] || searchParams.get('courseId');
 
-  // Admins and instructors bypass enrollment check
+  // Admins and global instructors bypass enrollment check
   const shouldCheck = !!courseId && !isAdmin && !isInstructor;
 
-  // Use the course API which already includes enrollment status
+  // Use the course API which already includes enrollment status and team membership
   const { data: course, isLoading } = useQuery({
     queryKey: ['course', courseId],
     queryFn: () => coursesApi.getCourseById(parseInt(courseId!)),
@@ -39,7 +39,7 @@ export const RequireEnrollment = ({
     retry: false,
   });
 
-  // Admins/instructors always pass
+  // Admins/global instructors always pass
   if (!shouldCheck) {
     return <>{children}</>;
   }
@@ -48,7 +48,12 @@ export const RequireEnrollment = ({
     return <Loading text={t('common:loading')} />;
   }
 
-  // If not enrolled, show forbidden page
+  // Course team members (instructor, TA, co-instructor, course admin) and enrolled students pass
+  if ((course as any)?.isTeamMember || (course as any)?.enrolled) {
+    return <>{children}</>;
+  }
+
+  // If not enrolled and not a team member, show forbidden page
   if (!(course as any)?.enrolled) {
     const colors = {
       bg: isDark ? '#111827' : '#f9fafb',

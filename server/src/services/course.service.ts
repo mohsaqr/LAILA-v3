@@ -4,6 +4,7 @@ import { AppError } from '../middleware/error.middleware.js';
 import { CreateCourseInput, UpdateCourseInput } from '../utils/validation.js';
 import { CourseFilters } from '../types/index.js';
 import { learningAnalyticsService } from './learningAnalytics.service.js';
+import { courseRoleService } from './courseRole.service.js';
 
 // Context for system event logging
 export interface SystemEventContext {
@@ -210,6 +211,10 @@ export class CourseService {
     } else if (isInstructor && course.instructorId === userId) {
       // Instructors can only see unpublished content for their own courses
       includeUnpublished = true;
+    } else if (isInstructor && userId) {
+      // Team members (TA, co_instructor, course_admin) can see unpublished content
+      const isTeam = await courseRoleService.isTeamMember(userId, id);
+      if (isTeam) includeUnpublished = true;
     }
 
     // If course is unpublished and user doesn't have access, throw 404
@@ -318,7 +323,11 @@ export class CourseService {
     if (!result) throw new AppError('Course not found', 404);
 
     // Access check
-    const canSeeUnpublished = isAdmin || (isInstructor && result.instructorId === userId);
+    let canSeeUnpublished = isAdmin || (isInstructor && result.instructorId === userId);
+    if (!canSeeUnpublished && isInstructor) {
+      const isTeam = await courseRoleService.isTeamMember(userId, id);
+      if (isTeam) canSeeUnpublished = true;
+    }
     if (result.status !== 'published' && !canSeeUnpublished) {
       throw new AppError('Course not found', 404);
     }
@@ -410,6 +419,10 @@ export class CourseService {
     } else if (isInstructor && course.instructorId === userId) {
       // Instructors can only see unpublished content for their own courses
       includeUnpublished = true;
+    } else if (isInstructor && userId) {
+      // Team members (TA, co_instructor, course_admin) can see unpublished content
+      const isTeam = await courseRoleService.isTeamMember(userId, course.id);
+      if (isTeam) includeUnpublished = true;
     }
 
     // If course is unpublished and user doesn't have access, throw 404
@@ -509,7 +522,10 @@ export class CourseService {
     }
 
     if (course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized to update this course', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, courseId);
+      if (!isTeam) {
+        throw new AppError('Not authorized to update this course', 403);
+      }
     }
 
     // Store previous values for logging
@@ -574,7 +590,10 @@ export class CourseService {
     }
 
     if (course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized to delete this course', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, courseId);
+      if (!isTeam) {
+        throw new AppError('Not authorized to delete this course', 403);
+      }
     }
 
     await prisma.course.delete({
@@ -616,7 +635,10 @@ export class CourseService {
     }
 
     if (course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized to publish this course', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, courseId);
+      if (!isTeam) {
+        throw new AppError('Not authorized to publish this course', 403);
+      }
     }
 
     // Check if course has content
@@ -664,7 +686,10 @@ export class CourseService {
     }
 
     if (course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, courseId);
+      if (!isTeam) {
+        throw new AppError('Not authorized', 403);
+      }
     }
 
     const updated = await prisma.course.update({
@@ -694,8 +719,16 @@ export class CourseService {
   }
 
   async getInstructorCourses(instructorId: number, _isAdmin = false) {
-    // Always filter by instructorId — admins should only see their own courses on the teach dashboard
-    const where = { instructorId };
+    // Also include courses where the user has a team role (TA, co_instructor, course_admin)
+    const teamRoles = await prisma.courseRole.findMany({
+      where: { userId: instructorId },
+      select: { courseId: true },
+    });
+    const teamCourseIds = teamRoles.map(r => r.courseId);
+
+    const where = teamCourseIds.length > 0
+      ? { OR: [{ instructorId }, { id: { in: teamCourseIds } }] }
+      : { instructorId };
 
     const courses = await prisma.course.findMany({
       where,
@@ -723,7 +756,10 @@ export class CourseService {
     }
 
     if (course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, courseId);
+      if (!isTeam) {
+        throw new AppError('Not authorized', 403);
+      }
     }
 
     const enrollments = await prisma.enrollment.findMany({
@@ -761,7 +797,10 @@ export class CourseService {
     }
 
     if (course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized to update this course', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, courseId);
+      if (!isTeam) {
+        throw new AppError('Not authorized to update this course', 403);
+      }
     }
 
     // Store previous values for logging

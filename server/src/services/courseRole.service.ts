@@ -330,6 +330,15 @@ export class CourseRoleService {
     };
   }
 
+  // Check if user has any CourseRole for the course (TA, co_instructor, course_admin)
+  async isTeamMember(userId: number, courseId: number): Promise<boolean> {
+    const role = await prisma.courseRole.findUnique({
+      where: { userId_courseId: { userId, courseId } },
+      select: { id: true },
+    });
+    return !!role;
+  }
+
   // Check if user can manage course roles (instructor or admin)
   async canManageRoles(userId: number, courseId: number, isAdmin: boolean) {
     if (isAdmin) return true;
