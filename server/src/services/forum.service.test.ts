@@ -76,8 +76,8 @@ vi.mock('../utils/logger.js', () => ({
 import prisma from '../utils/prisma.js';
 import { chatService } from './chat.service.js';
 
-// Note: We need to import the class separately for testing since forumService is an instance
-const ForumServiceClass = (await import('./forum.service.js')).default;
+// forumService is imported as a named export via the mock
+import { forumService as forumServiceInstance } from './forum.service.js';
 
 describe('ForumService', () => {
   const mockCourse = {

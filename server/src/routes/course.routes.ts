@@ -67,31 +67,45 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: AuthRequest, res: Resp
     req.user?.isInstructor || false
   );
 
-  // Include enrollment status and tutors if user is authenticated
+  // Include enrollment status, team membership, and tutors if user is authenticated
   let enrolled = false;
+  let isTeamMember = false;
   let tutors: any[] = [];
   if (req.user?.id) {
+    // Check if user is course instructor or has a course role (TA, co-instructor, course admin)
+    if (course.instructorId === req.user.id) {
+      isTeamMember = true;
+    } else {
+      const courseRole = await prisma.courseRole.findUnique({
+        where: { userId_courseId: { userId: req.user.id, courseId: id } },
+        select: { id: true },
+      });
+      if (courseRole) isTeamMember = true;
+    }
+
     const enrollment = await prisma.enrollment.findUnique({
       where: { userId_courseId: { userId: req.user.id, courseId: id } },
       select: { id: true },
     });
     enrolled = !!enrollment;
 
-    // Load tutors for enrolled students
-    if (enrolled) {
+    // Load tutors for enrolled students, team members, admins, and instructors
+    if (enrolled || isTeamMember || req.user?.isAdmin || req.user?.isInstructor) {
       try {
-        tutors = await courseTutorService.getStudentTutors(id, req.user.id);
+        tutors = await courseTutorService.getStudentTutors(id, req.user.id, {
+          isAdmin: req.user?.isAdmin || req.user?.isInstructor,
+        });
       } catch {
         // Ignore errors (e.g., no tutors configured)
       }
     }
   }
 
-  // Hide activation code from students (only instructors/admins need it)
-  const isInstructorOrAdmin = req.user?.isAdmin || (req.user?.isInstructor && course.instructorId === req.user?.id);
+  // Hide activation code from students (only instructors/admins/team members need it)
+  const isInstructorOrAdmin = req.user?.isAdmin || (req.user?.isInstructor && course.instructorId === req.user?.id) || isTeamMember;
   const { activationCode, ...courseWithoutCode } = course as any;
 
-  res.json({ success: true, data: { ...(isInstructorOrAdmin ? course : courseWithoutCode), enrolled, tutors, hasActivationCode: !!activationCode } });
+  res.json({ success: true, data: { ...(isInstructorOrAdmin ? course : courseWithoutCode), enrolled, isTeamMember, tutors, hasActivationCode: !!activationCode } });
 }));
 
 // Get course by slug (requires auth to see unpublished courses)
@@ -215,7 +229,7 @@ router.get('/modules/:moduleId/lectures', authenticateToken, asyncHandler(async 
 // Get lecture by ID
 router.get('/lectures/:lectureId', optionalAuth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const lectureId = parseInt(req.params.lectureId);
-  const lecture = await lectureService.getLectureById(lectureId, req.user?.id);
+  const lecture = await lectureService.getLectureById(lectureId, req.user?.id, req.user?.isAdmin || false);
   res.json({ success: true, data: lecture });
 }));
 

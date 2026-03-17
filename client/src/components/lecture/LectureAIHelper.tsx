@@ -519,7 +519,7 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
           {/* Error display */}
           {chatMutation.isError && (
             <div className="px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm">
-              {t('failed_get_response')}
+              {(chatMutation.error as any)?.message || t('failed_get_response')}
             </div>
           )}
         </>

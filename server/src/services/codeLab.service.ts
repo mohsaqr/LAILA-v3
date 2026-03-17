@@ -1,5 +1,6 @@
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
+import { courseRoleService } from './courseRole.service.js';
 
 // Types for input data
 interface CreateCodeLabInput {
@@ -43,7 +44,10 @@ export class CodeLabService {
     }
 
     if (module.course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, module.course.id);
+      if (!isTeam) {
+        throw new AppError('Not authorized', 403);
+      }
     }
 
     return module;
@@ -67,7 +71,10 @@ export class CodeLabService {
     }
 
     if (codeLab.module.course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, codeLab.module.course.id);
+      if (!isTeam) {
+        throw new AppError('Not authorized', 403);
+      }
     }
 
     return codeLab;
@@ -95,7 +102,10 @@ export class CodeLabService {
     }
 
     if (block.codeLab.module.course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, block.codeLab.module.course.id);
+      if (!isTeam) {
+        throw new AppError('Not authorized', 403);
+      }
     }
 
     return block;
@@ -121,14 +131,17 @@ export class CodeLabService {
 
     // Check authorization: admins and instructors have access, students need enrollment
     if (userId && !isAdmin && !isInstructor) {
-      const enrollment = await prisma.enrollment.findUnique({
-        where: {
-          userId_courseId: { userId, courseId: module.course.id },
-        },
-      });
+      const isTeam = await courseRoleService.isTeamMember(userId, module.course.id);
+      if (!isTeam) {
+        const enrollment = await prisma.enrollment.findUnique({
+          where: {
+            userId_courseId: { userId, courseId: module.course.id },
+          },
+        });
 
-      if (!enrollment) {
-        throw new AppError('You must be enrolled in this course to view code labs', 403);
+        if (!enrollment) {
+          throw new AppError('You must be enrolled in this course to view code labs', 403);
+        }
       }
     }
 

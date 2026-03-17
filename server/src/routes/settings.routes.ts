@@ -107,7 +107,7 @@ router.get('/mcq-generation', asyncHandler(async (req: AuthRequest, res: Respons
 // Update MCQ generation settings
 router.put('/mcq-generation', asyncHandler(async (req: AuthRequest, res: Response) => {
   const data = mcqSettingsUpdateSchema.parse(req.body);
-  const settings = await mcqGenerationService.updateGenerationSettings(data);
+  const settings = await mcqGenerationService.updateGenerationSettings(data as any);
   res.json({ success: true, data: settings });
 }));
 

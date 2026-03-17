@@ -2,6 +2,7 @@ import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { chatService } from './chat.service.js';
 import { activityLogService } from './activityLog.service.js';
+import { courseRoleService } from './courseRole.service.js';
 
 // Types
 export interface CourseTutorData {
@@ -650,16 +651,30 @@ class CourseTutorService {
   /**
    * Get tutors available for a student in a course
    */
-  async getStudentTutors(courseId: number, userId: number): Promise<MergedTutorConfig[]> {
-    // Verify enrollment
-    const enrollment = await prisma.enrollment.findUnique({
-      where: {
-        userId_courseId: { userId, courseId },
-      },
-    });
+  async getStudentTutors(courseId: number, userId: number, options?: { isAdmin?: boolean }): Promise<MergedTutorConfig[]> {
+    // Admins bypass enrollment checks
+    if (!options?.isAdmin) {
+      // Verify enrollment, course instructor, or team membership
+      const course = await prisma.course.findUnique({
+        where: { id: courseId },
+        select: { instructorId: true },
+      });
+      const isCourseInstructor = course?.instructorId === userId;
 
-    if (!enrollment) {
-      throw new AppError('Not enrolled in this course', 403);
+      if (!isCourseInstructor) {
+        const enrollment = await prisma.enrollment.findUnique({
+          where: {
+            userId_courseId: { userId, courseId },
+          },
+        });
+
+        if (!enrollment) {
+          const isTeam = await courseRoleService.isTeamMember(userId, courseId);
+          if (!isTeam) {
+            throw new AppError('Not enrolled in this course', 403);
+          }
+        }
+      }
     }
 
     const tutors = await prisma.courseTutor.findMany({
@@ -775,15 +790,26 @@ class CourseTutorService {
       throw new AppError('Tutor not found or inactive', 404);
     }
 
-    // Verify enrollment
-    const enrollment = await prisma.enrollment.findUnique({
-      where: {
-        userId_courseId: { userId, courseId: tutor.courseId },
-      },
+    // Verify enrollment, course instructor, or team membership
+    const course = await prisma.course.findUnique({
+      where: { id: tutor.courseId },
+      select: { instructorId: true },
     });
+    const isTutorCourseInstructor = course?.instructorId === userId;
 
-    if (!enrollment) {
-      throw new AppError('Not enrolled in this course', 403);
+    if (!isTutorCourseInstructor) {
+      const enrollment = await prisma.enrollment.findUnique({
+        where: {
+          userId_courseId: { userId, courseId: tutor.courseId },
+        },
+      });
+
+      if (!enrollment) {
+        const isTeam = await courseRoleService.isTeamMember(userId, tutor.courseId);
+        if (!isTeam) {
+          throw new AppError('Not enrolled in this course', 403);
+        }
+      }
     }
 
     const conversation = await prisma.courseTutorConversation.create({

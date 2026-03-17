@@ -1,3 +1,26 @@
+### 2026-03-17 — Bug fixes
+
+- **Restrict team member assignment to instructors only**: The "Add Team Member" modal on `/teach/courses/{ID}/edit` previously showed all users (including students). Students cannot be team members. Fixed by: (1) adding `role` filter param to `GET /users` API and `userService.getUsers()`, (2) client `CourseRoleManager` now requests only instructors (`role=instructor`), (3) server-side validation in `courseRoleService.assignRole()` rejects non-instructor/non-admin users with 400 error.
+- **Allow instructors and team members to manage course roles**: The `GET /users` endpoint required admin — instructors couldn't fetch the user list for team assignment. Changed from `requireAdmin` to `requireInstructor`. Also updated `canManageRoles()` in `courseRole.service.ts` to allow team members with `manage_students` permission (previously only admins and the course owner instructor could manage roles).
+- **Filter course instructor, admins, and existing team members from Add Role list**: The "Add Team Member" dropdown now excludes: the course's main instructor (already has full access), admin users (already have full access), and users who already have a role in the course. `CourseRoleManager` receives `instructorId` prop from `CourseEdit`.
+  - `client/src/components/admin/CourseRoleManager.tsx`: Added `instructorId` prop, filter excludes `user.id === instructorId` and `user.isAdmin`
+  - `client/src/pages/teach/CourseEdit.tsx`: Passes `course.instructorId` to `CourseRoleManager`
+  - `server/src/services/user.service.ts`: Added optional `role` param (`instructor`/`admin`/`student`) to `getUsers()`
+  - `server/src/routes/user.routes.ts`: Passes `role` query param to service
+  - `client/src/api/users.ts`: Added `role` param to `getUsers()`
+  - `client/src/components/admin/CourseRoleManager.tsx`: Fetches only instructors for team member dropdown
+  - `server/src/services/courseRole.service.ts`: Added validation rejecting students in `assignRole()`
+  - Tests: 4 new in `user.service.test.ts`, new `courseRole.service.test.ts` (8 tests)
+
+### 2026-03-16 — Bug fixes
+
+- **Fix AI tutors invisible to admins and instructors**: Admins and non-owner instructors could not see AI tutor avatars on the course page (`/courses/:id`) because the `GET /courses/:id` route only loaded tutors for enrolled students and team members. Fixed by expanding the tutor-loading condition to include admins and instructors. Updated `courseTutor.service.getStudentTutors()` to accept `options.isAdmin` flag that bypasses enrollment checks. Removed redundant `GET /courses/:courseId/tutors` API call from `CollaborativeModule.tsx` — tutors are now passed as a prop from the course API response, eliminating a duplicate network request.
+  - `server/src/routes/course.routes.ts`: Expanded tutor-loading condition from `enrolled || isTeamMember` to include `isAdmin || isInstructor`
+  - `server/src/services/courseTutor.service.ts`: Added optional `options: { isAdmin?: boolean }` param to `getStudentTutors()` to skip enrollment checks
+  - `client/src/components/course/CollaborativeModule.tsx`: Removed `useQuery` call to `getStudentTutors`; accepts `tutors` prop instead
+  - `client/src/pages/CourseDetails.tsx`: Passes `tutors` from course API response to `CollaborativeModule`
+  - Tests: New `courseTutor.service.test.ts` (9 tests), 4 new route tests in `course.routes.test.ts`
+
 ### 2026-03-13 — Bug fixes #58–#66, auth security improvements
 
 - **#58 Quiz creation in CurriculumEditor**: Added full quiz creation modal with RichTextEditor for description/instructions, time limit, max attempts, passing score, and publish toggle. All modal sizes unified to `3xl`.

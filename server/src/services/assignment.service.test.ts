@@ -146,7 +146,7 @@ describe('AssignmentService', () => {
           where: { courseId: 1, isPublished: true },
         })
       );
-      expect(result[0].mySubmission).toBeDefined();
+      expect((result[0] as any).mySubmission).toBeDefined();
     });
 
     it('should throw error if student not enrolled', async () => {
@@ -768,7 +768,7 @@ describe('AssignmentService', () => {
         status: 'graded',
       } as any);
       vi.mocked(learningAnalyticsService.logAssessmentEvent).mockRejectedValue(new Error('Analytics failed'));
-      vi.mocked(learningAnalyticsService.logSystemEvent).mockResolvedValue(undefined);
+      vi.mocked(learningAnalyticsService.logSystemEvent).mockResolvedValue(undefined as any);
 
       const result = await assignmentService.gradeSubmission(1, 10, { grade: 85 });
 
@@ -783,7 +783,7 @@ describe('AssignmentService', () => {
         grade: 85,
         status: 'graded',
       } as any);
-      vi.mocked(learningAnalyticsService.logAssessmentEvent).mockResolvedValue(undefined);
+      vi.mocked(learningAnalyticsService.logAssessmentEvent).mockResolvedValue(undefined as any);
       vi.mocked(learningAnalyticsService.logSystemEvent).mockRejectedValue(new Error('System event failed'));
 
       const result = await assignmentService.gradeSubmission(1, 10, { grade: 85 });
@@ -800,8 +800,8 @@ describe('AssignmentService', () => {
         grade: 85,
         status: 'graded',
       } as any);
-      vi.mocked(learningAnalyticsService.logAssessmentEvent).mockResolvedValue(undefined);
-      vi.mocked(learningAnalyticsService.logSystemEvent).mockResolvedValue(undefined);
+      vi.mocked(learningAnalyticsService.logAssessmentEvent).mockResolvedValue(undefined as any);
+      vi.mocked(learningAnalyticsService.logSystemEvent).mockResolvedValue(undefined as any);
       vi.mocked(emailService.sendGradeNotification).mockRejectedValue(new Error('Email failed'));
 
       const result = await assignmentService.gradeSubmission(1, 10, { grade: 85 });

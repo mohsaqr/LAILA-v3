@@ -6,6 +6,7 @@ vi.mock('../utils/prisma.js', () => ({
   default: {
     tutorSession: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       count: vi.fn(),
@@ -103,7 +104,7 @@ describe('TutorService', () => {
         },
       ];
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue({
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue({
         ...mockSession,
         conversations: mockConversations,
       } as any);
@@ -113,8 +114,8 @@ describe('TutorService', () => {
 
       expect(result.session.id).toBe(1);
       expect(result.session.mode).toBe('manual');
-      expect(prisma.tutorSession.findUnique).toHaveBeenCalledWith({
-        where: { userId_courseId: { userId: 123, courseId: null } },
+      expect(prisma.tutorSession.findFirst).toHaveBeenCalledWith({
+        where: { userId: 123, courseId: null },
         include: expect.any(Object),
       });
     });
@@ -130,7 +131,7 @@ describe('TutorService', () => {
         conversations: [],
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.tutorSession.create).mockResolvedValue(mockNewSession as any);
       vi.mocked(prisma.chatbot.findMany).mockResolvedValue(mockAgents as any);
 
@@ -154,7 +155,7 @@ describe('TutorService', () => {
         conversations: [],
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.tutorSession.create).mockResolvedValue(mockNewSession as any);
       vi.mocked(prisma.chatbot.findMany).mockResolvedValue(mockAgents as any);
       vi.mocked(activityLogService.logActivity).mockRejectedValue(new Error('Log failed'));
@@ -168,38 +169,42 @@ describe('TutorService', () => {
 
   describe('updateMode', () => {
     it('should update session mode', async () => {
+      const mockExistingSession = { id: 1, userId: 123, mode: 'manual' };
       const mockUpdatedSession = {
         id: 1,
         userId: 123,
         mode: 'router',
       };
 
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockExistingSession as any);
       vi.mocked(prisma.tutorSession.update).mockResolvedValue(mockUpdatedSession as any);
 
       const result = await tutorService.updateMode(123, 'router');
 
       expect(result.mode).toBe('router');
       expect(prisma.tutorSession.update).toHaveBeenCalledWith({
-        where: { userId_courseId: { userId: 123, courseId: null } },
+        where: { id: 1 },
         data: { mode: 'router' },
       });
     });
 
     it('should throw error if session not found', async () => {
-      vi.mocked(prisma.tutorSession.update).mockRejectedValue(new Error('Record not found'));
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(null);
 
-      await expect(tutorService.updateMode(999, 'router')).rejects.toThrow();
+      await expect(tutorService.updateMode(999, 'router')).rejects.toThrow('Session not found');
     });
 
     it('should still update mode when activity logging fails', async () => {
       const { activityLogService } = await import('./activityLog.service.js');
 
+      const mockExistingSession = { id: 1, userId: 123, mode: 'manual' };
       const mockUpdatedSession = {
         id: 1,
         userId: 123,
         mode: 'collaborative',
       };
 
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockExistingSession as any);
       vi.mocked(prisma.tutorSession.update).mockResolvedValue(mockUpdatedSession as any);
       vi.mocked(activityLogService.logActivity).mockRejectedValue(new Error('Log failed'));
 
@@ -239,7 +244,7 @@ describe('TutorService', () => {
         chatbot: { name: 'test-agent', displayName: 'Test Agent' },
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(mockConversation as any);
       vi.mocked(prisma.tutorMessage.deleteMany).mockResolvedValue({ count: 5 });
       vi.mocked(prisma.tutorConversation.update).mockResolvedValue({} as any);
@@ -257,7 +262,7 @@ describe('TutorService', () => {
     });
 
     it('should throw error if session not found', async () => {
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(null);
 
       await expect(tutorService.clearConversation(999, 1)).rejects.toThrow('Session not found');
     });
@@ -273,7 +278,7 @@ describe('TutorService', () => {
         chatbot: { name: 'test-agent', displayName: 'Test Agent' },
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(mockConversation as any);
       vi.mocked(prisma.tutorMessage.deleteMany).mockResolvedValue({ count: 5 });
       vi.mocked(prisma.tutorConversation.update).mockResolvedValue({} as any);
@@ -415,9 +420,11 @@ describe('TutorService', () => {
   describe('setActiveAgent', () => {
     it('should set active agent when chatbot exists and is active', async () => {
       const mockChatbot = { id: 5, name: 'helper-tutor', displayName: 'Helpful Guide', isActive: true, personality: 'helpful' };
+      const mockExistingSession = { id: 1, userId: 123, mode: 'manual' };
       const mockSession = { id: 1, userId: 123, mode: 'manual', activeAgentId: 5, createdAt: new Date(), updatedAt: new Date() };
 
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockChatbot as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockExistingSession as any);
       vi.mocked(prisma.tutorSession.update).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.tutorInteractionLog.create).mockResolvedValue({} as any);
 
@@ -426,7 +433,7 @@ describe('TutorService', () => {
       expect(result.activeAgentId).toBe(5);
       expect(prisma.chatbot.findUnique).toHaveBeenCalledWith({ where: { id: 5 } });
       expect(prisma.tutorSession.update).toHaveBeenCalledWith({
-        where: { userId_courseId: { userId: 123, courseId: null } },
+        where: { id: 1 },
         data: { activeAgentId: 5 },
       });
     });
@@ -447,9 +454,11 @@ describe('TutorService', () => {
       const { activityLogService } = await import('./activityLog.service.js');
 
       const mockChatbot = { id: 5, name: 'helper-tutor', displayName: 'Helpful Guide', isActive: true, personality: 'helpful' };
+      const mockExistingSession = { id: 1, userId: 123, mode: 'manual' };
       const mockSession = { id: 1, userId: 123, mode: 'manual', activeAgentId: 5, createdAt: new Date(), updatedAt: new Date() };
 
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockChatbot as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockExistingSession as any);
       vi.mocked(prisma.tutorSession.update).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.tutorInteractionLog.create).mockResolvedValue({} as any);
       vi.mocked(activityLogService.logActivity).mockRejectedValue(new Error('Log failed'));
@@ -466,7 +475,7 @@ describe('TutorService', () => {
 
   describe('getConversations', () => {
     it('should return empty array if no session', async () => {
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(null);
 
       const result = await tutorService.getConversations(123);
 
@@ -488,7 +497,7 @@ describe('TutorService', () => {
         },
       ];
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.tutorConversation.findMany).mockResolvedValue(mockConversations as any);
 
       const result = await tutorService.getConversations(123);
@@ -513,7 +522,7 @@ describe('TutorService', () => {
         },
       ];
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.tutorConversation.findMany).mockResolvedValue(mockConversations as any);
 
       const result = await tutorService.getConversations(123);
@@ -528,7 +537,7 @@ describe('TutorService', () => {
 
   describe('getOrCreateConversation', () => {
     it('should throw 404 if session not found', async () => {
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(null);
 
       await expect(tutorService.getOrCreateConversation(123, 5)).rejects.toThrow('Session not found');
     });
@@ -548,7 +557,7 @@ describe('TutorService', () => {
         ],
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(mockConversation as any);
 
       const result = await tutorService.getOrCreateConversation(123, 5);
@@ -570,7 +579,7 @@ describe('TutorService', () => {
         messages: [],
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(null);
       vi.mocked(prisma.tutorConversation.create).mockResolvedValue(mockNewConversation as any);
 
@@ -647,20 +656,20 @@ describe('TutorService', () => {
     };
 
     it('should throw 404 if session not found', async () => {
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(null);
 
       await expect(tutorService.sendMessage(123, 5, 'Hello')).rejects.toThrow('Session not found');
     });
 
     it('should throw 404 if chatbot not found', async () => {
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue({ id: 1, userId: 123, mode: 'manual' } as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue({ id: 1, userId: 123, mode: 'manual' } as any);
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(null);
 
       await expect(tutorService.sendMessage(123, 5, 'Hello')).rejects.toThrow('Agent not found or inactive');
     });
 
     it('should throw 404 if chatbot is inactive', async () => {
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue({ id: 1, userId: 123, mode: 'manual' } as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue({ id: 1, userId: 123, mode: 'manual' } as any);
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue({ id: 5, isActive: false } as any);
 
       await expect(tutorService.sendMessage(123, 5, 'Hello')).rejects.toThrow('Agent not found or inactive');
@@ -690,7 +699,7 @@ describe('TutorService', () => {
         createdAt: new Date(),
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockChatbot as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(mockConversation as any);
       vi.mocked(prisma.tutorMessage.create)
@@ -698,7 +707,7 @@ describe('TutorService', () => {
         .mockResolvedValueOnce(mockAssistantMsg as any);
       vi.mocked(prisma.tutorConversation.update).mockResolvedValue({} as any);
       vi.mocked(prisma.tutorInteractionLog.create).mockResolvedValue({} as any);
-      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Hi there!', model: 'gpt-4o-mini' });
+      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Hi there!', model: 'gpt-4o-mini' } as any);
 
       const result = await tutorService.sendMessage(123, 5, 'Hello');
 
@@ -722,7 +731,7 @@ describe('TutorService', () => {
         aiProvider: 'openai', responseTimeMs: 500, temperature: 0.7, createdAt: new Date(),
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockChatbot as any);
       vi.mocked(prisma.chatbot.findMany).mockResolvedValue(mockAgents as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(mockConversation as any);
@@ -732,7 +741,7 @@ describe('TutorService', () => {
       vi.mocked(prisma.tutorMessage.update).mockResolvedValue({} as any);
       vi.mocked(prisma.tutorConversation.update).mockResolvedValue({} as any);
       vi.mocked(prisma.tutorInteractionLog.create).mockResolvedValue({} as any);
-      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Let me help!', model: 'gpt-4o-mini' });
+      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Let me help!', model: 'gpt-4o-mini' } as any);
 
       const result = await tutorService.sendMessage(123, 5, 'How do I code?');
 
@@ -755,7 +764,7 @@ describe('TutorService', () => {
         aiProvider: 'openai', responseTimeMs: 500, temperature: 0.7, createdAt: new Date(),
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockChatbot as any);
       vi.mocked(prisma.chatbot.findMany).mockResolvedValue(mockAgents as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(mockConversation as any);
@@ -764,7 +773,7 @@ describe('TutorService', () => {
         .mockResolvedValueOnce(mockAssistantMsg as any);
       vi.mocked(prisma.tutorConversation.update).mockResolvedValue({} as any);
       vi.mocked(prisma.tutorInteractionLog.create).mockResolvedValue({} as any);
-      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Hi!', model: 'gpt-4o-mini' });
+      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Hi!', model: 'gpt-4o-mini' } as any);
 
       const result = await tutorService.sendMessage(123, 5, 'Hello');
 
@@ -779,7 +788,7 @@ describe('TutorService', () => {
         id: 10, sessionId: 1, chatbotId: 5, lastMessageAt: null, messageCount: 0, createdAt: new Date(), messages: [],
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockChatbot as any);
       vi.mocked(prisma.chatbot.findMany).mockResolvedValue([]);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(mockConversation as any);
@@ -794,7 +803,7 @@ describe('TutorService', () => {
       };
       const mockUserMsg = { id: 100, conversationId: 10, role: 'user', content: 'Hello', createdAt: new Date() };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockChatbot as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(mockConversation as any);
       vi.mocked(prisma.tutorMessage.create).mockResolvedValue(mockUserMsg as any);
@@ -952,7 +961,7 @@ describe('TutorService', () => {
     it('should throw 404 when conversation not found', async () => {
       const mockSession = { id: 1, userId: 123 };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(null);
 
       await expect(tutorService.clearConversation(123, 999)).rejects.toThrow('Conversation not found');
@@ -1071,7 +1080,7 @@ describe('TutorService', () => {
         aiProvider: 'openai', responseTimeMs: 500, createdAt: new Date(), synthesizedFrom: '{}',
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockChatbot as any);
       vi.mocked(prisma.chatbot.findMany).mockResolvedValue(mockAgents as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(mockConversation as any);
@@ -1080,7 +1089,7 @@ describe('TutorService', () => {
         .mockResolvedValueOnce(mockAssistantMsg as any);
       vi.mocked(prisma.tutorConversation.update).mockResolvedValue({} as any);
       vi.mocked(prisma.tutorInteractionLog.create).mockResolvedValue({} as any);
-      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'I can help!', model: 'gpt-4o-mini' });
+      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'I can help!', model: 'gpt-4o-mini' } as any);
 
       const result = await tutorService.sendMessage(123, 5, 'Hello', undefined, { style: 'parallel', maxAgents: 2 });
 
@@ -1094,7 +1103,7 @@ describe('TutorService', () => {
         id: 10, sessionId: 1, chatbotId: 5, lastMessageAt: null, messageCount: 0, createdAt: new Date(), messages: [],
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockChatbot as any);
       vi.mocked(prisma.chatbot.findMany).mockResolvedValue([]);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(mockConversation as any);
@@ -1117,7 +1126,7 @@ describe('TutorService', () => {
         { id: 3, name: 'beatrice-peer', displayName: 'Beatrice', isActive: true, category: 'tutor', systemPrompt: 'You are Beatrice.', temperature: 0.7 },
       ];
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockChatbot as any);
       vi.mocked(prisma.chatbot.findMany).mockResolvedValue(agentsWithBeatrice as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(mockConversation as any);
@@ -1126,7 +1135,7 @@ describe('TutorService', () => {
         .mockResolvedValueOnce(mockAssistantMsg as any);
       vi.mocked(prisma.tutorConversation.update).mockResolvedValue({} as any);
       vi.mocked(prisma.tutorInteractionLog.create).mockResolvedValue({} as any);
-      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'I can help!', model: 'gpt-4o-mini' });
+      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'I can help!', model: 'gpt-4o-mini' } as any);
 
       const result = await tutorService.sendMessage(123, 5, '@beatrice help me');
 
@@ -1145,7 +1154,7 @@ describe('TutorService', () => {
         aiProvider: 'openai', responseTimeMs: 500, createdAt: new Date(), synthesizedFrom: '{}',
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockChatbot as any);
       vi.mocked(prisma.chatbot.findMany).mockResolvedValue(mockAgents as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(mockConversation as any);
@@ -1154,7 +1163,7 @@ describe('TutorService', () => {
         .mockResolvedValueOnce(mockAssistantMsg as any);
       vi.mocked(prisma.tutorConversation.update).mockResolvedValue({} as any);
       vi.mocked(prisma.tutorInteractionLog.create).mockResolvedValue({} as any);
-      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Sequential response', model: 'gpt-4o-mini' });
+      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Sequential response', model: 'gpt-4o-mini' } as any);
 
       const result = await tutorService.sendMessage(123, 5, 'Hello', undefined, { style: 'sequential', maxAgents: 2 });
 
@@ -1172,7 +1181,7 @@ describe('TutorService', () => {
         aiProvider: 'openai', responseTimeMs: 500, createdAt: new Date(), synthesizedFrom: '{}',
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockChatbot as any);
       vi.mocked(prisma.chatbot.findMany).mockResolvedValue(mockAgents as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(mockConversation as any);
@@ -1181,7 +1190,7 @@ describe('TutorService', () => {
         .mockResolvedValueOnce(mockAssistantMsg as any);
       vi.mocked(prisma.tutorConversation.update).mockResolvedValue({} as any);
       vi.mocked(prisma.tutorInteractionLog.create).mockResolvedValue({} as any);
-      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Debate response', model: 'gpt-4o-mini' });
+      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Debate response', model: 'gpt-4o-mini' } as any);
 
       const result = await tutorService.sendMessage(123, 5, 'Hello', undefined, { style: 'debate', maxAgents: 2 });
 
@@ -1200,7 +1209,7 @@ describe('TutorService', () => {
         aiProvider: 'openai', responseTimeMs: 500, createdAt: new Date(), synthesizedFrom: '{}',
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockChatbot as any);
       vi.mocked(prisma.chatbot.findMany).mockResolvedValue(mockAgents as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(mockConversation as any);
@@ -1209,7 +1218,7 @@ describe('TutorService', () => {
         .mockResolvedValueOnce(mockAssistantMsg as any);
       vi.mocked(prisma.tutorConversation.update).mockResolvedValue({} as any);
       vi.mocked(prisma.tutorInteractionLog.create).mockResolvedValue({} as any);
-      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Random response', model: 'gpt-4o-mini' });
+      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Random response', model: 'gpt-4o-mini' } as any);
 
       const result = await tutorService.sendMessage(123, 5, 'Hello', undefined, { style: 'random' });
 
@@ -1227,7 +1236,7 @@ describe('TutorService', () => {
         aiProvider: 'openai', responseTimeMs: 500, createdAt: new Date(), synthesizedFrom: '{}',
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockChatbot as any);
       vi.mocked(prisma.chatbot.findMany).mockResolvedValue(mockAgents as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(mockConversation as any);
@@ -1236,9 +1245,9 @@ describe('TutorService', () => {
         .mockResolvedValueOnce(mockAssistantMsg as any);
       vi.mocked(prisma.tutorConversation.update).mockResolvedValue({} as any);
       vi.mocked(prisma.tutorInteractionLog.create).mockResolvedValue({} as any);
-      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Selected response', model: 'gpt-4o-mini' });
+      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Selected response', model: 'gpt-4o-mini' } as any);
 
-      const result = await tutorService.sendMessage(123, 5, 'Hello', undefined, { selectedAgentIds: [1, 5] });
+      const result = await tutorService.sendMessage(123, 5, 'Hello', undefined, { selectedAgentIds: [1, 5] } as any);
 
       expect(result.collaborativeInfo).toBeDefined();
     });
@@ -1289,7 +1298,7 @@ describe('TutorService', () => {
         aiProvider: 'openai', responseTimeMs: 500, temperature: 0.7, createdAt: new Date(),
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockChatbotWithRules as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(mockConversation as any);
       vi.mocked(prisma.tutorMessage.create)
@@ -1297,7 +1306,7 @@ describe('TutorService', () => {
         .mockResolvedValueOnce(mockAssistantMsg as any);
       vi.mocked(prisma.tutorConversation.update).mockResolvedValue({} as any);
       vi.mocked(prisma.tutorInteractionLog.create).mockResolvedValue({} as any);
-      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Hi there!', model: 'gpt-4o-mini' });
+      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Hi there!', model: 'gpt-4o-mini' } as any);
 
       const result = await tutorService.sendMessage(123, 5, 'Hello');
 
@@ -1326,7 +1335,7 @@ describe('TutorService', () => {
         aiProvider: 'openai', responseTimeMs: 500, temperature: 0.7, createdAt: new Date(),
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockChatbotBadDos as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(mockConversation as any);
       vi.mocked(prisma.tutorMessage.create)
@@ -1334,7 +1343,7 @@ describe('TutorService', () => {
         .mockResolvedValueOnce(mockAssistantMsg as any);
       vi.mocked(prisma.tutorConversation.update).mockResolvedValue({} as any);
       vi.mocked(prisma.tutorInteractionLog.create).mockResolvedValue({} as any);
-      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Hi!', model: 'gpt-4o-mini' });
+      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Hi!', model: 'gpt-4o-mini' } as any);
 
       // Should not throw, should just skip the invalid rules
       const result = await tutorService.sendMessage(123, 5, 'Hello');
@@ -1357,7 +1366,7 @@ describe('TutorService', () => {
         aiProvider: 'openai', responseTimeMs: 500, temperature: 0.7, createdAt: new Date(),
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockChatbotBadDonts as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(mockConversation as any);
       vi.mocked(prisma.tutorMessage.create)
@@ -1365,7 +1374,7 @@ describe('TutorService', () => {
         .mockResolvedValueOnce(mockAssistantMsg as any);
       vi.mocked(prisma.tutorConversation.update).mockResolvedValue({} as any);
       vi.mocked(prisma.tutorInteractionLog.create).mockResolvedValue({} as any);
-      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Hi!', model: 'gpt-4o-mini' });
+      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Hi!', model: 'gpt-4o-mini' } as any);
 
       // Should not throw
       const result = await tutorService.sendMessage(123, 5, 'Hello');
@@ -1388,7 +1397,7 @@ describe('TutorService', () => {
         aiProvider: 'openai', responseTimeMs: 500, temperature: 0.7, createdAt: new Date(),
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockChatbotEmptyRules as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(mockConversation as any);
       vi.mocked(prisma.tutorMessage.create)
@@ -1396,7 +1405,7 @@ describe('TutorService', () => {
         .mockResolvedValueOnce(mockAssistantMsg as any);
       vi.mocked(prisma.tutorConversation.update).mockResolvedValue({} as any);
       vi.mocked(prisma.tutorInteractionLog.create).mockResolvedValue({} as any);
-      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Hi!', model: 'gpt-4o-mini' });
+      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Hi!', model: 'gpt-4o-mini' } as any);
 
       const result = await tutorService.sendMessage(123, 5, 'Hello');
       // Empty arrays should be skipped
@@ -1420,7 +1429,7 @@ describe('TutorService', () => {
       vi.mocked(chatService.chat).mockResolvedValue({
         reply: '{"selectedAgent": "socratic-tutor", "reason": "Question requires exploration", "confidence": 0.9, "scores": {"socratic-tutor": 0.9, "helper-tutor": 0.5}}',
         model: 'gpt-4o-mini',
-      });
+      } as any);
 
       const result = await (tutorService as any).analyzeWithAI('Why does gravity work?', mockAgents);
 
@@ -1434,7 +1443,7 @@ describe('TutorService', () => {
       vi.mocked(chatService.chat).mockResolvedValue({
         reply: '```json\n{"selectedAgent": "helper-tutor", "reason": "Needs direct help", "confidence": 0.85}\n```',
         model: 'gpt-4o-mini',
-      });
+      } as any);
 
       const result = await (tutorService as any).analyzeWithAI('How do I do this?', mockAgents);
 
@@ -1446,7 +1455,7 @@ describe('TutorService', () => {
       vi.mocked(chatService.chat).mockResolvedValue({
         reply: '{"selectedAgent": "unknown-agent", "reason": "Test", "confidence": 0.8}',
         model: 'gpt-4o-mini',
-      });
+      } as any);
 
       const result = await (tutorService as any).analyzeWithAI('How do I code?', mockAgents);
 
@@ -1459,7 +1468,7 @@ describe('TutorService', () => {
       vi.mocked(chatService.chat).mockResolvedValue({
         reply: 'I think you should use the socratic tutor.',
         model: 'gpt-4o-mini',
-      });
+      } as any);
 
       await expect((tutorService as any).analyzeWithAI('Hello', mockAgents))
         .rejects.toThrow('Invalid AI response format');
@@ -1469,7 +1478,7 @@ describe('TutorService', () => {
       vi.mocked(chatService.chat).mockResolvedValue({
         reply: '{invalid json here}',
         model: 'gpt-4o-mini',
-      });
+      } as any);
 
       await expect((tutorService as any).analyzeWithAI('Hello', mockAgents))
         .rejects.toThrow('Invalid AI response format');
@@ -1479,7 +1488,7 @@ describe('TutorService', () => {
       vi.mocked(chatService.chat).mockResolvedValue({
         reply: '{"selectedAgent": "socratic-tutor"}',
         model: 'gpt-4o-mini',
-      });
+      } as any);
 
       const result = await (tutorService as any).analyzeWithAI('Hello', mockAgents);
 
@@ -1521,7 +1530,7 @@ describe('TutorService', () => {
       vi.mocked(chatService.chat).mockResolvedValue({
         reply: '{"selectedAgent": "socratic-tutor", "reason": "AI choice", "confidence": 0.95}',
         model: 'gpt-4o-mini',
-      });
+      } as any);
 
       const result = await (tutorService as any).analyzeAndRoute('Why does this work?', mockAgents, true);
 
@@ -1584,13 +1593,13 @@ describe('TutorService', () => {
         messages: [],
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.chatbot.findMany).mockResolvedValue(mockAgents as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(mockConversation as any);
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(null); // Chatbot not found
 
       await expect(
-        tutorService.sendMessage(123, 1, 'Hello', 1)
+        tutorService.sendMessage(123, 1, 'Hello', 1 as any)
       ).rejects.toThrow('Agent not found or inactive');
     });
 
@@ -1621,7 +1630,7 @@ describe('TutorService', () => {
         isActive: true,
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockChatbot as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue({
         id: 1,
@@ -1635,7 +1644,7 @@ describe('TutorService', () => {
       vi.mocked(prisma.chatbot.findMany).mockResolvedValue([]);
 
       await expect(
-        tutorService.sendMessage(123, 1, 'Hello', 1)
+        tutorService.sendMessage(123, 1, 'Hello', 1 as any)
       ).rejects.toThrow('No agents available');
     });
   });
@@ -1677,7 +1686,7 @@ describe('TutorService', () => {
         { id: 2, name: 'agent2', displayName: 'Agent 2', systemPrompt: 'prompt2', temperature: 0.7, isActive: true },
       ];
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       // First call for sendMessage validation
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValueOnce(mockChatbot as any);
       // getAvailableAgents returns agents
@@ -1694,7 +1703,7 @@ describe('TutorService', () => {
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValueOnce(null);
 
       await expect(
-        tutorService.sendMessage(123, 1, 'Hello', 1)
+        tutorService.sendMessage(123, 1, 'Hello', 1 as any)
       ).rejects.toThrow('Selected agent not found');
     });
   });
@@ -1719,7 +1728,7 @@ describe('TutorService', () => {
           scores: { 'socratic-tutor': 0.9, 'direct-helper': 0.5, 'coding-expert': 0.7 },
         }),
         model: 'gpt-4o-mini',
-      });
+      } as any);
 
       const result = await (tutorService as any).analyzeAndRoute('Why?', mockAgents, true);
 
@@ -1769,7 +1778,7 @@ describe('TutorService', () => {
         createdAt: new Date(),
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(mockChatbot as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(mockConversation as any);
       vi.mocked(prisma.tutorMessage.create)
@@ -1777,7 +1786,7 @@ describe('TutorService', () => {
         .mockResolvedValueOnce(mockAssistantMsg as any);
       vi.mocked(prisma.tutorConversation.update).mockResolvedValue({} as any);
       vi.mocked(prisma.tutorInteractionLog.create).mockResolvedValue({} as any);
-      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Hi there!', model: 'gpt-4o-mini' });
+      vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Hi there!', model: 'gpt-4o-mini' } as any);
       // Make activity logging fail
       vi.mocked(activityLogService.logActivity).mockRejectedValue(new Error('Log failed'));
 
@@ -1830,7 +1839,7 @@ describe('TutorService', () => {
         messages: [],
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       // First findUnique for sendMessage validation passes
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValueOnce(mockChatbot as any);
       // getAvailableAgents returns agents
@@ -1841,7 +1850,7 @@ describe('TutorService', () => {
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValueOnce(null);
 
       await expect(
-        tutorService.sendMessage(123, 1, 'Hello', 1)
+        tutorService.sendMessage(123, 1, 'Hello', 1 as any)
       ).rejects.toThrow('Selected agent not found');
     });
   });
@@ -1883,7 +1892,7 @@ describe('TutorService', () => {
         messages: [],
       };
 
-      vi.mocked(prisma.tutorSession.findUnique).mockResolvedValue(mockSession as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(mockSession as any);
       vi.mocked(prisma.chatbot.findMany).mockResolvedValue(mockAgents as any);
       vi.mocked(prisma.chatbot.findUnique).mockResolvedValue({ ...mockAgents[0] } as any);
       vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue(mockConversation as any);
@@ -1898,11 +1907,11 @@ describe('TutorService', () => {
       vi.mocked(chatService.chat).mockResolvedValue({
         reply: 'Agent response',
         model: 'gpt-4o-mini',
-      });
+      } as any);
       // Mock logging to fail
       vi.mocked(prisma.tutorInteractionLog.create).mockRejectedValue(new Error('Log failed'));
 
-      const result = await tutorService.sendMessage(123, 1, 'Hello', 1);
+      const result = await tutorService.sendMessage(123, 1, 'Hello', 1 as any);
 
       // Should still return a successful response despite logging failure
       expect(result).toBeDefined();

@@ -5,6 +5,7 @@ import { learningAnalyticsService } from './learningAnalytics.service.js';
 import { emailService } from './email.service.js';
 import { notificationService } from './notification.service.js';
 import { assignmentLogger } from '../utils/logger.js';
+import { courseRoleService } from './courseRole.service.js';
 
 // Context for event logging
 export interface EventContext {
@@ -19,14 +20,17 @@ export class AssignmentService {
   async getAssignments(courseId: number, userId?: number, isInstructor = false, isAdmin = false) {
     // Verify authorization: instructors/admins can access any course, students need enrollment
     if (userId && !isInstructor && !isAdmin) {
-      const enrollment = await prisma.enrollment.findUnique({
-        where: {
-          userId_courseId: { userId, courseId },
-        },
-      });
+      const isTeam = await courseRoleService.isTeamMember(userId, courseId);
+      if (!isTeam) {
+        const enrollment = await prisma.enrollment.findUnique({
+          where: {
+            userId_courseId: { userId, courseId },
+          },
+        });
 
-      if (!enrollment) {
-        throw new AppError('You must be enrolled in this course to view assignments', 403);
+        if (!enrollment) {
+          throw new AppError('You must be enrolled in this course to view assignments', 403);
+        }
       }
     }
 
@@ -119,7 +123,10 @@ export class AssignmentService {
     }
 
     if (course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, courseId);
+      if (!isTeam) {
+        throw new AppError('Not authorized', 403);
+      }
     }
 
     const assignment = await prisma.assignment.create({
@@ -149,7 +156,10 @@ export class AssignmentService {
     }
 
     if (assignment.course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, assignment.course.id);
+      if (!isTeam) {
+        throw new AppError('Not authorized', 403);
+      }
     }
 
     const updated = await prisma.assignment.update({
@@ -174,7 +184,10 @@ export class AssignmentService {
     }
 
     if (assignment.course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, assignment.course.id);
+      if (!isTeam) {
+        throw new AppError('Not authorized', 403);
+      }
     }
 
     await prisma.assignment.delete({
@@ -201,7 +214,10 @@ export class AssignmentService {
       include: { course: true },
     });
     if (!assignment) throw new AppError('Assignment not found', 404);
-    if (assignment.course.instructorId !== instructorId && !isAdmin) throw new AppError('Not authorized', 403);
+    if (assignment.course.instructorId !== instructorId && !isAdmin) {
+      const isTeam = await courseRoleService.isTeamMember(instructorId, assignment.course.id);
+      if (!isTeam) throw new AppError('Not authorized', 403);
+    }
 
     return prisma.assignmentAttachment.create({
       data: {
@@ -220,7 +236,10 @@ export class AssignmentService {
       include: { assignment: { include: { course: true } } },
     });
     if (!attachment) throw new AppError('Attachment not found', 404);
-    if (attachment.assignment.course.instructorId !== instructorId && !isAdmin) throw new AppError('Not authorized', 403);
+    if (attachment.assignment.course.instructorId !== instructorId && !isAdmin) {
+      const isTeam = await courseRoleService.isTeamMember(instructorId, attachment.assignment.course.id);
+      if (!isTeam) throw new AppError('Not authorized', 403);
+    }
 
     return prisma.assignmentAttachment.update({
       where: { id: attachmentId },
@@ -234,7 +253,10 @@ export class AssignmentService {
       include: { assignment: { include: { course: true } } },
     });
     if (!attachment) throw new AppError('Attachment not found', 404);
-    if (attachment.assignment.course.instructorId !== instructorId && !isAdmin) throw new AppError('Not authorized', 403);
+    if (attachment.assignment.course.instructorId !== instructorId && !isAdmin) {
+      const isTeam = await courseRoleService.isTeamMember(instructorId, attachment.assignment.course.id);
+      if (!isTeam) throw new AppError('Not authorized', 403);
+    }
 
     await prisma.assignmentAttachment.delete({ where: { id: attachmentId } });
     return { message: 'Attachment deleted successfully' };
@@ -252,7 +274,10 @@ export class AssignmentService {
     }
 
     if (assignment.course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, assignment.course.id);
+      if (!isTeam) {
+        throw new AppError('Not authorized', 403);
+      }
     }
 
     const submissions = await prisma.assignmentSubmission.findMany({
@@ -292,7 +317,10 @@ export class AssignmentService {
     }
 
     if (submission.assignment.course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, submission.assignment.course.id);
+      if (!isTeam) {
+        throw new AppError('Not authorized', 403);
+      }
     }
 
     return submission;
@@ -418,7 +446,10 @@ export class AssignmentService {
     }
 
     if (submission.assignment.course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, submission.assignment.course.id);
+      if (!isTeam) {
+        throw new AppError('Not authorized', 403);
+      }
     }
 
     const previousGrade = submission.grade;
@@ -511,7 +542,10 @@ export class AssignmentService {
     }
 
     if (course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, courseId);
+      if (!isTeam) {
+        throw new AppError('Not authorized', 403);
+      }
     }
 
     const [assignments, enrollments] = await Promise.all([

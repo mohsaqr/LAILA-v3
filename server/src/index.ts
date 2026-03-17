@@ -57,6 +57,7 @@ import { errorHandler } from './middleware/error.middleware.js';
 import { authLimiter, uploadLimiter, apiLimiter, llmLimiter } from './middleware/rateLimit.middleware.js';
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5001;
 
 // CORS configuration - supports multiple origins or wildcard

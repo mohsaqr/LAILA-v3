@@ -1,19 +1,25 @@
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Bot, Sparkles, Settings, MessageSquare, ChevronRight } from 'lucide-react';
-import { courseTutorApi } from '../../api/courseTutor';
 import { useTheme } from '../../hooks/useTheme';
 import { Card, CardBody } from '../common/Card';
 
+interface TutorInfo {
+  id?: number;
+  courseTutorId?: number;
+  displayName: string;
+  avatarUrl: string | null;
+}
+
 interface CollaborativeModuleProps {
   courseId: number;
+  tutors?: TutorInfo[];
   courseTitle?: string;
   moduleName?: string;
   isInstructor?: boolean;
 }
 
-export const CollaborativeModule = ({ courseId, moduleName, isInstructor }: CollaborativeModuleProps) => {
+export const CollaborativeModule = ({ courseId, tutors, moduleName, isInstructor }: CollaborativeModuleProps) => {
   const { t } = useTranslation(['courses']);
   const { isDark } = useTheme();
 
@@ -25,14 +31,8 @@ export const CollaborativeModule = ({ courseId, moduleName, isInstructor }: Coll
     border: isDark ? '#374151' : '#e5e7eb',
   };
 
-  // Fetch tutors for this course (just to get count and check availability)
-  const { data: tutors, isLoading } = useQuery({
-    queryKey: ['studentCourseTutors', courseId],
-    queryFn: () => courseTutorApi.getStudentTutors(courseId),
-  });
-
   // No tutors available
-  if (!isLoading && (!tutors || tutors.length === 0)) {
+  if (!tutors || tutors.length === 0) {
     return (
       <Card>
         <CardBody className="text-center py-8">
@@ -100,7 +100,7 @@ export const CollaborativeModule = ({ courseId, moduleName, isInstructor }: Coll
                   <div className="flex -space-x-2">
                     {tutors.slice(0, 5).map((tutor, i) => (
                       <div
-                        key={tutor.courseTutorId}
+                        key={tutor.courseTutorId || tutor.id || i}
                         className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-400 to-purple-500 flex items-center justify-center text-white text-xs font-medium border-2 border-white dark:border-gray-800"
                         style={{ zIndex: 5 - i }}
                         title={tutor.displayName}

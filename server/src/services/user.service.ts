@@ -4,7 +4,7 @@ import { AppError } from '../middleware/error.middleware.js';
 import { UpdateUserInput } from '../utils/validation.js';
 
 export class UserService {
-  async getUsers(page = 1, limit = 20, search?: string) {
+  async getUsers(page = 1, limit = 20, search?: string, role?: string) {
     const where: any = {};
 
     if (search) {
@@ -12,6 +12,15 @@ export class UserService {
         { fullname: { contains: search } },
         { email: { contains: search } },
       ];
+    }
+
+    if (role === 'instructor') {
+      where.isInstructor = true;
+    } else if (role === 'admin') {
+      where.isAdmin = true;
+    } else if (role === 'student') {
+      where.isInstructor = false;
+      where.isAdmin = false;
     }
 
     const [users, total] = await Promise.all([

@@ -1,6 +1,7 @@
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { chatService } from './chat.service.js';
+import { courseRoleService } from './courseRole.service.js';
 
 export interface CreateSectionData {
   type: 'text' | 'file' | 'ai-generated' | 'chatbot' | 'assignment';
@@ -65,7 +66,10 @@ export class SectionService {
     }
 
     if (lecture.module.course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, lecture.module.course.id);
+      if (!isTeam) {
+        throw new AppError('Not authorized', 403);
+      }
     }
 
     return lecture;
@@ -90,7 +94,10 @@ export class SectionService {
     }
 
     if (section.lecture.module.course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, section.lecture.module.course.id);
+      if (!isTeam) {
+        throw new AppError('Not authorized', 403);
+      }
     }
 
     return section;

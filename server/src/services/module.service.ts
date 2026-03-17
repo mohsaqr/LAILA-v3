@@ -1,6 +1,7 @@
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { CreateModuleInput, UpdateModuleInput } from '../utils/validation.js';
+import { courseRoleService } from './courseRole.service.js';
 
 export class ModuleService {
   private async verifyCourseOwnership(courseId: number, instructorId: number, isAdmin = false) {
@@ -13,27 +14,34 @@ export class ModuleService {
     }
 
     if (course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, course.id);
+      if (!isTeam) {
+        throw new AppError('Not authorized', 403);
+      }
     }
 
     return course;
   }
 
   async getModules(courseId: number, userId?: number, isInstructor = false, isAdmin = false) {
-    // Verify authorization: instructors/admins can access any course, students need enrollment
+    // Verify authorization: instructors/admins/team members can access any course, students need enrollment
+    let isTeamMember = false;
     if (userId && !isInstructor && !isAdmin) {
-      const enrollment = await prisma.enrollment.findUnique({
-        where: {
-          userId_courseId: { userId, courseId },
-        },
-      });
+      isTeamMember = await courseRoleService.isTeamMember(userId, courseId);
+      if (!isTeamMember) {
+        const enrollment = await prisma.enrollment.findUnique({
+          where: {
+            userId_courseId: { userId, courseId },
+          },
+        });
 
-      if (!enrollment) {
-        throw new AppError('You must be enrolled in this course to view modules', 403);
+        if (!enrollment) {
+          throw new AppError('You must be enrolled in this course to view modules', 403);
+        }
       }
     }
 
-    const showUnpublished = isInstructor || isAdmin;
+    const showUnpublished = isInstructor || isAdmin || isTeamMember;
 
     const modules = await prisma.courseModule.findMany({
       where: {
@@ -109,7 +117,10 @@ export class ModuleService {
     }
 
     if (module.course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, module.course.id);
+      if (!isTeam) {
+        throw new AppError('Not authorized', 403);
+      }
     }
 
     const updated = await prisma.courseModule.update({
@@ -136,7 +147,10 @@ export class ModuleService {
     }
 
     if (module.course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
+      const isTeam = await courseRoleService.isTeamMember(instructorId, module.course.id);
+      if (!isTeam) {
+        throw new AppError('Not authorized', 403);
+      }
     }
 
     await prisma.courseModule.delete({

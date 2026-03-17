@@ -25,7 +25,7 @@ import { resolveFileUrl } from '../../api/client';
 
 export const Navbar = () => {
   const { t } = useTranslation(['navigation', 'common']);
-  const { user, isAuthenticated, isAdmin, isInstructor, isActualAdmin, isActualInstructor, viewAsRole, setViewAs, isViewingAs, logout } = useAuth();
+  const { user, isAuthenticated, isAdmin, isActualAdmin, isActualInstructor, viewAsRole, setViewAs, isViewingAs, logout } = useAuth();
   const { isDark } = useTheme();
   const { language: currentLanguage, setLanguage } = useLanguageStore();
   const location = useLocation();
@@ -104,12 +104,7 @@ export const Navbar = () => {
           {/* Logo */}
           <div className="flex items-center">
             <Link to="/" className="flex items-center gap-2">
-              <div className="w-10 h-10 gradient-bg rounded-lg flex items-center justify-center">
-                <BrainCircuit className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
-                LAILA
-              </span>
+              <img src="/icons/logo.webp" alt="LAILA" className="h-10 w-auto" />
             </Link>
           </div>
 

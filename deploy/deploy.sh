@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# LAILA — Production Deployment Script
+# LAILA — Production Deployment Script (macOS + Linux)
 # =============================================================================
 # Run from anywhere inside the LAILA-v3 project tree.
 # All paths are derived from the project root — nothing is hardcoded.
@@ -10,14 +10,15 @@
 #   ./deploy/deploy.sh
 #
 # What it does:
-#   1. Checks prerequisites (Node 18+, PostgreSQL, Nginx)
-#   2. Prompts for domain, DB credentials, and API keys
-#   3. Creates server/.env from the production template
-#   4. Switches Prisma to PostgreSQL and runs migrations
-#   5. Builds server (TypeScript) and client (Vite)
-#   6. Installs and configures Nginx + systemd
-#   7. Obtains Let's Encrypt SSL certificate
-#   8. Starts the LAILA service
+#   1. Detects OS (macOS / Linux) and adapts accordingly
+#   2. Checks prerequisites (Node 18+, PostgreSQL, Nginx, pm2)
+#   3. Prompts for domain, DB credentials, and API keys
+#   4. Creates server/.env from the production template
+#   5. Switches Prisma to PostgreSQL and runs migrations
+#   6. Builds server (TypeScript) and client (Vite)
+#   7. Installs and configures Nginx
+#   8. Obtains Let's Encrypt SSL certificate (non-localhost)
+#   9. Starts the LAILA service with pm2
 # =============================================================================
 
 set -euo pipefail
@@ -31,8 +32,35 @@ DEPLOY_DIR="$PROJECT_DIR/deploy"
 SERVER_DIR="$PROJECT_DIR/server"
 CLIENT_DIR="$PROJECT_DIR/client"
 
+# ---------------------------------------------------------------------------
+# Detect OS
+# ---------------------------------------------------------------------------
+OS="$(uname)"
+IS_MAC=false
+IS_LINUX=false
+
+if [ "$OS" = "Darwin" ]; then
+    IS_MAC=true
+    ARCH="$(uname -m)"
+    if [ "$ARCH" = "arm64" ]; then
+        HOMEBREW_PREFIX="/opt/homebrew"
+    else
+        HOMEBREW_PREFIX="/usr/local"
+    fi
+elif [ "$OS" = "Linux" ]; then
+    IS_LINUX=true
+else
+    echo "Unsupported OS: $OS"
+    exit 1
+fi
+
 echo "============================================="
 echo "  LAILA Production Deployment"
+if $IS_MAC; then
+    echo "  Platform: macOS ($ARCH)"
+else
+    echo "  Platform: Linux"
+fi
 echo "============================================="
 echo ""
 echo "  Project root: $PROJECT_DIR"
@@ -41,10 +69,10 @@ echo ""
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-info()  { echo -e "\n\033[1;34m[INFO]\033[0m  $*"; }
-ok()    { echo -e "\033[1;32m[OK]\033[0m    $*"; }
-warn()  { echo -e "\033[1;33m[WARN]\033[0m  $*"; }
-err()   { echo -e "\033[1;31m[ERROR]\033[0m $*" >&2; }
+info()  { printf "\n\033[1;34m[INFO]\033[0m  %s\n" "$*"; }
+ok()    { printf "\033[1;32m[OK]\033[0m    %s\n" "$*"; }
+warn()  { printf "\033[1;33m[WARN]\033[0m  %s\n" "$*"; }
+err()   { printf "\033[1;31m[ERROR]\033[0m %s\n" "$*" >&2; }
 die()   { err "$@"; exit 1; }
 
 prompt_value() {
@@ -67,18 +95,48 @@ prompt_secret() {
     eval "$varname=\"\$value\""
 }
 
+# Cross-platform sed in-place
+sed_i() {
+    if $IS_MAC; then
+        sed -i '' "$@"
+    else
+        sed -i "$@"
+    fi
+}
+
+# Cross-platform nginx reload
+nginx_reload() {
+    if $IS_MAC; then
+        brew services restart nginx
+    else
+        sudo systemctl reload nginx
+    fi
+}
+
 # ---------------------------------------------------------------------------
 # 1. Check prerequisites
 # ---------------------------------------------------------------------------
 info "Checking prerequisites..."
 
+# macOS: check Homebrew
+if $IS_MAC; then
+    if ! command -v brew &>/dev/null; then
+        die "Homebrew is not installed. Install from https://brew.sh and try again."
+    fi
+    ok "Homebrew $(brew --version | head -1 | awk '{print $2}')"
+fi
+
 # Node.js 18+
 if ! command -v node &>/dev/null; then
-    die "Node.js is not installed. Install Node.js 18+ and try again."
+    if $IS_MAC; then
+        die "Node.js is not installed. Install with: brew install node"
+    else
+        die "Node.js is not installed. Install Node.js 18+ and try again."
+    fi
 fi
 NODE_VERSION=$(node -v | sed 's/v//' | cut -d. -f1)
 if [ "$NODE_VERSION" -lt 18 ]; then
-    die "Node.js 18+ is required (found v$(node -v)). Please upgrade."
+    die "Node.js 18+ is required (found $(node -v)). Please upgrade."
 fi
 ok "Node.js $(node -v)"
 
@@ -88,26 +146,64 @@ if ! command -v npm &>/dev/null; then
 fi
 ok "npm $(npm -v)"
 
+# pm2
+if ! command -v pm2 &>/dev/null; then
+    info "Installing pm2 globally..."
+    npm install -g pm2
+fi
+ok "pm2 $(pm2 -v)"
+
 # PostgreSQL client
 if ! command -v psql &>/dev/null; then
-    die "PostgreSQL client (psql) not found. Install PostgreSQL and try again."
+    if $IS_MAC; then
+        die "PostgreSQL not found. Install with: brew install postgresql@16"
+    else
+        die "PostgreSQL client (psql) not found. Install PostgreSQL and try again."
+    fi
 fi
 ok "PostgreSQL client (psql)"
 
+# Ensure PostgreSQL is running
+if $IS_MAC; then
+    PG_SERVICE=$(brew services list 2>/dev/null | grep -i postgres | awk '{print $1}')
+    if [ -n "$PG_SERVICE" ]; then
+        PG_STATUS=$(brew services list 2>/dev/null | grep -i postgres | awk '{print $2}')
+        if [ "$PG_STATUS" != "started" ]; then
+            info "Starting PostgreSQL..."
+            brew services start "$PG_SERVICE"
+            sleep 2
+        fi
+        ok "PostgreSQL server is running ($PG_SERVICE)"
+    else
+        warn "No Homebrew PostgreSQL service found — make sure PostgreSQL is running."
+    fi
+else
+    if command -v systemctl &>/dev/null; then
+        if ! systemctl is-active --quiet postgresql 2>/dev/null; then
+            info "Starting PostgreSQL..."
+            sudo systemctl start postgresql
+        fi
+        ok "PostgreSQL server is running"
+    fi
+fi
+
 # Nginx
 if ! command -v nginx &>/dev/null; then
-    die "Nginx is not installed. Install nginx and try again."
+    if $IS_MAC; then
+        die "Nginx is not installed. Install with: brew install nginx"
+    else
+        die "Nginx is not installed. Install nginx and try again."
+    fi
 fi
 ok "Nginx $(nginx -v 2>&1 | awk -F/ '{print $2}')"
 
-# Certbot (optional but recommended)
+# Certbot (optional)
+HAS_CERTBOT=false
 if command -v certbot &>/dev/null; then
     ok "Certbot $(certbot --version 2>&1 | awk '{print $2}')"
     HAS_CERTBOT=true
 else
     warn "Certbot not found — SSL setup will be skipped."
-    warn "Install certbot later and run: certbot --nginx -d <domain>"
-    HAS_CERTBOT=false
 fi
 
 # ---------------------------------------------------------------------------
@@ -115,18 +211,33 @@ fi
 # ---------------------------------------------------------------------------
 info "Gathering configuration..."
 
-prompt_value DOMAIN      "Domain name (e.g. laila.example.com)"
+prompt_value DOMAIN      "Domain name (e.g. laila.example.com or localhost)" "localhost"
 prompt_value DB_NAME     "PostgreSQL database name" "laila"
-prompt_value DB_USER     "PostgreSQL username" "laila"
-prompt_secret DB_PASS    "PostgreSQL password"
+if $IS_MAC; then
+    prompt_value DB_USER "PostgreSQL username" "$(whoami)"
+    prompt_secret DB_PASS "PostgreSQL password (leave empty for local trust auth)"
+else
+    prompt_value DB_USER "PostgreSQL username" "laila"
+    prompt_secret DB_PASS "PostgreSQL password"
+fi
 prompt_value DB_HOST     "PostgreSQL host" "localhost"
 prompt_value DB_PORT     "PostgreSQL port" "5432"
-prompt_value RUN_USER    "Linux user to run the service" "$(whoami)"
 
 echo ""
 info "AI provider API keys (leave blank to skip):"
 prompt_value OPENAI_KEY  "  OpenAI API key" ""
 prompt_value GEMINI_KEY  "  Gemini API key" ""
+
+echo ""
+prompt_secret ADMIN_PASS "Admin password for initial seed user"
+
+echo ""
+info "SMTP configuration (leave blank to skip email features):"
+prompt_value SMTP_HOST   "  SMTP host (e.g. smtp.gmail.com)" ""
+prompt_value SMTP_PORT   "  SMTP port" "587"
+prompt_value SMTP_USER   "  SMTP username" ""
+prompt_secret SMTP_PASS  "  SMTP password"
+prompt_value SMTP_FROM   "  From address (e.g. noreply@example.com)" ""
 
 # Auto-generate secrets
 JWT_SECRET=$(openssl rand -base64 32)
@@ -140,19 +251,31 @@ info "Creating server/.env from production template..."
 INSTALL_DIR="$PROJECT_DIR"
 
 cp "$DEPLOY_DIR/.env.production" "$SERVER_DIR/.env"
-sed -i "s|__DOMAIN__|$DOMAIN|g"         "$SERVER_DIR/.env"
-sed -i "s|__DB_USER__|$DB_USER|g"       "$SERVER_DIR/.env"
-sed -i "s|__DB_PASS__|$DB_PASS|g"       "$SERVER_DIR/.env"
-sed -i "s|__DB_NAME__|$DB_NAME|g"       "$SERVER_DIR/.env"
-sed -i "s|localhost:5432|$DB_HOST:$DB_PORT|g" "$SERVER_DIR/.env"
+sed_i "s|__DOMAIN__|$DOMAIN|g"         "$SERVER_DIR/.env"
+sed_i "s|__DB_USER__|$DB_USER|g"       "$SERVER_DIR/.env"
+sed_i "s|__DB_PASS__|$DB_PASS|g"       "$SERVER_DIR/.env"
+sed_i "s|__DB_NAME__|$DB_NAME|g"       "$SERVER_DIR/.env"
+sed_i "s|localhost:5432|$DB_HOST:$DB_PORT|g" "$SERVER_DIR/.env"
 
 # Fill in secrets
-sed -i "s|^JWT_SECRET=$|JWT_SECRET=$JWT_SECRET|"         "$SERVER_DIR/.env"
-sed -i "s|^SESSION_SECRET=$|SESSION_SECRET=$SESSION_SECRET|" "$SERVER_DIR/.env"
+sed_i "s|^JWT_SECRET=$|JWT_SECRET=$JWT_SECRET|"         "$SERVER_DIR/.env"
+sed_i "s|^SESSION_SECRET=$|SESSION_SECRET=$SESSION_SECRET|" "$SERVER_DIR/.env"
 
 # Fill in AI keys (if provided)
-[ -n "$OPENAI_KEY" ] && sed -i "s|^OPENAI_API_KEY=$|OPENAI_API_KEY=$OPENAI_KEY|" "$SERVER_DIR/.env"
-[ -n "$GEMINI_KEY" ] && sed -i "s|^GEMINI_API_KEY=$|GEMINI_API_KEY=$GEMINI_KEY|" "$SERVER_DIR/.env"
+[ -n "$OPENAI_KEY" ] && sed_i "s|^OPENAI_API_KEY=$|OPENAI_API_KEY=$OPENAI_KEY|" "$SERVER_DIR/.env"
+[ -n "$GEMINI_KEY" ] && sed_i "s|^GEMINI_API_KEY=$|GEMINI_API_KEY=$GEMINI_KEY|" "$SERVER_DIR/.env"
+
+# Fill in SMTP settings (if provided)
+if [ -n "$SMTP_HOST" ]; then
+    sed_i "s|^# SMTP_HOST=.*|SMTP_HOST=$SMTP_HOST|"   "$SERVER_DIR/.env"
+    sed_i "s|^# SMTP_PORT=.*|SMTP_PORT=$SMTP_PORT|"  "$SERVER_DIR/.env"
+    sed_i "s|^# SMTP_USER=.*|SMTP_USER=$SMTP_USER|"  "$SERVER_DIR/.env"
+    sed_i "s|^# SMTP_PASS=.*|SMTP_PASS=$SMTP_PASS|"  "$SERVER_DIR/.env"
+    sed_i "s|^# SMTP_FROM=.*|SMTP_FROM=$SMTP_FROM|"   "$SERVER_DIR/.env"
+fi
+
+# Fill in admin password (if provided)
+[ -n "$ADMIN_PASS" ] && sed_i "s|^# SEED_ADMIN_PASSWORD=.*|SEED_ADMIN_PASSWORD=$ADMIN_PASS|" "$SERVER_DIR/.env"
 
 ok "server/.env configured"
 
@@ -160,15 +283,22 @@ ok "server/.env configured"
 # 4. Create PostgreSQL database (if it doesn't exist)
 # ---------------------------------------------------------------------------
 info "Ensuring PostgreSQL database exists..."
-if PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -lqt 2>/dev/null | cut -d\| -f1 | grep -qw "$DB_NAME"; then
+
+# Build psql connection args
+PSQL_ARGS=(-h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER")
+if [ -n "$DB_PASS" ]; then
+    export PGPASSWORD="$DB_PASS"
+fi
+
+if psql "${PSQL_ARGS[@]}" -lqt 2>/dev/null | cut -d\| -f1 | grep -qw "$DB_NAME"; then
     ok "Database '$DB_NAME' already exists"
 else
     info "Creating database '$DB_NAME'..."
-    if PGPASSWORD="$DB_PASS" createdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" "$DB_NAME" 2>/dev/null; then
+    if createdb "${PSQL_ARGS[@]}" "$DB_NAME" 2>/dev/null; then
         ok "Database '$DB_NAME' created"
     else
         warn "Could not create database automatically."
-        warn "Please create it manually: CREATE DATABASE $DB_NAME;"
+        warn "Please create it manually: createdb $DB_NAME"
     fi
 fi
 
@@ -177,7 +307,7 @@ fi
 # ---------------------------------------------------------------------------
 info "Switching Prisma provider to PostgreSQL..."
 SCHEMA_FILE="$SERVER_DIR/prisma/schema.prisma"
-sed -i 's|provider = "sqlite"|provider = "postgresql"|g' "$SCHEMA_FILE"
+sed_i 's|provider = "sqlite"|provider = "postgresql"|g' "$SCHEMA_FILE"
 ok "Prisma schema updated to PostgreSQL"
 
 # ---------------------------------------------------------------------------
@@ -191,12 +321,20 @@ ok "Server dependencies installed"
 
 info "Generating Prisma client & running migrations..."
 npx prisma generate
-npx prisma migrate deploy 2>/dev/null || npx prisma db push --accept-data-loss
+# Remove SQLite migrations (incompatible with PostgreSQL)
+if [ -f "$SERVER_DIR/prisma/migrations/migration_lock.toml" ]; then
+    LOCK_PROVIDER=$(grep 'provider' "$SERVER_DIR/prisma/migrations/migration_lock.toml" | tr -d ' "')
+    if [ "$LOCK_PROVIDER" = 'provider=sqlite' ]; then
+        info "Removing SQLite migrations (incompatible with PostgreSQL)..."
+        rm -rf "$SERVER_DIR/prisma/migrations"
+    fi
+fi
+npx prisma db push --accept-data-loss
 ok "Database schema applied"
 
 info "Building server (TypeScript)..."
 npx tsc
-ok "Server built → server/dist/"
+ok "Server built -> server/dist/"
 
 info "Installing client dependencies..."
 cd "$CLIENT_DIR"
@@ -204,16 +342,17 @@ npm ci 2>&1 | tail -1
 ok "Client dependencies installed"
 
 info "Building client (Vite)..."
-npm run build
-ok "Client built → client/dist/"
+VITE_API_URL=/api npm run build
+ok "Client built -> client/dist/"
 
 # ---------------------------------------------------------------------------
 # 7. Seed database (first deploy)
 # ---------------------------------------------------------------------------
 cd "$SERVER_DIR"
 info "Checking if database needs seeding..."
-USER_COUNT=$(PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
-    -tAc "SELECT COUNT(*) FROM \"User\"" 2>/dev/null || echo "0")
+
+PSQL_DB_ARGS=("${PSQL_ARGS[@]}" -d "$DB_NAME")
+USER_COUNT=$(psql "${PSQL_DB_ARGS[@]}" -tAc "SELECT COUNT(*) FROM \"User\"" 2>/dev/null || echo "0")
 
 if [ "$USER_COUNT" = "0" ] || [ "$USER_COUNT" = "" ]; then
     info "Seeding database with initial data..."
@@ -233,75 +372,290 @@ ok "Created uploads/ and logs/ directories"
 # 9. Configure Nginx
 # ---------------------------------------------------------------------------
 info "Configuring Nginx..."
-NGINX_CONF="/etc/nginx/sites-available/laila"
-NGINX_ENABLED="/etc/nginx/sites-enabled/laila"
 
-sudo cp "$DEPLOY_DIR/nginx/laila.conf" "$NGINX_CONF"
-sudo sed -i "s|__DOMAIN__|$DOMAIN|g"           "$NGINX_CONF"
-sudo sed -i "s|__INSTALL_DIR__|$INSTALL_DIR|g"  "$NGINX_CONF"
+# Determine Nginx config path based on OS
+if $IS_MAC; then
+    NGINX_SERVERS_DIR="$HOMEBREW_PREFIX/etc/nginx/servers"
+    mkdir -p "$NGINX_SERVERS_DIR"
+    NGINX_CONF="$NGINX_SERVERS_DIR/laila.conf"
+else
+    NGINX_CONF="/etc/nginx/sites-available/laila"
+    NGINX_ENABLED="/etc/nginx/sites-enabled/laila"
+fi
 
-# Enable the site
-sudo ln -sf "$NGINX_CONF" "$NGINX_ENABLED"
+# For localhost, generate a simple config without SSL
+if [ "$DOMAIN" = "localhost" ] || [ "$DOMAIN" = "127.0.0.1" ]; then
+    # Write to temp file using heredoc (single-quoted delimiter = no shell expansion)
+    cat > /tmp/laila-nginx.conf <<'NGINX_EOF'
+# LAILA — Nginx config (local, no SSL)
+server {
+    listen 80;
+    server_name __DOMAIN__;
 
-# Remove default site if it exists
-if [ -f /etc/nginx/sites-enabled/default ]; then
-    sudo rm /etc/nginx/sites-enabled/default
-    info "Removed default Nginx site"
+    # Gzip
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_min_length 256;
+    gzip_types text/plain text/css text/javascript application/javascript application/json application/xml image/svg+xml;
+
+    # Upload size
+    client_max_body_size 10M;
+
+    # API proxy
+    location /api/ {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout    120s;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout    120s;
+    }
+
+    # Socket.IO WebSocket proxy
+    location /socket.io/ {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        "upgrade";
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout    86400s;
+        proxy_send_timeout    86400s;
+    }
+
+    # Uploaded files proxy
+    location /uploads/ {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Static assets (client build)
+    location /assets/ {
+        alias __INSTALL_DIR__/client/dist/assets/;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+    }
+
+    # SPA catch-all
+    location / {
+        root __INSTALL_DIR__/client/dist;
+        try_files $uri $uri/ /index.html;
+
+        location = /index.html {
+            expires 5m;
+            add_header Cache-Control "public, must-revalidate";
+        }
+    }
+}
+NGINX_EOF
+
+    # Replace placeholders with actual values
+    sed_i "s|__DOMAIN__|$DOMAIN|g" /tmp/laila-nginx.conf
+    sed_i "s|__INSTALL_DIR__|$INSTALL_DIR|g" /tmp/laila-nginx.conf
+
+    # Copy to final location
+    if $IS_MAC; then
+        cp /tmp/laila-nginx.conf "$NGINX_CONF"
+    else
+        sudo cp /tmp/laila-nginx.conf "$NGINX_CONF"
+    fi
+    rm -f /tmp/laila-nginx.conf
+else
+    # For real domain, start with HTTP-only config (certbot will upgrade to HTTPS)
+    if [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
+        # SSL certs already exist — use the full HTTPS template
+        if $IS_MAC; then
+            cp "$DEPLOY_DIR/nginx/laila.conf" "$NGINX_CONF"
+            sed_i "s|__DOMAIN__|$DOMAIN|g"           "$NGINX_CONF"
+            sed_i "s|__INSTALL_DIR__|$INSTALL_DIR|g"  "$NGINX_CONF"
+        else
+            sudo cp "$DEPLOY_DIR/nginx/laila.conf" "$NGINX_CONF"
+            sudo sed -i "s|__DOMAIN__|$DOMAIN|g"           "$NGINX_CONF"
+            sudo sed -i "s|__INSTALL_DIR__|$INSTALL_DIR|g"  "$NGINX_CONF"
+        fi
+    else
+        # No certs yet — use HTTP-only config so nginx can start, certbot will add SSL
+        cat > /tmp/laila-nginx.conf <<'NGINX_EOF'
+server {
+    listen 80;
+    listen [::]:80;
+    server_name __DOMAIN__;
+
+    # Let's Encrypt challenge
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_min_length 256;
+    gzip_types text/plain text/css text/javascript application/javascript application/json application/xml image/svg+xml;
+
+    client_max_body_size 10M;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout    120s;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout    120s;
+    }
+
+    location /socket.io/ {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        "upgrade";
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout    86400s;
+        proxy_send_timeout    86400s;
+    }
+
+    location /uploads/ {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /assets/ {
+        alias __INSTALL_DIR__/client/dist/assets/;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+    }
+
+    location / {
+        root __INSTALL_DIR__/client/dist;
+        try_files $uri $uri/ /index.html;
+
+        location = /index.html {
+            expires 5m;
+            add_header Cache-Control "public, must-revalidate";
+        }
+    }
+}
+NGINX_EOF
+
+        sed_i "s|__DOMAIN__|$DOMAIN|g" /tmp/laila-nginx.conf
+        sed_i "s|__INSTALL_DIR__|$INSTALL_DIR|g" /tmp/laila-nginx.conf
+
+        if $IS_MAC; then
+            cp /tmp/laila-nginx.conf "$NGINX_CONF"
+        else
+            sudo cp /tmp/laila-nginx.conf "$NGINX_CONF"
+        fi
+        rm -f /tmp/laila-nginx.conf
+    fi
+fi
+
+# Enable site (Linux only — uses sites-enabled symlink)
+if $IS_LINUX; then
+    sudo ln -sf "$NGINX_CONF" "$NGINX_ENABLED"
+    # Remove default site if it exists
+    if [ -f /etc/nginx/sites-enabled/default ]; then
+        sudo rm /etc/nginx/sites-enabled/default
+        info "Removed default Nginx site"
+    fi
 fi
 
 # Test and reload
-sudo nginx -t
-sudo systemctl reload nginx
-ok "Nginx configured and reloaded"
-
-# ---------------------------------------------------------------------------
-# 10. SSL with Let's Encrypt
-# ---------------------------------------------------------------------------
-if [ "$HAS_CERTBOT" = true ]; then
-    info "Obtaining SSL certificate..."
-    # Create webroot directory for challenge
-    sudo mkdir -p /var/www/certbot
-
-    # Check if certificate already exists
-    if [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
-        ok "SSL certificate already exists for $DOMAIN"
-    else
-        sudo certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos \
-            --register-unsafely-without-email || {
-            warn "Certbot failed. You can run it manually later:"
-            warn "  sudo certbot --nginx -d $DOMAIN"
-        }
-    fi
+if $IS_MAC; then
+    nginx -t
 else
-    warn "Skipping SSL — install certbot and run:"
-    warn "  sudo certbot --nginx -d $DOMAIN"
+    sudo nginx -t
+fi
+nginx_reload
+ok "Nginx configured and restarted"
+
+# ---------------------------------------------------------------------------
+# 10. SSL with Let's Encrypt (non-localhost only)
+# ---------------------------------------------------------------------------
+if [ "$DOMAIN" != "localhost" ] && [ "$DOMAIN" != "127.0.0.1" ]; then
+    if [ "$HAS_CERTBOT" = true ]; then
+        info "Obtaining SSL certificate..."
+        if $IS_LINUX; then
+            sudo mkdir -p /var/www/certbot
+        fi
+        if [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
+            ok "SSL certificate already exists for $DOMAIN"
+        else
+            sudo certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos \
+                --register-unsafely-without-email || {
+                warn "Certbot failed. You can run it manually later:"
+                warn "  sudo certbot --nginx -d $DOMAIN"
+            }
+        fi
+    else
+        warn "Skipping SSL — install certbot and run:"
+        warn "  sudo certbot --nginx -d $DOMAIN"
+    fi
 fi
 
 # ---------------------------------------------------------------------------
-# 11. Configure systemd service
+# 11. Start LAILA with pm2
 # ---------------------------------------------------------------------------
-info "Configuring systemd service..."
-SYSTEMD_FILE="/etc/systemd/system/laila.service"
+info "Configuring pm2..."
 
-sudo cp "$DEPLOY_DIR/systemd/laila.service" "$SYSTEMD_FILE"
-sudo sed -i "s|__INSTALL_DIR__|$INSTALL_DIR|g"  "$SYSTEMD_FILE"
-sudo sed -i "s|__USER__|$RUN_USER|g"            "$SYSTEMD_FILE"
+cd "$SERVER_DIR"
 
-sudo systemctl daemon-reload
-sudo systemctl enable laila
-sudo systemctl restart laila
-ok "LAILA service started and enabled"
+# Stop existing instance if running
+pm2 delete laila 2>/dev/null || true
+
+# Start with pm2
+pm2 start dist/index.js \
+    --name laila \
+    --cwd "$SERVER_DIR" \
+    --env production \
+    --log "$SERVER_DIR/logs/laila.log" \
+    --time
+
+# Save pm2 process list so it restarts on reboot
+pm2 save
+
+# Configure pm2 to start on system boot (Linux only — needs systemd)
+if $IS_LINUX; then
+    RUN_USER="${RUN_USER:-$(whoami)}"
+    pm2 startup -u "$RUN_USER" --hp "$(eval echo ~"$RUN_USER")" 2>/dev/null || {
+        warn "Could not configure pm2 startup automatically."
+        warn "Run the command printed above with sudo to enable auto-start."
+    }
+fi
+
+ok "LAILA started with pm2"
 
 # ---------------------------------------------------------------------------
 # 12. Verify
 # ---------------------------------------------------------------------------
 info "Verifying deployment..."
-sleep 2
+sleep 3
 
-if systemctl is-active --quiet laila; then
-    ok "LAILA service is running"
+# Check pm2 status
+if pm2 list | grep -q "laila.*online"; then
+    ok "LAILA is running (pm2)"
 else
-    warn "LAILA service may not have started. Check: sudo journalctl -u laila -f"
+    warn "LAILA may not have started. Check: pm2 status"
 fi
 
 # Quick health check
@@ -310,20 +664,34 @@ if curl -sf "http://127.0.0.1:5001/api/health" > /dev/null 2>&1; then
 else
     warn "Health check did not respond yet — service may still be starting."
     warn "Check: curl http://127.0.0.1:5001/api/health"
+    warn "Logs:  pm2 logs laila"
 fi
+
+# Clean up PGPASSWORD
+unset PGPASSWORD 2>/dev/null || true
 
 echo ""
 echo "============================================="
 echo "  Deployment Complete!"
 echo "============================================="
 echo ""
-echo "  Domain:   https://$DOMAIN"
-echo "  Service:  sudo systemctl status laila"
-echo "  Logs:     sudo journalctl -u laila -f"
-echo "  Backup:   $DEPLOY_DIR/backup.sh"
+if [ "$DOMAIN" = "localhost" ] || [ "$DOMAIN" = "127.0.0.1" ]; then
+    echo "  URL:      http://$DOMAIN"
+else
+    echo "  URL:      https://$DOMAIN"
+fi
+echo "  Service:  pm2 status"
+echo "  Logs:     pm2 logs laila"
 echo ""
 echo "  Useful commands:"
-echo "    sudo systemctl restart laila   # Restart"
-echo "    sudo systemctl stop laila      # Stop"
-echo "    sudo nginx -t && sudo systemctl reload nginx"
+echo "    pm2 restart laila              # Restart"
+echo "    pm2 stop laila                 # Stop"
+echo "    pm2 logs laila --lines 100     # View logs"
+echo "    pm2 monit                      # Monitor dashboard"
+if $IS_MAC; then
+    echo "    brew services restart nginx    # Restart Nginx"
+else
+    echo "    sudo nginx -t && sudo systemctl reload nginx"
+fi
+echo "    nginx -t                       # Test Nginx config"
 echo ""

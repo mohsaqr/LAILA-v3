@@ -179,7 +179,7 @@ describe('SurveyGenerationService', () => {
     });
 
     it('should use custom system prompt from database when available', async () => {
-      vi.mocked(prisma.systemSetting.findUnique).mockImplementation(async (args: any) => {
+      (vi.mocked(prisma.systemSetting.findUnique) as any).mockImplementation(async (args: any) => {
         if (args.where.settingKey === 'survey_generation_system_prompt') {
           return { settingKey: 'survey_generation_system_prompt', settingValue: 'Custom prompt' } as any;
         }
@@ -572,7 +572,7 @@ describe('SurveyGenerationService', () => {
       const result = await service.generateAndCreateSurvey(1, {
         ...defaultInput,
         courseId: 10,
-      });
+      } as any);
 
       expect(prisma.$transaction).toHaveBeenCalled();
       expect(result).toBeDefined();

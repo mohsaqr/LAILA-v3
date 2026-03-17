@@ -101,7 +101,7 @@ describe('EnrollmentService', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe(-1); // Negative ID for virtual enrollment
-      expect(result[0].isVirtualEnrollment).toBe(true);
+      expect((result[0] as any).isVirtualEnrollment).toBe(true);
       expect(prisma.course.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { status: 'published' },
@@ -130,7 +130,7 @@ describe('EnrollmentService', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe(-2);
-      expect(result[0].isVirtualEnrollment).toBe(true);
+      expect((result[0] as any).isVirtualEnrollment).toBe(true);
       expect(prisma.course.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { instructorId: 5 },
@@ -164,7 +164,7 @@ describe('EnrollmentService', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe(100);
-      expect(result[0].isVirtualEnrollment).toBeUndefined();
+      expect((result[0] as any).isVirtualEnrollment).toBeUndefined();
     });
   });
 
@@ -437,7 +437,7 @@ describe('EnrollmentService', () => {
 
       const result = await enrollmentService.markLectureComplete(10, 1, 5);
 
-      expect(result.isCompleted).toBe(true);
+      expect((result as any).isCompleted).toBe(true);
       expect(prisma.lectureProgress.upsert).toHaveBeenCalled();
     });
 
@@ -449,7 +449,7 @@ describe('EnrollmentService', () => {
 
       const result = await enrollmentService.markLectureComplete(1, 1, 5);
 
-      expect(result.message).toContain('admin/instructor');
+      expect((result as any).message).toContain('admin/instructor');
       expect(prisma.lectureProgress.upsert).not.toHaveBeenCalled();
     });
 
@@ -507,7 +507,7 @@ describe('EnrollmentService', () => {
 
       const result = await enrollmentService.getEnrollment(1, 1);
 
-      expect(result?.isVirtualEnrollment).toBe(true);
+      expect((result as any)?.isVirtualEnrollment).toBe(true);
       expect(result?.id).toBe(-1);
     });
 
@@ -528,7 +528,7 @@ describe('EnrollmentService', () => {
 
       const result = await enrollmentService.getEnrollment(5, 1);
 
-      expect(result?.isVirtualEnrollment).toBe(true);
+      expect((result as any)?.isVirtualEnrollment).toBe(true);
     });
 
     it('should return null for instructor who does not own course', async () => {
@@ -581,7 +581,7 @@ describe('EnrollmentService', () => {
 
       const result = await enrollmentService.updateLectureTime(10, 1, 5, 50);
 
-      expect(result.timeSpent).toBe(150);
+      expect((result as any).timeSpent).toBe(150);
       expect(prisma.lectureProgress.upsert).toHaveBeenCalled();
     });
 
@@ -738,7 +738,7 @@ describe('EnrollmentService', () => {
         completedAt: new Date(),
       } as any);
 
-      await enrollmentService.updateEnrollmentProgress(1);
+      await (enrollmentService as any).updateEnrollmentProgress(1);
 
       expect(prisma.enrollment.update).toHaveBeenCalledWith({
         where: { id: 1 },
@@ -773,7 +773,7 @@ describe('EnrollmentService', () => {
         progress: 50,
       } as any);
 
-      await enrollmentService.updateEnrollmentProgress(1);
+      await (enrollmentService as any).updateEnrollmentProgress(1);
 
       expect(prisma.enrollment.update).toHaveBeenCalledWith({
         where: { id: 1 },
@@ -793,7 +793,7 @@ describe('EnrollmentService', () => {
       vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null);
 
       // Method returns early without error if enrollment not found
-      await enrollmentService.updateEnrollmentProgress(999);
+      await (enrollmentService as any).updateEnrollmentProgress(999);
 
       expect(prisma.enrollment.update).not.toHaveBeenCalled();
     });
@@ -811,7 +811,7 @@ describe('EnrollmentService', () => {
 
       vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(mockEnrollment as any);
 
-      await enrollmentService.updateEnrollmentProgress(1);
+      await (enrollmentService as any).updateEnrollmentProgress(1);
 
       expect(prisma.enrollment.update).not.toHaveBeenCalled();
     });

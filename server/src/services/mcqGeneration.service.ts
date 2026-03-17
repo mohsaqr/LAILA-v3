@@ -212,7 +212,7 @@ export class MCQGenerationService {
       });
 
       const content = response.choices[0]?.message?.content;
-      if (!content) {
+      if (!content || typeof content !== 'string') {
         throw new AppError('Empty response from AI', 500);
       }
 
@@ -475,7 +475,7 @@ Generate questions that test understanding of the key concepts from this content
           difficulty: q.difficulty || 'medium',
         };
       })
-      .filter((q): q is GeneratedMCQ => q !== null);
+      .filter((q): q is NonNullable<typeof q> => q !== null) as GeneratedMCQ[];
   }
 }
 
