@@ -1,3 +1,12 @@
+### 2026-03-16 — Bug fixes
+
+- **Fix AI tutors invisible to admins and instructors**: Admins and non-owner instructors could not see AI tutor avatars on the course page (`/courses/:id`) because the `GET /courses/:id` route only loaded tutors for enrolled students and team members. Fixed by expanding the tutor-loading condition to include admins and instructors. Updated `courseTutor.service.getStudentTutors()` to accept `options.isAdmin` flag that bypasses enrollment checks. Removed redundant `GET /courses/:courseId/tutors` API call from `CollaborativeModule.tsx` — tutors are now passed as a prop from the course API response, eliminating a duplicate network request.
+  - `server/src/routes/course.routes.ts`: Expanded tutor-loading condition from `enrolled || isTeamMember` to include `isAdmin || isInstructor`
+  - `server/src/services/courseTutor.service.ts`: Added optional `options: { isAdmin?: boolean }` param to `getStudentTutors()` to skip enrollment checks
+  - `client/src/components/course/CollaborativeModule.tsx`: Removed `useQuery` call to `getStudentTutors`; accepts `tutors` prop instead
+  - `client/src/pages/CourseDetails.tsx`: Passes `tutors` from course API response to `CollaborativeModule`
+  - Tests: New `courseTutor.service.test.ts` (9 tests), 4 new route tests in `course.routes.test.ts`
+
 ### 2026-03-13 — Bug fixes #58–#66, auth security improvements
 
 - **#58 Quiz creation in CurriculumEditor**: Added full quiz creation modal with RichTextEditor for description/instructions, time limit, max attempts, passing score, and publish toggle. All modal sizes unified to `3xl`.

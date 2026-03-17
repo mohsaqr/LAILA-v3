@@ -651,25 +651,28 @@ class CourseTutorService {
   /**
    * Get tutors available for a student in a course
    */
-  async getStudentTutors(courseId: number, userId: number): Promise<MergedTutorConfig[]> {
-    // Verify enrollment, course instructor, or team membership
-    const course = await prisma.course.findUnique({
-      where: { id: courseId },
-      select: { instructorId: true },
-    });
-    const isCourseInstructor = course?.instructorId === userId;
-
-    if (!isCourseInstructor) {
-      const enrollment = await prisma.enrollment.findUnique({
-        where: {
-          userId_courseId: { userId, courseId },
-        },
+  async getStudentTutors(courseId: number, userId: number, options?: { isAdmin?: boolean }): Promise<MergedTutorConfig[]> {
+    // Admins bypass enrollment checks
+    if (!options?.isAdmin) {
+      // Verify enrollment, course instructor, or team membership
+      const course = await prisma.course.findUnique({
+        where: { id: courseId },
+        select: { instructorId: true },
       });
+      const isCourseInstructor = course?.instructorId === userId;
 
-      if (!enrollment) {
-        const isTeam = await courseRoleService.isTeamMember(userId, courseId);
-        if (!isTeam) {
-          throw new AppError('Not enrolled in this course', 403);
+      if (!isCourseInstructor) {
+        const enrollment = await prisma.enrollment.findUnique({
+          where: {
+            userId_courseId: { userId, courseId },
+          },
+        });
+
+        if (!enrollment) {
+          const isTeam = await courseRoleService.isTeamMember(userId, courseId);
+          if (!isTeam) {
+            throw new AppError('Not enrolled in this course', 403);
+          }
         }
       }
     }

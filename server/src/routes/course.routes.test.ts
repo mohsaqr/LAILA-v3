@@ -83,8 +83,25 @@ vi.mock('../services/lectureAIHelper.service.js', () => ({
   },
 }));
 
+vi.mock('../services/courseTutor.service.js', () => ({
+  courseTutorService: {
+    getStudentTutors: vi.fn(),
+  },
+}));
+
+vi.mock('../utils/prisma.js', () => ({
+  default: {
+    courseRole: {
+      findUnique: vi.fn(),
+    },
+    enrollment: {
+      findUnique: vi.fn(),
+    },
+  },
+}));
+
 // Track current user for tests
-let currentUser = { id: 1, email: 'test@example.com', isAdmin: false, isInstructor: true };
+let currentUser: { id: number; email: string; isAdmin: boolean; isInstructor: boolean } = { id: 1, email: 'test@uef.fi', isAdmin: false, isInstructor: true };
 
 // Mock auth middleware
 vi.mock('../middleware/auth.middleware.js', () => ({
@@ -112,6 +129,8 @@ import { lectureService } from '../services/lecture.service.js';
 import { sectionService } from '../services/section.service.js';
 import { chatbotConversationService } from '../services/chatbotConversation.service.js';
 import { lectureAIHelperService } from '../services/lectureAIHelper.service.js';
+import { courseTutorService } from '../services/courseTutor.service.js';
+import prisma from '../utils/prisma.js';
 
 describe('Course Routes', () => {
   let app: express.Express;
@@ -281,6 +300,66 @@ describe('Course Routes', () => {
 
       expect(response.body.success).toBe(false);
       expect(response.body.error).toContain('Course not found');
+    });
+
+    it('should return tutors for admin user', async () => {
+      const savedUser = currentUser;
+      currentUser = { id: 99, email: 'admin@uef.fi', isAdmin: true, isInstructor: false };
+
+      const mockCourse = { id: 1, title: 'Test', instructorId: 50 };
+      const mockTutors = [
+        { id: 10, courseTutorId: 1, displayName: 'Tutor', avatarUrl: null, name: 'tutor', description: null, systemPrompt: '', welcomeMessage: null, personality: null, temperature: 0.7, isCustomized: false },
+      ];
+      vi.mocked(courseService.getCourseByIdWithOwnerCheck).mockResolvedValue(mockCourse as any);
+      vi.mocked(prisma.courseRole.findUnique).mockResolvedValue(null as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null as any);
+      vi.mocked(courseTutorService.getStudentTutors).mockResolvedValue(mockTutors as any);
+
+      const response = await request(app).get('/api/courses/1').expect(200);
+
+      expect(response.body.data.tutors).toHaveLength(1);
+      expect(response.body.data.tutors[0].displayName).toBe('Tutor');
+      expect(courseTutorService.getStudentTutors).toHaveBeenCalledWith(1, 99, { isAdmin: true });
+
+      currentUser = savedUser;
+    });
+
+    it('should return tutors for instructor viewing another course', async () => {
+      const savedUser = currentUser;
+      currentUser = { id: 88, email: 'instructor@uef.fi', isAdmin: false, isInstructor: true };
+
+      const mockCourse = { id: 2, title: 'Other Course', instructorId: 50 };
+      const mockTutors = [
+        { id: 10, courseTutorId: 1, displayName: 'Bot', avatarUrl: '/bot.png', name: 'bot', description: null, systemPrompt: '', welcomeMessage: null, personality: null, temperature: 0.7, isCustomized: false },
+      ];
+      vi.mocked(courseService.getCourseByIdWithOwnerCheck).mockResolvedValue(mockCourse as any);
+      vi.mocked(prisma.courseRole.findUnique).mockResolvedValue(null as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null as any);
+      vi.mocked(courseTutorService.getStudentTutors).mockResolvedValue(mockTutors as any);
+
+      const response = await request(app).get('/api/courses/2').expect(200);
+
+      expect(response.body.data.tutors).toHaveLength(1);
+      expect(courseTutorService.getStudentTutors).toHaveBeenCalledWith(2, 88, { isAdmin: true });
+
+      currentUser = savedUser;
+    });
+
+    it('should return empty tutors for unauthenticated student not enrolled', async () => {
+      const savedUser = currentUser;
+      currentUser = { id: 77, email: 'student@uef.fi', isAdmin: false, isInstructor: false };
+
+      const mockCourse = { id: 3, title: 'Course', instructorId: 50 };
+      vi.mocked(courseService.getCourseByIdWithOwnerCheck).mockResolvedValue(mockCourse as any);
+      vi.mocked(prisma.courseRole.findUnique).mockResolvedValue(null as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null as any);
+
+      const response = await request(app).get('/api/courses/3').expect(200);
+
+      expect(response.body.data.tutors).toEqual([]);
+      expect(courseTutorService.getStudentTutors).not.toHaveBeenCalled();
+
+      currentUser = savedUser;
     });
   });
 

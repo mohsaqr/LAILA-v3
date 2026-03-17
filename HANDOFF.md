@@ -1,4 +1,7 @@
-# Session Handoff — 2026-03-13
+# Session Handoff — 2026-03-16
+
+## Completed (2026-03-16)
+- **Fix AI tutors invisible to admins/instructors**: Route `GET /courses/:id` only loaded tutors for enrolled students and team members — admins and non-owner instructors saw empty tutor list. Fixed server route + service to allow admin/instructor access. Removed redundant `getStudentTutors` API call from `CollaborativeModule` — now uses tutors from course response prop. 13 new tests.
 
 ## Completed (2026-03-13)
 - **Quiz creation in CurriculumEditor (#58)**: Full quiz creation modal with RichTextEditor for description/instructions. All CurriculumEditor modal sizes unified to `3xl`.
@@ -71,7 +74,7 @@
 - **Add surveys to course modules**: Many-to-many `ModuleSurvey` model linking surveys to modules. "Add Survey" button in module footer opens searchable modal showing published surveys not yet linked. Surveys display with indigo styling and remove button. Full server CRUD with authorization. 11 tests added.
 
 ## Current State
-- Branch: `fix_issues`
+- Branch: `issues_version1`
 - Client: compiles cleanly (only pre-existing type warnings in unrelated files)
 - New component: `client/src/components/layout/RequireEnrollment.tsx` — reusable enrollment guard for routes
 

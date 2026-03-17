@@ -289,6 +289,7 @@ export const CourseDetails = () => {
                 {/* Collaborative Module */}
                 <CollaborativeModule
                   courseId={parseInt(id!)}
+                  tutors={(course as any).tutors}
                   moduleName={(course as any).collaborativeModuleName}
                   isInstructor={showInstructorControls || isActualAdmin}
                 />

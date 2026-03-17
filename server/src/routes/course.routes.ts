@@ -89,10 +89,12 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: AuthRequest, res: Resp
     });
     enrolled = !!enrollment;
 
-    // Load tutors for enrolled students and team members
-    if (enrolled || isTeamMember) {
+    // Load tutors for enrolled students, team members, admins, and instructors
+    if (enrolled || isTeamMember || req.user?.isAdmin || req.user?.isInstructor) {
       try {
-        tutors = await courseTutorService.getStudentTutors(id, req.user.id);
+        tutors = await courseTutorService.getStudentTutors(id, req.user.id, {
+          isAdmin: req.user?.isAdmin || req.user?.isInstructor,
+        });
       } catch {
         // Ignore errors (e.g., no tutors configured)
       }
