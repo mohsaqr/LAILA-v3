@@ -1,4 +1,9 @@
-# Session Handoff — 2026-03-16
+# Session Handoff — 2026-03-17
+
+## Completed (2026-03-17)
+- **Restrict team member assignment to instructors**: "Add Team Member" dropdown on course edit page now only shows instructors (not students). Added `role` filter to `GET /users` API. Server-side validation rejects students in `assignRole()`. 12 new tests.
+- **Allow instructors and team members to manage course roles**: `GET /users` changed from admin-only to instructor-accessible. `canManageRoles()` now also allows team members with `manage_students` permission. 6 new tests.
+- **Filter ineligible users from Add Role dropdown**: Excludes the course instructor, admins, and existing team members from the "Add Team Member" list.
 
 ## Completed (2026-03-16)
 - **Fix AI tutors invisible to admins/instructors**: Route `GET /courses/:id` only loaded tutors for enrolled students and team members — admins and non-owner instructors saw empty tutor list. Fixed server route + service to allow admin/instructor access. Removed redundant `getStudentTutors` API call from `CollaborativeModule` — now uses tutors from course response prop. 13 new tests.

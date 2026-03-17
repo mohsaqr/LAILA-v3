@@ -2,11 +2,12 @@ import apiClient from './client';
 import { User, UserStats, InstructorStats, ApiResponse, PaginatedResponse } from '../types';
 
 export const usersApi = {
-  getUsers: async (page = 1, limit = 20, search?: string) => {
+  getUsers: async (page = 1, limit = 20, search?: string, role?: string) => {
     const params = new URLSearchParams();
     params.append('page', page.toString());
     params.append('limit', limit.toString());
     if (search) params.append('search', search);
+    if (role) params.append('role', role);
 
     const response = await apiClient.get<PaginatedResponse<User> & { users: User[] }>(
       `/users?${params.toString()}`

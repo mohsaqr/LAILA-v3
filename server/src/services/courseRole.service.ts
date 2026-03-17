@@ -77,6 +77,11 @@ export class CourseRoleService {
       throw new AppError('User not found', 404);
     }
 
+    // Only instructors and admins can be team members
+    if (!user.isInstructor && !user.isAdmin) {
+      throw new AppError('Only instructors can be assigned as team members', 400);
+    }
+
     // Check if role already exists
     const existing = await prisma.courseRole.findUnique({
       where: {
@@ -339,7 +344,7 @@ export class CourseRoleService {
     return !!role;
   }
 
-  // Check if user can manage course roles (instructor or admin)
+  // Check if user can manage course roles (instructor, admin, or team member with manage_students)
   async canManageRoles(userId: number, courseId: number, isAdmin: boolean) {
     if (isAdmin) return true;
 
@@ -349,8 +354,11 @@ export class CourseRoleService {
 
     if (!course) return false;
 
-    // Only instructor can manage roles
-    return course.instructorId === userId;
+    // Course owner instructor can manage roles
+    if (course.instructorId === userId) return true;
+
+    // Team members with manage_students permission can also manage roles
+    return this.hasPermission(userId, courseId, 'manage_students');
   }
 }
 

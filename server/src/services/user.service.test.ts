@@ -116,6 +116,64 @@ describe('UserService', () => {
       });
     });
 
+    it('should filter by instructor role', async () => {
+      vi.mocked(prisma.user.findMany).mockResolvedValue([mockUser] as any);
+      vi.mocked(prisma.user.count).mockResolvedValue(1);
+
+      await userService.getUsers(1, 20, undefined, 'instructor');
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { isInstructor: true },
+        })
+      );
+    });
+
+    it('should filter by admin role', async () => {
+      vi.mocked(prisma.user.findMany).mockResolvedValue([mockUser] as any);
+      vi.mocked(prisma.user.count).mockResolvedValue(1);
+
+      await userService.getUsers(1, 20, undefined, 'admin');
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { isAdmin: true },
+        })
+      );
+    });
+
+    it('should filter by student role', async () => {
+      vi.mocked(prisma.user.findMany).mockResolvedValue([mockUser] as any);
+      vi.mocked(prisma.user.count).mockResolvedValue(1);
+
+      await userService.getUsers(1, 20, undefined, 'student');
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { isInstructor: false, isAdmin: false },
+        })
+      );
+    });
+
+    it('should combine search and role filters', async () => {
+      vi.mocked(prisma.user.findMany).mockResolvedValue([mockUser] as any);
+      vi.mocked(prisma.user.count).mockResolvedValue(1);
+
+      await userService.getUsers(1, 20, 'john', 'instructor');
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            OR: [
+              { fullname: { contains: 'john' } },
+              { email: { contains: 'john' } },
+            ],
+            isInstructor: true,
+          },
+        })
+      );
+    });
+
     it('should calculate pagination correctly', async () => {
       vi.mocked(prisma.user.findMany).mockResolvedValue([]);
       vi.mocked(prisma.user.count).mockResolvedValue(45);

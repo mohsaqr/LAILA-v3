@@ -114,7 +114,7 @@ export const CourseEdit = () => {
           </CardBody>
         </Card>
       ) : (
-        <CourseRoleManager courseId={courseId} />
+        <CourseRoleManager courseId={courseId} instructorId={course.instructorId} />
       )}
     </div>
   );

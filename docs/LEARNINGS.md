@@ -358,6 +358,14 @@ Added to fields migrated:
 ### Routes protected
 All student-facing `courses/:courseId/*` routes: lectures, forums, quizzes, analytics, assignments, agent-assignments, code-labs, grades. Also `/ai-tutors?courseId=X`.
 
+## 2026-03-17 — Team member role assignment constraints
+
+- [instructor-only team members]: `courseRoleService.assignRole()` validates that the target user is an instructor (`isInstructor`) or admin (`isAdmin`). Students cannot be course team members (TA, co-instructor, course_admin).
+- [user list role filter]: `userService.getUsers()` accepts optional `role` param: `'instructor'` → `isInstructor: true`, `'admin'` → `isAdmin: true`, `'student'` → both false. The filter combines with `search` using Prisma's `where` object merge. Client passes as query param `?role=instructor`.
+- [defense in depth]: Both client (only fetches instructors) and server (rejects students in `assignRole`) enforce the constraint. Client filtering alone is not sufficient — always validate on the server.
+- [canManageRoles]: `canManageRoles()` now checks three levels: (1) admin, (2) course owner instructor, (3) team member with `manage_students` permission. This uses the existing `hasPermission()` method which checks `courseRole.permissions` JSON.
+- [GET /users access]: Changed from `requireAdmin` to `requireInstructor`. Instructors need to list users for team member assignment. The data returned (profile info, no passwords) is not sensitive. `requireInstructor` still allows admins since the middleware checks `isInstructor || isAdmin`.
+
 ## 2026-03-16 — Course page tutor visibility for admins/instructors
 
 - [admin tutor access]: `getStudentTutors()` accepts `options?: { isAdmin?: boolean }`. When `isAdmin` is true, all enrollment/instructor/team checks are skipped. The route passes `isAdmin: true` for both admins and instructors. This follows the pattern of passing role flags from the route to the service rather than looking up the user's role inside the service.

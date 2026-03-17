@@ -1,19 +1,20 @@
 import { Router, Response } from 'express';
 import { userService } from '../services/user.service.js';
-import { authenticateToken, requireAdmin } from '../middleware/auth.middleware.js';
+import { authenticateToken, requireAdmin, requireInstructor } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import { updateUserSchema } from '../utils/validation.js';
 import { AuthRequest } from '../types/index.js';
 
 const router = Router();
 
-// Get all users (admin only)
-router.get('/', authenticateToken, requireAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
+// Get all users (admin and instructors)
+router.get('/', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 20;
   const search = req.query.search as string;
+  const role = req.query.role as string | undefined;
 
-  const result = await userService.getUsers(page, limit, search);
+  const result = await userService.getUsers(page, limit, search, role);
   res.json({ success: true, ...result });
 }));
 

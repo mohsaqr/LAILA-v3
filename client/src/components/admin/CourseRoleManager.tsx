@@ -26,9 +26,10 @@ import { CourseRole, User } from '../../types';
 
 interface CourseRoleManagerProps {
   courseId: number;
+  instructorId?: number;
 }
 
-export const CourseRoleManager = ({ courseId }: CourseRoleManagerProps) => {
+export const CourseRoleManager = ({ courseId, instructorId }: CourseRoleManagerProps) => {
   const { t } = useTranslation(['admin', 'common']);
   const queryClient = useQueryClient();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -47,8 +48,8 @@ export const CourseRoleManager = ({ courseId }: CourseRoleManagerProps) => {
   });
 
   const { data: usersData } = useQuery({
-    queryKey: ['allUsersForRoles'],
-    queryFn: () => usersApi.getUsers(1, 1000),
+    queryKey: ['instructorsForRoles'],
+    queryFn: () => usersApi.getUsers(1, 1000, undefined, 'instructor'),
     enabled: isAddModalOpen,
   });
 
@@ -114,9 +115,12 @@ export const CourseRoleManager = ({ courseId }: CourseRoleManagerProps) => {
     setIsDeleteDialogOpen(true);
   };
 
-  // Filter out users who already have a role
+  // Filter out: existing team members, course instructor, and admins
   const availableUsers = usersData?.users.filter(
-    (user: User) => !roles?.some((role) => role.userId === user.id)
+    (user: User) =>
+      !roles?.some((role) => role.userId === user.id) &&
+      user.id !== instructorId &&
+      !user.isAdmin
   );
 
   const getRoleColor = (role: string) => {
