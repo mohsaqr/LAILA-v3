@@ -31,7 +31,7 @@ import activityLogger from '../services/activityLogger';
 export const CourseDetails = () => {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
-  const { isAuthenticated, user, isInstructor: isUserInstructor, isActualAdmin, isActualInstructor } = useAuth();
+  const { isAuthenticated, user, isActualAdmin, isActualInstructor } = useAuth();
   const { isDark } = useTheme();
   const { t } = useTranslation(['courses', 'common']);
   const moduleRefs = useRef<Record<number, HTMLElement | null>>({});
@@ -123,7 +123,7 @@ export const CourseDetails = () => {
   const isEnrolled = (course as any).enrolled;
   const isTeamMember = (course as any)?.isTeamMember;
   const isCourseInstructor = user?.id === course.instructorId;
-  const showInstructorControls = (isCourseInstructor || isTeamMember) && isUserInstructor;
+  const showInstructorControls = isCourseInstructor || isTeamMember;
   const hasAccess = isEnrolled || isActualAdmin || isActualInstructor || isTeamMember;
   const totalLectures = course.modules?.reduce((sum, m) => sum + (m.lectures?.length || 0), 0) || 0;
 
