@@ -236,7 +236,6 @@ info "SMTP configuration (leave blank to skip email features):"
 prompt_value SMTP_HOST   "  SMTP host (e.g. smtp.gmail.com)" ""
 prompt_value SMTP_PORT   "  SMTP port" "587"
 prompt_value SMTP_USER   "  SMTP username" ""
-prompt_value secure   "  SMTP secure" ""
 prompt_secret SMTP_PASS  "  SMTP password"
 prompt_value SMTP_FROM   "  From address (e.g. noreply@example.com)" ""
 
