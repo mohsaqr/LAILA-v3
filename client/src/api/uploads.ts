@@ -32,11 +32,14 @@ export const uploadsApi = {
     return response.data.data!;
   },
 
-  uploadAssignmentSubmission: async (file: File): Promise<UploadResponse> => {
+  uploadAssignmentSubmission: async (file: File, assignmentId?: number): Promise<UploadResponse> => {
     const formData = new FormData();
     formData.append('file', file);
+    const url = assignmentId
+      ? `/uploads/assignment-submission?assignmentId=${assignmentId}`
+      : '/uploads/assignment-submission';
     const response = await apiClient.post<ApiResponse<UploadResponse>>(
-      '/uploads/assignment-submission',
+      url,
       formData,
       { headers: { 'Content-Type': 'multipart/form-data' } }
     );

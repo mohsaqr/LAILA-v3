@@ -597,6 +597,7 @@ model Assignment {
   allowedFileTypes      String?                @map("allowed_file_types")
   dueDate               DateTime?              @map("due_date")
   points                Int                    @default(100)
+  weight                Float?                 @default(1.0)
   isPublished           Boolean                @default(false) @map("is_published")
   aiAssisted            Boolean                @default(false) @map("ai_assisted")
   aiPrompt              String?                @map("ai_prompt")

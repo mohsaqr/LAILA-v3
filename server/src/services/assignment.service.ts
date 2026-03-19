@@ -572,11 +572,20 @@ export class AssignmentService {
       }
     }
 
-    const [assignments, enrollments] = await Promise.all([
+    const [assignments, quizzes, enrollments] = await Promise.all([
       prisma.assignment.findMany({
         where: { courseId, isPublished: true },
         orderBy: { createdAt: 'asc' },
-        select: { id: true, title: true, points: true },
+        select: { id: true, title: true, points: true, weight: true },
+      }),
+      prisma.quiz.findMany({
+        where: { courseId, isPublished: true },
+        orderBy: { createdAt: 'asc' },
+        select: {
+          id: true,
+          title: true,
+          questions: { select: { points: true } },
+        },
       }),
       prisma.enrollment.findMany({
         where: { courseId },
@@ -588,21 +597,45 @@ export class AssignmentService {
       }),
     ]);
 
-    const submissions = await prisma.assignmentSubmission.findMany({
-      where: {
-        assignmentId: { in: assignments.map(a => a.id) },
-      },
-      select: {
-        id: true,
-        assignmentId: true,
-        userId: true,
-        grade: true,
-        status: true,
-        feedback: true,
-      },
-    });
+    // Compute total points per quiz from questions
+    const quizzesWithPoints = quizzes.map(q => ({
+      id: q.id,
+      title: q.title,
+      totalPoints: q.questions.reduce((sum: number, question: { points: number }) => sum + question.points, 0),
+    }));
 
-    // Build gradebook
+    const [submissions, quizAttempts] = await Promise.all([
+      prisma.assignmentSubmission.findMany({
+        where: {
+          assignmentId: { in: assignments.map(a => a.id) },
+        },
+        select: {
+          id: true,
+          assignmentId: true,
+          userId: true,
+          grade: true,
+          status: true,
+          feedback: true,
+        },
+      }),
+      prisma.quizAttempt.findMany({
+        where: {
+          quizId: { in: quizzes.map(q => q.id) },
+          status: 'completed',
+        },
+        select: {
+          quizId: true,
+          userId: true,
+          score: true,
+          pointsEarned: true,
+          pointsTotal: true,
+          submittedAt: true,
+        },
+        orderBy: { score: 'desc' },
+      }),
+    ]);
+
+    // Build assignment submission map
     const submissionMap = new Map<string, { id: number; grade: number | null; status: string; feedback: string | null }>();
     submissions.forEach(s => {
       submissionMap.set(`${s.userId}-${s.assignmentId}`, {
@@ -613,36 +646,75 @@ export class AssignmentService {
       });
     });
 
-    const gradebook = enrollments.map(enrollment => ({
-      student: enrollment.user,
-      grades: assignments.map(assignment => {
-        const key = `${enrollment.userId}-${assignment.id}`;
-        const submission = submissionMap.get(key);
-        return {
-          assignmentId: assignment.id,
-          submissionId: submission?.id ?? null,
-          grade: submission?.grade ?? null,
-          status: submission?.status ?? 'not_submitted',
-          feedback: submission?.feedback ?? null,
-        };
-      }),
-      totalPoints: assignments.reduce((sum, a, i) => {
+    // Build best quiz attempt map per user per quiz (highest score)
+    const quizAttemptMap = new Map<string, { score: number | null; pointsEarned: number | null; pointsTotal: number | null; completedAt: Date | null }>();
+    for (const attempt of quizAttempts) {
+      const key = `${attempt.userId}-${attempt.quizId}`;
+      if (!quizAttemptMap.has(key)) {
+        quizAttemptMap.set(key, {
+          score: attempt.score,
+          pointsEarned: attempt.pointsEarned,
+          pointsTotal: attempt.pointsTotal,
+          completedAt: attempt.submittedAt,
+        });
+      }
+    }
+
+    const gradebook = enrollments.map(enrollment => {
+      const assignmentTotalEarned = assignments.reduce((sum, a) => {
         const key = `${enrollment.userId}-${a.id}`;
         const submission = submissionMap.get(key);
-        return sum + (submission?.grade ?? 0);
-      }, 0),
-      maxPoints: assignments.reduce((sum, a) => sum + a.points, 0),
-    }));
+        const weight = a.weight ?? 1.0;
+        return sum + (submission?.grade ?? 0) * weight;
+      }, 0);
+
+      const quizTotalEarned = quizzesWithPoints.reduce((sum, q) => {
+        const key = `${enrollment.userId}-${q.id}`;
+        const attempt = quizAttemptMap.get(key);
+        return sum + (attempt?.pointsEarned ?? 0);
+      }, 0);
+
+      return {
+        student: enrollment.user,
+        grades: assignments.map(assignment => {
+          const key = `${enrollment.userId}-${assignment.id}`;
+          const submission = submissionMap.get(key);
+          return {
+            assignmentId: assignment.id,
+            submissionId: submission?.id ?? null,
+            grade: submission?.grade ?? null,
+            status: submission?.status ?? 'not_submitted',
+            feedback: submission?.feedback ?? null,
+          };
+        }),
+        quizGrades: quizzesWithPoints.map(quiz => {
+          const key = `${enrollment.userId}-${quiz.id}`;
+          const attempt = quizAttemptMap.get(key);
+          return {
+            quizId: quiz.id,
+            score: attempt?.score ?? null,
+            pointsEarned: attempt?.pointsEarned ?? null,
+            pointsTotal: attempt?.pointsTotal ?? null,
+            completedAt: attempt?.completedAt ?? null,
+          };
+        }),
+        totalPoints: assignmentTotalEarned + quizTotalEarned,
+        maxPoints: assignments.reduce((sum, a) => {
+          const weight = a.weight ?? 1.0;
+          return sum + a.points * weight;
+        }, 0) + quizzesWithPoints.reduce((sum, q) => sum + q.totalPoints, 0),
+      };
+    });
 
     return {
       assignments,
+      quizzes: quizzesWithPoints,
       gradebook,
     };
   }
 
   /**
-   * Get all assignments with submission status for every course the student is enrolled in.
-   * Executes exactly 3 queries regardless of enrollment count.
+   * Get all assignments and quizzes with submission/attempt status for every course the student is enrolled in.
    */
   async getStudentGradebook(userId: number) {
     // 1. All active or completed enrollments with course title
@@ -670,6 +742,7 @@ export class AssignmentService {
         dueDate: true,
         isPublished: true,
         aiAssisted: true,
+        submissionType: true,
         module: { select: { id: true, title: true } },
       },
     });
@@ -692,13 +765,57 @@ export class AssignmentService {
 
     const submissionMap = new Map(submissions.map(s => [s.assignmentId, s]));
 
-    // Group assignments by course, preserving enrollment order
-    const courseMap = new Map<number, { courseId: number; courseTitle: string; assignments: any[] }>();
+    // 4. All published quizzes across those courses
+    const quizzes = await prisma.quiz.findMany({
+      where: { courseId: { in: courseIds }, isPublished: true },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        courseId: true,
+        title: true,
+        questions: {
+          select: { points: true },
+        },
+      },
+    });
+
+    // 5. All completed quiz attempts by this student for those quizzes
+    const quizIds = quizzes.map(q => q.id);
+    const quizAttempts = quizIds.length > 0
+      ? await prisma.quizAttempt.findMany({
+          where: { userId, quizId: { in: quizIds }, status: 'completed' },
+          select: {
+            quizId: true,
+            score: true,
+            pointsEarned: true,
+            pointsTotal: true,
+            submittedAt: true,
+          },
+          orderBy: { score: 'desc' },
+        })
+      : [];
+
+    // Build best attempt map (highest score per quiz)
+    const bestAttemptMap = new Map<number, { score: number | null; pointsEarned: number | null; pointsTotal: number | null; completedAt: Date | null }>();
+    for (const attempt of quizAttempts) {
+      if (!bestAttemptMap.has(attempt.quizId)) {
+        bestAttemptMap.set(attempt.quizId, {
+          score: attempt.score,
+          pointsEarned: attempt.pointsEarned,
+          pointsTotal: attempt.pointsTotal,
+          completedAt: attempt.submittedAt,
+        });
+      }
+    }
+
+    // Group assignments and quizzes by course, preserving enrollment order
+    const courseMap = new Map<number, { courseId: number; courseTitle: string; assignments: any[]; quizzes: any[] }>();
     for (const enrollment of enrollments) {
       courseMap.set(enrollment.courseId, {
         courseId: enrollment.courseId,
         courseTitle: enrollment.course.title,
         assignments: [],
+        quizzes: [],
       });
     }
 
@@ -708,6 +825,20 @@ export class AssignmentService {
         course.assignments.push({
           ...assignment,
           mySubmission: submissionMap.get(assignment.id) ?? null,
+        });
+      }
+    }
+
+    for (const quiz of quizzes) {
+      const course = courseMap.get(quiz.courseId);
+      if (course) {
+        const totalPoints = quiz.questions.reduce((sum: number, q: { points: number }) => sum + q.points, 0);
+        const bestAttempt = bestAttemptMap.get(quiz.id) ?? null;
+        course.quizzes.push({
+          id: quiz.id,
+          title: quiz.title,
+          totalPoints,
+          myAttempt: bestAttempt,
         });
       }
     }

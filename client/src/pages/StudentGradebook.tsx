@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
 import {
@@ -13,6 +13,7 @@ import {
   TrendingUp,
   ChevronDown,
   ChevronUp,
+  HelpCircle,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { assignmentsApi } from '../api/assignments';
@@ -21,7 +22,47 @@ import { useTheme } from '../hooks/useTheme';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { Button } from '../components/common/Button';
-import { Assignment } from '../types';
+
+
+interface GradebookAssignment {
+  id: number;
+  courseId: number;
+  moduleId: number | null;
+  title: string;
+  points: number;
+  dueDate: string | null;
+  isPublished: boolean;
+  aiAssisted: boolean;
+  submissionType?: string;
+  module: { id: number; title: string } | null;
+  mySubmission: {
+    assignmentId: number;
+    status: string;
+    grade: number | null;
+    submittedAt: string;
+    gradedAt: string | null;
+    feedback: string | null;
+  } | null;
+}
+
+interface GradebookQuiz {
+  id: number;
+  title: string;
+  totalPoints: number;
+  myAttempt: {
+    score: number | null;
+    pointsEarned: number | null;
+    pointsTotal: number | null;
+    completedAt: string | null;
+  } | null;
+}
+
+interface GradebookCourse {
+  courseId: number;
+  courseTitle: string;
+  assignments: GradebookAssignment[];
+  quizzes?: GradebookQuiz[];
+}
 
 type SortOption = 'dueDate' | 'grade' | 'status' | 'title';
 type SortDirection = 'asc' | 'desc';
@@ -61,6 +102,8 @@ export const StudentGradebook = () => {
     borderSummary: isDark ? 'rgba(34, 197, 94, 0.3)' : '#bbf7d0',
     bgIndigo: isDark ? 'rgba(99, 102, 241, 0.2)' : '#e0e7ff',
     textIndigo: isDark ? '#a5b4fc' : '#4f46e5',
+    bgPurple: isDark ? 'rgba(139, 92, 246, 0.2)' : '#ede9fe',
+    textPurple: isDark ? '#c4b5fd' : '#7c3aed',
   };
 
   const { data: enrollment, isLoading: enrollmentLoading } = useQuery({
@@ -68,33 +111,30 @@ export const StudentGradebook = () => {
     queryFn: () => enrollmentsApi.getEnrollment(parsedCourseId),
   });
 
-  const { data: assignments, isLoading: assignmentsLoading } = useQuery({
-    queryKey: ['courseAssignments', courseId],
-    queryFn: () => assignmentsApi.getAssignments(parsedCourseId),
+  // Single request: fetch the full gradebook for the student (all courses)
+  const { data: gradebook, isLoading: gradebookLoading } = useQuery<GradebookCourse[]>({
+    queryKey: ['myGradebook'],
+    queryFn: () => assignmentsApi.getMyGradebook(),
     enabled: !!enrollment?.enrolled,
   });
 
-  // Fetch submission status for each assignment
-  const assignmentIds = assignments?.filter(a => a.isPublished).map(a => a.id) || [];
-  const { data: submissions } = useQuery({
-    queryKey: ['mySubmissions', assignmentIds],
-    queryFn: async () => {
-      const results = await Promise.all(
-        assignmentIds.map(async id => {
-          try {
-            const submission = await assignmentsApi.getMySubmission(id);
-            return { assignmentId: id, submission };
-          } catch {
-            return { assignmentId: id, submission: null };
-          }
-        })
-      );
-      return results;
-    },
-    enabled: assignmentIds.length > 0,
-  });
+  // Filter gradebook data to the current course
+  const courseGradebook = useMemo(
+    () => gradebook?.find(c => c.courseId === parsedCourseId) ?? null,
+    [gradebook, parsedCourseId],
+  );
 
-  if (enrollmentLoading || assignmentsLoading) {
+  const publishedAssignments: GradebookAssignment[] = useMemo(
+    () => courseGradebook?.assignments ?? [],
+    [courseGradebook],
+  );
+
+  const courseQuizzes: GradebookQuiz[] = useMemo(
+    () => courseGradebook?.quizzes ?? [],
+    [courseGradebook],
+  );
+
+  if (enrollmentLoading || gradebookLoading) {
     return <Loading fullScreen text={t('loading_grades')} />;
   }
 
@@ -115,24 +155,26 @@ export const StudentGradebook = () => {
   }
 
   const course = enrollment.enrollment?.course;
-  const publishedAssignments = assignments?.filter(a => a.isPublished) || [];
 
-  // Get submission for an assignment
-  const getSubmission = (assignmentId: number) => {
-    return submissions?.find(s => s.assignmentId === assignmentId)?.submission;
-  };
-
-  // Calculate overall grade
+  // Calculate overall grade (assignments + quizzes)
   const calculateOverallGrade = () => {
     let totalEarned = 0;
     let totalPossible = 0;
     let gradedCount = 0;
 
     publishedAssignments.forEach(assignment => {
-      const submission = getSubmission(assignment.id);
+      const submission = assignment.mySubmission;
       totalPossible += assignment.points;
       if (submission?.grade !== null && submission?.grade !== undefined) {
         totalEarned += submission.grade;
+        gradedCount++;
+      }
+    });
+
+    courseQuizzes.forEach(quiz => {
+      totalPossible += quiz.totalPoints;
+      if (quiz.myAttempt?.pointsEarned !== null && quiz.myAttempt?.pointsEarned !== undefined) {
+        totalEarned += quiz.myAttempt.pointsEarned;
         gradedCount++;
       }
     });
@@ -142,15 +184,15 @@ export const StudentGradebook = () => {
       totalPossible,
       percentage: totalPossible > 0 ? Math.round((totalEarned / totalPossible) * 100) : 0,
       gradedCount,
-      totalCount: publishedAssignments.length,
+      totalCount: publishedAssignments.length + courseQuizzes.length,
     };
   };
 
   // Sort assignments
-  const sortAssignments = (assignmentsList: Assignment[]) => {
+  const sortAssignments = (assignmentsList: GradebookAssignment[]) => {
     return [...assignmentsList].sort((a, b) => {
-      const subA = getSubmission(a.id);
-      const subB = getSubmission(b.id);
+      const subA = a.mySubmission;
+      const subB = b.mySubmission;
 
       let comparison = 0;
 
@@ -161,17 +203,19 @@ export const StudentGradebook = () => {
           else if (!b.dueDate) comparison = -1;
           else comparison = new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
           break;
-        case 'grade':
+        case 'grade': {
           const gradeA = subA?.grade ?? -1;
           const gradeB = subB?.grade ?? -1;
           comparison = gradeA - gradeB;
           break;
-        case 'status':
+        }
+        case 'status': {
           const statusOrder = { graded: 0, submitted: 1, draft: 2, none: 3 };
           const statusA = subA?.status || 'none';
           const statusB = subB?.status || 'none';
           comparison = (statusOrder[statusA as keyof typeof statusOrder] || 3) - (statusOrder[statusB as keyof typeof statusOrder] || 3);
           break;
+        }
         case 'title':
           comparison = a.title.localeCompare(b.title);
           break;
@@ -275,19 +319,45 @@ export const StudentGradebook = () => {
       </div>
 
       {/* Assignments List */}
-      {sortedAssignments.length > 0 ? (
-        <div className="space-y-4">
-          {sortedAssignments.map(assignment => (
-            <AssignmentGradeCard
-              key={assignment.id}
-              assignment={assignment}
-              submission={getSubmission(assignment.id)}
-              courseId={parsedCourseId}
-              colors={colors}
-            />
-          ))}
-        </div>
-      ) : (
+      {sortedAssignments.length > 0 && (
+        <>
+          <h2 className="text-lg font-semibold mb-3" style={{ color: colors.textPrimary }}>
+            {t('assignments')}
+          </h2>
+          <div className="space-y-4 mb-8">
+            {sortedAssignments.map(assignment => (
+              <AssignmentGradeCard
+                key={assignment.id}
+                assignment={assignment}
+                submission={assignment.mySubmission}
+                courseId={parsedCourseId}
+                colors={colors}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Quizzes List */}
+      {courseQuizzes.length > 0 && (
+        <>
+          <h2 className="text-lg font-semibold mb-3" style={{ color: colors.textPrimary }}>
+            {t('quizzes')}
+          </h2>
+          <div className="space-y-4 mb-8">
+            {courseQuizzes.map(quiz => (
+              <QuizGradeCard
+                key={quiz.id}
+                quiz={quiz}
+                courseId={parsedCourseId}
+                colors={colors}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      {sortedAssignments.length === 0 && courseQuizzes.length === 0 && (
         <Card>
           <CardBody className="text-center py-12">
             <FileText className="w-16 h-16 mx-auto mb-4" style={{ color: colors.textMuted }} />
@@ -301,7 +371,7 @@ export const StudentGradebook = () => {
 };
 
 interface AssignmentGradeCardProps {
-  assignment: Assignment;
+  assignment: GradebookAssignment;
   submission: {
     status: string;
     grade: number | null;
@@ -453,6 +523,102 @@ const AssignmentGradeCard = ({ assignment, submission, courseId, colors }: Assig
             ) : (
               <div className="text-sm" style={{ color: colors.textMuted }}>
                 --/{assignment.points}
+              </div>
+            )}
+          </div>
+        </CardBody>
+      </Card>
+    </Link>
+  );
+};
+
+// Quiz Grade Card Component
+interface QuizGradeCardProps {
+  quiz: GradebookQuiz;
+  courseId: number;
+  colors: Record<string, string>;
+}
+
+const QuizGradeCard = ({ quiz, courseId, colors }: QuizGradeCardProps) => {
+  const { t } = useTranslation(['courses', 'common']);
+  const hasAttempt = quiz.myAttempt !== null;
+  const pointsEarned = quiz.myAttempt?.pointsEarned ?? 0;
+  const scorePercent = quiz.myAttempt?.score != null ? Math.round(quiz.myAttempt.score) : null;
+
+  return (
+    <Link to={`/courses/${courseId}/quizzes`}>
+      <Card hover>
+        <CardBody className="flex items-center gap-4">
+          {/* Icon */}
+          <div
+            className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{
+              backgroundColor: hasAttempt ? colors.bgPurple : colors.bgGray,
+            }}
+          >
+            <HelpCircle
+              className="w-6 h-6"
+              style={{ color: hasAttempt ? colors.textPurple : colors.textGray }}
+            />
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <h3 className="font-semibold truncate" style={{ color: colors.textPrimary }}>
+                {quiz.title}
+              </h3>
+              <span
+                className="text-xs px-2 py-0.5 rounded"
+                style={{ backgroundColor: colors.bgPurple, color: colors.textPurple }}
+              >
+                {t('content_quiz')}
+              </span>
+              {hasAttempt ? (
+                <span
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium"
+                  style={{ backgroundColor: colors.bgGreen, color: colors.textGreen }}
+                >
+                  <CheckCircle className="w-3 h-3" />
+                  {t('common:completed')}
+                </span>
+              ) : (
+                <span
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium"
+                  style={{ backgroundColor: colors.bgGray, color: colors.textGray }}
+                >
+                  <FileText className="w-3 h-3" />
+                  {t('not_started_status')}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-4 text-sm" style={{ color: colors.textSecondary }}>
+              <span className="flex items-center gap-1">
+                <Award className="w-4 h-4" />
+                {t('points_format', { points: quiz.totalPoints })}
+              </span>
+            </div>
+          </div>
+
+          {/* Grade Display */}
+          <div className="text-right flex-shrink-0">
+            {hasAttempt ? (
+              <div>
+                <div className="text-2xl font-bold" style={{ color: colors.textGreen }}>
+                  {pointsEarned}
+                </div>
+                <div className="text-sm" style={{ color: colors.textSecondary }}>
+                  /{quiz.totalPoints}
+                </div>
+                {scorePercent !== null && (
+                  <div className="text-xs" style={{ color: colors.textGreen }}>
+                    {t('grade_percent', { percent: scorePercent })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-sm" style={{ color: colors.textMuted }}>
+                --/{quiz.totalPoints}
               </div>
             )}
           </div>

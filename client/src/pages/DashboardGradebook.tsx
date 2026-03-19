@@ -75,9 +75,10 @@ export const DashboardGradebook = () => {
     return <Loading fullScreen text={t('loading_gradebook')} />;
   }
 
-  // Calculate grades for each course
+  // Calculate grades for each course (assignments + quizzes)
   const courseGrades: CourseGrade[] = (gradebookData || []).map((courseData: any) => {
     const assignments = courseData.assignments || [];
+    const quizzes = courseData.quizzes || [];
 
     let totalEarned = 0;
     let totalPossible = 0;
@@ -106,7 +107,28 @@ export const DashboardGradebook = () => {
       }
     });
 
-    const total = assignments.length;
+    // Include quiz scores in totals
+    quizzes.forEach((quiz: any) => {
+      totalPossible += quiz.totalPoints;
+      if (quiz.myAttempt) {
+        submittedCount++;
+        totalEarned += quiz.myAttempt.pointsEarned ?? 0;
+        gradedCount++;
+        // Track most recent quiz grade
+        if (quiz.myAttempt.completedAt) {
+          if (!recentGrade || new Date(quiz.myAttempt.completedAt) > new Date(recentGrade.gradedAt)) {
+            recentGrade = {
+              assignmentTitle: quiz.title,
+              grade: quiz.myAttempt.pointsEarned ?? 0,
+              maxPoints: quiz.totalPoints,
+              gradedAt: quiz.myAttempt.completedAt,
+            };
+          }
+        }
+      }
+    });
+
+    const total = assignments.length + quizzes.length;
     return {
       courseId: courseData.courseId,
       courseTitle: courseData.courseTitle,

@@ -260,7 +260,7 @@ export const AssignmentView = () => {
     if (!file) return;
     setIsUploading(true);
     try {
-      const { url } = await uploadsApi.uploadAssignmentSubmission(file);
+      const { url } = await uploadsApi.uploadAssignmentSubmission(file, parsedAssignmentId);
       setFileUrls(prev => [...prev, url]);
       toast.success(t('file_uploaded', { defaultValue: 'File uploaded' }));
     } catch {

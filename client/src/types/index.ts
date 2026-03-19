@@ -424,6 +424,7 @@ export interface Assignment {
   agentRequirements?: string | null;
   dueDate: string | null;
   points: number;
+  weight?: number;
   isPublished: boolean;
   aiAssisted: boolean;
   aiPrompt: string | null;
@@ -589,6 +590,7 @@ export interface AssignmentFormData {
   submissionType: 'text' | 'file' | 'mixed' | 'ai_agent';
   dueDate: string;
   points: number;
+  weight: number;
   isPublished: boolean;
 }
 

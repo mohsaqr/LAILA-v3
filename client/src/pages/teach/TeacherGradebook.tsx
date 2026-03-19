@@ -10,6 +10,7 @@ import {
   Minus,
   Award,
   Users,
+  HelpCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { assignmentsApi } from '../../api/assignments';
@@ -34,9 +35,24 @@ interface GradebookGrade {
   feedback?: string | null;
 }
 
+interface QuizGrade {
+  quizId: number;
+  score: number | null;
+  pointsEarned: number | null;
+  pointsTotal: number | null;
+  completedAt: string | null;
+}
+
+interface QuizInfo {
+  id: number;
+  title: string;
+  totalPoints: number;
+}
+
 interface GradebookEntry {
   student: { id: number; fullname: string; email: string };
   grades: GradebookGrade[];
+  quizGrades?: QuizGrade[];
   totalPoints: number;
   maxPoints: number;
 }
@@ -46,10 +62,12 @@ interface GradebookStudent {
   fullname: string;
   email: string;
   submissions: (GradebookGrade & { submissionId?: number })[];
+  quizGrades: QuizGrade[];
 }
 
 interface GradebookData {
   assignments: Assignment[];
+  quizzes?: QuizInfo[];
   gradebook: GradebookEntry[];
 }
 
@@ -96,6 +114,9 @@ export const TeacherGradebook = () => {
     // Summary
     bgIndigo: isDark ? 'rgba(99, 102, 241, 0.2)' : '#e0e7ff',
     textIndigo: isDark ? '#a5b4fc' : '#4f46e5',
+    // Quiz
+    bgPurple: isDark ? 'rgba(139, 92, 246, 0.15)' : '#ede9fe',
+    textPurple: isDark ? '#c4b5fd' : '#7c3aed',
   };
 
   const { data: course, isLoading: courseLoading } = useQuery({
@@ -108,11 +129,12 @@ export const TeacherGradebook = () => {
     queryFn: () => assignmentsApi.getGradebook(parsedCourseId) as Promise<GradebookData>,
   });
 
-  // Transform server shape { gradebook: [{ student, grades }] } into { students: [{ id, fullname, email, submissions }] }
+  // Transform server shape into a flat student-centric view
   const gradebook = useMemo(() => {
     if (!rawGradebook) return undefined;
     return {
       assignments: rawGradebook.assignments,
+      quizzes: rawGradebook.quizzes || [],
       students: rawGradebook.gradebook.map(entry => ({
         id: entry.student.id,
         fullname: entry.student.fullname,
@@ -121,6 +143,7 @@ export const TeacherGradebook = () => {
           ...g,
           submissionId: g.submissionId ?? undefined,
         })),
+        quizGrades: entry.quizGrades || [],
       })),
     };
   }, [rawGradebook]);
@@ -189,7 +212,15 @@ export const TeacherGradebook = () => {
   const exportCSV = () => {
     if (!gradebook) return;
 
-    const headers = ['Student Name', 'Email', ...gradebook.assignments.map(a => a.title), 'Total', 'Percentage'];
+    const quizHeaders = gradebook.quizzes.map(q => `${q.title} (Quiz)`);
+    const headers = [
+      'Student Name',
+      'Email',
+      ...gradebook.assignments.map(a => a.title),
+      ...quizHeaders,
+      'Total',
+      'Percentage',
+    ];
     const rows = filteredStudents.map(student => {
       const { totalEarned, totalPossible } = calculateStudentTotal(student);
       const percentage = totalPossible > 0 ? Math.round((totalEarned / totalPossible) * 100) : 0;
@@ -204,6 +235,13 @@ export const TeacherGradebook = () => {
           }
           if (submission?.status === 'submitted') {
             return 'Pending';
+          }
+          return '--';
+        }),
+        ...gradebook.quizzes.map(quiz => {
+          const qg = student.quizGrades.find(g => g.quizId === quiz.id);
+          if (qg?.pointsEarned !== null && qg?.pointsEarned !== undefined) {
+            return qg.pointsEarned.toString();
           }
           return '--';
         }),
@@ -229,9 +267,18 @@ export const TeacherGradebook = () => {
 
     gradebook.assignments.forEach(assignment => {
       const submission = student.submissions.find(s => s.assignmentId === assignment.id);
-      totalPossible += assignment.points;
+      const weight = (assignment as Assignment & { weight?: number }).weight ?? 1.0;
+      totalPossible += assignment.points * weight;
       if (submission?.grade !== null && submission?.grade !== undefined) {
-        totalEarned += submission.grade;
+        totalEarned += submission.grade * weight;
+      }
+    });
+
+    gradebook.quizzes.forEach(quiz => {
+      totalPossible += quiz.totalPoints;
+      const qg = student.quizGrades.find(g => g.quizId === quiz.id);
+      if (qg?.pointsEarned !== null && qg?.pointsEarned !== undefined) {
+        totalEarned += qg.pointsEarned;
       }
     });
 
@@ -247,6 +294,17 @@ export const TeacherGradebook = () => {
 
     if (grades.length === 0) return null;
     return Math.round(grades.reduce((a, b) => a + b, 0) / grades.length);
+  };
+
+  const calculateQuizClassAverage = (quizId: number) => {
+    if (!gradebook) return null;
+
+    const scores = gradebook.students
+      .map(s => s.quizGrades.find(g => g.quizId === quizId)?.pointsEarned)
+      .filter((g): g is number => g !== null && g !== undefined);
+
+    if (scores.length === 0) return null;
+    return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
   };
 
   if (courseLoading || gradebookLoading) {
@@ -268,7 +326,13 @@ export const TeacherGradebook = () => {
   ) || [];
 
   const totalAssignments = gradebook?.assignments.length || 0;
-  const totalPossiblePoints = gradebook?.assignments.reduce((sum, a) => sum + a.points, 0) || 0;
+  const totalQuizzes = gradebook?.quizzes.length || 0;
+  const totalPossiblePoints = (gradebook?.assignments.reduce((sum, a) => {
+    const weight = (a as Assignment & { weight?: number }).weight ?? 1.0;
+    return sum + a.points * weight;
+  }, 0) || 0) + (gradebook?.quizzes.reduce((sum, q) => sum + q.totalPoints, 0) || 0);
+
+  const hasContent = totalAssignments > 0 || totalQuizzes > 0;
 
   const breadcrumbItems = buildTeachingBreadcrumb(courseId, course?.title || 'Course', 'Gradebook');
 
@@ -290,7 +354,7 @@ export const TeacherGradebook = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardBody className="flex items-center gap-3">
             <div
@@ -320,6 +384,22 @@ export const TeacherGradebook = () => {
                 {totalAssignments}
               </p>
               <p className="text-sm" style={{ color: colors.textSecondary }}>{t('navigation:assignments')}</p>
+            </div>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardBody className="flex items-center gap-3">
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: colors.bgPurple }}
+            >
+              <HelpCircle className="w-5 h-5" style={{ color: colors.textPurple }} />
+            </div>
+            <div>
+              <p className="text-xl font-bold" style={{ color: colors.textPrimary }}>
+                {totalQuizzes}
+              </p>
+              <p className="text-sm" style={{ color: colors.textSecondary }}>{t('quizzes')}</p>
             </div>
           </CardBody>
         </Card>
@@ -366,7 +446,7 @@ export const TeacherGradebook = () => {
       {/* Gradebook Table */}
       <Card>
         <CardBody className="p-0">
-          {gradebook && gradebook.assignments.length > 0 && filteredStudents.length > 0 ? (
+          {gradebook && hasContent && filteredStudents.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[800px]">
                 <thead>
@@ -377,21 +457,41 @@ export const TeacherGradebook = () => {
                     >
                       {t('student')}
                     </th>
-                    {gradebook.assignments.map(assignment => (
-                      <th
-                        key={assignment.id}
-                        className="px-3 py-3 text-center text-sm font-medium"
-                        style={{ color: colors.textPrimary, minWidth: '100px' }}
-                      >
-                        <Link
-                          to={`/teach/courses/${parsedCourseId}/assignments/${assignment.id}/submissions`}
-                          className="hover:underline"
-                          style={{ color: colors.textPrimary }}
+                    {gradebook.assignments.map(assignment => {
+                      const weight = (assignment as Assignment & { weight?: number }).weight;
+                      const showWeight = weight !== undefined && weight !== null && weight !== 1.0;
+                      return (
+                        <th
+                          key={`a-${assignment.id}`}
+                          className="px-3 py-3 text-center text-sm font-medium"
+                          style={{ color: colors.textPrimary, minWidth: '100px' }}
                         >
-                          {assignment.title}
-                        </Link>
+                          <Link
+                            to={`/teach/courses/${parsedCourseId}/assignments/${assignment.id}/submissions`}
+                            className="hover:underline"
+                            style={{ color: colors.textPrimary }}
+                          >
+                            {assignment.title}
+                            {showWeight && <span className="ml-1 text-xs font-normal" style={{ color: colors.textMuted }}>({weight}x)</span>}
+                          </Link>
+                          <div className="text-xs font-normal" style={{ color: colors.textMuted }}>
+                            /{assignment.points}
+                          </div>
+                        </th>
+                      );
+                    })}
+                    {gradebook.quizzes.map(quiz => (
+                      <th
+                        key={`q-${quiz.id}`}
+                        className="px-3 py-3 text-center text-sm font-medium"
+                        style={{ color: colors.textPurple, minWidth: '100px' }}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <HelpCircle className="w-3.5 h-3.5" />
+                          <span>{quiz.title}</span>
+                        </div>
                         <div className="text-xs font-normal" style={{ color: colors.textMuted }}>
-                          /{assignment.points}
+                          /{quiz.totalPoints}
                         </div>
                       </th>
                     ))}
@@ -439,7 +539,7 @@ export const TeacherGradebook = () => {
                         {gradebook.assignments.map(assignment => {
                           const submission = student.submissions.find(s => s.assignmentId === assignment.id);
                           return (
-                            <td key={assignment.id} className="px-3 py-3 text-center">
+                            <td key={`a-${assignment.id}`} className="px-3 py-3 text-center">
                               <GradeCell
                                 submission={submission}
                                 maxPoints={assignment.points}
@@ -456,6 +556,14 @@ export const TeacherGradebook = () => {
                                   )
                                 }
                               />
+                            </td>
+                          );
+                        })}
+                        {gradebook.quizzes.map(quiz => {
+                          const qg = student.quizGrades.find(g => g.quizId === quiz.id);
+                          return (
+                            <td key={`q-${quiz.id}`} className="px-3 py-3 text-center">
+                              <QuizScoreCell quizGrade={qg || null} colors={colors} />
                             </td>
                           );
                         })}
@@ -488,7 +596,17 @@ export const TeacherGradebook = () => {
                     {gradebook.assignments.map(assignment => {
                       const avg = calculateClassAverage(assignment.id);
                       return (
-                        <td key={assignment.id} className="px-3 py-3 text-center">
+                        <td key={`a-${assignment.id}`} className="px-3 py-3 text-center">
+                          <span className="font-medium" style={{ color: colors.textSecondary }}>
+                            {avg !== null ? `${avg}` : '--'}
+                          </span>
+                        </td>
+                      );
+                    })}
+                    {gradebook.quizzes.map(quiz => {
+                      const avg = calculateQuizClassAverage(quiz.id);
+                      return (
+                        <td key={`q-${quiz.id}`} className="px-3 py-3 text-center">
                           <span className="font-medium" style={{ color: colors.textSecondary }}>
                             {avg !== null ? `${avg}` : '--'}
                           </span>
@@ -506,14 +624,14 @@ export const TeacherGradebook = () => {
             <div className="p-8">
               <EmptyState
                 icon={Award}
-                title={gradebook?.assignments.length === 0 ? t('no_assignments_yet') : t('no_students_enrolled')}
+                title={!hasContent ? t('no_assignments_yet') : t('no_students_enrolled')}
                 description={
-                  gradebook?.assignments.length === 0
+                  !hasContent
                     ? t('create_assignments_to_track')
                     : t('students_will_appear')
                 }
                 action={
-                  gradebook?.assignments.length === 0
+                  !hasContent
                     ? {
                         label: t('manage_assignments'),
                         onClick: () => navigate(`/teach/courses/${parsedCourseId}/assignments`),
@@ -548,6 +666,13 @@ export const TeacherGradebook = () => {
             style={{ backgroundColor: colors.bgNotSubmitted }}
           />
           <span>{t('not_submitted')}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div
+            className="w-4 h-4 rounded"
+            style={{ backgroundColor: colors.bgPurple }}
+          />
+          <span>{t('quizzes')}</span>
         </div>
       </div>
 
@@ -642,5 +767,35 @@ const GradeCell = ({ submission, colors, onClick }: GradeCellProps) => {
     >
       <Clock className="w-3 h-3" />
     </button>
+  );
+};
+
+// Quiz Score Cell Component (read-only, auto-graded)
+interface QuizScoreCellProps {
+  quizGrade: QuizGrade | null;
+  colors: Record<string, string>;
+}
+
+const QuizScoreCell = ({ quizGrade, colors }: QuizScoreCellProps) => {
+  if (!quizGrade || quizGrade.pointsEarned === null || quizGrade.pointsEarned === undefined) {
+    // No attempt
+    return (
+      <div
+        className="inline-flex items-center justify-center px-2 py-1 rounded text-xs"
+        style={{ backgroundColor: colors.bgNotSubmitted, color: colors.textNotSubmitted }}
+      >
+        <Minus className="w-3 h-3" />
+      </div>
+    );
+  }
+
+  // Completed quiz with score
+  return (
+    <div
+      className="inline-flex items-center justify-center px-2 py-1 rounded text-sm font-medium"
+      style={{ backgroundColor: colors.bgPurple, color: colors.textPurple }}
+    >
+      {quizGrade.pointsEarned}
+    </div>
   );
 };

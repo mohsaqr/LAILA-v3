@@ -140,6 +140,7 @@ export const CurriculumEditor = () => {
     description: '',
     submissionType: 'text',
     points: 100,
+    weight: 1.0,
     dueDate: '',
     isPublished: false,
   });
@@ -552,6 +553,7 @@ export const CurriculumEditor = () => {
       description: '',
       submissionType: 'text',
       points: 100,
+      weight: 1.0,
       dueDate: '',
       isPublished: false,
     });
@@ -564,6 +566,7 @@ export const CurriculumEditor = () => {
       description: assignment.description || '',
       submissionType: assignment.submissionType,
       points: assignment.points,
+      weight: assignment.weight ?? 1.0,
       dueDate: assignment.dueDate ? new Date(assignment.dueDate).toISOString().slice(0, 16) : '',
       isPublished: assignment.isPublished,
     });
@@ -577,6 +580,7 @@ export const CurriculumEditor = () => {
       description: '',
       submissionType: 'text',
       points: 100,
+      weight: 1.0,
       dueDate: '',
       isPublished: false,
     });
@@ -1967,13 +1971,22 @@ export const CurriculumEditor = () => {
               {t('ai_agent_info')}
             </div>
           )}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <Input
               label={t('points_label')}
               type="number"
               value={assignmentForm.points}
               onChange={e => setAssignmentForm(f => ({ ...f, points: parseInt(e.target.value) || 0 }))}
               min={0}
+            />
+            <Input
+              label={t('weight_label', { defaultValue: 'Weight' })}
+              type="number"
+              value={assignmentForm.weight}
+              onChange={e => setAssignmentForm(f => ({ ...f, weight: parseFloat(e.target.value) || 0 }))}
+              min={0}
+              max={10}
+              step={0.1}
             />
             <Input
               label={t('due_date_optional')}

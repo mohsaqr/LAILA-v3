@@ -5,6 +5,7 @@ import fs from 'fs';
 import { v4 as uuid } from 'uuid';
 import { authenticateToken, requireInstructor } from '../middleware/auth.middleware.js';
 import { AuthRequest } from '../types/index.js';
+import prisma from '../utils/prisma.js';
 
 const router = Router();
 
@@ -333,11 +334,56 @@ router.post(
   '/assignment-submission',
   authenticateToken,
   assignmentSubmissionUpload.single('file'),
-  (req: AuthRequest, res: Response) => {
+  async (req: AuthRequest, res: Response) => {
     if (!req.file) {
       res.status(400).json({ success: false, error: 'No file uploaded' });
       return;
     }
+
+    // If assignmentId is provided, enforce per-assignment file constraints
+    const assignmentIdRaw = req.query.assignmentId;
+    if (assignmentIdRaw) {
+      const assignmentId = parseInt(assignmentIdRaw as string, 10);
+      if (!Number.isNaN(assignmentId)) {
+        const assignment = await prisma.assignment.findUnique({
+          where: { id: assignmentId },
+          select: { allowedFileTypes: true, maxFileSize: true },
+        });
+
+        if (assignment) {
+          // Check allowed file types (comma-separated extensions like ".pdf,.docx")
+          if (assignment.allowedFileTypes) {
+            const ext = path.extname(req.file.originalname).toLowerCase();
+            const allowed = assignment.allowedFileTypes
+              .split(',')
+              .map(t => t.trim().toLowerCase())
+              .filter(Boolean);
+            if (allowed.length > 0 && !allowed.includes(ext)) {
+              fs.unlinkSync(req.file.path);
+              res.status(400).json({
+                success: false,
+                error: `File type ${ext} is not allowed. Accepted types: ${assignment.allowedFileTypes}`,
+              });
+              return;
+            }
+          }
+
+          // Check max file size (stored as MB in the database)
+          if (assignment.maxFileSize) {
+            const maxBytes = assignment.maxFileSize * 1024 * 1024;
+            if (req.file.size > maxBytes) {
+              fs.unlinkSync(req.file.path);
+              res.status(400).json({
+                success: false,
+                error: `File size (${(req.file.size / (1024 * 1024)).toFixed(1)} MB) exceeds the ${assignment.maxFileSize} MB limit for this assignment.`,
+              });
+              return;
+            }
+          }
+        }
+      }
+    }
+
     const fileUrl = `/uploads/${req.file.filename}`;
     res.json({
       success: true,
