@@ -8,6 +8,7 @@
 
 import { useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
+import { Breadcrumb } from '../components/common/Breadcrumb';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -450,14 +451,21 @@ export const SnaExercise = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
+        {/* Breadcrumb */}
+        {courseId && (
+          <div className="mb-4">
+            <Breadcrumb
+              items={[
+                { label: t('common:courses'), href: '/courses' },
+                { label: t('sna.title') },
+              ]}
+            />
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            {courseId && (
-              <Link to={`/courses/${courseId}`} className="p-2 -ml-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                <ArrowLeft className="w-4 h-4" />
-              </Link>
-            )}
             <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 flex items-center justify-center">
               <Network className="w-4.5 h-4.5 text-white" />
             </div>

@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { Breadcrumb } from '../components/common/Breadcrumb';
 import {
-  ArrowLeft,
   FlaskConical,
   RefreshCw,
   HelpCircle,
@@ -192,28 +192,38 @@ export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookRe
   return (
     <div className="min-h-screen" style={{ backgroundColor: colors.bg }}>
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Breadcrumb */}
+        <div className="mb-4">
+          <Breadcrumb
+            items={
+              courseId
+                ? [
+                    { label: t('common:courses'), href: '/courses' },
+                    { label: lab.name },
+                  ]
+                : [
+                    { label: t('labs'), href: '/labs' },
+                    { label: lab.name },
+                  ]
+            }
+          />
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <Link to="/labs">
-              <Button variant="ghost" size="sm" icon={<ArrowLeft className="w-4 h-4" />}>
-                {t('back_to_labs')}
-              </Button>
-            </Link>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 flex items-center justify-center">
-                <FlaskConical className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold" style={{ color: colors.textPrimary }}>
-                  {lab.name}
-                </h1>
-                {lab.description && (
-                  <p className="text-sm" style={{ color: colors.textSecondary }}>
-                    {lab.description}
-                  </p>
-                )}
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 flex items-center justify-center">
+              <FlaskConical className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold" style={{ color: colors.textPrimary }}>
+                {lab.name}
+              </h1>
+              {lab.description && (
+                <p className="text-sm" style={{ color: colors.textSecondary }}>
+                  {lab.description}
+                </p>
+              )}
             </div>
           </div>
 

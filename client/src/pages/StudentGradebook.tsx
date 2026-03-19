@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
+import { Breadcrumb } from '../components/common/Breadcrumb';
 import {
   ArrowLeft,
   FileText,
@@ -239,13 +240,15 @@ export const StudentGradebook = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ minHeight: '100vh' }}>
-      {/* Header */}
+      {/* Breadcrumb */}
       <div className="mb-6">
-        <Link to={`/courses/${courseId}/assignments`}>
-          <Button variant="ghost" size="sm" icon={<ArrowLeft className="w-4 h-4" />}>
-            {t('back_to_assignments')}
-          </Button>
-        </Link>
+        <Breadcrumb
+          items={[
+            { label: t('common:courses'), href: '/courses' },
+            { label: t('common:course'), href: `/courses/${courseId}` },
+            { label: t('my_grades') },
+          ]}
+        />
       </div>
 
       <div className="mb-8">
