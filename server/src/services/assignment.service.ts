@@ -424,7 +424,8 @@ export class AssignmentService {
           browserName: context?.browserName,
         }, context?.ipAddress);
       } catch (error) {
-      assignmentLogger.warn({ err: error, userId, assignmentId }, 'Failed to log assignment submit event');
+        assignmentLogger.warn({ err: error, userId, assignmentId }, 'Failed to log assignment submit event');
+      }
     }
 
     return submission;
