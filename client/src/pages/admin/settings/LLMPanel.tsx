@@ -165,7 +165,7 @@ export const LLMPanel = () => {
     queryFn: () => llmApi.getDefaults(),
   });
 
-  const { data: moduleAssignments, isLoading: isLoadingAssignments } = useQuery({
+  const { data: moduleAssignments, isLoading: isLoadingAssignments, isError: isAssignmentsError } = useQuery({
     queryKey: ['llmModuleAssignments'],
     queryFn: () => llmApi.getModuleAssignments(),
   });
@@ -716,7 +716,8 @@ export const LLMPanel = () => {
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400 hidden sm:table-cell">{desc}</td>
                     <td className="px-4 py-3">
                       <select
-                        value={moduleAssignments?.[key] ?? ''}
+                        value={isAssignmentsError ? '' : (moduleAssignments?.[key] ?? '')}
+                        disabled={isAssignmentsError || isLoadingAssignments}
                         onChange={(e) => {
                           const val = e.target.value === '' ? null : parseInt(e.target.value, 10);
                           setAssignmentMutation.mutate({ module: key, providerId: val });

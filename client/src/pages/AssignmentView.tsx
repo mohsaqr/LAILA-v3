@@ -186,18 +186,6 @@ export const AssignmentView = () => {
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
       toast.success(t('assignment_submitted'));
 
-      // Log assignment_submit event
-      const clientInfo = getClientInfo();
-      learningAnalyticsApi.logAssessmentEvent({
-        sessionId: getSessionId(),
-        courseId: parsedCourseId,
-        assignmentId: parsedAssignmentId,
-        eventType: 'assignment_submit',
-        maxPoints: assignment?.points,
-        timestamp: Date.now(),
-        ...clientInfo,
-      }).catch(err => debug.error('Failed to log assignment_submit event:', err));
-
       // Show post-assignment survey modal if configured
       if (assignment?.postSurveyId) {
         setShowSurveyModal(true);

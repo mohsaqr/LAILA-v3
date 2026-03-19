@@ -678,20 +678,15 @@ const InstructorCourseCard = ({ course }: { course: Course }) => {
 
         {/* Actions */}
         <div className="mt-auto flex gap-2">
-          <Link to={`/courses/${course.id}`} className="flex-1">
-            <Button variant="outline" size="sm" className="w-full" icon={<Eye className="w-4 h-4" />}>
-              {t('view_course')}
-            </Button>
+          <Link to={`/courses/${course.id}`} className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <Eye className="w-4 h-4" />
+            {t('view_course')}
           </Link>
-          <Link to={`/teach/courses/${course.id}/curriculum`} title={t('common:edit')}>
-            <Button variant="ghost" size="sm">
-              <Edit className="w-4 h-4" />
-            </Button>
+          <Link to={`/teach/courses/${course.id}/curriculum`} title={t('common:edit')} className="inline-flex items-center justify-center px-2 py-1.5 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+            <Edit className="w-4 h-4" />
           </Link>
-          <Link to={`/teach/courses/${course.id}/edit`} title={t('settings:settings')}>
-            <Button variant="ghost" size="sm">
-              <Settings className="w-4 h-4" />
-            </Button>
+          <Link to={`/teach/courses/${course.id}/edit`} title={t('settings:settings')} className="inline-flex items-center justify-center px-2 py-1.5 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+            <Settings className="w-4 h-4" />
           </Link>
         </div>
       </CardBody>

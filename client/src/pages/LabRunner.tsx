@@ -94,6 +94,18 @@ export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookRe
     textSecondary: isDark ? '#9ca3af' : '#6b7280',
   };
 
+  // Reset state when lab changes (e.g. navigating between labs)
+  useEffect(() => {
+    setCode(defaultCode);
+    setOutputs([]);
+    setSelectedTemplateId(null);
+    setReportItems([]);
+    setSessionEvents([]);
+    setVisitedTemplates([]);
+    setAssignmentPanelOpen(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lab.id]);
+
   // Auto-select first template on load
   useEffect(() => {
     const templates = lab.templates;
@@ -367,6 +379,7 @@ export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookRe
               labId={lab.id}
               code={code}
               templateTitle={selectedTemplate?.title}
+              language={isPythonLab(lab.labType) ? 'python' : 'r'}
             />
 
             {/* Add to Report button */}

@@ -79,8 +79,9 @@ export class LLMService {
 
   // Normalise a module identifier to one of the known routing keys.
   // e.g. 'chatbot-research-methods' → 'chatbot', 'tutor-router' → 'tutor'
+  // Unknown modules fall back to 'chatbot' to prevent unbounded cache growth.
   private normaliseModule(module: string): string {
-    return ROUTABLE_MODULES.find(m => module === m || module.startsWith(m + '-')) ?? module;
+    return ROUTABLE_MODULES.find(m => module === m || module.startsWith(m + '-')) ?? 'chatbot';
   }
 
   async getProviderForModule(module: string): Promise<LLMProviderConfig | null> {

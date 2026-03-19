@@ -51,7 +51,7 @@ export const LabAIAssistant = ({ context, data, labType, analysisKey }: LabAIAss
     setInput('');
     setResponse(null);
     setError(null);
-  }, [analysisKey]);
+  }, [analysisKey, context, data]);
 
   useEffect(() => {
     if (response && responseRef.current) {

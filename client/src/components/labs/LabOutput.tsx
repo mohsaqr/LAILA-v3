@@ -18,6 +18,8 @@ interface LabOutputProps {
   code?: string;
   /** The template title — added to the AI prompt for context */
   templateTitle?: string;
+  /** The language of the lab (r or python) — used for code fence in AI prompt */
+  language?: 'r' | 'python';
 }
 
 // Storage key for interpretations
@@ -61,7 +63,7 @@ const ACTION_PROMPTS = {
 
 type ActionType = keyof typeof ACTION_PROMPTS;
 
-export const LabOutput = ({ outputs, onClear, labId, code, templateTitle }: LabOutputProps) => {
+export const LabOutput = ({ outputs, onClear, labId, code, templateTitle, language = 'r' }: LabOutputProps) => {
   const { isDark } = useTheme();
   const [selectedAction, setSelectedAction] = useState<ActionType | null>(null);
   const [isInterpreting, setIsInterpreting] = useState(false);
@@ -148,7 +150,7 @@ export const LabOutput = ({ outputs, onClear, labId, code, templateTitle }: LabO
 
     const contextParts: string[] = [];
     if (templateTitle) contextParts.push(`Lab step: "${templateTitle}"`);
-    if (code?.trim()) contextParts.push(`Code that was executed:\n\`\`\`r\n${code.trim()}\n\`\`\``);
+    if (code?.trim()) contextParts.push(`Code that was executed:\n\`\`\`${language}\n${code.trim()}\n\`\`\``);
     if (hasPlots && !hasText) contextParts.push(`Note: This code produced ${outputs.filter(o => o.type === 'plot').length} plot(s) but no text output.`);
     if (hasText) contextParts.push(`Text output:\n\`\`\`\n${textOutput}\n\`\`\``);
 

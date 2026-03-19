@@ -60,7 +60,7 @@ export const SubmissionReview = () => {
   });
 
   const formatDate = (dateStr: string, utc = false) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
+    return new Date(dateStr).toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',

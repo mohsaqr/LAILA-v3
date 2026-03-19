@@ -3083,45 +3083,47 @@ export class CustomLabService {
       throw new AppError('Not authorized to modify this course', 403);
     }
 
-    // Create Assignment record if config provided
-    let createdAssignmentId: number | undefined;
-    if (assignmentConfig) {
-      const newAssignment = await prisma.assignment.create({
+    // Create Assignment + LabAssignment atomically
+    const assignment = await prisma.$transaction(async (tx) => {
+      let createdAssignmentId: number | undefined;
+      if (assignmentConfig) {
+        const newAssignment = await tx.assignment.create({
+          data: {
+            courseId,
+            moduleId,
+            title: lab.name,
+            description: assignmentConfig.prompt,
+            submissionType: 'mixed',
+            isPublished: true,
+            points: assignmentConfig.points ?? 100,
+            dueDate: assignmentConfig.dueDate ? new Date(assignmentConfig.dueDate) : null,
+          },
+        });
+        createdAssignmentId = newAssignment.id;
+      }
+
+      return tx.labAssignment.create({
         data: {
+          labId,
           courseId,
           moduleId,
-          title: lab.name,
-          description: assignmentConfig.prompt,
-          submissionType: 'mixed',
-          isPublished: true,
-          points: assignmentConfig.points ?? 100,
-          dueDate: assignmentConfig.dueDate ? new Date(assignmentConfig.dueDate) : null,
+          assignmentId: createdAssignmentId ?? null,
+        },
+        include: {
+          lab: {
+            select: { id: true, name: true, labType: true },
+          },
+          course: {
+            select: { id: true, title: true },
+          },
+          module: {
+            select: { id: true, title: true },
+          },
+          assignment: {
+            select: { id: true, description: true, points: true, dueDate: true },
+          },
         },
       });
-      createdAssignmentId = newAssignment.id;
-    }
-
-    const assignment = await prisma.labAssignment.create({
-      data: {
-        labId,
-        courseId,
-        moduleId,
-        assignmentId: createdAssignmentId ?? null,
-      },
-      include: {
-        lab: {
-          select: { id: true, name: true, labType: true },
-        },
-        course: {
-          select: { id: true, title: true },
-        },
-        module: {
-          select: { id: true, title: true },
-        },
-        assignment: {
-          select: { id: true, description: true, points: true, dueDate: true },
-        },
-      },
     });
 
     return assignment;

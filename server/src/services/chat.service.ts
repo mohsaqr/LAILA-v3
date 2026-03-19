@@ -124,6 +124,7 @@ export class ChatService {
           messages,
           model: request.model,
           module: request.module,
+          temperature: request.temperature,
         });
 
         const messageContent = response.choices[0]?.message?.content;
@@ -131,15 +132,20 @@ export class ChatService {
         const responseTime = response.responseTime / 1000;
         const model = response.model;
 
-        await this.logChat({
-          userId,
-          sessionId: request.sessionId,
-          module: request.module,
-          message: request.message,
-          reply,
-          model,
-          responseTime,
-        });
+        // Log outside the LLM try so a logging failure doesn't trigger a fallback retry
+        try {
+          await this.logChat({
+            userId,
+            sessionId: request.sessionId,
+            module: request.module,
+            message: request.message,
+            reply,
+            model,
+            responseTime,
+          });
+        } catch (logErr) {
+          console.warn('Failed to log chat:', logErr);
+        }
 
         return {
           reply,
