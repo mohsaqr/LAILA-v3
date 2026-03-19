@@ -1,6 +1,12 @@
 // Import Forum from api/forums for use in CourseModule
 import type { Forum as ForumType } from '../api/forums';
 
+// Interactive lab assignment requirement identifiers
+export const INTERACTIVE_LAB_REQUIREMENTS = {
+  TNA: 'interactive_lab_tna',
+  SNA: 'interactive_lab_sna',
+} as const;
+
 // User types
 export interface User {
   id: number;
@@ -176,6 +182,7 @@ export interface LabTemplate {
   labId: number;
   title: string;
   description: string | null;
+  content: string | null;
   code: string;
   orderIndex: number;
 }
@@ -185,6 +192,13 @@ export interface LabAssignment {
   labId: number;
   courseId: number;
   moduleId: number | null;
+  assignmentId?: number | null;
+  assignment?: {
+    id: number;
+    description: string | null;
+    points: number | null;
+    dueDate: string | null;
+  } | null;
   lab?: CustomLab;
   course?: {
     id: number;
@@ -253,6 +267,10 @@ export interface UpdateLabTemplateData {
 export interface AssignLabData {
   courseId: number;
   moduleId?: number | null;
+  enableAssignment?: boolean;
+  prompt?: string;
+  points?: number;
+  dueDate?: string;
 }
 
 export interface Lecture {
@@ -406,6 +424,7 @@ export interface Assignment {
   agentRequirements?: string | null;
   dueDate: string | null;
   points: number;
+  weight?: number;
   isPublished: boolean;
   aiAssisted: boolean;
   aiPrompt: string | null;
@@ -571,6 +590,7 @@ export interface AssignmentFormData {
   submissionType: 'text' | 'file' | 'mixed' | 'ai_agent';
   dueDate: string;
   points: number;
+  weight: number;
   isPublished: boolean;
 }
 

@@ -11,6 +11,7 @@ export type LLMProviderName =
   | 'anthropic'
   | 'ollama'
   | 'lmstudio'
+  | 'vllm'
   | 'azure-openai'
   | 'openrouter'
   | 'together'
@@ -237,6 +238,9 @@ export interface LLMCompletionRequest {
 
   // Metadata for logging
   metadata?: Record<string, unknown>;
+
+  // AI feature identifier for per-module provider routing
+  module?: string;
 }
 
 export interface LLMFunction {
@@ -348,6 +352,13 @@ export interface AnthropicProviderConfig {
   anthropicVersion?: string;          // e.g., '2023-06-01'
   maxTokensToSample?: number;
 }
+
+// =============================================================================
+// MODULE ROUTING
+// =============================================================================
+
+export const ROUTABLE_MODULES = ['lecture', 'chatbot', 'chat', 'tutor'] as const;
+export type RoutableModule = typeof ROUTABLE_MODULES[number];
 
 // =============================================================================
 // PROVIDER DEFAULTS
@@ -470,6 +481,30 @@ export const PROVIDER_DEFAULTS: Record<LLMProviderName, Partial<LLMProviderConfi
     supportsVision: false,
     supportsFunctionCalling: false,
     supportsJsonMode: false,
+    supportsSystemMessage: true,
+    supportsMultipleSystemMessages: true,
+    skipTlsVerify: true,
+  },
+  vllm: {
+    displayName: 'vLLM (Local)',
+    providerType: 'local',
+    baseUrl: 'http://localhost:8000/v1',
+    defaultModel: 'default',
+    defaultTemperature: 0.7,
+    defaultMaxTokens: 2048,
+    defaultTopP: 0.9,
+    defaultFrequencyPenalty: 0,
+    defaultPresencePenalty: 0,
+    requestTimeout: 300000,
+    connectTimeout: 10000,
+    maxRetries: 2,
+    retryDelay: 500,
+    retryBackoffMultiplier: 1.5,
+    concurrencyLimit: 4,
+    supportsStreaming: true,
+    supportsVision: false,
+    supportsFunctionCalling: true,
+    supportsJsonMode: true,
     supportsSystemMessage: true,
     supportsMultipleSystemMessages: true,
     skipTlsVerify: true,
@@ -673,6 +708,9 @@ export const COMMON_MODELS: Record<LLMProviderName, Array<{ modelId: string; nam
   ],
   lmstudio: [
     { modelId: 'local-model', name: 'Local Model (Auto-detect)', contextLength: 4096 },
+  ],
+  vllm: [
+    { modelId: 'default', name: 'Loaded Model (Auto-detect)', contextLength: 4096 },
   ],
   'azure-openai': [
     { modelId: 'gpt-4o', name: 'GPT-4o', contextLength: 128000 },

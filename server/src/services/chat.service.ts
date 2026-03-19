@@ -101,30 +101,39 @@ export class ChatService {
     // Try new LLM service first
     if (this.useNewLLMService) {
       try {
-        const provider = await llmService.getDefaultProvider();
-        if (provider && provider.isEnabled) {
-          const systemPrompt = request.systemPrompt || 'You are a helpful AI assistant for an educational platform.';
-          const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
-            { role: 'system', content: systemPrompt },
-          ];
+        const systemPrompt = request.systemPrompt || 'You are a helpful AI assistant for an educational platform.';
+        const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+          { role: 'system', content: systemPrompt },
+        ];
 
-          if (request.context) {
-            messages.push({ role: 'system', content: `Context: ${request.context}` });
+        if (request.context) {
+          messages.push({ role: 'system', content: `Context: ${request.context}` });
+        }
+
+        if (request.conversationHistory && request.conversationHistory.length > 0) {
+          for (const msg of request.conversationHistory) {
+            if (msg.role === 'user' || msg.role === 'assistant') {
+              messages.push(msg);
+            }
           }
+        }
 
-          messages.push({ role: 'user', content: request.message });
+        messages.push({ role: 'user', content: request.message });
 
-          const response = await llmService.chat({
-            messages,
-            model: request.model,
-          });
+        const response = await llmService.chat({
+          messages,
+          model: request.model,
+          module: request.module,
+          temperature: request.temperature,
+        });
 
-          const messageContent = response.choices[0]?.message?.content;
-          const reply = typeof messageContent === 'string' ? messageContent : 'No response generated';
-          const responseTime = response.responseTime / 1000;
-          const model = response.model;
+        const messageContent = response.choices[0]?.message?.content;
+        const reply = typeof messageContent === 'string' ? messageContent : 'No response generated';
+        const responseTime = response.responseTime / 1000;
+        const model = response.model;
 
-          // Log the chat
+        // Log outside the LLM try so a logging failure doesn't trigger a fallback retry
+        try {
           await this.logChat({
             userId,
             sessionId: request.sessionId,
@@ -134,13 +143,15 @@ export class ChatService {
             model,
             responseTime,
           });
-
-          return {
-            reply,
-            model,
-            responseTime,
-          };
+        } catch (logErr) {
+          console.warn('Failed to log chat:', logErr);
         }
+
+        return {
+          reply,
+          model,
+          responseTime,
+        };
       } catch (error: any) {
         console.log('New LLM service error, falling back to legacy:', error.message);
       }

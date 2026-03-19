@@ -4,10 +4,11 @@
 
 import { Router, Response } from 'express';
 import { llmService } from '../services/llm.service.js';
+import { settingsService } from '../services/settings.service.js';
 import { authenticateToken, requireAdmin } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import { AuthRequest } from '../types/index.js';
-import { PROVIDER_DEFAULTS, COMMON_MODELS, LLMProviderName } from '../types/llm.types.js';
+import { PROVIDER_DEFAULTS, COMMON_MODELS, LLMProviderName, ROUTABLE_MODULES } from '../types/llm.types.js';
 import { z } from 'zod';
 
 const router = Router();
@@ -380,6 +381,44 @@ router.post('/seed', asyncHandler(async (req: AuthRequest, res: Response) => {
       apiKey: p.apiKey ? '••••••••' : null,
     })),
   });
+}));
+
+// =============================================================================
+// MODULE ROUTING ASSIGNMENTS
+// =============================================================================
+
+// GET /api/llm/module-assignments — returns { lecture: id|null, chatbot: id|null, ... }
+router.get('/module-assignments', asyncHandler(async (_req: AuthRequest, res: Response) => {
+  const keys = ROUTABLE_MODULES.map(m => `llm_module_${m}`);
+  const settings = await Promise.all(keys.map(k => settingsService.getSystemSetting(k)));
+  const result: Record<string, number | null> = {};
+  ROUTABLE_MODULES.forEach((m, i) => {
+    const val = settings[i]?.settingValue;
+    result[m] = val ? parseInt(val, 10) : null;
+  });
+  res.json({ success: true, data: result });
+}));
+
+// PUT /api/llm/module-assignments/:module — assign provider (body: { providerId: number|null })
+router.put('/module-assignments/:module', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { module } = req.params;
+  if (!(ROUTABLE_MODULES as readonly string[]).includes(module)) {
+    return res.status(400).json({ success: false, error: `Invalid module. Must be one of: ${ROUTABLE_MODULES.join(', ')}` });
+  }
+  const { providerId } = req.body;
+  if (providerId !== null && providerId !== undefined) {
+    const id = Number(providerId);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ success: false, error: 'providerId must be a positive integer or null' });
+    }
+  }
+  const value = (providerId != null) ? String(Number(providerId)) : null;
+  await settingsService.updateSystemSetting(`llm_module_${module}`, value, {
+    type: 'string',
+    description: `LLM provider assignment for the ${module} AI module`,
+  });
+  llmService.clearProviderCache();
+  res.json({ success: true });
 }));
 
 // =============================================================================

@@ -25,6 +25,7 @@ import {
   MessageSquare,
   Send,
   Copy,
+  Route,
 } from 'lucide-react';
 import { llmApi, LLMProvider } from '../../../api/admin';
 import { Button } from '../../../components/common/Button';
@@ -99,6 +100,7 @@ const PROVIDER_OPTIONS = [
   { value: 'anthropic', label: 'Anthropic Claude', type: 'cloud' },
   { value: 'ollama', label: 'Ollama (Local)', type: 'local' },
   { value: 'lmstudio', label: 'LM Studio (Local)', type: 'local' },
+  { value: 'vllm', label: 'vLLM (Local)', type: 'local' },
   { value: 'groq', label: 'Groq', type: 'cloud' },
   { value: 'mistral', label: 'Mistral AI', type: 'cloud' },
   { value: 'openrouter', label: 'OpenRouter', type: 'cloud' },
@@ -161,6 +163,23 @@ export const LLMPanel = () => {
   const { data: defaults } = useQuery({
     queryKey: ['llmDefaults'],
     queryFn: () => llmApi.getDefaults(),
+  });
+
+  const { data: moduleAssignments, isLoading: isLoadingAssignments, isError: isAssignmentsError } = useQuery({
+    queryKey: ['llmModuleAssignments'],
+    queryFn: () => llmApi.getModuleAssignments(),
+  });
+
+  const setAssignmentMutation = useMutation({
+    mutationFn: ({ module, providerId }: { module: string; providerId: number | null }) =>
+      llmApi.setModuleAssignment(module, providerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['llmModuleAssignments'] });
+      toast.success(t('module_assignment_saved'));
+    },
+    onError: (error: any) => {
+      toast.error(error.message || t('failed_to_save'));
+    },
   });
 
   // ---------------------------------------------------------------------------
@@ -288,6 +307,7 @@ export const LLMPanel = () => {
       anthropic: 'https://api.anthropic.com/v1',
       ollama: 'http://localhost:11434',
       lmstudio: 'http://localhost:1234/v1',
+      vllm: 'http://localhost:8000/v1',
       groq: 'https://api.groq.com/openai/v1',
       mistral: 'https://api.mistral.ai/v1',
       openrouter: 'https://openrouter.ai/api/v1',
@@ -300,6 +320,7 @@ export const LLMPanel = () => {
       anthropic: 'claude-3-haiku-20240307',
       ollama: 'llama2',
       lmstudio: 'local-model',
+      vllm: 'default',
       groq: 'llama-3.1-8b-instant',
       mistral: 'mistral-small-latest',
       openrouter: 'openai/gpt-4o-mini',
@@ -316,7 +337,7 @@ export const LLMPanel = () => {
       defaultTemperature: providerDefaults?.defaultTemperature ?? 0.7,
       defaultMaxTokens: providerDefaults?.defaultMaxTokens ?? 2048,
       defaultTopP: providerDefaults?.defaultTopP ?? 1.0,
-      skipTlsVerify: providerType === 'ollama' || providerType === 'lmstudio',
+      skipTlsVerify: providerType === 'ollama' || providerType === 'lmstudio' || providerType === 'vllm',
       requestTimeout: providerDefaults?.requestTimeout ?? 120000,
       connectTimeout: providerDefaults?.connectTimeout ?? 30000,
       maxRetries: providerDefaults?.maxRetries ?? 3,
@@ -663,6 +684,63 @@ export const LLMPanel = () => {
         )}
       </div>
 
+      {/* AI Module Routing */}
+      <div className="mt-8">
+        <div className="flex items-center gap-2 mb-2">
+          <Route className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">{t('ai_module_routing')}</h2>
+        </div>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t('ai_module_routing_desc')}</p>
+
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+          {isLoadingAssignments ? (
+            <div className="p-4 text-sm text-gray-500 dark:text-gray-400">{t('loading_llm_providers')}</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60">
+                  <th className="text-left px-4 py-2.5 font-medium text-gray-600 dark:text-gray-300">{t('module')}</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-gray-600 dark:text-gray-300 hidden sm:table-cell">{t('description')}</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-gray-600 dark:text-gray-300">{t('provider')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                {([
+                  { key: 'lecture', label: t('module_lecture'), desc: t('module_lecture_desc') },
+                  { key: 'chatbot', label: t('module_chatbot'), desc: t('module_chatbot_desc') },
+                  { key: 'chat',    label: t('module_chat'),    desc: t('module_chat_desc') },
+                  { key: 'tutor',   label: t('module_tutor'),   desc: t('module_tutor_desc') },
+                ] as const).map(({ key, label, desc }) => (
+                  <tr key={key} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{label}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 hidden sm:table-cell">{desc}</td>
+                    <td className="px-4 py-3">
+                      <select
+                        value={isAssignmentsError ? '' : (moduleAssignments?.[key] ?? '')}
+                        disabled={isAssignmentsError || isLoadingAssignments}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? null : parseInt(e.target.value, 10);
+                          setAssignmentMutation.mutate({ module: key, providerId: val });
+                        }}
+                        className="w-full max-w-xs px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
+                      >
+                        <option value="">{t('default_provider')}</option>
+                        {providers?.filter(p => p.isEnabled).map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.displayName}{p.defaultModel ? ` — ${p.defaultModel}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">{t('local_llm_note')}</p>
+      </div>
+
       {/* Add/Edit Modal */}
       <Modal
         isOpen={showAddModal}
@@ -765,7 +843,7 @@ export const LLMPanel = () => {
 
           {/* Advanced */}
           <Section title={t('advanced_settings')}>
-            {(formData.provider === 'ollama' || formData.provider === 'lmstudio') && (
+            {(formData.provider === 'ollama' || formData.provider === 'lmstudio' || formData.provider === 'vllm') && (
               <label className="flex items-center gap-2 p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg text-sm text-gray-900 dark:text-gray-100">
                 <input type="checkbox" checked={formData.skipTlsVerify} onChange={(e) => setFormData({ ...formData, skipTlsVerify: e.target.checked })} className="rounded border-gray-300 dark:border-gray-600" />
                 {t('skip_tls_verification')}

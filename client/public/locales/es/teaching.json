@@ -83,6 +83,8 @@
   "upload_file": "Subir archivo",
   "file_name": "Nombre del archivo",
   "file_uploaded": "Archivo subido exitosamente",
+  "file_uploaded_ready": "Archivo subido — listo para guardar",
+  "click_name_to_rename": "Haz clic en el nombre para renombrar",
   "failed_upload": "Error al subir el archivo",
   "upload_video": "Subir video",
   "embed_video": "Incrustar video",

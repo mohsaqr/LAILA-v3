@@ -83,6 +83,8 @@
   "upload_file": "Lähetä tiedosto",
   "file_name": "Tiedoston nimi",
   "file_uploaded": "Tiedosto ladattu onnistuneesti",
+  "file_uploaded_ready": "Tiedosto ladattu — valmis tallennettavaksi",
+  "click_name_to_rename": "Napsauta nimeä nimetäksesi uudelleen",
   "failed_upload": "Tiedoston lataus epäonnistui",
   "upload_video": "Lähetä video",
   "embed_video": "Upota video",

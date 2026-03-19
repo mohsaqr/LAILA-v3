@@ -326,7 +326,7 @@ export class AssignmentService {
     return submission;
   }
 
-  async submitAssignment(assignmentId: number, userId: number, data: CreateSubmissionInput, context?: EventContext) {
+  async submitAssignment(assignmentId: number, userId: number, data: CreateSubmissionInput, context?: EventContext, isAdmin = false, isInstructor = false) {
     const assignment = await prisma.assignment.findUnique({
       where: { id: assignmentId },
       include: { course: true },
@@ -345,19 +345,25 @@ export class AssignmentService {
       throw new AppError('AI agent assignments must be submitted through the agent builder', 400);
     }
 
-    // Check enrollment
-    const enrollment = await prisma.enrollment.findUnique({
-      where: {
-        userId_courseId: { userId, courseId: assignment.courseId },
-      },
-    });
+    // Admins bypass all checks; instructors bypass only for their own course
+    const isOwnCourse = isInstructor && assignment.course.instructorId === userId;
+    const canBypass = isAdmin || isOwnCourse;
 
-    if (!enrollment) {
-      throw new AppError('You must be enrolled to submit', 403);
+    // Check enrollment
+    if (!canBypass) {
+      const enrollment = await prisma.enrollment.findUnique({
+        where: {
+          userId_courseId: { userId, courseId: assignment.courseId },
+        },
+      });
+
+      if (!enrollment) {
+        throw new AppError('You must be enrolled to submit', 403);
+      }
     }
 
     // Check due date
-    if (assignment.dueDate && new Date() > assignment.dueDate) {
+    if (!canBypass && assignment.dueDate && new Date() > assignment.dueDate) {
       throw new AppError('Assignment due date has passed', 400);
     }
 
@@ -367,9 +373,21 @@ export class AssignmentService {
         assignmentId_userId: { assignmentId, userId },
       },
     });
-    const attemptNumber = existingSubmission ? 2 : 1; // Simplified attempt tracking
+    const effectiveStatus = data.status || 'submitted';
+    const attemptNumber = existingSubmission && existingSubmission.status !== 'draft' ? 2 : 1;
+
+    // Prevent overwriting graded submissions (admin can bypass)
+    if (!isAdmin && existingSubmission?.status === 'graded') {
+      throw new AppError('This submission has already been graded and cannot be modified', 400);
+    }
+
+    // Prevent resubmission of already-submitted work (draft saves are still allowed)
+    if (!canBypass && existingSubmission?.status === 'submitted') {
+      throw new AppError('Assignment has already been submitted', 400);
+    }
 
     // Upsert submission
+    const submittedAt = effectiveStatus !== 'draft' ? new Date() : null;
     const submission = await prisma.assignmentSubmission.upsert({
       where: {
         assignmentId_userId: { assignmentId, userId },
@@ -379,31 +397,33 @@ export class AssignmentService {
         userId,
         content: data.content,
         fileUrls: data.fileUrls ? JSON.stringify(data.fileUrls) : null,
-        status: data.status || 'submitted',
+        status: effectiveStatus,
+        submittedAt,
       },
       update: {
         content: data.content,
         fileUrls: data.fileUrls ? JSON.stringify(data.fileUrls) : undefined,
-        status: data.status || 'submitted',
-        submittedAt: new Date(),
+        status: effectiveStatus,
+        ...(effectiveStatus !== 'draft' ? { submittedAt } : {}),
       },
     });
 
-    // Log assessment submission event
-    try {
-      await learningAnalyticsService.logAssessmentEvent({
-        userId,
-        sessionId: context?.sessionId,
-        courseId: assignment.courseId,
-        assignmentId,
-        submissionId: submission.id,
-        eventType: 'assignment_submit',
-        maxPoints: assignment.points,
-        attemptNumber,
-        deviceType: context?.deviceType,
-        browserName: context?.browserName,
-      }, context?.ipAddress);
-    } catch (error) {
+    // Log assessment submission event (only for actual submissions, not drafts)
+    if (effectiveStatus !== 'draft') {
+      try {
+        await learningAnalyticsService.logAssessmentEvent({
+          userId,
+          sessionId: context?.sessionId,
+          courseId: assignment.courseId,
+          assignmentId,
+          submissionId: submission.id,
+          eventType: 'assignment_submit',
+          maxPoints: assignment.points,
+          attemptNumber,
+          deviceType: context?.deviceType,
+          browserName: context?.browserName,
+        }, context?.ipAddress);
+      } catch (error) {
       assignmentLogger.warn({ err: error, userId, assignmentId }, 'Failed to log assignment submit event');
     }
 
@@ -450,6 +470,10 @@ export class AssignmentService {
       if (!isTeam) {
         throw new AppError('Not authorized', 403);
       }
+    }
+
+    if (data.grade > submission.assignment.points) {
+      throw new AppError(`Grade cannot exceed ${submission.assignment.points} points`, 400);
     }
 
     const previousGrade = submission.grade;
@@ -548,11 +572,20 @@ export class AssignmentService {
       }
     }
 
-    const [assignments, enrollments] = await Promise.all([
+    const [assignments, quizzes, enrollments] = await Promise.all([
       prisma.assignment.findMany({
-        where: { courseId },
+        where: { courseId, isPublished: true },
         orderBy: { createdAt: 'asc' },
-        select: { id: true, title: true, points: true },
+        select: { id: true, title: true, points: true, weight: true },
+      }),
+      prisma.quiz.findMany({
+        where: { courseId, isPublished: true },
+        orderBy: { createdAt: 'asc' },
+        select: {
+          id: true,
+          title: true,
+          questions: { select: { points: true } },
+        },
       }),
       prisma.enrollment.findMany({
         where: { courseId },
@@ -564,55 +597,124 @@ export class AssignmentService {
       }),
     ]);
 
-    const submissions = await prisma.assignmentSubmission.findMany({
-      where: {
-        assignmentId: { in: assignments.map(a => a.id) },
-      },
-      select: {
-        assignmentId: true,
-        userId: true,
-        grade: true,
-        status: true,
-      },
-    });
+    // Compute total points per quiz from questions
+    const quizzesWithPoints = quizzes.map(q => ({
+      id: q.id,
+      title: q.title,
+      totalPoints: q.questions.reduce((sum: number, question: { points: number }) => sum + question.points, 0),
+    }));
 
-    // Build gradebook
-    const submissionMap = new Map<string, { grade: number | null; status: string }>();
+    const [submissions, quizAttempts] = await Promise.all([
+      prisma.assignmentSubmission.findMany({
+        where: {
+          assignmentId: { in: assignments.map(a => a.id) },
+        },
+        select: {
+          id: true,
+          assignmentId: true,
+          userId: true,
+          grade: true,
+          status: true,
+          feedback: true,
+        },
+      }),
+      prisma.quizAttempt.findMany({
+        where: {
+          quizId: { in: quizzes.map(q => q.id) },
+          status: 'completed',
+        },
+        select: {
+          quizId: true,
+          userId: true,
+          score: true,
+          pointsEarned: true,
+          pointsTotal: true,
+          submittedAt: true,
+        },
+        orderBy: { score: 'desc' },
+      }),
+    ]);
+
+    // Build assignment submission map
+    const submissionMap = new Map<string, { id: number; grade: number | null; status: string; feedback: string | null }>();
     submissions.forEach(s => {
       submissionMap.set(`${s.userId}-${s.assignmentId}`, {
+        id: s.id,
         grade: s.grade,
         status: s.status,
+        feedback: s.feedback,
       });
     });
 
-    const gradebook = enrollments.map(enrollment => ({
-      student: enrollment.user,
-      grades: assignments.map(assignment => {
-        const key = `${enrollment.userId}-${assignment.id}`;
-        const submission = submissionMap.get(key);
-        return {
-          assignmentId: assignment.id,
-          grade: submission?.grade ?? null,
-          status: submission?.status ?? 'not_submitted',
-        };
-      }),
-      totalPoints: assignments.reduce((sum, a, i) => {
+    // Build best quiz attempt map per user per quiz (highest score)
+    const quizAttemptMap = new Map<string, { score: number | null; pointsEarned: number | null; pointsTotal: number | null; completedAt: Date | null }>();
+    for (const attempt of quizAttempts) {
+      const key = `${attempt.userId}-${attempt.quizId}`;
+      if (!quizAttemptMap.has(key)) {
+        quizAttemptMap.set(key, {
+          score: attempt.score,
+          pointsEarned: attempt.pointsEarned,
+          pointsTotal: attempt.pointsTotal,
+          completedAt: attempt.submittedAt,
+        });
+      }
+    }
+
+    const gradebook = enrollments.map(enrollment => {
+      const assignmentTotalEarned = assignments.reduce((sum, a) => {
         const key = `${enrollment.userId}-${a.id}`;
         const submission = submissionMap.get(key);
-        return sum + (submission?.grade ?? 0);
-      }, 0),
-      maxPoints: assignments.reduce((sum, a) => sum + a.points, 0),
-    }));
+        const weight = a.weight ?? 1.0;
+        return sum + (submission?.grade ?? 0) * weight;
+      }, 0);
+
+      const quizTotalEarned = quizzesWithPoints.reduce((sum, q) => {
+        const key = `${enrollment.userId}-${q.id}`;
+        const attempt = quizAttemptMap.get(key);
+        return sum + (attempt?.pointsEarned ?? 0);
+      }, 0);
+
+      return {
+        student: enrollment.user,
+        grades: assignments.map(assignment => {
+          const key = `${enrollment.userId}-${assignment.id}`;
+          const submission = submissionMap.get(key);
+          return {
+            assignmentId: assignment.id,
+            submissionId: submission?.id ?? null,
+            grade: submission?.grade ?? null,
+            status: submission?.status ?? 'not_submitted',
+            feedback: submission?.feedback ?? null,
+          };
+        }),
+        quizGrades: quizzesWithPoints.map(quiz => {
+          const key = `${enrollment.userId}-${quiz.id}`;
+          const attempt = quizAttemptMap.get(key);
+          return {
+            quizId: quiz.id,
+            score: attempt?.score ?? null,
+            pointsEarned: attempt?.pointsEarned ?? null,
+            pointsTotal: attempt?.pointsTotal ?? null,
+            completedAt: attempt?.completedAt ?? null,
+          };
+        }),
+        totalPoints: assignmentTotalEarned + quizTotalEarned,
+        maxPoints: assignments.reduce((sum, a) => {
+          const weight = a.weight ?? 1.0;
+          return sum + a.points * weight;
+        }, 0) + quizzesWithPoints.reduce((sum, q) => sum + q.totalPoints, 0),
+      };
+    });
 
     return {
       assignments,
+      quizzes: quizzesWithPoints,
       gradebook,
     };
   }
 
   /**
-   * Get all assignments with submission status for every course the student is enrolled in.
-   * Executes exactly 3 queries regardless of enrollment count.
+   * Get all assignments and quizzes with submission/attempt status for every course the student is enrolled in.
    */
   async getStudentGradebook(userId: number) {
     // 1. All active or completed enrollments with course title
@@ -640,6 +742,7 @@ export class AssignmentService {
         dueDate: true,
         isPublished: true,
         aiAssisted: true,
+        submissionType: true,
         module: { select: { id: true, title: true } },
       },
     });
@@ -662,13 +765,57 @@ export class AssignmentService {
 
     const submissionMap = new Map(submissions.map(s => [s.assignmentId, s]));
 
-    // Group assignments by course, preserving enrollment order
-    const courseMap = new Map<number, { courseId: number; courseTitle: string; assignments: any[] }>();
+    // 4. All published quizzes across those courses
+    const quizzes = await prisma.quiz.findMany({
+      where: { courseId: { in: courseIds }, isPublished: true },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        courseId: true,
+        title: true,
+        questions: {
+          select: { points: true },
+        },
+      },
+    });
+
+    // 5. All completed quiz attempts by this student for those quizzes
+    const quizIds = quizzes.map(q => q.id);
+    const quizAttempts = quizIds.length > 0
+      ? await prisma.quizAttempt.findMany({
+          where: { userId, quizId: { in: quizIds }, status: 'completed' },
+          select: {
+            quizId: true,
+            score: true,
+            pointsEarned: true,
+            pointsTotal: true,
+            submittedAt: true,
+          },
+          orderBy: { score: 'desc' },
+        })
+      : [];
+
+    // Build best attempt map (highest score per quiz)
+    const bestAttemptMap = new Map<number, { score: number | null; pointsEarned: number | null; pointsTotal: number | null; completedAt: Date | null }>();
+    for (const attempt of quizAttempts) {
+      if (!bestAttemptMap.has(attempt.quizId)) {
+        bestAttemptMap.set(attempt.quizId, {
+          score: attempt.score,
+          pointsEarned: attempt.pointsEarned,
+          pointsTotal: attempt.pointsTotal,
+          completedAt: attempt.submittedAt,
+        });
+      }
+    }
+
+    // Group assignments and quizzes by course, preserving enrollment order
+    const courseMap = new Map<number, { courseId: number; courseTitle: string; assignments: any[]; quizzes: any[] }>();
     for (const enrollment of enrollments) {
       courseMap.set(enrollment.courseId, {
         courseId: enrollment.courseId,
         courseTitle: enrollment.course.title,
         assignments: [],
+        quizzes: [],
       });
     }
 
@@ -678,6 +825,20 @@ export class AssignmentService {
         course.assignments.push({
           ...assignment,
           mySubmission: submissionMap.get(assignment.id) ?? null,
+        });
+      }
+    }
+
+    for (const quiz of quizzes) {
+      const course = courseMap.get(quiz.courseId);
+      if (course) {
+        const totalPoints = quiz.questions.reduce((sum: number, q: { points: number }) => sum + q.points, 0);
+        const bestAttempt = bestAttemptMap.get(quiz.id) ?? null;
+        course.quizzes.push({
+          id: quiz.id,
+          title: quiz.title,
+          totalPoints,
+          myAttempt: bestAttempt,
         });
       }
     }

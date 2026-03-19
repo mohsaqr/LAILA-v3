@@ -587,6 +587,7 @@ ${lectureContent}`;
           { role: 'system', content: systemPrompt },
           { role: 'user', content: question },
         ],
+        module: 'lecture',
       });
       const content = llmResponse.choices[0]?.message?.content;
       aiResponse = typeof content === 'string' ? content : 'I apologize, but I was unable to generate a response.';
@@ -764,6 +765,7 @@ ${lectureContent}`;
           ...conversationHistory,
           { role: 'user', content: question },
         ],
+        module: 'lecture',
       });
       const content = llmResponse.choices[0]?.message?.content;
       aiResponse = typeof content === 'string' ? content : 'I apologize, but I was unable to generate a response.';

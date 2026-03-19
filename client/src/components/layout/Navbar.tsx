@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  BrainCircuit,
   Settings,
   Shield,
   Menu,
@@ -13,6 +12,9 @@ import {
   Eye,
   EyeOff,
   Globe,
+  LayoutDashboard,
+  BarChart3,
+  Activity,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
@@ -78,17 +80,22 @@ export const Navbar = () => {
         { role: 'student', label: t('navigation:view_as_student'), description: t('navigation:test_student_view') },
       ];
 
-  const navItems = [
-    ...(isAdmin ? [{ path: '/ai-tools', label: t('ai_tools'), icon: BrainCircuit }] : []),
-    ...(isAdmin ? [{ path: '/admin', label: t('admin'), icon: Shield }] : []),
-  ];
+  const navItems = isAdmin
+    ? [
+        { path: '/admin', label: t('admin'), icon: Shield, exact: true },
+        { path: '/dashboard', label: t('dashboard'), icon: LayoutDashboard },
+        { path: '/admin/analytics', label: t('analytics'), icon: BarChart3 },
+        { path: '/admin/logs', label: t('logs'), icon: Activity },
+      ]
+    : [];
 
   const handleLanguageChange = (lang: SupportedLanguage) => {
     setLanguage(lang);
     setIsLanguageMenuOpen(false);
   };
 
-  const isActive = (path: string) => location.pathname.startsWith(path);
+  const isActive = (item: { path: string; exact?: boolean }) =>
+    item.exact ? location.pathname === item.path : location.pathname.startsWith(item.path);
 
   return (
     <nav
@@ -100,11 +107,11 @@ export const Navbar = () => {
       }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+        <div className="flex justify-between h-20">
           {/* Logo */}
           <div className="flex items-center">
             <Link to="/" className="flex items-center gap-2">
-              <img src="/icons/logo.webp" alt="LAILA" className="h-10 w-auto" />
+              <img src="/icons/logo.webp" alt="LAILA" className="h-16 w-auto" />
             </Link>
           </div>
 
@@ -112,7 +119,7 @@ export const Navbar = () => {
           <div className="hidden md:flex items-center gap-1">
             {navItems.map(item => {
                 const Icon = item.icon;
-                const active = isActive(item.path);
+                const active = isActive(item);
                 return (
                   <Link
                     key={item.path}
@@ -348,7 +355,7 @@ export const Navbar = () => {
           <div className="md:hidden py-4" style={{ borderTop: `1px solid ${colors.border}` }}>
             {navItems.map(item => {
                 const Icon = item.icon;
-                const active = isActive(item.path);
+                const active = isActive(item);
                 return (
                   <Link
                     key={item.path}

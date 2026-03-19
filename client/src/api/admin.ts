@@ -1369,6 +1369,18 @@ export const llmApi = {
     return response.data.data!;
   },
 
+  // Get module-to-provider assignments
+  getModuleAssignments: async (): Promise<Record<string, number | null>> => {
+    const response = await apiClient.get<ApiResponse<Record<string, number | null>>>('/llm/module-assignments');
+    return response.data.data!;
+  },
+
+  // Set provider for a module (null = use platform default)
+  setModuleAssignment: async (module: string, providerId: number | null) => {
+    const response = await apiClient.put<ApiResponse<void>>(`/llm/module-assignments/${module}`, { providerId });
+    return response.data;
+  },
+
   // Test chat
   testChat: async (message: string, provider?: string, model?: string) => {
     const response = await apiClient.post<ApiResponse<{

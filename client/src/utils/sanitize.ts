@@ -21,11 +21,22 @@ export const sanitizeHtml = (dirty: string): string => {
       'href', 'src', 'alt', 'title', 'class', 'id',
       'target', 'rel', 'width', 'height',
     ],
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
     ALLOW_DATA_ATTR: false,
     ADD_ATTR: ['target'],
     FORBID_TAGS: ['script', 'style', 'iframe', 'form', 'input', 'object', 'embed'],
     FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
   });
+};
+
+/**
+ * Detect whether a string is HTML content (from RichTextEditor / Tiptap).
+ * Matches known block-level tags that Tiptap wraps output in.
+ * Returns false for plain text that happens to start with '<' (e.g. code snippets).
+ */
+export const isHtmlContent = (text: string | null | undefined): boolean => {
+  if (!text) return false;
+  return /^<(p|h[1-6]|ul|ol|div|blockquote|pre|table)[\s>]/i.test(text.trim());
 };
 
 /**

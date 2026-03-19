@@ -20,15 +20,15 @@ export const RequireEnrollment = ({
 }: RequireEnrollmentProps) => {
   const { t } = useTranslation(['errors', 'courses']);
   const { isDark } = useTheme();
-  const { isAdmin, isInstructor } = useAuth();
+  const { isActualAdmin, isActualInstructor } = useAuth();
   const params = useParams();
   const [searchParams] = useSearchParams();
 
   // Get courseId from URL params or query string
   const courseId = params[courseIdParam] || searchParams.get('courseId');
 
-  // Admins and global instructors bypass enrollment check
-  const shouldCheck = !!courseId && !isAdmin && !isInstructor;
+  // Admins and global instructors bypass enrollment check (use actual role, not viewAs role)
+  const shouldCheck = !!courseId && !isActualAdmin && !isActualInstructor;
 
   // Use the course API which already includes enrollment status and team membership
   const { data: course, isLoading } = useQuery({

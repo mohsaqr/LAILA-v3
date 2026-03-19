@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
@@ -15,24 +15,42 @@ import {
   MessageSquare,
   Download,
   Paperclip,
+  Loader2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
-import { sanitizeHtml } from '../utils/sanitize';
+import { sanitizeHtml, isHtmlContent } from '../utils/sanitize';
+import { RichTextEditor } from '../components/forum/RichTextEditor';
 import { resolveFileUrl } from '../api/client';
 import { useTranslation } from 'react-i18next';
 import { assignmentsApi } from '../api/assignments';
 import { enrollmentsApi } from '../api/enrollments';
+import { INTERACTIVE_LAB_REQUIREMENTS } from '../types';
+import { customLabsApi } from '../api/customLabs';
+import { uploadsApi } from '../api/uploads';
 import { learningAnalyticsApi } from '../api/admin';
+import { useLabWebR } from '../hooks/useLabWebR';
+import { useLabPyodide } from '../hooks/useLabPyodide';
+import { LabRunnerUI, isPythonLab } from './LabRunner';
 import { useTheme } from '../hooks/useTheme';
 import { Card, CardBody, CardHeader } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { Button } from '../components/common/Button';
-import { TextArea } from '../components/common/Input';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { PostAssignmentSurveyModal } from '../components/survey';
 import { getSessionId, getClientInfo } from '../utils/analytics';
 import { debug } from '../utils/debug';
+
+// Thin wrappers that provide the runtime hook and pass courseId directly
+const RLabEmbed = ({ lab, courseId }: { lab: any; courseId: number }) => {
+  const hook = useLabWebR(lab.labType);
+  return <LabRunnerUI lab={lab} hook={hook} courseId={courseId} />;
+};
+
+const PythonLabEmbed = ({ lab, courseId }: { lab: any; courseId: number }) => {
+  const hook = useLabPyodide(lab.labType);
+  return <LabRunnerUI lab={lab} hook={hook} courseId={courseId} />;
+};
 
 export const AssignmentView = () => {
   const { t } = useTranslation(['courses', 'common']);
@@ -46,9 +64,11 @@ export const AssignmentView = () => {
   const [content, setContent] = useState('');
   const [fileUrls, setFileUrls] = useState<string[]>([]);
   const [showSurveyModal, setShowSurveyModal] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Theme colors
-  const colors = {
+  const colors = useMemo(() => ({
     bg: isDark ? '#111827' : '#f9fafb',
     bgCard: isDark ? '#1f2937' : '#ffffff',
     textPrimary: isDark ? '#f3f4f6' : '#111827',
@@ -71,7 +91,7 @@ export const AssignmentView = () => {
     textYellow: isDark ? '#fcd34d' : '#d97706',
     bgGray: isDark ? '#374151' : '#f3f4f6',
     textGray: isDark ? '#9ca3af' : '#6b7280',
-  };
+  }), [isDark]);
 
   const { data: enrollment, isLoading: enrollmentLoading } = useQuery({
     queryKey: ['enrollment', courseId],
@@ -90,6 +110,19 @@ export const AssignmentView = () => {
     enabled: !!enrollment?.enrolled,
   });
 
+  // Find lab linked to this assignment (if any)
+  const { data: courseLabs } = useQuery({
+    queryKey: ['courseLabs', courseId],
+    queryFn: () => customLabsApi.getLabsForCourse(parsedCourseId),
+    enabled: !!enrollment?.enrolled,
+  });
+  const linkedLabId = courseLabs?.find(la => la.assignmentId === parsedAssignmentId)?.labId ?? null;
+  const { data: linkedLab } = useQuery({
+    queryKey: ['lab', linkedLabId],
+    queryFn: () => customLabsApi.getLabById(linkedLabId!),
+    enabled: linkedLabId != null,
+  });
+
   // Track if we've logged the assignment_view event
   const hasLoggedViewRef = useRef(false);
 
@@ -97,7 +130,14 @@ export const AssignmentView = () => {
   useEffect(() => {
     if (mySubmission) {
       setContent(mySubmission.content || '');
-      setFileUrls(mySubmission.fileUrls ? JSON.parse(mySubmission.fileUrls) : []);
+      try {
+        const parsed = mySubmission.fileUrls ? JSON.parse(mySubmission.fileUrls) : [];
+        setFileUrls(Array.isArray(parsed)
+          ? parsed.filter((v): v is string => typeof v === 'string')
+          : []);
+      } catch {
+        setFileUrls([]);
+      }
     }
   }, [mySubmission]);
 
@@ -145,18 +185,6 @@ export const AssignmentView = () => {
       queryClient.invalidateQueries({ queryKey: ['mySubmission', assignmentId] });
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
       toast.success(t('assignment_submitted'));
-
-      // Log assignment_submit event
-      const clientInfo = getClientInfo();
-      learningAnalyticsApi.logAssessmentEvent({
-        sessionId: getSessionId(),
-        courseId: parsedCourseId,
-        assignmentId: parsedAssignmentId,
-        eventType: 'assignment_submit',
-        maxPoints: assignment?.points,
-        timestamp: Date.now(),
-        ...clientInfo,
-      }).catch(err => debug.error('Failed to log assignment_submit event:', err));
 
       // Show post-assignment survey modal if configured
       if (assignment?.postSurveyId) {
@@ -209,16 +237,44 @@ export const AssignmentView = () => {
     return <Loading fullScreen text={t('redirecting_agent_builder')} />;
   }
 
+  // Redirect interactive lab assignments to their exercise page (pass assignmentId for submission targeting)
+  if (assignment.agentRequirements === INTERACTIVE_LAB_REQUIREMENTS.TNA) {
+    navigate(`/courses/${courseId}/tna-exercise?assignmentId=${assignmentId}`, { replace: true });
+    return <Loading fullScreen text={t('redirecting', { defaultValue: 'Redirecting to lab...' })} />;
+  }
+  if (assignment.agentRequirements === INTERACTIVE_LAB_REQUIREMENTS.SNA) {
+    navigate(`/courses/${courseId}/sna-exercise?assignmentId=${assignmentId}`, { replace: true });
+    return <Loading fullScreen text={t('redirecting', { defaultValue: 'Redirecting to lab...' })} />;
+  }
+
   const course = enrollment.enrollment?.course;
   const now = new Date();
   const dueDate = assignment.dueDate ? new Date(assignment.dueDate) : null;
   const isPastDue = dueDate ? dueDate < now : false;
   const isSubmitted = mySubmission?.status === 'submitted' || mySubmission?.status === 'graded';
   const isGraded = mySubmission?.status === 'graded';
-  const canSubmit = !isPastDue || !isSubmitted;
+  const canSubmit = !isPastDue && !isSubmitted;
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    try {
+      const { url } = await uploadsApi.uploadAssignmentSubmission(file, parsedAssignmentId);
+      setFileUrls(prev => [...prev, url]);
+      toast.success(t('file_uploaded', { defaultValue: 'File uploaded' }));
+    } catch {
+      toast.error(t('file_upload_failed', { defaultValue: 'File upload failed' }));
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const handleSubmit = () => {
-    if (!content.trim() && fileUrls.length === 0) {
+    const hasMedia = /<(img|figure|svg)\s/i.test(content || '');
+    const isContentEmpty = !hasMedia && (!content || content.replace(/<[^>]*>/g, '').trim() === '');
+    if (isContentEmpty && fileUrls.length === 0) {
       toast.error(t('add_content_before_submit'));
       return;
     }
@@ -280,6 +336,13 @@ export const AssignmentView = () => {
       <div className={`grid grid-cols-1 ${isGraded ? 'lg:grid-cols-3' : ''} gap-6`}>
         {/* Main Content */}
         <div className={`${isGraded ? 'lg:col-span-2' : ''} space-y-6`}>
+          {/* Embedded Lab (if assignment has a linked lab) */}
+          {linkedLab && (
+            isPythonLab(linkedLab.labType)
+              ? <PythonLabEmbed lab={linkedLab} courseId={parsedCourseId} />
+              : <RLabEmbed lab={linkedLab} courseId={parsedCourseId} />
+          )}
+
           {/* Assignment Description */}
           {assignment.description && (
             <Card>
@@ -301,11 +364,17 @@ export const AssignmentView = () => {
                 <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{t('assignment_instructions')}</h2>
               </CardHeader>
               <CardBody>
-                <div
-                  className="prose dark:prose-invert max-w-none"
-                  style={{ color: colors.textSecondary }}
-                  dangerouslySetInnerHTML={{ __html: assignment.instructions?.trim().startsWith('<') ? sanitizeHtml(assignment.instructions) : sanitizeHtml(`<p>${assignment.instructions}</p>`) }}
-                />
+                {isHtmlContent(assignment.instructions) ? (
+                  <div
+                    className="prose dark:prose-invert max-w-none"
+                    style={{ color: colors.textSecondary }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(assignment.instructions) }}
+                  />
+                ) : (
+                  <p className="whitespace-pre-wrap" style={{ color: colors.textSecondary }}>
+                    {assignment.instructions}
+                  </p>
+                )}
               </CardBody>
             </Card>
           )}
@@ -354,14 +423,38 @@ export const AssignmentView = () => {
               </CardHeader>
               <CardBody className="space-y-4">
                 {(assignment.submissionType === 'text' || assignment.submissionType === 'mixed') && (
-                  <TextArea
-                    label={t('your_answer_label')}
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    placeholder={t('write_answer_placeholder')}
-                    rows={10}
-                    disabled={isSubmitted}
-                  />
+                  isSubmitted ? (
+                    <div>
+                      <label className="block text-sm font-medium mb-2" style={{ color: colors.textSecondary }}>
+                        {t('your_answer_label')}
+                      </label>
+                      {isHtmlContent(content) ? (
+                        <div
+                          className="prose max-w-none p-4 rounded-lg border text-sm"
+                          style={{ backgroundColor: colors.bgFile, borderColor: colors.border, color: colors.textPrimary }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }}
+                        />
+                      ) : (
+                        <p
+                          className="p-4 rounded-lg border text-sm whitespace-pre-wrap"
+                          style={{ backgroundColor: colors.bgFile, borderColor: colors.border, color: colors.textPrimary }}
+                        >
+                          {content}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-sm font-medium mb-2" style={{ color: colors.textSecondary }}>
+                        {t('your_answer_label')}
+                      </label>
+                      <RichTextEditor
+                        value={content}
+                        onChange={setContent}
+                        placeholder={t('write_answer_placeholder')}
+                      />
+                    </div>
+                  )
                 )}
 
                 {(assignment.submissionType === 'file' || assignment.submissionType === 'mixed') && (
@@ -375,38 +468,94 @@ export const AssignmentView = () => {
                       </p>
                     )}
                     <div
-                      className="border-2 border-dashed rounded-lg p-6 text-center"
+                      role="button"
+                      tabIndex={isSubmitted || isUploading ? -1 : 0}
+                      className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                       style={{ borderColor: colors.borderDashed }}
+                      onClick={() => !isSubmitted && !isUploading && fileInputRef.current?.click()}
+                      onKeyDown={(e) => {
+                        if ((e.key === 'Enter' || e.key === ' ') && !isSubmitted && !isUploading) {
+                          e.preventDefault();
+                          fileInputRef.current?.click();
+                        }
+                      }}
+                      aria-disabled={isSubmitted || isUploading}
+                      aria-label={t('click_to_upload_file', { defaultValue: 'Click to upload a file' })}
                     >
-                      <Upload className="w-8 h-8 mx-auto mb-2" style={{ color: colors.textMuted }} />
+                      {isUploading
+                        ? <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin" style={{ color: colors.textMuted }} />
+                        : <Upload className="w-8 h-8 mx-auto mb-2" style={{ color: colors.textMuted }} />
+                      }
                       <p className="text-sm" style={{ color: colors.textSecondary }}>
-                        {t('file_upload_coming_soon')}
+                        {isUploading
+                          ? t('uploading', { defaultValue: 'Uploading...' })
+                          : isSubmitted
+                            ? t('submission_locked', { defaultValue: 'Submission locked' })
+                            : t('click_to_upload_file', { defaultValue: 'Click to upload a file' })
+                        }
                       </p>
-                      <p className="text-xs mt-1" style={{ color: colors.textMuted }}>
-                        {t('max_file_size', { size: assignment.maxFileSize || 10 })}
-                      </p>
+                      {assignment.maxFileSize && (
+                        <p className="text-xs mt-1" style={{ color: colors.textMuted }}>
+                          {t('max_file_size', { size: assignment.maxFileSize })}
+                        </p>
+                      )}
                     </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                      accept={assignment.allowedFileTypes || undefined}
+                      disabled={isSubmitted}
+                    />
 
                     {fileUrls.length > 0 && (
                       <div className="mt-4 space-y-2">
-                        {fileUrls.map((url, index) => (
-                          <div
-                            key={index}
-                            className="flex items-center gap-2 p-2 rounded"
-                            style={{ backgroundColor: colors.bgFile }}
-                          >
-                            <FileText className="w-4 h-4" style={{ color: colors.textMuted }} />
-                            <span className="flex-1 text-sm truncate" style={{ color: colors.textPrimary }}>{url}</span>
-                            {!isSubmitted && (
-                              <button
-                                onClick={() => setFileUrls(fileUrls.filter((_, i) => i !== index))}
-                                style={{ color: colors.textRed }}
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        ))}
+                        {fileUrls.map((url, index) => {
+                          const rawName = url.split('/').pop() ?? `file-${index + 1}`;
+                          let displayName: string;
+                          try {
+                            displayName = decodeURIComponent(rawName.replace(/^[\w-]{36}/, '').replace(/^-/, '')) || rawName;
+                          } catch {
+                            displayName = rawName;
+                          }
+                          const isPdf = url.toLowerCase().endsWith('.pdf');
+                          const resolvedUrl = resolveFileUrl(url);
+
+                          return (
+                            <div key={index}>
+                              {isPdf && isSubmitted ? (
+                                <div className="rounded-lg border overflow-hidden" style={{ borderColor: colors.border }}>
+                                  <div className="flex items-center justify-between px-3 py-2" style={{ backgroundColor: colors.bgFile }}>
+                                    <div className="flex items-center gap-2">
+                                      <FileText className="w-4 h-4" style={{ color: colors.textMuted }} />
+                                      <span className="text-sm font-medium truncate" style={{ color: colors.textPrimary }}>{displayName}</span>
+                                    </div>
+                                    <a href={resolvedUrl} download={displayName} target="_blank" rel="noopener noreferrer" style={{ color: colors.textSecondary }}>
+                                      <Download className="w-3.5 h-3.5" />
+                                    </a>
+                                  </div>
+                                  <iframe src={resolvedUrl} className="w-full border-0" style={{ height: '500px' }} title={displayName} sandbox="allow-same-origin" />
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2 p-2 rounded" style={{ backgroundColor: colors.bgFile }}>
+                                  <FileText className="w-4 h-4" style={{ color: colors.textMuted }} />
+                                  <span className="flex-1 text-sm truncate" style={{ color: colors.textPrimary }}>{displayName}</span>
+                                  {isSubmitted && (
+                                    <a href={resolvedUrl} download={displayName} target="_blank" rel="noopener noreferrer" style={{ color: colors.textSecondary }}>
+                                      <Download className="w-4 h-4" />
+                                    </a>
+                                  )}
+                                  {!isSubmitted && (
+                                    <button onClick={() => setFileUrls(fileUrls.filter((_, i) => i !== index))} style={{ color: colors.textRed }}>
+                                      <X className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -452,8 +601,60 @@ export const AssignmentView = () => {
               </CardHeader>
               <CardBody>
                 {mySubmission.content && (
-                  <div className="prose max-w-none mb-4" style={{ color: colors.textSecondary }}>
-                    <ReactMarkdown>{mySubmission.content}</ReactMarkdown>
+                  isHtmlContent(mySubmission.content) ? (
+                    <div
+                      className="prose max-w-none mb-4 text-sm"
+                      style={{ color: colors.textSecondary }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(mySubmission.content) }}
+                    />
+                  ) : (
+                    <p className="mb-4 text-sm whitespace-pre-wrap" style={{ color: colors.textSecondary }}>
+                      {mySubmission.content}
+                    </p>
+                  )
+                )}
+                {fileUrls.length > 0 && (
+                  <div className="mb-4 space-y-2">
+                    <label className="block text-sm font-medium mb-1" style={{ color: colors.textSecondary }}>
+                      {t('file_attachments')}
+                    </label>
+                    {fileUrls.map((url, index) => {
+                      const rawName = url.split('/').pop() ?? `file-${index + 1}`;
+                      let displayName: string;
+                      try {
+                        displayName = decodeURIComponent(rawName.replace(/^[\w-]{36}/, '').replace(/^-/, '')) || rawName;
+                      } catch {
+                        displayName = rawName;
+                      }
+                      const isPdf = url.toLowerCase().endsWith('.pdf');
+                      const resolvedUrl = resolveFileUrl(url);
+
+                      if (isPdf) {
+                        return (
+                          <div key={index} className="rounded-lg border overflow-hidden" style={{ borderColor: colors.border }}>
+                            <div className="flex items-center justify-between px-3 py-2" style={{ backgroundColor: colors.bgFile }}>
+                              <div className="flex items-center gap-2">
+                                <FileText className="w-4 h-4" style={{ color: colors.textMuted }} />
+                                <span className="text-sm font-medium truncate" style={{ color: colors.textPrimary }}>{displayName}</span>
+                              </div>
+                              <a href={resolvedUrl} download={displayName} target="_blank" rel="noopener noreferrer" style={{ color: colors.textSecondary }}>
+                                <Download className="w-3.5 h-3.5" />
+                              </a>
+                            </div>
+                            <iframe src={resolvedUrl} className="w-full border-0" style={{ height: '500px' }} title={displayName} sandbox="allow-same-origin" />
+                          </div>
+                        );
+                      }
+                      return (
+                        <div key={index} className="flex items-center gap-2 p-2 rounded" style={{ backgroundColor: colors.bgFile }}>
+                          <FileText className="w-4 h-4" style={{ color: colors.textMuted }} />
+                          <span className="flex-1 text-sm truncate" style={{ color: colors.textPrimary }}>{displayName}</span>
+                          <a href={resolvedUrl} download={displayName} target="_blank" rel="noopener noreferrer" style={{ color: colors.textSecondary }}>
+                            <Download className="w-4 h-4" />
+                          </a>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
                 <p className="text-sm" style={{ color: colors.textMuted }}>

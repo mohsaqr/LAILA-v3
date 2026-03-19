@@ -20,6 +20,7 @@ import {
   LLMProviderCreateInput,
   LLMProviderUpdateInput,
   LLMModelCreateInput,
+  ROUTABLE_MODULES,
 } from '../types/llm.types.js';
 
 // =============================================================================
@@ -27,10 +28,9 @@ import {
 // =============================================================================
 
 export class LLMService {
-  private providerCache: Map<string, LLMProviderConfig> = new Map();
+  private providerCache: Map<string, { value: LLMProviderConfig; expiresAt: number }> = new Map();
   private clientCache: Map<string, OpenAI | GoogleGenerativeAI> = new Map();
   private cacheExpiry: number = 5 * 60 * 1000; // 5 minutes
-  private lastCacheRefresh: number = 0;
 
   // ===========================================================================
   // PROVIDER MANAGEMENT
@@ -75,6 +75,48 @@ export class LLMService {
     });
 
     return fallback ? this.mapProviderFromDb(fallback) : null;
+  }
+
+  // Normalise a module identifier to one of the known routing keys.
+  // e.g. 'chatbot-research-methods' → 'chatbot', 'tutor-router' → 'tutor'
+  // Unknown modules fall back to 'chatbot' to prevent unbounded cache growth.
+  private normaliseModule(module: string): string {
+    return ROUTABLE_MODULES.find(m => module === m || module.startsWith(m + '-')) ?? 'chatbot';
+  }
+
+  async getProviderForModule(module: string): Promise<LLMProviderConfig | null> {
+    const baseModule = this.normaliseModule(module);
+    const cacheKey = `module:${baseModule}`;
+    const cached = this.providerCache.get(cacheKey);
+    if (cached && Date.now() < cached.expiresAt) {
+      return cached.value;
+    }
+
+    const setting = await prisma.systemSetting.findUnique({
+      where: { settingKey: `llm_module_${baseModule}` },
+    });
+
+    let resolved: LLMProviderConfig | null = null;
+    if (setting?.settingValue) {
+      const providerId = parseInt(setting.settingValue, 10);
+      if (!isNaN(providerId)) {
+        const provider = await prisma.lLMProvider.findFirst({
+          where: { id: providerId, isEnabled: true },
+          include: { models: true },
+        });
+        if (provider) resolved = this.mapProviderFromDb(provider);
+      }
+    }
+    if (!resolved) resolved = await this.getDefaultProvider();
+
+    if (resolved) {
+      this.providerCache.set(cacheKey, { value: resolved, expiresAt: Date.now() + this.cacheExpiry });
+    }
+    return resolved;
+  }
+
+  clearProviderCache(): void {
+    this.clearCache();
   }
 
   async createProvider(input: LLMProviderCreateInput): Promise<LLMProviderConfig> {
@@ -343,6 +385,7 @@ export class LLMService {
         case 'groq':
         case 'mistral':
         case 'lmstudio':
+        case 'vllm':
           return await this.testOpenAICompatible(provider, startTime);
 
         case 'gemini':
@@ -530,6 +573,8 @@ export class LLMService {
     let provider: LLMProviderConfig | null;
     if (request.provider) {
       provider = await this.getProvider(request.provider);
+    } else if (request.module) {
+      provider = await this.getProviderForModule(request.module);
     } else {
       provider = await this.getDefaultProvider();
     }
@@ -572,6 +617,7 @@ export class LLMService {
         case 'groq':
         case 'mistral':
         case 'lmstudio':
+        case 'vllm':
           response = await this.chatOpenAICompatible(provider, model, request.messages, params);
           break;
 
@@ -1066,7 +1112,6 @@ export class LLMService {
   private clearCache(): void {
     this.providerCache.clear();
     this.clientCache.clear();
-    this.lastCacheRefresh = 0;
   }
 }
 

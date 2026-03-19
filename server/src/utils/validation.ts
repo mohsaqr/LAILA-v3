@@ -68,7 +68,7 @@ export const createCourseSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
   description: z.string().optional(),
   categoryIds: z.array(z.number()).optional(),
-  difficulty: z.enum(['beginner', 'intermediate', 'advanced']).optional(),
+  difficulty: z.enum(['beginner', 'intermediate', 'advanced']).optional().nullable(),
   isPublic: z.boolean().optional(),
   thumbnail: z.string().optional().or(z.literal('')),
   curriculumViewMode: z.enum(['mini-cards', 'icons', 'list', 'accordion']).optional(),
@@ -178,6 +178,7 @@ export const createAssignmentSchema = z.object({
   allowedFileTypes: z.string().optional(),
   dueDate: z.string().datetime().optional().nullable(),
   points: z.number().int().min(0).max(1000).optional(),
+  weight: z.number().min(0).max(10).optional(),
   isPublished: z.boolean().optional(),
   moduleId: z.number().int().optional().nullable(),
   lectureId: z.number().int().optional().nullable(),
@@ -191,12 +192,12 @@ export const updateAssignmentSchema = createAssignmentSchema.partial();
 // Submission validation schemas
 export const createSubmissionSchema = z.object({
   content: z.string().optional(),
-  fileUrls: z.array(z.string().url()).optional(),
+  fileUrls: z.array(z.string()).optional(),
   status: z.enum(['draft', 'submitted']).optional(),
 });
 
 export const gradeSubmissionSchema = z.object({
-  grade: z.number().min(0).max(100),
+  grade: z.number().min(0).max(10000),
   feedback: z.string().optional(),
 });
 
@@ -327,6 +328,7 @@ export const createAssignmentSchemaExtended = z.object({
   allowedFileTypes: z.string().optional(),
   dueDate: z.string().datetime().optional().nullable(),
   points: z.number().int().min(0).max(1000).optional(),
+  weight: z.number().min(0).max(10).optional(),
   isPublished: z.boolean().optional(),
   moduleId: z.number().int().optional().nullable(),
   aiAssisted: z.boolean().optional(),

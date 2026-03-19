@@ -11,6 +11,7 @@ import {
   UpdateLabTemplateData,
   AssignLabData,
 } from '../types';
+import { getAuthHeaders } from '../utils/auth';
 
 interface LabFilters {
   labType?: string;
@@ -114,5 +115,28 @@ export const customLabsApi = {
       `/labs/course/${courseId}`
     );
     return response.data.data!;
+  },
+
+  getLabAssignmentConfig: async (labId: number, courseId: number) => {
+    const response = await apiClient.get<ApiResponse<LabAssignment | null>>(
+      `/labs/${labId}/assignment-config/${courseId}`
+    );
+    return response.data.data;
+  },
+
+  uploadLabSubmission: async (file: File): Promise<{ url: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await fetch('/api/uploads/lab-submission', {
+      method: 'POST',
+      body: formData,
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Upload failed');
+    }
+    const data = await response.json();
+    return { url: data.data.url };
   },
 };
