@@ -131,7 +131,8 @@ export const AssignmentView = () => {
     if (mySubmission) {
       setContent(mySubmission.content || '');
       try {
-        setFileUrls(mySubmission.fileUrls ? JSON.parse(mySubmission.fileUrls) : []);
+        const parsed = mySubmission.fileUrls ? JSON.parse(mySubmission.fileUrls) : [];
+        setFileUrls(Array.isArray(parsed) ? parsed : []);
       } catch {
         setFileUrls([]);
       }

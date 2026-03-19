@@ -133,7 +133,8 @@ export const SubmissionDetail = () => {
   const isGraded = submission.status === 'graded';
   let fileUrls: string[] = [];
   try {
-    fileUrls = submission.fileUrls ? JSON.parse(submission.fileUrls) : [];
+    const parsed = submission.fileUrls ? JSON.parse(submission.fileUrls) : [];
+    fileUrls = Array.isArray(parsed) ? parsed : [];
   } catch {
     fileUrls = [];
   }
@@ -283,7 +284,7 @@ export const SubmissionDetail = () => {
                       </div>
                       {/* Inline viewer */}
                       <iframe src={resolvedUrl} className="w-full border-0" style={{ height: '700px' }}
-                        title={displayName} />
+                        title={displayName} sandbox="allow-same-origin" />
                     </div>
                   );
                 }
