@@ -376,11 +376,17 @@ export const AssignmentView = () => {
                 <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{t('assignment_instructions')}</h2>
               </CardHeader>
               <CardBody>
-                <div
-                  className="prose dark:prose-invert max-w-none"
-                  style={{ color: colors.textSecondary }}
-                  dangerouslySetInnerHTML={{ __html: isHtmlContent(assignment.instructions) ? sanitizeHtml(assignment.instructions) : sanitizeHtml(`<p>${assignment.instructions}</p>`) }}
-                />
+                {isHtmlContent(assignment.instructions) ? (
+                  <div
+                    className="prose dark:prose-invert max-w-none"
+                    style={{ color: colors.textSecondary }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(assignment.instructions) }}
+                  />
+                ) : (
+                  <p className="whitespace-pre-wrap" style={{ color: colors.textSecondary }}>
+                    {assignment.instructions}
+                  </p>
+                )}
               </CardBody>
             </Card>
           )}
@@ -434,13 +440,20 @@ export const AssignmentView = () => {
                       <label className="block text-sm font-medium mb-2" style={{ color: colors.textSecondary }}>
                         {t('your_answer_label')}
                       </label>
-                      <div
-                        className="prose max-w-none p-4 rounded-lg border text-sm"
-                        style={{ backgroundColor: colors.bgFile, borderColor: colors.border, color: colors.textPrimary }}
-                        dangerouslySetInnerHTML={{
-                          __html: isHtmlContent(content) ? sanitizeHtml(content) : sanitizeHtml(`<p>${content ?? ''}</p>`)
-                        }}
-                      />
+                      {isHtmlContent(content) ? (
+                        <div
+                          className="prose max-w-none p-4 rounded-lg border text-sm"
+                          style={{ backgroundColor: colors.bgFile, borderColor: colors.border, color: colors.textPrimary }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }}
+                        />
+                      ) : (
+                        <p
+                          className="p-4 rounded-lg border text-sm whitespace-pre-wrap"
+                          style={{ backgroundColor: colors.bgFile, borderColor: colors.border, color: colors.textPrimary }}
+                        >
+                          {content}
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div>
@@ -467,9 +480,19 @@ export const AssignmentView = () => {
                       </p>
                     )}
                     <div
-                      className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors hover:border-indigo-400"
+                      role="button"
+                      tabIndex={isSubmitted || isUploading ? -1 : 0}
+                      className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                       style={{ borderColor: colors.borderDashed }}
                       onClick={() => !isSubmitted && !isUploading && fileInputRef.current?.click()}
+                      onKeyDown={(e) => {
+                        if ((e.key === 'Enter' || e.key === ' ') && !isSubmitted && !isUploading) {
+                          e.preventDefault();
+                          fileInputRef.current?.click();
+                        }
+                      }}
+                      aria-disabled={isSubmitted || isUploading}
+                      aria-label={t('click_to_upload_file', { defaultValue: 'Click to upload a file' })}
                     >
                       {isUploading
                         ? <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin" style={{ color: colors.textMuted }} />
@@ -590,15 +613,17 @@ export const AssignmentView = () => {
               </CardHeader>
               <CardBody>
                 {mySubmission.content && (
-                  <div
-                    className="prose max-w-none mb-4 text-sm"
-                    style={{ color: colors.textSecondary }}
-                    dangerouslySetInnerHTML={{
-                      __html: isHtmlContent(mySubmission.content)
-                        ? sanitizeHtml(mySubmission.content)
-                        : sanitizeHtml(`<p>${mySubmission.content ?? ''}</p>`)
-                    }}
-                  />
+                  isHtmlContent(mySubmission.content) ? (
+                    <div
+                      className="prose max-w-none mb-4 text-sm"
+                      style={{ color: colors.textSecondary }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(mySubmission.content) }}
+                    />
+                  ) : (
+                    <p className="mb-4 text-sm whitespace-pre-wrap" style={{ color: colors.textSecondary }}>
+                      {mySubmission.content}
+                    </p>
+                  )
                 )}
                 {fileUrls.length > 0 && (
                   <div className="mb-4 space-y-2">
