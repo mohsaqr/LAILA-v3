@@ -81,9 +81,10 @@ export const DashboardSidebar = () => {
     { label: t('reports'), icon: BarChart3, path: '/reports' },
   ];
 
-  // Detect if we're in a course-specific teach context
-  const courseMatch = location.pathname.match(/\/teach\/courses\/(\d+)/);
-  const activeCourseId = courseMatch ? courseMatch[1] : null;
+  // Detect if we're in a course-specific context (teach or student-facing course view)
+  const teachCourseMatch = location.pathname.match(/\/teach\/courses\/(\d+)/);
+  const studentCourseMatch = (isActualAdmin || user?.isInstructor) ? location.pathname.match(/^\/courses\/(\d+)/) : null;
+  const activeCourseId = teachCourseMatch?.[1] || studentCourseMatch?.[1] || null;
 
   // Course-specific items for the teacher (shown when viewing a course)
   const courseNavItems: NavItem[] = activeCourseId ? [
@@ -121,7 +122,7 @@ export const DashboardSidebar = () => {
     ] : []),
   ];
 
-  const navItems = isInstructor ? instructorNavItems : studentNavItems;
+  const navItems = (isInstructor || isActualAdmin) ? instructorNavItems : studentNavItems;
 
   const isActive = (path: string) => {
     if (path === '/dashboard') {
