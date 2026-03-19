@@ -16,7 +16,7 @@ import { LectureAIHelper } from '../components/lecture';
 import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStudent';
 import { AssignmentSectionStudent } from '../components/course/AssignmentSectionStudent';
 import { marked } from 'marked';
-import { sanitizeHtml } from '../utils/sanitize';
+import { sanitizeHtml, isHtmlContent } from '../utils/sanitize';
 import activityLogger from '../services/activityLogger';
 import { LectureSection } from '../types';
 
@@ -164,7 +164,7 @@ export const LectureView = () => {
     switch (section.type) {
       case 'text':
       case 'ai-generated': {
-        const isHtml = section.content?.trim().startsWith('<');
+        const isHtml = isHtmlContent(section.content);
         return (
           <div key={section.id} className="mb-8">
             {section.title && (

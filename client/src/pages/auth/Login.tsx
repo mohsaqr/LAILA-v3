@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BrainCircuit, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
@@ -73,10 +73,8 @@ export const Login = () => {
         <div className="rounded-2xl shadow-xl p-8" style={{ backgroundColor: colors.bgCard }}>
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 mb-4">
-              <div className="w-12 h-12 gradient-bg rounded-xl flex items-center justify-center">
-                <BrainCircuit className="w-7 h-7 text-white" />
-              </div>
+            <div className="flex justify-center mb-4">
+              <img src="/icons/logo.webp" alt="LAILA" className="h-28 w-auto" />
             </div>
             <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{t('login_title')}</h1>
             <p className="mt-1" style={{ color: colors.textSecondary }}>{t('login_subtitle')}</p>

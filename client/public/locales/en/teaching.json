@@ -83,6 +83,8 @@
   "upload_file": "Upload File",
   "file_name": "File Name",
   "file_uploaded": "File uploaded successfully",
+  "file_uploaded_ready": "File uploaded — ready to save",
+  "click_name_to_rename": "Click the name above to rename",
   "failed_upload": "Failed to upload file",
   "upload_video": "Upload Video",
   "embed_video": "Embed Video",

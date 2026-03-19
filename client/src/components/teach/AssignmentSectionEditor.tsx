@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ClipboardList, Calendar, Award, AlertCircle, Link as LinkIcon, Edit2, Upload, FileText, Trash2, Pencil, Check, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Assignment, AssignmentAttachment, LectureSection, UpdateSectionData } from '../../types';
-import { sanitizeHtml } from '../../utils/sanitize';
+import { sanitizeHtml, isHtmlContent } from '../../utils/sanitize';
 import { coursesApi } from '../../api/courses';
 import { assignmentsApi } from '../../api/assignments';
 import { uploadsApi } from '../../api/uploads';
@@ -381,7 +381,7 @@ export const AssignmentSectionEditor = ({
           <div className="flex-1">
             <h4 className="font-medium text-gray-900">{selectedAssignment.title}</h4>
             {selectedAssignment.description && (
-              selectedAssignment.description.trim().startsWith('<')
+              isHtmlContent(selectedAssignment.description)
                 ? <div className="text-sm text-gray-600 mt-1 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedAssignment.description) }} />
                 : <p className="text-sm text-gray-600 mt-1">{selectedAssignment.description}</p>
             )}

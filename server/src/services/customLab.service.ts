@@ -3048,7 +3048,14 @@ export class CustomLabService {
   /**
    * Assign a lab to a course
    */
-  async assignToCourse(labId: number, courseId: number, moduleId: number | null, userId: number, isAdmin = false) {
+  async assignToCourse(
+    labId: number,
+    courseId: number,
+    moduleId: number | null,
+    userId: number,
+    isAdmin = false,
+    assignmentConfig?: { prompt?: string; points?: number; dueDate?: string }
+  ) {
     // Verify lab ownership or public access
     const lab = await prisma.customLab.findUnique({
       where: { id: labId },
@@ -3076,15 +3083,22 @@ export class CustomLabService {
       throw new AppError('Not authorized to modify this course', 403);
     }
 
-    // Check if already assigned
-    const existing = await prisma.labAssignment.findUnique({
-      where: {
-        labId_courseId: { labId, courseId },
-      },
-    });
-
-    if (existing) {
-      throw new AppError('Lab is already assigned to this course', 400);
+    // Create Assignment record if config provided
+    let createdAssignmentId: number | undefined;
+    if (assignmentConfig) {
+      const newAssignment = await prisma.assignment.create({
+        data: {
+          courseId,
+          moduleId,
+          title: lab.name,
+          description: assignmentConfig.prompt,
+          submissionType: 'mixed',
+          isPublished: true,
+          points: assignmentConfig.points ?? 100,
+          dueDate: assignmentConfig.dueDate ? new Date(assignmentConfig.dueDate) : null,
+        },
+      });
+      createdAssignmentId = newAssignment.id;
     }
 
     const assignment = await prisma.labAssignment.create({
@@ -3092,6 +3106,7 @@ export class CustomLabService {
         labId,
         courseId,
         moduleId,
+        assignmentId: createdAssignmentId ?? null,
       },
       include: {
         lab: {
@@ -3103,10 +3118,29 @@ export class CustomLabService {
         module: {
           select: { id: true, title: true },
         },
+        assignment: {
+          select: { id: true, description: true, points: true, dueDate: true },
+        },
       },
     });
 
     return assignment;
+  }
+
+  /**
+   * Get lab assignment config (with linked Assignment) for a specific lab+course
+   */
+  async getLabAssignmentConfig(labId: number, courseId: number) {
+    const labAssignment = await prisma.labAssignment.findFirst({
+      where: { labId, courseId },
+      orderBy: { id: 'desc' },
+      include: {
+        assignment: {
+          select: { id: true, description: true, points: true, dueDate: true },
+        },
+      },
+    });
+    return labAssignment;
   }
 
   /**
@@ -3126,10 +3160,8 @@ export class CustomLabService {
       throw new AppError('Not authorized to modify this course', 403);
     }
 
-    const assignment = await prisma.labAssignment.findUnique({
-      where: {
-        labId_courseId: { labId, courseId },
-      },
+    const assignment = await prisma.labAssignment.findFirst({
+      where: { labId, courseId },
     });
 
     if (!assignment) {

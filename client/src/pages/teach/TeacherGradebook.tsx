@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -26,22 +26,31 @@ import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { Assignment } from '../../types';
 
+interface GradebookGrade {
+  assignmentId: number;
+  submissionId?: number | null;
+  grade: number | null;
+  status: string;
+  feedback?: string | null;
+}
+
+interface GradebookEntry {
+  student: { id: number; fullname: string; email: string };
+  grades: GradebookGrade[];
+  totalPoints: number;
+  maxPoints: number;
+}
+
 interface GradebookStudent {
   id: number;
   fullname: string;
   email: string;
-  submissions: {
-    assignmentId: number;
-    submissionId?: number;
-    grade: number | null;
-    status: string;
-    submittedAt: string | null;
-  }[];
+  submissions: (GradebookGrade & { submissionId?: number })[];
 }
 
 interface GradebookData {
   assignments: Assignment[];
-  students: GradebookStudent[];
+  gradebook: GradebookEntry[];
 }
 
 export const TeacherGradebook = () => {
@@ -94,10 +103,27 @@ export const TeacherGradebook = () => {
     queryFn: () => coursesApi.getCourseById(parsedCourseId),
   });
 
-  const { data: gradebook, isLoading: gradebookLoading } = useQuery({
+  const { data: rawGradebook, isLoading: gradebookLoading } = useQuery({
     queryKey: ['gradebook', parsedCourseId],
     queryFn: () => assignmentsApi.getGradebook(parsedCourseId) as Promise<GradebookData>,
   });
+
+  // Transform server shape { gradebook: [{ student, grades }] } into { students: [{ id, fullname, email, submissions }] }
+  const gradebook = useMemo(() => {
+    if (!rawGradebook) return undefined;
+    return {
+      assignments: rawGradebook.assignments,
+      students: rawGradebook.gradebook.map(entry => ({
+        id: entry.student.id,
+        fullname: entry.student.fullname,
+        email: entry.student.email,
+        submissions: entry.grades.map(g => ({
+          ...g,
+          submissionId: g.submissionId ?? undefined,
+        })),
+      })),
+    };
+  }, [rawGradebook]);
 
   const gradeMutation = useMutation({
     mutationFn: ({ submissionId, data }: { submissionId: number; data: { grade: number; feedback?: string } }) =>
@@ -124,7 +150,10 @@ export const TeacherGradebook = () => {
       toast.error(t('no_submission_to_grade'));
       return;
     }
-    setGradeForm({ grade: currentGrade || 0, feedback: '' });
+    // Find the existing feedback from the submission data
+    const existingStudent = gradebook?.students.find(s => s.id === studentId);
+    const existingSubmission = existingStudent?.submissions.find(s => s.assignmentId === assignmentId);
+    setGradeForm({ grade: currentGrade || 0, feedback: existingSubmission?.feedback || '' });
     setGradeModal({
       isOpen: true,
       studentId,

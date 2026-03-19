@@ -105,7 +105,7 @@ export const DashboardSidebar = () => {
 
   return (
     <aside
-      className="fixed left-0 top-16 h-[calc(100vh-4rem)] z-40 transition-all duration-300 border-r"
+      className="fixed left-0 top-20 h-[calc(100vh-5rem)] z-40 transition-all duration-300 border-r"
       style={{
         width: isCollapsed ? '64px' : '240px',
         backgroundColor: colors.bg,

@@ -100,6 +100,13 @@ export const CurriculumEditor = () => {
   }>({ isOpen: false });
   const [codeLabModalTab, setCodeLabModalTab] = useState<CodeLabModalTab>('create');
   const [selectedLabTemplate, setSelectedLabTemplate] = useState<{ lab: CustomLab; templates: LabTemplate[] } | null>(null);
+  const [selectedInteractiveLab, setSelectedInteractiveLab] = useState<{ key: string; label: string } | null>(null);
+  const [labAssignmentForm, setLabAssignmentForm] = useState<{
+    enableAssignment: boolean;
+    prompt: string;
+    points: number;
+    dueDate: string;
+  }>({ enableAssignment: false, prompt: '', points: 100, dueDate: '' });
   const [deleteCodeLabConfirm, setDeleteCodeLabConfirm] = useState<CodeLab | null>(null);
   const [assignmentModal, setAssignmentModal] = useState<{
     isOpen: boolean;
@@ -340,15 +347,27 @@ export const CurriculumEditor = () => {
 
   // Assign lab template to course
   const assignLabMutation = useMutation({
-    mutationFn: ({ labId, moduleId }: { labId: number; moduleId?: number }) =>
-      customLabsApi.assignToCourse(labId, { courseId, moduleId }),
+    mutationFn: ({ labId, moduleId, enableAssignment, prompt, points, dueDate }: {
+      labId: number; moduleId?: number;
+      enableAssignment: boolean; prompt: string; points: number; dueDate: string;
+    }) =>
+      customLabsApi.assignToCourse(labId, {
+        courseId,
+        moduleId,
+        enableAssignment,
+        prompt: enableAssignment ? prompt : undefined,
+        points: enableAssignment ? points : undefined,
+        dueDate: enableAssignment && dueDate ? new Date(dueDate).toISOString() : undefined,
+      }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('lab_template_added'));
       closeCodeLabModal();
     },
-    onError: () => toast.error(t('failed_to_add_lab_template')),
+    onError: (error: unknown) => {
+      const msg = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      toast.error(msg || t('failed_to_add_lab_template'));
+    },
   });
 
   // Unassign lab template from course
@@ -375,7 +394,7 @@ export const CurriculumEditor = () => {
     mutationFn: (data: AssignmentFormData & { moduleId: number }) =>
       assignmentsApi.createAssignment(courseId, {
         ...data,
-        dueDate: data.dueDate ? data.dueDate + ':00.000Z' : null,
+        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
@@ -393,7 +412,7 @@ export const CurriculumEditor = () => {
     mutationFn: ({ id, data }: { id: number; data: AssignmentFormData & { moduleId?: number } }) =>
       assignmentsApi.updateAssignment(id, {
         ...data,
-        dueDate: data.dueDate ? data.dueDate + ':00.000Z' : null,
+        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
@@ -523,6 +542,8 @@ export const CurriculumEditor = () => {
     setCodeLabForm({ title: '', description: '' });
     setCodeLabModalTab('create');
     setSelectedLabTemplate(null);
+    setSelectedInteractiveLab(null);
+    setLabAssignmentForm({ enableAssignment: false, prompt: '', points: 100, dueDate: '' });
   };
 
   const openAddAssignmentModal = (module: CourseModule) => {
@@ -608,13 +629,36 @@ export const CurriculumEditor = () => {
   };
 
   // Interactive lab handlers
-  const handleAddInteractiveLab = (moduleId: number, labKey: string) => {
+  const handleAddInteractiveLab = async (
+    moduleId: number,
+    labKey: string,
+    assignmentConfig?: { enableAssignment: boolean; prompt: string; points: number; dueDate: string }
+  ) => {
     const mod = modules.find((m: CourseModule) => m.id === moduleId);
     const existing = mod?.interactiveLabs
       ? mod.interactiveLabs.split(',').map((s: string) => s.trim()).filter(Boolean)
       : [];
     if (existing.includes(labKey)) return;
     const updated = [...existing, labKey].join(',');
+
+    if (assignmentConfig?.enableAssignment) {
+      try {
+        await assignmentsApi.createAssignment(courseId, {
+          moduleId,
+          title: labKey === 'tna' ? t('interactive_lab_tna') : t('interactive_lab_sna'),
+          description: assignmentConfig.prompt || undefined,
+          submissionType: 'mixed',
+          isPublished: true,
+          points: assignmentConfig.points,
+          dueDate: assignmentConfig.dueDate ? new Date(assignmentConfig.dueDate).toISOString() : undefined,
+          agentRequirements: `interactive_lab_${labKey}`,
+        } as any);
+      } catch {
+        toast.error(t('failed_to_add_lab_template'));
+        return;
+      }
+    }
+
     updateModuleInteractiveLabs.mutate({ moduleId, interactiveLabs: updated });
     closeCodeLabModal();
   };
@@ -1609,7 +1653,67 @@ export const CurriculumEditor = () => {
                   })}
                 </div>
 
-                <div className="flex justify-between items-center pt-4 border-t" style={{ borderColor: isDark ? '#374151' : '#e5e7eb' }}>
+                {/* Assignment mode — shown after selecting a lab */}
+              {selectedLabTemplate && (
+                <div className="border rounded-lg p-4 space-y-3" style={{ borderColor: isDark ? '#374151' : '#e5e7eb', backgroundColor: isDark ? '#1f2937' : '#f9fafb' }}>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="labEnableAssignment"
+                      checked={labAssignmentForm.enableAssignment}
+                      onChange={(e) => setLabAssignmentForm(f => ({ ...f, enableAssignment: e.target.checked }))}
+                      className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <label htmlFor="labEnableAssignment" className="text-sm font-medium text-gray-900 dark:text-white">
+                      {t('enable_assignment_mode', { defaultValue: 'Enable Assignment Mode' })}
+                    </label>
+                  </div>
+
+                  {labAssignmentForm.enableAssignment && (
+                    <div className="space-y-3 pl-4 border-l-2 border-primary-300">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                          {t('assignment_prompt', { defaultValue: 'Instructions for students' })}
+                        </label>
+                        <textarea
+                          value={labAssignmentForm.prompt}
+                          onChange={(e) => setLabAssignmentForm(f => ({ ...f, prompt: e.target.value }))}
+                          rows={6}
+                          className="w-full px-3 py-2 rounded-lg border text-base focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
+                          placeholder={t('assignment_prompt_placeholder', { defaultValue: 'Describe what students should do...' })}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            {t('assignment_points', { defaultValue: 'Points' })}
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={labAssignmentForm.points}
+                            onChange={(e) => setLabAssignmentForm(f => ({ ...f, points: Number(e.target.value) || 0 }))}
+                            className="w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            {t('assignment_due_date', { defaultValue: 'Due Date (optional)' })}
+                          </label>
+                          <input
+                            type="datetime-local"
+                            value={labAssignmentForm.dueDate}
+                            onChange={(e) => setLabAssignmentForm(f => ({ ...f, dueDate: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-between items-center pt-4 border-t" style={{ borderColor: isDark ? '#374151' : '#e5e7eb' }}>
                   <Link
                     to="/teach/labs"
                     className="text-sm text-primary-600 dark:text-primary-400 hover:underline"
@@ -1626,6 +1730,10 @@ export const CurriculumEditor = () => {
                           assignLabMutation.mutate({
                             labId: selectedLabTemplate.lab.id,
                             moduleId: codeLabModal.moduleId,
+                            enableAssignment: labAssignmentForm.enableAssignment,
+                            prompt: labAssignmentForm.prompt,
+                            points: labAssignmentForm.points,
+                            dueDate: labAssignmentForm.dueDate,
                           });
                         }
                       }}
@@ -1656,37 +1764,145 @@ export const CurriculumEditor = () => {
 
         {/* Interactive Labs Tab */}
         {codeLabModalTab === 'interactive' && !codeLabModal.codeLab && (
-          <div className="space-y-2 p-1">
+          <div className="space-y-4">
             {(() => {
               const mod = modules.find((m: CourseModule) => m.id === codeLabModal.moduleId);
               const existing = mod?.interactiveLabs
                 ? mod.interactiveLabs.split(',').map((s: string) => s.trim()).filter(Boolean)
                 : [];
               const labs = [
-                { key: 'tna', label: t('interactive_lab_tna') },
-                { key: 'sna', label: t('interactive_lab_sna') },
+                { key: 'tna', label: t('interactive_lab_tna'), description: 'Transition Network Analysis — analyze learning sequences and actor behavior patterns' },
+                { key: 'sna', label: t('interactive_lab_sna'), description: 'Social Network Analysis — explore connections and influence within a group' },
               ];
-              return labs.map(lab => {
-                const added = existing.includes(lab.key);
-                return (
-                  <button
-                    key={lab.key}
-                    onClick={() => !added && codeLabModal.moduleId && handleAddInteractiveLab(codeLabModal.moduleId, lab.key)}
-                    disabled={added}
-                    className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors text-left ${
-                      added
-                        ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-violet-300 dark:hover:border-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20'
-                    }`}
-                  >
-                    <Network className="w-5 h-5 text-violet-600 dark:text-violet-400" />
-                    <span className="font-medium text-gray-900 dark:text-white">{lab.label}</span>
-                    {added && (
-                      <span className="ml-auto text-xs text-gray-400">{t('already_added')}</span>
-                    )}
-                  </button>
-                );
-              });
+              return (
+                <>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {t('select_lab_template_description')}
+                  </p>
+                  <div className="space-y-2">
+                    {labs.map(lab => {
+                      const added = existing.includes(lab.key);
+                      const isSelected = selectedInteractiveLab?.key === lab.key;
+                      return (
+                        <div
+                          key={lab.key}
+                          onClick={() => !added && setSelectedInteractiveLab(isSelected ? null : { key: lab.key, label: lab.label })}
+                          className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                            added
+                              ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700'
+                              : isSelected
+                              ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                              : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <Network className={`w-4 h-4 ${isSelected ? 'text-primary-500' : 'text-violet-500'}`} />
+                                <span className={`font-medium ${isSelected ? 'text-primary-700 dark:text-primary-300' : 'text-gray-900 dark:text-white'}`}>
+                                  {lab.label}
+                                </span>
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300">
+                                  {t('interactive')}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 ml-6">
+                                {lab.description}
+                              </p>
+                            </div>
+                            {added ? (
+                              <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                                <Check className="w-3 h-3" />
+                                {t('added')}
+                              </span>
+                            ) : isSelected ? (
+                              <div className="w-5 h-5 rounded-full bg-primary-500 flex items-center justify-center flex-shrink-0">
+                                <Check className="w-3 h-3 text-white" />
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Assignment mode — shown after selecting an interactive lab */}
+                  {selectedInteractiveLab && (
+                    <div className="border rounded-lg p-4 space-y-3" style={{ borderColor: isDark ? '#374151' : '#e5e7eb', backgroundColor: isDark ? '#1f2937' : '#f9fafb' }}>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          id="interactiveLabEnableAssignment"
+                          checked={labAssignmentForm.enableAssignment}
+                          onChange={(e) => setLabAssignmentForm(f => ({ ...f, enableAssignment: e.target.checked }))}
+                          className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        <label htmlFor="interactiveLabEnableAssignment" className="text-sm font-medium text-gray-900 dark:text-white">
+                          {t('enable_assignment_mode', { defaultValue: 'Enable Assignment Mode' })}
+                        </label>
+                      </div>
+                      {labAssignmentForm.enableAssignment && (
+                        <div className="space-y-3 pl-4 border-l-2 border-primary-300">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                              {t('assignment_prompt', { defaultValue: 'Instructions for students' })}
+                            </label>
+                            <textarea
+                              value={labAssignmentForm.prompt}
+                              onChange={(e) => setLabAssignmentForm(f => ({ ...f, prompt: e.target.value }))}
+                              rows={6}
+                              className="w-full px-3 py-2 rounded-lg border text-base focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
+                              placeholder={t('assignment_prompt_placeholder', { defaultValue: 'Describe what students should do...' })}
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                {t('assignment_points', { defaultValue: 'Points' })}
+                              </label>
+                              <input
+                                type="number"
+                                min={0}
+                                value={labAssignmentForm.points}
+                                onChange={(e) => setLabAssignmentForm(f => ({ ...f, points: Number(e.target.value) || 0 }))}
+                                className="w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                {t('assignment_due_date', { defaultValue: 'Due Date (optional)' })}
+                              </label>
+                              <input
+                                type="datetime-local"
+                                value={labAssignmentForm.dueDate}
+                                onChange={(e) => setLabAssignmentForm(f => ({ ...f, dueDate: e.target.value }))}
+                                className="w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-3 pt-4 border-t" style={{ borderColor: isDark ? '#374151' : '#e5e7eb' }}>
+                    <Button type="button" variant="secondary" onClick={closeCodeLabModal}>
+                      {t('common:cancel')}
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        if (selectedInteractiveLab && codeLabModal.moduleId) {
+                          handleAddInteractiveLab(codeLabModal.moduleId, selectedInteractiveLab.key, labAssignmentForm);
+                        }
+                      }}
+                      disabled={!selectedInteractiveLab || updateModuleInteractiveLabs.isPending}
+                      loading={updateModuleInteractiveLabs.isPending}
+                    >
+                      {t('add_to_module')}
+                    </Button>
+                  </div>
+                </>
+              );
             })()}
           </div>
         )}

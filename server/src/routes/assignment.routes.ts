@@ -107,7 +107,7 @@ router.get('/:id/submissions', authenticateToken, requireInstructor, asyncHandle
 router.post('/:id/submit', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = parseInt(req.params.id);
   const data = createSubmissionSchema.parse(req.body);
-  const submission = await assignmentService.submitAssignment(id, req.user!.id, data);
+  const submission = await assignmentService.submitAssignment(id, req.user!.id, data, undefined, req.user!.isAdmin, req.user!.isInstructor);
   res.status(201).json({ success: true, data: submission });
 }));
 

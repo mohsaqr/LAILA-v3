@@ -6,14 +6,19 @@
  * Students can also enter their own network via a modal.
  */
 
-import { useState, useMemo, useCallback } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useState, useMemo, useCallback, useRef } from 'react';
+import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import {
   Network, X, GitBranch, Target, BarChart3, Waypoints, Plus,
   ChevronDown, ChevronRight, BookOpen, ArrowLeft, Users,
-  Microscope, MessageCircle, Sparkles,
+  Microscope, MessageCircle, Sparkles, ClipboardList, Camera, Loader2, CheckCircle,
 } from 'lucide-react';
+import { assignmentsApi } from '../api/assignments';
+import { LabAssignmentPanel, type ReportItem } from '../components/labs/LabAssignmentPanel';
+import toast from 'react-hot-toast';
+import { INTERACTIVE_LAB_REQUIREMENTS } from '../types';
 import { buildModel } from 'dynajs';
 import type { TNA } from 'dynajs';
 import { TransitionHeatmap } from '../components/tna/TransitionHeatmap';
@@ -31,6 +36,9 @@ import {
 import type { SampleNetwork, Edge } from '../components/sna-exercise/sampleNetworks';
 import { AIDatasetGenerator } from '../components/ai/AIDatasetGenerator';
 import type { SnaGeneratedData } from '../components/ai/AIDatasetGenerator';
+import { SnaStepGuide } from '../components/sna-exercise/SnaStepGuide';
+import { LabAIAssistant } from '../components/ai/LabAIAssistant';
+import { activityLogger } from '../services/activityLogger';
 
 /* ── Types ── */
 
@@ -216,6 +224,20 @@ export const SnaExercise = () => {
   const { t } = useTranslation(['courses']);
   const navigate = useNavigate();
   const { courseId } = useParams<{ courseId?: string }>();
+  const [searchParams] = useSearchParams();
+  const exerciseRef = useRef<HTMLDivElement>(null);
+  const analysisContentRef = useRef<HTMLDivElement>(null);
+  const [assignmentPanelOpen, setAssignmentPanelOpen] = useState(false);
+
+  const { data: courseAssignments } = useQuery({
+    queryKey: ['courseAssignments', courseId],
+    queryFn: () => assignmentsApi.getAssignments(Number(courseId)),
+    enabled: !!courseId,
+  });
+  const targetAssignmentId = searchParams.get('assignmentId');
+  const snaAssignment = targetAssignmentId
+    ? courseAssignments?.find(a => a.id === Number(targetAssignmentId)) ?? null
+    : courseAssignments?.find(a => a.agentRequirements === INTERACTIVE_LAB_REQUIREMENTS.SNA) ?? null;
 
   // ── Core state ──
   const [datasetKey, setDatasetKey] = useState<string | null>(null);
@@ -244,9 +266,41 @@ export const SnaExercise = () => {
   const [centralityView, setCentralityView] = useState<'chart' | 'table'>('chart');
   const [communityMethod, setCommunityMethod] = useState<CommunityMethod>('label-propagation');
   const [showGuide, setShowGuide] = useState(false);
+  const [visitedAnalyses, setVisitedAnalyses] = useState<string[]>([]);
+  const [sessionEvents, setSessionEvents] = useState<Array<{ ts: number; event: string }>>([]);
+  const [reportItems, setReportItems] = useState<ReportItem[]>([]);
+  const [isCapturing, setIsCapturing] = useState(false);
+
+  const logSession = (event: string) =>
+    setSessionEvents(prev => [...prev, { ts: Date.now(), event }]);
+
+  const handleAddToReport = useCallback(async () => {
+    if (!analysisContentRef.current || !activeAnalysis) return;
+    setIsCapturing(true);
+    try {
+      const { default: html2canvas } = await import('html2canvas');
+      const el = analysisContentRef.current;
+      const canvas = await html2canvas(el, {
+        scale: 1.2, useCORS: true, allowTaint: true,
+        width: el.scrollWidth, height: el.scrollHeight,
+        scrollX: 0, scrollY: 0,
+      });
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      setReportItems(prev => {
+        const filtered = prev.filter(item => item.key !== activeAnalysis);
+        return [...filtered, { key: activeAnalysis, label: activeAnalysis, dataUrl, timestamp: Date.now() }];
+      });
+      logSession('Added to report: ' + activeAnalysis);
+      toast.success('Snapshot added to report');
+    } catch {
+      toast.error('Failed to capture snapshot');
+    } finally {
+      setIsCapturing(false);
+    }
+  }, [activeAnalysis]);
 
   // ── Derived: dataset ──
-  const isCustom = datasetKey === '_custom';
+  const isCustom = datasetKey === '_custom' || datasetKey === '_ai';
   const selectedDs: SampleNetwork | undefined = isCustom ? undefined : SAMPLE_NETWORKS.find(d => d.key === datasetKey);
 
   const matrixData = isCustom ? customMatrix : (selectedDs?.matrix ?? []);
@@ -317,11 +371,14 @@ export const SnaExercise = () => {
   // ── Handlers ──
   const handleSelectDataset = useCallback((key: string) => {
     if (!key) { setDatasetKey(null); return; }
+    const netName = key === '_custom' ? 'Custom Network' : (SAMPLE_NETWORKS.find(d => d.key === key)?.key ?? key);
+    logSession('Network selected: ' + netName);
+    activityLogger.logLabDatasetSelected('SNA', netName, Number(courseId), { datasetKey: key });
     setDatasetKey(key);
     setCustomEdges(null);
     setModelBuilt(false);
     setActiveAnalysis(null);
-  }, []);
+  }, [courseId]);
 
   const handleAiSnaData = useCallback((data: SnaGeneratedData) => {
     const { labels, matrix } = edgesToMatrix(data.edges, data.directed);
@@ -329,7 +386,7 @@ export const SnaExercise = () => {
     setCustomDirected(data.directed);
     setCustomLabels(labels);
     setCustomMatrix(matrix);
-    setDatasetKey('_custom');
+    setDatasetKey('_ai');
     setModelBuilt(false);
     setActiveAnalysis(null);
   }, []);
@@ -349,12 +406,20 @@ export const SnaExercise = () => {
   const handleBuildModel = useCallback(() => {
     setModelBuilt(true);
     setActiveAnalysis(null);
-  }, []);
+    logSession('Network built: ' + nodeLabels.length + ' nodes, ' + currentEdges.length + ' edges');
+    activityLogger.logLabModelBuilt('SNA', Number(courseId), { nodeCount: nodeLabels.length, edgeCount: currentEdges.length });
+  }, [nodeLabels, currentEdges, courseId]);
 
   const toggleAnalysis = useCallback((key: AnalysisKey) => {
+    // Side effects must live outside the updater (updaters are pure in React 18)
+    if (activeAnalysis !== key) {
+      logSession('Analysis opened: ' + key);
+      setVisitedAnalyses(prev => [...new Set([...prev, key])]);
+      activityLogger.logLabAnalysisViewed('SNA', key, Number(courseId), { datasetKey, communityMethod });
+    }
     setActiveAnalysis(prev => prev === key ? null : key);
     setShowGuide(false);
-  }, []);
+  }, [activeAnalysis, courseId, datasetKey, communityMethod]);
 
   // ── Style constants ──
   const selectCls = "w-full px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500";
@@ -401,13 +466,24 @@ export const SnaExercise = () => {
               <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">{t('sna.subtitle')}</p>
             </div>
           </div>
-          <button onClick={() => navigate(courseId ? `/courses/${courseId}` : -1 as any)} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            {snaAssignment && (
+              <button
+                onClick={() => setAssignmentPanelOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition-colors"
+              >
+                <ClipboardList className="w-3.5 h-3.5" />
+                {t('submit_assignment', { defaultValue: 'Submit Assignment' })}
+              </button>
+            )}
+            <button onClick={() => navigate(courseId ? `/courses/${courseId}` : -1 as any)} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* ── Layout: sidebar + main ── */}
-        <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex flex-col lg:flex-row gap-6" ref={exerciseRef}>
 
           {/* SIDEBAR */}
           <div className="lg:w-64 lg:flex-shrink-0">
@@ -532,7 +608,7 @@ export const SnaExercise = () => {
                                 <span className="text-[10px] text-gray-400 block mb-1">{t('sna.community_algorithm')}</span>
                                 <select
                                   value={communityMethod}
-                                  onChange={e => setCommunityMethod(e.target.value as CommunityMethod)}
+                                  onChange={e => { setCommunityMethod(e.target.value as CommunityMethod); logSession('Community method: ' + e.target.value); }}
                                   className="w-full px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-[11px] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                                 >
                                   {COMMUNITY_METHOD_OPTIONS.map(opt => (
@@ -555,7 +631,7 @@ export const SnaExercise = () => {
                                   {CENTRALITY_OPTIONS.map(opt => (
                                     <button
                                       key={opt.key}
-                                      onClick={() => setCentralityMetric(opt.key)}
+                                      onClick={() => { setCentralityMetric(opt.key); logSession('Centrality metric: ' + opt.key); }}
                                       className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
                                         centralityMetric === opt.key
                                           ? 'bg-violet-600 text-white'
@@ -569,7 +645,7 @@ export const SnaExercise = () => {
                               </div>
                               <div className="flex rounded border border-gray-200 dark:border-gray-600 overflow-hidden">
                                 <button
-                                  onClick={() => setCentralityView('chart')}
+                                  onClick={() => { setCentralityView('chart'); logSession('Centrality view: chart'); }}
                                   className={`flex-1 px-2 py-0.5 text-[10px] font-medium transition-colors ${
                                     centralityView === 'chart'
                                       ? 'bg-violet-600 text-white'
@@ -579,7 +655,7 @@ export const SnaExercise = () => {
                                   {t('exercise.centrality_chart')}
                                 </button>
                                 <button
-                                  onClick={() => setCentralityView('table')}
+                                  onClick={() => { setCentralityView('table'); logSession('Centrality view: table'); }}
                                   className={`flex-1 px-2 py-0.5 text-[10px] font-medium transition-colors ${
                                     centralityView === 'table'
                                       ? 'bg-violet-600 text-white'
@@ -601,7 +677,7 @@ export const SnaExercise = () => {
           </div>
 
           {/* MAIN AREA */}
-          <div className="flex-1 min-w-0 space-y-4">
+          <div className="flex-1 min-w-0 space-y-4" ref={analysisContentRef}>
 
             {/* No dataset selected — intro */}
             {!datasetKey && (
@@ -758,102 +834,147 @@ export const SnaExercise = () => {
                     }
                   </button>
                 )}
-                {activeAnalysis && showGuide && guideContent[activeAnalysis] && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border border-violet-200 dark:border-violet-800 p-6">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                      {guideContent[activeAnalysis].title}
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-line">
-                      {guideContent[activeAnalysis].text}
-                    </p>
-                  </div>
+                {activeAnalysis && showGuide && (
+                  <SnaStepGuide step={activeAnalysis} />
+                )}
+
+                {/* Add-to-report capture button */}
+                {modelBuilt && activeAnalysis && (
+                  <button
+                    onClick={handleAddToReport}
+                    disabled={isCapturing}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                      reportItems.some(r => r.key === activeAnalysis)
+                        ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700'
+                        : 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border-dashed border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:border-indigo-400'
+                    }`}
+                  >
+                    {isCapturing ? <Loader2 className="w-4 h-4 animate-spin" />
+                      : reportItems.some(r => r.key === activeAnalysis) ? <CheckCircle className="w-4 h-4" />
+                      : <Camera className="w-4 h-4" />}
+                    {isCapturing ? 'Capturing...'
+                      : reportItems.some(r => r.key === activeAnalysis) ? 'Captured — click to recapture'
+                      : 'Add this analysis to report'}
+                  </button>
                 )}
 
                 {/* Graph Metrics */}
                 {activeAnalysis === 'metrics' && metrics && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                      {t('sna.block_metrics')}
-                    </h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                      {[
-                        { label: t('sna.metric_nodes'), value: metrics.nNodes },
-                        { label: t('sna.metric_edges'), value: metrics.nEdges },
-                        { label: t('sna.metric_density'), value: metrics.density.toFixed(3) },
-                        { label: t('sna.metric_avg_degree'), value: metrics.avgDegree },
-                        { label: t('sna.metric_avg_weight'), value: metrics.avgWeight },
-                        ...(metrics.reciprocity !== null
-                          ? [{ label: t('sna.metric_reciprocity'), value: metrics.reciprocity }]
-                          : []),
-                      ].map(({ label, value }) => (
-                        <div key={label} className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
-                          <div className="text-[10px] uppercase tracking-wide text-gray-400 mb-1">{label}</div>
-                          <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{value}</div>
-                        </div>
-                      ))}
+                  <>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                        {t('sna.block_metrics')}
+                      </h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        {[
+                          { label: t('sna.metric_nodes'), value: metrics.nNodes },
+                          { label: t('sna.metric_edges'), value: metrics.nEdges },
+                          { label: t('sna.metric_density'), value: metrics.density.toFixed(3) },
+                          { label: t('sna.metric_avg_degree'), value: metrics.avgDegree },
+                          { label: t('sna.metric_avg_weight'), value: metrics.avgWeight },
+                          ...(metrics.reciprocity !== null
+                            ? [{ label: t('sna.metric_reciprocity'), value: metrics.reciprocity }]
+                            : []),
+                        ].map(({ label, value }) => (
+                          <div key={label} className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
+                            <div className="text-[10px] uppercase tracking-wide text-gray-400 mb-1">{label}</div>
+                            <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{value}</div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                    <LabAIAssistant
+                      labType="sna"
+                      analysisKey="metrics"
+                      context="Graph-level metrics — density, reciprocity, average degree, and average weight of the SNA network"
+                      data={`Nodes: ${metrics.nNodes}. Edges: ${metrics.nEdges}. Density: ${metrics.density.toFixed(3)}. Avg degree: ${metrics.avgDegree}. Avg weight: ${metrics.avgWeight}.${metrics.reciprocity !== null ? ` Reciprocity: ${metrics.reciprocity}.` : ''}`}
+                    />
+                  </>
                 )}
 
                 {/* Centrality */}
                 {activeAnalysis === 'centrality' && centralityData && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                      {t('sna.block_centrality')}
-                    </h3>
-                    {centralityView === 'chart' ? (
-                      <CentralityBarChart centralityData={centralityData} colorMap={colorMap} selectedMeasure={centralityMetric} />
-                    ) : (
-                      <TnaCentralityTable centralityData={centralityData} colorMap={colorMap} />
-                    )}
-                  </div>
+                  <>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                        {t('sna.block_centrality')}
+                      </h3>
+                      {centralityView === 'chart' ? (
+                        <CentralityBarChart centralityData={centralityData} colorMap={colorMap} selectedMeasure={centralityMetric} />
+                      ) : (
+                        <TnaCentralityTable centralityData={centralityData} colorMap={colorMap} />
+                      )}
+                    </div>
+                    <LabAIAssistant
+                      labType="sna"
+                      analysisKey="centrality"
+                      context={`Centrality analysis — ${centralityMetric} measure showing node importance in the SNA network`}
+                      data={`Measure: ${centralityMetric}. Nodes: ${nodeLabels.join(', ')}.`}
+                    />
+                  </>
                 )}
 
                 {/* Communities */}
                 {activeAnalysis === 'communities' && communities && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                      {t('sna.block_communities')}
-                    </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                      {t('sna.communities_info')}
-                    </p>
-                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {Array.from({ length: communities.k }, (_, ci) => {
-                        const members = nodeLabels.filter((_, ni) => communities.assignments[ni] === ci);
-                        return (
-                          <div key={ci} className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="w-3 h-3 rounded-full" style={{ backgroundColor: COMMUNITY_COLORS[ci % COMMUNITY_COLORS.length] }} />
-                              <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
-                                {t('sna.community_label', { n: ci + 1 })}
-                              </span>
-                              <span className="text-[10px] text-gray-400 ml-auto">
-                                {members.length} {t('sna.nodes')}
-                              </span>
-                            </div>
-                            <div className="flex flex-wrap gap-1">
-                              {members.map(m => (
-                                <span key={m} className="px-1.5 py-0.5 rounded text-[10px] bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
-                                  {m}
+                  <>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                        {t('sna.block_communities')}
+                      </h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                        {t('sna.communities_info')}
+                      </p>
+                      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {Array.from({ length: communities.k }, (_, ci) => {
+                          const members = nodeLabels.filter((_, ni) => communities.assignments[ni] === ci);
+                          return (
+                            <div key={ci} className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: COMMUNITY_COLORS[ci % COMMUNITY_COLORS.length] }} />
+                                <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
+                                  {t('sna.community_label', { n: ci + 1 })}
                                 </span>
-                              ))}
+                                <span className="text-[10px] text-gray-400 ml-auto">
+                                  {members.length} {t('sna.nodes')}
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                {members.map(m => (
+                                  <span key={m} className="px-1.5 py-0.5 rounded text-[10px] bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
+                                    {m}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
+                    <LabAIAssistant
+                      labType="sna"
+                      analysisKey="communities"
+                      context={`Community detection — ${communities.k} communities detected using ${communityMethod} algorithm`}
+                      data={`Algorithm: ${communityMethod}. Communities: ${communities.k}. Nodes: ${nodeLabels.join(', ')}.`}
+                    />
+                  </>
                 )}
 
                 {/* Adjacency Matrix (heatmap) */}
                 {activeAnalysis === 'adjacency' && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                      {t('sna.block_adjacency')}
-                    </h3>
-                    <TransitionHeatmap model={rawModel} colorMap={colorMap} />
-                  </div>
+                  <>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                        {t('sna.block_adjacency')}
+                      </h3>
+                      <TransitionHeatmap model={rawModel} colorMap={colorMap} />
+                    </div>
+                    <LabAIAssistant
+                      labType="sna"
+                      analysisKey="adjacency"
+                      context={`Adjacency matrix — ${isDirected ? 'directed' : 'undirected'} network with ${nodeLabels.length} nodes`}
+                      data={`Nodes (${nodeLabels.length}): ${nodeLabels.join(', ')}. Directed: ${isDirected}.`}
+                    />
+                  </>
                 )}
 
                 {/* No analysis selected — prompt */}
@@ -895,6 +1016,41 @@ export const SnaExercise = () => {
           type="sna"
           onClose={() => setShowAIGenerator(false)}
           onSnaData={handleAiSnaData}
+        />
+      )}
+
+      {snaAssignment && (
+        <LabAssignmentPanel
+          isOpen={assignmentPanelOpen}
+          onClose={() => setAssignmentPanelOpen(false)}
+          assignment={{
+            id: snaAssignment.id,
+            description: snaAssignment.description ?? null,
+            points: snaAssignment.points ?? null,
+            dueDate: snaAssignment.dueDate ? String(snaAssignment.dueDate) : null,
+          }}
+          labContentRef={analysisContentRef}
+          labId={0}
+          courseId={Number(courseId)}
+          hasActiveAnalysis={modelBuilt && activeAnalysis !== null}
+          activeAnalysisKey={activeAnalysis ?? undefined}
+          visitedAnalyses={visitedAnalyses}
+          sessionEvents={sessionEvents}
+          sessionConfig={{
+            labType: 'sna',
+            datasetName: selectedDs ? t(selectedDs.i18nTitle) : (datasetKey === '_ai' ? 'AI Generated' : (datasetKey === '_custom' ? 'Custom Network' : '')),
+            nodeCount: metrics?.nNodes,
+            edgeCount: metrics?.nEdges,
+            density: metrics?.density,
+            isDirected,
+            communityMethod,
+            communityCount: communities?.k,
+            avgDegree: metrics?.avgDegree,
+            avgWeight: metrics?.avgWeight,
+          }}
+          courseNumericId={Number(courseId)}
+          assignmentId={snaAssignment?.id}
+          reportItems={reportItems}
         />
       )}
     </div>

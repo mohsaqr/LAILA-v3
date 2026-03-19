@@ -11,7 +11,7 @@ export type ActivityVerb =
 export type ObjectType =
   | 'course' | 'module' | 'lecture' | 'section' | 'video'
   | 'assignment' | 'chatbot' | 'file' | 'quiz' | 'emotional_pulse'
-  | 'tutor_agent' | 'tutor_session' | 'tutor_conversation';
+  | 'tutor_agent' | 'tutor_session' | 'tutor_conversation' | 'lab';
 
 export interface LogActivityInput {
   verb: ActivityVerb;
@@ -301,6 +301,22 @@ class ActivityLogger {
       courseId,
       lectureId,
     });
+  }
+
+  async logLabDatasetSelected(labType: string, datasetName: string, courseId: number, extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'selected', objectType: 'lab', objectTitle: `${labType}: ${datasetName}`, courseId, extensions });
+  }
+
+  async logLabModelBuilt(labType: string, courseId: number, extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'interacted', objectType: 'lab', objectTitle: `${labType}: model built`, courseId, extensions });
+  }
+
+  async logLabAnalysisViewed(labType: string, analysisKey: string, courseId: number, extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'selected', objectType: 'lab', objectTitle: `${labType}: ${analysisKey}`, courseId, extensions });
+  }
+
+  async logLabSubmitted(labType: string, assignmentId: number, courseId: number, extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'submitted', objectType: 'lab', objectId: assignmentId, objectTitle: `${labType}: submitted`, courseId, extensions });
   }
 }
 

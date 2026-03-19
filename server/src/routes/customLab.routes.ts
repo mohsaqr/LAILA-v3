@@ -42,6 +42,10 @@ const updateTemplateSchema = z.object({
 const assignLabSchema = z.object({
   courseId: z.number().int().positive(),
   moduleId: z.number().int().positive().nullable().optional(),
+  prompt: z.string().optional(),
+  points: z.number().int().min(0).optional(),
+  dueDate: z.string().optional(),
+  enableAssignment: z.boolean().optional(),
 });
 
 const reorderSchema = z.object({
@@ -156,15 +160,25 @@ router.delete('/:id/templates/:templateId', authenticateToken, requireInstructor
 // Assign lab to course
 router.post('/:id/assign', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
   const labId = parseInt(req.params.id);
-  const { courseId, moduleId } = assignLabSchema.parse(req.body);
+  const { courseId, moduleId, prompt, points, dueDate, enableAssignment } = assignLabSchema.parse(req.body);
+  const assignmentConfig = enableAssignment ? { prompt, points, dueDate } : undefined;
   const assignment = await customLabService.assignToCourse(
     labId,
     courseId,
     moduleId ?? null,
     req.user!.id,
-    req.user!.isAdmin
+    req.user!.isAdmin,
+    assignmentConfig
   );
   res.status(201).json({ success: true, data: assignment });
+}));
+
+// Get lab assignment config for a course
+router.get('/:id/assignment-config/:courseId', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const labId = parseInt(req.params.id);
+  const courseId = parseInt(req.params.courseId);
+  const config = await customLabService.getLabAssignmentConfig(labId, courseId);
+  res.json({ success: true, data: config });
 }));
 
 // Unassign lab from course

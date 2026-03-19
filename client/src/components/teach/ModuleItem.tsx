@@ -16,6 +16,10 @@ import {
   FlaskConical,
   ClipboardList,
   FileText,
+  FileImage,
+  FileVideo,
+  FileAudio,
+  FileArchive,
   Upload,
   Sparkles,
   MessageCircle,
@@ -29,6 +33,7 @@ import {
   Search,
   ListChecks,
   FileQuestion,
+  CheckCircle2,
 } from 'lucide-react';
 import { CourseModule, Lecture, CodeLab, Assignment, LabAssignment, Forum, ModuleQuiz } from '../../types';
 import { Button } from '../common/Button';
@@ -300,6 +305,32 @@ export const ModuleItem = ({
     ? module.interactiveLabs.split(',').map(s => s.trim()).filter(Boolean)
     : [];
 
+  // Uploaded file card derived values (only meaningful when uploadedFile != null)
+  const fileExt = uploadedFile
+    ? (uploadedFile.type || uploadedFile.name.split('.').pop() || '').toLowerCase()
+    : '';
+  const fileIsImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(fileExt);
+  const fileIsVideo = ['mp4', 'mov', 'avi', 'webm', 'mkv'].includes(fileExt);
+  const fileIsAudio = ['mp3', 'wav', 'ogg', 'm4a', 'flac'].includes(fileExt);
+  const fileIsArchive = ['zip', 'rar', '7z', 'tar', 'gz'].includes(fileExt);
+  const fileIsPdf = fileExt === 'pdf';
+  const fileIconBg = fileIsPdf ? 'bg-red-50 dark:bg-red-900/20 text-red-500'
+    : fileIsImage ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500'
+    : fileIsVideo ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-500'
+    : fileIsAudio ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-500'
+    : fileIsArchive ? 'bg-gray-100 dark:bg-gray-700 text-gray-500'
+    : 'bg-green-50 dark:bg-green-900/20 text-green-600';
+  const FileTypeIcon = fileIsImage ? FileImage
+    : fileIsVideo ? FileVideo
+    : fileIsAudio ? FileAudio
+    : fileIsArchive ? FileArchive
+    : FileText;
+  const formatFileSize = (bytes: number): string => {
+    if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${bytes} B`;
+  };
+
   return (
     <div className="border border-gray-200 rounded-lg bg-white">
       {/* Module Header */}
@@ -524,7 +555,7 @@ export const ModuleItem = ({
                   </div>
                   <div className="flex items-center gap-1">
                     <Link
-                      to={`/labs/${labAssignment.labId}`}
+                      to={`/labs/${labAssignment.labId}?courseId=${courseId}`}
                       className="p-1.5 rounded hover:bg-teal-100 dark:hover:bg-teal-800 transition-colors"
                       title={t('view_lab')}
                     >
@@ -791,30 +822,56 @@ export const ModuleItem = ({
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                <FileText className="w-5 h-5 text-green-600 flex-shrink-0" />
-                <span className="text-sm text-green-800 truncate flex-1">{uploadedFile.name}</span>
-                <button
-                  onClick={() => { setUploadedFile(null); setFileName(''); }}
-                  className="p-1 rounded hover:bg-green-100 transition-colors"
-                >
-                  <X className="w-4 h-4 text-green-600" />
-                </button>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('file_name')}</label>
-                <div className="flex items-center gap-2">
-                  <Pencil className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <input
-                    type="text"
-                    value={fileName}
-                    onChange={(e) => setFileName(e.target.value)}
-                    className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                    autoFocus
-                  />
+              {/* Uploaded file card */}
+              <div className="border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
+                <div className="flex items-center gap-4 p-4">
+                  {/* File type icon */}
+                  <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${fileIconBg}`}>
+                    <FileTypeIcon className="w-6 h-6" />
+                  </div>
+
+                  {/* Inline editable name + metadata */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1 group">
+                      <input
+                        type="text"
+                        value={fileName}
+                        onChange={(e) => setFileName(e.target.value)}
+                        className="flex-1 min-w-0 text-sm font-semibold text-gray-900 dark:text-gray-100 bg-transparent border-b-2 border-transparent focus:border-green-500 focus:outline-none hover:border-gray-300 dark:hover:border-gray-600 pb-0.5 transition-colors"
+                        autoFocus
+                      />
+                      <Pencil className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-focus-within:text-green-500 flex-shrink-0 transition-colors" />
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">{fileExt}</span>
+                      {uploadedFile.size > 0 && (
+                        <>
+                          <span className="text-gray-200 dark:text-gray-700">·</span>
+                          <span className="text-xs text-gray-400 dark:text-gray-500">{formatFileSize(uploadedFile.size)}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Remove */}
+                  <button
+                    onClick={() => { setUploadedFile(null); setFileName(''); }}
+                    className="flex-shrink-0 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                    title={t('remove')}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Upload success bar */}
+                <div className="flex items-center gap-2 px-4 py-2 bg-green-50 dark:bg-green-900/20 border-t border-green-100 dark:border-green-900/30">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                  <span className="text-xs text-green-700 dark:text-green-400">{t('file_uploaded_ready')}</span>
+                  <span className="text-xs text-green-500 dark:text-green-500 ml-auto">{t('click_name_to_rename')}</span>
                 </div>
               </div>
-              <div className="flex justify-end gap-2 pt-2">
+
+              <div className="flex justify-end gap-2 pt-1">
                 <Button variant="ghost" size="sm" onClick={closeFileModal}>
                   {t('cancel')}
                 </Button>

@@ -10,6 +10,7 @@ import {
   Settings,
   MessageSquare,
   PenSquare,
+  Eye,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../api/courses';
@@ -35,6 +36,9 @@ export const CourseDetails = () => {
   const { isDark } = useTheme();
   const { t } = useTranslation(['courses', 'common']);
   const moduleRefs = useRef<Record<number, HTMLElement | null>>({});
+
+  // Edit mode state — admins/instructors default to view mode; edit is a deliberate act
+  const [isEditMode, setIsEditMode] = useState(false);
 
   // Activation code modal state
   const [showCodeModal, setShowCodeModal] = useState(false);
@@ -144,32 +148,54 @@ export const CourseDetails = () => {
         </div>
       </div>
 
-      {/* Instructor Toolbar */}
+      {/* Instructor Toolbar — only shown when edit mode is active */}
       {(showInstructorControls || isActualAdmin) && (
-        <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
-              <PenSquare className="w-5 h-5" />
-              <span className="font-medium">{t('instructor_view')}</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Link
-                to={`/teach/courses/${course.id}/curriculum`}
-                className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
-              >
-                <Edit className="w-4 h-4" />
-                {t('edit_course')}
-              </Link>
-              <Link
-                to={`/teach/courses/${course.id}/edit`}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
-              >
-                <Settings className="w-4 h-4" />
-                {t('common:settings')}
-              </Link>
+        isEditMode ? (
+          <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+                <PenSquare className="w-5 h-5" />
+                <span className="font-medium">{t('instructor_view')}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setIsEditMode(false)}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 rounded-lg transition-colors border border-amber-300 dark:border-amber-700"
+                >
+                  <Eye className="w-4 h-4" />
+                  {t('exit_edit_mode')}
+                </button>
+                <Link
+                  to={`/teach/courses/${course.id}/curriculum`}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
+                >
+                  <Edit className="w-4 h-4" />
+                  {t('edit_course')}
+                </Link>
+                <Link
+                  to={`/teach/courses/${course.id}/edit`}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
+                >
+                  <Settings className="w-4 h-4" />
+                  {t('common:settings')}
+                </Link>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="border-b" style={{ borderColor: isDark ? '#374151' : '#e5e7eb' }}>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex justify-end">
+              <button
+                onClick={() => setIsEditMode(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
+                style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
+              >
+                <PenSquare className="w-3.5 h-3.5" />
+                {t('edit_mode')}
+              </button>
+            </div>
+          </div>
+        )
       )}
 
       {/* Hero Section */}

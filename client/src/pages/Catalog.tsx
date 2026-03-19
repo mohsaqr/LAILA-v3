@@ -10,7 +10,7 @@ import {
   Settings,
   BookOpen,
   Edit,
-  BarChart3,
+  Eye,
   CheckCircle,
   PlayCircle,
   ChevronDown,
@@ -678,19 +678,19 @@ const InstructorCourseCard = ({ course }: { course: Course }) => {
 
         {/* Actions */}
         <div className="mt-auto flex gap-2">
-          <Link to={`/teach/courses/${course.id}/curriculum`} className="flex-1">
-            <Button variant="outline" size="sm" className="w-full" icon={<Edit className="w-4 h-4" />}>
-              {t('common:edit')}
+          <Link to={`/courses/${course.id}`} className="flex-1">
+            <Button variant="outline" size="sm" className="w-full" icon={<Eye className="w-4 h-4" />}>
+              {t('view_course')}
+            </Button>
+          </Link>
+          <Link to={`/teach/courses/${course.id}/curriculum`} title={t('common:edit')}>
+            <Button variant="ghost" size="sm">
+              <Edit className="w-4 h-4" />
             </Button>
           </Link>
           <Link to={`/teach/courses/${course.id}/edit`} title={t('settings:settings')}>
             <Button variant="ghost" size="sm">
               <Settings className="w-4 h-4" />
-            </Button>
-          </Link>
-          <Link to={`/courses/${course.id}`} title={t('view_course')}>
-            <Button variant="ghost" size="sm">
-              <BarChart3 className="w-4 h-4" />
             </Button>
           </Link>
         </div>

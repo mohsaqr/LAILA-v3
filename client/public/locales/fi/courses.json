@@ -122,6 +122,8 @@
   "n_students": "{{count}} opiskelijaa",
   "n_modules": "{{count}} moduulia",
   "instructor_view": "Opettajan näkymä",
+  "edit_mode": "Muokkaustila",
+  "exit_edit_mode": "Poistu muokkaustilasta",
   "enroll_now_free": "Ilmoittaudu nyt - Ilmainen",
   "enroll_now": "Ilmoittaudu nyt",
   "sign_in_to_enroll": "Kirjaudu ilmoittautuaksesi",
@@ -302,6 +304,7 @@
   "file_attachments": "Tiedostoliitteet",
   "allowed_types": "Sallitut tyypit: {{types}}",
   "file_upload_coming_soon": "Tiedostojen lataus tulossa pian",
+  "submission_locked": "Lähetys lukittu",
   "max_file_size": "Maksimikoko: {{size}}MB",
   "save_draft": "Tallenna luonnos",
   "submit_assignment": "Palauta tehtävä",
@@ -638,7 +641,6 @@
   "select_answer": "Valitse vastaus",
   "practice_complete": "Harjoittelu valmis!",
   "clear_conversation": "Tyhjennä keskustelu",
-
   "exercise.title": "Interaktiivinen TNA-harjoitus",
   "exercise.subtitle": "Opi siirtymäverkkoanalyysiä käytännössä — rakenna sekvenssejä, näe verkkoja ja löydä kaavoja.",
   "exercise.start": "Aloita harjoitus",
@@ -654,7 +656,6 @@
   "exercise.step_centrality": "Keskeisyys",
   "exercise.step_pruning": "Karsinta",
   "exercise.step_advanced": "Edistynyt",
-
   "exercise.concept_data": "Mikä on sekvenssidata?",
   "exercise.concept_data_body": "TNA alkaa sekvensseillä — järjestetyillä listoilla toiminnoista tai tapahtumista. Jokainen rivi edustaa yhden henkilön polkua. Valitse esimerkkidata tai luo omasi.",
   "exercise.concept_frequency": "Kuinka usein kukin tila esiintyy?",
@@ -669,7 +670,6 @@
   "exercise.concept_pruning_body": "Karsinta poistaa heikot kaaret kynnysarvon alapuolelta. Vertaa alkuperäistä ja karsittua verkkoa rinnakkain.",
   "exercise.concept_advanced": "Kaavat ja klusterit",
   "exercise.concept_advanced_body": "Kaavat löytävät toistuvia osasekvenssejä. Klusterointi ryhmittelee samankaltaiset sekvenssit paljastaen oppija-arkkityyppejä.",
-
   "exercise.ds_online_title": "Verkko-oppiminen",
   "exercise.ds_online_desc": "200 oppijaa oppimisympäristössä",
   "exercise.ds_social_title": "Sosiaalinen media",
@@ -698,10 +698,8 @@
   "exercise.built_sequences": "Rakennetut sekvenssit",
   "exercise.live_preview": "Esikatselu",
   "exercise.n_sequences_n_states": "{{seqs}} sekvenssiä, {{states}} uniikkia tilaa",
-
   "exercise.state_frequencies": "Tilojen frekvenssit",
   "exercise.distribution_over_time": "Jakauma ajan yli",
-
   "exercise.animate": "Animoi",
   "exercise.pause": "Tauko",
   "exercise.pair_n_of_total": "Pari {{n}} / {{total}}",
@@ -714,7 +712,6 @@
   "exercise.how_probs_body": "Jokainen solu todennäköisyysmatriisissa lasketaan jakamalla raakaluku rivin summalla. Esim. jos \"view\" → \"quiz\" esiintyi 5 kertaa ja \"view\" lähetti 15 siirtymää yhteensä, todennäköisyys on 5/15 = 0.33. Jokainen rivi summautuu arvoon 1.0 (100 %).",
   "exercise.counting_transition": "Lasketaan: {{from}} → {{to}}",
   "exercise.press_play": "Paina Animoi nähdäksesi siirtymien laskenta askel askeleelta.",
-
   "exercise.model_relative": "Suhteellinen",
   "exercise.model_frequency": "Frekvenssi",
   "exercise.model_cooccurrence": "Yhteisesiintymä",
@@ -723,7 +720,6 @@
   "exercise.edge_labels": "Kaarien tunnisteet",
   "exercise.node_size": "Solmun koko",
   "exercise.no_model": "Mallia ei voitu rakentaa nykyisestä datasta.",
-
   "exercise.size_by": "Solmujen koko",
   "exercise.in_strength": "InStrength",
   "exercise.betweenness": "Betweenness",
@@ -734,17 +730,14 @@
   "exercise.compute_centrality": "Laske keskeisyydet",
   "exercise.num_clusters": "Klusterien lukumäärä",
   "exercise.pruning_live_note": "Verkko päivittyy reaaliajassa kynnysarvoa säätäessä. Kynnyksen alittavat reunat poistetaan.",
-
   "exercise.prune_threshold": "Kynnysarvo",
   "exercise.original_edges": "Alkuperäiset kaaret",
   "exercise.pruned_edges": "Karsinnan jälkeen",
   "exercise.removed": "Poistettu",
   "exercise.original_network": "Alkuperäinen verkko",
   "exercise.pruned_network": "Karsittu verkko",
-
   "exercise.patterns": "Kaavat",
   "exercise.clusters": "Klusterit",
-
   "exercise.analysis_blocks": "Analyysityökalut",
   "exercise.pick_dataset_prompt": "Valitse aineisto",
   "exercise.pick_dataset_prompt_desc": "Valitse esimerkkiaineisto sivupalkista aloittaaksesi siirtymäverkkoanalyysin tutkimisen.",
@@ -766,7 +759,6 @@
   "exercise.block_clusters": "Klusterit",
   "exercise.block_clusters_desc": "Ryhmittele samankaltaiset sekvenssit",
   "exercise.exit": "Poistu",
-
   "exercise.pipe_dataset": "Valitse aineisto",
   "exercise.pipe_dataset_desc": "Valitse esimerkkiaineisto tutkittavaksi. Jokainen sisältää tapahtumalokeja, joissa on toimijat, toiminnot ja aikaleimat.",
   "exercise.pipe_viewdata": "Näytä data",
@@ -789,7 +781,6 @@
   "exercise.model_frequency_desc": "Raakat siirtymämäärät. Näyttää kuinka monta kertaa kukin siirtymä esiintyi datassa.",
   "exercise.model_cooccurrence_desc": "Yhteisesiintyminen sekvensseissä. Kuvaa mitkä tilat esiintyvät yhdessä järjestyksestä riippumatta.",
   "exercise.model_attention_desc": "Huomiopainotetut siirtymät. Antaa enemmän painoa siirtymille, jotka ovat erottuvia tietyissä sekvensseissä.",
-
   "sna.title": "Interaktiivinen SNA-laboratorio",
   "sna.subtitle": "Tutki sosiaalisia verkostoja — reunalistat, keskeisyys, yhteisöt ja verkkometriikka",
   "sna.intro_title": "Sosiaalisten verkostojen analyysi",
@@ -875,7 +866,6 @@
   "sna.guide_communities_text": "Yhteisöt ovat solmuryhmiä, jotka ovat tiheämmin yhteydessä toisiinsa kuin muuhun verkostoon.\n\nTämä käyttää tarranlevitystä: jokainen solmu aloittaa omalla tarrallaan, sitten ottaa iteratiivisesti käyttöön naapureidensa yleisimmän tarran.",
   "sna.guide_metrics_title": "Verkkotason mittarit",
   "sna.guide_metrics_text": "Verkkotason mittarit kuvaavat verkoston kokonaisrakennetta.\n\nTiheys on todellisten ja mahdollisten reunojen suhde.\n\nKeskimääräinen aste on yhteyksien keskimäärä solmua kohden.",
-
   "ai_gen.title": "Luo aineisto tekoälyllä",
   "ai_gen.desc_tna": "Kuvaile haluamasi tapahtumalokidatan tyyppi. Tekoäly luo realistisia sekvenssejä toimijoilla, toiminnoilla ja aikaleimoilla.",
   "ai_gen.desc_sna": "Kuvaile haluamasi sosiaalinen verkosto. Tekoäly luo realistisen painotetun reunalistan solmuilla ja yhteyksillä.",
@@ -894,10 +884,32 @@
   "enter_activation_code": "Syötä aktivointikoodi",
   "activation_code_required": "Tämä kurssi vaatii aktivointikoodin ilmoittautumiseen. Syötä opettajaltasi saamasi koodi.",
   "activation_code_placeholder": "Syötä koodi",
-  "enroll": "Ilmoittaudu",
   "code_copied": "Aktivointikoodi kopioitu!",
   "copy_code": "Kopioi koodi",
   "select_course_for_reports": "Valitse kurssi tarkastellaksesi oppimisanalytiikkaa",
   "no_enrollments": "Ei ilmoittautuneita kursseja",
-  "enroll_to_see_reports": "Ilmoittaudu kurssille nähdäksesi oppimisraportit"
+  "enroll_to_see_reports": "Ilmoittaudu kurssille nähdäksesi oppimisraportit",
+  "your_response": "Vastauksesi",
+  "generate_pdf_snapshot": "Luo PDF-kuvakaappaus",
+  "already_submitted": "Tehtävä on jo palautettu",
+  "enable_assignment_mode": "Ota tehtävätila käyttöön",
+  "assignment_prompt": "Tehtävänanto / Ohjeet",
+  "assignment_points": "Pisteet",
+  "assignment_due_date": "Palautuspäivä (valinnainen)",
+  "pdf_generated": "PDF-kuvakaappaus luotu!",
+  "pdf_generation_failed": "PDF-kuvakaappauksen luominen epäonnistui",
+  "pdf_ready": "PDF valmis",
+  "submission_success": "Tehtävä palautettu onnistuneesti!",
+  "write_response_here": "Kirjoita vastauksesi tähän...",
+  "assignment_prompt_placeholder": "Kuvaile mitä opiskelijoiden tulee tehdä...",
+  "due": "Määräaika",
+  "feedback": "Palaute",
+  "lab_ai_ask": "Kysy tekoälyltä",
+  "lab_ai_placeholder": "Esitä kysymys tästä analyysistä...",
+  "lab_ai_explain": "Selitä tämä",
+  "lab_ai_what_means": "Mitä tämä tarkoittaa?",
+  "lab_ai_look_for": "Mitä minun tulisi etsiä?",
+  "lab_ai_compare": "Vertaile solmuja",
+  "lab_ai_thinking": "Ajattelee...",
+  "lab_ai_collapse": "Pienennä"
 }

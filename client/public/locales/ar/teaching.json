@@ -83,6 +83,8 @@
   "upload_file": "رفع ملف",
   "file_name": "اسم الملف",
   "file_uploaded": "تم رفع الملف بنجاح",
+  "file_uploaded_ready": "تم رفع الملف — جاهز للحفظ",
+  "click_name_to_rename": "انقر على الاسم أعلاه لإعادة تسميته",
   "failed_upload": "فشل في رفع الملف",
   "upload_video": "رفع فيديو",
   "embed_video": "تضمين فيديو",

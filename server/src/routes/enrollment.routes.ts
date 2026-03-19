@@ -15,6 +15,13 @@ router.get('/', authenticateToken, asyncHandler(async (req: AuthRequest, res: Re
 // Get specific enrollment
 router.get('/course/:courseId', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const courseId = parseInt(req.params.courseId);
+
+  // Admins and instructors always have access
+  if (req.user?.isAdmin || req.user?.isInstructor) {
+    res.json({ success: true, data: null, enrolled: true });
+    return;
+  }
+
   const enrollment = await enrollmentService.getEnrollment(req.user!.id, courseId);
 
   if (!enrollment) {

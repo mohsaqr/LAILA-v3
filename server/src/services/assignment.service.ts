@@ -326,7 +326,7 @@ export class AssignmentService {
     return submission;
   }
 
-  async submitAssignment(assignmentId: number, userId: number, data: CreateSubmissionInput, context?: EventContext) {
+  async submitAssignment(assignmentId: number, userId: number, data: CreateSubmissionInput, context?: EventContext, isAdmin = false, isInstructor = false) {
     const assignment = await prisma.assignment.findUnique({
       where: { id: assignmentId },
       include: { course: true },
@@ -345,19 +345,25 @@ export class AssignmentService {
       throw new AppError('AI agent assignments must be submitted through the agent builder', 400);
     }
 
-    // Check enrollment
-    const enrollment = await prisma.enrollment.findUnique({
-      where: {
-        userId_courseId: { userId, courseId: assignment.courseId },
-      },
-    });
+    // Admins bypass all checks; instructors bypass only for their own course
+    const isOwnCourse = isInstructor && assignment.course.instructorId === userId;
+    const canBypass = isAdmin || isOwnCourse;
 
-    if (!enrollment) {
-      throw new AppError('You must be enrolled to submit', 403);
+    // Check enrollment
+    if (!canBypass) {
+      const enrollment = await prisma.enrollment.findUnique({
+        where: {
+          userId_courseId: { userId, courseId: assignment.courseId },
+        },
+      });
+
+      if (!enrollment) {
+        throw new AppError('You must be enrolled to submit', 403);
+      }
     }
 
     // Check due date
-    if (assignment.dueDate && new Date() > assignment.dueDate) {
+    if (!canBypass && assignment.dueDate && new Date() > assignment.dueDate) {
       throw new AppError('Assignment due date has passed', 400);
     }
 
@@ -368,6 +374,17 @@ export class AssignmentService {
       },
     });
     const attemptNumber = existingSubmission ? 2 : 1; // Simplified attempt tracking
+
+    // Prevent overwriting graded submissions (admin can bypass)
+    if (!isAdmin && existingSubmission?.status === 'graded') {
+      throw new AppError('This submission has already been graded and cannot be modified', 400);
+    }
+
+    // Prevent resubmission of already-submitted work (draft saves are still allowed)
+    const effectiveStatus = data.status || 'submitted';
+    if (!canBypass && existingSubmission?.status === 'submitted' && effectiveStatus === 'submitted') {
+      throw new AppError('Assignment has already been submitted', 400);
+    }
 
     // Upsert submission
     const submission = await prisma.assignmentSubmission.upsert({
@@ -385,7 +402,7 @@ export class AssignmentService {
         content: data.content,
         fileUrls: data.fileUrls ? JSON.stringify(data.fileUrls) : undefined,
         status: data.status || 'submitted',
-        submittedAt: new Date(),
+        ...(data.status !== 'draft' ? { submittedAt: new Date() } : {}),
       },
     });
 
@@ -450,6 +467,10 @@ export class AssignmentService {
       if (!isTeam) {
         throw new AppError('Not authorized', 403);
       }
+    }
+
+    if (data.grade > submission.assignment.points) {
+      throw new AppError(`Grade cannot exceed ${submission.assignment.points} points`, 400);
     }
 
     const previousGrade = submission.grade;
@@ -550,7 +571,7 @@ export class AssignmentService {
 
     const [assignments, enrollments] = await Promise.all([
       prisma.assignment.findMany({
-        where: { courseId },
+        where: { courseId, isPublished: true },
         orderBy: { createdAt: 'asc' },
         select: { id: true, title: true, points: true },
       }),
@@ -569,19 +590,23 @@ export class AssignmentService {
         assignmentId: { in: assignments.map(a => a.id) },
       },
       select: {
+        id: true,
         assignmentId: true,
         userId: true,
         grade: true,
         status: true,
+        feedback: true,
       },
     });
 
     // Build gradebook
-    const submissionMap = new Map<string, { grade: number | null; status: string }>();
+    const submissionMap = new Map<string, { id: number; grade: number | null; status: string; feedback: string | null }>();
     submissions.forEach(s => {
       submissionMap.set(`${s.userId}-${s.assignmentId}`, {
+        id: s.id,
         grade: s.grade,
         status: s.status,
+        feedback: s.feedback,
       });
     });
 
@@ -592,8 +617,10 @@ export class AssignmentService {
         const submission = submissionMap.get(key);
         return {
           assignmentId: assignment.id,
+          submissionId: submission?.id ?? null,
           grade: submission?.grade ?? null,
           status: submission?.status ?? 'not_submitted',
+          feedback: submission?.feedback ?? null,
         };
       }),
       totalPoints: assignments.reduce((sum, a, i) => {

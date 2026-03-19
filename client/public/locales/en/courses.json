@@ -122,6 +122,8 @@
   "n_students": "{{count}} students",
   "n_modules": "{{count}} modules",
   "instructor_view": "Instructor View",
+  "edit_mode": "Edit Mode",
+  "exit_edit_mode": "Exit Edit Mode",
   "enroll_now_free": "Enroll Now - Free",
   "enroll_now": "Enroll Now",
   "sign_in_to_enroll": "Sign in to Enroll",
@@ -301,6 +303,7 @@
   "file_attachments": "File Attachments",
   "allowed_types": "Allowed types: {{types}}",
   "file_upload_coming_soon": "File upload coming soon",
+  "submission_locked": "Submission locked",
   "max_file_size": "Max size: {{size}}MB",
   "save_draft": "Save Draft",
   "submit_assignment": "Submit Assignment",
@@ -639,7 +642,6 @@
   "try_again": "Try Again",
   "new_questions": "New Questions",
   "clear_conversation": "Clear Conversation",
-
   "exercise.title": "Interactive TNA Exercise",
   "exercise.subtitle": "Learn Transition Network Analysis hands-on — build sequences, see networks, and discover patterns.",
   "exercise.start": "Start Exercise",
@@ -655,7 +657,6 @@
   "exercise.step_centrality": "Centrality",
   "exercise.step_pruning": "Pruning",
   "exercise.step_advanced": "Advanced",
-
   "exercise.concept_data": "What is sequence data?",
   "exercise.concept_data_body": "TNA starts with sequences — ordered lists of actions, events, or states. Each row represents one person's journey. Pick an example dataset or build your own to get started.",
   "exercise.concept_frequency": "How often does each state appear?",
@@ -670,7 +671,6 @@
   "exercise.concept_pruning_body": "Pruning removes weak edges below a threshold, making the network easier to interpret. Compare the original and pruned networks side by side.",
   "exercise.concept_advanced": "Patterns and clusters",
   "exercise.concept_advanced_body": "Patterns find recurring subsequences (e.g., view→quiz→submit). Clustering groups similar sequences together to reveal learner archetypes.",
-
   "exercise.ds_online_title": "Online Learning",
   "exercise.ds_online_desc": "200 students navigating an LMS",
   "exercise.ds_social_title": "Social Media",
@@ -699,10 +699,8 @@
   "exercise.built_sequences": "Built Sequences",
   "exercise.live_preview": "Live Preview",
   "exercise.n_sequences_n_states": "{{seqs}} sequences, {{states}} unique states",
-
   "exercise.state_frequencies": "State Frequencies",
   "exercise.distribution_over_time": "Distribution Over Time",
-
   "exercise.animate": "Animate",
   "exercise.pause": "Pause",
   "exercise.pair_n_of_total": "Pair {{n}} of {{total}}",
@@ -715,7 +713,6 @@
   "exercise.how_probs_body": "Each cell in the probability matrix is computed by dividing the raw count by the row total. For example, if \"view\" was followed by \"quiz\" 5 times and \"view\" had 15 total outgoing transitions, the probability is 5/15 = 0.33. This means that 33% of the time, \"view\" was followed by \"quiz\". Each row sums to 1.0 (100%).",
   "exercise.counting_transition": "Counting: {{from}} → {{to}}",
   "exercise.press_play": "Press Animate to watch transitions being counted one by one.",
-
   "exercise.model_relative": "Relative",
   "exercise.model_frequency": "Frequency",
   "exercise.model_cooccurrence": "Co-occurrence",
@@ -724,7 +721,6 @@
   "exercise.edge_labels": "Edge labels",
   "exercise.node_size": "Node size",
   "exercise.no_model": "Could not build model from current data.",
-
   "exercise.size_by": "Size nodes by",
   "exercise.in_strength": "InStrength",
   "exercise.betweenness": "Betweenness",
@@ -735,17 +731,14 @@
   "exercise.compute_centrality": "Compute Centralities",
   "exercise.num_clusters": "Number of clusters",
   "exercise.pruning_live_note": "The network above updates live as you move the threshold. Edges below the threshold are removed.",
-
   "exercise.prune_threshold": "Threshold",
   "exercise.original_edges": "Original edges",
   "exercise.pruned_edges": "After pruning",
   "exercise.removed": "Removed",
   "exercise.original_network": "Original Network",
   "exercise.pruned_network": "Pruned Network",
-
   "exercise.patterns": "Patterns",
   "exercise.clusters": "Clusters",
-
   "exercise.analysis_blocks": "Analysis Blocks",
   "exercise.pick_dataset_prompt": "Choose a Dataset",
   "exercise.pick_dataset_prompt_desc": "Select a sample dataset from the sidebar to begin exploring Transition Network Analysis.",
@@ -767,7 +760,6 @@
   "exercise.block_clusters": "Clusters",
   "exercise.block_clusters_desc": "Group similar sequences",
   "exercise.exit": "Exit",
-
   "exercise.pipe_dataset": "Choose Dataset",
   "exercise.pipe_dataset_desc": "Select a sample dataset to explore. Each contains real-world-style event logs with actors, actions, and timestamps.",
   "exercise.pipe_viewdata": "View Data",
@@ -790,7 +782,6 @@
   "exercise.model_frequency_desc": "Raw transition counts. Shows how many times each transition occurred in the data.",
   "exercise.model_cooccurrence_desc": "Co-occurrence within sequences. Captures which states tend to appear together regardless of order.",
   "exercise.model_attention_desc": "Attention-weighted transitions. Gives more weight to transitions that are distinctive to specific sequences.",
-
   "sna.title": "SNA Interactive Lab",
   "sna.subtitle": "Explore social networks — edge lists, centrality, communities & graph metrics",
   "sna.intro_title": "Social Network Analysis",
@@ -876,7 +867,6 @@
   "sna.guide_communities_text": "Communities are groups of nodes that are more densely connected to each other than to the rest of the network.\n\nThis uses label propagation: each node starts with its own label, then iteratively adopts the most common label among its neighbors. When the process converges, nodes sharing the same label form a community.\n\nLook for how communities relate to the network structure — do central nodes connect different communities?",
   "sna.guide_metrics_title": "Graph-Level Metrics",
   "sna.guide_metrics_text": "Graph-level metrics describe the overall structure of the network.\n\nDensity is the ratio of actual to possible edges — a density of 1.0 means every node is connected to every other.\n\nAverage degree is the mean number of connections per node.\n\nReciprocity (for directed networks) measures the proportion of mutual connections — if A connects to B, does B also connect to A?",
-
   "ai_gen.title": "Generate Dataset with AI",
   "ai_gen.desc_tna": "Describe the kind of event-log data you want. The AI will generate realistic sequences with actors, actions, and timestamps.",
   "ai_gen.desc_sna": "Describe the kind of social network you want. The AI will generate a realistic weighted edge list with nodes and connections.",
@@ -895,10 +885,32 @@
   "enter_activation_code": "Enter Activation Code",
   "activation_code_required": "This course requires an activation code to enroll. Please enter the code provided by your instructor.",
   "activation_code_placeholder": "Enter code",
-  "enroll": "Enroll",
   "code_copied": "Activation code copied!",
   "copy_code": "Copy code",
   "select_course_for_reports": "Select a course to view your learning analytics",
   "no_enrollments": "No enrolled courses",
-  "enroll_to_see_reports": "Enroll in a course to see your learning reports"
+  "enroll_to_see_reports": "Enroll in a course to see your learning reports",
+  "your_response": "Your Response",
+  "generate_pdf_snapshot": "Generate PDF Snapshot",
+  "already_submitted": "Assignment already submitted",
+  "enable_assignment_mode": "Enable Assignment Mode",
+  "assignment_prompt": "Assignment Prompt / Instructions",
+  "assignment_points": "Points",
+  "assignment_due_date": "Due Date (optional)",
+  "pdf_generated": "PDF snapshot generated!",
+  "pdf_generation_failed": "Failed to generate PDF snapshot",
+  "pdf_ready": "PDF ready",
+  "submission_success": "Assignment submitted successfully!",
+  "write_response_here": "Write your response here...",
+  "assignment_prompt_placeholder": "Describe what students should do...",
+  "due": "Due",
+  "feedback": "Feedback",
+  "lab_ai_ask": "Ask AI",
+  "lab_ai_placeholder": "Ask a question about this analysis...",
+  "lab_ai_explain": "Explain this",
+  "lab_ai_what_means": "What does this mean?",
+  "lab_ai_look_for": "What should I look for?",
+  "lab_ai_compare": "Compare nodes",
+  "lab_ai_thinking": "Thinking...",
+  "lab_ai_collapse": "Collapse"
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Terminal, Image, AlertCircle, Trash2, Brain, Loader2, FileText, Lightbulb, PenTool, List, AlertTriangle, ArrowRight, X } from 'lucide-react';
+import { Terminal, Image, AlertCircle, Trash2, Brain, Loader2, FileText, Lightbulb, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Button } from '../common/Button';
 import { useTheme } from '../../hooks/useTheme';
@@ -13,7 +13,11 @@ interface OutputItem {
 interface LabOutputProps {
   outputs: OutputItem[];
   onClear: () => void;
-  labId?: number; // Optional lab ID for persisting interpretations
+  labId?: number;
+  /** The code that was executed — used as context when output is plot-only */
+  code?: string;
+  /** The template title — added to the AI prompt for context */
+  templateTitle?: string;
 }
 
 // Storage key for interpretations
@@ -22,7 +26,6 @@ const getStorageKey = (labId?: number) => `lab_interpretation_${labId || 'defaul
 interface StoredInterpretation {
   interpretation: string;
   action: string;
-  style: string;
   outputHash: string;
   timestamp: number;
 }
@@ -54,58 +57,13 @@ const ACTION_PROMPTS = {
     icon: Lightbulb,
     prompt: `Explain what this analysis shows and what the output means. Help the reader understand what was computed and why it matters. Define any technical terms used.`,
   },
-  write: {
-    label: 'Write Report',
-    icon: PenTool,
-    prompt: `Write publication-ready text with clearly labeled **Methods** and **Results** sections. In **Methods**: describe the statistical approach used, cite R (R Core Team, 2024) and relevant packages. In **Results**: write polished paragraphs (not bullet points) in past tense. Report all statistics in APA format: M = X.XX, SD = X.XX, t(df) = X.XX, p = .XXX, d = X.XX. For correlations: r(df) = .XX, p = .XXX. For ANOVA: F(df1, df2) = X.XX, p = .XXX, eta-sq = .XX. End with a **References** section citing R and packages used.`,
-  },
-  summarize: {
-    label: 'Summarize',
-    icon: List,
-    prompt: `Provide a brief summary (2-4 sentences) of the key findings. Focus on the most important takeaways. Mention effect sizes and practical significance, not just p-values.`,
-  },
-  critique: {
-    label: 'Critique',
-    icon: AlertTriangle,
-    prompt: `Provide a critical evaluation including: 1. Potential limitations of the analysis. 2. Assumptions that may be violated. 3. Alternative approaches that could be considered. 4. What the results do NOT tell us.`,
-  },
-  suggest: {
-    label: 'Suggest Next',
-    icon: ArrowRight,
-    prompt: `Based on these results, suggest appropriate follow-up analyses. Consider: additional variables to examine, alternative statistical approaches, replication needs, or theoretical implications.`,
-  },
-};
-
-const STYLE_PROMPTS = {
-  scientific: {
-    label: 'Scientific',
-    description: 'APA style with effect sizes and confidence intervals',
-    prompt: 'Use APA style. Be precise about effect sizes, confidence intervals, and statistical significance. Mention practical significance, not just statistical significance.',
-  },
-  simple: {
-    label: 'Simple',
-    description: 'Plain language for anyone',
-    prompt: 'Use plain language that anyone can understand. Avoid jargon. Use analogies if helpful. Focus on what the results MEAN, not the numbers.',
-  },
-  detailed: {
-    label: 'Detailed',
-    description: 'Comprehensive with all details',
-    prompt: 'Be comprehensive. Include: what the test does, key assumptions, interpretation of all statistics, effect sizes, limitations, and caveats.',
-  },
-  brief: {
-    label: 'Brief',
-    description: '2-3 sentences max',
-    prompt: 'Be concise. Just the key takeaway in 2-3 sentences maximum.',
-  },
 };
 
 type ActionType = keyof typeof ACTION_PROMPTS;
-type StyleType = keyof typeof STYLE_PROMPTS;
 
-export const LabOutput = ({ outputs, onClear, labId }: LabOutputProps) => {
+export const LabOutput = ({ outputs, onClear, labId, code, templateTitle }: LabOutputProps) => {
   const { isDark } = useTheme();
   const [selectedAction, setSelectedAction] = useState<ActionType | null>(null);
-  const [selectedStyle, setSelectedStyle] = useState<StyleType>('scientific');
   const [isInterpreting, setIsInterpreting] = useState(false);
   const [interpretation, setInterpretation] = useState<string | null>(null);
   const [showInterpretPanel, setShowInterpretPanel] = useState(false);
@@ -122,11 +80,10 @@ export const LabOutput = ({ outputs, onClear, labId }: LabOutputProps) => {
         const data: StoredInterpretation = JSON.parse(stored);
         const currentHash = hashOutput(outputs);
 
-        // Only restore if the output hasn't changed
-        if (data.outputHash === currentHash) {
+        // Only restore if the output hasn't changed and the action still exists
+        if (data.outputHash === currentHash && data.action in ACTION_PROMPTS) {
           setInterpretation(data.interpretation);
           setSelectedAction(data.action as ActionType);
-          setSelectedStyle(data.style as StyleType);
           setShowInterpretPanel(true);
         }
       } catch (e) {
@@ -136,12 +93,11 @@ export const LabOutput = ({ outputs, onClear, labId }: LabOutputProps) => {
   }, [outputs, labId]);
 
   // Save interpretation to localStorage
-  const saveInterpretation = useCallback((text: string, action: ActionType, style: StyleType) => {
+  const saveInterpretation = useCallback((text: string, action: ActionType) => {
     const storageKey = getStorageKey(labId);
     const data: StoredInterpretation = {
       interpretation: text,
       action,
-      style,
       outputHash: hashOutput(outputs),
       timestamp: Date.now(),
     };
@@ -177,7 +133,11 @@ export const LabOutput = ({ outputs, onClear, labId }: LabOutputProps) => {
 
   const handleInterpret = async (action: ActionType) => {
     const textOutput = getTextOutput();
-    if (!textOutput.trim()) return;
+    const hasPlots = outputs.some(o => o.type === 'plot');
+    const hasText = !!textOutput.trim();
+
+    // Need at least text output or code context to work with
+    if (!hasText && !code?.trim()) return;
 
     setSelectedAction(action);
     setIsInterpreting(true);
@@ -185,17 +145,18 @@ export const LabOutput = ({ outputs, onClear, labId }: LabOutputProps) => {
     setShowInterpretPanel(true);
 
     const actionPrompt = ACTION_PROMPTS[action].prompt;
-    const stylePrompt = STYLE_PROMPTS[selectedStyle].prompt;
 
-    const fullPrompt = `You are a statistics expert helping interpret R output. ${stylePrompt}
+    const contextParts: string[] = [];
+    if (templateTitle) contextParts.push(`Lab step: "${templateTitle}"`);
+    if (code?.trim()) contextParts.push(`Code that was executed:\n\`\`\`r\n${code.trim()}\n\`\`\``);
+    if (hasPlots && !hasText) contextParts.push(`Note: This code produced ${outputs.filter(o => o.type === 'plot').length} plot(s) but no text output.`);
+    if (hasText) contextParts.push(`Text output:\n\`\`\`\n${textOutput}\n\`\`\``);
+
+    const fullPrompt = `You are an expert helping a student understand their lab results.
 
 ${actionPrompt}
 
-Here is the R output to analyze:
-
-\`\`\`
-${textOutput}
-\`\`\`
+${contextParts.join('\n\n')}
 
 Provide your response:`;
 
@@ -207,7 +168,7 @@ Provide your response:`;
       const result = response.data.data?.response || response.data.response || 'No interpretation available.';
       setInterpretation(result);
       // Save to localStorage for persistence
-      saveInterpretation(result, action, selectedStyle);
+      saveInterpretation(result, action);
     } catch (error: any) {
       console.error('Interpretation error:', error);
       setInterpretation(`Error: ${error.response?.data?.message || error.message || 'Failed to get interpretation. Please try again.'}`);
@@ -305,8 +266,8 @@ Provide your response:`;
         </div>
       </div>
 
-      {/* AI Interpretation Section */}
-      {outputs.some(o => o.type === 'stdout') && (
+      {/* AI Interpretation Section — shown for any output (text or plot) */}
+      {outputs.length > 0 && (
         <div
           className="rounded-lg border overflow-hidden"
           style={{ borderColor: colors.border }}
@@ -328,34 +289,8 @@ Provide your response:`;
           </div>
 
           <div className="p-4 space-y-4" style={{ backgroundColor: isDark ? '#0f172a' : '#ffffff' }}>
-            {/* Style Selection */}
-            <div>
-              <label className="text-xs font-medium mb-2 block" style={{ color: colors.textMuted }}>
-                Output Style
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {(Object.keys(STYLE_PROMPTS) as StyleType[]).map((style) => (
-                  <button
-                    key={style}
-                    onClick={() => setSelectedStyle(style)}
-                    className="px-3 py-1.5 text-xs rounded-full transition-colors"
-                    style={{
-                      backgroundColor: selectedStyle === style ? colors.buttonActiveBg : colors.buttonBg,
-                      color: selectedStyle === style ? '#ffffff' : colors.text,
-                    }}
-                    title={STYLE_PROMPTS[style].description}
-                  >
-                    {STYLE_PROMPTS[style].label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Action Buttons */}
             <div>
-              <label className="text-xs font-medium mb-2 block" style={{ color: colors.textMuted }}>
-                Analysis Action
-              </label>
               <div className="flex flex-wrap gap-2">
                 {(Object.keys(ACTION_PROMPTS) as ActionType[]).map((action) => {
                   const ActionIcon = ACTION_PROMPTS[action].icon;
@@ -405,7 +340,7 @@ Provide your response:`;
                 <div className="flex items-center gap-2 mb-3">
                   <FileText className="w-4 h-4" style={{ color: '#3b82f6' }} />
                   <span className="text-sm font-medium" style={{ color: colors.text }}>
-                    {selectedAction && ACTION_PROMPTS[selectedAction].label} ({STYLE_PROMPTS[selectedStyle].label})
+                    {selectedAction && ACTION_PROMPTS[selectedAction]?.label}
                   </span>
                 </div>
 

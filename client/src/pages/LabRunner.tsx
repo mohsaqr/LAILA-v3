@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft,
@@ -8,10 +8,15 @@ import {
   HelpCircle,
   Loader2,
   AlertTriangle,
+  ClipboardList,
+  Camera,
+  CheckCircle,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { customLabsApi } from '../api/customLabs';
-import { LabCodeEditor, LabOutput, LabTemplates } from '../components/labs';
+import { LabCodeEditor, LabOutput, LabTemplates, LabAssignmentPanel } from '../components/labs';
+import { ReportItem } from '../components/labs/LabAssignmentPanel';
 import { Button } from '../components/common/Button';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
@@ -37,12 +42,28 @@ interface LabHookResult {
   reset: () => Promise<void>;
 }
 
-const isPythonLab = (labType: string) => labType.startsWith('python');
+export const isPythonLab = (labType: string) => labType.startsWith('python');
 
 // Shared lab runner UI — receives hook result as props
-const LabRunnerUI = ({ lab, hook }: { lab: any; hook: LabHookResult }) => {
+export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookResult; courseId: number | null }) => {
   const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
+  const labContentRef = useRef<HTMLDivElement>(null);
+  const outputAreaRef = useRef<HTMLDivElement>(null);
+  const [assignmentPanelOpen, setAssignmentPanelOpen] = useState(false);
+  const [reportItems, setReportItems] = useState<ReportItem[]>([]);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [sessionEvents, setSessionEvents] = useState<Array<{ ts: number; event: string }>>([]);
+  const [visitedTemplates, setVisitedTemplates] = useState<string[]>([]);
+
+  const logSession = useCallback((event: string) =>
+    setSessionEvents(prev => [...prev, { ts: Date.now(), event }]), []);
+
+  const { data: assignmentConfig } = useQuery({
+    queryKey: ['labAssignmentConfig', lab.id, courseId],
+    queryFn: () => customLabsApi.getLabAssignmentConfig(lab.id, courseId!),
+    enabled: courseId != null,
+  });
 
   const defaultCode = isPythonLab(lab.labType)
     ? '# Enter your Python code here\n'
@@ -51,6 +72,7 @@ const LabRunnerUI = ({ lab, hook }: { lab: any; hook: LabHookResult }) => {
   const [code, setCode] = useState(defaultCode);
   const [outputs, setOutputs] = useState<OutputItem[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
+  const selectedTemplate = (lab.templates ?? []).find((t: LabTemplate) => t.id === selectedTemplateId) ?? null;
 
   const {
     isReady,
@@ -72,14 +94,29 @@ const LabRunnerUI = ({ lab, hook }: { lab: any; hook: LabHookResult }) => {
     textSecondary: isDark ? '#9ca3af' : '#6b7280',
   };
 
+  // Auto-select first template on load
+  useEffect(() => {
+    const templates = lab.templates;
+    if (templates && templates.length > 0 && selectedTemplateId === null) {
+      const first = [...templates].sort((a, b) => a.orderIndex - b.orderIndex)[0];
+      setCode(first.code);
+      setSelectedTemplateId(first.id);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lab.templates]);
+
   const handleSelectTemplate = useCallback((template: LabTemplate) => {
     setCode(template.code);
     setSelectedTemplateId(template.id);
     setOutputs([]);
-  }, []);
+    logSession('Template selected: ' + template.title);
+  }, [logSession]);
 
   const handleRunCode = useCallback(async () => {
     if (!isReady || isExecuting) return;
+    const templateTitle = selectedTemplate?.title || 'Code';
+    logSession('Code executed: ' + templateTitle);
+    setVisitedTemplates(prev => [...new Set([...prev, templateTitle])]);
     const result = await executeCode(code);
     if (result.success) {
       setOutputs(result.outputs);
@@ -89,7 +126,7 @@ const LabRunnerUI = ({ lab, hook }: { lab: any; hook: LabHookResult }) => {
         ...(result.error ? [{ type: 'stderr' as const, content: result.error }] : []),
       ]);
     }
-  }, [code, isReady, isExecuting, executeCode]);
+  }, [code, isReady, isExecuting, executeCode, selectedTemplate, logSession]);
 
   const handleResetSession = useCallback(async () => {
     setOutputs([]);
@@ -99,6 +136,34 @@ const LabRunnerUI = ({ lab, hook }: { lab: any; hook: LabHookResult }) => {
   const handleClearOutputs = useCallback(() => {
     setOutputs([]);
   }, []);
+
+  const handleAddToReport = useCallback(async () => {
+    const el = outputAreaRef.current;
+    if (!el || isCapturing) return;
+    setIsCapturing(true);
+    try {
+      const { default: html2canvas } = await import('html2canvas');
+      const canvas = await html2canvas(el, {
+        scale: 1.2, useCORS: true, allowTaint: true,
+        width: el.scrollWidth, height: el.scrollHeight,
+        scrollX: 0, scrollY: 0,
+      });
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      const key = selectedTemplate?.title || 'output';
+      const label = selectedTemplate?.title || 'Code Output';
+      setReportItems(prev => {
+        const filtered = prev.filter(r => r.key !== key);
+        return [...filtered, { key, label, dataUrl, timestamp: Date.now() }];
+      });
+      logSession('Snapshot added: ' + label);
+      toast.success('Added to report!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to capture snapshot');
+    } finally {
+      setIsCapturing(false);
+    }
+  }, [selectedTemplate, isCapturing, logSession]);
 
   const getLoadingMessage = () => {
     if (isPythonLab(lab.labType)) {
@@ -177,6 +242,17 @@ const LabRunnerUI = ({ lab, hook }: { lab: any; hook: LabHookResult }) => {
             >
               {t('common:help')}
             </Button>
+
+            {assignmentConfig?.assignment && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setAssignmentPanelOpen(true)}
+                icon={<ClipboardList className="w-4 h-4" />}
+              >
+                {t('submit_assignment', { defaultValue: 'Submit Assignment' })}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -235,7 +311,7 @@ const LabRunnerUI = ({ lab, hook }: { lab: any; hook: LabHookResult }) => {
         )}
 
         {/* Main Content */}
-        <div className="grid lg:grid-cols-4 gap-6">
+        <div className="grid lg:grid-cols-4 gap-6" ref={labContentRef}>
           <div className="lg:col-span-1">
             <LabTemplates
               templates={lab.templates || []}
@@ -259,7 +335,24 @@ const LabRunnerUI = ({ lab, hook }: { lab: any; hook: LabHookResult }) => {
             </Card>
           </div>
 
-          <div className="lg:col-span-3 space-y-6">
+          <div className="lg:col-span-3 space-y-6" ref={outputAreaRef}>
+            {selectedTemplate?.content && (
+              <div
+                className="rounded-lg border p-5"
+                style={{ backgroundColor: colors.cardBg, borderColor: colors.border }}
+              >
+                <h2 className="text-base font-semibold mb-3" style={{ color: colors.textPrimary }}>
+                  {selectedTemplate.title}
+                </h2>
+                <div
+                  className="text-sm leading-relaxed whitespace-pre-line"
+                  style={{ color: colors.textSecondary }}
+                >
+                  {selectedTemplate.content}
+                </div>
+              </div>
+            )}
+
             <LabCodeEditor
               code={code}
               onChange={setCode}
@@ -268,24 +361,76 @@ const LabRunnerUI = ({ lab, hook }: { lab: any; hook: LabHookResult }) => {
               isReady={isReady}
             />
 
-            <LabOutput outputs={outputs} onClear={handleClearOutputs} labId={lab.id} />
+            <LabOutput
+              outputs={outputs}
+              onClear={handleClearOutputs}
+              labId={lab.id}
+              code={code}
+              templateTitle={selectedTemplate?.title}
+            />
+
+            {/* Add to Report button */}
+            {outputs.length > 0 && (
+              <button
+                onClick={handleAddToReport}
+                disabled={isCapturing}
+                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                  reportItems.some(r => r.key === (selectedTemplate?.title || 'output'))
+                    ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700'
+                    : 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border-dashed border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:border-indigo-400'
+                }`}
+              >
+                {isCapturing ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : reportItems.some(r => r.key === (selectedTemplate?.title || 'output')) ? <CheckCircle className="w-4 h-4" />
+                  : <Camera className="w-4 h-4" />}
+                {isCapturing ? 'Capturing...'
+                  : reportItems.some(r => r.key === (selectedTemplate?.title || 'output')) ? 'Captured - click to recapture'
+                  : 'Add this output to report'}
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {assignmentConfig?.assignment && (
+        <LabAssignmentPanel
+          isOpen={assignmentPanelOpen}
+          onClose={() => setAssignmentPanelOpen(false)}
+          assignment={assignmentConfig.assignment}
+          labContentRef={labContentRef}
+          labId={lab.id}
+          courseId={courseId ?? 0}
+          hasActiveAnalysis={outputs.length > 0}
+          activeAnalysisKey={selectedTemplate?.title || 'Code Output'}
+          visitedAnalyses={visitedTemplates}
+          sessionConfig={{
+            labType: isPythonLab(lab.labType) ? 'python' : 'r',
+            datasetName: selectedTemplate?.title || lab.name,
+          }}
+          sessionEvents={sessionEvents}
+          reportItems={reportItems}
+          courseNumericId={courseId ?? 0}
+          assignmentId={assignmentConfig.assignment.id}
+        />
+      )}
     </div>
   );
 };
 
 // Wrapper that uses WebR hook
 const RLabRunnerContent = ({ lab }: { lab: any }) => {
+  const [searchParams] = useSearchParams();
+  const courseId = searchParams.get('courseId');
   const hook = useLabWebR(lab.labType);
-  return <LabRunnerUI lab={lab} hook={hook} />;
+  return <LabRunnerUI lab={lab} hook={hook} courseId={courseId ? Number(courseId) : null} />;
 };
 
 // Wrapper that uses Pyodide hook
 const PythonLabRunnerContent = ({ lab }: { lab: any }) => {
+  const [searchParams] = useSearchParams();
+  const courseId = searchParams.get('courseId');
   const hook = useLabPyodide(lab.labType);
-  return <LabRunnerUI lab={lab} hook={hook} />;
+  return <LabRunnerUI lab={lab} hook={hook} courseId={courseId ? Number(courseId) : null} />;
 };
 
 export const LabRunner = () => {

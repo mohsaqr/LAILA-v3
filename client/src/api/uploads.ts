@@ -31,4 +31,15 @@ export const uploadsApi = {
     );
     return response.data.data!;
   },
+
+  uploadAssignmentSubmission: async (file: File): Promise<UploadResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post<ApiResponse<UploadResponse>>(
+      '/uploads/assignment-submission',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+    return response.data.data!;
+  },
 };

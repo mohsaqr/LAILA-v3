@@ -9,15 +9,20 @@
  *  +------------+------------------------------------+
  */
 
-import { useState, useMemo, useCallback } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useState, useMemo, useCallback, useRef } from 'react';
+import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import {
   Network, X, BarChart3, GitBranch,
   Scissors, Target, Users,
   Database, Share2, BookOpen, ChevronDown, ChevronRight,
-  ArrowLeft, Sparkles,
+  ArrowLeft, Sparkles, ClipboardList, Camera, Loader2, CheckCircle,
 } from 'lucide-react';
+import { assignmentsApi } from '../api/assignments';
+import { LabAssignmentPanel, type ReportItem } from '../components/labs/LabAssignmentPanel';
+import toast from 'react-hot-toast';
+import { INTERACTIVE_LAB_REQUIREMENTS } from '../types';
 import { tna, ftna, ctna, atna, prune, centralities, summary } from 'dynajs';
 import type { TNA } from 'dynajs';
 import { TnaFrequencyChart } from '../components/tna/TnaFrequencyChart';
@@ -34,6 +39,8 @@ import { SAMPLE_DATASETS, buildSequences } from '../components/tna-exercise/samp
 import type { RawRow } from '../components/tna-exercise/sampleDatasets';
 import { AIDatasetGenerator } from '../components/ai/AIDatasetGenerator';
 import type { TnaGeneratedData } from '../components/ai/AIDatasetGenerator';
+import { LabAIAssistant } from '../components/ai/LabAIAssistant';
+import { activityLogger } from '../services/activityLogger';
 
 /* ── Types ── */
 
@@ -85,6 +92,20 @@ export const TnaExercise = () => {
   const { t } = useTranslation(['courses']);
   const navigate = useNavigate();
   const { courseId } = useParams<{ courseId?: string }>();
+  const [searchParams] = useSearchParams();
+  const exerciseRef = useRef<HTMLDivElement>(null);
+  const analysisContentRef = useRef<HTMLDivElement>(null);
+  const [assignmentPanelOpen, setAssignmentPanelOpen] = useState(false);
+
+  const { data: courseAssignments } = useQuery({
+    queryKey: ['courseAssignments', courseId],
+    queryFn: () => assignmentsApi.getAssignments(Number(courseId)),
+    enabled: !!courseId,
+  });
+  const targetAssignmentId = searchParams.get('assignmentId');
+  const tnaAssignment = targetAssignmentId
+    ? courseAssignments?.find(a => a.id === Number(targetAssignmentId)) ?? null
+    : courseAssignments?.find(a => a.agentRequirements === INTERACTIVE_LAB_REQUIREMENTS.TNA) ?? null;
 
   // ── Core state ──
   const [datasetKey, setDatasetKey] = useState<string | null>(null);
@@ -112,10 +133,42 @@ export const TnaExercise = () => {
   const [clusterK, setClusterK] = useState(3);
   const [showGuide, setShowGuide] = useState(false);
   const [showAIGenerator, setShowAIGenerator] = useState(false);
+  const [visitedAnalyses, setVisitedAnalyses] = useState<string[]>([]);
+  const [sessionEvents, setSessionEvents] = useState<Array<{ ts: number; event: string }>>([]);
+  const [reportItems, setReportItems] = useState<ReportItem[]>([]);
+  const [isCapturing, setIsCapturing] = useState(false);
 
   // ── AI-generated data ──
   const [aiRows, setAiRows] = useState<RawRow[] | null>(null);
   const [aiColumns, setAiColumns] = useState<string[] | null>(null);
+
+  const logSession = (event: string) =>
+    setSessionEvents(prev => [...prev, { ts: Date.now(), event }]);
+
+  const handleAddToReport = useCallback(async () => {
+    if (!analysisContentRef.current || !activeAnalysis) return;
+    setIsCapturing(true);
+    try {
+      const { default: html2canvas } = await import('html2canvas');
+      const el = analysisContentRef.current;
+      const canvas = await html2canvas(el, {
+        scale: 1.2, useCORS: true, allowTaint: true,
+        width: el.scrollWidth, height: el.scrollHeight,
+        scrollX: 0, scrollY: 0,
+      });
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      setReportItems(prev => {
+        const filtered = prev.filter(item => item.key !== activeAnalysis);
+        return [...filtered, { key: activeAnalysis, label: activeAnalysis, dataUrl, timestamp: Date.now() }];
+      });
+      logSession('Added to report: ' + activeAnalysis);
+      toast.success('Snapshot added to report');
+    } catch {
+      toast.error('Failed to capture snapshot');
+    } finally {
+      setIsCapturing(false);
+    }
+  }, [activeAnalysis]);
 
   // ── Derived: dataset ──
   const selectedDs = SAMPLE_DATASETS.find(d => d.key === datasetKey);
@@ -180,13 +233,16 @@ export const TnaExercise = () => {
   // ── Handlers ──
   const handleSelectDataset = useCallback((key: string) => {
     if (!key) { setDatasetKey(null); return; }
+    const dsName = key === '_ai' ? 'AI Generated' : (SAMPLE_DATASETS.find(d => d.key === key)?.key ?? key);
+    logSession('Dataset selected: ' + dsName);
+    activityLogger.logLabDatasetSelected('TNA', dsName, Number(courseId), { datasetKey: key });
     setDatasetKey(key);
     setActorCol('');
     setActionCol('');
     setTimeCol('');
     setModelBuilt(false);
     setActiveAnalysis(null);
-  }, []);
+  }, [courseId]);
 
   const handleAiTnaData = useCallback((data: TnaGeneratedData) => {
     setAiColumns(data.columns);
@@ -202,12 +258,20 @@ export const TnaExercise = () => {
   const handleBuildModel = useCallback(() => {
     setModelBuilt(true);
     setActiveAnalysis(null);
-  }, []);
+    logSession('Model built: ' + modelType + ', ' + sequences.length + ' sequences, ' + labels.length + ' states');
+    activityLogger.logLabModelBuilt('TNA', Number(courseId), { modelType, sequenceCount: sequences.length, stateCount: labels.length });
+  }, [modelType, sequences, labels, courseId]);
 
   const toggleAnalysis = useCallback((key: AnalysisKey) => {
+    // Side effects must live outside the updater (updaters are pure in React 18)
+    if (activeAnalysis !== key) {
+      logSession('Analysis opened: ' + key);
+      setVisitedAnalyses(prev => [...new Set([...prev, key])]);
+      activityLogger.logLabAnalysisViewed('TNA', key, Number(courseId), { datasetKey, modelType });
+    }
     setActiveAnalysis(prev => prev === key ? null : key);
     setShowGuide(false);
-  }, []);
+  }, [activeAnalysis, courseId, datasetKey, modelType]);
 
   const getColRole = (col: string): string | null => {
     if (col === actorCol) return 'actor';
@@ -241,13 +305,24 @@ export const TnaExercise = () => {
               <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">{t('exercise.subtitle')}</p>
             </div>
           </div>
-          <button onClick={() => navigate(courseId ? `/courses/${courseId}` : -1 as any)} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            {tnaAssignment && (
+              <button
+                onClick={() => setAssignmentPanelOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition-colors"
+              >
+                <ClipboardList className="w-3.5 h-3.5" />
+                {t('submit_assignment', { defaultValue: 'Submit Assignment' })}
+              </button>
+            )}
+            <button onClick={() => navigate(courseId ? `/courses/${courseId}` : -1 as any)} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* ── Layout: sidebar + main ── */}
-        <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex flex-col lg:flex-row gap-6" ref={exerciseRef}>
 
           {/* ══════════ SIDEBAR ══════════ */}
           <div className="lg:w-64 lg:flex-shrink-0">
@@ -417,7 +492,7 @@ export const TnaExercise = () => {
                               {key === 'transitions' && (
                                 <div>
                                   <span className="text-[10px] text-gray-400 block mb-1">{t('exercise.show')}</span>
-                                  <ToggleGroup value={transitionView} onChange={v => setTransitionView(v as typeof transitionView)} options={[
+                                  <ToggleGroup value={transitionView} onChange={v => { setTransitionView(v as typeof transitionView); logSession('Transition view: ' + v); }} options={[
                                     { key: 'counts', label: t('exercise.raw_counts') },
                                     { key: 'probs', label: t('exercise.probabilities') },
                                     { key: 'both', label: 'Both' },
@@ -434,7 +509,7 @@ export const TnaExercise = () => {
                                     </span>
                                   </div>
                                   <input type="range" min={0} max={0.5} step={0.01}
-                                    value={pruneThreshold} onChange={e => setPruneThreshold(Number(e.target.value))}
+                                    value={pruneThreshold} onChange={e => { setPruneThreshold(Number(e.target.value)); logSession('Prune threshold: ' + e.target.value); }}
                                     className="w-full h-1.5 accent-blue-600" />
                                   <div className="flex justify-between text-[10px] text-gray-400 mt-1">
                                     <span>{edgeCount.pruned}/{edgeCount.original} edges</span>
@@ -447,7 +522,7 @@ export const TnaExercise = () => {
                                 <>
                                   <div>
                                     <span className="text-[10px] text-gray-400 block mb-1">{t('exercise.size_by')}</span>
-                                    <ToggleGroup value={centralityMetric} onChange={v => setCentralityMetric(v as typeof centralityMetric)} options={[
+                                    <ToggleGroup value={centralityMetric} onChange={v => { setCentralityMetric(v as typeof centralityMetric); logSession('Centrality metric: ' + v); }} options={[
                                       { key: 'InStrength', label: 'In' },
                                       { key: 'OutStrength', label: 'Out' },
                                       { key: 'Betweenness', label: 'Btw' },
@@ -469,7 +544,7 @@ export const TnaExercise = () => {
                                     <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400">{clusterK}</span>
                                   </div>
                                   <input type="range" min={2} max={10}
-                                    value={clusterK} onChange={e => setClusterK(Number(e.target.value))}
+                                    value={clusterK} onChange={e => { setClusterK(Number(e.target.value)); logSession('Cluster k: ' + e.target.value); }}
                                     className="w-full h-1.5 accent-blue-600" />
                                 </div>
                               )}
@@ -485,7 +560,7 @@ export const TnaExercise = () => {
           </div>
 
           {/* ══════════ MAIN AREA ══════════ */}
-          <div className="flex-1 min-w-0 space-y-4">
+          <div className="flex-1 min-w-0 space-y-4" ref={analysisContentRef}>
 
             {/* No dataset selected — intro guide */}
             {!datasetKey && (
@@ -636,114 +711,180 @@ export const TnaExercise = () => {
                   </div>
                 )}
 
+                {/* Add-to-report capture button */}
+                {modelBuilt && activeAnalysis && (
+                  <button
+                    onClick={handleAddToReport}
+                    disabled={isCapturing}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                      reportItems.some(r => r.key === activeAnalysis)
+                        ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700'
+                        : 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border-dashed border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:border-indigo-400'
+                    }`}
+                  >
+                    {isCapturing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : reportItems.some(r => r.key === activeAnalysis) ? (
+                      <CheckCircle className="w-4 h-4" />
+                    ) : (
+                      <Camera className="w-4 h-4" />
+                    )}
+                    {isCapturing
+                      ? 'Capturing...'
+                      : reportItems.some(r => r.key === activeAnalysis)
+                        ? `Captured — click to recapture`
+                        : 'Add this analysis to report'}
+                  </button>
+                )}
+
                 {/* ── Analysis Result (swaps based on sidebar selection) ── */}
                 {activeAnalysis === 'frequencies' && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                      {t('exercise.block_frequencies')}
-                    </h3>
-                    {(freqView === 'bar' || freqView === 'both') && (
-                      <div className={freqView === 'both' ? 'mb-6' : ''}>
-                        <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-                          {t('exercise.state_frequencies')}
-                        </h4>
-                        <TnaFrequencyChart sequences={sequences} labels={sortedFreqLabels} colorMap={colorMap} />
-                      </div>
-                    )}
-                    {(freqView === 'distribution' || freqView === 'both') && (
-                      <div>
-                        <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-                          {t('exercise.distribution_over_time')}
-                        </h4>
-                        <TnaDistributionPlot sequences={sequences} labels={sortedFreqLabels} colorMap={colorMap} />
-                      </div>
-                    )}
-                  </div>
+                  <>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                        {t('exercise.block_frequencies')}
+                      </h3>
+                      {(freqView === 'bar' || freqView === 'both') && (
+                        <div className={freqView === 'both' ? 'mb-6' : ''}>
+                          <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                            {t('exercise.state_frequencies')}
+                          </h4>
+                          <TnaFrequencyChart sequences={sequences} labels={sortedFreqLabels} colorMap={colorMap} />
+                        </div>
+                      )}
+                      {(freqView === 'distribution' || freqView === 'both') && (
+                        <div>
+                          <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                            {t('exercise.distribution_over_time')}
+                          </h4>
+                          <TnaDistributionPlot sequences={sequences} labels={sortedFreqLabels} colorMap={colorMap} />
+                        </div>
+                      )}
+                    </div>
+                    <LabAIAssistant
+                      labType="tna"
+                      analysisKey="frequencies"
+                      context="Frequency analysis of TNA model — state occurrence counts and distribution over time"
+                      data={`States: ${sortedFreqLabels.join(', ')}. Total sequences: ${sequences.length}.`}
+                    />
+                  </>
                 )}
 
                 {activeAnalysis === 'transitions' && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                      {t('exercise.block_transitions')}
-                    </h3>
-                    <div className={transitionView === 'both' ? 'grid lg:grid-cols-2 gap-6' : ''}>
-                      {(transitionView === 'counts' || transitionView === 'both') && (
-                        <div>
-                          <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                            {t('exercise.raw_counts')}
-                          </h4>
-                          <p className="text-[11px] text-gray-400 mb-2">{t('exercise.counts_explain')}</p>
-                          {ftnaModel && <TransitionHeatmap model={ftnaModel} colorMap={colorMap} />}
-                        </div>
-                      )}
-                      {(transitionView === 'probs' || transitionView === 'both') && (
-                        <div>
-                          <h4 className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">
-                            {t('exercise.probabilities')}
-                          </h4>
-                          <p className="text-[11px] text-gray-400 mb-2">{t('exercise.probs_explain')}</p>
-                          <TransitionHeatmap model={rawModel} colorMap={colorMap} />
-                        </div>
-                      )}
+                  <>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                        {t('exercise.block_transitions')}
+                      </h3>
+                      <div className={transitionView === 'both' ? 'grid lg:grid-cols-2 gap-6' : ''}>
+                        {(transitionView === 'counts' || transitionView === 'both') && (
+                          <div>
+                            <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                              {t('exercise.raw_counts')}
+                            </h4>
+                            <p className="text-[11px] text-gray-400 mb-2">{t('exercise.counts_explain')}</p>
+                            {ftnaModel && <TransitionHeatmap model={ftnaModel} colorMap={colorMap} />}
+                          </div>
+                        )}
+                        {(transitionView === 'probs' || transitionView === 'both') && (
+                          <div>
+                            <h4 className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">
+                              {t('exercise.probabilities')}
+                            </h4>
+                            <p className="text-[11px] text-gray-400 mb-2">{t('exercise.probs_explain')}</p>
+                            <TransitionHeatmap model={rawModel} colorMap={colorMap} />
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                    <LabAIAssistant
+                      labType="tna"
+                      analysisKey="transitions"
+                      context="Transition matrix analysis — showing how learners move between states"
+                      data={`States: ${labels.join(', ')}. Model type: ${modelType}. Sequences: ${sequences.length}.`}
+                    />
+                  </>
                 )}
 
                 {activeAnalysis === 'pruning' && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                      {t('exercise.block_pruning')}
-                    </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                      {t('exercise.pruning_live_note')}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-6 text-sm text-gray-500 dark:text-gray-400">
-                      <span>{t('exercise.original_edges')}: <strong className="text-gray-700 dark:text-gray-200">{edgeCount.original}</strong></span>
-                      <span>{t('exercise.pruned_edges')}: <strong className="text-gray-700 dark:text-gray-200">{edgeCount.pruned}</strong></span>
-                      <span>{t('exercise.removed')}: <strong className="text-red-600 dark:text-red-400">{edgeCount.original - edgeCount.pruned}</strong></span>
+                  <>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                        {t('exercise.block_pruning')}
+                      </h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                        {t('exercise.pruning_live_note')}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-6 text-sm text-gray-500 dark:text-gray-400">
+                        <span>{t('exercise.original_edges')}: <strong className="text-gray-700 dark:text-gray-200">{edgeCount.original}</strong></span>
+                        <span>{t('exercise.pruned_edges')}: <strong className="text-gray-700 dark:text-gray-200">{edgeCount.pruned}</strong></span>
+                        <span>{t('exercise.removed')}: <strong className="text-red-600 dark:text-red-400">{edgeCount.original - edgeCount.pruned}</strong></span>
+                      </div>
                     </div>
-                  </div>
+                    <LabAIAssistant
+                      labType="tna"
+                      analysisKey="pruning"
+                      context="Network pruning — removing weak edges to reveal the backbone structure"
+                      data={`Threshold: ${pruneThreshold.toFixed(2)}. Original edges: ${edgeCount.original}. Retained edges: ${edgeCount.pruned}. Removed: ${edgeCount.original - edgeCount.pruned}.`}
+                    />
+                  </>
                 )}
 
                 {activeAnalysis === 'centrality' && centralityData && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                      {t('exercise.block_centrality')}
-                    </h3>
-                    <div className={showCentralityTable ? 'grid lg:grid-cols-2 gap-6' : ''}>
-                      <div>
-                        <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-                          {t('exercise.centrality_chart')}
-                        </h4>
-                        <CentralityBarChart centralityData={centralityData} colorMap={colorMap} />
-                      </div>
-                      {showCentralityTable && (
+                  <>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                        {t('exercise.block_centrality')}
+                      </h3>
+                      <div className={showCentralityTable ? 'grid lg:grid-cols-2 gap-6' : ''}>
                         <div>
                           <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-                            {t('exercise.centrality_table')}
+                            {t('exercise.centrality_chart')}
                           </h4>
-                          <TnaCentralityTable centralityData={centralityData} colorMap={colorMap} />
+                          <CentralityBarChart centralityData={centralityData} colorMap={colorMap} />
                         </div>
-                      )}
+                        {showCentralityTable && (
+                          <div>
+                            <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                              {t('exercise.centrality_table')}
+                            </h4>
+                            <TnaCentralityTable centralityData={centralityData} colorMap={colorMap} />
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                    <LabAIAssistant
+                      labType="tna"
+                      analysisKey="centrality"
+                      context={`Centrality analysis — ${centralityMetric} measure showing node importance in the TNA network`}
+                      data={`Metric shown: ${centralityMetric}. Nodes: ${centralityData.labels.join(', ')}.`}
+                    />
+                  </>
                 )}
 
                 {activeAnalysis === 'clusters' && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                      {t('exercise.block_clusters')}
-                    </h3>
-                    <ClustersTab
-                      sequences={sequences}
-                      labels={labels}
-                      k={clusterK}
-                      onKChange={setClusterK}
-                      palette="default"
-                      showSelfLoops={showSelfLoops}
-                      showEdgeLabels={showEdgeLabels}
+                  <>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                        {t('exercise.block_clusters')}
+                      </h3>
+                      <ClustersTab
+                        sequences={sequences}
+                        labels={labels}
+                        k={clusterK}
+                        onKChange={setClusterK}
+                        palette="default"
+                        showSelfLoops={showSelfLoops}
+                        showEdgeLabels={showEdgeLabels}
+                      />
+                    </div>
+                    <LabAIAssistant
+                      labType="tna"
+                      analysisKey="clusters"
+                      context={`Sequence clustering — grouping ${sequences.length} learner sequences into ${clusterK} clusters by behavioral pattern`}
+                      data={`Number of clusters (k): ${clusterK}. States: ${labels.join(', ')}.`}
                     />
-                  </div>
+                  </>
                 )}
 
                 {/* No analysis selected — show network guide */}
@@ -771,6 +912,41 @@ export const TnaExercise = () => {
           type="tna"
           onClose={() => setShowAIGenerator(false)}
           onTnaData={handleAiTnaData}
+        />
+      )}
+
+      {tnaAssignment && (
+        <LabAssignmentPanel
+          isOpen={assignmentPanelOpen}
+          onClose={() => setAssignmentPanelOpen(false)}
+          assignment={{
+            id: tnaAssignment.id,
+            description: tnaAssignment.description ?? null,
+            points: tnaAssignment.points ?? null,
+            dueDate: tnaAssignment.dueDate ? String(tnaAssignment.dueDate) : null,
+          }}
+          labContentRef={analysisContentRef}
+          labId={0}
+          courseId={Number(courseId)}
+          hasActiveAnalysis={modelBuilt && activeAnalysis !== null}
+          activeAnalysisKey={activeAnalysis ?? undefined}
+          visitedAnalyses={visitedAnalyses}
+          sessionEvents={sessionEvents}
+          sessionConfig={{
+            labType: 'tna',
+            datasetName: selectedDs ? t(selectedDs.i18nTitle) : (datasetKey === '_ai' ? 'AI Generated' : ''),
+            actorCol, actionCol, timeCol,
+            modelType,
+            sequenceCount: sequences.length,
+            stateCount: labels.length,
+            states: labels,
+            edgeCountOriginal: edgeCount.original,
+            edgeCountPruned: edgeCount.pruned,
+            pruneThreshold,
+          }}
+          courseNumericId={Number(courseId)}
+          assignmentId={tnaAssignment?.id}
+          reportItems={reportItems}
         />
       )}
     </div>

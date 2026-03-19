@@ -263,13 +263,102 @@ router.post(
   }
 );
 
+// Lab submission upload — any authenticated student, PDF only, 20MB limit
+const labSubmissionFilter = (req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (ext !== '.pdf') {
+    cb(new Error('Only PDF files are allowed for lab submissions'));
+    return;
+  }
+  const allowedMimes = allowedExtensions[ext];
+  if (!allowedMimes || !allowedMimes.includes(file.mimetype)) {
+    cb(new Error(`File type mismatch: ${ext} file with ${file.mimetype} MIME type`));
+    return;
+  }
+  cb(null, true);
+};
+
+const labSubmissionUpload = multer({
+  storage,
+  fileFilter: labSubmissionFilter,
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
+});
+
+router.post(
+  '/lab-submission',
+  authenticateToken,
+  labSubmissionUpload.single('file'),
+  (req: AuthRequest, res: Response) => {
+    if (!req.file) {
+      res.status(400).json({ success: false, error: 'No file uploaded' });
+      return;
+    }
+    const fileUrl = `/uploads/${req.file.filename}`;
+    res.json({
+      success: true,
+      data: {
+        url: fileUrl,
+        originalName: req.file.originalname,
+        filename: req.file.filename,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+      },
+    });
+  }
+);
+
+// Assignment submission upload — any authenticated student, common formats, 10MB
+const assignmentSubmissionFilter = (req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  const submissionExts = ['.pdf', '.doc', '.docx', '.txt', '.png', '.jpg', '.jpeg', '.xlsx', '.csv'];
+  if (!submissionExts.includes(ext)) {
+    cb(new Error('Only pdf, doc, docx, txt, png, jpg, jpeg, xlsx, csv files are allowed'));
+    return;
+  }
+  const allowedMimes = allowedExtensions[ext];
+  if (!allowedMimes || !allowedMimes.includes(file.mimetype)) {
+    cb(new Error(`File type mismatch: ${ext} file with ${file.mimetype} MIME type`));
+    return;
+  }
+  cb(null, true);
+};
+
+const assignmentSubmissionUpload = multer({
+  storage,
+  fileFilter: assignmentSubmissionFilter,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+});
+
+router.post(
+  '/assignment-submission',
+  authenticateToken,
+  assignmentSubmissionUpload.single('file'),
+  (req: AuthRequest, res: Response) => {
+    if (!req.file) {
+      res.status(400).json({ success: false, error: 'No file uploaded' });
+      return;
+    }
+    const fileUrl = `/uploads/${req.file.filename}`;
+    res.json({
+      success: true,
+      data: {
+        url: fileUrl,
+        originalName: req.file.originalname,
+        filename: req.file.filename,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+      },
+    });
+  }
+);
+
 // Error handling for multer errors
 router.use((err: Error, req: AuthRequest, res: Response, next: Function) => {
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
       res.status(400).json({
         success: false,
-        error: 'File too large. Maximum size is 50MB.',
+        error: 'File too large for this upload type.',
       });
       return;
     }

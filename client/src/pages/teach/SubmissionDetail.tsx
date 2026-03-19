@@ -23,6 +23,7 @@ import { Input, TextArea } from '../../components/common/Input';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { resolveFileUrl } from '../../api/client';
+import { sanitizeHtml, isHtmlContent } from '../../utils/sanitize';
 
 export const SubmissionDetail = () => {
   const { t } = useTranslation(['teaching', 'common', 'navigation']);
@@ -130,7 +131,12 @@ export const SubmissionDetail = () => {
   }
 
   const isGraded = submission.status === 'graded';
-  const fileUrls: string[] = submission.fileUrls ? JSON.parse(submission.fileUrls) : [];
+  let fileUrls: string[] = [];
+  try {
+    fileUrls = submission.fileUrls ? JSON.parse(submission.fileUrls) : [];
+  } catch {
+    fileUrls = [];
+  }
 
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString('en-US', {
@@ -226,9 +232,16 @@ export const SubmissionDetail = () => {
               {t('text_answer')}
             </h2>
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-              <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
-                {submission.content}
-              </p>
+              {isHtmlContent(submission.content) ? (
+                <div
+                  className="prose prose-sm max-w-none text-gray-800"
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(submission.content) }}
+                />
+              ) : (
+                <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+                  {submission.content}
+                </p>
+              )}
             </div>
           </CardBody>
         </Card>
@@ -245,7 +258,36 @@ export const SubmissionDetail = () => {
             <div className="space-y-2">
               {fileUrls.map((url, index) => {
                 const rawName = url.split('/').pop() ?? `file-${index + 1}`;
-                const displayName = decodeURIComponent(rawName.replace(/^\d+-/, ''));
+                let displayName: string;
+                try {
+                  displayName = decodeURIComponent(rawName.replace(/^[\w-]{36}/, '').replace(/^-/, '')) || rawName;
+                } catch {
+                  displayName = rawName;
+                }
+                const isPdf = url.toLowerCase().endsWith('.pdf') || displayName.toLowerCase().endsWith('.pdf');
+                const resolvedUrl = resolveFileUrl(url);
+
+                if (isPdf) {
+                  return (
+                    <div key={index} className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                      {/* Header row */}
+                      <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-indigo-500" />
+                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{displayName}</span>
+                        </div>
+                        <button onClick={() => handleFileDownload(url, displayName)}
+                          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-indigo-600 transition-colors">
+                          <Download className="w-3.5 h-3.5" /> Download
+                        </button>
+                      </div>
+                      {/* Inline viewer */}
+                      <iframe src={resolvedUrl} className="w-full border-0" style={{ height: '700px' }}
+                        title={displayName} />
+                    </div>
+                  );
+                }
+
                 return (
                   <button
                     key={index}

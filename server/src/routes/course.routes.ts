@@ -87,7 +87,8 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: AuthRequest, res: Resp
       where: { userId_courseId: { userId: req.user.id, courseId: id } },
       select: { id: true },
     });
-    enrolled = !!enrollment;
+    // Admins always have access regardless of actual enrollment
+    enrolled = req.user?.isAdmin ? true : !!enrollment;
 
     // Load tutors for enrolled students, team members, admins, and instructors
     if (enrolled || isTeamMember || req.user?.isAdmin || req.user?.isInstructor) {
