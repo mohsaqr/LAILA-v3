@@ -348,7 +348,7 @@ export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookRe
           </div>
 
           <div className="lg:col-span-3 space-y-6" ref={outputAreaRef}>
-            {selectedTemplate?.content && (
+            {selectedTemplate?.description && (
               <div
                 className="rounded-lg border p-5"
                 style={{ backgroundColor: colors.cardBg, borderColor: colors.border }}
@@ -360,7 +360,7 @@ export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookRe
                   className="text-sm leading-relaxed whitespace-pre-line"
                   style={{ color: colors.textSecondary }}
                 >
-                  {selectedTemplate.content}
+                  {selectedTemplate.description}
                 </div>
               </div>
             )}
