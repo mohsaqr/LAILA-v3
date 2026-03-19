@@ -132,7 +132,9 @@ export const AssignmentView = () => {
       setContent(mySubmission.content || '');
       try {
         const parsed = mySubmission.fileUrls ? JSON.parse(mySubmission.fileUrls) : [];
-        setFileUrls(Array.isArray(parsed) ? parsed : []);
+        setFileUrls(Array.isArray(parsed)
+          ? parsed.filter((v): v is string => typeof v === 'string')
+          : []);
       } catch {
         setFileUrls([]);
       }
@@ -282,7 +284,8 @@ export const AssignmentView = () => {
   };
 
   const handleSubmit = () => {
-    const isContentEmpty = !content || content.replace(/<[^>]*>/g, '').trim() === '';
+    const hasMedia = /<(img|figure|svg)\s/i.test(content || '');
+    const isContentEmpty = !hasMedia && (!content || content.replace(/<[^>]*>/g, '').trim() === '');
     if (isContentEmpty && fileUrls.length === 0) {
       toast.error(t('add_content_before_submit'));
       return;

@@ -373,7 +373,8 @@ export class AssignmentService {
         assignmentId_userId: { assignmentId, userId },
       },
     });
-    const attemptNumber = existingSubmission ? 2 : 1; // Simplified attempt tracking
+    const effectiveStatus = data.status || 'submitted';
+    const attemptNumber = existingSubmission && existingSubmission.status !== 'draft' ? 2 : 1;
 
     // Prevent overwriting graded submissions (admin can bypass)
     if (!isAdmin && existingSubmission?.status === 'graded') {
@@ -381,12 +382,12 @@ export class AssignmentService {
     }
 
     // Prevent resubmission of already-submitted work (draft saves are still allowed)
-    const effectiveStatus = data.status || 'submitted';
-    if (!canBypass && existingSubmission?.status === 'submitted' && effectiveStatus === 'submitted') {
+    if (!canBypass && existingSubmission?.status === 'submitted') {
       throw new AppError('Assignment has already been submitted', 400);
     }
 
     // Upsert submission
+    const submittedAt = effectiveStatus !== 'draft' ? new Date() : null;
     const submission = await prisma.assignmentSubmission.upsert({
       where: {
         assignmentId_userId: { assignmentId, userId },
@@ -396,31 +397,33 @@ export class AssignmentService {
         userId,
         content: data.content,
         fileUrls: data.fileUrls ? JSON.stringify(data.fileUrls) : null,
-        status: data.status || 'submitted',
+        status: effectiveStatus,
+        submittedAt,
       },
       update: {
         content: data.content,
         fileUrls: data.fileUrls ? JSON.stringify(data.fileUrls) : undefined,
-        status: data.status || 'submitted',
-        ...(data.status !== 'draft' ? { submittedAt: new Date() } : {}),
+        status: effectiveStatus,
+        ...(effectiveStatus !== 'draft' ? { submittedAt } : {}),
       },
     });
 
-    // Log assessment submission event
-    try {
-      await learningAnalyticsService.logAssessmentEvent({
-        userId,
-        sessionId: context?.sessionId,
-        courseId: assignment.courseId,
-        assignmentId,
-        submissionId: submission.id,
-        eventType: 'assignment_submit',
-        maxPoints: assignment.points,
-        attemptNumber,
-        deviceType: context?.deviceType,
-        browserName: context?.browserName,
-      }, context?.ipAddress);
-    } catch (error) {
+    // Log assessment submission event (only for actual submissions, not drafts)
+    if (effectiveStatus !== 'draft') {
+      try {
+        await learningAnalyticsService.logAssessmentEvent({
+          userId,
+          sessionId: context?.sessionId,
+          courseId: assignment.courseId,
+          assignmentId,
+          submissionId: submission.id,
+          eventType: 'assignment_submit',
+          maxPoints: assignment.points,
+          attemptNumber,
+          deviceType: context?.deviceType,
+          browserName: context?.browserName,
+        }, context?.ipAddress);
+      } catch (error) {
       assignmentLogger.warn({ err: error, userId, assignmentId }, 'Failed to log assignment submit event');
     }
 

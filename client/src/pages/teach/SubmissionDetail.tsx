@@ -134,7 +134,9 @@ export const SubmissionDetail = () => {
   let fileUrls: string[] = [];
   try {
     const parsed = submission.fileUrls ? JSON.parse(submission.fileUrls) : [];
-    fileUrls = Array.isArray(parsed) ? parsed : [];
+    fileUrls = Array.isArray(parsed)
+      ? parsed.filter((v): v is string => typeof v === 'string')
+      : [];
   } catch {
     fileUrls = [];
   }
