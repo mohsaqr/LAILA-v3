@@ -3170,8 +3170,17 @@ export class CustomLabService {
       throw new AppError('Lab assignment not found', 404);
     }
 
-    await prisma.labAssignment.delete({
-      where: { id: assignment.id },
+    await prisma.$transaction(async (tx) => {
+      await tx.labAssignment.delete({
+        where: { id: assignment.id },
+      });
+
+      // Also delete the linked assignment to avoid orphans
+      if (assignment.assignmentId) {
+        await tx.assignment.delete({
+          where: { id: assignment.assignmentId },
+        });
+      }
     });
 
     return { message: 'Lab unassigned successfully' };
