@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import {
-  ArrowLeft,
   FileText,
   Calendar,
   Award,

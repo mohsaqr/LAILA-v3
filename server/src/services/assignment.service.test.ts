@@ -1260,12 +1260,12 @@ describe('AssignmentService', () => {
       const mockCourse = { id: 1, instructorId: 10 };
 
       vi.mocked(prisma.course.findUnique).mockResolvedValue(mockCourse as any);
-      vi.mocked(prisma.assignment.create).mockImplementation(async (args: any) => {
+      vi.mocked(prisma.assignment.create).mockImplementation(((args: any) => {
         const storedDate = args.data.dueDate as Date;
         // The stored date should match exactly what the client sent
         expect(storedDate.toISOString()).toBe(clientPayload);
-        return { id: 1, ...args.data } as any;
-      });
+        return Promise.resolve({ id: 1, ...args.data });
+      }) as any);
 
       await assignmentService.createAssignment(1, 10, {
         title: 'Test',
@@ -1283,11 +1283,11 @@ describe('AssignmentService', () => {
       };
 
       vi.mocked(prisma.assignment.findUnique).mockResolvedValue(mockAssignment as any);
-      vi.mocked(prisma.assignment.update).mockImplementation(async (args: any) => {
+      vi.mocked(prisma.assignment.update).mockImplementation(((args: any) => {
         const storedDate = args.data.dueDate as Date;
         expect(storedDate.toISOString()).toBe(clientPayload);
-        return { ...mockAssignment, dueDate: storedDate } as any;
-      });
+        return Promise.resolve({ ...mockAssignment, dueDate: storedDate });
+      }) as any);
 
       await assignmentService.updateAssignment(1, 10, { dueDate: clientPayload });
 

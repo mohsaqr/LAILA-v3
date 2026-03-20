@@ -1,6 +1,5 @@
-import { useLocation, useParams } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
 import { Breadcrumb, BreadcrumbItem } from '../common/Breadcrumb';
 import { coursesApi } from '../../api/courses';
 
@@ -68,7 +67,6 @@ const SKIP_PAGES = [
 ];
 
 export const AutoBreadcrumb = () => {
-  const { t } = useTranslation(['navigation', 'common']);
   const location = useLocation();
   const path = location.pathname;
 
@@ -85,8 +83,6 @@ export const AutoBreadcrumb = () => {
 
 /** Inner component that can use hooks conditionally based on courseId */
 const AutoBreadcrumbInner = ({ path, courseId }: { path: string; courseId: number | null }) => {
-  const { t } = useTranslation(['navigation', 'common']);
-
   const { data: course } = useQuery({
     queryKey: ['course', courseId],
     queryFn: () => coursesApi.getCourseById(courseId!),

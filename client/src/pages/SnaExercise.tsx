@@ -7,13 +7,13 @@
  */
 
 import { useState, useMemo, useCallback, useRef } from 'react';
-import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import {
   Network, X, GitBranch, Target, BarChart3, Waypoints, Plus,
-  ChevronDown, ChevronRight, BookOpen, ArrowLeft, Users,
+  ChevronDown, ChevronRight, BookOpen, Users,
   Microscope, MessageCircle, Sparkles, ClipboardList, Camera, Loader2, CheckCircle,
 } from 'lucide-react';
 import { assignmentsApi } from '../api/assignments';
