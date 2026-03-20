@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeHtml, createSanitizedMarkup } from './sanitize';
+import { sanitizeHtml, createSanitizedMarkup, isHtmlContent } from './sanitize';
 
 describe('sanitizeHtml', () => {
   it('should allow safe HTML tags', () => {
@@ -66,5 +66,63 @@ describe('createSanitizedMarkup', () => {
     const result = createSanitizedMarkup('<script>alert(1)</script><p>Safe</p>');
     expect(result.__html).not.toContain('<script>');
     expect(result.__html).toContain('<p>Safe</p>');
+  });
+});
+
+describe('isHtmlContent', () => {
+  it('should detect HTML content starting with <p>', () => {
+    expect(isHtmlContent('<p>This is a description</p>')).toBe(true);
+  });
+
+  it('should detect HTML content starting with heading tags', () => {
+    expect(isHtmlContent('<h1>Title</h1>')).toBe(true);
+    expect(isHtmlContent('<h2>Subtitle</h2>')).toBe(true);
+    expect(isHtmlContent('<h3>Section</h3>')).toBe(true);
+  });
+
+  it('should detect HTML content starting with list tags', () => {
+    expect(isHtmlContent('<ul><li>Item</li></ul>')).toBe(true);
+    expect(isHtmlContent('<ol><li>Item</li></ol>')).toBe(true);
+  });
+
+  it('should detect HTML content starting with div', () => {
+    expect(isHtmlContent('<div class="content">Hello</div>')).toBe(true);
+  });
+
+  it('should detect HTML content starting with blockquote', () => {
+    expect(isHtmlContent('<blockquote>Quote</blockquote>')).toBe(true);
+  });
+
+  it('should detect HTML content starting with pre', () => {
+    expect(isHtmlContent('<pre>Code block</pre>')).toBe(true);
+  });
+
+  it('should detect HTML content starting with table', () => {
+    expect(isHtmlContent('<table><tr><td>Cell</td></tr></table>')).toBe(true);
+  });
+
+  it('should return false for plain text', () => {
+    expect(isHtmlContent('This is plain text')).toBe(false);
+  });
+
+  it('should return false for markdown content', () => {
+    expect(isHtmlContent('# Heading\n\nSome text')).toBe(false);
+    expect(isHtmlContent('**bold** and *italic*')).toBe(false);
+  });
+
+  it('should return false for null/undefined/empty', () => {
+    expect(isHtmlContent(null)).toBe(false);
+    expect(isHtmlContent(undefined)).toBe(false);
+    expect(isHtmlContent('')).toBe(false);
+  });
+
+  it('should handle leading whitespace in HTML content', () => {
+    expect(isHtmlContent('  <p>Indented HTML</p>')).toBe(true);
+  });
+
+  it('should return false for inline HTML that is not block-level', () => {
+    // e.g. text starting with <span> or <em> — not typical Tiptap output
+    expect(isHtmlContent('<span>inline</span>')).toBe(false);
+    expect(isHtmlContent('<em>emphasis</em>')).toBe(false);
   });
 });

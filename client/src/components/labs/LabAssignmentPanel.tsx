@@ -301,7 +301,7 @@ export const LabAssignmentPanel = ({
 
   if (!isOpen) return null;
 
-  const dueDate = assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString() : null;
+  const dueDate = assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString(undefined, { timeZone: 'UTC' }) : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50">

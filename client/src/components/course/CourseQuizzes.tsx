@@ -148,7 +148,7 @@ export const CourseQuizzes = ({ courseId }: CourseQuizzesProps) => {
                   </div>
                   {quiz.dueDate && (
                     <span className="text-sm hidden sm:block" style={{ color: colors.textSecondary }}>
-                      {t('due_date_format', { date: new Date(quiz.dueDate).toLocaleDateString() })}
+                      {t('due_date_format', { date: new Date(quiz.dueDate).toLocaleDateString(undefined, { timeZone: 'UTC' }) })}
                     </span>
                   )}
                   <ChevronRight className="w-5 h-5" style={{ color: colors.textSecondary }} />

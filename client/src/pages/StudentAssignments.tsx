@@ -147,7 +147,8 @@ const AssignmentCard = ({ assignment, courseId, colors }: AssignmentCardProps) =
   const isAgentAssignment = assignment.submissionType === 'ai_agent';
   const now = new Date();
   const dueDate = assignment.dueDate ? new Date(assignment.dueDate) : null;
-  const isPastDue = dueDate && dueDate < now;
+  const dueDateLocal = assignment.dueDate ? new Date(assignment.dueDate.replace('Z', '')) : null;
+  const isPastDue = dueDateLocal && dueDateLocal < now;
   const isSubmitted = mySubmission?.status === 'submitted' || mySubmission?.status === 'graded';
   const isGraded = mySubmission?.status === 'graded';
 
