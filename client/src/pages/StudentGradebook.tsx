@@ -389,7 +389,8 @@ const AssignmentGradeCard = ({ assignment, submission, courseId, colors }: Assig
   const isAgentAssignment = assignment.submissionType === 'ai_agent';
   const now = new Date();
   const dueDate = assignment.dueDate ? new Date(assignment.dueDate) : null;
-  const isPastDue = dueDate && dueDate < now;
+  const dueDateLocal = assignment.dueDate ? new Date(assignment.dueDate.replace('Z', '')) : null;
+  const isPastDue = dueDateLocal && dueDateLocal < now;
   const isSubmitted = submission?.status === 'submitted' || submission?.status === 'graded';
   const isGraded = submission?.status === 'graded';
 
@@ -499,7 +500,7 @@ const AssignmentGradeCard = ({ assignment, submission, courseId, colors }: Assig
                   style={{ color: isPastDue && !isSubmitted ? colors.textRed : colors.textSecondary }}
                 >
                   <Calendar className="w-4 h-4" />
-                  {t('due_date', { date: dueDate.toLocaleDateString() })}
+                  {t('due_date', { date: dueDate.toLocaleDateString(undefined, { timeZone: 'UTC' }) })}
                 </span>
               )}
               <span className="flex items-center gap-1">

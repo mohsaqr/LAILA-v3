@@ -1125,4 +1125,174 @@ describe('AssignmentService', () => {
       expect(result.attachments[0].fileName).toBe('data.xlsx');
     });
   });
+
+  describe('submitAssignment - return value after analytics try/catch', () => {
+    const mockAssignment = {
+      id: 1,
+      title: 'Test Assignment',
+      courseId: 1,
+      isPublished: true,
+      dueDate: null,
+      points: 100,
+      course: { id: 1, instructorId: 10 },
+    };
+
+    it('should return submission when analytics succeeds', async () => {
+      const { learningAnalyticsService } = await import('./learningAnalytics.service.js');
+      vi.mocked(prisma.assignment.findUnique).mockResolvedValue(mockAssignment as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue({ id: 1, userId: 20, courseId: 1 } as any);
+      vi.mocked(prisma.assignmentSubmission.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.assignmentSubmission.upsert).mockResolvedValue({
+        id: 1,
+        assignmentId: 1,
+        userId: 20,
+        content: 'My answer',
+        status: 'submitted',
+      } as any);
+      vi.mocked(learningAnalyticsService.logAssessmentEvent).mockResolvedValue(undefined as any);
+
+      const result = await assignmentService.submitAssignment(1, 20, { content: 'My answer' });
+
+      expect(result).toBeDefined();
+      expect(result.id).toBe(1);
+      expect(result.status).toBe('submitted');
+      expect(result.content).toBe('My answer');
+    });
+
+    it('should return submission when analytics throws', async () => {
+      const { learningAnalyticsService } = await import('./learningAnalytics.service.js');
+      vi.mocked(prisma.assignment.findUnique).mockResolvedValue(mockAssignment as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue({ id: 1, userId: 20, courseId: 1 } as any);
+      vi.mocked(prisma.assignmentSubmission.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.assignmentSubmission.upsert).mockResolvedValue({
+        id: 1,
+        assignmentId: 1,
+        userId: 20,
+        content: 'My answer',
+        status: 'submitted',
+      } as any);
+      vi.mocked(learningAnalyticsService.logAssessmentEvent).mockRejectedValue(new Error('Analytics down'));
+
+      const result = await assignmentService.submitAssignment(1, 20, { content: 'My answer' });
+
+      // The submission must still be returned despite the analytics error
+      expect(result).toBeDefined();
+      expect(result.id).toBe(1);
+      expect(result.status).toBe('submitted');
+    });
+
+    it('should log warning when analytics throws', async () => {
+      const { learningAnalyticsService } = await import('./learningAnalytics.service.js');
+      const { assignmentLogger } = await import('../utils/logger.js');
+      vi.mocked(prisma.assignment.findUnique).mockResolvedValue(mockAssignment as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue({ id: 1, userId: 20, courseId: 1 } as any);
+      vi.mocked(prisma.assignmentSubmission.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.assignmentSubmission.upsert).mockResolvedValue({
+        id: 1,
+        assignmentId: 1,
+        userId: 20,
+        content: 'My answer',
+        status: 'submitted',
+      } as any);
+      vi.mocked(learningAnalyticsService.logAssessmentEvent).mockRejectedValue(new Error('Analytics down'));
+
+      await assignmentService.submitAssignment(1, 20, { content: 'My answer' });
+
+      expect(assignmentLogger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 20, assignmentId: 1 }),
+        'Failed to log assignment submit event',
+      );
+    });
+
+    it('should not call analytics for draft submissions', async () => {
+      const { learningAnalyticsService } = await import('./learningAnalytics.service.js');
+      vi.mocked(prisma.assignment.findUnique).mockResolvedValue(mockAssignment as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue({ id: 1, userId: 20, courseId: 1 } as any);
+      vi.mocked(prisma.assignmentSubmission.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.assignmentSubmission.upsert).mockResolvedValue({
+        id: 1,
+        assignmentId: 1,
+        userId: 20,
+        content: 'Draft content',
+        status: 'draft',
+      } as any);
+
+      const result = await assignmentService.submitAssignment(1, 20, { content: 'Draft content', status: 'draft' });
+
+      expect(result).toBeDefined();
+      expect(result.status).toBe('draft');
+      expect(learningAnalyticsService.logAssessmentEvent).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getMySubmission - accessibility after submitAssignment', () => {
+    it('should be callable as a class method', () => {
+      // Verifies the method exists and is a function on the service instance
+      expect(typeof assignmentService.getMySubmission).toBe('function');
+    });
+
+    it('should return submission with assignment and grader details', async () => {
+      vi.mocked(prisma.assignmentSubmission.findUnique).mockResolvedValue({
+        id: 1,
+        assignmentId: 1,
+        userId: 20,
+        content: 'My work',
+        status: 'graded',
+        grade: 90,
+        assignment: { id: 1, title: 'Assignment 1', points: 100 },
+        gradedBy: { id: 10, fullname: 'Prof Smith' },
+      } as any);
+
+      const result = await assignmentService.getMySubmission(1, 20);
+
+      expect(result).toBeDefined();
+      expect(result?.grade).toBe(90);
+      expect(result?.assignment?.title).toBe('Assignment 1');
+      expect(result?.gradedBy?.fullname).toBe('Prof Smith');
+    });
+  });
+
+  describe('dueDate - consistent timezone handling', () => {
+    it('should store the exact ISO string time sent by client (no local-to-UTC shift)', async () => {
+      // The client sends datetime-local value + ':00.000Z' e.g. '2026-03-20T14:00:00.000Z'
+      // The server should store this as-is via new Date(), preserving the exact time
+      const clientPayload = '2026-03-20T14:00:00.000Z';
+      const mockCourse = { id: 1, instructorId: 10 };
+
+      vi.mocked(prisma.course.findUnique).mockResolvedValue(mockCourse as any);
+      vi.mocked(prisma.assignment.create).mockImplementation(async (args: any) => {
+        const storedDate = args.data.dueDate as Date;
+        // The stored date should match exactly what the client sent
+        expect(storedDate.toISOString()).toBe(clientPayload);
+        return { id: 1, ...args.data } as any;
+      });
+
+      await assignmentService.createAssignment(1, 10, {
+        title: 'Test',
+        dueDate: clientPayload,
+      });
+
+      expect(prisma.assignment.create).toHaveBeenCalled();
+    });
+
+    it('should store updated dueDate preserving the exact time from client', async () => {
+      const clientPayload = '2026-03-20T14:00:00.000Z';
+      const mockAssignment = {
+        id: 1, title: 'Test', courseId: 1, isPublished: false,
+        course: { id: 1, instructorId: 10 },
+      };
+
+      vi.mocked(prisma.assignment.findUnique).mockResolvedValue(mockAssignment as any);
+      vi.mocked(prisma.assignment.update).mockImplementation(async (args: any) => {
+        const storedDate = args.data.dueDate as Date;
+        expect(storedDate.toISOString()).toBe(clientPayload);
+        return { ...mockAssignment, dueDate: storedDate } as any;
+      });
+
+      await assignmentService.updateAssignment(1, 10, { dueDate: clientPayload });
+
+      expect(prisma.assignment.update).toHaveBeenCalled();
+    });
+  });
+
 });
