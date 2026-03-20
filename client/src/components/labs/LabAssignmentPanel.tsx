@@ -114,6 +114,15 @@ export const LabAssignmentPanel = ({
       }),
     onSuccess: () => {
       toast.success(t('submission_success', { defaultValue: 'Assignment submitted successfully!' }));
+      // Log lab assignment submission
+      if (courseNumericId && assignmentId) {
+        activityLogger.logLabSubmitted(
+          sessionConfig?.labType?.toUpperCase() || 'LAB',
+          assignmentId,
+          courseNumericId,
+          { datasetName: sessionConfig?.datasetName, analysesVisited: visitedAnalyses },
+        );
+      }
     },
     onError: (err: Error) => {
       toast.error(err.message || t('common:error'));

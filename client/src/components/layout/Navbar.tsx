@@ -13,8 +13,6 @@ import {
   EyeOff,
   Globe,
   LayoutDashboard,
-  BarChart3,
-  Activity,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
@@ -84,8 +82,6 @@ export const Navbar = () => {
     ? [
         { path: '/admin', label: t('admin'), icon: Shield, exact: true },
         { path: '/dashboard', label: t('dashboard'), icon: LayoutDashboard },
-        { path: '/admin/analytics', label: t('analytics'), icon: BarChart3 },
-        { path: '/admin/logs', label: t('logs'), icon: Activity },
       ]
     : [];
 

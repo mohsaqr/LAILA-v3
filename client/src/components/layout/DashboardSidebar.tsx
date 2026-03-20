@@ -19,7 +19,6 @@ import {
   BookOpen,
   Users,
   FileText,
-  Bot,
   BookMarked,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -90,13 +89,15 @@ export const DashboardSidebar = () => {
   const courseNavItems: NavItem[] = activeCourseId ? [
     { label: t('curriculum'), icon: BookOpen, path: `/teach/courses/${activeCourseId}/curriculum` },
     { label: t('assignments'), icon: FileText, path: `/teach/courses/${activeCourseId}/assignments` },
-    { label: t('gradebook'), icon: ClipboardList, path: `/teach/courses/${activeCourseId}/gradebook` },
     { label: t('quizzes'), icon: FileQuestion, path: `/teach/courses/${activeCourseId}/quizzes` },
+    { label: t('gradebook'), icon: ClipboardList, path: `/teach/courses/${activeCourseId}/gradebook` },
     { label: t('forums'), icon: MessageSquare, path: `/teach/courses/${activeCourseId}/forums` },
-    { label: t('chatbot_logs'), icon: Bot, path: `/teach/courses/${activeCourseId}/chatbot-logs` },
+    { label: t('surveys'), icon: ClipboardCheck, path: `/teach/courses/${activeCourseId}/surveys` },
     { label: t('tutors'), icon: BookMarked, path: `/teach/courses/${activeCourseId}/tutors` },
-    { label: t('students'), icon: Users, path: `/teach/courses/${activeCourseId}/edit` },
     { label: t('certificates'), icon: Award, path: `/teach/courses/${activeCourseId}/certificates` },
+    { label: t('students'), icon: Users, path: `/teach/courses/${activeCourseId}/edit` },
+    { label: t('logs'), icon: Activity, path: `/teach/courses/${activeCourseId}/logs` },
+    { label: t('analytics'), icon: Network, path: `/teach/courses/${activeCourseId}/analytics` },
   ] : [];
 
   // Build instructor nav items
@@ -115,11 +116,8 @@ export const DashboardSidebar = () => {
       { label: t('forums'), icon: MessageSquare, path: '/forums' },
       { label: t('certificate_templates'), icon: Award, path: '/teach/certificates' },
     ]),
-    // Only show admin links to actual admins (not just instructors)
-    ...(isActualAdmin ? [
-      { label: t('logs'), icon: Activity, path: '/admin/logs' },
-      { label: t('analytics'), icon: Network, path: '/admin/analytics' },
-    ] : []),
+    // Admin Logs + Analytics live only on the admin page (/admin/logs, /admin/analytics)
+    // Course-level Logs + Analytics are in courseNavItems above
   ];
 
   const navItems = (isInstructor || isActualAdmin) ? instructorNavItems : studentNavItems;

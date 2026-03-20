@@ -92,6 +92,7 @@ import {
   CourseCertificateManager,
 } from './pages/teach';
 import { CourseAnalytics } from './pages/teach/CourseAnalytics';
+import { CourseLogs } from './pages/teach/CourseLogs';
 import { StudentAnalytics } from './pages/StudentAnalytics';
 import { Reports } from './pages/Reports';
 import { TnaExercise } from './pages/TnaExercise';
@@ -780,6 +781,16 @@ function App() {
           element={
             <ProtectedRoute requireInstructor>
               <SurveyResponses />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Instructor Logs */}
+        <Route
+          path="/teach/courses/:id/logs"
+          element={
+            <ProtectedRoute requireInstructor>
+              <CourseLogs />
             </ProtectedRoute>
           }
         />

@@ -4,9 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { Users, Activity, Hash, Settings2, Network, GitBranch, Expand, Search, Pencil, X, TrendingUp, Clock, RefreshCw } from 'lucide-react';
 import {
   tna, ftna, ctna, atna,
-  centralities, prune, summary,
+  centralities, prune, summary, layout as dynaLayout,
 } from 'dynajs';
-import type { TNA } from 'dynajs';
+import type { TNA, LayoutAlgorithm } from 'dynajs';
 import { activityLogApi } from '../../api/admin';
 import { useTheme } from '../../hooks/useTheme';
 import { AdminLayout, StatCard } from '../../components/admin';
@@ -45,19 +45,32 @@ const NODE_SIZE_OPTIONS = [
   { value: 'InStrength', i18nKey: 'in_strength' },
 ];
 
+const LAYOUT_OPTIONS: { value: LayoutAlgorithm; i18nKey: string }[] = [
+  { value: 'circle', i18nKey: 'sna.layout_circle' },
+  { value: 'fr', i18nKey: 'sna.layout_force' },
+  { value: 'kamada-kawai', i18nKey: 'sna.layout_kamada_kawai' },
+  { value: 'spectral', i18nKey: 'sna.layout_spectral' },
+  { value: 'concentric', i18nKey: 'sna.layout_concentric' },
+  { value: 'star', i18nKey: 'sna.layout_star' },
+  { value: 'hierarchical', i18nKey: 'sna.layout_hierarchical' },
+  { value: 'grid', i18nKey: 'sna.layout_grid' },
+  { value: 'random', i18nKey: 'sna.layout_random' },
+];
+
 /** Default smart interpretations for verb+objectType → readable learning state.
  *
- *  10 states:
- *    learning     – consuming content (viewing lectures, sections, videos, files, downloads)
- *    progressing  – making progress through content (progressed lecture/section/video)
- *    advancing    – navigating/scrolling/seeking within content (media controls, scrolled, seeked)
- *    engaged      – actively starting/interacting with activities (started, interacted section)
- *    regulated    – self-regulation: completing activities (completed lecture/section/module)
- *    assessment   – all quiz & assignment activity (started, submitted, completed, graded)
+ *  12 states:
+ *    learning     – consuming content (viewing, downloading)
+ *    progressing  – making progress through content
+ *    engaged      – actively starting or interacting with activities
+ *    practiced    – hands-on lab work
+ *    interacted   – social/forum participation
+ *    regulated    – self-regulation: completing activities, checking grades, certificates
+ *    assessment   – quiz, assignment & lab submission activity
  *    help         – general chatbot interactions
- *    AI_engaged   – AI tutor interactions (tutor_agent, tutor_session)
- *    expressed    – emotional pulse activities
- *    browsing     – viewing course/module overview pages
+ *    AI_engaged   – AI tutor interactions
+ *    expressed    – emotional pulse activities & survey feedback
+ *    browsing     – viewing overview pages, enrollment
  */
 // Verb-level fallback: if a specific verb:objectType combo isn't in the map,
 // fall back to the verb's default interpretation.
@@ -65,22 +78,13 @@ const VERB_FALLBACKS: Record<string, string> = {
   viewed: 'learning',
   downloaded: 'learning',
   progressed: 'progressing',
-  navigated: 'advancing',
-  scrolled: 'advancing',
-  seeked: 'advancing',
-  media_control: 'advancing',
-  paused: 'advancing',
-  resumed: 'advancing',
   started: 'progressing',
   interacted: 'engaged',
   completed: 'regulated',
   submitted: 'assessment',
-  graded: 'assessment',
-  messaged: 'help',
-  received: 'help',
-  expressed: 'expressed',
   selected: 'engaged',
-  switched: 'advancing',
+  enrolled: 'browsing',
+  unenrolled: 'browsing',
 };
 
 // Object-type overrides: these object types force a specific interpretation
@@ -91,7 +95,14 @@ const OBJECT_OVERRIDES: Record<string, string> = {
   tutor_agent: 'AI_engaged',
   tutor_session: 'AI_engaged',
   tutor_conversation: 'AI_engaged',
+  course_tutor: 'AI_engaged',
+  course_tutor_conversation: 'AI_engaged',
   emotional_pulse: 'expressed',
+  lab: 'practiced',
+  forum: 'interacted',
+  survey: 'expressed',
+  certificate: 'regulated',
+  gradebook: 'regulated',
 };
 
 const DEFAULT_INTERPRETATIONS: Record<string, string> = {
@@ -107,20 +118,6 @@ const DEFAULT_INTERPRETATIONS: Record<string, string> = {
   'progressed:lecture': 'progressing',
   'progressed:video': 'progressing',
   'progressed:section': 'progressing',
-
-  // advancing – navigating within content
-  'navigated:lecture': 'advancing',
-  'navigated:video': 'advancing',
-  'navigated:section': 'advancing',
-  'scrolled:lecture': 'advancing',
-  'scrolled:section': 'advancing',
-  'seeked:video': 'advancing',
-  'media_control:video': 'advancing',
-  'media_control:lecture': 'advancing',
-  'paused:video': 'advancing',
-  'paused:lecture': 'advancing',
-  'resumed:video': 'advancing',
-  'resumed:lecture': 'advancing',
 
   // engaged – actively starting/interacting with activities
   'started:lecture': 'engaged',
@@ -141,29 +138,45 @@ const DEFAULT_INTERPRETATIONS: Record<string, string> = {
   'submitted:assignment': 'assessment',
   'completed:quiz': 'assessment',
   'completed:assignment': 'assessment',
-  'graded:quiz': 'assessment',
-  'graded:assignment': 'assessment',
 
   // help – general chatbot
-  'messaged:chatbot': 'help',
   'interacted:chatbot': 'help',
 
   // AI_engaged – AI tutor
-  'messaged:tutor_agent': 'AI_engaged',
-  'messaged:tutor_session': 'AI_engaged',
-  'messaged:tutor_conversation': 'AI_engaged',
-  'received:tutor_agent': 'AI_engaged',
-  'switched:tutor_session': 'AI_engaged',
-  'started:tutor_session': 'AI_engaged',
-  'selected:tutor_agent': 'AI_engaged',
+  'interacted:tutor_agent': 'AI_engaged',
+  'interacted:tutor_session': 'AI_engaged',
+  'interacted:tutor_conversation': 'AI_engaged',
 
   // expressed – emotional pulse
-  'expressed:emotional_pulse': 'expressed',
   'interacted:emotional_pulse': 'expressed',
+
+  // practiced – lab activity
+  'started:lab': 'practiced',
+  'interacted:lab': 'practiced',
+  'selected:lab': 'practiced',
+  'submitted:lab': 'assessment',
+
+  // interacted – forum participation
+  'interacted:forum': 'interacted',
+  'viewed:forum': 'browsing',
+
+  // AI_engaged – course tutor interactions
+  'interacted:course_tutor': 'AI_engaged',
+  'interacted:course_tutor_conversation': 'AI_engaged',
+
+  // expressed – survey feedback
+  'submitted:survey': 'expressed',
+  'viewed:survey': 'browsing',
+
+  // regulated – achievement tracking (certificates, grades)
+  'viewed:certificate': 'regulated',
+  'downloaded:certificate': 'regulated',
+  'viewed:gradebook': 'regulated',
 
   // browsing – course/module overview
   'viewed:course': 'browsing',
   'viewed:module': 'browsing',
+  'enrolled:course': 'browsing',
 };
 
 /** Resolve a verb:objectType combo using: explicit map → object override → verb fallback */
@@ -224,6 +237,7 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
   const [nodeRadius, setNodeRadius] = useState(25);
   const [networkSettingsOpen, setNetworkSettingsOpen] = useState(false);
   const [nodeSizeMetric, setNodeSizeMetric] = useState('fixed');
+  const [graphLayout, setGraphLayout] = useState<LayoutAlgorithm>('circle');
   const [palette, setPalette] = useState<PaletteName>('default');
   const [networkModalOpen, setNetworkModalOpen] = useState(false);
 
@@ -476,6 +490,19 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
       return null;
     }
   }, [transformedData, pruneThreshold, modelType, palette]);
+
+  // Compute graph layout positions via dynajs layout()
+  const graphPositions = useMemo(() => {
+    if (!analysis?.prunedModel) return undefined;
+    const result = dynaLayout(analysis.prunedModel, { algorithm: graphLayout });
+    const h = 380;
+    const pad = nodeRadius + 5;
+    // Convert normalized [0,1] positions to pixel positions within the SVG
+    return Array.from({ length: result.labels.length }, (_, i) => ({
+      x: pad + result.x[i]! * (h - 2 * pad),
+      y: pad + result.y[i]! * (h - 2 * pad),
+    }));
+  }, [analysis?.prunedModel, graphLayout, nodeRadius]);
 
   /* --- Theme colors for stat cards --- */
 
@@ -857,6 +884,16 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
                             ))}
                           </select>
                         </label>
+                        <label className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
+                          {t('layout')}:
+                          <select value={graphLayout}
+                            onChange={e => setGraphLayout(e.target.value as LayoutAlgorithm)}
+                            className="px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                            {LAYOUT_OPTIONS.map(opt => (
+                              <option key={opt.value} value={opt.value}>{t(opt.i18nKey)}</option>
+                            ))}
+                          </select>
+                        </label>
                       </div>
                     )}
                     <TnaNetworkGraph
@@ -869,6 +906,7 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
                       centralityData={analysis.centralityData ?? undefined}
                       nodeSizeMetric={nodeSizeMetric}
                       modelType={modelType}
+                      externalPositions={graphPositions}
                     />
                   </div>
                 )}

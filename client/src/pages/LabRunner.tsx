@@ -8,6 +8,7 @@ import {
   HelpCircle,
   Loader2,
   AlertTriangle,
+  ArrowLeft,
   ClipboardList,
   Camera,
   CheckCircle,
@@ -25,6 +26,7 @@ import { useLabWebR } from '../hooks/useLabWebR';
 import { useLabPyodide } from '../hooks/useLabPyodide';
 import { useTheme } from '../hooks/useTheme';
 import { LabTemplate } from '../types';
+import { activityLogger } from '../services/activityLogger';
 
 interface OutputItem {
   type: 'stdout' | 'stderr' | 'plot' | 'message';
@@ -95,6 +97,21 @@ export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookRe
     textSecondary: isDark ? '#9ca3af' : '#6b7280',
   };
 
+  // Log lab viewed/started when lab loads
+  const hasLoggedStartRef = useRef(false);
+  useEffect(() => {
+    if (hasLoggedStartRef.current) return;
+    hasLoggedStartRef.current = true;
+    activityLogger.log({
+      verb: 'started',
+      objectType: 'lab',
+      objectId: lab.id,
+      objectTitle: lab.name,
+      courseId: courseId ?? undefined,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lab.id]);
+
   // Reset state when lab changes (e.g. navigating between labs)
   useEffect(() => {
     setCode(defaultCode);
@@ -104,6 +121,7 @@ export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookRe
     setSessionEvents([]);
     setVisitedTemplates([]);
     setAssignmentPanelOpen(false);
+    hasLoggedStartRef.current = false;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lab.id]);
 
@@ -123,7 +141,15 @@ export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookRe
     setSelectedTemplateId(template.id);
     setOutputs([]);
     logSession('Template selected: ' + template.title);
-  }, [logSession]);
+    activityLogger.log({
+      verb: 'selected',
+      objectType: 'lab',
+      objectId: lab.id,
+      objectTitle: `${lab.name}: ${template.title}`,
+      courseId: courseId ?? undefined,
+      extensions: { templateId: template.id, templateTitle: template.title },
+    });
+  }, [logSession, lab.id, lab.name, courseId]);
 
   const handleRunCode = useCallback(async () => {
     if (!isReady || isExecuting) return;
@@ -139,7 +165,17 @@ export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookRe
         ...(result.error ? [{ type: 'stderr' as const, content: result.error }] : []),
       ]);
     }
-  }, [code, isReady, isExecuting, executeCode, selectedTemplate, logSession]);
+    // Log code execution
+    activityLogger.log({
+      verb: 'interacted',
+      objectType: 'lab',
+      objectId: lab.id,
+      objectTitle: `${lab.name}: code executed`,
+      courseId: courseId ?? undefined,
+      success: result.success,
+      extensions: { templateTitle, codeLength: code.length, outputCount: result.outputs.length },
+    });
+  }, [code, isReady, isExecuting, executeCode, selectedTemplate, logSession, lab.id, lab.name, courseId]);
 
   const handleResetSession = useCallback(async () => {
     setOutputs([]);

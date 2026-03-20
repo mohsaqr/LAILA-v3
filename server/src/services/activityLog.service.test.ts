@@ -149,7 +149,7 @@ describe('ActivityLogService', () => {
 
       await activityLogService.logActivity({
         userId: 1,
-        verb: 'created',
+        verb: 'viewed',
         objectType: 'course',
       });
 
@@ -272,6 +272,167 @@ describe('ActivityLogService', () => {
       expect(prisma.learningActivityLog.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           extensions: '{"responseTime":1500,"model":"gpt-4"}',
+        }),
+      });
+    });
+  });
+
+  // ===========================================================================
+  // logActivity — new object types
+  // ===========================================================================
+
+  describe('logActivity — new object types', () => {
+    beforeEach(() => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any);
+      vi.mocked(prisma.learningActivityLog.create).mockResolvedValue(mockActivityLog as any);
+    });
+
+    it('should log forum post (interacted/forum)', async () => {
+      await activityLogService.logActivity({
+        userId: 1,
+        verb: 'interacted',
+        objectType: 'forum',
+        objectId: 42,
+        extensions: { postType: 'reply', threadId: 10 },
+      });
+
+      expect(prisma.learningActivityLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          verb: 'interacted',
+          objectType: 'forum',
+          objectId: 42,
+          extensions: JSON.stringify({ postType: 'reply', threadId: 10 }),
+        }),
+      });
+    });
+
+    it('should log quiz started (started/quiz)', async () => {
+      vi.mocked(prisma.course.findUnique).mockResolvedValue(mockCourse as any);
+
+      await activityLogService.logActivity({
+        userId: 1,
+        verb: 'started',
+        objectType: 'quiz',
+        objectId: 5,
+        courseId: 1,
+      });
+
+      expect(prisma.learningActivityLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          verb: 'started',
+          objectType: 'quiz',
+          objectId: 5,
+        }),
+      });
+    });
+
+    it('should log quiz submitted with score (submitted/quiz)', async () => {
+      await activityLogService.logActivity({
+        userId: 1,
+        verb: 'submitted',
+        objectType: 'quiz',
+        objectId: 5,
+        score: 8,
+        maxScore: 10,
+        success: true,
+      });
+
+      expect(prisma.learningActivityLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          verb: 'submitted',
+          objectType: 'quiz',
+          score: 8,
+          maxScore: 10,
+          success: true,
+        }),
+      });
+    });
+
+    it('should log certificate viewed (viewed/certificate)', async () => {
+      await activityLogService.logActivity({
+        userId: 1,
+        verb: 'viewed',
+        objectType: 'certificate',
+        objectId: 99,
+      });
+
+      expect(prisma.learningActivityLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          verb: 'viewed',
+          objectType: 'certificate',
+          objectId: 99,
+        }),
+      });
+    });
+
+    it('should log certificate downloaded (downloaded/certificate)', async () => {
+      await activityLogService.logActivity({
+        userId: 1,
+        verb: 'downloaded',
+        objectType: 'certificate',
+        objectId: 99,
+      });
+
+      expect(prisma.learningActivityLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          verb: 'downloaded',
+          objectType: 'certificate',
+          objectId: 99,
+        }),
+      });
+    });
+
+    it('should log survey submitted with extensions (submitted/survey)', async () => {
+      await activityLogService.logActivity({
+        userId: 1,
+        verb: 'submitted',
+        objectType: 'survey',
+        objectId: 7,
+        extensions: { questionCount: 12, completionTime: 45 },
+      });
+
+      expect(prisma.learningActivityLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          verb: 'submitted',
+          objectType: 'survey',
+          objectId: 7,
+          extensions: JSON.stringify({ questionCount: 12, completionTime: 45 }),
+        }),
+      });
+    });
+
+    it('should log gradebook viewed with courseId only (viewed/gradebook)', async () => {
+      vi.mocked(prisma.course.findUnique).mockResolvedValue(mockCourse as any);
+
+      await activityLogService.logActivity({
+        userId: 1,
+        verb: 'viewed',
+        objectType: 'gradebook',
+        courseId: 1,
+      });
+
+      expect(prisma.learningActivityLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          verb: 'viewed',
+          objectType: 'gradebook',
+          courseTitle: 'Test Course',
+        }),
+      });
+    });
+
+    it('should log catalog viewed (viewed/course without objectId)', async () => {
+      await activityLogService.logActivity({
+        userId: 1,
+        verb: 'viewed',
+        objectType: 'course',
+        objectTitle: 'Course Catalog',
+      });
+
+      expect(prisma.learningActivityLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          verb: 'viewed',
+          objectType: 'course',
+          objectTitle: 'Course Catalog',
         }),
       });
     });

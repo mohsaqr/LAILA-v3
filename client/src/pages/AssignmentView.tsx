@@ -40,6 +40,7 @@ import { Breadcrumb } from '../components/common/Breadcrumb';
 import { PostAssignmentSurveyModal } from '../components/survey';
 import { getSessionId, getClientInfo } from '../utils/analytics';
 import { debug } from '../utils/debug';
+import { activityLogger } from '../services/activityLogger';
 
 // Thin wrappers that provide the runtime hook and pass courseId directly
 const RLabEmbed = ({ lab, courseId }: { lab: any; courseId: number }) => {
@@ -158,6 +159,15 @@ export const AssignmentView = () => {
       timestamp: Date.now(),
       ...clientInfo,
     }).catch(err => debug.error('Failed to log assignment_view event:', err));
+
+    // Also log to LearningActivityLog for TNA sequences
+    activityLogger.log({
+      verb: 'viewed',
+      objectType: 'assignment',
+      objectId: parsedAssignmentId,
+      objectTitle: assignment.title,
+      courseId: parsedCourseId,
+    });
   }, [assignment, parsedCourseId, parsedAssignmentId]);
 
   const saveDraftMutation = useMutation({
@@ -185,6 +195,9 @@ export const AssignmentView = () => {
       queryClient.invalidateQueries({ queryKey: ['mySubmission', assignmentId] });
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
       toast.success(t('assignment_submitted'));
+
+      // Log submission to LearningActivityLog
+      activityLogger.logAssignmentSubmitted(parsedAssignmentId, assignment?.title, parsedCourseId);
 
       // Show post-assignment survey modal if configured
       if (assignment?.postSurveyId) {
@@ -752,6 +765,7 @@ export const AssignmentView = () => {
         <PostAssignmentSurveyModal
           surveyId={assignment.postSurveyId}
           assignmentId={parsedAssignmentId}
+          courseId={parsedCourseId}
           isRequired={assignment.postSurveyRequired ?? false}
           isOpen={showSurveyModal}
           onClose={() => setShowSurveyModal(false)}

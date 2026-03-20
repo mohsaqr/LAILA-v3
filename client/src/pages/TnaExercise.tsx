@@ -18,7 +18,7 @@ import {
   Network, X, BarChart3, GitBranch,
   Scissors, Target, Users,
   Database, Share2, BookOpen, ChevronDown, ChevronRight,
-  Sparkles, ClipboardList, Camera, Loader2, CheckCircle,
+  Sparkles, ClipboardList, Camera, Loader2, CheckCircle, Download,
 } from 'lucide-react';
 import { assignmentsApi } from '../api/assignments';
 import { LabAssignmentPanel, type ReportItem } from '../components/labs/LabAssignmentPanel';
@@ -42,6 +42,7 @@ import { AIDatasetGenerator } from '../components/ai/AIDatasetGenerator';
 import type { TnaGeneratedData } from '../components/ai/AIDatasetGenerator';
 import { LabAIAssistant } from '../components/ai/LabAIAssistant';
 import { activityLogger } from '../services/activityLogger';
+import { exportRowsAsCSV, exportMatrixAsCSV, exportCentralityAsCSV } from '../utils/csvExport';
 
 /* ── Types ── */
 
@@ -564,6 +565,45 @@ export const TnaExercise = () => {
                   </div>
                 </div>
               )}
+
+              {/* Download Data */}
+              {datasetKey && rawRows.length > 0 && (
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-2">
+                  <label className={labelCls}>
+                    <Download className="w-3 h-3 inline mr-1" />
+                    {t('exercise.download_data')}
+                  </label>
+                  <button
+                    onClick={() => exportRowsAsCSV(rawRows as Record<string, unknown>[], 'tna-event-log.csv')}
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Event Log ({rawRows.length} rows)
+                  </button>
+                  {modelBuilt && rawModel && (
+                    <>
+                      <button
+                        onClick={() => {
+                          const { labels: l, weights: w } = rawModel;
+                          const n = l.length;
+                          const matrix = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => w.get(i, j)));
+                          exportMatrixAsCSV(matrix, l, 'tna-transitions.csv');
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        Transition Matrix
+                      </button>
+                      {centralityData && (
+                        <button
+                          onClick={() => exportCentralityAsCSV(centralityData, 'tna-centrality.csv')}
+                          className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          Centrality Measures
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -584,7 +624,17 @@ export const TnaExercise = () => {
                   <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                     {t('exercise.pipe_viewdata')}
                   </h2>
-                  <span className="text-xs text-gray-400">{rawRows.length} {t('exercise.rows')}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400">{rawRows.length} {t('exercise.rows')}</span>
+                    <button
+                      onClick={() => exportRowsAsCSV(rawRows as Record<string, unknown>[], 'tna-event-log.csv')}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                      title={t('exercise.download_csv')}
+                    >
+                      <Download className="w-3 h-3" />
+                      CSV
+                    </button>
+                  </div>
                 </div>
 
                 {/* State chips */}
@@ -781,9 +831,25 @@ export const TnaExercise = () => {
                 {activeAnalysis === 'transitions' && (
                   <>
                     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                        {t('exercise.block_transitions')}
-                      </h3>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                          {t('exercise.block_transitions')}
+                        </h3>
+                        {rawModel && (
+                          <button
+                            onClick={() => {
+                              const { labels: l, weights: w } = rawModel;
+                              const n = l.length;
+                              const matrix = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => w.get(i, j)));
+                              exportMatrixAsCSV(matrix, l, 'tna-transitions.csv');
+                            }}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                          >
+                            <Download className="w-3 h-3" />
+                            CSV
+                          </button>
+                        )}
+                      </div>
                       <div className={transitionView === 'both' ? 'grid lg:grid-cols-2 gap-6' : ''}>
                         {(transitionView === 'counts' || transitionView === 'both') && (
                           <div>
@@ -841,9 +907,18 @@ export const TnaExercise = () => {
                 {activeAnalysis === 'centrality' && centralityData && (
                   <>
                     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                        {t('exercise.block_centrality')}
-                      </h3>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                          {t('exercise.block_centrality')}
+                        </h3>
+                        <button
+                          onClick={() => exportCentralityAsCSV(centralityData, 'tna-centrality.csv')}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                        >
+                          <Download className="w-3 h-3" />
+                          CSV
+                        </button>
+                      </div>
                       <div className={showCentralityTable ? 'grid lg:grid-cols-2 gap-6' : ''}>
                         <div>
                           <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">

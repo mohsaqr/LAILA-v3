@@ -35,6 +35,7 @@ import { formatDate } from './exportUtils';
 interface ActivityLogsTabProps {
   exportStatus: 'idle' | 'loading' | 'success' | 'error';
   setExportStatus: (status: 'idle' | 'loading' | 'success' | 'error') => void;
+  fixedCourseId?: number;
 }
 
 interface ActivityLog {
@@ -74,7 +75,7 @@ interface ActivityLog {
 
 type SortField = 'timestamp' | 'userFullname' | 'verb' | 'objectType' | 'objectTitle' | 'courseTitle' | 'progress' | 'duration';
 
-export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsTabProps) => {
+export const ActivityLogsTab = ({ exportStatus, setExportStatus, fixedCourseId }: ActivityLogsTabProps) => {
   const { t } = useTranslation(['admin', 'common']);
   // Filter state
   const [filters, setFilters] = useState<ActivityLogFilters>({
@@ -82,6 +83,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
     limit: 50,
     sortBy: 'timestamp',
     sortOrder: 'desc',
+    ...(fixedCourseId ? { courseId: fixedCourseId } : {}),
   });
   const [searchInput, setSearchInput] = useState('');
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
@@ -162,6 +164,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
       limit: 50,
       sortBy: 'timestamp',
       sortOrder: 'desc',
+      ...(fixedCourseId ? { courseId: fixedCourseId } : {}),
     });
     setSearchInput('');
   };
@@ -387,7 +390,8 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
               </select>
             </div>
 
-            {/* Course Filter */}
+            {/* Course Filter (hidden when fixedCourseId is set) */}
+            {!fixedCourseId && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('course')}</label>
               <select
@@ -403,6 +407,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus }: ActivityLogsT
                 ))}
               </select>
             </div>
+            )}
 
             {/* Verb Filter */}
             <div>

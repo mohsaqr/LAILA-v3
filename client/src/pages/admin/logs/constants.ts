@@ -11,20 +11,10 @@ export const ACTIVITY_VERBS = [
   'started',
   'completed',
   'progressed',
-  'paused',
-  'resumed',
-  'seeked',
-  'scrolled',
-  'downloaded',
   'submitted',
-  'graded',
-  'messaged',
-  'received',
-  'cleared',
   'interacted',
-  'expressed',
+  'downloaded',
   'selected',
-  'switched',
 ] as const;
 
 export type ActivityVerb = (typeof ACTIVITY_VERBS)[number];
@@ -78,33 +68,19 @@ export const verbColors: Record<string, string> = {
   enrolled: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300',
   unenrolled: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300',
 
-  // Viewing
+  // Viewing & Progress
   viewed: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
   started: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300',
   completed: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300',
-
-  // Progress
   progressed: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300',
-  paused: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300',
-  resumed: 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300',
-  seeked: 'bg-sky-100 dark:bg-sky-900/30 text-sky-800 dark:text-sky-300',
-  scrolled: 'bg-gray-100 dark:bg-gray-700/50 text-gray-800 dark:text-gray-300',
 
-  // Content
-  downloaded: 'bg-violet-100 dark:bg-violet-900/30 text-violet-800 dark:text-violet-300',
+  // Content & Assessment
   submitted: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300',
-  graded: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300',
-
-  // Communication
-  messaged: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300',
-  received: 'bg-pink-100 dark:bg-pink-900/30 text-pink-800 dark:text-pink-300',
-  cleared: 'bg-slate-100 dark:bg-slate-700/50 text-slate-800 dark:text-slate-300',
+  downloaded: 'bg-violet-100 dark:bg-violet-900/30 text-violet-800 dark:text-violet-300',
 
   // Interaction
   interacted: 'bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-800 dark:text-fuchsia-300',
-  expressed: 'bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-300',
   selected: 'bg-lime-100 dark:bg-lime-900/30 text-lime-800 dark:text-lime-300',
-  switched: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300',
 };
 
 // Object Type color mappings

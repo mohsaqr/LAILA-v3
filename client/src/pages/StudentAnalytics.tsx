@@ -1,9 +1,35 @@
 import { useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../store/authStore';
+import { coursesApi } from '../api/courses';
 import { Dashboard } from './admin/Dashboard';
+import { Breadcrumb } from '../components/common/Breadcrumb';
 
 export const StudentAnalytics = () => {
   const { courseId } = useParams();
+  const { t } = useTranslation(['courses']);
   const user = useAuthStore((state) => state.user);
-  return <Dashboard mode="student" fixedCourseId={Number(courseId)} fixedUserId={user?.id} />;
+  const parsedCourseId = Number(courseId);
+
+  const { data: course } = useQuery({
+    queryKey: ['course', courseId],
+    queryFn: () => coursesApi.getCourseById(parsedCourseId),
+    enabled: !!parsedCourseId,
+  });
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mb-6">
+        <Breadcrumb
+          homeHref="/"
+          items={[
+            { label: course?.title || t('course'), href: `/courses/${courseId}` },
+            { label: t('my_learning_analytics') },
+          ]}
+        />
+      </div>
+      <Dashboard mode="student" fixedCourseId={parsedCourseId} fixedUserId={user?.id} />
+    </div>
+  );
 };

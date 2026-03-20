@@ -27,6 +27,7 @@ import { Breadcrumb } from '../components/common/Breadcrumb';
 import { Course, Enrollment, Category } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
+import { activityLogger } from '../services/activityLogger';
 
 // ─── Searchable multi-select for categories ───────────────────────────────────
 
@@ -299,6 +300,11 @@ export const Catalog = () => {
   const [page, setPage] = useState(1);
 
   const canCreateCourses = isInstructor || isAdmin;
+
+  // Log catalog viewed once
+  useEffect(() => {
+    activityLogger.log({ verb: 'viewed', objectType: 'course', objectTitle: 'Course Catalog' });
+  }, []);
 
   // Fetch user's enrollments when filter is active
   const { data: enrollments, isLoading: enrollmentsLoading } = useQuery({

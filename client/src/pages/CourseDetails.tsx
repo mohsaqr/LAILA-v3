@@ -11,6 +11,7 @@ import {
   MessageSquare,
   PenSquare,
   Eye,
+  Network,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../api/courses';
@@ -58,6 +59,8 @@ export const CourseDetails = () => {
     textPrimary600: isDark ? '#a5b4fc' : '#4f46e5',
     bgTeal: isDark ? 'rgba(8, 143, 143, 0.2)' : '#f0fdfd',
     textTeal: isDark ? '#5eecec' : '#088F8F',
+    bgPurple: isDark ? 'rgba(139, 92, 246, 0.2)' : '#f5f3ff',
+    textPurple: isDark ? '#c4b5fd' : '#7c3aed',
   };
 
   const { data: course, isLoading } = useQuery({
@@ -341,6 +344,30 @@ export const CourseDetails = () => {
                     </CardBody>
                   </Card>
                 </Link>
+
+                {/* My Learning Analytics Card — visible to enrolled students */}
+                {isEnrolled && (
+                  <Link to={`/courses/${id}/analytics`}>
+                    <Card hover className="transition-shadow">
+                      <CardBody className="flex items-center gap-4 p-4">
+                        <div
+                          className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: colors.bgPurple }}
+                        >
+                          <Network className="w-6 h-6" style={{ color: colors.textPurple }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium" style={{ color: colors.textPrimary }}>
+                            {t('my_learning_analytics')}
+                          </h3>
+                          <p className="text-sm" style={{ color: colors.textSecondary }}>
+                            {t('view_your_learning_network')}
+                          </p>
+                        </div>
+                      </CardBody>
+                    </Card>
+                  </Link>
+                )}
 
               </div>
             </div>

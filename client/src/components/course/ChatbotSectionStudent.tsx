@@ -147,7 +147,7 @@ export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStude
 
       // Log to unified activity logger
       activityLogger.log({
-        verb: 'cleared',
+        verb: 'interacted',
         objectType: 'chatbot',
         objectId: section.id,
         sectionId: section.id,

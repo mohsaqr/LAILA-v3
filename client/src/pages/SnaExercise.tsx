@@ -14,21 +14,21 @@ import { useQuery } from '@tanstack/react-query';
 import {
   Network, X, GitBranch, Target, BarChart3, Waypoints, Plus,
   ChevronDown, ChevronRight, BookOpen, Users,
-  Microscope, MessageCircle, Sparkles, ClipboardList, Camera, Loader2, CheckCircle,
+  Microscope, MessageCircle, Sparkles, ClipboardList, Camera, Loader2, CheckCircle, Download,
 } from 'lucide-react';
 import { assignmentsApi } from '../api/assignments';
 import { LabAssignmentPanel, type ReportItem } from '../components/labs/LabAssignmentPanel';
 import toast from 'react-hot-toast';
 import { INTERACTIVE_LAB_REQUIREMENTS } from '../types';
-import { buildModel } from 'dynajs';
-import type { TNA } from 'dynajs';
+import { buildModel, layout as dynaLayout } from 'dynajs';
+import type { TNA, LayoutAlgorithm } from 'dynajs';
 import { TransitionHeatmap } from '../components/tna/TransitionHeatmap';
 import { TnaNetworkGraph } from '../components/tna/TnaNetworkGraph';
 import { CentralityBarChart } from '../components/tna/CentralityBarChart';
 import { TnaCentralityTable } from '../components/tna/TnaCentralityTable';
 import { createColorMap } from '../components/tna/colorFix';
-import { computeAllCentralities, detectCommunities, computeLayout } from '../components/sna-exercise/utils';
-import type { LayoutType, CommunityMethod } from '../components/sna-exercise/utils';
+import { computeAllCentralities, detectCommunities } from '../components/sna-exercise/utils';
+import type { CommunityMethod } from '../components/sna-exercise/utils';
 import {
   SAMPLE_NETWORKS,
   graphMetrics,
@@ -40,6 +40,7 @@ import type { SnaGeneratedData } from '../components/ai/AIDatasetGenerator';
 import { SnaStepGuide } from '../components/sna-exercise/SnaStepGuide';
 import { LabAIAssistant } from '../components/ai/LabAIAssistant';
 import { activityLogger } from '../services/activityLogger';
+import { exportEdgesAsCSV, exportMatrixAsCSV, exportCentralityAsCSV, exportRowsAsCSV } from '../utils/csvExport';
 
 /* ── Types ── */
 
@@ -63,10 +64,14 @@ const CENTRALITY_OPTIONS: { key: CentralityKey; i18nKey: string }[] = [
   { key: 'Closeness', i18nKey: 'sna.m_closeness' },
 ];
 
-const LAYOUT_OPTIONS: { key: LayoutType; i18nKey: string }[] = [
+const LAYOUT_OPTIONS: { key: LayoutAlgorithm; i18nKey: string }[] = [
   { key: 'circle', i18nKey: 'sna.layout_circle' },
-  { key: 'force', i18nKey: 'sna.layout_force' },
+  { key: 'fr', i18nKey: 'sna.layout_force' },
+  { key: 'kamada-kawai', i18nKey: 'sna.layout_kamada_kawai' },
+  { key: 'spectral', i18nKey: 'sna.layout_spectral' },
   { key: 'concentric', i18nKey: 'sna.layout_concentric' },
+  { key: 'star', i18nKey: 'sna.layout_star' },
+  { key: 'hierarchical', i18nKey: 'sna.layout_hierarchical' },
   { key: 'grid', i18nKey: 'sna.layout_grid' },
   { key: 'random', i18nKey: 'sna.layout_random' },
 ];
@@ -257,7 +262,7 @@ export const SnaExercise = () => {
   const [showEdgeLabels, setShowEdgeLabels] = useState(false);
   const [nodeRadius, setNodeRadius] = useState(25);
   const [edgeWidth, setEdgeWidth] = useState(2);
-  const [layout, setLayout] = useState<LayoutType>('circle');
+  const [layout, setLayout] = useState<LayoutAlgorithm>('circle');
 
   // ── Active analysis ──
   const [activeAnalysis, setActiveAnalysis] = useState<AnalysisKey | null>(null);
@@ -339,16 +344,17 @@ export const SnaExercise = () => {
     return detectCommunities(matrixData, communityMethod);
   }, [matrixData, modelBuilt, communityMethod]);
 
-  // ── Node positions based on layout ──
+  // ── Node positions based on layout (via dynajs) ──
   const nodePositions = useMemo(() => {
-    if (!modelBuilt || matrixData.length === 0) return undefined;
-    const n = nodeLabels.length;
+    if (!rawModel) return undefined;
+    const result = dynaLayout(rawModel, { algorithm: layout });
     const size = 500;
-    const cx = size / 2;
-    const cy = size / 2;
-    const r = cx - nodeRadius - 5;
-    return computeLayout(layout, n, matrixData, cx, cy, r);
-  }, [layout, nodeLabels, matrixData, nodeRadius, modelBuilt]);
+    const pad = nodeRadius + 5;
+    return Array.from({ length: result.labels.length }, (_, i) => ({
+      x: pad + result.x[i]! * (size - 2 * pad),
+      y: pad + result.y[i]! * (size - 2 * pad),
+    }));
+  }, [layout, rawModel, nodeRadius]);
 
   // ── Graph metrics ──
   const metrics = useMemo(() => {
@@ -558,7 +564,7 @@ export const SnaExercise = () => {
                     {/* Layout selector */}
                     <div>
                       <span className="text-[10px] text-gray-400 block mb-1">{t('sna.layout')}</span>
-                      <select value={layout} onChange={e => setLayout(e.target.value as LayoutType)} className={selectCls}>
+                      <select value={layout} onChange={e => setLayout(e.target.value as LayoutAlgorithm)} className={selectCls}>
                         {LAYOUT_OPTIONS.map(o => (
                           <option key={o.key} value={o.key}>{t(o.i18nKey)}</option>
                         ))}
@@ -681,6 +687,51 @@ export const SnaExercise = () => {
                   </div>
                 </div>
               )}
+
+              {/* Download Data */}
+              {datasetKey && currentEdges.length > 0 && (
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-2">
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                    <Download className="w-3 h-3 inline mr-1" />
+                    Download Data
+                  </label>
+                  <button
+                    onClick={() => exportEdgesAsCSV(currentEdges, 'sna-edge-list.csv')}
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Edge List ({currentEdges.length} edges)
+                  </button>
+                  {modelBuilt && (
+                    <>
+                      <button
+                        onClick={() => exportMatrixAsCSV(matrixData, nodeLabels, 'sna-adjacency-matrix.csv')}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        Adjacency Matrix
+                      </button>
+                      {centralityData && (
+                        <button
+                          onClick={() => exportCentralityAsCSV(centralityData, 'sna-centrality.csv')}
+                          className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          Centrality Measures
+                        </button>
+                      )}
+                      {communities && (
+                        <button
+                          onClick={() => exportRowsAsCSV(
+                            nodeLabels.map((label, i) => ({ node: label, community: communities.assignments[i] })),
+                            'sna-communities.csv',
+                          )}
+                          className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          Communities
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -749,9 +800,18 @@ export const SnaExercise = () => {
                   <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                     {t('sna.edge_list')}
                   </h2>
-                  <span className="text-xs text-gray-400">
-                    {currentEdges.length} {t('sna.edges_count')}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400">
+                      {currentEdges.length} {t('sna.edges_count')}
+                    </span>
+                    <button
+                      onClick={() => exportEdgesAsCSV(currentEdges, 'sna-edge-list.csv')}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      <Download className="w-3 h-3" />
+                      CSV
+                    </button>
+                  </div>
                 </div>
                 <div className="overflow-x-auto max-h-[32rem] overflow-y-auto">
                   <table className="w-full text-xs">
@@ -904,9 +964,18 @@ export const SnaExercise = () => {
                 {activeAnalysis === 'centrality' && centralityData && (
                   <>
                     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                        {t('sna.block_centrality')}
-                      </h3>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                          {t('sna.block_centrality')}
+                        </h3>
+                        <button
+                          onClick={() => exportCentralityAsCSV(centralityData, 'sna-centrality.csv')}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                        >
+                          <Download className="w-3 h-3" />
+                          CSV
+                        </button>
+                      </div>
                       {centralityView === 'chart' ? (
                         <CentralityBarChart centralityData={centralityData} colorMap={colorMap} selectedMeasure={centralityMetric} />
                       ) : (
@@ -926,9 +995,21 @@ export const SnaExercise = () => {
                 {activeAnalysis === 'communities' && communities && (
                   <>
                     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                        {t('sna.block_communities')}
-                      </h3>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                          {t('sna.block_communities')}
+                        </h3>
+                        <button
+                          onClick={() => exportRowsAsCSV(
+                            nodeLabels.map((label, i) => ({ node: label, community: communities.assignments[i] })),
+                            'sna-communities.csv',
+                          )}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                        >
+                          <Download className="w-3 h-3" />
+                          CSV
+                        </button>
+                      </div>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
                         {t('sna.communities_info')}
                       </p>
@@ -971,9 +1052,18 @@ export const SnaExercise = () => {
                 {activeAnalysis === 'adjacency' && (
                   <>
                     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                        {t('sna.block_adjacency')}
-                      </h3>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                          {t('sna.block_adjacency')}
+                        </h3>
+                        <button
+                          onClick={() => exportMatrixAsCSV(matrixData, nodeLabels, 'sna-adjacency-matrix.csv')}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                        >
+                          <Download className="w-3 h-3" />
+                          CSV
+                        </button>
+                      </div>
                       <TransitionHeatmap model={rawModel} colorMap={colorMap} />
                     </div>
                     <LabAIAssistant
