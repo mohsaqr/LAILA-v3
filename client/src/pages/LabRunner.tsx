@@ -11,6 +11,7 @@ import {
   ClipboardList,
   Camera,
   CheckCircle,
+  ArrowLeft,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';

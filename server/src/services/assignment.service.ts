@@ -387,7 +387,7 @@ export class AssignmentService {
     }
 
     // Upsert submission
-    const submittedAt = effectiveStatus !== 'draft' ? new Date() : null;
+    const submittedAt = effectiveStatus !== 'draft' ? new Date() : undefined;
     const submission = await prisma.assignmentSubmission.upsert({
       where: {
         assignmentId_userId: { assignmentId, userId },

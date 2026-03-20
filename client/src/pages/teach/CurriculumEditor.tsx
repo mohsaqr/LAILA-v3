@@ -50,6 +50,7 @@ interface AssignmentFormData {
   description: string;
   submissionType: 'text' | 'file' | 'mixed' | 'ai_agent';
   points: number;
+  weight: number;
   dueDate: string;
   isPublished: boolean;
 }

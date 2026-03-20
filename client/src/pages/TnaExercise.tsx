@@ -10,7 +10,7 @@
  */
 
 import { useState, useMemo, useCallback, useRef } from 'react';
-import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Breadcrumb } from '../components/common/Breadcrumb';
@@ -18,7 +18,7 @@ import {
   Network, X, BarChart3, GitBranch,
   Scissors, Target, Users,
   Database, Share2, BookOpen, ChevronDown, ChevronRight,
-  ArrowLeft, Sparkles, ClipboardList, Camera, Loader2, CheckCircle,
+  Sparkles, ClipboardList, Camera, Loader2, CheckCircle,
 } from 'lucide-react';
 import { assignmentsApi } from '../api/assignments';
 import { LabAssignmentPanel, type ReportItem } from '../components/labs/LabAssignmentPanel';
