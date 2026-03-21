@@ -978,7 +978,7 @@ class CourseTutorService {
     // Log activity
     activityLogService.logActivity({
       userId,
-      verb: 'messaged',
+      verb: 'interacted',
       objectType: 'course_tutor',
       objectId: tutor.id,
       objectTitle: mergedConfig.displayName,

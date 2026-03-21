@@ -4,14 +4,14 @@ import { useAuthStore } from '../store/authStore';
 // Activity verbs and object types matching the server schema
 export type ActivityVerb =
   | 'enrolled' | 'unenrolled' | 'viewed' | 'started' | 'completed'
-  | 'progressed' | 'paused' | 'resumed' | 'seeked' | 'scrolled'
-  | 'downloaded' | 'submitted' | 'graded' | 'messaged' | 'received'
-  | 'cleared' | 'interacted' | 'expressed' | 'selected' | 'switched';
+  | 'progressed' | 'submitted' | 'interacted' | 'downloaded' | 'selected';
 
 export type ObjectType =
   | 'course' | 'module' | 'lecture' | 'section' | 'video'
   | 'assignment' | 'chatbot' | 'file' | 'quiz' | 'emotional_pulse'
-  | 'tutor_agent' | 'tutor_session' | 'tutor_conversation' | 'lab';
+  | 'tutor_agent' | 'tutor_session' | 'tutor_conversation'
+  | 'course_tutor' | 'course_tutor_conversation' | 'lab'
+  | 'forum' | 'certificate' | 'survey' | 'gradebook';
 
 export interface LogActivityInput {
   verb: ActivityVerb;
@@ -225,7 +225,7 @@ class ActivityLogger {
 
   async logVideoPaused(sectionId: number, progress?: number, lectureId?: number, courseId?: number) {
     return this.log({
-      verb: 'paused',
+      verb: 'progressed',
       objectType: 'video',
       objectId: sectionId,
       courseId,
@@ -276,7 +276,7 @@ class ActivityLogger {
     messageContent?: { userMessage?: string; assistantMessage?: string; aiModel?: string }
   ) {
     return this.log({
-      verb: 'messaged',
+      verb: 'interacted',
       objectType: 'chatbot',
       objectId: sectionId,
       courseId,
@@ -317,6 +317,34 @@ class ActivityLogger {
 
   async logLabSubmitted(labType: string, assignmentId: number, courseId: number, extensions?: Record<string, unknown>) {
     return this.log({ verb: 'submitted', objectType: 'lab', objectId: assignmentId, objectTitle: `${labType}: submitted`, courseId, extensions });
+  }
+
+  async logQuizStarted(quizId: number, quizTitle?: string, courseId?: number) {
+    return this.log({ verb: 'started', objectType: 'quiz', objectId: quizId, objectTitle: quizTitle, courseId });
+  }
+
+  async logQuizSubmitted(quizId: number, quizTitle?: string, courseId?: number, score?: number, maxScore?: number) {
+    return this.log({ verb: 'submitted', objectType: 'quiz', objectId: quizId, objectTitle: quizTitle, courseId, score, maxScore, success: score != null && maxScore != null ? score >= maxScore * 0.5 : undefined });
+  }
+
+  async logForumPostCreated(forumId: number, postTitle?: string, courseId?: number, extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'interacted', objectType: 'forum', objectId: forumId, objectTitle: postTitle, courseId, extensions });
+  }
+
+  async logCertificateViewed(certificateId: number, courseId?: number) {
+    return this.log({ verb: 'viewed', objectType: 'certificate', objectId: certificateId, courseId });
+  }
+
+  async logCertificateDownloaded(certificateId: number, courseId?: number) {
+    return this.log({ verb: 'downloaded', objectType: 'certificate', objectId: certificateId, courseId });
+  }
+
+  async logSurveySubmitted(surveyId: number, surveyTitle?: string, courseId?: number, extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'submitted', objectType: 'survey', objectId: surveyId, objectTitle: surveyTitle, courseId, extensions });
+  }
+
+  async logGradebookViewed(courseId: number) {
+    return this.log({ verb: 'viewed', objectType: 'gradebook', courseId });
   }
 }
 

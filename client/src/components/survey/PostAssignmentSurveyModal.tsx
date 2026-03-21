@@ -13,6 +13,7 @@ import { useAuthStore } from '../../store/authStore';
 interface PostAssignmentSurveyModalProps {
   surveyId: number;
   assignmentId: number;
+  courseId?: number;
   isRequired: boolean;
   isOpen: boolean;
   onClose: () => void;
@@ -22,6 +23,7 @@ interface PostAssignmentSurveyModalProps {
 export const PostAssignmentSurveyModal = ({
   surveyId,
   assignmentId,
+  courseId,
   isRequired,
   isOpen,
   onClose,
@@ -168,6 +170,7 @@ export const PostAssignmentSurveyModal = ({
                 survey={survey}
                 context="post_assignment"
                 contextId={assignmentId}
+                courseId={courseId}
                 onComplete={handleComplete}
               />
             ) : null}

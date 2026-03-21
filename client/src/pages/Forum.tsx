@@ -32,6 +32,7 @@ import { ForumAgentSelector } from '../components/forum/ForumAgentSelector';
 import { ForumReplyInput } from '../components/forum/ForumReplyInput';
 import { buildForumBreadcrumb, buildThreadBreadcrumb } from '../utils/breadcrumbs';
 import DOMPurify from 'dompurify';
+import { activityLogger } from '../services/activityLogger';
 import { RichTextEditor } from '../components/forum/RichTextEditor';
 
 interface ThreadedPost extends ForumPost {
@@ -109,6 +110,7 @@ export const Forum = () => {
     mutationFn: (data: CreateThreadInput) => forumsApi.createThread(parsedForumId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['forum', parsedForumId] });
+      activityLogger.logForumPostCreated(parsedForumId, newThread.title, parseInt(courseId!), { action: 'thread_created' });
       toast.success(t('discussion_started'));
       setIsCreateThreadOpen(false);
       setNewThread({ title: '', content: '' });
@@ -120,6 +122,7 @@ export const Forum = () => {
     mutationFn: (data: CreatePostInput) => forumsApi.createPost(parsedThreadId!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['thread', parsedThreadId] });
+      activityLogger.logForumPostCreated(parsedForumId, undefined, parseInt(courseId!), { action: 'reply_created', threadId: parsedThreadId });
       toast.success(t('reply_posted'));
       setReplyContent('');
       setReplyingToId(null);
@@ -132,8 +135,9 @@ export const Forum = () => {
   const aiPostMutation = useMutation({
     mutationFn: ({ agentId, parentId }: { agentId: number; parentId?: number }) =>
       forumsApi.requestAiPost(parsedThreadId!, agentId, parentId),
-    onSuccess: (post) => {
+    onSuccess: (post, variables) => {
       queryClient.invalidateQueries({ queryKey: ['thread', parsedThreadId] });
+      activityLogger.log({ verb: 'interacted', objectType: 'tutor_agent', objectId: variables.agentId, courseId: parseInt(courseId!), extensions: { action: 'forum_ai_reply', forumId: parsedForumId, threadId: parsedThreadId } });
       toast.success(t('ai_responded', { name: post.aiAgentName || t('tutors:ai_tutor') }));
       setShowAiSelector(false);
       setAiReplyToId(null);

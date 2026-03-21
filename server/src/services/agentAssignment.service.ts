@@ -729,7 +729,7 @@ export class AgentAssignmentService {
     // Log to unified activity log for comprehensive tracking
     activityLogService.logActivity({
       userId: testerInfo.userId,
-      verb: 'messaged',
+      verb: 'interacted',
       objectType: 'tutor_agent',
       objectId: config.id,
       objectTitle: config.agentName || 'Student Agent',

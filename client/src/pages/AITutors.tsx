@@ -8,6 +8,7 @@ import { coursesApi } from '../api/courses';
 import { enrollmentsApi } from '../api/enrollments';
 import { TutorSidebar, TutorChat, EmotionalPulseHistory } from '../components/tutors';
 import { Loading } from '../components/common/Loading';
+import { activityLogger } from '../services/activityLogger';
 import { useTheme } from '../hooks/useTheme';
 import type {
   TutorAgent,
@@ -270,6 +271,7 @@ export const AITutors = () => {
   const handleSendMessage = useCallback(
     async (message: string, collaborativeSettings?: CollaborativeSettings) => {
       if (!selectedAgent) return;
+      activityLogger.log({ verb: 'interacted', objectType: 'tutor_agent', objectId: selectedAgent.id, courseId: parsedCourseId, extensions: { action: 'messaged', messageLength: message.length, mode } });
 
       // Optimistic update - add user message immediately
       const optimisticUserMessage: MessageWithMeta = {
@@ -303,8 +305,9 @@ export const AITutors = () => {
   // Handle clear conversation
   const handleClearConversation = useCallback(() => {
     if (!selectedAgent) return;
+    activityLogger.log({ verb: 'interacted', objectType: 'tutor_session', objectId: conversationData?.id, courseId: parsedCourseId, extensions: { action: 'cleared' } });
     clearConversationMutation.mutate(selectedAgent.id);
-  }, [selectedAgent, clearConversationMutation]);
+  }, [selectedAgent, clearConversationMutation, conversationData?.id, parsedCourseId]);
 
   // Handle emotional pulse
   const handleEmotionalPulse = useCallback((emotion: EmotionType) => {

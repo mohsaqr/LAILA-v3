@@ -525,7 +525,7 @@ function spectralCommunities(matrix: number[][]): { assignments: number[]; k: nu
 
 /* ── Layout algorithms ── */
 
-export type LayoutType = 'circle' | 'grid' | 'random' | 'force' | 'concentric';
+export type LayoutType = 'circle' | 'grid' | 'random' | 'force' | 'concentric' | 'spectral' | 'kamada-kawai' | 'star' | 'hierarchical';
 
 export function computeLayout(
   type: LayoutType,
@@ -540,6 +540,10 @@ export function computeLayout(
     case 'random': return randomLayout(n, cx, cy, radius);
     case 'force': return forceLayout(n, matrix, cx, cy, radius);
     case 'concentric': return concentricLayout(n, matrix, cx, cy, radius);
+    case 'spectral': return spectralLayout(n, matrix, cx, cy, radius);
+    case 'kamada-kawai': return kamadaKawaiLayout(n, matrix, cx, cy, radius);
+    case 'star': return starLayout(n, matrix, cx, cy, radius);
+    case 'hierarchical': return hierarchicalLayout(n, matrix, cx, cy, radius);
     case 'circle':
     default: return circleLayout(n, cx, cy, radius);
   }
@@ -669,6 +673,197 @@ function concentricLayout(n: number, matrix: number[][], cx: number, cy: number,
         pos[idx] = { x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle) };
       }
     });
+  }
+
+  return pos;
+}
+
+function spectralLayout(n: number, matrix: number[][], cx: number, cy: number, r: number) {
+  // Two smallest non-trivial eigenvectors of the graph Laplacian as x,y.
+  const w: number[][] = Array.from({ length: n }, (_, i) =>
+    Array.from({ length: n }, (_, j) => (matrix[i][j] || 0) + (matrix[j][i] || 0)),
+  );
+  const deg = w.map(row => row.reduce((a, b) => a + b, 0));
+
+  const removeConst = (v: number[]) => {
+    const mean = v.reduce((a, b) => a + b, 0) / n;
+    return v.map(x => x - mean);
+  };
+  const normalize = (v: number[]) => {
+    const norm = Math.sqrt(v.reduce((a, b) => a + b * b, 0)) || 1;
+    return v.map(x => x / norm);
+  };
+  const deflate = (v: number[], u: number[]) => {
+    const dot = v.reduce((s, vi, i) => s + vi * u[i], 0);
+    return v.map((vi, i) => vi - dot * u[i]);
+  };
+  const powerIterate = (init: number[], deflectors: number[][]) => {
+    let v = normalize(removeConst(init));
+    for (let iter = 0; iter < 150; iter++) {
+      const next = new Array(n).fill(0);
+      for (let i = 0; i < n; i++) {
+        if (deg[i] === 0) { next[i] = v[i]; continue; }
+        let s = 0;
+        for (let j = 0; j < n; j++) s += w[i][j] * v[j];
+        next[i] = s / deg[i];
+      }
+      let result = removeConst(next);
+      for (const d of deflectors) result = deflate(result, d);
+      v = normalize(result);
+    }
+    return v;
+  };
+
+  const v1 = powerIterate(Array.from({ length: n }, (_, i) => Math.sin(i * 2.71828 + 0.5)), []);
+  const v2 = powerIterate(Array.from({ length: n }, (_, i) => Math.cos(i * 1.61803 + 0.3)), [v1]);
+
+  const pad = 30;
+  const usable = r - pad;
+  const minX = Math.min(...v1), maxX = Math.max(...v1);
+  const minY = Math.min(...v2), maxY = Math.max(...v2);
+  const rangeX = maxX - minX || 1;
+  const rangeY = maxY - minY || 1;
+  return Array.from({ length: n }, (_, i) => ({
+    x: cx + ((v1[i] - minX) / rangeX - 0.5) * usable * 2,
+    y: cy + ((v2[i] - minY) / rangeY - 0.5) * usable * 2,
+  }));
+}
+
+function kamadaKawaiLayout(n: number, matrix: number[][], cx: number, cy: number, r: number) {
+  // Spring model minimizing energy based on graph-theoretic shortest-path distances.
+  const dist: number[][] = Array.from({ length: n }, () => new Array(n).fill(Infinity));
+  for (let s = 0; s < n; s++) {
+    dist[s][s] = 0;
+    const q = [s];
+    let qi = 0;
+    while (qi < q.length) {
+      const v = q[qi++];
+      for (let w = 0; w < n; w++) {
+        if (dist[s][w] < Infinity || w === v) continue;
+        if (matrix[v][w] > 0 || matrix[w][v] > 0) { dist[s][w] = dist[s][v] + 1; q.push(w); }
+      }
+    }
+  }
+  let maxDist = 0;
+  for (let i = 0; i < n; i++)
+    for (let j = 0; j < n; j++)
+      if (dist[i][j] < Infinity && dist[i][j] > maxDist) maxDist = dist[i][j];
+  const fallback = maxDist + 1;
+  for (let i = 0; i < n; i++)
+    for (let j = 0; j < n; j++)
+      if (dist[i][j] === Infinity) dist[i][j] = fallback;
+
+  const L0 = (r * 1.6) / Math.max(maxDist, 1);
+  const pos = circleLayout(n, cx, cy, r * 0.6);
+
+  for (let iter = 0; iter < 300; iter++) {
+    const step = 0.1 * (1 - iter / 300);
+    for (let i = 0; i < n; i++) {
+      let gx = 0, gy = 0;
+      for (let j = 0; j < n; j++) {
+        if (i === j) continue;
+        const dx = pos[i].x - pos[j].x;
+        const dy = pos[i].y - pos[j].y;
+        const d = Math.max(Math.sqrt(dx * dx + dy * dy), 0.01);
+        const ideal = dist[i][j] * L0;
+        const k = 1 / (dist[i][j] * dist[i][j]);
+        const force = k * (d - ideal) / d;
+        gx += force * dx;
+        gy += force * dy;
+      }
+      pos[i].x -= step * gx;
+      pos[i].y -= step * gy;
+    }
+  }
+
+  const pad = 30;
+  let mnX = Infinity, mxX = -Infinity, mnY = Infinity, mxY = -Infinity;
+  for (const p of pos) { mnX = Math.min(mnX, p.x); mxX = Math.max(mxX, p.x); mnY = Math.min(mnY, p.y); mxY = Math.max(mxY, p.y); }
+  const rX = mxX - mnX || 1, rY = mxY - mnY || 1;
+  const usable = r - pad;
+  return pos.map(p => ({
+    x: cx + ((p.x - mnX) / rX - 0.5) * usable * 2,
+    y: cy + ((p.y - mnY) / rY - 0.5) * usable * 2,
+  }));
+}
+
+function starLayout(n: number, matrix: number[][], cx: number, cy: number, r: number) {
+  // Hub node (highest degree) at center, neighbors on inner ring, rest on outer ring.
+  const degrees = Array.from({ length: n }, (_, i) => {
+    let d = 0;
+    for (let j = 0; j < n; j++) if (i !== j && (matrix[i][j] > 0 || matrix[j][i] > 0)) d++;
+    return d;
+  });
+  const hub = degrees.indexOf(Math.max(...degrees));
+
+  const pos: { x: number; y: number }[] = new Array(n);
+  pos[hub] = { x: cx, y: cy };
+
+  const neighbors: number[] = [];
+  const others: number[] = [];
+  for (let i = 0; i < n; i++) {
+    if (i === hub) continue;
+    if (matrix[hub][i] > 0 || matrix[i][hub] > 0) neighbors.push(i);
+    else others.push(i);
+  }
+
+  const innerR = r * 0.5;
+  neighbors.forEach((idx, i) => {
+    const angle = (2 * Math.PI * i) / neighbors.length - Math.PI / 2;
+    pos[idx] = { x: cx + innerR * Math.cos(angle), y: cy + innerR * Math.sin(angle) };
+  });
+
+  if (others.length > 0) {
+    const outerR = r * 0.92;
+    others.forEach((idx, i) => {
+      const angle = (2 * Math.PI * i) / others.length - Math.PI / 2;
+      pos[idx] = { x: cx + outerR * Math.cos(angle), y: cy + outerR * Math.sin(angle) };
+    });
+  }
+
+  return pos;
+}
+
+function hierarchicalLayout(n: number, matrix: number[][], cx: number, cy: number, r: number) {
+  // BFS-layered: root = highest-degree node, layers by BFS depth, top to bottom.
+  const degrees = Array.from({ length: n }, (_, i) => {
+    let d = 0;
+    for (let j = 0; j < n; j++) if (i !== j && (matrix[i][j] > 0 || matrix[j][i] > 0)) d++;
+    return d;
+  });
+  const root = degrees.indexOf(Math.max(...degrees));
+
+  const layer = new Array(n).fill(-1);
+  layer[root] = 0;
+  const queue = [root];
+  let qi = 0;
+  while (qi < queue.length) {
+    const v = queue[qi++];
+    for (let w = 0; w < n; w++) {
+      if (layer[w] >= 0 || w === v) continue;
+      if (matrix[v][w] > 0 || matrix[w][v] > 0) { layer[w] = layer[v] + 1; queue.push(w); }
+    }
+  }
+  let maxLayer = Math.max(...layer.filter(l => l >= 0), 0);
+  for (let i = 0; i < n; i++) if (layer[i] < 0) layer[i] = ++maxLayer;
+
+  const layers: number[][] = Array.from({ length: maxLayer + 1 }, () => []);
+  for (let i = 0; i < n; i++) layers[layer[i]].push(i);
+
+  const pos: { x: number; y: number }[] = new Array(n);
+  const pad = 30;
+  const usableH = (r - pad) * 2;
+  const usableW = (r - pad) * 2;
+  const layerCount = maxLayer + 1;
+  const layerSpacing = layerCount > 1 ? usableH / (layerCount - 1) : 0;
+  const topY = cy - usableH / 2;
+
+  for (let l = 0; l < layerCount; l++) {
+    const nodes = layers[l];
+    const y = layerCount > 1 ? topY + l * layerSpacing : cy;
+    const nodeSpacing = nodes.length > 1 ? usableW / (nodes.length - 1) : 0;
+    const startX = cx - (nodes.length > 1 ? usableW / 2 : 0);
+    nodes.forEach((idx, i) => { pos[idx] = { x: startX + i * nodeSpacing, y }; });
   }
 
   return pos;

@@ -40,6 +40,7 @@ import { Breadcrumb } from '../components/common/Breadcrumb';
 import { PostAssignmentSurveyModal } from '../components/survey';
 import { getSessionId, getClientInfo } from '../utils/analytics';
 import { debug } from '../utils/debug';
+import { activityLogger } from '../services/activityLogger';
 
 // Thin wrappers that provide the runtime hook and pass courseId directly
 const RLabEmbed = ({ lab, courseId }: { lab: any; courseId: number }) => {
@@ -158,6 +159,15 @@ export const AssignmentView = () => {
       timestamp: Date.now(),
       ...clientInfo,
     }).catch(err => debug.error('Failed to log assignment_view event:', err));
+
+    // Also log to LearningActivityLog for TNA sequences
+    activityLogger.log({
+      verb: 'viewed',
+      objectType: 'assignment',
+      objectId: parsedAssignmentId,
+      objectTitle: assignment.title,
+      courseId: parsedCourseId,
+    });
   }, [assignment, parsedCourseId, parsedAssignmentId]);
 
   const saveDraftMutation = useMutation({
@@ -185,6 +195,9 @@ export const AssignmentView = () => {
       queryClient.invalidateQueries({ queryKey: ['mySubmission', assignmentId] });
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
       toast.success(t('assignment_submitted'));
+
+      // Log submission to LearningActivityLog
+      activityLogger.logAssignmentSubmitted(parsedAssignmentId, assignment?.title, parsedCourseId);
 
       // Show post-assignment survey modal if configured
       if (assignment?.postSurveyId) {
@@ -250,7 +263,10 @@ export const AssignmentView = () => {
   const course = enrollment.enrollment?.course;
   const now = new Date();
   const dueDate = assignment.dueDate ? new Date(assignment.dueDate) : null;
-  const isPastDue = dueDate ? dueDate < now : false;
+  // Due dates are stored with Z suffix but represent wall-clock time.
+  // Strip Z so the comparison uses local time, matching what the instructor set.
+  const dueDateLocal = assignment.dueDate ? new Date(assignment.dueDate.replace('Z', '')) : null;
+  const isPastDue = dueDateLocal ? dueDateLocal < now : false;
   const isSubmitted = mySubmission?.status === 'submitted' || mySubmission?.status === 'graded';
   const isGraded = mySubmission?.status === 'graded';
   const canSubmit = !isPastDue && !isSubmitted;
@@ -263,8 +279,9 @@ export const AssignmentView = () => {
       const { url } = await uploadsApi.uploadAssignmentSubmission(file, parsedAssignmentId);
       setFileUrls(prev => [...prev, url]);
       toast.success(t('file_uploaded', { defaultValue: 'File uploaded' }));
-    } catch {
-      toast.error(t('file_upload_failed', { defaultValue: 'File upload failed' }));
+    } catch (err: any) {
+      const message = err?.message || t('file_upload_failed', { defaultValue: 'File upload failed' });
+      toast.error(message);
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -322,7 +339,7 @@ export const AssignmentView = () => {
             {dueDate && (
               <span className="flex items-center gap-1" style={{ color: isPastDue ? colors.textRed : colors.textSecondary }}>
                 <Calendar className="w-4 h-4" />
-                {t('due_at', { date: dueDate.toLocaleDateString(), time: dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) })}
+                {t('due_at', { date: dueDate.toLocaleDateString(undefined, { timeZone: 'UTC' }), time: dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) })}
               </span>
             )}
             <span className="flex items-center gap-1 capitalize">
@@ -350,9 +367,17 @@ export const AssignmentView = () => {
                 <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{t('assignment_description')}</h2>
               </CardHeader>
               <CardBody>
-                <div className="prose max-w-none" style={{ color: colors.textSecondary }}>
-                  <ReactMarkdown>{assignment.description}</ReactMarkdown>
-                </div>
+                {isHtmlContent(assignment.description) ? (
+                  <div
+                    className="prose dark:prose-invert max-w-none"
+                    style={{ color: colors.textSecondary }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(assignment.description) }}
+                  />
+                ) : (
+                  <div className="prose max-w-none" style={{ color: colors.textSecondary }}>
+                    <ReactMarkdown>{assignment.description}</ReactMarkdown>
+                  </div>
+                )}
               </CardBody>
             </Card>
           )}
@@ -415,8 +440,34 @@ export const AssignmentView = () => {
             </Card>
           )}
 
+          {/* Deadline Passed Notice */}
+          {isPastDue && !isSubmitted && !isGraded && (
+            <Card style={{ backgroundColor: colors.bgRed, borderColor: 'rgba(239, 68, 68, 0.3)' }}>
+              <CardBody className="text-center py-8">
+                <AlertCircle className="w-12 h-12 mx-auto mb-3" style={{ color: colors.textRed }} />
+                <h2 className="text-lg font-semibold mb-2" style={{ color: colors.textRed }}>
+                  {t('deadline_passed', { defaultValue: 'Deadline Has Passed' })}
+                </h2>
+                <p className="text-sm" style={{ color: colors.textRed }}>
+                  {t('deadline_passed_description', {
+                    defaultValue: 'The due date for this assignment has passed. You can no longer submit your work.',
+                  })}
+                </p>
+                {dueDate && (
+                  <p className="text-xs mt-3" style={{ color: colors.textRed, opacity: 0.8 }}>
+                    {t('was_due_at', {
+                      defaultValue: 'Due: {{date}} at {{time}}',
+                      date: dueDate.toLocaleDateString(undefined, { timeZone: 'UTC' }),
+                      time: dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
+                    })}
+                  </p>
+                )}
+              </CardBody>
+            </Card>
+          )}
+
           {/* Submission Area */}
-          {!isGraded && (
+          {!isGraded && !(isPastDue && !isSubmitted) && (
             <Card>
               <CardHeader>
                 <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{t('your_submission')}</h2>
@@ -714,6 +765,7 @@ export const AssignmentView = () => {
         <PostAssignmentSurveyModal
           surveyId={assignment.postSurveyId}
           assignmentId={parsedAssignmentId}
+          courseId={parsedCourseId}
           isRequired={assignment.postSurveyRequired ?? false}
           isOpen={showSurveyModal}
           onClose={() => setShowSurveyModal(false)}

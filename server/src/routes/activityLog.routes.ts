@@ -11,14 +11,15 @@ const router = Router();
 // Valid verbs and object types
 const validVerbs = [
   'enrolled', 'unenrolled', 'viewed', 'started', 'completed', 'progressed',
-  'paused', 'resumed', 'seeked', 'scrolled', 'downloaded', 'submitted',
-  'graded', 'messaged', 'received', 'cleared', 'interacted',
+  'submitted', 'interacted', 'downloaded', 'selected',
 ] as const;
 
 const validObjectTypes = [
   'course', 'module', 'lecture', 'section', 'video',
   'assignment', 'chatbot', 'file', 'quiz',
   'emotional_pulse', 'tutor_agent', 'tutor_session', 'tutor_conversation',
+  'course_tutor', 'course_tutor_conversation',
+  'lab', 'forum', 'certificate', 'survey', 'gradebook',
 ] as const;
 
 // Validation schemas
@@ -72,9 +73,28 @@ router.post('/', authenticateToken, asyncHandler(async (req: AuthRequest, res: R
  * Log multiple activities
  */
 router.post('/batch', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { activities } = batchLogSchema.parse(req.body);
+  // Validate the batch wrapper (must have activities array)
+  const rawActivities = req.body?.activities;
+  if (!Array.isArray(rawActivities) || rawActivities.length === 0 || rawActivities.length > 100) {
+    res.status(400).json({ success: false, error: 'activities must be an array with 1-100 items' });
+    return;
+  }
+
+  // Per-item validation: skip invalid events instead of rejecting the entire batch
+  const validActivities: z.infer<typeof logActivitySchema>[] = [];
+  const errors: Array<{ index: number; error: string }> = [];
+
+  for (let i = 0; i < rawActivities.length; i++) {
+    const result = logActivitySchema.safeParse(rawActivities[i]);
+    if (result.success) {
+      validActivities.push(result.data);
+    } else {
+      errors.push({ index: i, error: result.error.issues[0]?.message || 'Validation failed' });
+    }
+  }
+
   const results = await Promise.all(
-    activities.map((activity) =>
+    validActivities.map((activity) =>
       activityLogService.logActivity({
         ...activity,
         userId: req.user!.id,
@@ -83,7 +103,13 @@ router.post('/batch', authenticateToken, asyncHandler(async (req: AuthRequest, r
       })
     )
   );
-  res.status(201).json({ success: true, data: results, count: results.length });
+
+  res.status(201).json({
+    success: true,
+    data: results,
+    count: results.length,
+    ...(errors.length > 0 ? { skipped: errors.length, errors } : {}),
+  });
 }));
 
 // ============================================================================

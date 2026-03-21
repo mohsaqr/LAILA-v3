@@ -21,7 +21,11 @@ import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { ChatbotConversationMessage } from '../../types';
 
-export const ChatbotLogs = () => {
+interface ChatbotLogsProps {
+  embedded?: boolean;
+}
+
+export const ChatbotLogs = ({ embedded = false }: ChatbotLogsProps) => {
   const { t } = useTranslation(['teaching', 'common']);
   const { id } = useParams<{ id: string }>();
   const courseId = parseInt(id!, 10);
@@ -105,26 +109,8 @@ export const ChatbotLogs = () => {
 
   const breadcrumbItems = buildTeachingBreadcrumb(id, course?.title || 'Course', t('chatbot_logs'));
 
-  return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Breadcrumb navigation */}
-      <div className="mb-6">
-        <Breadcrumb homeHref="/" items={breadcrumbItems} />
-      </div>
-
-      {/* Course Header */}
-      <Card className="mb-6">
-        <CardBody className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{course.title}</h1>
-            <p className="text-gray-600">{t('chatbot_conversations_analytics')}</p>
-          </div>
-          <div className="flex items-center gap-2 text-amber-600">
-            <MessageCircle className="w-6 h-6" />
-            <span className="text-lg font-semibold">{t('ai_chatbot_logs')}</span>
-          </div>
-        </CardBody>
-      </Card>
+  const content = (
+    <>
 
       {/* Analytics Overview */}
       {analytics && (
@@ -431,6 +417,35 @@ export const ChatbotLogs = () => {
           </CardBody>
         </Card>
       )}
+    </>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Breadcrumb navigation */}
+      <div className="mb-6">
+        <Breadcrumb homeHref="/" items={breadcrumbItems} />
+      </div>
+
+      {/* Course Header */}
+      <Card className="mb-6">
+        <CardBody className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">{course.title}</h1>
+            <p className="text-gray-600">{t('chatbot_conversations_analytics')}</p>
+          </div>
+          <div className="flex items-center gap-2 text-amber-600">
+            <MessageCircle className="w-6 h-6" />
+            <span className="text-lg font-semibold">{t('ai_chatbot_logs')}</span>
+          </div>
+        </CardBody>
+      </Card>
+
+      {content}
     </div>
   );
 };

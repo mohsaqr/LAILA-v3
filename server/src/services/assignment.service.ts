@@ -387,7 +387,7 @@ export class AssignmentService {
     }
 
     // Upsert submission
-    const submittedAt = effectiveStatus !== 'draft' ? new Date() : null;
+    const submittedAt = effectiveStatus !== 'draft' ? new Date() : undefined;
     const submission = await prisma.assignmentSubmission.upsert({
       where: {
         assignmentId_userId: { assignmentId, userId },
@@ -424,7 +424,8 @@ export class AssignmentService {
           browserName: context?.browserName,
         }, context?.ipAddress);
       } catch (error) {
-      assignmentLogger.warn({ err: error, userId, assignmentId }, 'Failed to log assignment submit event');
+        assignmentLogger.warn({ err: error, userId, assignmentId }, 'Failed to log assignment submit event');
+      }
     }
 
     return submission;

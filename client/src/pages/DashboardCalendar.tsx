@@ -84,9 +84,9 @@ export const DashboardCalendar = () => {
     return (allAssignments || []).filter((assignment: any) => {
       const dueDate = new Date(assignment.dueDate);
       return (
-        dueDate.getDate() === date.getDate() &&
-        dueDate.getMonth() === date.getMonth() &&
-        dueDate.getFullYear() === date.getFullYear()
+        dueDate.getUTCDate() === date.getDate() &&
+        dueDate.getUTCMonth() === date.getMonth() &&
+        dueDate.getUTCFullYear() === date.getFullYear()
       );
     });
   };
@@ -260,7 +260,8 @@ export const DashboardCalendar = () => {
                   <div className="space-y-3">
                     {upcomingAssignments.map((assignment: any) => {
                       const dueDate = new Date(assignment.dueDate);
-                      const isUrgent = dueDate.getTime() - Date.now() < 24 * 60 * 60 * 1000;
+                      const dueDateLocal = new Date(assignment.dueDate.replace('Z', ''));
+                      const isUrgent = dueDateLocal.getTime() - Date.now() < 24 * 60 * 60 * 1000;
 
                       return (
                         <Link
@@ -287,7 +288,7 @@ export const DashboardCalendar = () => {
                               </p>
                               <p className="text-xs flex items-center gap-1 mt-1" style={{ color: isUrgent ? colors.textRed : colors.textMuted }}>
                                 <Clock className="w-3 h-3" />
-                                {dueDate.toLocaleDateString()} at {dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {dueDate.toLocaleDateString(undefined, { timeZone: 'UTC' })} at {dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })}
                               </p>
                             </div>
                           </div>

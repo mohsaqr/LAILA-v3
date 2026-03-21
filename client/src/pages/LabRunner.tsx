@@ -1,16 +1,18 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { Breadcrumb } from '../components/common/Breadcrumb';
 import {
-  ArrowLeft,
   FlaskConical,
   RefreshCw,
   HelpCircle,
   Loader2,
   AlertTriangle,
+  ArrowLeft,
   ClipboardList,
   Camera,
   CheckCircle,
+  ArrowLeft,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
@@ -24,6 +26,7 @@ import { useLabWebR } from '../hooks/useLabWebR';
 import { useLabPyodide } from '../hooks/useLabPyodide';
 import { useTheme } from '../hooks/useTheme';
 import { LabTemplate } from '../types';
+import { activityLogger } from '../services/activityLogger';
 
 interface OutputItem {
   type: 'stdout' | 'stderr' | 'plot' | 'message';
@@ -94,6 +97,21 @@ export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookRe
     textSecondary: isDark ? '#9ca3af' : '#6b7280',
   };
 
+  // Log lab viewed/started when lab loads
+  const hasLoggedStartRef = useRef(false);
+  useEffect(() => {
+    if (hasLoggedStartRef.current) return;
+    hasLoggedStartRef.current = true;
+    activityLogger.log({
+      verb: 'started',
+      objectType: 'lab',
+      objectId: lab.id,
+      objectTitle: lab.name,
+      courseId: courseId ?? undefined,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lab.id]);
+
   // Reset state when lab changes (e.g. navigating between labs)
   useEffect(() => {
     setCode(defaultCode);
@@ -103,6 +121,7 @@ export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookRe
     setSessionEvents([]);
     setVisitedTemplates([]);
     setAssignmentPanelOpen(false);
+    hasLoggedStartRef.current = false;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lab.id]);
 
@@ -122,7 +141,15 @@ export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookRe
     setSelectedTemplateId(template.id);
     setOutputs([]);
     logSession('Template selected: ' + template.title);
-  }, [logSession]);
+    activityLogger.log({
+      verb: 'selected',
+      objectType: 'lab',
+      objectId: lab.id,
+      objectTitle: `${lab.name}: ${template.title}`,
+      courseId: courseId ?? undefined,
+      extensions: { templateId: template.id, templateTitle: template.title },
+    });
+  }, [logSession, lab.id, lab.name, courseId]);
 
   const handleRunCode = useCallback(async () => {
     if (!isReady || isExecuting) return;
@@ -138,7 +165,17 @@ export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookRe
         ...(result.error ? [{ type: 'stderr' as const, content: result.error }] : []),
       ]);
     }
-  }, [code, isReady, isExecuting, executeCode, selectedTemplate, logSession]);
+    // Log code execution
+    activityLogger.log({
+      verb: 'interacted',
+      objectType: 'lab',
+      objectId: lab.id,
+      objectTitle: `${lab.name}: code executed`,
+      courseId: courseId ?? undefined,
+      success: result.success,
+      extensions: { templateTitle, codeLength: code.length, outputCount: result.outputs.length },
+    });
+  }, [code, isReady, isExecuting, executeCode, selectedTemplate, logSession, lab.id, lab.name, courseId]);
 
   const handleResetSession = useCallback(async () => {
     setOutputs([]);
@@ -192,28 +229,38 @@ export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookRe
   return (
     <div className="min-h-screen" style={{ backgroundColor: colors.bg }}>
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Breadcrumb */}
+        <div className="mb-4">
+          <Breadcrumb
+            items={
+              courseId
+                ? [
+                    { label: t('common:courses'), href: '/courses' },
+                    { label: lab.name },
+                  ]
+                : [
+                    { label: t('labs'), href: '/labs' },
+                    { label: lab.name },
+                  ]
+            }
+          />
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <Link to="/labs">
-              <Button variant="ghost" size="sm" icon={<ArrowLeft className="w-4 h-4" />}>
-                {t('back_to_labs')}
-              </Button>
-            </Link>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 flex items-center justify-center">
-                <FlaskConical className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold" style={{ color: colors.textPrimary }}>
-                  {lab.name}
-                </h1>
-                {lab.description && (
-                  <p className="text-sm" style={{ color: colors.textSecondary }}>
-                    {lab.description}
-                  </p>
-                )}
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 flex items-center justify-center">
+              <FlaskConical className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold" style={{ color: colors.textPrimary }}>
+                {lab.name}
+              </h1>
+              {lab.description && (
+                <p className="text-sm" style={{ color: colors.textSecondary }}>
+                  {lab.description}
+                </p>
+              )}
             </div>
           </div>
 
@@ -348,7 +395,7 @@ export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookRe
           </div>
 
           <div className="lg:col-span-3 space-y-6" ref={outputAreaRef}>
-            {selectedTemplate?.content && (
+            {selectedTemplate?.description && (
               <div
                 className="rounded-lg border p-5"
                 style={{ backgroundColor: colors.cardBg, borderColor: colors.border }}
@@ -360,7 +407,7 @@ export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookRe
                   className="text-sm leading-relaxed whitespace-pre-line"
                   style={{ color: colors.textSecondary }}
                 >
-                  {selectedTemplate.content}
+                  {selectedTemplate.description}
                 </div>
               </div>
             )}

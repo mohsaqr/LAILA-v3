@@ -60,7 +60,7 @@ export class EmotionalPulseService {
     // Log to unified activity log
     activityLogService.logActivity({
       userId,
-      verb: 'expressed',
+      verb: 'interacted',
       objectType: 'emotional_pulse',
       objectId: pulse.id,
       objectTitle: emotion,

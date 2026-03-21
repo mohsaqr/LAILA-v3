@@ -99,26 +99,22 @@ describe('activityLogService.getTnaSequences', () => {
     expect(result.metadata.courseTitle).toBeNull();
   });
 
-  it('should merge similar verbs (seeked+scrolled → navigated)', async () => {
+  it('should pass verbs through unchanged (no merges)', async () => {
     vi.mocked(prisma.learningActivityLog.findMany).mockResolvedValue([
       { userId: 1, verb: 'viewed', timestamp: new Date('2024-01-01T10:00:00Z'), courseTitle: 'C' },
-      { userId: 1, verb: 'scrolled', timestamp: new Date('2024-01-01T10:01:00Z'), courseTitle: 'C' },
-      { userId: 1, verb: 'seeked', timestamp: new Date('2024-01-01T10:02:00Z'), courseTitle: 'C' },
-      { userId: 1, verb: 'paused', timestamp: new Date('2024-01-01T10:03:00Z'), courseTitle: 'C' },
-      { userId: 1, verb: 'resumed', timestamp: new Date('2024-01-01T10:04:00Z'), courseTitle: 'C' },
+      { userId: 1, verb: 'interacted', timestamp: new Date('2024-01-01T10:01:00Z'), courseTitle: 'C' },
+      { userId: 1, verb: 'submitted', timestamp: new Date('2024-01-01T10:02:00Z'), courseTitle: 'C' },
+      { userId: 1, verb: 'progressed', timestamp: new Date('2024-01-01T10:03:00Z'), courseTitle: 'C' },
+      { userId: 1, verb: 'downloaded', timestamp: new Date('2024-01-01T10:04:00Z'), courseTitle: 'C' },
     ] as any);
 
     const result = await activityLogService.getTnaSequences({ minVerbPct: 0 });
 
-    expect(result.sequences[0]).toEqual(['viewed', 'navigated', 'navigated', 'media_control', 'media_control']);
-    expect(result.metadata.uniqueVerbs).toContain('navigated');
-    expect(result.metadata.uniqueVerbs).toContain('media_control');
-    expect(result.metadata.uniqueVerbs).not.toContain('scrolled');
-    expect(result.metadata.uniqueVerbs).not.toContain('seeked');
+    expect(result.sequences[0]).toEqual(['viewed', 'interacted', 'submitted', 'progressed', 'downloaded']);
   });
 
   it('should replace rare verbs with "other" when minVerbPct threshold is set', async () => {
-    // 10 events: viewed=5 (50%), completed=3 (30%), downloaded=1 (10%), graded=1 (10%)
+    // 10 events: viewed=5 (50%), completed=3 (30%), downloaded=1 (10%), selected=1 (10%)
     vi.mocked(prisma.learningActivityLog.findMany).mockResolvedValue([
       { userId: 1, verb: 'viewed', timestamp: new Date('2024-01-01T10:00:00Z'), courseTitle: 'C' },
       { userId: 1, verb: 'viewed', timestamp: new Date('2024-01-01T10:01:00Z'), courseTitle: 'C' },
@@ -129,10 +125,10 @@ describe('activityLogService.getTnaSequences', () => {
       { userId: 1, verb: 'completed', timestamp: new Date('2024-01-01T10:06:00Z'), courseTitle: 'C' },
       { userId: 1, verb: 'completed', timestamp: new Date('2024-01-01T10:07:00Z'), courseTitle: 'C' },
       { userId: 1, verb: 'downloaded', timestamp: new Date('2024-01-01T10:08:00Z'), courseTitle: 'C' },
-      { userId: 1, verb: 'graded', timestamp: new Date('2024-01-01T10:09:00Z'), courseTitle: 'C' },
+      { userId: 1, verb: 'selected', timestamp: new Date('2024-01-01T10:09:00Z'), courseTitle: 'C' },
     ] as any);
 
-    // 20% threshold: downloaded (10%) and graded (10%) should become "other"
+    // 20% threshold: downloaded (10%) and selected (10%) should become "other"
     const result = await activityLogService.getTnaSequences({ minVerbPct: 0.2 });
 
     expect(result.sequences[0]).toEqual([
@@ -142,6 +138,6 @@ describe('activityLogService.getTnaSequences', () => {
     ]);
     expect(result.metadata.uniqueVerbs).toContain('other');
     expect(result.metadata.uniqueVerbs).not.toContain('downloaded');
-    expect(result.metadata.uniqueVerbs).not.toContain('graded');
+    expect(result.metadata.uniqueVerbs).not.toContain('selected');
   });
 });

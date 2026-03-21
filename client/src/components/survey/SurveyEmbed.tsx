@@ -13,6 +13,7 @@ interface SurveyEmbedProps {
   context?: SurveyContext;
   contextId?: number;
   moduleId?: number;
+  courseId?: number;
   onComplete?: () => void;
   compact?: boolean;
   showTitle?: boolean;
@@ -31,6 +32,7 @@ export const SurveyEmbed = ({
   context = 'standalone',
   contextId,
   moduleId,
+  courseId,
   onComplete,
   compact = false,
   showTitle = true,
@@ -137,6 +139,7 @@ export const SurveyEmbed = ({
           context={context}
           contextId={contextId}
           moduleId={moduleId}
+          courseId={courseId}
           onComplete={handleComplete}
           compact
         />
@@ -170,6 +173,7 @@ export const SurveyEmbed = ({
           context={context}
           contextId={contextId}
           moduleId={moduleId}
+          courseId={courseId}
           onComplete={handleComplete}
         />
       </CardBody>

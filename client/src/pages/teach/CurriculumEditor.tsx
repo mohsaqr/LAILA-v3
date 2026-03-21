@@ -50,6 +50,7 @@ interface AssignmentFormData {
   description: string;
   submissionType: 'text' | 'file' | 'mixed' | 'ai_agent';
   points: number;
+  weight: number;
   dueDate: string;
   isPublished: boolean;
 }
@@ -358,7 +359,7 @@ export const CurriculumEditor = () => {
         enableAssignment,
         prompt: enableAssignment ? prompt : undefined,
         points: enableAssignment ? points : undefined,
-        dueDate: enableAssignment && dueDate ? new Date(dueDate).toISOString() : undefined,
+        dueDate: enableAssignment && dueDate ? dueDate + ':00.000Z' : undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
@@ -395,7 +396,7 @@ export const CurriculumEditor = () => {
     mutationFn: (data: AssignmentFormData & { moduleId: number }) =>
       assignmentsApi.createAssignment(courseId, {
         ...data,
-        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
+        dueDate: data.dueDate ? data.dueDate + ':00.000Z' : null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
@@ -413,7 +414,7 @@ export const CurriculumEditor = () => {
     mutationFn: ({ id, data }: { id: number; data: AssignmentFormData & { moduleId?: number } }) =>
       assignmentsApi.updateAssignment(id, {
         ...data,
-        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
+        dueDate: data.dueDate ? data.dueDate + ':00.000Z' : null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
@@ -654,7 +655,7 @@ export const CurriculumEditor = () => {
           submissionType: 'mixed',
           isPublished: true,
           points: assignmentConfig.points,
-          dueDate: assignmentConfig.dueDate ? new Date(assignmentConfig.dueDate).toISOString() : undefined,
+          dueDate: assignmentConfig.dueDate ? assignmentConfig.dueDate + ':00.000Z' : undefined,
           agentRequirements: `interactive_lab_${labKey}`,
         } as any);
       } catch {

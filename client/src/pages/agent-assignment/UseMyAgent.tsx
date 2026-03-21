@@ -152,7 +152,7 @@ export const UseMyAgent = () => {
   const { assignment, config } = data;
 
   // Agent is "built" when submitted OR past due date (auto-submit)
-  const isPastDue = Boolean(assignment.dueDate && new Date(assignment.dueDate) < new Date());
+  const isPastDue = Boolean(assignment.dueDate && new Date(assignment.dueDate.replace('Z', '')) < new Date());
   const isBuilt = (config && !config.isDraft) || isPastDue;
 
   // Check if agent is built

@@ -174,7 +174,7 @@ Important: Respond in plain text only. Do not use markdown formatting, bullet po
       // Log chatbot message activity with full message content
       console.log('[ChatbotConversation] Logging message activity to LearningActivityLog:', {
         userId,
-        verb: 'messaged',
+        verb: 'interacted',
         objectType: 'chatbot',
         sectionId,
         courseId: section.lecture.module.course.id,
@@ -184,7 +184,7 @@ Important: Respond in plain text only. Do not use markdown formatting, bullet po
 
       activityLogService.logActivity({
         userId,
-        verb: 'messaged',
+        verb: 'interacted',
         objectType: 'chatbot',
         objectId: sectionId,
         objectTitle: section.chatbotTitle || 'Chatbot',
@@ -246,7 +246,7 @@ Important: Respond in plain text only. Do not use markdown formatting, bullet po
     // Log conversation cleared activity
     activityLogService.logActivity({
       userId,
-      verb: 'cleared',
+      verb: 'interacted',
       objectType: 'chatbot',
       objectId: sectionId,
       objectTitle: section.chatbotTitle || 'Chatbot',

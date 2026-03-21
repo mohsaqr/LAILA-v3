@@ -4,12 +4,14 @@ import { surveysApi } from '../../api/surveys';
 import { SurveyQuestion } from './SurveyQuestion';
 import { Button } from '../common/Button';
 import { useTheme } from '../../hooks/useTheme';
+import { activityLogger } from '../../services/activityLogger';
 
 interface SurveyRendererProps {
   survey: Survey;
   context?: SurveyContext;
   contextId?: number;
   moduleId?: number;
+  courseId?: number;
   onComplete?: () => void;
   compact?: boolean;
 }
@@ -19,6 +21,7 @@ export const SurveyRenderer = ({
   context = 'standalone',
   contextId,
   moduleId,
+  courseId,
   onComplete,
   compact = false,
 }: SurveyRendererProps) => {
@@ -77,6 +80,7 @@ export const SurveyRenderer = ({
         answers: formattedAnswers,
       });
 
+      activityLogger.logSurveySubmitted(survey.id, survey.title, courseId, { context, contextId, questionCount: survey.questions?.length });
       onComplete?.();
     } catch (error: any) {
       setSubmitError(error.response?.data?.message || 'Failed to submit survey');

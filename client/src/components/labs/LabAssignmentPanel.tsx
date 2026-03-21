@@ -87,6 +87,24 @@ export const LabAssignmentPanel = ({
     retry: false,
   });
 
+  // Pre-populate form from existing submission (draft or previous)
+  useEffect(() => {
+    if (existingSubmission) {
+      if (existingSubmission.content && !response) {
+        setResponse(existingSubmission.content);
+      }
+      if (existingSubmission.fileUrls && !pdfUrl) {
+        try {
+          const urls = JSON.parse(existingSubmission.fileUrls);
+          if (Array.isArray(urls) && urls.length > 0) {
+            setPdfUrl(urls[0]);
+          }
+        } catch { /* ignore */ }
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existingSubmission]);
+
   const submitMutation = useMutation({
     mutationFn: () =>
       assignmentsApi.submitAssignment(assignment.id, {
@@ -96,6 +114,15 @@ export const LabAssignmentPanel = ({
       }),
     onSuccess: () => {
       toast.success(t('submission_success', { defaultValue: 'Assignment submitted successfully!' }));
+      // Log lab assignment submission
+      if (courseNumericId && assignmentId) {
+        activityLogger.logLabSubmitted(
+          sessionConfig?.labType?.toUpperCase() || 'LAB',
+          assignmentId,
+          courseNumericId,
+          { datasetName: sessionConfig?.datasetName, analysesVisited: visitedAnalyses },
+        );
+      }
     },
     onError: (err: Error) => {
       toast.error(err.message || t('common:error'));
@@ -283,7 +310,7 @@ export const LabAssignmentPanel = ({
 
   if (!isOpen) return null;
 
-  const dueDate = assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString() : null;
+  const dueDate = assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString(undefined, { timeZone: 'UTC' }) : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50">
@@ -469,7 +496,7 @@ export const LabAssignmentPanel = ({
         </div>
 
         {/* Footer */}
-        {!submissionLoading && !existingSubmission && (
+        {!submissionLoading && (!existingSubmission || existingSubmission.status === 'draft') && (
           <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
             <Button variant="ghost" onClick={onClose}>
               {t('common:cancel')}

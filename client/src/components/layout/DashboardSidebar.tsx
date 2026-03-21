@@ -16,6 +16,10 @@ import {
   Award,
   FileQuestion,
   BarChart3,
+  BookOpen,
+  Users,
+  FileText,
+  BookMarked,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
@@ -76,25 +80,47 @@ export const DashboardSidebar = () => {
     { label: t('reports'), icon: BarChart3, path: '/reports' },
   ];
 
-  // Build instructor nav items - static sidebar, no course-specific switching
+  // Detect if we're in a course-specific context (teach or student-facing course view)
+  const teachCourseMatch = location.pathname.match(/\/teach\/courses\/(\d+)/);
+  const studentCourseMatch = (isActualAdmin || user?.isInstructor) ? location.pathname.match(/^\/courses\/(\d+)/) : null;
+  const activeCourseId = teachCourseMatch?.[1] || studentCourseMatch?.[1] || null;
+
+  // Course-specific items for the teacher (shown when viewing a course)
+  const courseNavItems: NavItem[] = activeCourseId ? [
+    { label: t('curriculum'), icon: BookOpen, path: `/teach/courses/${activeCourseId}/curriculum` },
+    { label: t('assignments'), icon: FileText, path: `/teach/courses/${activeCourseId}/assignments` },
+    { label: t('quizzes'), icon: FileQuestion, path: `/teach/courses/${activeCourseId}/quizzes` },
+    { label: t('gradebook'), icon: ClipboardList, path: `/teach/courses/${activeCourseId}/gradebook` },
+    { label: t('forums'), icon: MessageSquare, path: `/teach/courses/${activeCourseId}/forums` },
+    { label: t('surveys'), icon: ClipboardCheck, path: `/teach/courses/${activeCourseId}/surveys` },
+    { label: t('tutors'), icon: BookMarked, path: `/teach/courses/${activeCourseId}/tutors` },
+    { label: t('certificates'), icon: Award, path: `/teach/courses/${activeCourseId}/certificates` },
+    { label: t('students'), icon: Users, path: `/teach/courses/${activeCourseId}/edit` },
+    { label: t('logs'), icon: Activity, path: `/teach/courses/${activeCourseId}/logs` },
+    { label: t('analytics'), icon: Network, path: `/teach/courses/${activeCourseId}/analytics` },
+  ] : [];
+
+  // Build instructor nav items
   const instructorNavItems: NavItem[] = [
     { label: t('dashboard'), icon: LayoutDashboard, path: '/dashboard' },
     { label: t('courses'), icon: GraduationCap, path: '/courses' },
-    { label: t('ai_tools'), icon: BrainCircuit, path: '/ai-tools' },
-    { label: t('labs'), icon: FlaskConical, path: '/labs' },
-    { label: t('lab_templates'), icon: FlaskConical, path: '/teach/labs' },
-    { label: t('quizzes'), icon: FileQuestion, path: '/teach/quizzes' },
-    { label: t('surveys'), icon: ClipboardCheck, path: '/teach/surveys' },
-    { label: t('forums'), icon: MessageSquare, path: '/forums' },
-    { label: t('certificate_templates'), icon: Award, path: '/teach/certificates' },
-    // Only show admin links to actual admins (not just instructors)
-    ...(isActualAdmin ? [
-      { label: t('logs'), icon: Activity, path: '/admin/logs' },
-      { label: t('analytics'), icon: Network, path: '/admin/analytics' },
-    ] : []),
+    // Course-specific items appear when viewing a course
+    ...courseNavItems,
+    // Global items (always shown)
+    ...(activeCourseId ? [] : [
+      { label: t('ai_tools'), icon: BrainCircuit, path: '/ai-tools' },
+      { label: t('labs'), icon: FlaskConical, path: '/labs' },
+      { label: t('lab_templates'), icon: FlaskConical, path: '/teach/labs' },
+      { label: t('quizzes'), icon: FileQuestion, path: '/teach/quizzes' },
+      { label: t('surveys'), icon: ClipboardCheck, path: '/teach/surveys' },
+      { label: t('forums'), icon: MessageSquare, path: '/forums' },
+      { label: t('certificate_templates'), icon: Award, path: '/teach/certificates' },
+    ]),
+    // Admin Logs + Analytics live only on the admin page (/admin/logs, /admin/analytics)
+    // Course-level Logs + Analytics are in courseNavItems above
   ];
 
-  const navItems = isInstructor ? instructorNavItems : studentNavItems;
+  const navItems = (isInstructor || isActualAdmin) ? instructorNavItems : studentNavItems;
 
   const isActive = (path: string) => {
     if (path === '/dashboard') {

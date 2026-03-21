@@ -7,6 +7,7 @@ import { courseTutorApi, MergedTutorConfig, Conversation, Message } from '../../
 import { useTheme } from '../../hooks/useTheme';
 import { Button } from '../common/Button';
 import { Loading } from '../common/Loading';
+import { activityLogger } from '../../services/activityLogger';
 
 interface CourseTutorChatProps {
   courseId: number;
@@ -97,7 +98,8 @@ export const CourseTutorChat = ({
   // Delete conversation mutation
   const deleteConversationMutation = useMutation({
     mutationFn: (convId: number) => courseTutorApi.deleteConversation(courseId, convId),
-    onSuccess: () => {
+    onSuccess: (_, convId) => {
+      activityLogger.log({ verb: 'interacted', objectType: 'tutor_session', objectId: convId, courseId, extensions: { action: 'cleared' } });
       queryClient.invalidateQueries({
         queryKey: ['tutorConversations', courseId, tutor.courseTutorId],
       });
@@ -144,6 +146,7 @@ export const CourseTutorChat = ({
 
     const message = input.trim();
     setInput('');
+    activityLogger.log({ verb: 'interacted', objectType: 'tutor_agent', objectId: tutor.courseTutorId, courseId, extensions: { action: 'messaged', messageLength: message.length } });
     await sendMessageMutation.mutateAsync(message);
   };
 

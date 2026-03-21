@@ -45,12 +45,15 @@ export const LabAIAssistant = ({ context, data, labType, analysisKey }: LabAIAss
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const responseRef = useRef<HTMLDivElement>(null);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
+    requestIdRef.current += 1;
     setExpanded(false);
     setInput('');
     setResponse(null);
     setError(null);
+    setLoading(false);
   }, [analysisKey, context, data]);
 
   useEffect(() => {
@@ -62,6 +65,7 @@ export const LabAIAssistant = ({ context, data, labType, analysisKey }: LabAIAss
   const handleSubmit = async (question: string) => {
     const q = question.trim();
     if (!q || loading) return;
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setError(null);
     setResponse(null);
@@ -74,11 +78,11 @@ export const LabAIAssistant = ({ context, data, labType, analysisKey }: LabAIAss
         context: contextBlock,
         systemPrompt,
       });
-      setResponse(result.reply);
+      if (requestId === requestIdRef.current) setResponse(result.reply);
     } catch {
-      setError('Could not reach the AI. Please try again.');
+      if (requestId === requestIdRef.current) setError('Could not reach the AI. Please try again.');
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   };
 

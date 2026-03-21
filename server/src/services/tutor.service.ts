@@ -179,7 +179,7 @@ export class TutorService {
     // Log to unified activity log
     activityLogService.logActivity({
       userId,
-      verb: 'switched',
+      verb: 'interacted',
       objectType: 'tutor_session',
       objectId: session.id,
       objectTitle: `Mode: ${mode}`,
@@ -472,7 +472,7 @@ export class TutorService {
     // Log to unified activity log
     activityLogService.logActivity({
       userId,
-      verb: 'cleared',
+      verb: 'interacted',
       objectType: 'tutor_conversation',
       objectId: conversation.id,
       objectTitle: `Conversation with ${conversation.chatbot.displayName}`,
@@ -602,7 +602,7 @@ export class TutorService {
     // Log to unified activity log
     activityLogService.logActivity({
       userId: session.userId,
-      verb: 'messaged',
+      verb: 'interacted',
       objectType: 'tutor_agent',
       objectId: chatbot.id,
       objectTitle: chatbot.displayName,
@@ -750,7 +750,7 @@ RESPONSE GUIDELINES:
     // Log to unified activity log
     activityLogService.logActivity({
       userId: session.userId,
-      verb: 'received',
+      verb: 'interacted',
       objectType: 'tutor_agent',
       objectId: chatbot.id,
       objectTitle: chatbot.displayName,
@@ -1564,7 +1564,7 @@ RESPONSE GUIDELINES:
 
     activityLogService.logActivity({
       userId: session.userId,
-      verb: 'received',
+      verb: 'interacted',
       objectType: 'tutor_agent',
       objectId: teamChatAgent.id,
       objectTitle: 'Team Chat Response',

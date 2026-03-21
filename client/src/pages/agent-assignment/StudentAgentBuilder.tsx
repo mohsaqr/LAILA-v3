@@ -326,7 +326,7 @@ export const StudentAgentBuilder = () => {
   const { assignment, config } = data;
   const isSubmitted = Boolean(config && !config.isDraft);
   const isGraded = config?.submission?.status === 'graded';
-  const isPastDue = Boolean(assignment.dueDate && new Date(assignment.dueDate) < new Date());
+  const isPastDue = Boolean(assignment.dueDate && new Date(assignment.dueDate.replace('Z', '')) < new Date());
   const isSaving = createMutation.isPending || updateMutation.isPending;
   const isSubmitting = submitMutation.isPending;
   const isBuilt = isSubmitted;

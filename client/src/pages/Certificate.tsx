@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
 import { Award, Download, CheckCircle, XCircle, ChevronLeft, Calendar, User, BarChart3, Share2, BrainCircuit, Loader2 } from 'lucide-react';
@@ -13,6 +13,7 @@ import { Loading } from '../components/common/Loading';
 import { Button } from '../components/common/Button';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { buildCertificateBreadcrumb } from '../utils/breadcrumbs';
+import { activityLogger } from '../services/activityLogger';
 
 export const Certificate = () => {
   const { t } = useTranslation(['courses', 'common', 'navigation']);
@@ -47,6 +48,13 @@ export const Certificate = () => {
     queryFn: () => certificatesApi.getCertificate(parseInt(certificateId!)),
     enabled: !!certificateId,
   });
+
+  // Log certificate viewed
+  useEffect(() => {
+    if (certificate) {
+      activityLogger.logCertificateViewed(certificate.id, certificate.course?.id);
+    }
+  }, [certificate]);
 
   const isLoading = verifyLoading || certLoading;
 
@@ -289,6 +297,7 @@ export const Certificate = () => {
       pdf.addImage(rightImgData, 'PNG', margin + leftWidth + gap, margin, rightImgWidth, rightImgHeight);
 
       pdf.save(`certificate-${certificate.verificationCode}.pdf`);
+      activityLogger.logCertificateDownloaded(certificate.id, certificate.course?.id);
     } catch {
       toast.error(t('common:error'));
     } finally {

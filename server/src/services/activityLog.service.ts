@@ -8,16 +8,14 @@ const logger = createLogger('activity-log');
 // Standardized verb types
 export type ActivityVerb =
   | 'enrolled' | 'unenrolled' | 'viewed' | 'started' | 'completed'
-  | 'progressed' | 'paused' | 'resumed' | 'seeked' | 'scrolled'
-  | 'downloaded' | 'submitted' | 'graded' | 'messaged' | 'received'
-  | 'cleared' | 'interacted' | 'expressed' | 'selected' | 'switched'
-  | 'created' | 'updated' | 'deleted';
+  | 'progressed' | 'submitted' | 'interacted' | 'downloaded' | 'selected';
 
 export type ObjectType =
   | 'course' | 'module' | 'lecture' | 'section' | 'video'
   | 'assignment' | 'chatbot' | 'file' | 'quiz' | 'emotional_pulse'
   | 'tutor_agent' | 'tutor_session' | 'tutor_conversation'
-  | 'course_tutor' | 'course_tutor_conversation';
+  | 'course_tutor' | 'course_tutor_conversation' | 'lab'
+  | 'forum' | 'certificate' | 'survey' | 'gradebook';
 
 export interface LogActivityInput {
   userId: number;
@@ -735,12 +733,7 @@ class ActivityLogService {
    * Merge map: semantically similar verbs → canonical label.
    * Applied before frequency filtering so merged verbs pool their counts.
    */
-  static readonly VERB_MERGES: Record<string, string> = {
-    seeked: 'navigated',
-    scrolled: 'navigated',
-    paused: 'media_control',
-    resumed: 'media_control',
-  };
+  static readonly VERB_MERGES: Record<string, string> = {};
 
   /**
    * Get TNA sequences: groups activity verbs per user into sequences.

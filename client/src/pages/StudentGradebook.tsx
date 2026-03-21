@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
+import { Breadcrumb } from '../components/common/Breadcrumb';
 import {
-  ArrowLeft,
   FileText,
   Calendar,
   Award,
@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronUp,
   HelpCircle,
+  Network,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { assignmentsApi } from '../api/assignments';
@@ -22,6 +23,7 @@ import { useTheme } from '../hooks/useTheme';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { Button } from '../components/common/Button';
+import { activityLogger } from '../services/activityLogger';
 
 
 interface GradebookAssignment {
@@ -75,6 +77,13 @@ export const StudentGradebook = () => {
 
   const [sortBy, setSortBy] = useState<SortOption>('dueDate');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  // Log gradebook viewed once
+  useEffect(() => {
+    if (parsedCourseId) {
+      activityLogger.logGradebookViewed(parsedCourseId);
+    }
+  }, [parsedCourseId]);
 
   // Theme colors
   const colors = {
@@ -239,13 +248,15 @@ export const StudentGradebook = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ minHeight: '100vh' }}>
-      {/* Header */}
+      {/* Breadcrumb */}
       <div className="mb-6">
-        <Link to={`/courses/${courseId}/assignments`}>
-          <Button variant="ghost" size="sm" icon={<ArrowLeft className="w-4 h-4" />}>
-            {t('back_to_assignments')}
-          </Button>
-        </Link>
+        <Breadcrumb
+          items={[
+            { label: t('common:courses'), href: '/courses' },
+            { label: t('common:course'), href: `/courses/${courseId}` },
+            { label: t('my_grades') },
+          ]}
+        />
       </div>
 
       <div className="mb-8">
@@ -291,6 +302,24 @@ export const StudentGradebook = () => {
           </div>
         </CardBody>
       </Card>
+
+      {/* My Learning Analytics Link */}
+      <Link
+        to={`/courses/${courseId}/analytics`}
+        className="mb-8 flex items-center gap-3 p-4 rounded-xl transition-all hover:shadow-md"
+        style={{
+          backgroundColor: colors.bgPurple,
+          border: `1px solid ${isDark ? 'rgba(139, 92, 246, 0.3)' : '#ddd6fe'}`,
+        }}
+      >
+        <Network className="w-5 h-5" style={{ color: colors.textPurple }} />
+        <span className="font-medium" style={{ color: colors.textPurple }}>
+          {t('my_learning_analytics')}
+        </span>
+        <span className="text-sm ml-auto" style={{ color: colors.textPurple, opacity: 0.7 }}>
+          {t('view_your_learning_network')} &rarr;
+        </span>
+      </Link>
 
       {/* Sort Options */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -386,7 +415,8 @@ const AssignmentGradeCard = ({ assignment, submission, courseId, colors }: Assig
   const isAgentAssignment = assignment.submissionType === 'ai_agent';
   const now = new Date();
   const dueDate = assignment.dueDate ? new Date(assignment.dueDate) : null;
-  const isPastDue = dueDate && dueDate < now;
+  const dueDateLocal = assignment.dueDate ? new Date(assignment.dueDate.replace('Z', '')) : null;
+  const isPastDue = dueDateLocal && dueDateLocal < now;
   const isSubmitted = submission?.status === 'submitted' || submission?.status === 'graded';
   const isGraded = submission?.status === 'graded';
 
@@ -496,7 +526,7 @@ const AssignmentGradeCard = ({ assignment, submission, courseId, colors }: Assig
                   style={{ color: isPastDue && !isSubmitted ? colors.textRed : colors.textSecondary }}
                 >
                   <Calendar className="w-4 h-4" />
-                  {t('due_date', { date: dueDate.toLocaleDateString() })}
+                  {t('due_date', { date: dueDate.toLocaleDateString(undefined, { timeZone: 'UTC' }) })}
                 </span>
               )}
               <span className="flex items-center gap-1">

@@ -21,6 +21,7 @@ import { Modal } from '../components/common/Modal';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { buildQuizBreadcrumb } from '../utils/breadcrumbs';
 import { sanitizeHtml } from '../utils/sanitize';
+import { activityLogger } from '../services/activityLogger';
 
 export const QuizView = () => {
   const { courseId, quizId } = useParams<{ courseId: string; quizId: string }>();
@@ -75,6 +76,7 @@ export const QuizView = () => {
     onSuccess: (result) => {
       queryClient.removeQueries({ queryKey: ['quizAttempt', parsedQuizId] });
       queryClient.invalidateQueries({ queryKey: ['quizzes'] });
+      activityLogger.logQuizSubmitted(parsedQuizId, attemptData?.quiz?.title, parseInt(courseId!), result.pointsEarned, result.pointsTotal);
       toast.success(t('quiz_submitted_score', { score: result.score?.toFixed(1) }));
       navigate(`/courses/${courseId}/quizzes/${quizId}/results/${result.id}`);
     },
@@ -88,6 +90,7 @@ export const QuizView = () => {
   useEffect(() => {
     if (startData && !attemptData) {
       setAttemptData(startData);
+      activityLogger.logQuizStarted(parsedQuizId, startData.quiz.title, parseInt(courseId!));
       const savedAnswers: Record<number, string> = {};
       startData.questions.forEach(q => {
         if (q.savedAnswer) {

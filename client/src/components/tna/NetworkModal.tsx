@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
-import { tna, ftna, ctna, atna, prune, centralities } from 'dynajs';
-import type { TNA } from 'dynajs';
+import { tna, ftna, ctna, atna, prune, centralities, layout as dynaLayout } from 'dynajs';
+import type { TNA, LayoutAlgorithm } from 'dynajs';
 import { TnaNetworkGraph } from './TnaNetworkGraph';
 import { createColorMap } from './colorFix';
 
@@ -18,6 +18,18 @@ const MODEL_BUILDERS: Record<ModelType, typeof tna> = {
 const NODE_SIZE_OPTIONS = [
   { value: 'fixed', i18nKey: 'fixed_size' },
   { value: 'InStrength', i18nKey: 'in_strength' },
+];
+
+const LAYOUT_OPTIONS: { value: LayoutAlgorithm; i18nKey: string }[] = [
+  { value: 'circle', i18nKey: 'sna.layout_circle' },
+  { value: 'fr', i18nKey: 'sna.layout_force' },
+  { value: 'kamada-kawai', i18nKey: 'sna.layout_kamada_kawai' },
+  { value: 'spectral', i18nKey: 'sna.layout_spectral' },
+  { value: 'concentric', i18nKey: 'sna.layout_concentric' },
+  { value: 'star', i18nKey: 'sna.layout_star' },
+  { value: 'hierarchical', i18nKey: 'sna.layout_hierarchical' },
+  { value: 'grid', i18nKey: 'sna.layout_grid' },
+  { value: 'random', i18nKey: 'sna.layout_random' },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -49,6 +61,7 @@ export const NetworkModal = ({
   const [showEdgeLabels, setShowEdgeLabels] = useState(true);
   const [nodeRadius, setNodeRadius] = useState(30);
   const [nodeSizeMetric, setNodeSizeMetric] = useState('fixed');
+  const [graphLayout, setGraphLayout] = useState<LayoutAlgorithm>('circle');
 
   useEffect(() => {
     if (open) {
@@ -82,6 +95,17 @@ export const NetworkModal = ({
       return null;
     }
   }, [sequences, labels, modelType, pruneThreshold]);
+
+  const graphPositions = useMemo(() => {
+    if (!analysis?.prunedModel) return undefined;
+    const result = dynaLayout(analysis.prunedModel, { algorithm: graphLayout });
+    const h = 540;
+    const pad = nodeRadius + 5;
+    return Array.from({ length: result.labels.length }, (_, i) => ({
+      x: pad + result.x[i]! * (h - 2 * pad),
+      y: pad + result.y[i]! * (h - 2 * pad),
+    }));
+  }, [analysis?.prunedModel, graphLayout, nodeRadius]);
 
   if (!open) return null;
 
@@ -121,6 +145,15 @@ export const NetworkModal = ({
               ))}
             </select>
           </label>
+          <label className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+            <span className="font-medium">{t('layout')}:</span>
+            <select value={graphLayout} onChange={e => setGraphLayout(e.target.value as LayoutAlgorithm)}
+              className="px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm">
+              {LAYOUT_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{t(opt.i18nKey)}</option>
+              ))}
+            </select>
+          </label>
           <label className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
             <input type="checkbox" checked={showSelfLoops}
               onChange={e => setShowSelfLoops(e.target.checked)} className="rounded" />
@@ -147,6 +180,7 @@ export const NetworkModal = ({
             centralityData={analysis.centralityData ?? undefined}
             nodeSizeMetric={nodeSizeMetric}
             modelType={modelType}
+            externalPositions={graphPositions}
           />
         ) : (
           <div className="text-gray-400 dark:text-gray-500 text-sm">{t('no_tna_data')}</div>
