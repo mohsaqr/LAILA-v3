@@ -8,7 +8,10 @@ const logger = createLogger('activity-log');
 // Standardized verb types
 export type ActivityVerb =
   | 'enrolled' | 'unenrolled' | 'viewed' | 'started' | 'completed'
-  | 'progressed' | 'submitted' | 'interacted' | 'downloaded' | 'selected';
+  | 'progressed' | 'paused' | 'resumed' | 'seeked' | 'scrolled'
+  | 'downloaded' | 'submitted' | 'graded' | 'messaged' | 'received'
+  | 'cleared' | 'interacted' | 'expressed' | 'selected' | 'switched'
+  | 'created' | 'updated' | 'deleted';
 
 export type ObjectType =
   | 'course' | 'module' | 'lecture' | 'section' | 'video'
