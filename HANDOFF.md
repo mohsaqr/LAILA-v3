@@ -1,4 +1,11 @@
-# Session Handoff — 2026-03-17
+# Session Handoff — 2026-03-24
+
+## Completed (2026-03-24)
+- **Lab assignment submission flow overhaul**: Hid duplicate "Your Submission" card for lab assignments. Moved submit button to page bottom. Panel closes on submit and page refreshes. Submitted/graded states now show correctly (waiting for grading banner, grade card with feedback).
+- **PDF generation fixes**: Code renders as formatted text (not broken screenshot). Each snapshot captures code + output as a pair. Fixed horizontal stretching (aspect ratio preserved). Excluded AI Interpretation and buttons from captures. PDF filename uses `{course}_{assignment}_{student}.pdf`.
+- **Fix PDF preview in Chrome**: Removed `sandbox` attribute from PDF iframes in student and instructor views.
+- **Grade card layout**: Moved from sidebar column to bottom of main content for all assignment types.
+- **Allow all users to enroll**: Removed server restriction blocking admin/instructor enrollment. Enroll button shows for any non-enrolled authenticated user. 2 new tests.
 
 ## Completed (2026-03-17)
 - **Restrict team member assignment to instructors**: "Add Team Member" dropdown on course edit page now only shows instructors (not students). Added `role` filter to `GET /users` API. Server-side validation rejects students in `assignRole()`. 12 new tests.
@@ -79,8 +86,9 @@
 - **Add surveys to course modules**: Many-to-many `ModuleSurvey` model linking surveys to modules. "Add Survey" button in module footer opens searchable modal showing published surveys not yet linked. Surveys display with indigo styling and remove button. Full server CRUD with authorization. 11 tests added.
 
 ## Current State
-- Branch: `issues_version1`
+- Branch: `dev`
 - Client: compiles cleanly (only pre-existing type warnings in unrelated files)
+- Server: 89 pre-existing test failures (section, module, lecture, forum, course, assignment, enrollment services — all related to missing `prisma.courseRole` mock), not caused by this session's changes
 - New component: `client/src/components/layout/RequireEnrollment.tsx` — reusable enrollment guard for routes
 
 ## Key Decisions
@@ -93,6 +101,11 @@
 - Registration uses two-step flow: register → verify code. Hardcoded code `123456` until SMTP is configured. Code expires after 2 minutes
 - Instructor submission routes unified: `/teach/courses/{ID}/assignments/{ID}/submissions` handles both regular and agent types
 - Student-facing agent routes (`/courses/{ID}/agent-assignments/{ID}`) unchanged
+- Lab assignments hide the generic "Your Submission" card — submission goes through `LabAssignmentPanel` only
+- `LabRunnerUI` accepts `hideSubmit` prop to suppress submit button when embedded in `AssignmentView` and already submitted/graded
+- PDF report items use code content as key: same code = recapture (overwrite), different code = new entry
+- All users (admins, instructors, students) can enroll in any published course — no role-based enrollment restrictions
+- Grade card displays inline at bottom of assignment page, not in a sidebar column
 
 ## Open Issues
 - Lectures, assignments, quizzes, codeLabs, codeBlocks in seed.ts still use `prisma.*.create()` — will create duplicates on re-seed. Low priority.

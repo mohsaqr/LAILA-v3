@@ -8,12 +8,14 @@ import { customLabsApi } from '../../api/customLabs';
 import { RichTextEditor } from '../forum/RichTextEditor';
 import { Button } from '../common/Button';
 import { activityLogger } from '../../services/activityLogger';
+import { useAuthStore } from '../../store/authStore';
 
 export interface ReportItem {
   key: string;
   label: string;
   dataUrl: string;
   timestamp: number;
+  code?: string;
 }
 
 export interface LabSessionConfig {
@@ -50,6 +52,9 @@ interface LabAssignmentPanelProps {
   courseNumericId?: number;
   assignmentId?: number;
   reportItems?: ReportItem[];
+  onSubmitted?: () => void;
+  courseName?: string;
+  code?: string;
 }
 
 export const LabAssignmentPanel = ({
@@ -65,8 +70,12 @@ export const LabAssignmentPanel = ({
   courseNumericId,
   assignmentId,
   reportItems,
+  onSubmitted,
+  courseName,
+  code,
 }: LabAssignmentPanelProps) => {
   const { t } = useTranslation(['courses', 'common']);
+  const user = useAuthStore(s => s.user);
   const [response, setResponse] = useState('');
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
@@ -123,6 +132,7 @@ export const LabAssignmentPanel = ({
           { datasetName: sessionConfig?.datasetName, analysesVisited: visitedAnalyses },
         );
       }
+      onSubmitted?.();
     },
     onError: (err: Error) => {
       toast.error(err.message || t('common:error'));
@@ -245,22 +255,49 @@ export const LabAssignmentPanel = ({
       pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9);
       y += 4;
 
-      // ── SNAPSHOTS (one page per queued item) ──
+      // ── CODE & OUTPUT SNAPSHOTS ──
       const snapshotItems = reportItems && reportItems.length > 0
         ? reportItems
         : labContentRef.current
-          ? [{ key: activeAnalysisKey ?? 'analysis', label: activeAnalysisKey ?? 'Analysis', dataUrl: '', timestamp: Date.now() }]
+          ? [{ key: activeAnalysisKey ?? 'analysis', label: activeAnalysisKey ?? 'Analysis', dataUrl: '', timestamp: Date.now(), code }]
           : [];
+
+      const renderCode = (codeText: string) => {
+        pdf.setFont('courier', 'normal'); pdf.setFontSize(8);
+        const codeLines = codeText.split('\n');
+        const rowH = lineH * 0.85;
+        for (const line of codeLines) {
+          const wrapped = pdf.splitTextToSize(line || ' ', W - margin * 2 - 8);
+          for (const wl of wrapped) {
+            if (y > 270) { pdf.addPage(); y = 20; }
+            pdf.setFillColor(245, 245, 245);
+            pdf.rect(margin, y - 3.5, W - margin * 2, rowH, 'F');
+            pdf.setTextColor(60, 60, 60);
+            pdf.text(wl, margin + 4, y);
+            y += rowH;
+          }
+        }
+        pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9);
+        pdf.setTextColor(0, 0, 0);
+        y += 4;
+      };
 
       for (let i = 0; i < snapshotItems.length; i++) {
         const item = snapshotItems[i];
         pdf.addPage();
-        pdf.setFontSize(11); pdf.setFont('helvetica', 'bold');
-        pdf.setTextColor(0, 0, 0);
-        pdf.text(`${i + 5}. SNAPSHOT - ${item.label.toUpperCase()}`, margin, 15);
+        y = 15;
+        const sectionNum = i + 5;
+
+        // ── Code for this snapshot ──
+        if (item.code && item.code.trim()) {
+          section(`${sectionNum}a. CODE - ${item.label.toUpperCase()}`);
+          renderCode(item.code);
+        }
+
+        // ── Output snapshot ──
+        section(`${sectionNum}${item.code?.trim() ? 'b' : ''}. OUTPUT - ${item.label.toUpperCase()}`);
 
         let imgData = item.dataUrl;
-        // If no pre-captured dataUrl, capture the live DOM (fallback for single-item case)
         if (!imgData && labContentRef.current) {
           const el = labContentRef.current;
           const canvas = await html2canvas(el, {
@@ -271,22 +308,35 @@ export const LabAssignmentPanel = ({
           imgData = canvas.toDataURL('image/jpeg', 0.8);
         }
         if (imgData) {
-          // Decode dimensions from dataUrl
           const img = new Image();
           await new Promise<void>(resolve => {
             img.onload = () => resolve();
             img.src = imgData;
           });
-          const imgW = W - margin * 2;
-          const imgH = (img.height / img.width) * imgW;
-          pdf.addImage(imgData, 'JPEG', margin, 22, imgW, Math.min(imgH, 185));
+          const maxW = W - margin * 2;
+          const pageBottom = pdf.internal.pageSize.getHeight() - margin;
+          const maxH = pageBottom - y;
+          const ratio = img.width / img.height;
+          let imgW = maxW;
+          let imgH = imgW / ratio;
+          if (imgH > maxH) {
+            imgH = maxH;
+            imgW = imgH * ratio;
+          }
+          const imgX = margin + (maxW - imgW) / 2;
+          pdf.addImage(imgData, 'JPEG', imgX, y, imgW, imgH);
+          y += imgH + 4;
         }
       }
 
       const pdfBlob = pdf.output('blob') as Blob;
       if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
       setPdfPreviewUrl(URL.createObjectURL(pdfBlob));
-      const pdfFile = new File([pdfBlob], `lab-report-${Date.now()}.pdf`, { type: 'application/pdf' });
+      const sanitizeName = (name: string) => name.replace(/[<>:"/\\|?*\x00-\x1f]+/g, '').replace(/\s+/g, '-').replace(/-+$/, '') || 'untitled';
+      const safeCourse = sanitizeName(courseName || 'course');
+      const safeStudent = sanitizeName(user?.fullname || 'student');
+      const pdfFileName = `${safeCourse}_assignment-${assignment.id}_${safeStudent}.pdf`;
+      const pdfFile = new File([pdfBlob], pdfFileName, { type: 'application/pdf' });
       const { url } = await customLabsApi.uploadLabSubmission(pdfFile);
       setPdfUrl(url);
 

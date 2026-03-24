@@ -1,3 +1,20 @@
+### 2026-03-24 — Lab assignment improvements, enrollment fixes, PDF generation
+
+- **Fix duplicate submit button on lab assignments**: When assignment type is lab assignment (`/courses/{id}/assignments/{id}`), the "Your Submission" card (text editor, file upload, submit button) is now hidden since labs have their own submission flow via `LabAssignmentPanel`.
+- **Move lab submit button to page bottom**: Moved the "Submit Assignment" button from the lab toolbar (next to Help/Reset) to a full-width button at the bottom of the page. Uses the `Send` icon matching other assignment types.
+- **Lab submission panel: close on submit and refresh**: After submitting via `LabAssignmentPanel`, the panel closes automatically and the page refreshes to show updated submission state.
+- **Fix PDF preview blocked by Chrome**: Removed `sandbox` attribute from PDF iframes in both `SubmissionDetail.tsx` (instructor view) and `AssignmentView.tsx` (student view). Chrome's PDF viewer requires scripts which the sandbox blocked.
+- **PDF filename based on course/assignment/student**: Generated PDF filenames now use the pattern `{CourseName}_assignment-{id}_{StudentName}.pdf` instead of `lab-report-{timestamp}.pdf`. Unicode characters preserved in filenames.
+- **Lab assignment submitted/graded states**: When a lab assignment is submitted, the submit button is hidden and a "Waiting for grading" banner is shown. When graded, the grade card with score, percentage, and instructor feedback is displayed.
+- **Fix PDF code rendering**: Code blocks in generated PDFs now render as properly formatted text (monospace font, light gray background, line breaks preserved) instead of broken single-line screenshots via `html2canvas`.
+- **PDF captures code + output per snapshot**: Each "Add to report" click captures both the code that was run and the output screenshot as a pair. Multiple captures accumulate (different code = new entry, same code = recapture/overwrite). Button shows "Captured — click to recapture" state.
+- **Fix PDF snapshot stretching**: Snapshot images in PDFs now preserve their original aspect ratio instead of being stretched to full page width. Images are centered horizontally.
+- **Exclude AI Interpretation from snapshots**: The `outputAreaRef` now wraps only the output content box (stdout, stderr, plots), excluding the AI Interpretation section and the "Add to report" button from captures.
+- **Grade card moved to bottom**: For all assignment types, the grade card (score, feedback, grading date) now displays at the bottom of the main content area instead of in a separate sidebar column.
+- **Allow admins and instructors to enroll in courses**: Removed server-side restriction that blocked admins/instructors from enrolling. All users can now enroll in any published course. Updated `CourseDetails.tsx` — the enroll button shows for any authenticated non-enrolled user. 2 new enrollment tests added.
+  - `server/src/services/enrollment.service.ts`: Removed admin/instructor enrollment guard
+  - `client/src/pages/CourseDetails.tsx`: Changed `hasAccess` to use `isCourseInstructor` instead of `isActualInstructor`; enroll button condition simplified to `!isEnrolled && isAuthenticated`
+
 ### 2026-03-17 — Bug fixes
 
 - **Restrict team member assignment to instructors only**: The "Add Team Member" modal on `/teach/courses/{ID}/edit` previously showed all users (including students). Students cannot be team members. Fixed by: (1) adding `role` filter param to `GET /users` API and `userService.getUsers()`, (2) client `CourseRoleManager` now requests only instructors (`role=instructor`), (3) server-side validation in `courseRoleService.assignRole()` rejects non-instructor/non-admin users with 400 error.

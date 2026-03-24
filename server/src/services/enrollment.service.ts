@@ -225,16 +225,6 @@ export class EnrollmentService {
   }
 
   async enroll(userId: number, courseId: number, activationCode?: string, context?: EventContext) {
-    // Check if user is admin or instructor - they cannot enroll as students
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { isAdmin: true, isInstructor: true },
-    });
-
-    if (user?.isAdmin || user?.isInstructor) {
-      throw new AppError('Admins and instructors cannot enroll as students. Use "View As" mode to test student experience.', 403);
-    }
-
     // Check if course exists and is published
     const course = await prisma.course.findUnique({
       where: { id: courseId },

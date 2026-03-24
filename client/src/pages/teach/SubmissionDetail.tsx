@@ -286,7 +286,7 @@ export const SubmissionDetail = () => {
                       </div>
                       {/* Inline viewer */}
                       <iframe src={resolvedUrl} className="w-full border-0" style={{ height: '700px' }}
-                        title={displayName} sandbox="allow-same-origin" />
+                        title={displayName} />
                     </div>
                   );
                 }

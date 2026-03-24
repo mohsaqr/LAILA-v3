@@ -43,14 +43,14 @@ import { debug } from '../utils/debug';
 import { activityLogger } from '../services/activityLogger';
 
 // Thin wrappers that provide the runtime hook and pass courseId directly
-const RLabEmbed = ({ lab, courseId }: { lab: any; courseId: number }) => {
+const RLabEmbed = ({ lab, courseId, hideSubmit }: { lab: any; courseId: number; hideSubmit?: boolean }) => {
   const hook = useLabWebR(lab.labType);
-  return <LabRunnerUI lab={lab} hook={hook} courseId={courseId} />;
+  return <LabRunnerUI lab={lab} hook={hook} courseId={courseId} hideSubmit={hideSubmit} />;
 };
 
-const PythonLabEmbed = ({ lab, courseId }: { lab: any; courseId: number }) => {
+const PythonLabEmbed = ({ lab, courseId, hideSubmit }: { lab: any; courseId: number; hideSubmit?: boolean }) => {
   const hook = useLabPyodide(lab.labType);
-  return <LabRunnerUI lab={lab} hook={hook} courseId={courseId} />;
+  return <LabRunnerUI lab={lab} hook={hook} courseId={courseId} hideSubmit={hideSubmit} />;
 };
 
 export const AssignmentView = () => {
@@ -350,14 +350,33 @@ export const AssignmentView = () => {
         </CardBody>
       </Card>
 
-      <div className={`grid grid-cols-1 ${isGraded ? 'lg:grid-cols-3' : ''} gap-6`}>
+      <div className="space-y-6">
         {/* Main Content */}
-        <div className={`${isGraded ? 'lg:col-span-2' : ''} space-y-6`}>
+        <div className="space-y-6">
           {/* Embedded Lab (if assignment has a linked lab) */}
           {linkedLab && (
             isPythonLab(linkedLab.labType)
-              ? <PythonLabEmbed lab={linkedLab} courseId={parsedCourseId} />
-              : <RLabEmbed lab={linkedLab} courseId={parsedCourseId} />
+              ? <PythonLabEmbed lab={linkedLab} courseId={parsedCourseId} hideSubmit={isSubmitted || isGraded} />
+              : <RLabEmbed lab={linkedLab} courseId={parsedCourseId} hideSubmit={isSubmitted || isGraded} />
+          )}
+
+          {/* Lab assignment: submitted waiting for grading */}
+          {linkedLab && isSubmitted && !isGraded && (
+            <Card>
+              <CardBody>
+                <div className="flex items-center gap-2 p-4 rounded-lg" style={{ backgroundColor: colors.bgBlueBanner }}>
+                  <CheckCircle className="w-5 h-5" style={{ color: colors.textBlue }} />
+                  <p style={{ color: colors.textBlue }}>
+                    {t('submitted_waiting_grading')}
+                  </p>
+                </div>
+                {mySubmission?.submittedAt && (
+                  <p className="text-sm mt-3" style={{ color: colors.textMuted }}>
+                    {t('submitted_on', { date: new Date(mySubmission.submittedAt).toLocaleString() })}
+                  </p>
+                )}
+              </CardBody>
+            </Card>
           )}
 
           {/* Assignment Description */}
@@ -466,8 +485,8 @@ export const AssignmentView = () => {
             </Card>
           )}
 
-          {/* Submission Area */}
-          {!isGraded && !(isPastDue && !isSubmitted) && (
+          {/* Submission Area (hidden for lab assignments — labs have their own submit flow) */}
+          {!linkedLab && !isGraded && !(isPastDue && !isSubmitted) && (
             <Card>
               <CardHeader>
                 <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{t('your_submission')}</h2>
@@ -586,7 +605,7 @@ export const AssignmentView = () => {
                                       <Download className="w-3.5 h-3.5" />
                                     </a>
                                   </div>
-                                  <iframe src={resolvedUrl} className="w-full border-0" style={{ height: '500px' }} title={displayName} sandbox="allow-same-origin" />
+                                  <iframe src={resolvedUrl} className="w-full border-0" style={{ height: '500px' }} title={displayName} />
                                 </div>
                               ) : (
                                 <div className="flex items-center gap-2 p-2 rounded" style={{ backgroundColor: colors.bgFile }}>
@@ -692,7 +711,7 @@ export const AssignmentView = () => {
                                 <Download className="w-3.5 h-3.5" />
                               </a>
                             </div>
-                            <iframe src={resolvedUrl} className="w-full border-0" style={{ height: '500px' }} title={displayName} sandbox="allow-same-origin" />
+                            <iframe src={resolvedUrl} className="w-full border-0" style={{ height: '500px' }} title={displayName} />
                           </div>
                         );
                       }
@@ -714,10 +733,6 @@ export const AssignmentView = () => {
               </CardBody>
             </Card>
           )}
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
           {/* Grade Card (if graded) */}
           {isGraded && mySubmission && (
             <Card style={{ backgroundColor: colors.bgGreenCard, borderColor: colors.borderGreen }}>
@@ -756,7 +771,6 @@ export const AssignmentView = () => {
               </CardBody>
             </Card>
           )}
-
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import {
   FlaskConical,
@@ -9,7 +9,7 @@ import {
   Loader2,
   AlertTriangle,
   ArrowLeft,
-  ClipboardList,
+  Send,
   Camera,
   CheckCircle,
 } from 'lucide-react';
@@ -47,9 +47,10 @@ interface LabHookResult {
 export const isPythonLab = (labType: string) => labType.startsWith('python');
 
 // Shared lab runner UI — receives hook result as props
-export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookResult; courseId: number | null }) => {
+export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit }: { lab: any; hook: LabHookResult; courseId: number | null; hideSubmit?: boolean }) => {
   const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
+  const queryClient = useQueryClient();
   const labContentRef = useRef<HTMLDivElement>(null);
   const outputAreaRef = useRef<HTMLDivElement>(null);
   const [assignmentPanelOpen, setAssignmentPanelOpen] = useState(false);
@@ -197,11 +198,13 @@ export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookRe
         scrollX: 0, scrollY: 0,
       });
       const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-      const key = selectedTemplate?.title || 'output';
+      const now = Date.now();
       const label = selectedTemplate?.title || 'Code Output';
+      // Use code content as key so same code recaptures (overwrites), different code adds new entry
+      const key = `${label}-${(code || '').trim()}`;
       setReportItems(prev => {
         const filtered = prev.filter(r => r.key !== key);
-        return [...filtered, { key, label, dataUrl, timestamp: Date.now() }];
+        return [...filtered, { key, label, dataUrl, timestamp: now, code }];
       });
       logSession('Snapshot added: ' + label);
       toast.success('Added to report!');
@@ -211,7 +214,7 @@ export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookRe
     } finally {
       setIsCapturing(false);
     }
-  }, [selectedTemplate, isCapturing, logSession]);
+  }, [selectedTemplate, isCapturing, logSession, code]);
 
   const getLoadingMessage = () => {
     if (isPythonLab(lab.labType)) {
@@ -301,16 +304,6 @@ export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookRe
               {t('common:help')}
             </Button>
 
-            {assignmentConfig?.assignment && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setAssignmentPanelOpen(true)}
-                icon={<ClipboardList className="w-4 h-4" />}
-              >
-                {t('submit_assignment', { defaultValue: 'Submit Assignment' })}
-              </Button>
-            )}
           </div>
         </div>
 
@@ -393,7 +386,7 @@ export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookRe
             </Card>
           </div>
 
-          <div className="lg:col-span-3 space-y-6" ref={outputAreaRef}>
+          <div className="lg:col-span-3 space-y-6">
             {selectedTemplate?.description && (
               <div
                 className="rounded-lg border p-5"
@@ -426,32 +419,49 @@ export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookRe
               code={code}
               templateTitle={selectedTemplate?.title}
               language={isPythonLab(lab.labType) ? 'python' : 'r'}
+              outputRef={outputAreaRef}
             />
 
             {/* Add to Report button */}
-            {outputs.length > 0 && (
-              <button
-                onClick={handleAddToReport}
-                disabled={isCapturing}
-                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                  reportItems.some(r => r.key === (selectedTemplate?.title || 'output'))
-                    ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700'
-                    : 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border-dashed border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:border-indigo-400'
-                }`}
-              >
-                {isCapturing ? <Loader2 className="w-4 h-4 animate-spin" />
-                  : reportItems.some(r => r.key === (selectedTemplate?.title || 'output')) ? <CheckCircle className="w-4 h-4" />
-                  : <Camera className="w-4 h-4" />}
-                {isCapturing ? 'Capturing...'
-                  : reportItems.some(r => r.key === (selectedTemplate?.title || 'output')) ? 'Captured - click to recapture'
-                  : 'Add this output to report'}
-              </button>
-            )}
+            {outputs.length > 0 && (() => {
+              const currentKey = `${selectedTemplate?.title || 'Code Output'}-${(code || '').trim()}`;
+              const isCaptured = reportItems.some(r => r.key === currentKey);
+              return (
+                <button
+                  onClick={handleAddToReport}
+                  disabled={isCapturing}
+                  className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                    isCaptured
+                      ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700'
+                      : 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border-dashed border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:border-indigo-400'
+                  }`}
+                >
+                  {isCapturing ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : isCaptured ? <CheckCircle className="w-4 h-4" />
+                    : <Camera className="w-4 h-4" />}
+                  {isCapturing ? 'Capturing...'
+                    : isCaptured ? `Captured (${reportItems.length}) — click to recapture`
+                    : `Add this output to report${reportItems.length > 0 ? ` (${reportItems.length})` : ''}`}
+                </button>
+              );
+            })()}
           </div>
         </div>
       </div>
 
-      {assignmentConfig?.assignment && (
+      {assignmentConfig?.assignment && !hideSubmit && (
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 pb-6 flex justify-end">
+          <Button
+            variant="primary"
+            onClick={() => setAssignmentPanelOpen(true)}
+            icon={<Send className="w-4 h-4" />}
+          >
+            {t('submit_assignment', { defaultValue: 'Submit Assignment' })}
+          </Button>
+        </div>
+      )}
+
+      {assignmentConfig?.assignment && !hideSubmit && (
         <LabAssignmentPanel
           isOpen={assignmentPanelOpen}
           onClose={() => setAssignmentPanelOpen(false)}
@@ -470,6 +480,13 @@ export const LabRunnerUI = ({ lab, hook, courseId }: { lab: any; hook: LabHookRe
           reportItems={reportItems}
           courseNumericId={courseId ?? 0}
           assignmentId={assignmentConfig.assignment.id}
+          courseName={assignmentConfig.course?.title}
+          code={code}
+          onSubmitted={() => {
+            setAssignmentPanelOpen(false);
+            queryClient.invalidateQueries({ queryKey: ['mySubmission', assignmentConfig!.assignment!.id] });
+            queryClient.invalidateQueries({ queryKey: ['labAssignmentConfig', lab.id, courseId] });
+          }}
         />
       )}
     </div>
