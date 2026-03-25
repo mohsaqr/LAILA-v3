@@ -252,11 +252,11 @@ export const AssignmentView = () => {
 
   // Redirect interactive lab assignments to their exercise page (pass assignmentId for submission targeting)
   if (assignment.agentRequirements === INTERACTIVE_LAB_REQUIREMENTS.TNA) {
-    navigate(`/courses/${courseId}/tna-exercise?assignmentId=${assignmentId}`, { replace: true });
+    navigate(`/courses/${courseId}/tna-exercise`, { replace: true });
     return <Loading fullScreen text={t('redirecting', { defaultValue: 'Redirecting to lab...' })} />;
   }
   if (assignment.agentRequirements === INTERACTIVE_LAB_REQUIREMENTS.SNA) {
-    navigate(`/courses/${courseId}/sna-exercise?assignmentId=${assignmentId}`, { replace: true });
+    navigate(`/courses/${courseId}/sna-exercise`, { replace: true });
     return <Loading fullScreen text={t('redirecting', { defaultValue: 'Redirecting to lab...' })} />;
   }
 
@@ -356,25 +356,85 @@ export const AssignmentView = () => {
           {/* Embedded Lab (if assignment has a linked lab) */}
           {linkedLab && (
             isPythonLab(linkedLab.labType)
-              ? <PythonLabEmbed lab={linkedLab} courseId={parsedCourseId} hideSubmit={isSubmitted || isGraded} />
-              : <RLabEmbed lab={linkedLab} courseId={parsedCourseId} hideSubmit={isSubmitted || isGraded} />
+              ? <PythonLabEmbed lab={linkedLab} courseId={parsedCourseId} hideSubmit={isSubmitted || isGraded || isPastDue} />
+              : <RLabEmbed lab={linkedLab} courseId={parsedCourseId} hideSubmit={isSubmitted || isGraded || isPastDue} />
           )}
 
-          {/* Lab assignment: submitted waiting for grading */}
-          {linkedLab && isSubmitted && !isGraded && (
+          {/* Lab assignment: submitted (waiting for grading or graded) — show submission content */}
+          {linkedLab && isSubmitted && mySubmission && (
             <Card>
+              <CardHeader>
+                <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{t('your_submission')}</h2>
+              </CardHeader>
               <CardBody>
-                <div className="flex items-center gap-2 p-4 rounded-lg" style={{ backgroundColor: colors.bgBlueBanner }}>
-                  <CheckCircle className="w-5 h-5" style={{ color: colors.textBlue }} />
-                  <p style={{ color: colors.textBlue }}>
-                    {t('submitted_waiting_grading')}
-                  </p>
-                </div>
-                {mySubmission?.submittedAt && (
-                  <p className="text-sm mt-3" style={{ color: colors.textMuted }}>
-                    {t('submitted_on', { date: new Date(mySubmission.submittedAt).toLocaleString() })}
-                  </p>
+                {!isGraded && (
+                  <div className="flex items-center gap-2 p-4 rounded-lg mb-4" style={{ backgroundColor: colors.bgBlueBanner }}>
+                    <CheckCircle className="w-5 h-5" style={{ color: colors.textBlue }} />
+                    <p style={{ color: colors.textBlue }}>
+                      {t('submitted_waiting_grading')}
+                    </p>
+                  </div>
                 )}
+                {mySubmission.content && (
+                  isHtmlContent(mySubmission.content) ? (
+                    <div
+                      className="prose max-w-none mb-4 text-sm"
+                      style={{ color: colors.textSecondary }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(mySubmission.content) }}
+                    />
+                  ) : (
+                    <p className="mb-4 text-sm whitespace-pre-wrap" style={{ color: colors.textSecondary }}>
+                      {mySubmission.content}
+                    </p>
+                  )
+                )}
+                {fileUrls.length > 0 && (
+                  <div className="mb-4 space-y-2">
+                    <label className="block text-sm font-medium mb-1" style={{ color: colors.textSecondary }}>
+                      {t('file_attachments')}
+                    </label>
+                    {fileUrls.map((url, index) => {
+                      const rawName = url.split('/').pop() ?? `file-${index + 1}`;
+                      let displayName: string;
+                      try {
+                        displayName = decodeURIComponent(rawName.replace(/^[\w-]{36}/, '').replace(/^-/, '')) || rawName;
+                      } catch {
+                        displayName = rawName;
+                      }
+                      const isPdf = url.toLowerCase().endsWith('.pdf');
+                      const resolvedUrl = resolveFileUrl(url);
+
+                      if (isPdf) {
+                        return (
+                          <div key={index} className="rounded-lg border overflow-hidden" style={{ borderColor: colors.border }}>
+                            <div className="flex items-center justify-between px-3 py-2" style={{ backgroundColor: colors.bgFile }}>
+                              <div className="flex items-center gap-2">
+                                <FileText className="w-4 h-4" style={{ color: colors.textMuted }} />
+                                <span className="text-sm font-medium truncate" style={{ color: colors.textPrimary }}>{displayName}</span>
+                              </div>
+                              <a href={resolvedUrl} download={displayName} target="_blank" rel="noopener noreferrer" style={{ color: colors.textSecondary }}>
+                                <Download className="w-3.5 h-3.5" />
+                              </a>
+                            </div>
+                            <iframe src={resolvedUrl} className="w-full border-0" style={{ height: '500px' }} title={displayName} />
+                          </div>
+                        );
+                      }
+                      return (
+                        <div key={index} className="flex items-center gap-2 p-2 rounded" style={{ backgroundColor: colors.bgFile }}>
+                          <FileText className="w-4 h-4" style={{ color: colors.textMuted }} />
+                          <span className="flex-1 text-sm truncate" style={{ color: colors.textPrimary }}>{displayName}</span>
+                          <a href={resolvedUrl} download={displayName} target="_blank" rel="noopener noreferrer" style={{ color: colors.textSecondary }}>
+                            <Download className="w-4 h-4" />
+                          </a>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <p className="text-sm" style={{ color: colors.textMuted }}>
+                  {t('submitted_on', { date: new Date(mySubmission.submittedAt).toLocaleString() })}
+                </p>
               </CardBody>
             </Card>
           )}
@@ -663,8 +723,8 @@ export const AssignmentView = () => {
             </Card>
           )}
 
-          {/* Graded Submission View */}
-          {isGraded && mySubmission && (
+          {/* Graded Submission View (non-lab assignments) */}
+          {!linkedLab && isGraded && mySubmission && (
             <Card>
               <CardHeader>
                 <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{t('your_submission')}</h2>

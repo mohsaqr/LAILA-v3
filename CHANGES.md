@@ -1,3 +1,29 @@
+### 2026-03-25 — Interactive lab exercise improvements, enrollment route fix, standalone labs
+
+- **SNA exercise assignment header**: `/courses/{id}/sna-exercise` now shows the same assignment header card as lab template assignments — breadcrumbs with course name, assignment title, deadline, points, status badge (not started/submitted/graded), and grade card with instructor feedback at bottom.
+- **Hide interactive lab when linked as assignment**: In `ModuleSection`, interactive labs (TNA/SNA) from `module.interactiveLabs` are hidden when a published assignment with matching `agentRequirements` already exists in the same module. Requires `agentRequirements` field added to course `getCourseById` assignment select.
+- **Display standalone CustomLabs on course page**: `LabAssignment` records without a linked assignment (`assignmentId: null`) now appear as lab content items in the module section. Links to `/labs/{labId}?courseId={courseId}`.
+  - `server/src/services/course.service.ts`: Added `labAssignments` include (where `assignmentId: null`) with lab details to `getCourseById` module query
+  - `client/src/components/course/ModuleSection.tsx`: Added `labAssignments` prop and renders them as `'lab'` type content items
+  - `client/src/pages/CourseDetails.tsx`: Passes `labAssignments` to `ModuleSection`
+- **Fix enrollment route returning null for admins/instructors**: The `GET /enrollments/course/:courseId` route was short-circuiting with `data: null` for admins/instructors, so the course title was unavailable in breadcrumbs. Now calls `getEnrollment` for all users — returns virtual enrollment with full course data.
+- **Remove assignmentId from exercise redirect URLs**: `AssignmentView.tsx` redirects to `/courses/{id}/tna-exercise` and `/courses/{id}/sna-exercise` without `?assignmentId=` — exercise pages find the assignment automatically via `agentRequirements`.
+- **SNA sidebar layout**: "Enter your own network" and "or generate with AI" buttons now display on separate lines (`flex-col`).
+- **Hide past-due submit button for all lab types**: When assignment due date has passed, the submit button and panel are hidden for lab template assignments (`AssignmentView`), SNA exercise, and TNA exercise. SNA/TNA show a "Deadline Has Passed" card.
+- **Hide capture button when no assignment**: The "Add to report" button in `LabRunnerUI` only appears when the lab is linked to an assignment. SNA/TNA capture buttons also hidden when no assignment, already submitted, graded, or past due.
+- **SNA exercise report capture overhaul**:
+  - Network graph captured via SVG serialization (not `html2canvas`) — renders full SVG at natural dimensions (2x scale), fixing clipped nodes
+  - Analysis content captured separately via `html2canvas`, then combined with network into single snapshot
+  - Capture excludes guide banners, "Ask AI" assistant, CSV export buttons
+  - Keys are analysis-specific (`centrality-InDegree-chart`, `centrality-OutDegree-table`, etc.) — students can capture multiple centrality measures without overwriting
+  - `captureRef` wraps only network graph + analysis data cards
+- **Fix network graph node clipping**: `TnaNetworkGraph` SVG padding now uses `baseNodeRadius * maxNodeScale + 10` instead of `baseNodeRadius + 5`, preventing nodes scaled by centrality from being cut off at edges.
+- **Show submission content after submit**: For lab assignments and SNA exercises, submitted students now see their submission content (text/HTML) and files (with inline PDF preview) alongside the "waiting for grading" status. When graded, both the submission card and grade card are shown.
+  - `client/src/pages/AssignmentView.tsx`: Lab submitted block now displays content + files; graded view excluded for labs (handled by unified block)
+  - `client/src/pages/SnaExercise.tsx`: Submission card with content/files shown for both submitted and graded states; grade card shown separately below
+- **TNA exercise due date and submission state**: Added `mySubmission` query, `isPastDue`/`isSubmitted`/`isGraded` state, and capture button gating to TNA exercise page.
+- 1 new enrollment route test, total 913 passing tests.
+
 ### 2026-03-24 — Lab assignment improvements, enrollment fixes, PDF generation
 
 - **Fix duplicate submit button on lab assignments**: When assignment type is lab assignment (`/courses/{id}/assignments/{id}`), the "Your Submission" card (text editor, file upload, submit button) is now hidden since labs have their own submission flow via `LabAssignmentPanel`.

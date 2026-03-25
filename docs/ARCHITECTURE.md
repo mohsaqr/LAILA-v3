@@ -496,6 +496,34 @@ All instructor submission review goes through unified routes:
 ```
 `SubmissionReview.tsx` checks `assignment.submissionType` and conditionally fetches via `assignmentsApi.getSubmissions()` or `agentAssignmentsApi.getAgentSubmissions()`.
 
+### 5c. Lab & Interactive Lab Assignment Flow
+
+Assignments can be linked to labs in two ways:
+
+**Lab Template Assignments** (R/Python labs via `LabAssignment` model):
+- `AssignmentView.tsx` embeds `LabRunnerUI` when `linkedLab` exists
+- The generic "Your Submission" card is hidden — submission goes through `LabAssignmentPanel`
+- `LabRunnerUI` accepts `hideSubmit` prop (true when submitted/graded/past due)
+- Students capture code+output snapshots → generate PDF report → submit via panel
+
+**Interactive Lab Assignments** (TNA/SNA exercises via `agentRequirements`):
+- `AssignmentView.tsx` redirects to `/courses/{id}/tna-exercise` or `/courses/{id}/sna-exercise`
+- Exercise pages find their assignment via `agentRequirements` field (no `assignmentId` query param needed)
+- Assignment header card shows deadline, points, status badge
+- Students capture analysis snapshots → generate PDF → submit via `LabAssignmentPanel`
+- SNA capture uses SVG serialization for the network graph (bypasses html2canvas clipping) + html2canvas for analysis cards
+- Capture keys are analysis-specific (e.g., `centrality-InDegree-chart`) allowing multiple captures
+
+**Standalone Labs** (no linked assignment):
+- `LabAssignment` records with `assignmentId: null` appear as lab items on the course page
+- Link to `/labs/{labId}?courseId={courseId}`
+- No submit button or report capture
+
+**Post-submission view** (all lab types):
+- Students see their submission content (text/HTML) and files (inline PDF preview)
+- "Waiting for grading" banner (submitted but not graded)
+- Grade card with score, percentage, instructor feedback (when graded)
+
 #### Due Date Timezone Convention
 Due dates use a "wall clock" pattern — stored as literal UTC, displayed with `timeZone: 'UTC'`:
 - **Save**: `datetime-local` value + `':00.000Z'` (no timezone conversion)

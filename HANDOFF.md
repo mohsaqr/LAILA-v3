@@ -1,4 +1,17 @@
-# Session Handoff — 2026-03-24
+# Session Handoff — 2026-03-25
+
+## Completed (2026-03-25)
+- **SNA exercise page assignment integration**: Full assignment header card with breadcrumbs, deadline, status badge, submit button, submitted/graded states, and grade card — matching the lab template assignment page design.
+- **Hide interactive labs when linked as assignments**: Interactive lab entries (TNA/SNA) in module sections are hidden when a published assignment with matching `agentRequirements` exists. Added `agentRequirements` to course `getCourseById` select.
+- **Display standalone CustomLabs**: `LabAssignment` records without an assignment now appear as lab items on the course page, linking to `/labs/{id}?courseId={id}`.
+- **Fix enrollment route for admins/instructors**: Route now calls `getEnrollment` for all users, returning course data in breadcrumbs.
+- **Removed redundant `assignmentId` from exercise redirect URLs**.
+- **SNA sidebar**: Custom network/AI buttons on separate lines.
+- **Past-due submit hidden for all lab types**: Lab templates, SNA, TNA all hide submit button and panel when due date passed.
+- **SNA report capture overhaul**: SVG serialization for network graph (no clipping), separate html2canvas for analysis, excludes guide/AI/buttons, analysis-specific keys allow multiple centrality captures.
+- **Network graph node clipping fix**: `TnaNetworkGraph` padding accounts for max centrality-scaled node radius.
+- **Submission content visible after submit**: Lab assignments and SNA exercises show submitted text/files (with PDF preview) for both submitted and graded states.
+- **TNA exercise due date/submission state**: Added submission query and past-due/submitted/graded gating.
 
 ## Completed (2026-03-24)
 - **Lab assignment submission flow overhaul**: Hid duplicate "Your Submission" card for lab assignments. Moved submit button to page bottom. Panel closes on submit and page refreshes. Submitted/graded states now show correctly (waiting for grading banner, grade card with feedback).
@@ -106,6 +119,14 @@
 - PDF report items use code content as key: same code = recapture (overwrite), different code = new entry
 - All users (admins, instructors, students) can enroll in any published course — no role-based enrollment restrictions
 - Grade card displays inline at bottom of assignment page, not in a sidebar column
+- Interactive labs (TNA/SNA) are hidden from module content when a published assignment with matching `agentRequirements` exists — avoids duplicate entries
+- Standalone `CustomLab` (via `LabAssignment` with `assignmentId: null`) appears as lab content item, links to `/labs/{id}?courseId={id}`
+- Enrollment route no longer short-circuits for admins/instructors — always calls `getEnrollment` to return course data
+- Exercise pages find their assignment automatically via `agentRequirements` — no `assignmentId` query param needed
+- SNA report capture uses SVG serialization for the network graph (bypasses html2canvas clipping) and html2canvas for analysis cards; combined into single image
+- SNA capture keys are analysis-specific (e.g., `centrality-InDegree-chart`) so multiple centrality measures can coexist in the report
+- `TnaNetworkGraph` padding uses `maxNodeScale` to prevent centrality-scaled nodes from being clipped
+- Submission content (text + files) shown to students after submit for all assignment types (lab, SNA, TNA), not just after grading
 
 ## Open Issues
 - Lectures, assignments, quizzes, codeLabs, codeBlocks in seed.ts still use `prisma.*.create()` — will create duplicates on re-seed. Low priority.

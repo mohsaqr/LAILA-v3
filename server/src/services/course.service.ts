@@ -133,6 +133,15 @@ export class CourseService {
                 isPublished: true,
                 submissionType: true,
                 moduleId: true,
+                agentRequirements: true,
+              },
+            },
+            labAssignments: {
+              where: { assignmentId: null },
+              include: {
+                lab: {
+                  select: { id: true, name: true, labType: true, description: true },
+                },
               },
             },
             quizzes: {

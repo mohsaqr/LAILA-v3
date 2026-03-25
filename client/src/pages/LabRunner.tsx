@@ -422,8 +422,8 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit }: { lab: any; hoo
               outputRef={outputAreaRef}
             />
 
-            {/* Add to Report button */}
-            {outputs.length > 0 && (() => {
+            {/* Add to Report button (only when lab is linked to an assignment) */}
+            {outputs.length > 0 && assignmentConfig?.assignment && (() => {
               const currentKey = `${selectedTemplate?.title || 'Code Output'}-${(code || '').trim()}`;
               const isCaptured = reportItems.some(r => r.key === currentKey);
               return (

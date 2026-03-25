@@ -109,6 +109,18 @@ export const TnaExercise = () => {
     ? courseAssignments?.find(a => a.id === Number(targetAssignmentId)) ?? null
     : courseAssignments?.find(a => a.agentRequirements === INTERACTIVE_LAB_REQUIREMENTS.TNA) ?? null;
 
+  const { data: mySubmission } = useQuery({
+    queryKey: ['mySubmission', tnaAssignment?.id],
+    queryFn: () => assignmentsApi.getMySubmission(tnaAssignment!.id),
+    enabled: !!tnaAssignment,
+    retry: false,
+  });
+
+  const dueDateLocal = tnaAssignment?.dueDate ? new Date(String(tnaAssignment.dueDate).replace('Z', '')) : null;
+  const isPastDue = dueDateLocal ? dueDateLocal < new Date() : false;
+  const isSubmitted = mySubmission?.status === 'submitted' || mySubmission?.status === 'graded';
+  const isGraded = mySubmission?.status === 'graded';
+
   // ── Core state ──
   const [datasetKey, setDatasetKey] = useState<string | null>(null);
   const [actorCol, setActorCol] = useState('');
@@ -315,7 +327,7 @@ export const TnaExercise = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {tnaAssignment && (
+            {tnaAssignment && !isSubmitted && !isGraded && !isPastDue && (
               <button
                 onClick={() => setAssignmentPanelOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition-colors"
@@ -769,8 +781,8 @@ export const TnaExercise = () => {
                   </div>
                 )}
 
-                {/* Add-to-report capture button */}
-                {modelBuilt && activeAnalysis && (
+                {/* Add-to-report capture button (only when assignment exists and not past due/submitted) */}
+                {modelBuilt && activeAnalysis && tnaAssignment && !isSubmitted && !isGraded && !isPastDue && (
                   <button
                     onClick={handleAddToReport}
                     disabled={isCapturing}
@@ -998,7 +1010,7 @@ export const TnaExercise = () => {
         />
       )}
 
-      {tnaAssignment && (
+      {tnaAssignment && !isSubmitted && !isGraded && !isPastDue && (
         <LabAssignmentPanel
           isOpen={assignmentPanelOpen}
           onClose={() => setAssignmentPanelOpen(false)}

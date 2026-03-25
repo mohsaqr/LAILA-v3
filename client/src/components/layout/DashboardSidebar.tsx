@@ -82,7 +82,7 @@ export const DashboardSidebar = () => {
 
   // Detect if we're in a course-specific context (teach or student-facing course view)
   const teachCourseMatch = location.pathname.match(/\/teach\/courses\/(\d+)/);
-  const studentCourseMatch = (isActualAdmin || user?.isInstructor) ? location.pathname.match(/^\/courses\/(\d+)/) : null;
+  const studentCourseMatch = null; // Never switch sidebar for student-facing course pages
   const activeCourseId = teachCourseMatch?.[1] || studentCourseMatch?.[1] || null;
 
   // Course-specific items for the teacher (shown when viewing a course)
@@ -115,6 +115,8 @@ export const DashboardSidebar = () => {
       { label: t('surveys'), icon: ClipboardCheck, path: '/teach/surveys' },
       { label: t('forums'), icon: MessageSquare, path: '/forums' },
       { label: t('certificate_templates'), icon: Award, path: '/teach/certificates' },
+      { label: t('gradebook'), icon: ClipboardList, path: '/dashboard/gradebook' },
+      { label: t('calendar'), icon: Calendar, path: '/dashboard/calendar' },
     ]),
     // Admin Logs + Analytics live only on the admin page (/admin/logs, /admin/analytics)
     // Course-level Logs + Analytics are in courseNavItems above

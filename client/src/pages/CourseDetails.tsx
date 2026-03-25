@@ -260,6 +260,7 @@ export const CourseDetails = () => {
                       assignments={module.assignments}
                       forums={module.forums}
                       surveys={module.moduleSurveys?.map(ms => ms.survey)}
+                      labAssignments={(module as any).labAssignments}
                       hasAccess={hasAccess}
                       viewMode={viewMode}
                     />
