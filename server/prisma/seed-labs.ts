@@ -11,6 +11,8 @@ async function main() {
     throw new Error('Admin user not found. Run the main seed first.');
   }
 
+  /* === Other labs commented out — only seeding Karate Club ===
+
   // =========================================================================
   // TNA Lab
   // =========================================================================
@@ -704,6 +706,8 @@ for i, comm in enumerate(communities):
       ],
     });
   }
+
+  === End commented out labs */
 
   // =========================================================================
   // Karate Club — igraph Layouts Lab
@@ -1584,7 +1588,7 @@ plot(g, layout = lay)`,
     });
   }
 
-  console.log('Created custom labs: TNA, Statistics, MSLQ, COLLES, R-SPQ-2F, SNA, Python, Python-SNA, Karate Club Layouts');
+  console.log('Created custom lab: Karate Club Layouts');
 }
 
 main()
