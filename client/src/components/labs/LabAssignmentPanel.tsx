@@ -295,8 +295,6 @@ export const LabAssignmentPanel = ({
         }
 
         // ── Output snapshot ──
-        section(`${sectionNum}${item.code?.trim() ? 'b' : ''}. OUTPUT - ${item.label.toUpperCase()}`);
-
         let imgData = item.dataUrl;
         if (!imgData && labContentRef.current) {
           const el = labContentRef.current;
@@ -308,13 +306,25 @@ export const LabAssignmentPanel = ({
           imgData = canvas.toDataURL('image/jpeg', 0.8);
         }
         if (imgData) {
+          const pageH = pdf.internal.pageSize.getHeight();
+          const halfPage = (pageH - margin * 2) / 2;
+          const remaining = pageH - margin - y;
+
+          // If less than half a page remains, start a new page for the output
+          if (remaining < halfPage) {
+            pdf.addPage();
+            y = 20;
+          }
+
+          section(`${sectionNum}${item.code?.trim() ? 'b' : ''}. OUTPUT - ${item.label.toUpperCase()}`);
+
           const img = new Image();
           await new Promise<void>(resolve => {
             img.onload = () => resolve();
             img.src = imgData;
           });
           const maxW = W - margin * 2;
-          const pageBottom = pdf.internal.pageSize.getHeight() - margin;
+          const pageBottom = pageH - margin;
           const maxH = pageBottom - y;
           const ratio = img.width / img.height;
           let imgW = maxW;
