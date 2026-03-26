@@ -1,3 +1,15 @@
+### 2026-03-26 — Forgot password feature
+
+- **Forgot password flow**: 3-step flow — enter email → receive 6-digit verification code (10-min expiry) → enter new password + confirmation → auto-login.
+  - `server/src/services/auth.service.ts`: Added `forgotPassword(email)` and `resetPassword(email, code, newPassword)` methods. Reuses existing `VerificationCode` model and `emailService.sendVerificationCode()`.
+  - `server/src/routes/auth.routes.ts`: Added `POST /auth/forgot-password` and `POST /auth/reset-password` endpoints.
+  - `client/src/api/auth.ts`: Added `forgotPassword()` and `resetPassword()` API methods.
+  - `client/src/hooks/useAuth.ts`: Added `forgotPassword()` and `resetPassword()` hooks with auto-login on success.
+  - `client/src/pages/auth/ForgotPassword.tsx`: New page with 3-step UI — email input, 6-digit code verification (same pattern as registration), new password with confirmation and validation rules. Forced LTR layout.
+  - `client/src/pages/auth/Login.tsx`: Added "Forgot password?" link (left-aligned) below password field.
+  - `client/src/App.tsx`: Added `/forgot-password` public route.
+  - `client/src/api/client.ts`: Added `/forgot-password` to 401 interceptor exclusions to prevent redirect during code entry.
+
 ### 2026-03-25 — Interactive lab exercise improvements, enrollment route fix, standalone labs
 
 - **SNA exercise assignment header**: `/courses/{id}/sna-exercise` now shows the same assignment header card as lab template assignments — breadcrumbs with course name, assignment title, deadline, points, status badge (not started/submitted/graded), and grade card with instructor feedback at bottom.

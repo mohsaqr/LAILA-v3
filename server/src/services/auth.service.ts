@@ -421,6 +421,93 @@ export class AuthService {
     return { message: 'Password updated successfully' };
   }
 
+  async forgotPassword(email: string) {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) throw new AppError('User not found', 404);
+
+    // Delete any existing verification codes for this user
+    await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+
+    // Generate 6-digit verification code
+    const code = crypto.randomInt(100000, 999999).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await prisma.verificationCode.create({
+      data: { userId: user.id, code, expiresAt },
+    });
+
+    // Send verification email (non-blocking)
+    emailService.sendVerificationCode(user.email, code, user.fullname).catch((err) => {
+      authLogger.warn({ err, email: user.email }, 'Failed to send password reset verification email');
+    });
+
+    return { email, message: 'Verification code sent' };
+  }
+
+  async resetPassword(email: string, code: string, newPassword: string) {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) throw new AppError('User not found', 404);
+
+    const record = await prisma.verificationCode.findFirst({
+      where: { userId: user.id },
+    });
+
+    if (!record) {
+      throw new AppError('Invalid verification code', 400);
+    }
+
+    if (record.expiresAt < new Date()) {
+      await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+      throw new AppError('Verification code has expired', 400);
+    }
+
+    if (record.code !== code) {
+      throw new AppError('Invalid verification code', 400);
+    }
+
+    // Hash new password
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    // Update user: new password, increment tokenVersion, reset lockout
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        tokenVersion: { increment: 1 },
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      },
+      select: {
+        id: true,
+        fullname: true,
+        email: true,
+        isAdmin: true,
+        isInstructor: true,
+        avatarUrl: true,
+        tokenVersion: true,
+      },
+    });
+
+    // Delete the verification code
+    await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+
+    // Invalidate user status cache
+    invalidateUserStatusCache(user.id);
+
+    // Generate token
+    const payload: UserPayload = {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      fullname: updatedUser.fullname,
+      isAdmin: updatedUser.isAdmin,
+      isInstructor: updatedUser.isInstructor,
+      tokenVersion: updatedUser.tokenVersion,
+    };
+    const token = generateToken(payload);
+
+    return { user: updatedUser, token };
+  }
+
   /**
    * Log a logout event
    */

@@ -612,6 +612,8 @@ The `CollaborativeModule` component on `CourseDetails` page receives tutors as a
 | POST | /api/auth/verify-code | Verify 6-digit activation code (returns user + JWT) |
 | POST | /api/auth/resend-code | Resend activation code (2-minute expiry) |
 | POST | /api/auth/login | Login (blocked if email not verified) |
+| POST | /api/auth/forgot-password | Send 6-digit reset code to email (10-min expiry) |
+| POST | /api/auth/reset-password | Verify code + set new password (returns user + JWT) |
 | GET | /api/auth/profile | Get current user |
 
 ### Courses

@@ -6,6 +6,11 @@ export interface RegisterResponse {
   message: string;
 }
 
+export interface ForgotPasswordResponse {
+  email: string;
+  message: string;
+}
+
 export const authApi = {
   register: async (data: { fullname: string; email: string; password: string }) => {
     const response = await apiClient.post<ApiResponse<RegisterResponse>>('/auth/register', data);
@@ -39,6 +44,16 @@ export const authApi = {
 
   verifyToken: async () => {
     const response = await apiClient.get<ApiResponse<{ valid: boolean; user: User }>>('/auth/verify');
+    return response.data.data!;
+  },
+
+  forgotPassword: async (email: string) => {
+    const response = await apiClient.post<ApiResponse<ForgotPasswordResponse>>('/auth/forgot-password', { email });
+    return response.data.data!;
+  },
+
+  resetPassword: async (data: { email: string; code: string; newPassword: string }) => {
+    const response = await apiClient.post<ApiResponse<AuthResponse>>('/auth/reset-password', data);
     return response.data.data!;
   },
 

@@ -53,7 +53,7 @@ apiClient.interceptors.response.use(
       // unauthenticated analytics flushes.
       useAuthStore.getState().logout();
       const currentPath = window.location.pathname;
-      if (currentPath !== '/login' && currentPath !== '/register') {
+      if (currentPath !== '/login' && currentPath !== '/register' && currentPath !== '/forgot-password') {
         window.location.href = '/login';
       }
     }

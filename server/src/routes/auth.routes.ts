@@ -96,6 +96,28 @@ router.post('/resend-code', asyncHandler(async (req, res: Response) => {
   res.json({ success: true, data: result });
 }));
 
+// Forgot password — send verification code
+router.post('/forgot-password', asyncHandler(async (req, res: Response) => {
+  const { email } = req.body;
+  if (!email) {
+    res.status(400).json({ success: false, error: 'email is required' });
+    return;
+  }
+  const result = await authService.forgotPassword(String(email));
+  res.json({ success: true, data: result });
+}));
+
+// Reset password — verify code and set new password
+router.post('/reset-password', asyncHandler(async (req, res: Response) => {
+  const { email, code, newPassword } = req.body;
+  if (!email || !code || !newPassword) {
+    res.status(400).json({ success: false, error: 'email, code, and newPassword are required' });
+    return;
+  }
+  const result = await authService.resetPassword(String(email), String(code), String(newPassword));
+  res.json({ success: true, data: result });
+}));
+
 // Login
 router.post('/login', asyncHandler(async (req, res: Response) => {
   const data = loginSchema.parse(req.body);

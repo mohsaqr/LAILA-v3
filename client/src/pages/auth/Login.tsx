@@ -114,6 +114,12 @@ export const Login = () => {
               </button>
             </div>
 
+            <div className="flex justify-start">
+              <Link to="/forgot-password" className="text-sm hover:underline" style={{ color: colors.linkColor }}>
+                {t('forgot_password', { defaultValue: 'Forgot password?' })}
+              </Link>
+            </div>
+
             <Button type="submit" className="w-full" loading={isLoading}>
               {t('sign_in')}
             </Button>
