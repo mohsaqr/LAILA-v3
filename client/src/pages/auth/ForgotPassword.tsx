@@ -92,25 +92,34 @@ export const ForgotPassword = () => {
     }
   };
 
+  const [codeError, setCodeError] = useState('');
+
   const handleVerifyCode = async () => {
     const code = codeDigits.join('');
     if (code.length !== 6) {
-      toast.error(t('enter_full_code', { defaultValue: 'Please enter the full 6-digit code' }));
+      setCodeError(t('enter_full_code', { defaultValue: 'Please enter the full 6-digit code' }));
       return;
     }
 
     setIsVerifying(true);
-    // Just move to the next step — the code will be validated on final reset
-    setStep('reset');
-    setIsVerifying(false);
+    setCodeError('');
+    try {
+      await authApi.verifyResetCode(email, code);
+      setStep('reset');
+    } catch (error: any) {
+      setCodeError(error.message || t('invalid_code', { defaultValue: 'Invalid verification code' }));
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const handleResend = async () => {
     setIsResending(true);
     try {
-      await authApi.resendCode(email);
-      toast.success(t('code_resent', { defaultValue: 'Code resent successfully' }));
+      await authApi.forgotPassword(email);
+      toast.success(t('code_resent', { defaultValue: 'New verification code sent' }));
       setCodeDigits(['', '', '', '', '', '']);
+      setCodeError('');
       inputRefs.current[0]?.focus();
     } catch (error: any) {
       toast.error(error.message || t('resend_failed', { defaultValue: 'Failed to resend code' }));
@@ -256,6 +265,10 @@ export const ForgotPassword = () => {
                   />
                 ))}
               </div>
+
+              {codeError && (
+                <p className="text-sm text-red-500 text-center">{codeError}</p>
+              )}
 
               <Button
                 className="w-full"

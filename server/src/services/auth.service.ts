@@ -444,6 +444,30 @@ export class AuthService {
     return { email, message: 'Verification code sent' };
   }
 
+  async verifyResetCode(email: string, code: string) {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) throw new AppError('User not found', 404);
+
+    const record = await prisma.verificationCode.findFirst({
+      where: { userId: user.id },
+    });
+
+    if (!record) {
+      throw new AppError('Invalid verification code', 400);
+    }
+
+    if (record.expiresAt < new Date()) {
+      await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+      throw new AppError('Verification code has expired', 400);
+    }
+
+    if (record.code !== code) {
+      throw new AppError('Invalid verification code', 400);
+    }
+
+    return { valid: true };
+  }
+
   async resetPassword(email: string, code: string, newPassword: string) {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) throw new AppError('User not found', 404);

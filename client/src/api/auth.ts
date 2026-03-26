@@ -52,6 +52,11 @@ export const authApi = {
     return response.data.data!;
   },
 
+  verifyResetCode: async (email: string, code: string) => {
+    const response = await apiClient.post<ApiResponse<{ valid: boolean }>>('/auth/verify-reset-code', { email, code });
+    return response.data.data!;
+  },
+
   resetPassword: async (data: { email: string; code: string; newPassword: string }) => {
     const response = await apiClient.post<ApiResponse<AuthResponse>>('/auth/reset-password', data);
     return response.data.data!;

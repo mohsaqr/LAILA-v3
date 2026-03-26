@@ -107,6 +107,17 @@ router.post('/forgot-password', asyncHandler(async (req, res: Response) => {
   res.json({ success: true, data: result });
 }));
 
+// Verify reset code — check if the code is valid without resetting
+router.post('/verify-reset-code', asyncHandler(async (req, res: Response) => {
+  const { email, code } = req.body;
+  if (!email || !code) {
+    res.status(400).json({ success: false, error: 'email and code are required' });
+    return;
+  }
+  const result = await authService.verifyResetCode(String(email), String(code));
+  res.json({ success: true, data: result });
+}));
+
 // Reset password — verify code and set new password
 router.post('/reset-password', asyncHandler(async (req, res: Response) => {
   const { email, code, newPassword } = req.body;
