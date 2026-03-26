@@ -2,6 +2,7 @@
 
 ## Completed (2026-03-26)
 - **Forgot password feature**: 3-step flow (email → 6-digit verification code → new password). Reuses `VerificationCode` model with 10-minute expiry. Auto-login after reset. New page at `/forgot-password`, link on login page, 401 interceptor exclusion added.
+- **All users can enroll and complete lectures**: Removed role-based restrictions. Admins see the Enroll button (no longer forced `enrolled: true`). `markLectureComplete` and `getProgress` work for all enrolled users. Complete button visible to everyone.
 
 ## Completed (2026-03-25)
 - **SNA exercise page assignment integration**: Full assignment header card with breadcrumbs, deadline, status badge, submit button, submitted/graded states, and grade card — matching the lab template assignment page design.

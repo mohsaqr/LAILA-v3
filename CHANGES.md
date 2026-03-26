@@ -1,3 +1,10 @@
+### 2026-03-26 — Forgot password, all users can complete lectures
+
+- **All users can enroll and complete lectures**: Removed role-based restrictions on lecture completion and progress tracking.
+  - `server/src/services/enrollment.service.ts`: `markLectureComplete()` no longer skips admins/instructors. `getProgress()` checks actual enrollment first; only returns virtual progress for non-enrolled admins/instructors.
+  - `server/src/routes/course.routes.ts`: `enrolled` field now reflects actual enrollment for all users (admins no longer forced to `true`), so they see the Enroll button.
+  - `client/src/pages/LectureView.tsx`: Removed `isStudent` gate from complete button and progress query — all enrolled users see the complete button.
+
 ### 2026-03-26 — Forgot password feature
 
 - **Forgot password flow**: 3-step flow — enter email → receive 6-digit verification code (10-min expiry) → enter new password + confirmation → auto-login.

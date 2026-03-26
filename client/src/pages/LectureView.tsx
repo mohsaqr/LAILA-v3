@@ -8,7 +8,7 @@ import { coursesApi } from '../api/courses';
 import { enrollmentsApi } from '../api/enrollments';
 import { resolveFileUrl } from '../api/client';
 import { useTheme } from '../hooks/useTheme';
-import { useAuth } from '../hooks/useAuth';
+
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
@@ -30,9 +30,9 @@ export const LectureView = () => {
   const { t } = useTranslation(['courses', 'common']);
   const { courseId, lectureId } = useParams<{ courseId: string; lectureId: string }>();
   const { isDark } = useTheme();
-  const { isAdmin, isInstructor } = useAuth();
+
   const queryClient = useQueryClient();
-  const isStudent = !isAdmin && !isInstructor;
+
 
   // Theme colors
   const colors = {
@@ -71,7 +71,7 @@ export const LectureView = () => {
   const { data: courseProgress } = useQuery({
     queryKey: ['courseProgress', courseId],
     queryFn: () => enrollmentsApi.getProgress(parseInt(courseId!)),
-    enabled: !!courseId && isStudent,
+    enabled: !!courseId,
     staleTime: 10000,
   });
 
@@ -373,8 +373,8 @@ export const LectureView = () => {
               </div>
             )}
 
-            {/* Complete button (students only) */}
-            {isStudent && (
+            {/* Complete button */}
+            {(
               <div className="mt-8 pt-6 flex justify-end" style={{ borderTop: `1px solid ${colors.border}` }}>
                 {isCompleted ? (
                   <div className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400 font-medium">

@@ -580,7 +580,7 @@ Due dates use a "wall clock" pattern — stored as literal UTC, displayed with `
 Course content is protected by enrollment checks at two levels:
 
 ### Server-Side (Service Layer)
-Services like `quiz.service`, `assignment.service`, `forum.service`, `lecture.service` check enrollment via `prisma.enrollment.findUnique()`. Admins bypass all checks; instructors bypass for their own courses. Throws `AppError('...', 403)` if student is not enrolled.
+Services like `quiz.service`, `assignment.service`, `forum.service`, `lecture.service` check enrollment via `prisma.enrollment.findUnique()`. Admins bypass content access checks; instructors bypass for their own courses. Throws `AppError('...', 403)` if student is not enrolled. All users (including admins/instructors) can enroll, complete lectures, and track progress — no role-based restrictions on enrollment or progress.
 
 ### Client-Side (Route Guard)
 `RequireEnrollment` component (`client/src/components/layout/RequireEnrollment.tsx`) wraps course content routes in `App.tsx`:
