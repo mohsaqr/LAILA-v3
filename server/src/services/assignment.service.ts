@@ -381,10 +381,8 @@ export class AssignmentService {
       throw new AppError('This submission has already been graded and cannot be modified', 400);
     }
 
-    // Prevent resubmission of already-submitted work (draft saves are still allowed)
-    if (!canBypass && existingSubmission?.status === 'submitted') {
-      throw new AppError('Assignment has already been submitted', 400);
-    }
+    // Allow resubmission of already-submitted work (before grading)
+    // Students can update their submission until the instructor grades it
 
     // Upsert submission
     const submittedAt = effectiveStatus !== 'draft' ? new Date() : undefined;

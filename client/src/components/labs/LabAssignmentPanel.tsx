@@ -80,6 +80,7 @@ export const LabAssignmentPanel = ({
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isResubmitting, setIsResubmitting] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Revoke object URL on unmount to avoid memory leaks
@@ -123,6 +124,7 @@ export const LabAssignmentPanel = ({
       }),
     onSuccess: () => {
       toast.success(t('submission_success', { defaultValue: 'Assignment submitted successfully!' }));
+      setIsResubmitting(false);
       // Log lab assignment submission
       if (courseNumericId && assignmentId) {
         activityLogger.logLabSubmitted(
@@ -411,19 +413,31 @@ export const LabAssignmentPanel = ({
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
             </div>
-          ) : existingSubmission ? (
-            /* Already submitted — show grade/feedback */
+          ) : existingSubmission && existingSubmission.status !== 'draft' && !isResubmitting ? (
+            /* Already submitted — show grade/feedback with resubmit option */
             <div className="space-y-4">
-              <div className="flex items-center gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-200 dark:border-emerald-800">
-                <CheckCircle className="w-6 h-6 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
-                <div>
-                  <p className="font-medium text-emerald-800 dark:text-emerald-300">
-                    {t('already_submitted', { defaultValue: 'Assignment already submitted' })}
-                  </p>
-                  <p className="text-sm text-emerald-600 dark:text-emerald-400">
-                    {new Date(existingSubmission.submittedAt).toLocaleString()}
-                  </p>
+              <div className="flex items-center justify-between p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-200 dark:border-emerald-800">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="w-6 h-6 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-emerald-800 dark:text-emerald-300">
+                      {t('already_submitted', { defaultValue: 'Assignment already submitted' })}
+                    </p>
+                    <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                      {new Date(existingSubmission.submittedAt).toLocaleString()}
+                    </p>
+                  </div>
                 </div>
+                {existingSubmission.status === 'submitted' && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setIsResubmitting(true)}
+                    icon={<Send className="w-3.5 h-3.5" />}
+                  >
+                    {t('resubmit', { defaultValue: 'Resubmit' })}
+                  </Button>
+                )}
               </div>
 
               {existingSubmission.grade != null && (
@@ -556,9 +570,9 @@ export const LabAssignmentPanel = ({
         </div>
 
         {/* Footer */}
-        {!submissionLoading && (!existingSubmission || existingSubmission.status === 'draft') && (
+        {!submissionLoading && (!existingSubmission || existingSubmission.status === 'draft' || isResubmitting) && (
           <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
-            <Button variant="ghost" onClick={onClose}>
+            <Button variant="ghost" onClick={() => { if (isResubmitting) setIsResubmitting(false); onClose(); }}>
               {t('common:cancel')}
             </Button>
             <Button
@@ -567,7 +581,10 @@ export const LabAssignmentPanel = ({
               disabled={!response.trim() && !pdfUrl}
               icon={<Send className="w-4 h-4" />}
             >
-              {t('submit_assignment', { defaultValue: 'Submit' })}
+              {isResubmitting
+                ? t('resubmit', { defaultValue: 'Resubmit' })
+                : t('submit_assignment', { defaultValue: 'Submit' })
+              }
             </Button>
           </div>
         )}

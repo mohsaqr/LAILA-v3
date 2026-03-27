@@ -16,6 +16,7 @@ import {
   Download,
   Paperclip,
   Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
@@ -43,14 +44,14 @@ import { debug } from '../utils/debug';
 import { activityLogger } from '../services/activityLogger';
 
 // Thin wrappers that provide the runtime hook and pass courseId directly
-const RLabEmbed = ({ lab, courseId, hideSubmit }: { lab: any; courseId: number; hideSubmit?: boolean }) => {
+const RLabEmbed = ({ lab, courseId, hideSubmit, openPanel, onPanelClose }: { lab: any; courseId: number; hideSubmit?: boolean; openPanel?: boolean; onPanelClose?: () => void }) => {
   const hook = useLabWebR(lab.labType);
-  return <LabRunnerUI lab={lab} hook={hook} courseId={courseId} hideSubmit={hideSubmit} />;
+  return <LabRunnerUI lab={lab} hook={hook} courseId={courseId} hideSubmit={hideSubmit} openPanel={openPanel} onPanelClose={onPanelClose} />;
 };
 
-const PythonLabEmbed = ({ lab, courseId, hideSubmit }: { lab: any; courseId: number; hideSubmit?: boolean }) => {
+const PythonLabEmbed = ({ lab, courseId, hideSubmit, openPanel, onPanelClose }: { lab: any; courseId: number; hideSubmit?: boolean; openPanel?: boolean; onPanelClose?: () => void }) => {
   const hook = useLabPyodide(lab.labType);
-  return <LabRunnerUI lab={lab} hook={hook} courseId={courseId} hideSubmit={hideSubmit} />;
+  return <LabRunnerUI lab={lab} hook={hook} courseId={courseId} hideSubmit={hideSubmit} openPanel={openPanel} onPanelClose={onPanelClose} />;
 };
 
 export const AssignmentView = () => {
@@ -66,6 +67,7 @@ export const AssignmentView = () => {
   const [fileUrls, setFileUrls] = useState<string[]>([]);
   const [showSurveyModal, setShowSurveyModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isResubmitting, setIsResubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Theme colors
@@ -194,6 +196,7 @@ export const AssignmentView = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mySubmission', assignmentId] });
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
+      setIsResubmitting(false);
       toast.success(t('assignment_submitted'));
 
       // Log submission to LearningActivityLog
@@ -269,7 +272,8 @@ export const AssignmentView = () => {
   const isPastDue = dueDateLocal ? dueDateLocal < now : false;
   const isSubmitted = mySubmission?.status === 'submitted' || mySubmission?.status === 'graded';
   const isGraded = mySubmission?.status === 'graded';
-  const canSubmit = !isPastDue && !isSubmitted;
+  const canResubmit = isSubmitted && !isGraded && !isPastDue;
+  const canSubmit = !isPastDue && !isGraded;
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -356,8 +360,8 @@ export const AssignmentView = () => {
           {/* Embedded Lab (if assignment has a linked lab) */}
           {linkedLab && (
             isPythonLab(linkedLab.labType)
-              ? <PythonLabEmbed lab={linkedLab} courseId={parsedCourseId} hideSubmit={isSubmitted || isGraded || isPastDue} />
-              : <RLabEmbed lab={linkedLab} courseId={parsedCourseId} hideSubmit={isSubmitted || isGraded || isPastDue} />
+              ? <PythonLabEmbed lab={linkedLab} courseId={parsedCourseId} hideSubmit={isGraded || isPastDue} openPanel={isResubmitting} onPanelClose={() => setIsResubmitting(false)} />
+              : <RLabEmbed lab={linkedLab} courseId={parsedCourseId} hideSubmit={isGraded || isPastDue} openPanel={isResubmitting} onPanelClose={() => setIsResubmitting(false)} />
           )}
 
           {/* Lab assignment: submitted (waiting for grading or graded) — show submission content */}
@@ -368,11 +372,23 @@ export const AssignmentView = () => {
               </CardHeader>
               <CardBody>
                 {!isGraded && (
-                  <div className="flex items-center gap-2 p-4 rounded-lg mb-4" style={{ backgroundColor: colors.bgBlueBanner }}>
-                    <CheckCircle className="w-5 h-5" style={{ color: colors.textBlue }} />
-                    <p style={{ color: colors.textBlue }}>
-                      {t('submitted_waiting_grading')}
-                    </p>
+                  <div className="flex items-center justify-between p-4 rounded-lg mb-4" style={{ backgroundColor: colors.bgBlueBanner }}>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-5 h-5" style={{ color: colors.textBlue }} />
+                      <p style={{ color: colors.textBlue }}>
+                        {t('submitted_waiting_grading')}
+                      </p>
+                    </div>
+                    {canResubmit && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setIsResubmitting(true)}
+                        icon={<RefreshCw className="w-3.5 h-3.5" />}
+                      >
+                        {t('resubmit', { defaultValue: 'Resubmit' })}
+                      </Button>
+                    )}
                   </div>
                 )}
                 {mySubmission.content && (
@@ -553,7 +569,7 @@ export const AssignmentView = () => {
               </CardHeader>
               <CardBody className="space-y-4">
                 {(assignment.submissionType === 'text' || assignment.submissionType === 'mixed') && (
-                  isSubmitted ? (
+                  isSubmitted && !isResubmitting ? (
                     <div>
                       <label className="block text-sm font-medium mb-2" style={{ color: colors.textSecondary }}>
                         {t('your_answer_label')}
@@ -599,17 +615,17 @@ export const AssignmentView = () => {
                     )}
                     <div
                       role="button"
-                      tabIndex={isSubmitted || isUploading ? -1 : 0}
+                      tabIndex={(isSubmitted && !isResubmitting) || isUploading ? -1 : 0}
                       className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                       style={{ borderColor: colors.borderDashed }}
-                      onClick={() => !isSubmitted && !isUploading && fileInputRef.current?.click()}
+                      onClick={() => !(isSubmitted && !isResubmitting) && !isUploading && fileInputRef.current?.click()}
                       onKeyDown={(e) => {
-                        if ((e.key === 'Enter' || e.key === ' ') && !isSubmitted && !isUploading) {
+                        if ((e.key === 'Enter' || e.key === ' ') && !(isSubmitted && !isResubmitting) && !isUploading) {
                           e.preventDefault();
                           fileInputRef.current?.click();
                         }
                       }}
-                      aria-disabled={isSubmitted || isUploading}
+                      aria-disabled={(isSubmitted && !isResubmitting) || isUploading}
                       aria-label={t('click_to_upload_file', { defaultValue: 'Click to upload a file' })}
                     >
                       {isUploading
@@ -619,7 +635,7 @@ export const AssignmentView = () => {
                       <p className="text-sm" style={{ color: colors.textSecondary }}>
                         {isUploading
                           ? t('uploading', { defaultValue: 'Uploading...' })
-                          : isSubmitted
+                          : (isSubmitted && !isResubmitting)
                             ? t('submission_locked', { defaultValue: 'Submission locked' })
                             : t('click_to_upload_file', { defaultValue: 'Click to upload a file' })
                         }
@@ -636,7 +652,7 @@ export const AssignmentView = () => {
                       className="hidden"
                       onChange={handleFileUpload}
                       accept={assignment.allowedFileTypes || undefined}
-                      disabled={isSubmitted}
+                      disabled={isSubmitted && !isResubmitting}
                     />
 
                     {fileUrls.length > 0 && (
@@ -671,12 +687,12 @@ export const AssignmentView = () => {
                                 <div className="flex items-center gap-2 p-2 rounded" style={{ backgroundColor: colors.bgFile }}>
                                   <FileText className="w-4 h-4" style={{ color: colors.textMuted }} />
                                   <span className="flex-1 text-sm truncate" style={{ color: colors.textPrimary }}>{displayName}</span>
-                                  {isSubmitted && (
+                                  {(isSubmitted && !isResubmitting) && (
                                     <a href={resolvedUrl} download={displayName} target="_blank" rel="noopener noreferrer" style={{ color: colors.textSecondary }}>
                                       <Download className="w-4 h-4" />
                                     </a>
                                   )}
-                                  {!isSubmitted && (
+                                  {(!isSubmitted || isResubmitting) && (
                                     <button onClick={() => setFileUrls(fileUrls.filter((_, i) => i !== index))} style={{ color: colors.textRed }}>
                                       <X className="w-4 h-4" />
                                     </button>
@@ -691,32 +707,57 @@ export const AssignmentView = () => {
                   </div>
                 )}
 
-                {!isSubmitted && canSubmit && (
+                {(!isSubmitted || isResubmitting) && canSubmit && (
                   <div className="flex items-center justify-end gap-3 pt-4 border-t" style={{ borderColor: colors.border }}>
-                    <Button
-                      variant="secondary"
-                      onClick={() => saveDraftMutation.mutate()}
-                      loading={saveDraftMutation.isPending}
-                      icon={<Save className="w-4 h-4" />}
-                    >
-                      {t('save_draft')}
-                    </Button>
+                    {!isResubmitting && (
+                      <Button
+                        variant="secondary"
+                        onClick={() => saveDraftMutation.mutate()}
+                        loading={saveDraftMutation.isPending}
+                        icon={<Save className="w-4 h-4" />}
+                      >
+                        {t('save_draft')}
+                      </Button>
+                    )}
+                    {isResubmitting && (
+                      <Button
+                        variant="secondary"
+                        onClick={() => setIsResubmitting(false)}
+                      >
+                        {t('common:cancel')}
+                      </Button>
+                    )}
                     <Button
                       onClick={handleSubmit}
                       loading={submitMutation.isPending}
                       icon={<Send className="w-4 h-4" />}
                     >
-                      {t('submit_assignment')}
+                      {isResubmitting
+                        ? t('resubmit', { defaultValue: 'Resubmit' })
+                        : t('submit_assignment')
+                      }
                     </Button>
                   </div>
                 )}
 
-                {isSubmitted && !isGraded && (
-                  <div className="flex items-center gap-2 p-4 rounded-lg" style={{ backgroundColor: colors.bgBlueBanner }}>
-                    <CheckCircle className="w-5 h-5" style={{ color: colors.textBlue }} />
-                    <p style={{ color: colors.textBlue }}>
-                      {t('submitted_waiting_grading')}
-                    </p>
+                {isSubmitted && !isGraded && !isResubmitting && (
+                  <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: colors.bgBlueBanner }}>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-5 h-5" style={{ color: colors.textBlue }} />
+                      <p style={{ color: colors.textBlue }}>
+                        {t('submitted_waiting_grading')}
+                      </p>
+                    </div>
+                    {canResubmit && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setIsResubmitting(true)}
+                        icon={<RefreshCw className="w-3.5 h-3.5" />}
+                      >
+                        {t('resubmit', { defaultValue: 'Resubmit' })}
+                      </Button>
+                    )}
                   </div>
                 )}
               </CardBody>

@@ -310,6 +310,7 @@
   "max_file_size": "Maksimikoko: {{size}}MB",
   "save_draft": "Tallenna luonnos",
   "submit_assignment": "Palauta tehtävä",
+  "resubmit": "Palauta uudelleen",
   "draft_saved": "Luonnos tallennettu",
   "failed_save_draft": "Luonnoksen tallennus epäonnistui",
   "assignment_submitted": "Tehtävä palautettu onnistuneesti!",

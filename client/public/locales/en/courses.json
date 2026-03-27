@@ -309,6 +309,7 @@
   "max_file_size": "Max size: {{size}}MB",
   "save_draft": "Save Draft",
   "submit_assignment": "Submit Assignment",
+  "resubmit": "Resubmit",
   "draft_saved": "Draft saved",
   "failed_save_draft": "Failed to save draft",
   "assignment_submitted": "Assignment submitted successfully!",

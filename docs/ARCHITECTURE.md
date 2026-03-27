@@ -524,6 +524,12 @@ Assignments can be linked to labs in two ways:
 - "Waiting for grading" banner (submitted but not graded)
 - Grade card with score, percentage, instructor feedback (when graded)
 
+#### Assignment Resubmission
+Students can resubmit any assignment type (text/file, lab, SNA, TNA) **before the instructor grades it**:
+- Server: `submitAssignment()` upserts — graded submissions are blocked, submitted ones are overwritten
+- Client: A "Resubmit" button appears in the "waiting for grading" state, re-enabling the editor/panel
+- Once graded, submission is permanently locked (admin-only bypass)
+
 #### Due Date Timezone Convention
 Due dates use a "wall clock" pattern — stored as literal UTC, displayed with `timeZone: 'UTC'`:
 - **Save**: `datetime-local` value + `':00.000Z'` (no timezone conversion)

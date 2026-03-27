@@ -1,3 +1,14 @@
+### 2026-03-27 — Assignment resubmission before grading
+
+- **Allow students to resubmit assignments before grading**: Students can now update their submission for any assignment type until the instructor grades it. After submitting, a "Resubmit" button appears. Clicking it re-enables the editor (for text/file) or reopens the submission panel (for labs/SNA/TNA).
+  - `server/src/services/assignment.service.ts`: Removed the block on resubmitting already-submitted work. Only graded submissions remain locked (admin can bypass).
+  - `client/src/pages/AssignmentView.tsx`: Added `isResubmitting` state. When submitted-but-not-graded, the "waiting for grading" banner includes a "Resubmit" button. Clicking it switches to edit mode — text editor, file upload, and remove buttons are re-enabled. Submit button shows "Resubmit". Cancel returns to readonly view. For lab assignments, `hideSubmit` on `LabRunnerUI` no longer includes the submitted state.
+  - `client/src/components/labs/LabAssignmentPanel.tsx`: Added `isResubmitting` state. When submission exists and is not graded, shows a "Resubmit" button in the submitted banner. Clicking it switches to the form view. Footer submit button shows "Resubmit".
+  - `client/src/pages/LabRunner.tsx`: Added submission query. Bottom button shows "Resubmit" with `RefreshCw` icon when a submission already exists.
+  - `client/src/pages/SnaExercise.tsx`: Added `canResubmit` flag. "Resubmit" button in the submitted banner opens the `LabAssignmentPanel`. Capture buttons remain active for resubmission. Panel rendered when not graded (not just when not submitted).
+  - `client/src/pages/TnaExercise.tsx`: Same changes as SNA. Top toolbar button switches to "Resubmit" icon/text when already submitted.
+  - i18n: Added `resubmit` key in all 4 locales (en: "Resubmit", fi: "Palauta uudelleen", ar: "إعادة التسليم", es: "Volver a entregar").
+
 ### 2026-03-26 — Forgot password, all users can complete lectures
 
 - **All users can enroll and complete lectures**: Removed role-based restrictions on lecture completion and progress tracking.

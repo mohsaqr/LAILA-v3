@@ -15,7 +15,7 @@ import {
   Network, X, GitBranch, Target, BarChart3, Waypoints, Plus,
   ChevronDown, ChevronRight, BookOpen, Users,
   Microscope, MessageCircle, Sparkles, Camera, Loader2, CheckCircle, Download,
-  Award, Calendar, FileText, AlertCircle, MessageSquare, Send,
+  Award, Calendar, FileText, AlertCircle, MessageSquare, Send, RefreshCw,
 } from 'lucide-react';
 import { assignmentsApi } from '../api/assignments';
 import { coursesApi } from '../api/courses';
@@ -272,6 +272,7 @@ export const SnaExercise = () => {
   const isPastDue = dueDateLocal ? dueDateLocal < new Date() : false;
   const isSubmitted = mySubmission?.status === 'submitted' || mySubmission?.status === 'graded';
   const isGraded = mySubmission?.status === 'graded';
+  const canResubmit = isSubmitted && !isGraded && !isPastDue;
 
   const submissionFileUrls = useMemo(() => {
     if (!mySubmission?.fileUrls) return [];
@@ -1182,8 +1183,8 @@ export const SnaExercise = () => {
                   <SnaStepGuide step={activeAnalysis} />
                 )}
 
-                {/* Add-to-report capture button (only when assignment exists and not past due/submitted) */}
-                {modelBuilt && activeAnalysis && snaAssignment && !isSubmitted && !isGraded && !isPastDue && (() => {
+                {/* Add-to-report capture button (only when assignment exists and not past due, or resubmitting) */}
+                {modelBuilt && activeAnalysis && snaAssignment && (!isSubmitted || canResubmit) && !isGraded && !isPastDue && (() => {
                   const key = getCaptureKey();
                   const isCaptured = reportItems.some(r => r.key === key);
                   return (
@@ -1289,9 +1290,21 @@ export const SnaExercise = () => {
                 <CardBody>
                   <h2 className="font-semibold mb-4" style={{ color: headerColors.textPrimary }}>{t('your_submission')}</h2>
                   {!isGraded && (
-                    <div className="flex items-center gap-2 p-4 rounded-lg mb-4" style={{ backgroundColor: headerColors.bgBlueBanner }}>
-                      <CheckCircle className="w-5 h-5" style={{ color: headerColors.textBlue }} />
-                      <p style={{ color: headerColors.textBlue }}>{t('submitted_waiting_grading')}</p>
+                    <div className="flex items-center justify-between p-4 rounded-lg mb-4" style={{ backgroundColor: headerColors.bgBlueBanner }}>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-5 h-5" style={{ color: headerColors.textBlue }} />
+                        <p style={{ color: headerColors.textBlue }}>{t('submitted_waiting_grading')}</p>
+                      </div>
+                      {canResubmit && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setAssignmentPanelOpen(true)}
+                          icon={<RefreshCw className="w-3.5 h-3.5" />}
+                        >
+                          {t('resubmit', { defaultValue: 'Resubmit' })}
+                        </Button>
+                      )}
                     </div>
                   )}
                   {mySubmission.content && (
@@ -1401,7 +1414,7 @@ export const SnaExercise = () => {
         </div>
       )}
 
-      {snaAssignment && !isSubmitted && !isGraded && !isPastDue && (
+      {snaAssignment && !isGraded && !isPastDue && (
         <LabAssignmentPanel
           isOpen={assignmentPanelOpen}
           onClose={() => setAssignmentPanelOpen(false)}

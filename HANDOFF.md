@@ -1,4 +1,7 @@
-# Session Handoff — 2026-03-26
+# Session Handoff — 2026-03-27
+
+## Completed (2026-03-27)
+- **Assignment resubmission before grading**: Students can now resubmit any assignment type (text/file, lab, SNA exercise, TNA exercise) until the instructor grades it. Server: removed the resubmission block in `assignment.service.ts` (graded guard remains). Client: added "Resubmit" button/flow to `AssignmentView.tsx` (normal + lab), `LabAssignmentPanel.tsx`, `SnaExercise.tsx`, `TnaExercise.tsx`, and `LabRunner.tsx`. i18n `resubmit` key in 4 locales.
 
 ## Completed (2026-03-26)
 - **Forgot password feature**: 3-step flow (email → 6-digit verification code → new password). Reuses `VerificationCode` model with 10-minute expiry. Auto-login after reset. New page at `/forgot-password`, link on login page, 401 interceptor exclusion added.

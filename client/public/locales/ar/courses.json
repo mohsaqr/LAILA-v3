@@ -310,6 +310,7 @@
   "max_file_size": "الحجم الأقصى: {{size}}MB",
   "save_draft": "حفظ المسودة",
   "submit_assignment": "تسليم الواجب",
+  "resubmit": "إعادة التسليم",
   "draft_saved": "تم حفظ المسودة",
   "failed_save_draft": "فشل حفظ المسودة",
   "assignment_submitted": "تم تسليم الواجب بنجاح!",

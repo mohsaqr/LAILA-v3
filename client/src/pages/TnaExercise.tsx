@@ -18,7 +18,7 @@ import {
   Network, X, BarChart3, GitBranch,
   Scissors, Target, Users,
   Database, Share2, BookOpen, ChevronDown, ChevronRight,
-  Sparkles, ClipboardList, Camera, Loader2, CheckCircle, Download,
+  Sparkles, ClipboardList, Camera, Loader2, CheckCircle, Download, RefreshCw,
 } from 'lucide-react';
 import { assignmentsApi } from '../api/assignments';
 import { LabAssignmentPanel, type ReportItem } from '../components/labs/LabAssignmentPanel';
@@ -120,6 +120,7 @@ export const TnaExercise = () => {
   const isPastDue = dueDateLocal ? dueDateLocal < new Date() : false;
   const isSubmitted = mySubmission?.status === 'submitted' || mySubmission?.status === 'graded';
   const isGraded = mySubmission?.status === 'graded';
+  const canResubmit = isSubmitted && !isGraded && !isPastDue;
 
   // ── Core state ──
   const [datasetKey, setDatasetKey] = useState<string | null>(null);
@@ -327,13 +328,16 @@ export const TnaExercise = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {tnaAssignment && !isSubmitted && !isGraded && !isPastDue && (
+            {tnaAssignment && !isGraded && !isPastDue && (
               <button
                 onClick={() => setAssignmentPanelOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition-colors"
               >
-                <ClipboardList className="w-3.5 h-3.5" />
-                {t('submit_assignment', { defaultValue: 'Submit Assignment' })}
+                {isSubmitted ? <RefreshCw className="w-3.5 h-3.5" /> : <ClipboardList className="w-3.5 h-3.5" />}
+                {isSubmitted
+                  ? t('resubmit', { defaultValue: 'Resubmit' })
+                  : t('submit_assignment', { defaultValue: 'Submit Assignment' })
+                }
               </button>
             )}
             <button onClick={() => navigate(courseId ? `/courses/${courseId}` : -1 as any)} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
@@ -781,8 +785,8 @@ export const TnaExercise = () => {
                   </div>
                 )}
 
-                {/* Add-to-report capture button (only when assignment exists and not past due/submitted) */}
-                {modelBuilt && activeAnalysis && tnaAssignment && !isSubmitted && !isGraded && !isPastDue && (
+                {/* Add-to-report capture button (only when assignment exists and not past due, or resubmitting) */}
+                {modelBuilt && activeAnalysis && tnaAssignment && (!isSubmitted || canResubmit) && !isGraded && !isPastDue && (
                   <button
                     onClick={handleAddToReport}
                     disabled={isCapturing}
@@ -1010,7 +1014,7 @@ export const TnaExercise = () => {
         />
       )}
 
-      {tnaAssignment && !isSubmitted && !isGraded && !isPastDue && (
+      {tnaAssignment && !isGraded && !isPastDue && (
         <LabAssignmentPanel
           isOpen={assignmentPanelOpen}
           onClose={() => setAssignmentPanelOpen(false)}

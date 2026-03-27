@@ -310,6 +310,7 @@
   "max_file_size": "Tamaño máximo: {{size}}MB",
   "save_draft": "Guardar Borrador",
   "submit_assignment": "Entregar tarea",
+  "resubmit": "Volver a entregar",
   "draft_saved": "Borrador guardado",
   "failed_save_draft": "Error al guardar borrador",
   "assignment_submitted": "¡Tarea enviada exitosamente!",

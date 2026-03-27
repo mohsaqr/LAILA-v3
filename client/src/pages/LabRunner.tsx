@@ -16,6 +16,7 @@ import {
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { customLabsApi } from '../api/customLabs';
+import { assignmentsApi } from '../api/assignments';
 import { LabCodeEditor, LabOutput, LabTemplates, LabAssignmentPanel } from '../components/labs';
 import { ReportItem } from '../components/labs/LabAssignmentPanel';
 import { Button } from '../components/common/Button';
@@ -47,7 +48,7 @@ interface LabHookResult {
 export const isPythonLab = (labType: string) => labType.startsWith('python');
 
 // Shared lab runner UI — receives hook result as props
-export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit }: { lab: any; hook: LabHookResult; courseId: number | null; hideSubmit?: boolean }) => {
+export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPanelClose }: { lab: any; hook: LabHookResult; courseId: number | null; hideSubmit?: boolean; openPanel?: boolean; onPanelClose?: () => void }) => {
   const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
@@ -59,6 +60,11 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit }: { lab: any; hoo
   const [sessionEvents, setSessionEvents] = useState<Array<{ ts: number; event: string }>>([]);
   const [visitedTemplates, setVisitedTemplates] = useState<string[]>([]);
 
+  // Open panel when parent triggers resubmit
+  useEffect(() => {
+    if (openPanel) setAssignmentPanelOpen(true);
+  }, [openPanel]);
+
   const logSession = useCallback((event: string) =>
     setSessionEvents(prev => [...prev, { ts: Date.now(), event }]), []);
 
@@ -67,6 +73,15 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit }: { lab: any; hoo
     queryFn: () => customLabsApi.getLabAssignmentConfig(lab.id, courseId!),
     enabled: courseId != null,
   });
+
+  const assignmentId = assignmentConfig?.assignment?.id;
+  const { data: existingSubmission } = useQuery({
+    queryKey: ['mySubmission', assignmentId],
+    queryFn: () => assignmentsApi.getMySubmission(assignmentId!),
+    enabled: !!assignmentId,
+    retry: false,
+  });
+  const hasSubmitted = existingSubmission?.status === 'submitted';
 
   const defaultCode = isPythonLab(lab.labType)
     ? '# Enter your Python code here\n'
@@ -449,7 +464,7 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit }: { lab: any; hoo
         </div>
       </div>
 
-      {assignmentConfig?.assignment && !hideSubmit && (
+      {assignmentConfig?.assignment && !hideSubmit && !hasSubmitted && (
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 pb-6 flex justify-end">
           <Button
             variant="primary"
@@ -464,7 +479,7 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit }: { lab: any; hoo
       {assignmentConfig?.assignment && !hideSubmit && (
         <LabAssignmentPanel
           isOpen={assignmentPanelOpen}
-          onClose={() => setAssignmentPanelOpen(false)}
+          onClose={() => { setAssignmentPanelOpen(false); onPanelClose?.(); }}
           assignment={assignmentConfig.assignment}
           labContentRef={labContentRef}
           labId={lab.id}
