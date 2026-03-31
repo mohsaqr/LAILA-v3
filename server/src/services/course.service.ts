@@ -130,6 +130,7 @@ export class CourseService {
                 title: true,
                 points: true,
                 dueDate: true,
+                gracePeriodDeadline: true,
                 isPublished: true,
                 submissionType: true,
                 moduleId: true,

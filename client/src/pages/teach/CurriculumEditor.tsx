@@ -52,6 +52,7 @@ interface AssignmentFormData {
   points: number;
   weight: number;
   dueDate: string;
+  gracePeriodDeadline: string;
   isPublished: boolean;
 }
 
@@ -107,7 +108,8 @@ export const CurriculumEditor = () => {
     prompt: string;
     points: number;
     dueDate: string;
-  }>({ enableAssignment: false, prompt: '', points: 100, dueDate: '' });
+    gracePeriodDeadline: string;
+  }>({ enableAssignment: false, prompt: '', points: 100, dueDate: '', gracePeriodDeadline: '' });
   const [deleteCodeLabConfirm, setDeleteCodeLabConfirm] = useState<CodeLab | null>(null);
   const [assignmentModal, setAssignmentModal] = useState<{
     isOpen: boolean;
@@ -143,6 +145,7 @@ export const CurriculumEditor = () => {
     points: 100,
     weight: 1.0,
     dueDate: '',
+    gracePeriodDeadline: '',
     isPublished: false,
   });
   const [forumForm, setForumForm] = useState<ForumFormData>({
@@ -349,9 +352,9 @@ export const CurriculumEditor = () => {
 
   // Assign lab template to course
   const assignLabMutation = useMutation({
-    mutationFn: ({ labId, moduleId, enableAssignment, prompt, points, dueDate }: {
+    mutationFn: ({ labId, moduleId, enableAssignment, prompt, points, dueDate, gracePeriodDeadline }: {
       labId: number; moduleId?: number;
-      enableAssignment: boolean; prompt: string; points: number; dueDate: string;
+      enableAssignment: boolean; prompt: string; points: number; dueDate: string; gracePeriodDeadline: string;
     }) =>
       customLabsApi.assignToCourse(labId, {
         courseId,
@@ -360,6 +363,7 @@ export const CurriculumEditor = () => {
         prompt: enableAssignment ? prompt : undefined,
         points: enableAssignment ? points : undefined,
         dueDate: enableAssignment && dueDate ? dueDate + ':00.000Z' : undefined,
+        gracePeriodDeadline: enableAssignment && gracePeriodDeadline ? gracePeriodDeadline + ':00.000Z' : undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
@@ -397,6 +401,7 @@ export const CurriculumEditor = () => {
       assignmentsApi.createAssignment(courseId, {
         ...data,
         dueDate: data.dueDate ? data.dueDate + ':00.000Z' : null,
+        gracePeriodDeadline: data.gracePeriodDeadline ? data.gracePeriodDeadline + ':00.000Z' : null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
@@ -415,6 +420,7 @@ export const CurriculumEditor = () => {
       assignmentsApi.updateAssignment(id, {
         ...data,
         dueDate: data.dueDate ? data.dueDate + ':00.000Z' : null,
+        gracePeriodDeadline: data.gracePeriodDeadline ? data.gracePeriodDeadline + ':00.000Z' : null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
@@ -545,7 +551,7 @@ export const CurriculumEditor = () => {
     setCodeLabModalTab('create');
     setSelectedLabTemplate(null);
     setSelectedInteractiveLab(null);
-    setLabAssignmentForm({ enableAssignment: false, prompt: '', points: 100, dueDate: '' });
+    setLabAssignmentForm({ enableAssignment: false, prompt: '', points: 100, dueDate: '', gracePeriodDeadline: '' });
   };
 
   const openAddAssignmentModal = (module: CourseModule) => {
@@ -556,6 +562,7 @@ export const CurriculumEditor = () => {
       points: 100,
       weight: 1.0,
       dueDate: '',
+      gracePeriodDeadline: '',
       isPublished: false,
     });
     setAssignmentModal({ isOpen: true, moduleId: module.id });
@@ -569,6 +576,7 @@ export const CurriculumEditor = () => {
       points: assignment.points,
       weight: assignment.weight ?? 1.0,
       dueDate: assignment.dueDate ? new Date(assignment.dueDate).toISOString().slice(0, 16) : '',
+      gracePeriodDeadline: assignment.gracePeriodDeadline ? new Date(assignment.gracePeriodDeadline).toISOString().slice(0, 16) : '',
       isPublished: assignment.isPublished,
     });
     setAssignmentModal({ isOpen: true, assignment });
@@ -583,6 +591,7 @@ export const CurriculumEditor = () => {
       points: 100,
       weight: 1.0,
       dueDate: '',
+      gracePeriodDeadline: '',
       isPublished: false,
     });
   };
@@ -637,7 +646,7 @@ export const CurriculumEditor = () => {
   const handleAddInteractiveLab = async (
     moduleId: number,
     labKey: string,
-    assignmentConfig?: { enableAssignment: boolean; prompt: string; points: number; dueDate: string }
+    assignmentConfig?: { enableAssignment: boolean; prompt: string; points: number; dueDate: string; gracePeriodDeadline: string }
   ) => {
     const mod = modules.find((m: CourseModule) => m.id === moduleId);
     const existing = mod?.interactiveLabs
@@ -656,6 +665,7 @@ export const CurriculumEditor = () => {
           isPublished: true,
           points: assignmentConfig.points,
           dueDate: assignmentConfig.dueDate ? assignmentConfig.dueDate + ':00.000Z' : undefined,
+          gracePeriodDeadline: assignmentConfig.gracePeriodDeadline ? assignmentConfig.gracePeriodDeadline + ':00.000Z' : undefined,
           agentRequirements: `interactive_lab_${labKey}`,
         } as any);
       } catch {
@@ -1708,10 +1718,26 @@ export const CurriculumEditor = () => {
                           <input
                             type="datetime-local"
                             value={labAssignmentForm.dueDate}
-                            onChange={(e) => setLabAssignmentForm(f => ({ ...f, dueDate: e.target.value }))}
+                            onChange={(e) => {
+                              setLabAssignmentForm(f => ({ ...f, dueDate: e.target.value }));
+                              if (!e.target.value) setLabAssignmentForm(f => ({ ...f, gracePeriodDeadline: '' }));
+                            }}
                             className="w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
                           />
                         </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                          {t('courses:grace_period_deadline', { defaultValue: 'Grace Period Deadline' })}
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={labAssignmentForm.gracePeriodDeadline}
+                          onChange={(e) => setLabAssignmentForm(f => ({ ...f, gracePeriodDeadline: e.target.value }))}
+                          disabled={!labAssignmentForm.dueDate}
+                          min={labAssignmentForm.dueDate || undefined}
+                          className="w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600 disabled:opacity-50"
+                        />
                       </div>
                     </div>
                   )}
@@ -1739,6 +1765,7 @@ export const CurriculumEditor = () => {
                             prompt: labAssignmentForm.prompt,
                             points: labAssignmentForm.points,
                             dueDate: labAssignmentForm.dueDate,
+                            gracePeriodDeadline: labAssignmentForm.gracePeriodDeadline,
                           });
                         }
                       }}
@@ -1880,10 +1907,26 @@ export const CurriculumEditor = () => {
                               <input
                                 type="datetime-local"
                                 value={labAssignmentForm.dueDate}
-                                onChange={(e) => setLabAssignmentForm(f => ({ ...f, dueDate: e.target.value }))}
+                                onChange={(e) => {
+                                  setLabAssignmentForm(f => ({ ...f, dueDate: e.target.value }));
+                                  if (!e.target.value) setLabAssignmentForm(f => ({ ...f, gracePeriodDeadline: '' }));
+                                }}
                                 className="w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
                               />
                             </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                              {t('courses:grace_period_deadline', { defaultValue: 'Grace Period Deadline' })}
+                            </label>
+                            <input
+                              type="datetime-local"
+                              value={labAssignmentForm.gracePeriodDeadline}
+                              onChange={(e) => setLabAssignmentForm(f => ({ ...f, gracePeriodDeadline: e.target.value }))}
+                              disabled={!labAssignmentForm.dueDate}
+                              min={labAssignmentForm.dueDate || undefined}
+                              className="w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600 disabled:opacity-50"
+                            />
                           </div>
                         </div>
                       )}
@@ -1972,7 +2015,7 @@ export const CurriculumEditor = () => {
               {t('ai_agent_info')}
             </div>
           )}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <Input
               label={t('points_label')}
               type="number"
@@ -1989,11 +2032,24 @@ export const CurriculumEditor = () => {
               max={10}
               step={0.1}
             />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <Input
               label={t('due_date_optional')}
               type="datetime-local"
               value={assignmentForm.dueDate}
-              onChange={e => setAssignmentForm(f => ({ ...f, dueDate: e.target.value }))}
+              onChange={e => {
+                setAssignmentForm(f => ({ ...f, dueDate: e.target.value }));
+                if (!e.target.value) setAssignmentForm(f => ({ ...f, gracePeriodDeadline: '' }));
+              }}
+            />
+            <Input
+              label={t('courses:grace_period_deadline', { defaultValue: 'Grace Period Deadline' })}
+              type="datetime-local"
+              value={assignmentForm.gracePeriodDeadline}
+              onChange={e => setAssignmentForm(f => ({ ...f, gracePeriodDeadline: e.target.value }))}
+              disabled={!assignmentForm.dueDate}
+              min={assignmentForm.dueDate || undefined}
             />
           </div>
           <div className="flex items-center gap-3">

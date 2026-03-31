@@ -596,6 +596,7 @@ model Assignment {
   maxFileSize           Int?                   @map("max_file_size")
   allowedFileTypes      String?                @map("allowed_file_types")
   dueDate               DateTime?              @map("due_date")
+  gracePeriodDeadline   DateTime?              @map("grace_period_deadline")
   points                Int                    @default(100)
   weight                Float?                 @default(1.0)
   isPublished           Boolean                @default(false) @map("is_published")

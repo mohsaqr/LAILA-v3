@@ -1,3 +1,19 @@
+### 2026-03-31 — Assignment grace period deadline
+
+- **Grace period deadline for assignments**: Assignments now support an optional grace period deadline. After the main due date passes but before the grace deadline, students can still submit with a yellow warning banner. After the grace deadline, submissions are fully blocked.
+  - `server/prisma/schema.prisma`: Added nullable `gracePeriodDeadline` column to `Assignment` model.
+  - `server/src/utils/validation.ts`: Added `gracePeriodDeadline` field to `createAssignmentSchema`.
+  - `server/src/services/assignment.service.ts`: `createAssignment()` and `updateAssignment()` validate grace deadline > due date. `submitAssignment()` uses 3-state check: on-time → grace period (allow) → fully past due (block). Error messages differentiate between expired grace period and expired due date.
+  - `server/src/services/agentAssignment.service.ts`: Same 3-state deadline check in `submitAgentConfig()`.
+  - `client/src/types/index.ts`: Added `gracePeriodDeadline` to `Assignment`, `AssignmentListItem`, and `AgentAssignmentDetails` interfaces.
+  - `client/src/pages/AssignmentView.tsx`: Added `isInGracePeriod`/`isFullyPastDue` states. Yellow grace period warning card. Status badge shows "Grace Period" in amber. Submission area and lab embeds use `isFullyPastDue`.
+  - `client/src/pages/SnaExercise.tsx`: Same 3-state logic. Grace period badge, warning card with grace deadline, submit button shown during grace period.
+  - `client/src/pages/TnaExercise.tsx`: Same 3-state logic. Grace period badge in toolbar.
+  - `client/src/pages/agent-assignment/StudentAgentBuilder.tsx`: Grace period badge and submit button enabled during grace.
+  - `client/src/pages/agent-assignment/UseMyAgent.tsx`: Agent "built" state uses `isFullyPastDue` instead of `isPastDue`.
+  - Instructor forms: Grace period datetime-local input added (disabled until due date set, `min` bound to due date) in `AssignmentManager.tsx`, `ModuleItem.tsx`, and `AssignmentSectionEditor.tsx` (both edit and create forms).
+  - i18n: 7 keys (`grace_period_deadline`, `grace_period_warning_title`, `grace_period_warning`, `grace_period_ends`, `grace_period_until`, `grace_period_status`, `grace_period_expired`) in all 4 locales (en, fi, ar, es).
+
 ### 2026-03-27 — Assignment resubmission before grading
 
 - **Allow students to resubmit assignments before grading**: Students can now update their submission for any assignment type until the instructor grades it. After submitting, a "Resubmit" button appears. Clicking it re-enables the editor (for text/file) or reopens the submission panel (for labs/SNA/TNA).

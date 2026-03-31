@@ -117,10 +117,13 @@ export const TnaExercise = () => {
   });
 
   const dueDateLocal = tnaAssignment?.dueDate ? new Date(String(tnaAssignment.dueDate).replace('Z', '')) : null;
+  const gracePeriodLocal = tnaAssignment?.gracePeriodDeadline ? new Date(String(tnaAssignment.gracePeriodDeadline).replace('Z', '')) : null;
   const isPastDue = dueDateLocal ? dueDateLocal < new Date() : false;
+  const isInGracePeriod = isPastDue && gracePeriodLocal ? new Date() < gracePeriodLocal : false;
+  const isFullyPastDue = isPastDue && !isInGracePeriod;
   const isSubmitted = mySubmission?.status === 'submitted' || mySubmission?.status === 'graded';
   const isGraded = mySubmission?.status === 'graded';
-  const canResubmit = isSubmitted && !isGraded && !isPastDue;
+  const canResubmit = isSubmitted && !isGraded && !isFullyPastDue;
 
   // ── Core state ──
   const [datasetKey, setDatasetKey] = useState<string | null>(null);
@@ -328,7 +331,12 @@ export const TnaExercise = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {tnaAssignment && !isGraded && !isPastDue && (
+            {tnaAssignment && isInGracePeriod && !isGraded && (
+              <span className="text-xs px-2 py-1 rounded-full font-medium" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#dc2626' }}>
+                {t('courses:grace_period_status', { defaultValue: 'Grace Period' })}
+              </span>
+            )}
+            {tnaAssignment && !isGraded && !isFullyPastDue && (
               <button
                 onClick={() => setAssignmentPanelOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition-colors"
@@ -786,7 +794,7 @@ export const TnaExercise = () => {
                 )}
 
                 {/* Add-to-report capture button (only when assignment exists and not past due, or resubmitting) */}
-                {modelBuilt && activeAnalysis && tnaAssignment && (!isSubmitted || canResubmit) && !isGraded && !isPastDue && (
+                {modelBuilt && activeAnalysis && tnaAssignment && (!isSubmitted || canResubmit) && !isGraded && !isFullyPastDue && (
                   <button
                     onClick={handleAddToReport}
                     disabled={isCapturing}
@@ -1014,7 +1022,7 @@ export const TnaExercise = () => {
         />
       )}
 
-      {tnaAssignment && !isGraded && !isPastDue && (
+      {tnaAssignment && !isGraded && !isFullyPastDue && (
         <LabAssignmentPanel
           isOpen={assignmentPanelOpen}
           onClose={() => setAssignmentPanelOpen(false)}

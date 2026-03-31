@@ -37,6 +37,7 @@ interface AssignmentFormData {
   moduleId: number | null;
   submissionType: 'text' | 'file' | 'mixed' | 'ai_agent';
   dueDate: string;
+  gracePeriodDeadline: string;
   points: number;
   isPublished: boolean;
 }
@@ -48,6 +49,7 @@ const initialFormData: AssignmentFormData = {
   moduleId: null,
   submissionType: 'text',
   dueDate: '',
+  gracePeriodDeadline: '',
   points: 100,
   isPublished: false,
 };
@@ -88,6 +90,7 @@ export const AssignmentManager = () => {
       assignmentsApi.createAssignment(courseId, {
         ...data,
         dueDate: data.dueDate ? data.dueDate + ':00.000Z' : null,
+        gracePeriodDeadline: data.gracePeriodDeadline ? data.gracePeriodDeadline + ':00.000Z' : null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
@@ -102,6 +105,7 @@ export const AssignmentManager = () => {
       assignmentsApi.updateAssignment(id, {
         ...data,
         dueDate: data.dueDate ? data.dueDate + ':00.000Z' : null,
+        gracePeriodDeadline: data.gracePeriodDeadline ? data.gracePeriodDeadline + ':00.000Z' : null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
@@ -134,6 +138,7 @@ export const AssignmentManager = () => {
       moduleId: assignment.moduleId,
       submissionType: assignment.submissionType,
       dueDate: assignment.dueDate ? new Date(assignment.dueDate).toISOString().slice(0, 16) : '',
+      gracePeriodDeadline: assignment.gracePeriodDeadline ? new Date(assignment.gracePeriodDeadline).toISOString().slice(0, 16) : '',
       points: assignment.points,
       isPublished: assignment.isPublished,
     });
@@ -375,7 +380,19 @@ export const AssignmentManager = () => {
               label={t('due_date')}
               type="datetime-local"
               value={formData.dueDate}
-              onChange={e => handleChange('dueDate', e.target.value)}
+              onChange={e => {
+                handleChange('dueDate', e.target.value);
+                if (!e.target.value) handleChange('gracePeriodDeadline', '');
+              }}
+            />
+
+            <Input
+              label={t('courses:grace_period_deadline', { defaultValue: 'Grace Period Deadline' })}
+              type="datetime-local"
+              value={formData.gracePeriodDeadline}
+              onChange={e => handleChange('gracePeriodDeadline', e.target.value)}
+              disabled={!formData.dueDate}
+              min={formData.dueDate || undefined}
             />
 
             <Input

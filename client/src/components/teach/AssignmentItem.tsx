@@ -36,6 +36,7 @@ export const AssignmentItem = ({
   const { t } = useTranslation(['teaching']);
   const isAiAgent = assignment.submissionType === 'ai_agent';
   const dueDate = assignment.dueDate ? new Date(assignment.dueDate) : null;
+  const gracePeriodDate = assignment.gracePeriodDeadline ? new Date(assignment.gracePeriodDeadline) : null;
   const isPastDue = dueDate && dueDate < new Date();
 
   return (
@@ -71,6 +72,14 @@ export const AssignmentItem = ({
               <span className={`flex items-center gap-1 ${isPastDue ? 'text-red-500' : ''}`}>
                 <Calendar className="w-3 h-3" />
                 {dueDate.toLocaleDateString(undefined, { timeZone: 'UTC' })}
+              </span>
+            </>
+          )}
+          {gracePeriodDate && (
+            <>
+              <span>•</span>
+              <span className="flex items-center gap-1 text-amber-600">
+                {t('courses:grace_period_deadline', { defaultValue: 'Grace Period Deadline' })}: {gracePeriodDate.toLocaleDateString(undefined, { timeZone: 'UTC' })}
               </span>
             </>
           )}

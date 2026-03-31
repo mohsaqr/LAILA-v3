@@ -325,9 +325,16 @@ export class AgentAssignmentService {
   async submitAgentConfig(assignmentId: number, userId: number, context: EventContext) {
     const assignment = await this.getAgentAssignment(assignmentId);
 
-    // Check due date
+    // Check due date and grace period
     if (assignment.dueDate && new Date() > assignment.dueDate) {
-      throw new AppError('Assignment due date has passed', 400);
+      if (assignment.gracePeriodDeadline && new Date() <= assignment.gracePeriodDeadline) {
+        // Within grace period — allow submission (client shows warning)
+      } else {
+        const msg = assignment.gracePeriodDeadline
+          ? 'The grace period deadline has passed'
+          : 'Assignment due date has passed';
+        throw new AppError(msg, 400);
+      }
     }
 
     const config = await prisma.studentAgentConfig.findUnique({

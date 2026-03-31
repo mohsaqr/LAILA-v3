@@ -151,9 +151,10 @@ export const UseMyAgent = () => {
 
   const { assignment, config } = data;
 
-  // Agent is "built" when submitted OR past due date (auto-submit)
+  // Agent is "built" when submitted OR fully past due (no grace period left)
   const isPastDue = Boolean(assignment.dueDate && new Date(assignment.dueDate.replace('Z', '')) < new Date());
-  const isBuilt = (config && !config.isDraft) || isPastDue;
+  const isFullyPastDue = isPastDue && !(assignment.gracePeriodDeadline && new Date(assignment.gracePeriodDeadline.replace('Z', '')) > new Date());
+  const isBuilt = (config && !config.isDraft) || isFullyPastDue;
 
   // Check if agent is built
   if (!config || !isBuilt) {

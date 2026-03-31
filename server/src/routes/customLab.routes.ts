@@ -45,6 +45,7 @@ const assignLabSchema = z.object({
   prompt: z.string().optional(),
   points: z.number().int().min(0).optional(),
   dueDate: z.string().optional(),
+  gracePeriodDeadline: z.string().optional(),
   enableAssignment: z.boolean().optional(),
 });
 
@@ -160,8 +161,8 @@ router.delete('/:id/templates/:templateId', authenticateToken, requireInstructor
 // Assign lab to course
 router.post('/:id/assign', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
   const labId = parseInt(req.params.id);
-  const { courseId, moduleId, prompt, points, dueDate, enableAssignment } = assignLabSchema.parse(req.body);
-  const assignmentConfig = enableAssignment ? { prompt, points, dueDate } : undefined;
+  const { courseId, moduleId, prompt, points, dueDate, gracePeriodDeadline, enableAssignment } = assignLabSchema.parse(req.body);
+  const assignmentConfig = enableAssignment ? { prompt, points, dueDate, gracePeriodDeadline } : undefined;
   const assignment = await customLabService.assignToCourse(
     labId,
     courseId,

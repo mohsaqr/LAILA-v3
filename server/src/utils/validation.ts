@@ -177,6 +177,7 @@ export const createAssignmentSchema = z.object({
   maxFileSize: z.number().int().min(1).max(50).optional(),
   allowedFileTypes: z.string().optional(),
   dueDate: z.string().datetime().optional().nullable(),
+  gracePeriodDeadline: z.string().datetime().optional().nullable(),
   points: z.number().int().min(0).max(1000).optional(),
   weight: z.number().min(0).max(10).optional(),
   isPublished: z.boolean().optional(),

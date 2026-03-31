@@ -1,4 +1,7 @@
-# Session Handoff — 2026-03-27
+# Session Handoff — 2026-03-31
+
+## Completed (2026-03-31)
+- **Assignment grace period deadline**: Added optional `gracePeriodDeadline` column to `Assignment` model. When set, students can still submit between the due date and the grace deadline (yellow warning shown). Submissions blocked after grace deadline. Server: validation in create/update ensures grace > due. `submitAssignment` and `submitAgentConfig` use 3-state check (on time / grace / blocked). Client: all assignment views (AssignmentView, SnaExercise, TnaExercise, StudentAgentBuilder, UseMyAgent) use `isInGracePeriod`/`isFullyPastDue`. Grace period input in all 4 instructor forms (AssignmentManager, ModuleItem, AssignmentSectionEditor). i18n in 4 locales.
 
 ## Completed (2026-03-27)
 - **Assignment resubmission before grading**: Students can now resubmit any assignment type (text/file, lab, SNA exercise, TNA exercise) until the instructor grades it. Server: removed the resubmission block in `assignment.service.ts` (graded guard remains). Client: added "Resubmit" button/flow to `AssignmentView.tsx` (normal + lab), `LabAssignmentPanel.tsx`, `SnaExercise.tsx`, `TnaExercise.tsx`, and `LabRunner.tsx`. i18n `resubmit` key in 4 locales.

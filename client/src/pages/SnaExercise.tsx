@@ -15,7 +15,7 @@ import {
   Network, X, GitBranch, Target, BarChart3, Waypoints, Plus,
   ChevronDown, ChevronRight, BookOpen, Users,
   Microscope, MessageCircle, Sparkles, Camera, Loader2, CheckCircle, Download,
-  Award, Calendar, FileText, AlertCircle, MessageSquare, Send, RefreshCw,
+  Award, Calendar, FileText, AlertCircle, MessageSquare, Send, RefreshCw, Clock,
 } from 'lucide-react';
 import { assignmentsApi } from '../api/assignments';
 import { coursesApi } from '../api/courses';
@@ -269,10 +269,14 @@ export const SnaExercise = () => {
 
   const dueDate = snaAssignment?.dueDate ? new Date(snaAssignment.dueDate) : null;
   const dueDateLocal = snaAssignment?.dueDate ? new Date(String(snaAssignment.dueDate).replace('Z', '')) : null;
+  const gracePeriodDate = snaAssignment?.gracePeriodDeadline ? new Date(snaAssignment.gracePeriodDeadline) : null;
+  const gracePeriodLocal = snaAssignment?.gracePeriodDeadline ? new Date(String(snaAssignment.gracePeriodDeadline).replace('Z', '')) : null;
   const isPastDue = dueDateLocal ? dueDateLocal < new Date() : false;
+  const isInGracePeriod = isPastDue && gracePeriodLocal ? new Date() < gracePeriodLocal : false;
+  const isFullyPastDue = isPastDue && !isInGracePeriod;
   const isSubmitted = mySubmission?.status === 'submitted' || mySubmission?.status === 'graded';
   const isGraded = mySubmission?.status === 'graded';
-  const canResubmit = isSubmitted && !isGraded && !isPastDue;
+  const canResubmit = isSubmitted && !isGraded && !isFullyPastDue;
 
   const submissionFileUrls = useMemo(() => {
     if (!mySubmission?.fileUrls) return [];
@@ -635,7 +639,12 @@ export const SnaExercise = () => {
                     <CheckCircle className="w-4 h-4" />
                     {t('submitted_status')}
                   </span>
-                ) : isPastDue ? (
+                ) : isInGracePeriod ? (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium" style={{ backgroundColor: headerColors.bgRed, color: headerColors.textRed }}>
+                    <AlertCircle className="w-4 h-4" />
+                    {t('grace_period_status', { defaultValue: 'Grace Period' })}
+                  </span>
+                ) : isFullyPastDue ? (
                   <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium" style={{ backgroundColor: headerColors.bgRed, color: headerColors.textRed }}>
                     <AlertCircle className="w-4 h-4" />
                     {t('past_due_status')}
@@ -657,6 +666,16 @@ export const SnaExercise = () => {
                   <span className="flex items-center gap-1" style={{ color: isPastDue ? headerColors.textRed : headerColors.textSecondary }}>
                     <Calendar className="w-4 h-4" />
                     {t('due_at', { date: dueDate.toLocaleDateString(undefined, { timeZone: 'UTC' }), time: dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) })}
+                  </span>
+                )}
+                {gracePeriodDate && (
+                  <span className="flex items-center gap-1" style={{ color: isInGracePeriod ? headerColors.textRed : headerColors.textSecondary }}>
+                    <Clock className="w-4 h-4" />
+                    {t('grace_period_until', {
+                      defaultValue: 'Grace period until {{date}} at {{time}}',
+                      date: gracePeriodDate.toLocaleDateString(undefined, { timeZone: 'UTC' }),
+                      time: gracePeriodDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
+                    })}
                   </span>
                 )}
                 <span className="flex items-center gap-1 capitalize">
@@ -1184,7 +1203,7 @@ export const SnaExercise = () => {
                 )}
 
                 {/* Add-to-report capture button (only when assignment exists and not past due, or resubmitting) */}
-                {modelBuilt && activeAnalysis && snaAssignment && (!isSubmitted || canResubmit) && !isGraded && !isPastDue && (() => {
+                {modelBuilt && activeAnalysis && snaAssignment && (!isSubmitted || canResubmit) && !isGraded && !isFullyPastDue && (() => {
                   const key = getCaptureKey();
                   const isCaptured = reportItems.some(r => r.key === key);
                   return (
@@ -1388,7 +1407,36 @@ export const SnaExercise = () => {
                 </Card>
               )}
             </>
-          ) : isPastDue ? (
+          ) : isInGracePeriod ? (
+            <>
+              <Card style={{ backgroundColor: headerColors.bgRed, borderColor: 'rgba(239, 68, 68, 0.3)' }}>
+                <CardBody className="text-center py-4">
+                  <AlertCircle className="w-8 h-8 mx-auto mb-1" style={{ color: headerColors.textRed }} />
+                  <p className="text-sm font-medium" style={{ color: headerColors.textRed }}>
+                    {t('grace_period_warning', { defaultValue: 'The original deadline has passed. You are submitting during the grace period.' })}
+                  </p>
+                  {gracePeriodDate && (
+                    <p className="text-xs mt-1" style={{ color: headerColors.textRed, opacity: 0.8 }}>
+                      {t('grace_period_ends', {
+                        defaultValue: 'Grace period ends: {{date}} at {{time}}',
+                        date: gracePeriodDate.toLocaleDateString(undefined, { timeZone: 'UTC' }),
+                        time: gracePeriodDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
+                      })}
+                    </p>
+                  )}
+                </CardBody>
+              </Card>
+              <div className="flex justify-end">
+                <Button
+                  variant="primary"
+                  onClick={() => setAssignmentPanelOpen(true)}
+                  icon={<Send className="w-4 h-4" />}
+                >
+                  {t('submit_assignment', { defaultValue: 'Submit Assignment' })}
+                </Button>
+              </div>
+            </>
+          ) : isFullyPastDue ? (
             <Card style={{ backgroundColor: headerColors.bgRed, borderColor: 'rgba(239, 68, 68, 0.3)' }}>
               <CardBody className="text-center py-6">
                 <AlertCircle className="w-10 h-10 mx-auto mb-2" style={{ color: headerColors.textRed }} />
@@ -1414,7 +1462,7 @@ export const SnaExercise = () => {
         </div>
       )}
 
-      {snaAssignment && !isGraded && !isPastDue && (
+      {snaAssignment && !isGraded && !isFullyPastDue && (
         <LabAssignmentPanel
           isOpen={assignmentPanelOpen}
           onClose={() => setAssignmentPanelOpen(false)}

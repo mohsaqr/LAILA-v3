@@ -327,6 +327,8 @@ export const StudentAgentBuilder = () => {
   const isSubmitted = Boolean(config && !config.isDraft);
   const isGraded = config?.submission?.status === 'graded';
   const isPastDue = Boolean(assignment.dueDate && new Date(assignment.dueDate.replace('Z', '')) < new Date());
+  const isInGracePeriod = isPastDue && Boolean(assignment.gracePeriodDeadline && new Date(assignment.gracePeriodDeadline.replace('Z', '')) > new Date());
+  const isFullyPastDue = isPastDue && !isInGracePeriod;
   const isSaving = createMutation.isPending || updateMutation.isPending;
   const isSubmitting = submitMutation.isPending;
   const isBuilt = isSubmitted;
@@ -376,7 +378,7 @@ export const StudentAgentBuilder = () => {
                 {assignment.dueDate && (
                   <div
                     className={`flex items-center gap-1.5 ${
-                      isSubmitted ? 'text-green-600' : isPastDue ? 'text-red-500' : 'text-gray-500'
+                      isSubmitted ? 'text-green-600' : isFullyPastDue ? 'text-red-500' : isInGracePeriod ? 'text-red-500' : 'text-gray-500'
                     }`}
                   >
                     {isSubmitted ? (
@@ -384,7 +386,12 @@ export const StudentAgentBuilder = () => {
                         <CheckCircle className="w-4 h-4" />
                         <span className="font-medium">{t('submitted')}</span>
                       </>
-                    ) : isPastDue ? (
+                    ) : isInGracePeriod ? (
+                      <>
+                        <AlertCircle className="w-4 h-4" />
+                        <span className="font-medium">{t('courses:grace_period_status', { defaultValue: 'Grace Period' })}</span>
+                      </>
+                    ) : isFullyPastDue ? (
                       <>
                         <AlertCircle className="w-4 h-4" />
                         <span className="font-medium">{t('past_due', { date: formatDate(assignment.dueDate) })}</span>
@@ -423,7 +430,7 @@ export const StudentAgentBuilder = () => {
                       logger?.logSubmissionAttempted();
                       setShowSubmitConfirm(true);
                     }}
-                    disabled={isSaving || isPastDue}
+                    disabled={isSaving || isFullyPastDue}
                     icon={<CheckCircle className="w-4 h-4" />}
                     className="whitespace-nowrap"
                   >

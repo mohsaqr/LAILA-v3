@@ -271,6 +271,7 @@ export interface AssignLabData {
   prompt?: string;
   points?: number;
   dueDate?: string;
+  gracePeriodDeadline?: string;
 }
 
 export interface Lecture {
@@ -352,6 +353,7 @@ export interface AssignmentListItem {
   title: string;
   description: string | null;
   dueDate: string | null;
+  gracePeriodDeadline: string | null;
   points: number;
   isPublished: boolean;
   module?: {
@@ -423,6 +425,7 @@ export interface Assignment {
   allowedFileTypes: string | null;
   agentRequirements?: string | null;
   dueDate: string | null;
+  gracePeriodDeadline: string | null;
   points: number;
   weight?: number;
   isPublished: boolean;
@@ -773,6 +776,7 @@ export interface AgentAssignmentDetails {
   instructions: string | null;
   agentRequirements: string | null;
   dueDate: string | null;
+  gracePeriodDeadline: string | null;
   points: number;
   reflectionRequirement?: 'required' | 'optional' | 'disabled' | null;
   course: {

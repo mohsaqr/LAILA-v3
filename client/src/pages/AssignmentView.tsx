@@ -269,11 +269,15 @@ export const AssignmentView = () => {
   // Due dates are stored with Z suffix but represent wall-clock time.
   // Strip Z so the comparison uses local time, matching what the instructor set.
   const dueDateLocal = assignment.dueDate ? new Date(assignment.dueDate.replace('Z', '')) : null;
+  const gracePeriodDate = assignment.gracePeriodDeadline ? new Date(assignment.gracePeriodDeadline) : null;
+  const gracePeriodLocal = assignment.gracePeriodDeadline ? new Date(assignment.gracePeriodDeadline.replace('Z', '')) : null;
   const isPastDue = dueDateLocal ? dueDateLocal < now : false;
+  const isInGracePeriod = isPastDue && gracePeriodLocal ? now < gracePeriodLocal : false;
+  const isFullyPastDue = isPastDue && !isInGracePeriod;
   const isSubmitted = mySubmission?.status === 'submitted' || mySubmission?.status === 'graded';
   const isGraded = mySubmission?.status === 'graded';
-  const canResubmit = isSubmitted && !isGraded && !isPastDue;
-  const canSubmit = !isPastDue && !isGraded;
+  const canResubmit = isSubmitted && !isGraded && !isFullyPastDue;
+  const canSubmit = !isFullyPastDue && !isGraded;
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -327,7 +331,8 @@ export const AssignmentView = () => {
             <StatusBadge
               isGraded={isGraded}
               isSubmitted={isSubmitted}
-              isPastDue={isPastDue}
+              isPastDue={isFullyPastDue}
+              isInGracePeriod={isInGracePeriod}
               hasDraft={mySubmission?.status === 'draft'}
               grade={mySubmission?.grade}
               points={assignment.points}
@@ -346,6 +351,16 @@ export const AssignmentView = () => {
                 {t('due_at', { date: dueDate.toLocaleDateString(undefined, { timeZone: 'UTC' }), time: dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) })}
               </span>
             )}
+            {gracePeriodDate && (
+              <span className="flex items-center gap-1" style={{ color: isInGracePeriod ? colors.textRed : colors.textSecondary }}>
+                <Clock className="w-4 h-4" />
+                {t('courses:grace_period_until', {
+                  defaultValue: 'Grace period until {{date}} at {{time}}',
+                  date: gracePeriodDate.toLocaleDateString(undefined, { timeZone: 'UTC' }),
+                  time: gracePeriodDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
+                })}
+              </span>
+            )}
             <span className="flex items-center gap-1 capitalize">
               <FileText className="w-4 h-4" />
               {t('submission_type_label', { type: assignment.submissionType })}
@@ -360,8 +375,8 @@ export const AssignmentView = () => {
           {/* Embedded Lab (if assignment has a linked lab) */}
           {linkedLab && (
             isPythonLab(linkedLab.labType)
-              ? <PythonLabEmbed lab={linkedLab} courseId={parsedCourseId} hideSubmit={isGraded || isPastDue} openPanel={isResubmitting} onPanelClose={() => setIsResubmitting(false)} />
-              : <RLabEmbed lab={linkedLab} courseId={parsedCourseId} hideSubmit={isGraded || isPastDue} openPanel={isResubmitting} onPanelClose={() => setIsResubmitting(false)} />
+              ? <PythonLabEmbed lab={linkedLab} courseId={parsedCourseId} hideSubmit={isGraded || isFullyPastDue} openPanel={isResubmitting} onPanelClose={() => setIsResubmitting(false)} />
+              : <RLabEmbed lab={linkedLab} courseId={parsedCourseId} hideSubmit={isGraded || isFullyPastDue} openPanel={isResubmitting} onPanelClose={() => setIsResubmitting(false)} />
           )}
 
           {/* Lab assignment: submitted (waiting for grading or graded) — show submission content */}
@@ -535,8 +550,34 @@ export const AssignmentView = () => {
             </Card>
           )}
 
+          {/* Grace Period Warning */}
+          {isInGracePeriod && !isGraded && (
+            <Card style={{ backgroundColor: colors.bgRed, borderColor: 'rgba(239, 68, 68, 0.3)' }}>
+              <CardBody className="text-center py-6">
+                <AlertCircle className="w-10 h-10 mx-auto mb-2" style={{ color: colors.textRed }} />
+                <h2 className="text-lg font-semibold mb-1" style={{ color: colors.textRed }}>
+                  {t('courses:grace_period_warning_title', { defaultValue: 'Grace Period' })}
+                </h2>
+                <p className="text-sm" style={{ color: colors.textRed }}>
+                  {t('courses:grace_period_warning', {
+                    defaultValue: 'The original deadline has passed. You are submitting during the grace period.',
+                  })}
+                </p>
+                {gracePeriodDate && (
+                  <p className="text-xs mt-2" style={{ color: colors.textRed, opacity: 0.8 }}>
+                    {t('courses:grace_period_ends', {
+                      defaultValue: 'Grace period ends: {{date}} at {{time}}',
+                      date: gracePeriodDate.toLocaleDateString(undefined, { timeZone: 'UTC' }),
+                      time: gracePeriodDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
+                    })}
+                  </p>
+                )}
+              </CardBody>
+            </Card>
+          )}
+
           {/* Deadline Passed Notice */}
-          {isPastDue && !isSubmitted && !isGraded && (
+          {isFullyPastDue && !isSubmitted && !isGraded && (
             <Card style={{ backgroundColor: colors.bgRed, borderColor: 'rgba(239, 68, 68, 0.3)' }}>
               <CardBody className="text-center py-8">
                 <AlertCircle className="w-12 h-12 mx-auto mb-3" style={{ color: colors.textRed }} />
@@ -562,7 +603,7 @@ export const AssignmentView = () => {
           )}
 
           {/* Submission Area (hidden for lab assignments — labs have their own submit flow) */}
-          {!linkedLab && !isGraded && !(isPastDue && !isSubmitted) && (
+          {!linkedLab && !isGraded && !(isFullyPastDue && !isSubmitted) && (
             <Card>
               <CardHeader>
                 <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{t('your_submission')}</h2>
@@ -898,6 +939,7 @@ const StatusBadge = ({
   isGraded,
   isSubmitted,
   isPastDue,
+  isInGracePeriod,
   hasDraft,
   grade,
   points,
@@ -906,6 +948,7 @@ const StatusBadge = ({
   isGraded: boolean;
   isSubmitted: boolean;
   isPastDue: boolean;
+  isInGracePeriod?: boolean;
   hasDraft: boolean;
   grade?: number | null;
   points: number;
@@ -931,6 +974,17 @@ const StatusBadge = ({
       >
         <CheckCircle className="w-4 h-4" />
         {t('submitted_status')}
+      </span>
+    );
+  }
+  if (isInGracePeriod) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium"
+        style={{ backgroundColor: colors.bgRed, color: colors.textRed }}
+      >
+        <AlertCircle className="w-4 h-4" />
+        {t('grace_period_status', { defaultValue: 'Grace Period' })}
       </span>
     );
   }
