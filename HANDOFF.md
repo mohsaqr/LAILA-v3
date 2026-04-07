@@ -1,4 +1,7 @@
-# Session Handoff — 2026-03-31
+# Session Handoff — 2026-04-07
+
+## Completed (2026-04-07)
+- **Prisma local/prod directory restructure**: Split `server/prisma/` into `local/` (SQLite, gitignored) and `prod/` (PostgreSQL, committed). Each has its own `schema.prisma` and `migrations/`. `setup:local` script generates local schema from prod. All package.json scripts and deploy script updated. Eliminates the SQLite/PostgreSQL migration lock conflict that prevented `npx prisma migrate dev` from working locally.
 
 ## Completed (2026-03-31)
 - **Assignment grace period deadline**: Added optional `gracePeriodDeadline` column to `Assignment` model. When set, students can still submit between the due date and the grace deadline (yellow warning shown). Submissions blocked after grace deadline. Server: validation in create/update ensures grace > due. `submitAssignment` and `submitAgentConfig` use 3-state check (on time / grace / blocked). Client: all assignment views (AssignmentView, SnaExercise, TnaExercise, StudentAgentBuilder, UseMyAgent) use `isInGracePeriod`/`isFullyPastDue`. Grace period input in all 4 instructor forms (AssignmentManager, ModuleItem, AssignmentSectionEditor). i18n in 4 locales.
@@ -144,6 +147,8 @@
 
 ## Context
 - Dev servers: client on port 5174, server on port 5001
-- SQLite database — timestamps stored as epoch milliseconds (integers)
+- Database: `prisma/prod/schema.prisma` (PostgreSQL, source of truth), `prisma/local/schema.prisma` (SQLite, gitignored, auto-generated)
+- Schema change workflow: edit `prod/schema.prisma` → `npm run setup:local` → `npm run db:push` (local) → `npm run db:migrate:prod` (production migration)
+- `npm run dev` auto-runs `setup:local` to regenerate local schema
 - Pre-push hook runs all tests
 - 4 locales: en, fi, ar, es

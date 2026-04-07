@@ -67,7 +67,7 @@ A multi-agent tutoring platform built around pedagogically distinct AI personas.
 |-------|-----------|
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS, Zustand |
 | Backend | Express.js, TypeScript, Prisma ORM |
-| Database | PostgreSQL |
+| Database | SQLite (local dev), PostgreSQL (production) |
 | AI Providers | OpenAI, Anthropic, Google Gemini, Ollama, LM Studio, Groq |
 | Code Execution | WebR (WebAssembly R), Monaco Editor |
 | Testing | Vitest (900+ tests) |
@@ -88,7 +88,9 @@ LAILA-v3/
 │   │   └── store/          # Zustand stores
 │   └── package.json
 ├── server/                 # Express backend
-│   ├── prisma/             # Database schema and seed data
+│   ├── prisma/
+│   │   ├── prod/           # PostgreSQL schema + migrations (committed)
+│   │   ├── local/          # SQLite schema + dev.db (gitignored, auto-generated)
 │   ├── src/
 │   │   ├── routes/         # API routes
 │   │   ├── services/       # Business logic
@@ -103,7 +105,6 @@ LAILA-v3/
 
 ### Prerequisites
 - Node.js 18+
-- PostgreSQL
 - At least one AI provider API key (OpenAI, Anthropic, Gemini, or local Ollama)
 
 ### Installation
@@ -114,18 +115,19 @@ cd client && npm install
 cd ../server && npm install
 
 # Set up environment
-cp .env.example server/.env    # Configure database URL and API keys
+cp .env.example server/.env    # Configure API keys
 
-# Initialize database
+# Initialize local database
 cd server
-npx prisma migrate dev
-npx prisma db seed
+npm run setup:local            # Generate SQLite schema from prod schema
+npm run db:push                # Sync local SQLite database
+npx prisma db seed             # Seed with demo data
 ```
 
 ### Development
 
 ```bash
-# Start both client and server (from root)
+# Start both client and server (from root — auto-runs setup:local)
 npm run dev
 
 # Or separately:
@@ -137,7 +139,7 @@ cd server && npm run dev     # Backend on port 5001
 
 - **Frontend:** http://localhost:5174
 - **Backend:** http://localhost:5001
-- **Database UI:** `cd server && npx prisma studio`
+- **Database UI:** `cd server && npm run db:studio`
 
 ### Demo Accounts
 

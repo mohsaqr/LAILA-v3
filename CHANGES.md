@@ -1,3 +1,15 @@
+### 2026-04-07 — Prisma local/prod directory restructure
+
+- **Separate local and prod Prisma directories**: Restructured `server/prisma/` into `local/` (SQLite, gitignored) and `prod/` (PostgreSQL, committed). Each directory has its own `schema.prisma` and `migrations/` folder, eliminating the SQLite/PostgreSQL migration lock conflict.
+  - `server/prisma/prod/schema.prisma`: PostgreSQL schema (source of truth). Existing PostgreSQL migration files moved here.
+  - `server/prisma/local/schema.prisma`: SQLite schema (auto-generated from prod via `setup:local`). Gitignored along with `dev.db` and local migrations.
+  - `server/scripts/setup-local-db.sh`: New script generates `local/schema.prisma` by swapping provider from postgresql to sqlite.
+  - `server/package.json`: Updated all db scripts to use `--schema prisma/local/schema.prisma`. Added `setup:local`, `db:migrate:prod`, `db:generate:prod`. `dev` script runs `setup:local` automatically.
+  - `package.json`: Root db scripts updated with `--schema` flags. Added `db:migrate` and `db:migrate:prod`.
+  - `.gitignore`: Added `server/prisma/local/` (replaces old `schema.local.prisma` entry).
+  - `deploy/deploy.sh`: Updated all prisma commands to use `prisma/prod/schema.prisma`. Removed provider-swap sed command and SQLite migration cleanup logic.
+  - `README.md`, `docs/ARCHITECTURE.md`: Updated project structure, setup instructions, and database workflow documentation.
+
 ### 2026-03-31 — Assignment grace period deadline
 
 - **Grace period deadline for assignments**: Assignments now support an optional grace period deadline. After the main due date passes but before the grace deadline, students can still submit with a yellow warning banner. After the grace deadline, submissions are fully blocked.

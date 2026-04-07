@@ -31,8 +31,8 @@ LAILA (Learning and AI-powered Instructional Analytics) is a comprehensive learn
 | Express.js | Web framework |
 | TypeScript | Type safety |
 | Prisma | ORM & database toolkit |
-| SQLite | Database (development) |
-| PostgreSQL | Database (production) |
+| SQLite | Database (local dev, `prisma/local/`) |
+| PostgreSQL | Database (production, `prisma/prod/`) |
 | Socket.IO | Real-time WebSocket server |
 | JWT | Authentication |
 | Multer | File uploads |
@@ -68,8 +68,13 @@ LAILA-v3/
 │
 ├── server/                    # Backend Express application
 │   ├── prisma/
-│   │   ├── schema.prisma     # Database schema
-│   │   └── dev.db            # SQLite database
+│   │   ├── prod/
+│   │   │   ├── schema.prisma       # PostgreSQL schema (production, source of truth)
+│   │   │   └── migrations/         # PostgreSQL migration files (committed)
+│   │   ├── local/                  # Gitignored — auto-generated for local dev
+│   │   │   ├── schema.prisma       # SQLite schema (generated from prod)
+│   │   │   ├── dev.db              # SQLite database
+│   │   │   └── migrations/         # SQLite migration files
 │   ├── src/
 │   │   ├── middleware/       # Express middleware
 │   │   ├── routes/           # API route handlers
@@ -375,8 +380,8 @@ model LearningActivityLog {
 │  ┌─────────────────────────────────────────────────────────┐│
 │  │                   Database                              ││
 │  │                                                          ││
-│  │  SQLite (development) / PostgreSQL (production)          ││
-│  │  server/prisma/dev.db                                    ││
+│  │  SQLite (local dev)  → prisma/local/dev.db               ││
+│  │  PostgreSQL (prod)   → prisma/prod/schema.prisma         ││
 │  └─────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -723,16 +728,21 @@ cd ../client && npm install
 
 # Setup database
 cd server
-npx prisma db push
-npx prisma generate
+npm run setup:local        # Generate local SQLite schema from prod PostgreSQL schema
+npm run db:push            # Sync local SQLite database
 
-# Start development servers
-# Terminal 1:
-cd server && npm run dev
-
-# Terminal 2:
-cd client && npm run dev
+# Start development servers (auto-runs setup:local)
+npm run dev
 ```
+
+### Database Workflow
+- **Source of truth**: `prisma/prod/schema.prisma` (PostgreSQL) — edit this for schema changes
+- **Local dev**: `prisma/local/schema.prisma` (SQLite) — auto-generated, gitignored
+- `npm run setup:local` regenerates local schema from prod (also runs on `npm run dev`)
+- `npm run db:push` syncs local SQLite from schema (safe for additive changes)
+- `npm run db:migrate` creates SQLite migration + applies locally
+- `npm run db:migrate:prod` creates PostgreSQL migration file (needs PostgreSQL DATABASE_URL)
+- Production: `npx prisma migrate deploy --schema prisma/prod/schema.prisma`
 
 ### Build
 ```bash
