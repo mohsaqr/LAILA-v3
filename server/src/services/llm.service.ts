@@ -709,7 +709,7 @@ export class LLMService {
       id: response.id,
       object: response.object,
       created: response.created,
-      model: response.model,
+      model: model || response.model,
       provider: provider.provider,
       choices: response.choices.map(c => ({
         index: c.index,

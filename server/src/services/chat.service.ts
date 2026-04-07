@@ -123,6 +123,7 @@ export class ChatService {
         const response = await llmService.chat({
           messages,
           model: request.model,
+          provider: request.provider as any,
           module: request.module,
           temperature: request.temperature,
         });

@@ -311,6 +311,8 @@ export const updateAgentConfigSchema = createAgentConfigSchema.partial();
 // Agent Test Message
 export const agentTestMessageSchema = z.object({
   message: z.string().min(1, 'Message is required'),
+  model: z.string().optional(),
+  provider: z.string().optional(),
 });
 
 // Grade Agent Submission
@@ -470,6 +472,8 @@ export const lectureAIHelperChatSchema = z.object({
   mode: z.enum(['explain', 'discuss']),
   message: z.string().min(1, 'Message is required'),
   sessionId: z.string().optional(),
+  model: z.string().optional(),
+  provider: z.string().optional(),
 });
 
 export type LectureAIHelperChatInput = z.infer<typeof lectureAIHelperChatSchema>;
@@ -481,6 +485,8 @@ const pdfPageRangesSchema = z.record(z.string(), z.string()).optional();
 export const createExplainThreadSchema = z.object({
   question: z.string().min(1, 'Question is required').max(2000, 'Question too long'),
   pdfPageRanges: pdfPageRangesSchema,
+  model: z.string().optional(),
+  provider: z.string().optional(),
 });
 
 export const addExplainFollowUpSchema = z.object({

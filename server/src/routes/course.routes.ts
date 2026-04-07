@@ -394,8 +394,8 @@ router.get('/chatbot-conversations/:conversationId', authenticateToken, requireI
 // Chat with AI helper for lecture (Discuss mode - chat-based)
 router.post('/lectures/:lectureId/ai-helper/chat', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const lectureId = parseInt(req.params.lectureId);
-  const { mode, message, sessionId } = lectureAIHelperChatSchema.parse(req.body);
-  const result = await lectureAIHelperService.chat(lectureId, mode, message, req.user!.id, sessionId, req.user!.isAdmin);
+  const { mode, message, sessionId, model, provider } = lectureAIHelperChatSchema.parse(req.body);
+  const result = await lectureAIHelperService.chat(lectureId, mode, message, req.user!.id, sessionId, req.user!.isAdmin, { model, provider: provider || 'lmstudio' });
   res.json({ success: true, data: result });
 }));
 
@@ -426,8 +426,8 @@ router.get('/lectures/:lectureId/ai-helper/pdf-info', authenticateToken, asyncHa
 // Create new explain thread
 router.post('/lectures/:lectureId/ai-helper/explain/threads', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const lectureId = parseInt(req.params.lectureId);
-  const { question, pdfPageRanges } = createExplainThreadSchema.parse(req.body);
-  const thread = await lectureAIHelperService.createExplainThread(lectureId, req.user!.id, question, req.user!.isAdmin, pdfPageRanges);
+  const { question, pdfPageRanges, model, provider } = createExplainThreadSchema.parse(req.body);
+  const thread = await lectureAIHelperService.createExplainThread(lectureId, req.user!.id, question, req.user!.isAdmin, pdfPageRanges, { model, provider: provider || 'lmstudio' });
   res.status(201).json({ success: true, data: thread });
 }));
 

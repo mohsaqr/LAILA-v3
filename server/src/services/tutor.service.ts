@@ -500,7 +500,8 @@ export class TutorService {
     clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
     collaborativeSettings?: CollaborativeSettings,
     courseId?: number,
-    emotionalPulse?: string
+    emotionalPulse?: string,
+    llmOverrides?: { model?: string; provider?: string }
   ): Promise<TutorMessageResponse> {
     const session = await prisma.tutorSession.findFirst({
       where: { userId, courseId: courseId ?? null },
@@ -543,11 +544,11 @@ export class TutorService {
     // Route to appropriate handler based on mode
     switch (mode) {
       case 'router':
-        return this.handleRouterMode(session, message, clientInfo, courseId, currentEmotion);
+        return this.handleRouterMode(session, message, clientInfo, courseId, currentEmotion, llmOverrides);
       case 'collaborative':
-        return this.handleCollaborativeMode(session, message, clientInfo, collaborativeSettings, courseId, currentEmotion);
+        return this.handleCollaborativeMode(session, message, clientInfo, collaborativeSettings, courseId, currentEmotion, llmOverrides);
       case 'random':
-        return this.handleRandomMode(session, message, clientInfo, courseId, currentEmotion);
+        return this.handleRandomMode(session, message, clientInfo, courseId, currentEmotion, llmOverrides);
       case 'manual':
       default:
         return this.handleManualMode(
@@ -556,7 +557,8 @@ export class TutorService {
           chatbot,
           message,
           clientInfo,
-          currentEmotion
+          currentEmotion,
+          llmOverrides
         );
     }
   }
@@ -570,7 +572,8 @@ export class TutorService {
     chatbot: any,
     message: string,
     clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
-    emotionalPulse?: string
+    emotionalPulse?: string,
+    llmOverrides?: { model?: string; provider?: string }
   ): Promise<TutorMessageResponse> {
     const startTime = Date.now();
 
@@ -680,6 +683,8 @@ RESPONSE GUIDELINES:
           systemPrompt,
           conversationHistory, // Pass actual message history for true multi-turn awareness
           temperature: chatbot.temperature ?? 0.7,
+          model: llmOverrides?.model,
+          provider: llmOverrides?.provider,
         },
         session.userId
       );
@@ -799,7 +804,8 @@ RESPONSE GUIDELINES:
     message: string,
     clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
     courseId?: number,
-    emotionalPulse?: string
+    emotionalPulse?: string,
+    llmOverrides?: { model?: string; provider?: string }
   ): Promise<TutorMessageResponse> {
     // Get available tutor agents (filtered by course if provided)
     const agents = await this.getAvailableAgents(courseId);
@@ -809,7 +815,7 @@ RESPONSE GUIDELINES:
     }
 
     // Analyze message to determine best agent
-    const routingResult = await this.analyzeAndRoute(message, agents);
+    const routingResult = await this.analyzeAndRoute(message, agents, false, llmOverrides);
 
     const chatbot = await prisma.chatbot.findUnique({
       where: { id: routingResult.selectedAgent.id },
@@ -838,7 +844,8 @@ RESPONSE GUIDELINES:
       chatbot,
       message,
       clientInfo,
-      emotionalPulse
+      emotionalPulse,
+      llmOverrides
     );
 
     // Update messages with routing info
@@ -888,7 +895,8 @@ RESPONSE GUIDELINES:
     message: string,
     clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
     courseId?: number,
-    emotionalPulse?: string
+    emotionalPulse?: string,
+    llmOverrides?: { model?: string; provider?: string }
   ): Promise<TutorMessageResponse> {
     // Get available tutor agents (filtered by course if provided)
     const agents = await this.getAvailableAgents(courseId);
@@ -925,7 +933,8 @@ RESPONSE GUIDELINES:
       chatbot,
       message,
       clientInfo,
-      emotionalPulse
+      emotionalPulse,
+      llmOverrides
     );
 
     // Log random selection
@@ -964,13 +973,14 @@ RESPONSE GUIDELINES:
   private async analyzeAndRoute(
     message: string,
     agents: TutorAgent[],
-    useAI: boolean = false
+    useAI: boolean = false,
+    llmOverrides?: { model?: string; provider?: string }
   ): Promise<RoutingInfo> {
     // Use fast keyword-based routing by default
     // Only use AI if explicitly requested (for deeper analysis)
     if (useAI) {
       try {
-        return await this.analyzeWithAI(message, agents);
+        return await this.analyzeWithAI(message, agents, llmOverrides);
       } catch (error) {
         logger.warn({ err: error }, 'AI routing failed, falling back to keyword-based');
       }
@@ -983,7 +993,8 @@ RESPONSE GUIDELINES:
    */
   private async analyzeWithAI(
     message: string,
-    agents: TutorAgent[]
+    agents: TutorAgent[],
+    llmOverrides?: { model?: string; provider?: string }
   ): Promise<RoutingInfo> {
     const agentDescriptions = agents.map(a =>
       `- ${a.name} (${a.displayName}): ${a.description}`
@@ -1019,6 +1030,8 @@ Consider:
       module: 'tutor-router',
       systemPrompt: 'You are a routing assistant. Always respond with valid JSON only, no markdown formatting.',
       temperature: 0.3, // Low temperature for consistent routing
+      model: llmOverrides?.model,
+      provider: llmOverrides?.provider,
     });
 
     // Parse AI response
@@ -1301,7 +1314,8 @@ Consider:
     userId: number,
     context?: string,
     maxChars: number = 500,
-    emotionalPulse?: string
+    emotionalPulse?: string,
+    llmOverrides?: { model?: string; provider?: string }
   ): Promise<AgentContribution> {
     const startTime = Date.now();
     try {
@@ -1334,6 +1348,8 @@ RESPONSE GUIDELINES:
           systemPrompt,
           conversationHistory,
           temperature: agent.temperature ?? 0.7,
+          model: llmOverrides?.model,
+          provider: llmOverrides?.provider,
         },
         userId
       );
@@ -1377,7 +1393,8 @@ RESPONSE GUIDELINES:
     clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
     settings?: CollaborativeSettings,
     courseId?: number,
-    emotionalPulse?: string
+    emotionalPulse?: string,
+    llmOverrides?: { model?: string; provider?: string }
   ): Promise<TutorMessageResponse> {
     const startTime = Date.now();
     const style: CollaborativeStyle = settings?.style || 'parallel';
@@ -1455,7 +1472,7 @@ RESPONSE GUIDELINES:
 
           const contribution = await this.getAgentResponse(
             agent, contextMsg, conversationHistory, session.userId,
-            i === 0 ? 'Answer the student directly.' : 'Reference what was said before, then add your perspective for the student.', maxChars, emotionalPulse
+            i === 0 ? 'Answer the student directly.' : 'Reference what was said before, then add your perspective for the student.', maxChars, emotionalPulse, llmOverrides
           );
           contribution.round = i + 1;
           agentContributions.push(contribution);
@@ -1475,7 +1492,7 @@ RESPONSE GUIDELINES:
 
             const contribution = await this.getAgentResponse(
               agent, debatePrompt, conversationHistory, session.userId,
-              round === 1 ? 'Share your view with the student.' : 'Engage with previous points, then share your view with the student.', maxChars, emotionalPulse
+              round === 1 ? 'Share your view with the student.' : 'Engage with previous points, then share your view with the student.', maxChars, emotionalPulse, llmOverrides
             );
             contribution.round = round;
             agentContributions.push(contribution);
@@ -1501,7 +1518,7 @@ RESPONSE GUIDELINES:
 
           const contribution = await this.getAgentResponse(
             agent, discussionPrompt, conversationHistory, session.userId,
-            i === 0 ? 'Answer the student directly.' : 'Reference what was said before, then add your perspective for the student.', maxChars, emotionalPulse
+            i === 0 ? 'Answer the student directly.' : 'Reference what was said before, then add your perspective for the student.', maxChars, emotionalPulse, llmOverrides
           );
           contribution.round = i + 1;
           agentContributions.push(contribution);
@@ -1514,7 +1531,7 @@ RESPONSE GUIDELINES:
         // All selected agents respond simultaneously
         agentContributions = await Promise.all(
           agents.map(agent => this.getAgentResponse(
-            agent, cleanMessage, conversationHistory, session.userId, undefined, maxChars, emotionalPulse
+            agent, cleanMessage, conversationHistory, session.userId, undefined, maxChars, emotionalPulse, llmOverrides
           ))
         );
         break;

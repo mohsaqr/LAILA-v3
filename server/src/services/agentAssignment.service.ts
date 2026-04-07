@@ -5,6 +5,7 @@ import { AppError } from '../middleware/error.middleware.js';
 import { CreateAgentConfigInput, UpdateAgentConfigInput, GradeAgentSubmissionInput } from '../utils/validation.js';
 import { agentAnalyticsService, ClientContext, UserContext, AssignmentContext } from './agentAnalytics.service.js';
 import { activityLogService } from './activityLog.service.js';
+import { llmService } from './llm.service.js';
 
 // AI Config type
 interface AIConfig {
@@ -562,7 +563,8 @@ export class AgentAssignmentService {
     conversationId: number,
     message: string,
     testerInfo: { userId: number; role: 'student' | 'instructor'; fullname?: string; email?: string },
-    context: EventContext
+    context: EventContext,
+    llmOverrides?: { model?: string; provider?: string }
   ) {
     const startTime = Date.now();
 
@@ -592,9 +594,9 @@ export class AgentAssignmentService {
     }
 
     const config = conversation.agentConfig;
-    const aiConfig = await this.getAIConfig();
+    const aiConfig = llmOverrides?.provider ? null : await this.getAIConfig();
 
-    if (!aiConfig) {
+    if (!aiConfig && !llmOverrides?.provider) {
       throw new AppError('No AI provider configured', 500);
     }
 
@@ -625,6 +627,8 @@ export class AgentAssignmentService {
     ];
 
     let aiResponse: string;
+    let resolvedModel: string = 'unknown';
+    let resolvedProvider: string = 'unknown';
     let promptTokens: number | undefined;
     let completionTokens: number | undefined;
     let totalTokens: number | undefined;
@@ -634,14 +638,34 @@ export class AgentAssignmentService {
     const temperature = config.temperature ?? undefined;
 
     try {
-      if (aiConfig.provider === 'openai') {
-        const result = await this.chatWithOpenAI(chatMessages, aiConfig.model, aiConfig.apiKey, temperature, aiConfig.baseUrl);
+      if (llmOverrides?.provider) {
+        // Use unified LLM service with per-request override
+        const llmResponse = await llmService.chat({
+          messages: chatMessages,
+          model: llmOverrides.model,
+          provider: llmOverrides.provider as any,
+          temperature,
+          maxTokens: 2000,
+        });
+        const content = llmResponse.choices[0]?.message?.content;
+        aiResponse = typeof content === 'string' ? content : 'No response generated';
+        resolvedModel = llmResponse.model;
+        resolvedProvider = llmResponse.provider;
+        promptTokens = llmResponse.usage?.promptTokens;
+        completionTokens = llmResponse.usage?.completionTokens;
+        totalTokens = llmResponse.usage?.totalTokens;
+      } else if (aiConfig!.provider === 'openai') {
+        const result = await this.chatWithOpenAI(chatMessages, aiConfig!.model, aiConfig!.apiKey, temperature, aiConfig!.baseUrl);
         aiResponse = result.content;
+        resolvedModel = aiConfig!.model;
+        resolvedProvider = aiConfig!.provider;
         promptTokens = result.promptTokens;
         completionTokens = result.completionTokens;
         totalTokens = result.totalTokens;
       } else {
-        aiResponse = await this.chatWithGemini(chatMessages, aiConfig.model, aiConfig.apiKey, temperature);
+        aiResponse = await this.chatWithGemini(chatMessages, aiConfig!.model, aiConfig!.apiKey, temperature);
+        resolvedModel = aiConfig!.model;
+        resolvedProvider = aiConfig!.provider;
       }
     } catch (error: any) {
       // Log error
@@ -687,8 +711,8 @@ export class AgentAssignmentService {
         role: 'assistant',
         content: aiResponse,
         messageIndex: messageIndex + 1,
-        aiModel: aiConfig.model,
-        aiProvider: aiConfig.provider,
+        aiModel: resolvedModel,
+        aiProvider: resolvedProvider,
         promptTokens,
         completionTokens,
         totalTokens,
@@ -721,8 +745,8 @@ export class AgentAssignmentService {
       messageContent: message,
       responseContent: aiResponse,
       responseTime: responseTimeMs / 1000,
-      aiModel: aiConfig.model,
-      aiProvider: aiConfig.provider,
+      aiModel: resolvedModel,
+      aiProvider: resolvedProvider,
       promptTokens,
       completionTokens,
       totalTokens,
@@ -751,8 +775,8 @@ export class AgentAssignmentService {
         assistantMessage: aiResponse,
         messageLength: message.length,
         responseLength: aiResponse.length,
-        aiModel: aiConfig.model,
-        aiProvider: aiConfig.provider,
+        aiModel: resolvedModel,
+        aiProvider: resolvedProvider,
         responseTimeMs,
       },
       sessionId: context.sessionId,
@@ -768,7 +792,7 @@ export class AgentAssignmentService {
         messageIndex: messageIndex + 1,
         createdAt: assistantMessage.createdAt,
       },
-      model: aiConfig.model,
+      model: resolvedModel,
       responseTime: responseTimeMs / 1000,
     };
   }

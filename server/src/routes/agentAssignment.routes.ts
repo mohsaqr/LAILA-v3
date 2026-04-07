@@ -130,7 +130,7 @@ router.post(
   authenticateToken,
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const conversationId = parseInt(req.params.conversationId);
-    const { message } = agentTestMessageSchema.parse(req.body);
+    const { message, model, provider } = agentTestMessageSchema.parse(req.body);
     const context = buildEventContext(req);
     const testerInfo = {
       userId: req.user!.id,
@@ -143,7 +143,8 @@ router.post(
       conversationId,
       message,
       testerInfo,
-      context
+      context,
+      { model, provider: provider || 'openai' }
     );
     res.json({ success: true, data: result });
   })
@@ -300,7 +301,7 @@ router.post(
   authenticateToken,
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const conversationId = parseInt(req.params.conversationId);
-    const { message } = agentTestMessageSchema.parse(req.body);
+    const { message, model, provider } = agentTestMessageSchema.parse(req.body);
     const context = buildEventContext(req);
     const testerInfo = {
       userId: req.user!.id,
@@ -313,7 +314,8 @@ router.post(
       conversationId,
       message,
       testerInfo,
-      context
+      context,
+      { model, provider: provider || 'openai' }
     );
     res.json({ success: true, data: result });
   })

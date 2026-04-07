@@ -39,7 +39,7 @@ router.post('/interpret', authenticateToken, asyncHandler(async (req: AuthReques
         },
       ],
       model,
-      provider: provider as any,
+      provider: (provider || 'lmstudio') as any,
       temperature: 0.3, // Lower temperature for more consistent interpretations
       maxTokens: 2000,
     });
