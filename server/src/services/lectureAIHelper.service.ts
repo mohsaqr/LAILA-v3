@@ -772,6 +772,7 @@ ${lectureContent}`;
           { role: 'user', content: question },
         ],
         module: 'lecture',
+        provider: 'lmstudio',
       });
       const content = llmResponse.choices[0]?.message?.content;
       aiResponse = typeof content === 'string' ? content : 'I apologize, but I was unable to generate a response.';
