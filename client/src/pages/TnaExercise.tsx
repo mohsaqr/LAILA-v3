@@ -23,6 +23,7 @@ import {
 import { assignmentsApi } from '../api/assignments';
 import { LabAssignmentPanel, type ReportItem } from '../components/labs/LabAssignmentPanel';
 import toast from 'react-hot-toast';
+import { MyDatasetPicker } from '../components/common/MyDatasetPicker';
 import { INTERACTIVE_LAB_REQUIREMENTS } from '../types';
 import { tna, ftna, ctna, atna, prune, centralities, summary } from 'dynajs';
 import type { TNA } from 'dynajs';
@@ -151,6 +152,7 @@ export const TnaExercise = () => {
   const [clusterK, setClusterK] = useState(3);
   const [showGuide, setShowGuide] = useState(false);
   const [showAIGenerator, setShowAIGenerator] = useState(false);
+  const [showDatasetPicker, setShowDatasetPicker] = useState(false);
   const [visitedAnalyses, setVisitedAnalyses] = useState<string[]>([]);
   const [sessionEvents, setSessionEvents] = useState<Array<{ ts: number; event: string }>>([]);
   const [reportItems, setReportItems] = useState<ReportItem[]>([]);
@@ -273,6 +275,28 @@ export const TnaExercise = () => {
     setActiveAnalysis(null);
   }, []);
 
+  const handleMyDatasetSelect = useCallback((csvText: string) => {
+    const lines = csvText.trim().split('\n').filter(l => l.trim());
+    if (lines.length < 2) return;
+    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    const rows: import('../components/tna-exercise/sampleDatasets').RawRow[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+      const row: Record<string, string> = {};
+      headers.forEach((h, idx) => { row[h] = cols[idx] || ''; });
+      rows.push(row);
+    }
+    if (rows.length === 0) return;
+    setAiColumns(headers);
+    setAiRows(rows);
+    setDatasetKey('_ai');
+    setActorCol('');
+    setActionCol('');
+    setTimeCol('');
+    setModelBuilt(false);
+    setActiveAnalysis(null);
+  }, []);
+
   const handleBuildModel = useCallback(() => {
     setModelBuilt(true);
     setActiveAnalysis(null);
@@ -379,13 +403,22 @@ export const TnaExercise = () => {
                       {rawRows.length} {t('exercise.rows')}, {columns.length} col
                     </p>
                   )}
-                  <button
-                    onClick={() => setShowAIGenerator(true)}
-                    className="w-full mt-1.5 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    {t('ai_gen.or_generate')}
-                  </button>
+                  <div className="flex flex-col gap-1.5 mt-1.5">
+                    <button
+                      onClick={() => setShowAIGenerator(true)}
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      {t('ai_gen.or_generate')}
+                    </button>
+                    <button
+                      onClick={() => setShowDatasetPicker(true)}
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                    >
+                      <Database className="w-3.5 h-3.5" />
+                      {t('teaching:my_datasets')}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Column Mapping (NOT pre-filled) */}
@@ -1021,6 +1054,12 @@ export const TnaExercise = () => {
           onTnaData={handleAiTnaData}
         />
       )}
+
+      <MyDatasetPicker
+        isOpen={showDatasetPicker}
+        onClose={() => setShowDatasetPicker(false)}
+        onSelect={(csvText) => handleMyDatasetSelect(csvText)}
+      />
 
       {tnaAssignment && !isGraded && !isFullyPastDue && (
         <LabAssignmentPanel

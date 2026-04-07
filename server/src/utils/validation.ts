@@ -342,8 +342,15 @@ export const createAssignmentSchemaExtended = z.object({
 // Type exports for agent assignments
 export type CreateAgentConfigInput = z.infer<typeof createAgentConfigSchema>;
 export type UpdateAgentConfigInput = z.infer<typeof updateAgentConfigSchema>;
+export const generateDatasetSchema = z.object({
+  description: z.string().min(10, 'Description must be at least 10 characters').max(500),
+  model: z.string().optional(),
+  provider: z.string().optional(),
+});
+
 export type AgentTestMessageInput = z.infer<typeof agentTestMessageSchema>;
 export type GradeAgentSubmissionInput = z.infer<typeof gradeAgentSubmissionSchema>;
+export type GenerateDatasetInput = z.infer<typeof generateDatasetSchema>;
 
 // =============================================================================
 // USER MANAGEMENT VALIDATION SCHEMAS

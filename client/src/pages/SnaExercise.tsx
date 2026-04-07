@@ -12,7 +12,7 @@ import { Breadcrumb } from '../components/common/Breadcrumb';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Network, X, GitBranch, Target, BarChart3, Waypoints, Plus,
+  Network, X, GitBranch, Target, BarChart3, Waypoints, Plus, Database,
   ChevronDown, ChevronRight, BookOpen, Users,
   Microscope, MessageCircle, Sparkles, Camera, Loader2, CheckCircle, Download,
   Award, Calendar, FileText, AlertCircle, MessageSquare, Send, RefreshCw, Clock,
@@ -23,6 +23,7 @@ import { resolveFileUrl } from '../api/client';
 import { sanitizeHtml, isHtmlContent } from '../utils/sanitize';
 import { LabAssignmentPanel, type ReportItem } from '../components/labs/LabAssignmentPanel';
 import { useTheme } from '../hooks/useTheme';
+import { MyDatasetPicker } from '../components/common/MyDatasetPicker';
 import { Card, CardBody } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import toast from 'react-hot-toast';
@@ -310,6 +311,7 @@ export const SnaExercise = () => {
   const [modelBuilt, setModelBuilt] = useState(false);
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [showAIGenerator, setShowAIGenerator] = useState(false);
+  const [showDatasetPicker, setShowDatasetPicker] = useState(false);
 
   // ── Custom network ──
   const [customEdges, setCustomEdges] = useState<Edge[] | null>(null);
@@ -546,6 +548,34 @@ export const SnaExercise = () => {
     setActiveAnalysis(null);
   }, []);
 
+  const handleMyDatasetSelect = useCallback((csvText: string) => {
+    const lines = csvText.trim().split('\n').filter(l => l.trim());
+    if (lines.length < 2) return;
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const fromIdx = headers.findIndex(h => h === 'from' || h === 'source' || h === 'actor1');
+    const toIdx = headers.findIndex(h => h === 'to' || h === 'target' || h === 'actor2');
+    const weightIdx = headers.findIndex(h => h === 'weight' || h === 'value' || h === 'strength');
+
+    const edges: Edge[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+      const from = cols[fromIdx >= 0 ? fromIdx : 0] || '';
+      const to = cols[toIdx >= 0 ? toIdx : 1] || '';
+      const weight = weightIdx >= 0 ? parseFloat(cols[weightIdx]) || 1 : 1;
+      if (from && to) edges.push({ from, to, weight });
+    }
+    if (edges.length === 0) return;
+
+    const { labels, matrix } = edgesToMatrix(edges, true);
+    setCustomEdges(edges);
+    setCustomDirected(true);
+    setCustomLabels(labels);
+    setCustomMatrix(matrix);
+    setDatasetKey('_custom');
+    setModelBuilt(false);
+    setActiveAnalysis(null);
+  }, []);
+
   const handleCustomSubmit = useCallback((edges: Edge[], directed: boolean) => {
     const { labels, matrix } = edgesToMatrix(edges, directed);
     setCustomEdges(edges);
@@ -745,6 +775,13 @@ export const SnaExercise = () => {
                   >
                     <Sparkles className="w-3.5 h-3.5" />
                     {t('ai_gen.or_generate')}
+                  </button>
+                  <button
+                    onClick={() => setShowDatasetPicker(true)}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                  >
+                    <Database className="w-3.5 h-3.5" />
+                    {t('my_datasets')}
                   </button>
                 </div>
 
@@ -1298,6 +1335,12 @@ export const SnaExercise = () => {
           onSnaData={handleAiSnaData}
         />
       )}
+
+      <MyDatasetPicker
+        isOpen={showDatasetPicker}
+        onClose={() => setShowDatasetPicker(false)}
+        onSelect={(csvText) => handleMyDatasetSelect(csvText)}
+      />
 
       {/* Submit button / Submitted / Graded states */}
       {snaAssignment && (

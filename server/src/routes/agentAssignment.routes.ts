@@ -7,6 +7,7 @@ import {
   updateAgentConfigSchema,
   agentTestMessageSchema,
   gradeAgentSubmissionSchema,
+  generateDatasetSchema,
 } from '../utils/validation.js';
 import { AuthRequest } from '../types/index.js';
 
@@ -169,6 +170,75 @@ router.get(
     const assignmentId = parseInt(req.params.assignmentId);
     const conversations = await agentAssignmentService.getMyTestConversations(assignmentId, req.user!.id);
     res.json({ success: true, data: conversations });
+  })
+);
+
+// =============================================================================
+// DATASET GENERATION ENDPOINTS
+// =============================================================================
+
+// Generate a dataset using the student's agent
+router.post(
+  '/:assignmentId/datasets/generate',
+  authenticateToken,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const assignmentId = parseInt(req.params.assignmentId);
+    const { description, model, provider } = generateDatasetSchema.parse(req.body);
+
+    const result = await agentAssignmentService.generateDataset(
+      assignmentId,
+      req.user!.id,
+      description,
+      { model, provider }
+    );
+    res.json({ success: true, data: result });
+  })
+);
+
+// Rename a dataset
+router.put(
+  '/:assignmentId/datasets/:datasetId',
+  authenticateToken,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const datasetId = parseInt(req.params.datasetId);
+    const { name } = req.body;
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      return res.status(400).json({ success: false, error: 'Name is required' });
+    }
+    const dataset = await agentAssignmentService.renameDataset(datasetId, req.user!.id, name.trim());
+    res.json({ success: true, data: dataset });
+  })
+);
+
+// Delete a dataset
+router.delete(
+  '/:assignmentId/datasets/:datasetId',
+  authenticateToken,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const datasetId = parseInt(req.params.datasetId);
+    await agentAssignmentService.deleteDataset(datasetId, req.user!.id);
+    res.json({ success: true });
+  })
+);
+
+// Get all my datasets (across all assignments)
+router.get(
+  '/datasets/mine',
+  authenticateToken,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const datasets = await agentAssignmentService.getAllMyDatasets(req.user!.id);
+    res.json({ success: true, data: datasets });
+  })
+);
+
+// Get my datasets for an assignment
+router.get(
+  '/:assignmentId/datasets',
+  authenticateToken,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const assignmentId = parseInt(req.params.assignmentId);
+    const datasets = await agentAssignmentService.getMyDatasets(assignmentId, req.user!.id);
+    res.json({ success: true, data: datasets });
   })
 );
 

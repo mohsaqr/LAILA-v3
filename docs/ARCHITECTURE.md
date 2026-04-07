@@ -741,7 +741,8 @@ npm run dev
 - `npm run setup:local` regenerates local schema from prod (also runs on `npm run dev`)
 - `npm run db:push` syncs local SQLite from schema (safe for additive changes)
 - `npm run db:migrate` creates SQLite migration + applies locally
-- `npm run db:migrate:prod` creates PostgreSQL migration file (needs PostgreSQL DATABASE_URL)
+- `npm run db:migrate:prod -- --name <name>` generates PostgreSQL migration file (no DB connection needed — diffs git HEAD vs current schema)
+- **Always generate a prod migration after editing `prod/schema.prisma`**
 - Production: `npx prisma migrate deploy --schema prisma/prod/schema.prisma`
 
 ### Build

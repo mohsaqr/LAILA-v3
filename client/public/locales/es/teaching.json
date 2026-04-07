@@ -1112,5 +1112,14 @@
   "rename": "Renombrar",
   "activation_code": "Código de activación",
   "code_copied": "¡Código de activación copiado!",
-  "copy_code": "Copiar código"
+  "copy_code": "Copiar código",
+  "generate_dataset": "Generar conjunto de datos",
+  "generate_dataset_description": "Describe el conjunto de datos que deseas generar. Tu agente de IA creará un archivo CSV basado en su conocimiento y experiencia.",
+  "dataset_prompt_placeholder": "ej., Genera 30 respuestas de encuesta estudiantil sobre motivación de aprendizaje con columnas para edad, género, puntuación de motivación y método de estudio preferido",
+  "dataset_generated": "¡Conjunto de datos generado exitosamente!",
+  "dataset_generation_failed": "Error al generar el conjunto de datos",
+  "download_csv": "Descargar CSV",
+  "my_datasets": "Mis conjuntos de datos",
+  "create_agent_first": "Crea tu agente de IA primero para generar conjuntos de datos",
+  "no_datasets": "Aún no hay conjuntos de datos. Genera uno desde el constructor de agentes."
 }

@@ -21,6 +21,7 @@ import {
   Save,
   Bot,
   Clock,
+  Database,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { agentAssignmentsApi } from '../../api/agentAssignments';
@@ -28,6 +29,7 @@ import { AgentIdentityTab } from '../../components/agent-assignment/AgentIdentit
 import { AgentBehaviorTab } from '../../components/agent-assignment/AgentBehaviorTab';
 import { AgentAdvancedTab } from '../../components/agent-assignment/AgentAdvancedTab';
 import { AgentTestTab } from '../../components/agent-assignment/AgentTestTab';
+import { AgentDatasetTab } from '../../components/agent-assignment/AgentDatasetTab';
 import { Card, CardBody } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
@@ -44,7 +46,7 @@ import {
 } from '../../services/agentDesignLogger';
 import { useAuth } from '../../hooks/useAuth';
 
-type TabType = 'identity' | 'behavior' | 'advanced' | 'test';
+type TabType = 'identity' | 'behavior' | 'advanced' | 'test' | 'dataset';
 
 // Default form data
 const getDefaultFormData = (): AgentConfigFormData => ({
@@ -82,6 +84,7 @@ export const StudentAgentBuilder = () => {
     { id: 'behavior', label: t('behavior'), icon: Sparkles },
     { id: 'advanced', label: t('advanced'), icon: Settings },
     { id: 'test', label: t('test_reflect'), icon: Play },
+    { id: 'dataset', label: t('generate_dataset'), icon: Database },
   ];
   const [activeTab, setActiveTab] = useState<TabType>('identity');
   const [formData, setFormData] = useState<AgentConfigFormData>(getDefaultFormData());
@@ -556,7 +559,7 @@ export const StudentAgentBuilder = () => {
               {TABS.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
-                const isDisabled = tab.id === 'test' && !config;
+                const isDisabled = (tab.id === 'test' || tab.id === 'dataset') && !config;
 
                 return (
                   <button
@@ -613,6 +616,12 @@ export const StudentAgentBuilder = () => {
                 reflectionRequirement={assignment.reflectionRequirement}
                 onReflectionSubmit={handleTestReflectionSubmit}
                 logger={logger}
+              />
+            )}
+            {activeTab === 'dataset' && (
+              <AgentDatasetTab
+                assignmentId={assId}
+                config={config}
               />
             )}
           </div>

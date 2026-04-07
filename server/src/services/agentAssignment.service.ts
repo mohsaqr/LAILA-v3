@@ -1,5 +1,8 @@
 import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import fs from 'fs';
+import path from 'path';
+import { randomUUID } from 'crypto';
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { CreateAgentConfigInput, UpdateAgentConfigInput, GradeAgentSubmissionInput } from '../utils/validation.js';
@@ -1122,6 +1125,244 @@ export class AgentAssignmentService {
     if (!enrollment) {
       throw new AppError('You must be enrolled to submit', 403);
     }
+  }
+
+  // =============================================================================
+  // DATASET GENERATION
+  // =============================================================================
+
+  async generateDataset(
+    assignmentId: number,
+    userId: number,
+    description: string,
+    llmOverrides?: { model?: string; provider?: string }
+  ) {
+    const config = await prisma.studentAgentConfig.findUnique({
+      where: { assignmentId_userId: { assignmentId, userId } },
+    });
+    if (!config) {
+      throw new AppError('Agent config not found', 404);
+    }
+
+    const agentPrompt = this.buildSystemPrompt(config);
+
+    // Step 1: Intent classification (fast, small call)
+    const classifyResponse = await llmService.chat({
+      messages: [
+        {
+          role: 'system',
+          content: `You are an intent classifier. Determine if the user's message is a valid dataset generation request.
+
+A VALID request describes what kind of tabular data to generate — it mentions data, columns, rows, records, samples, survey responses, students, measurements, or similar concepts that can be represented as a CSV table.
+
+INVALID requests include: greetings, casual conversation, questions not about data, jokes, code requests, general chat, or anything that does not ask for generating structured tabular data.
+
+Respond with ONLY one word: "valid" or "invalid". Nothing else.`,
+        },
+        { role: 'user', content: description },
+      ],
+      maxTokens: 10,
+      temperature: 0,
+      ...(llmOverrides?.provider ? { provider: llmOverrides.provider as any } : {}),
+      ...(llmOverrides?.model ? { model: llmOverrides.model } : {}),
+    });
+
+    const classifyResult = (typeof classifyResponse.choices[0]?.message?.content === 'string'
+      ? classifyResponse.choices[0].message.content : '').trim().toLowerCase();
+
+    if (classifyResult !== 'valid') {
+      throw new AppError(
+        'Your request doesn\'t appear to be about generating a dataset. Please describe the dataset you\'d like to create — for example: "Generate 50 student survey responses with columns for age, gender, and motivation score".',
+        400
+      );
+    }
+
+    // Step 2: Generate the dataset
+    const systemPrompt = `${agentPrompt}
+
+---
+
+## Dataset Generation Task
+
+You are now being asked to generate a synthetic dataset. Use your persona, knowledge, and expertise to create realistic, diverse data.
+
+You MUST respond with ONLY a JSON object — no markdown, no code fences, no explanation outside the JSON. The JSON object must have exactly two keys:
+
+{
+  "explanation": "A 2-3 sentence description of the dataset, including what each column represents.",
+  "rows": [
+    {"column1": "value1", "column2": "value2"},
+    {"column1": "value3", "column2": "value4"}
+  ]
+}
+
+CRITICAL RULES:
+- Output ONLY a JSON object. No markdown, no code fences, no text before or after.
+- "rows" must be a JSON array of objects. Every object must have the same keys.
+- You MUST generate the EXACT number of rows the user asks for. If the user says 50 rows, you output 50 objects in the array. If the user says 100 rows, you output 100 objects. Do NOT stop early. Do NOT summarize or truncate. Count your rows.
+- If the user does not specify a number, default to 20 rows.
+- Make data realistic and varied — no repetitive patterns. Each row should have unique, plausible values.
+- Stay in character: the data should reflect your domain expertise.`;
+
+    // Estimate tokens needed: ~50-80 tokens per row depending on columns
+    const rowCountMatch = description.match(/\b(\d+)\s*(?:rows?|items?|entries|samples?|responses?|records?|students?|people|users?|participants?)\b/i);
+    const estimatedRows = rowCountMatch ? parseInt(rowCountMatch[1]) : 20;
+    const maxTokens = Math.max(4000, Math.min(estimatedRows * 100, 16000));
+
+    const llmResponse = await llmService.chat({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: description },
+      ],
+      temperature: config.temperature ?? 0.7,
+      maxTokens,
+      ...(llmOverrides?.provider ? { provider: llmOverrides.provider as any } : {}),
+      ...(llmOverrides?.model ? { model: llmOverrides.model } : {}),
+    });
+
+    const rawContent = llmResponse.choices[0]?.message?.content;
+    const contentStr = typeof rawContent === 'string' ? rawContent : '';
+
+    const { explanation, rows } = this.parseDatasetJsonResponse(contentStr);
+    if (rows.length === 0) {
+      throw new AppError('The AI could not generate a valid dataset from your description. Please be more specific about the data you need — include column names, data types, and the number of rows.', 400);
+    }
+    const csv = this.jsonRowsToCsv(rows);
+
+    // Save CSV file
+    const uploadsDir = path.join(process.cwd(), 'uploads', 'datasets');
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    const fileName = `${randomUUID()}.csv`;
+    const filePath = path.join(uploadsDir, fileName);
+    fs.writeFileSync(filePath, csv, 'utf-8');
+    const fileSize = Buffer.byteLength(csv, 'utf-8');
+    const rowCount = csv.trim().split('\n').length - 1; // minus header
+
+    const dataset = await prisma.userDataset.create({
+      data: {
+        userId,
+        agentConfigId: config.id,
+        name: `dataset-${fileName}`,
+        description,
+        fileName,
+        fileUrl: `/uploads/datasets/${fileName}`,
+        fileSize,
+        fileType: 'text/csv',
+        rowCount: rowCount > 0 ? rowCount : null,
+        aiModel: llmResponse.model,
+        aiProvider: llmResponse.provider,
+        agentPrompt: agentPrompt.slice(0, 5000),
+        generationConfig: JSON.stringify({
+          temperature: config.temperature ?? 0.7,
+          maxTokens: 4000,
+          agentConfigId: config.id,
+          agentConfigVersion: config.version,
+        }),
+        status: 'completed',
+      },
+    });
+
+    // CSV preview: first 5 rows
+    const lines = csv.trim().split('\n');
+    const csvPreview = lines.slice(0, 6).join('\n');
+
+    return { dataset, explanation, csvPreview };
+  }
+
+  async renameDataset(datasetId: number, userId: number, name: string) {
+    const dataset = await prisma.userDataset.findUnique({ where: { id: datasetId } });
+    if (!dataset) throw new AppError('Dataset not found', 404);
+    if (dataset.userId !== userId) throw new AppError('Unauthorized', 403);
+
+    return prisma.userDataset.update({
+      where: { id: datasetId },
+      data: { name },
+    });
+  }
+
+  async deleteDataset(datasetId: number, userId: number) {
+    const dataset = await prisma.userDataset.findUnique({ where: { id: datasetId } });
+    if (!dataset) throw new AppError('Dataset not found', 404);
+    if (dataset.userId !== userId) throw new AppError('Unauthorized', 403);
+
+    // Delete the file
+    const filePath = path.join(process.cwd(), 'uploads', 'datasets', dataset.fileName);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+    return prisma.userDataset.delete({ where: { id: datasetId } });
+  }
+
+  async getAllMyDatasets(userId: number) {
+    return prisma.userDataset.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getMyDatasets(assignmentId: number, userId: number) {
+    const config = await prisma.studentAgentConfig.findUnique({
+      where: { assignmentId_userId: { assignmentId, userId } },
+      select: { id: true },
+    });
+    if (!config) return [];
+
+    return prisma.userDataset.findMany({
+      where: { agentConfigId: config.id },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  private parseDatasetJsonResponse(raw: string): { explanation: string; rows: Record<string, unknown>[] } {
+    const fallback = { explanation: 'Dataset generated by your AI agent.', rows: [] as Record<string, unknown>[] };
+
+    const tryParse = (text: string) => {
+      try {
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed.rows) && parsed.rows.length > 0) {
+          return { explanation: parsed.explanation || fallback.explanation, rows: parsed.rows };
+        }
+      } catch {}
+      return null;
+    };
+
+    // Try direct JSON parse
+    const direct = tryParse(raw);
+    if (direct) return direct;
+
+    // Try extracting JSON from markdown code block
+    const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      const fromBlock = tryParse(jsonMatch[1].trim());
+      if (fromBlock) return fromBlock;
+    }
+
+    // Try extracting JSON object from surrounding text
+    const braceMatch = raw.match(/\{[\s\S]*"rows"\s*:\s*\[[\s\S]*\][\s\S]*\}/);
+    if (braceMatch) {
+      const fromBrace = tryParse(braceMatch[0]);
+      if (fromBrace) return fromBrace;
+    }
+
+    return fallback;
+  }
+
+  private jsonRowsToCsv(rows: Record<string, unknown>[]): string {
+    if (rows.length === 0) return '';
+
+    const headers = Object.keys(rows[0]);
+    const escapeField = (val: unknown): string => {
+      const str = val === null || val === undefined ? '' : String(val);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const lines = [headers.join(',')];
+    for (const row of rows) {
+      lines.push(headers.map((h) => escapeField(row[h])).join(','));
+    }
+    return lines.join('\n');
   }
 
   private buildSystemPrompt(config: {

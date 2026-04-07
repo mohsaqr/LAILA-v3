@@ -865,6 +865,27 @@ export interface AgentMessageResponse {
   responseTime: number;
 }
 
+export interface UserDataset {
+  id: number;
+  name: string;
+  description: string | null;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number | null;
+  fileType: string | null;
+  rowCount: number | null;
+  aiModel: string | null;
+  aiProvider: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export interface GenerateDatasetResponse {
+  dataset: UserDataset;
+  explanation: string;
+  csvPreview: string;
+}
+
 export interface AgentConfigurationLog {
   id: number;
   agentConfigId: number;
@@ -1055,7 +1076,7 @@ export interface AgentDesignEvent {
   totalDesignTime?: number;
 
   // Tab context
-  activeTab?: 'identity' | 'behavior' | 'advanced' | 'test';
+  activeTab?: 'identity' | 'behavior' | 'advanced' | 'test' | 'dataset';
 
   // Template/suggestion tracking
   usedTemplate?: boolean;

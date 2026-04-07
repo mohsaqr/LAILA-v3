@@ -133,5 +133,8 @@
   "select_course": "Seleccionar un curso",
   "select_course_for_tutor": "Elige un curso para comenzar a chatear con su tutor de IA",
   "no_courses_with_tutors": "No hay cursos con tutores de IA",
-  "no_courses_with_tutors_hint": "No estás inscrito en ningún curso que tenga un tutor de IA disponible"
+  "no_courses_with_tutors_hint": "No estás inscrito en ningún curso que tenga un tutor de IA disponible",
+  "generate": "Generar",
+  "generating": "Generando...",
+  "rows": "filas"
 }

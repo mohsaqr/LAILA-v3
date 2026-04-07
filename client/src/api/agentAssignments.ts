@@ -10,6 +10,8 @@ import {
   MyAgentConfigResponse,
   AgentSubmissionWithConfig,
   AssignmentSubmission,
+  UserDataset,
+  GenerateDatasetResponse,
 } from '../types';
 
 export const agentAssignmentsApi = {
@@ -119,6 +121,47 @@ export const agentAssignmentsApi = {
   getMyTestConversations: async (assignmentId: number): Promise<AgentTestConversation[]> => {
     const response = await apiClient.get<ApiResponse<AgentTestConversation[]>>(
       `/agent-assignments/${assignmentId}/test/history`
+    );
+    return response.data.data!;
+  },
+
+  // =============================================================================
+  // DATASET GENERATION ENDPOINTS
+  // =============================================================================
+
+  generateDataset: async (
+    assignmentId: number,
+    description: string
+  ): Promise<GenerateDatasetResponse> => {
+    const response = await apiClient.post<ApiResponse<GenerateDatasetResponse>>(
+      `/agent-assignments/${assignmentId}/datasets/generate`,
+      { description }
+    );
+    return response.data.data!;
+  },
+
+  renameDataset: async (assignmentId: number, datasetId: number, name: string): Promise<UserDataset> => {
+    const response = await apiClient.put<ApiResponse<UserDataset>>(
+      `/agent-assignments/${assignmentId}/datasets/${datasetId}`,
+      { name }
+    );
+    return response.data.data!;
+  },
+
+  deleteDataset: async (assignmentId: number, datasetId: number): Promise<void> => {
+    await apiClient.delete(`/agent-assignments/${assignmentId}/datasets/${datasetId}`);
+  },
+
+  getAllMyDatasets: async (): Promise<UserDataset[]> => {
+    const response = await apiClient.get<ApiResponse<UserDataset[]>>(
+      '/agent-assignments/datasets/mine'
+    );
+    return response.data.data!;
+  },
+
+  getMyDatasets: async (assignmentId: number): Promise<UserDataset[]> => {
+    const response = await apiClient.get<ApiResponse<UserDataset[]>>(
+      `/agent-assignments/${assignmentId}/datasets`
     );
     return response.data.data!;
   },

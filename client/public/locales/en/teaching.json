@@ -1117,5 +1117,14 @@
   "rename": "Rename",
   "activation_code": "Activation Code",
   "code_copied": "Activation code copied!",
-  "copy_code": "Copy code"
+  "copy_code": "Copy code",
+  "generate_dataset": "Generate Dataset",
+  "generate_dataset_description": "Describe the dataset you want to generate. Your AI agent will create a CSV file based on its knowledge and expertise.",
+  "dataset_prompt_placeholder": "e.g., Generate 30 student survey responses about learning motivation with columns for age, gender, motivation score, and preferred study method",
+  "dataset_generated": "Dataset generated successfully!",
+  "dataset_generation_failed": "Failed to generate dataset",
+  "download_csv": "Download CSV",
+  "my_datasets": "My Datasets",
+  "create_agent_first": "Create your AI agent first to generate datasets",
+  "no_datasets": "No datasets yet. Generate one from the Agent Builder."
 }

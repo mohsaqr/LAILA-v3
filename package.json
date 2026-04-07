@@ -16,7 +16,7 @@
     "install:all": "npm install && cd server && npm install && cd ../client && npm install",
     "db:push": "cd server && npx prisma db push --schema prisma/local/schema.prisma",
     "db:migrate": "cd server && npx prisma migrate dev --schema prisma/local/schema.prisma",
-    "db:migrate:prod": "cd server && npx prisma migrate dev --create-only --schema prisma/prod/schema.prisma",
+    "db:migrate:prod": "cd server && npm run db:migrate:prod --",
     "db:seed": "cd server && npx prisma db seed",
     "db:studio": "cd server && npx prisma studio --schema prisma/local/schema.prisma",
     "db:reset": "cd server && npx prisma migrate reset --schema prisma/local/schema.prisma",

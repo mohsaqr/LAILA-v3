@@ -12,7 +12,7 @@
     "db:generate:prod": "prisma generate --schema prisma/prod/schema.prisma",
     "db:push": "prisma db push --schema prisma/local/schema.prisma",
     "db:migrate": "prisma migrate dev --schema prisma/local/schema.prisma",
-    "db:migrate:prod": "prisma migrate dev --create-only --schema prisma/prod/schema.prisma",
+    "db:migrate:prod": "bash scripts/generate-prod-migration.sh",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:chatbots": "tsx prisma/seed-chatbots.ts",
     "db:seed:labs": "tsx prisma/seed-labs.ts",
