@@ -771,7 +771,7 @@ class ActivityLogService {
 
     const minLen = filters?.minSequenceLength ?? 2;
     const minVerbPct = filters?.minVerbPct ?? 0.05;
-    const groupBy = filters?.groupBy ?? 'actor-session';
+    const groupBy = filters?.groupBy ?? 'actor';
 
     const logs = await prisma.learningActivityLog.findMany({
       where,
