@@ -148,7 +148,13 @@
 ## Context
 - Dev servers: client on port 5174, server on port 5001
 - Database: `prisma/prod/schema.prisma` (PostgreSQL, source of truth), `prisma/local/schema.prisma` (SQLite, gitignored, auto-generated)
-- Schema change workflow: edit `prod/schema.prisma` → `npm run setup:local` → `npm run db:push` (local) → `npm run db:migrate:prod` (production migration)
+- Schema change workflow:
+  1. Edit `prisma/prod/schema.prisma`
+  2. `npm run setup:local` (regenerate local schema)
+  3. `npm run db:push` (sync local SQLite)
+  4. `npm run db:migrate:prod -- --name <name>` (generate PostgreSQL migration file — no DB needed)
+  5. Commit schema + migration file
+- Production deployment: `npx prisma migrate status --schema prisma/prod/schema.prisma` to check pending, then `npx prisma migrate deploy --schema prisma/prod/schema.prisma` to apply
 - `npm run dev` auto-runs `setup:local` to regenerate local schema
 - Pre-push hook runs all tests
 - 4 locales: en, fi, ar, es

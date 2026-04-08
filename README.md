@@ -110,35 +110,28 @@ LAILA-v3/
 ### Installation
 
 ```bash
-# Install dependencies
-cd client && npm install
-cd ../server && npm install
+# 1. Clone and install all dependencies (root, server, client)
+git clone <repo-url> && cd LAILA-v3
+npm run install:all
 
-# Set up environment
-cp .env.example server/.env    # Configure API keys
+# 2. Set up environment
+cp .env.example server/.env    # Then edit server/.env with your API keys
 
-# Initialize local database
+# 3. Initialize local database (SQLite — no PostgreSQL needed for local dev)
 cd server
-npm run setup:local            # Generate SQLite schema from prod schema
-npm run db:push                # Sync local SQLite database
-npx prisma db seed             # Seed with demo data
-```
+npm run setup:local            # Generate local SQLite schema from production schema
+npm run db:push                # Create/sync the local database
+npx prisma db seed             # Seed with demo data (admin, instructor, student accounts)
+cd ..
 
-### Development
-
-```bash
-# Start both client and server (from root — auto-runs setup:local)
-npm run dev
-
-# Or separately:
-cd client && npm run dev     # Frontend on port 5174
-cd server && npm run dev     # Backend on port 5001
+# 4. Start the app
+npm run dev                    # Starts both client + server (auto-runs setup:local)
 ```
 
 ### Access
 
 - **Frontend:** http://localhost:5174
-- **Backend:** http://localhost:5001
+- **Backend:** http://localhost:5001 (or 6000 when started from root)
 - **Database UI:** `cd server && npm run db:studio`
 
 ### Demo Accounts
@@ -148,6 +141,34 @@ cd server && npm run dev     # Backend on port 5001
 | Admin | admin@laila.edu | admin123 |
 | Instructor | instructor@laila.edu | instructor123 |
 | Student | student@laila.edu | student123 |
+
+### Database Workflow (for contributors)
+
+The project uses **SQLite for local development** and **PostgreSQL for production**. Schema files live in `server/prisma/`:
+- `prod/schema.prisma` — PostgreSQL (source of truth, committed)
+- `local/schema.prisma` — SQLite (auto-generated, gitignored)
+
+**After pulling new changes:**
+```bash
+npm run setup:local            # Regenerate local schema
+npm run db:push                # Sync local database with any new tables/columns
+```
+
+**Making schema changes:**
+```bash
+# 1. Edit server/prisma/prod/schema.prisma
+# 2. Regenerate + sync local
+npm run setup:local && npm run db:push
+# 3. Generate production migration file (no PostgreSQL needed)
+npm run db:migrate:prod -- --name describe_your_change
+# 4. Commit schema.prisma + the migration file
+```
+
+**Production deployment:**
+```bash
+npx prisma migrate status --schema prisma/prod/schema.prisma   # Check pending
+npx prisma migrate deploy --schema prisma/prod/schema.prisma   # Apply
+```
 
 ## Testing
 

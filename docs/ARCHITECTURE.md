@@ -736,14 +736,42 @@ npm run dev
 ```
 
 ### Database Workflow
-- **Source of truth**: `prisma/prod/schema.prisma` (PostgreSQL) — edit this for schema changes
+
+**Schema changes (development):**
+```bash
+# 1. Edit the source of truth
+vim server/prisma/prod/schema.prisma
+
+# 2. Regenerate local SQLite schema (also runs automatically on npm run dev)
+npm run setup:local
+
+# 3. Sync local database
+npm run db:push
+
+# 4. Generate production migration file (no DB connection needed)
+npm run db:migrate:prod -- --name <descriptive_name>
+
+# 5. Commit both schema.prisma + the migration file
+```
+
+**Production deployment:**
+```bash
+# Check which migrations are pending
+npx prisma migrate status --schema prisma/prod/schema.prisma
+
+# Review pending migration SQL
+cat server/prisma/prod/migrations/<timestamp>_<name>/migration.sql
+
+# Apply pending migrations
+npx prisma migrate deploy --schema prisma/prod/schema.prisma
+```
+
+**Key rules:**
+- **Source of truth**: `prisma/prod/schema.prisma` (PostgreSQL)
 - **Local dev**: `prisma/local/schema.prisma` (SQLite) — auto-generated, gitignored
-- `npm run setup:local` regenerates local schema from prod (also runs on `npm run dev`)
-- `npm run db:push` syncs local SQLite from schema (safe for additive changes)
-- `npm run db:migrate` creates SQLite migration + applies locally
-- `npm run db:migrate:prod -- --name <name>` generates PostgreSQL migration file (no DB connection needed — diffs git HEAD vs current schema)
-- **Always generate a prod migration after editing `prod/schema.prisma`**
-- Production: `npx prisma migrate deploy --schema prisma/prod/schema.prisma`
+- **Always generate a prod migration** after editing `prod/schema.prisma`
+- `migrate deploy` only applies new migrations (tracks state in `_prisma_migrations` table)
+- Never edit `prisma/local/schema.prisma` manually
 
 ### Build
 ```bash

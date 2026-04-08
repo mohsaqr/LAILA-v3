@@ -1,3 +1,7 @@
+### 2026-04-08 — Database workflow documentation
+
+- **Documented full database workflow** in ARCHITECTURE.md, HANDOFF.md: step-by-step schema change process (edit → setup:local → db:push → db:migrate:prod), production deployment commands (`migrate status` to check pending, `migrate deploy` to apply), and key rules.
+
 ### 2026-04-07 — Prisma local/prod directory restructure
 
 - **Separate local and prod Prisma directories**: Restructured `server/prisma/` into `local/` (SQLite, gitignored) and `prod/` (PostgreSQL, committed). Each directory has its own `schema.prisma` and `migrations/` folder, eliminating the SQLite/PostgreSQL migration lock conflict.
