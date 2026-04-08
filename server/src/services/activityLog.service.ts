@@ -5,6 +5,8 @@ import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('activity-log');
 
+const isPostgres = (process.env.DATABASE_URL || '').startsWith('postgres');
+
 // Standardized verb types
 export type ActivityVerb =
   | 'enrolled' | 'unenrolled' | 'viewed' | 'started' | 'completed'
@@ -300,31 +302,41 @@ class ActivityLogService {
   /**
    * Get daily activity counts grouped by verb.
    */
-  async getDailyCounts(filters?: { courseId?: number; userId?: number; startDate?: Date; endDate?: Date }) {
+  private buildFilters(filters?: { courseId?: number; userId?: number; startDate?: Date; endDate?: Date }) {
     const conditions: string[] = [];
-    const params: (string | number)[] = [];
+    const params: (string | number | Date)[] = [];
+    let idx = 1;
+    const ph = () => isPostgres ? `$${idx++}` : '?';
 
     if (filters?.courseId) {
-      conditions.push('course_id = ?');
+      conditions.push(`course_id = ${ph()}`);
       params.push(filters.courseId);
     }
     if (filters?.userId) {
-      conditions.push('user_id = ?');
+      conditions.push(`user_id = ${ph()}`);
       params.push(filters.userId);
     }
     if (filters?.startDate) {
-      conditions.push('timestamp >= ?');
-      params.push(filters.startDate.getTime());
+      conditions.push(`timestamp >= ${ph()}`);
+      params.push(isPostgres ? filters.startDate : filters.startDate.getTime());
     }
     if (filters?.endDate) {
-      conditions.push('timestamp <= ?');
-      params.push(filters.endDate.getTime());
+      conditions.push(`timestamp <= ${ph()}`);
+      params.push(isPostgres ? filters.endDate : filters.endDate.getTime());
     }
-
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    return { whereClause, params, ph };
+  }
+
+  async getDailyCounts(filters?: { courseId?: number; userId?: number; startDate?: Date; endDate?: Date }) {
+    const { whereClause, params } = this.buildFilters(filters);
+
+    const dateExpr = isPostgres
+      ? `to_char(timestamp, 'YYYY-MM-DD')`
+      : `date(timestamp / 1000, 'unixepoch')`;
 
     const rows = await prisma.$queryRawUnsafe<Array<{ day: string; verb: string; count: bigint }>>(
-      `SELECT date(timestamp / 1000, 'unixepoch') as day, verb, COUNT(*) as count
+      `SELECT ${dateExpr} as day, verb, COUNT(*) as count
        FROM learning_activity_logs
        ${whereClause}
        GROUP BY day, verb
@@ -361,32 +373,12 @@ class ActivityLogService {
    * Get summary stats: total activities, unique users, unique sessions, avg per user
    */
   async getSummary(filters?: { courseId?: number; userId?: number; startDate?: Date; endDate?: Date }) {
-    const conditions: string[] = [];
-    const params: (string | number)[] = [];
-
-    if (filters?.courseId) {
-      conditions.push('course_id = ?');
-      params.push(filters.courseId);
-    }
-    if (filters?.userId) {
-      conditions.push('user_id = ?');
-      params.push(filters.userId);
-    }
-    if (filters?.startDate) {
-      conditions.push('timestamp >= ?');
-      params.push(filters.startDate.getTime());
-    }
-    if (filters?.endDate) {
-      conditions.push('timestamp <= ?');
-      params.push(filters.endDate.getTime());
-    }
-
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const { whereClause, params } = this.buildFilters(filters);
 
     const rows = await prisma.$queryRawUnsafe<Array<{ total: bigint; uniqueUsers: bigint; uniqueSessions: bigint }>>(
       `SELECT COUNT(*) as total,
-              COUNT(DISTINCT user_id) as uniqueUsers,
-              COUNT(DISTINCT session_id) as uniqueSessions
+              COUNT(DISTINCT user_id) as "uniqueUsers",
+              COUNT(DISTINCT session_id) as "uniqueSessions"
        FROM learning_activity_logs
        ${whereClause}`,
       ...params,
@@ -405,31 +397,18 @@ class ActivityLogService {
    * Get hourly activity counts grouped by day-of-week and hour
    */
   async getHourlyCounts(filters?: { courseId?: number; userId?: number; startDate?: Date; endDate?: Date }) {
-    const conditions: string[] = [];
-    const params: (string | number)[] = [];
+    const { whereClause, params } = this.buildFilters(filters);
 
-    if (filters?.courseId) {
-      conditions.push('course_id = ?');
-      params.push(filters.courseId);
-    }
-    if (filters?.userId) {
-      conditions.push('user_id = ?');
-      params.push(filters.userId);
-    }
-    if (filters?.startDate) {
-      conditions.push('timestamp >= ?');
-      params.push(filters.startDate.getTime());
-    }
-    if (filters?.endDate) {
-      conditions.push('timestamp <= ?');
-      params.push(filters.endDate.getTime());
-    }
-
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const dowExpr = isPostgres
+      ? `EXTRACT(DOW FROM timestamp)::integer`
+      : `cast(strftime('%w', timestamp/1000, 'unixepoch') as integer)`;
+    const hourExpr = isPostgres
+      ? `EXTRACT(HOUR FROM timestamp)::integer`
+      : `cast(strftime('%H', timestamp/1000, 'unixepoch') as integer)`;
 
     const rows = await prisma.$queryRawUnsafe<Array<{ dow: bigint; hour: bigint; count: bigint }>>(
-      `SELECT cast(strftime('%w', timestamp/1000, 'unixepoch') as integer) as dow,
-              cast(strftime('%H', timestamp/1000, 'unixepoch') as integer) as hour,
+      `SELECT ${dowExpr} as dow,
+              ${hourExpr} as hour,
               COUNT(*) as count
        FROM learning_activity_logs
        ${whereClause}
@@ -447,30 +426,16 @@ class ActivityLogService {
    * Get top N most visited resources/activities by count
    */
   async getTopResources(filters?: { courseId?: number; userId?: number; startDate?: Date; endDate?: Date; limit?: number }) {
-    const conditions: string[] = [];
-    const params: (string | number)[] = [];
+    const { whereClause: baseWhere, params, ph } = this.buildFilters(filters);
 
-    if (filters?.courseId) {
-      conditions.push('course_id = ?');
-      params.push(filters.courseId);
-    }
-    if (filters?.userId) {
-      conditions.push('user_id = ?');
-      params.push(filters.userId);
-    }
-    if (filters?.startDate) {
-      conditions.push('timestamp >= ?');
-      params.push(filters.startDate.getTime());
-    }
-    if (filters?.endDate) {
-      conditions.push('timestamp <= ?');
-      params.push(filters.endDate.getTime());
-    }
+    const extraConditions = ["object_title IS NOT NULL", "object_title != ''"];
+    const whereClause = baseWhere
+      ? `${baseWhere} AND ${extraConditions.join(' AND ')}`
+      : `WHERE ${extraConditions.join(' AND ')}`;
 
-    conditions.push("object_title IS NOT NULL");
-    conditions.push("object_title != ''");
-    const whereClause = `WHERE ${conditions.join(' AND ')}`;
     const lim = filters?.limit ?? 10;
+    const limPh = ph();
+    params.push(lim);
 
     const rows = await prisma.$queryRawUnsafe<Array<{
       objectType: string;
@@ -479,18 +444,17 @@ class ActivityLogService {
       count: bigint;
       uniqueUsers: bigint;
     }>>(
-      `SELECT object_type as objectType,
-              object_title as objectTitle,
-              object_id as objectId,
+      `SELECT object_type as "objectType",
+              object_title as "objectTitle",
+              object_id as "objectId",
               COUNT(*) as count,
-              COUNT(DISTINCT user_id) as uniqueUsers
+              COUNT(DISTINCT user_id) as "uniqueUsers"
        FROM learning_activity_logs
        ${whereClause}
        GROUP BY object_type, object_title, object_id
        ORDER BY count DESC
-       LIMIT ?`,
+       LIMIT ${limPh}`,
       ...params,
-      lim,
     );
 
     return {
