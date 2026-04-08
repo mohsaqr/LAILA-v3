@@ -57,6 +57,7 @@ const PAGES_WITH_OWN_BREADCRUMBS = [
   /^\/teach\/courses\/\d+\/analytics/,
   /^\/courses\/\d+$/,
   /^\/courses\/\d+\/lectures\//,
+  /^\/courses\/\d+\/assignments$/,
   /^\/courses\/\d+\/assignments\/\d+$/,
   /^\/courses\/\d+\/agent-assignments\/\d+$/,
   /^\/courses\/\d+\/analytics$/,
@@ -66,6 +67,8 @@ const PAGES_WITH_OWN_BREADCRUMBS = [
   /^\/labs\/sna-exercise/,
   /^\/admin\/users/,
   /^\/admin\/enrollments/,
+  /^\/courses$/,
+  /^\/labs\//,
 ];
 
 /** Pages where breadcrumb is not useful (root-level dashboards) */
