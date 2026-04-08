@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Users, Activity, Hash, Settings2, Network, GitBranch, Expand, Search, Pencil, X, TrendingUp, Clock, RefreshCw } from 'lucide-react';
+import { Users, Activity, Hash, Settings2, Network, GitBranch, Expand, Search, Pencil, X, TrendingUp, Clock, RefreshCw, ChevronDown } from 'lucide-react';
 import {
   tna, ftna, ctna, atna,
   centralities, prune, summary, layout as dynaLayout,
@@ -192,6 +192,96 @@ function resolveInterpretation(
 }
 
 /* ------------------------------------------------------------------ */
+/*  Searchable filter dropdown                                         */
+/* ------------------------------------------------------------------ */
+
+const SearchableFilterSelect = ({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  options: { value: string; label: string }[];
+  placeholder: string;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const filtered = options.filter(o =>
+    o.label.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const selectedLabel = value ? options.find(o => o.value === value)?.label || placeholder : placeholder;
+
+  return (
+    <div className="flex flex-col gap-1" ref={ref}>
+      <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="w-full min-w-[180px] px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-left flex items-center justify-between gap-2"
+        >
+          <span className="truncate">{selectedLabel}</span>
+          <ChevronDown className="w-3.5 h-3.5 flex-shrink-0 text-gray-400" />
+        </button>
+        {open && (
+          <div className="absolute top-full left-0 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-60 flex flex-col">
+            <div className="p-1.5 border-b border-gray-100 dark:border-gray-700">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search..."
+                  autoFocus
+                  className="w-full pl-7 pr-2 py-1 text-xs rounded border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                />
+              </div>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              <button
+                type="button"
+                onClick={() => { onChange(''); setOpen(false); setSearch(''); }}
+                className={`w-full px-3 py-1.5 text-xs text-left hover:bg-gray-50 dark:hover:bg-gray-700 ${!value ? 'text-violet-600 font-medium' : 'text-gray-600 dark:text-gray-300'}`}
+              >
+                {placeholder}
+              </button>
+              {filtered.map(o => (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => { onChange(o.value); setOpen(false); setSearch(''); }}
+                  className={`w-full px-3 py-1.5 text-xs text-left hover:bg-gray-50 dark:hover:bg-gray-700 truncate ${o.value === value ? 'text-violet-600 font-medium' : 'text-gray-600 dark:text-gray-300'}`}
+                >
+                  {o.label}
+                </button>
+              ))}
+              {filtered.length === 0 && (
+                <p className="px-3 py-2 text-xs text-gray-400">No results</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ------------------------------------------------------------------ */
 /*  Dashboard (exported page component)                                */
 /* ------------------------------------------------------------------ */
 
@@ -286,9 +376,10 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
   const queryClient = useQueryClient();
   const STALE_1H = 3_600_000; // 1 hour — data served from cache, no refetch
 
+  // Fetch filter options — courses are static, users change based on selected course
   const { data: filterOptions } = useQuery({
-    queryKey: ['activityLogFilterOptions'],
-    queryFn: () => activityLogApi.getFilterOptions(),
+    queryKey: ['activityLogFilterOptions', courseId],
+    queryFn: () => activityLogApi.getFilterOptions(courseId),
     staleTime: STALE_1H,
   });
 
@@ -566,33 +657,25 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
             })}
           </div>
 
-          {/* Shared filters — course selector only in admin mode */}
-          {isAdmin && (
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-gray-500 dark:text-gray-400">{t('course')}</label>
-              <select value={courseId ?? ''}
-                onChange={e => { setCourseId(e.target.value ? parseInt(e.target.value) : undefined); setSelectedUserId(undefined); }}
-                className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300">
-                <option value="">{t('all_courses')}</option>
-                {filterOptions?.courses?.map((co: any) => (
-                  <option key={co.id} value={co.id!}>{co.title}</option>
-                ))}
-              </select>
-            </div>
+          {/* Course filter */}
+          {!isStudent && (
+            <SearchableFilterSelect
+              label={t('course')}
+              value={courseId ? String(courseId) : ''}
+              onChange={val => { setCourseId(val ? parseInt(val) : undefined); setSelectedUserId(undefined); }}
+              options={(filterOptions?.courses ?? []).map((co: any) => ({ value: String(co.id), label: co.title || '' }))}
+              placeholder={t('all_courses')}
+            />
           )}
-          {/* Student selector (admin/instructor only) */}
-          {!isStudent && activeTab === 'activity' && (
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-gray-500 dark:text-gray-400">{t('select_student')}</label>
-              <select value={selectedUserId ?? ''}
-                onChange={e => setSelectedUserId(e.target.value ? parseInt(e.target.value) : undefined)}
-                className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300">
-                <option value="">{t('all_students')}</option>
-                {filterOptions?.users?.map((u: any) => (
-                  <option key={u.id} value={u.id}>{u.fullname} ({u.email})</option>
-                ))}
-              </select>
-            </div>
+          {/* Student filter */}
+          {!isStudent && (
+            <SearchableFilterSelect
+              label={t('select_student')}
+              value={selectedUserId ? String(selectedUserId) : ''}
+              onChange={val => setSelectedUserId(val ? parseInt(val) : undefined)}
+              options={(filterOptions?.users ?? []).map((u: any) => ({ value: String(u.id), label: `${u.fullname || ''} (${u.email || ''})` }))}
+              placeholder={t('all_students')}
+            />
           )}
           <div className="flex flex-col gap-1">
             <label className="text-xs text-gray-500 dark:text-gray-400">{t('start_date')}</label>
