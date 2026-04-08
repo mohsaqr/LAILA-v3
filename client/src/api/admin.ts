@@ -590,6 +590,7 @@ export const activityLogApi = {
     if (filters?.userId) params.append('userId', filters.userId.toString());
     if (filters?.startDate) params.append('startDate', filters.startDate);
     if (filters?.endDate) params.append('endDate', filters.endDate);
+    params.append('timezone', Intl.DateTimeFormat().resolvedOptions().timeZone);
     const response = await apiClient.get<any>(`/activity-log/daily-counts?${params.toString()}`);
     return response.data.data;
   },
@@ -617,6 +618,7 @@ export const activityLogApi = {
     if (filters?.userId) params.append('userId', filters.userId.toString());
     if (filters?.startDate) params.append('startDate', filters.startDate);
     if (filters?.endDate) params.append('endDate', filters.endDate);
+    params.append('timezone', Intl.DateTimeFormat().resolvedOptions().timeZone);
     const response = await apiClient.get<any>(`/activity-log/hourly-counts?${params.toString()}`);
     return response.data.data;
   },

@@ -328,12 +328,13 @@ class ActivityLogService {
     return { whereClause, params, ph };
   }
 
-  async getDailyCounts(filters?: { courseId?: number; userId?: number; startDate?: Date; endDate?: Date }) {
+  async getDailyCounts(filters?: { courseId?: number; userId?: number; startDate?: Date; endDate?: Date; timezone?: string }) {
     const { whereClause, params } = this.buildFilters(filters);
+    const tz = filters?.timezone || 'UTC';
 
     const dateExpr = isPostgres
-      ? `to_char(timestamp, 'YYYY-MM-DD')`
-      : `date(timestamp / 1000, 'unixepoch')`;
+      ? `to_char(timestamp AT TIME ZONE '${tz.replace(/'/g, '')}', 'YYYY-MM-DD')`
+      : `date(timestamp / 1000, 'unixepoch', 'localtime')`;
 
     const rows = await prisma.$queryRawUnsafe<Array<{ day: string; verb: string; count: bigint }>>(
       `SELECT ${dateExpr} as day, verb, COUNT(*) as count
@@ -396,15 +397,17 @@ class ActivityLogService {
   /**
    * Get hourly activity counts grouped by day-of-week and hour
    */
-  async getHourlyCounts(filters?: { courseId?: number; userId?: number; startDate?: Date; endDate?: Date }) {
+  async getHourlyCounts(filters?: { courseId?: number; userId?: number; startDate?: Date; endDate?: Date; timezone?: string }) {
     const { whereClause, params } = this.buildFilters(filters);
+    const tz = filters?.timezone || 'UTC';
 
+    const tsExpr = isPostgres ? `timestamp AT TIME ZONE '${tz.replace(/'/g, '')}'` : 'timestamp/1000';
     const dowExpr = isPostgres
-      ? `EXTRACT(DOW FROM timestamp)::integer`
-      : `cast(strftime('%w', timestamp/1000, 'unixepoch') as integer)`;
+      ? `EXTRACT(DOW FROM ${tsExpr})::integer`
+      : `cast(strftime('%w', ${tsExpr}, 'unixepoch', 'localtime') as integer)`;
     const hourExpr = isPostgres
-      ? `EXTRACT(HOUR FROM timestamp)::integer`
-      : `cast(strftime('%H', timestamp/1000, 'unixepoch') as integer)`;
+      ? `EXTRACT(HOUR FROM ${tsExpr})::integer`
+      : `cast(strftime('%H', ${tsExpr}, 'unixepoch', 'localtime') as integer)`;
 
     const rows = await prisma.$queryRawUnsafe<Array<{ dow: bigint; hour: bigint; count: bigint }>>(
       `SELECT ${dowExpr} as dow,
