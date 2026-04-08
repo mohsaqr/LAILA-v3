@@ -85,7 +85,7 @@ const EditableName = ({
 export const AgentDatasetTab = ({ assignmentId, config }: AgentDatasetTabProps) => {
   const { t } = useTranslation(['teaching', 'common']);
   const queryClient = useQueryClient();
-  const [description, setDescription] = useState('');
+  const [description, setDescription] = useState(t('dataset_prompt_placeholder'));
   const [lastResult, setLastResult] = useState<GenerateDatasetResponse | null>(null);
 
   const { data: datasets = [] } = useQuery({
@@ -146,28 +146,30 @@ export const AgentDatasetTab = ({ assignmentId, config }: AgentDatasetTabProps) 
           <p className="text-sm text-gray-500 mb-4">
             {t('generate_dataset_description')}
           </p>
-          <div className="flex gap-3">
+          <div className="space-y-3">
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder={t('dataset_prompt_placeholder')}
-              rows={3}
+              placeholder=""
+              rows={6}
               maxLength={500}
               disabled={generateMutation.isPending}
-              className="flex-1 rounded-lg border border-gray-300 px-4 py-3 text-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500 resize-none disabled:opacity-50"
+              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500 resize-y min-h-[120px] disabled:opacity-50"
             />
-            <Button
-              onClick={handleGenerate}
-              disabled={!description.trim() || description.trim().length < 10 || generateMutation.isPending}
-              className="self-end"
-            >
-              {generateMutation.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-              {generateMutation.isPending ? t('common:generating') : t('common:generate')}
-            </Button>
+            <p className="text-xs text-gray-400 text-right">{description.length}/500</p>
+            <div className="flex justify-end">
+              <Button
+                onClick={handleGenerate}
+                disabled={!description.trim() || description.trim().length < 10 || generateMutation.isPending}
+              >
+                {generateMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+                {generateMutation.isPending ? t('common:generating') : t('common:generate')}
+              </Button>
+            </div>
           </div>
         </CardBody>
       </Card>

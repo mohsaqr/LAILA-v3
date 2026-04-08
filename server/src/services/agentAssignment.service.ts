@@ -1146,6 +1146,9 @@ export class AgentAssignmentService {
 
     const agentPrompt = this.buildSystemPrompt(config);
 
+    // Resolve provider: prefer openai, fall back to default
+    const datasetProvider = llmOverrides?.provider || await this.resolveDatasetProvider();
+
     // Step 1: Intent classification (fast, small call)
     const classifyResponse = await llmService.chat({
       messages: [
@@ -1163,7 +1166,7 @@ Respond with ONLY one word: "valid" or "invalid". Nothing else.`,
       ],
       maxTokens: 10,
       temperature: 0,
-      ...(llmOverrides?.provider ? { provider: llmOverrides.provider as any } : {}),
+      ...(datasetProvider ? { provider: datasetProvider as any } : {}),
       ...(llmOverrides?.model ? { model: llmOverrides.model } : {}),
     });
 
@@ -1199,8 +1202,8 @@ You MUST respond with ONLY a JSON object — no markdown, no code fences, no exp
 CRITICAL RULES:
 - Output ONLY a JSON object. No markdown, no code fences, no text before or after.
 - "rows" must be a JSON array of objects. Every object must have the same keys.
-- You MUST generate the EXACT number of rows the user asks for. If the user says 50 rows, you output 50 objects in the array. If the user says 100 rows, you output 100 objects. Do NOT stop early. Do NOT summarize or truncate. Count your rows.
-- If the user does not specify a number, default to 20 rows.
+- ROW COUNT: The user will request a specific number of rows. You MUST generate at least 90% of the requested amount and no more than 110%. For example, if the user asks for 100 rows, generate between 90 and 110 rows. If the user asks for 50, generate between 45 and 55. Do NOT stop early at 5 or 10 rows. Do NOT summarize or truncate.
+- If the user does not specify a number, generate exactly 20 rows.
 - Make data realistic and varied — no repetitive patterns. Each row should have unique, plausible values.
 - Stay in character: the data should reflect your domain expertise.`;
 
@@ -1216,7 +1219,7 @@ CRITICAL RULES:
       ],
       temperature: config.temperature ?? 0.7,
       maxTokens,
-      ...(llmOverrides?.provider ? { provider: llmOverrides.provider as any } : {}),
+      ...(datasetProvider ? { provider: datasetProvider as any } : {}),
       ...(llmOverrides?.model ? { model: llmOverrides.model } : {}),
     });
 
@@ -1310,6 +1313,14 @@ CRITICAL RULES:
       where: { agentConfigId: config.id },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  private async resolveDatasetProvider(): Promise<string | undefined> {
+    try {
+      const openai = await llmService.getProvider('openai');
+      if (openai?.isEnabled) return 'openai';
+    } catch {}
+    return undefined; // falls back to default provider
   }
 
   private parseDatasetJsonResponse(raw: string): { explanation: string; rows: Record<string, unknown>[] } {

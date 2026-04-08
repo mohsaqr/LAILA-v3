@@ -1120,7 +1120,7 @@
   "copy_code": "Kopioi koodi",
   "generate_dataset": "Luo tietoaineisto",
   "generate_dataset_description": "Kuvaile haluamasi tietoaineisto. Tekoälyagenttisi luo CSV-tiedoston osaamisensa perusteella.",
-  "dataset_prompt_placeholder": "esim. Luo 30 opiskelijakyselyvastausta oppimismotivaatiosta sarakkeilla ikä, sukupuoli, motivaatiopistemäärä ja suosittu opiskelumenetelmä",
+  "dataset_prompt_placeholder": "Luo {lukumäärä} riviä aiheesta {aihe}. Sarakkeet: {sarake1}, {sarake2}, {sarake3}. Jokainen rivi edustaa {mitä kukin rivi on}.",
   "dataset_generated": "Tietoaineisto luotu onnistuneesti!",
   "dataset_generation_failed": "Tietoaineiston luominen epäonnistui",
   "download_csv": "Lataa CSV",

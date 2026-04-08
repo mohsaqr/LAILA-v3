@@ -1115,7 +1115,7 @@
   "copy_code": "Copiar código",
   "generate_dataset": "Generar conjunto de datos",
   "generate_dataset_description": "Describe el conjunto de datos que deseas generar. Tu agente de IA creará un archivo CSV basado en su conocimiento y experiencia.",
-  "dataset_prompt_placeholder": "ej., Genera 30 respuestas de encuesta estudiantil sobre motivación de aprendizaje con columnas para edad, género, puntuación de motivación y método de estudio preferido",
+  "dataset_prompt_placeholder": "Genera {número} filas sobre {tema}. Columnas: {columna1}, {columna2}, {columna3}. Cada fila representa {qué representa cada fila}.",
   "dataset_generated": "¡Conjunto de datos generado exitosamente!",
   "dataset_generation_failed": "Error al generar el conjunto de datos",
   "download_csv": "Descargar CSV",
