@@ -177,6 +177,7 @@ export const createAssignmentSchema = z.object({
   maxFileSize: z.number().int().min(1).max(50).optional(),
   allowedFileTypes: z.string().optional(),
   dueDate: z.string().datetime().optional().nullable(),
+  gracePeriodDeadline: z.string().datetime().optional().nullable(),
   points: z.number().int().min(0).max(1000).optional(),
   weight: z.number().min(0).max(10).optional(),
   isPublished: z.boolean().optional(),
@@ -290,7 +291,7 @@ export const createAgentConfigSchema = z.object({
   dosRules: z.array(z.string()).optional(),
   dontsRules: z.array(z.string()).optional(),
   welcomeMessage: z.string().max(500).optional(),
-  avatarImageUrl: z.string().url().optional().nullable(),
+  avatarImageUrl: z.string().optional().nullable(),
   // Enhanced builder fields
   pedagogicalRole: z.string().max(50).optional().nullable(),
   personality: z.string().max(50).optional().nullable(),
@@ -310,6 +311,8 @@ export const updateAgentConfigSchema = createAgentConfigSchema.partial();
 // Agent Test Message
 export const agentTestMessageSchema = z.object({
   message: z.string().min(1, 'Message is required'),
+  model: z.string().optional(),
+  provider: z.string().optional(),
 });
 
 // Grade Agent Submission
@@ -339,8 +342,15 @@ export const createAssignmentSchemaExtended = z.object({
 // Type exports for agent assignments
 export type CreateAgentConfigInput = z.infer<typeof createAgentConfigSchema>;
 export type UpdateAgentConfigInput = z.infer<typeof updateAgentConfigSchema>;
+export const generateDatasetSchema = z.object({
+  description: z.string().min(10, 'Description must be at least 10 characters').max(500),
+  model: z.string().optional(),
+  provider: z.string().optional(),
+});
+
 export type AgentTestMessageInput = z.infer<typeof agentTestMessageSchema>;
 export type GradeAgentSubmissionInput = z.infer<typeof gradeAgentSubmissionSchema>;
+export type GenerateDatasetInput = z.infer<typeof generateDatasetSchema>;
 
 // =============================================================================
 // USER MANAGEMENT VALIDATION SCHEMAS
@@ -469,6 +479,8 @@ export const lectureAIHelperChatSchema = z.object({
   mode: z.enum(['explain', 'discuss']),
   message: z.string().min(1, 'Message is required'),
   sessionId: z.string().optional(),
+  model: z.string().optional(),
+  provider: z.string().optional(),
 });
 
 export type LectureAIHelperChatInput = z.infer<typeof lectureAIHelperChatSchema>;
@@ -480,6 +492,8 @@ const pdfPageRangesSchema = z.record(z.string(), z.string()).optional();
 export const createExplainThreadSchema = z.object({
   question: z.string().min(1, 'Question is required').max(2000, 'Question too long'),
   pdfPageRanges: pdfPageRangesSchema,
+  model: z.string().optional(),
+  provider: z.string().optional(),
 });
 
 export const addExplainFollowUpSchema = z.object({

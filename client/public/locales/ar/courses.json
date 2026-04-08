@@ -310,6 +310,14 @@
   "max_file_size": "الحجم الأقصى: {{size}}MB",
   "save_draft": "حفظ المسودة",
   "submit_assignment": "تسليم الواجب",
+  "resubmit": "إعادة التسليم",
+  "grace_period_deadline": "الموعد النهائي لفترة السماح",
+  "grace_period_warning_title": "فترة السماح",
+  "grace_period_warning": "انتهى الموعد النهائي الأصلي. أنت تقدم خلال فترة السماح.",
+  "grace_period_ends": "تنتهي فترة السماح: {{date}} الساعة {{time}}",
+  "grace_period_until": "فترة السماح حتى {{date}} الساعة {{time}}",
+  "grace_period_status": "فترة السماح",
+  "grace_period_expired": "انتهت فترة السماح. لم يعد بإمكانك تقديم عملك.",
   "draft_saved": "تم حفظ المسودة",
   "failed_save_draft": "فشل حفظ المسودة",
   "assignment_submitted": "تم تسليم الواجب بنجاح!",
@@ -982,5 +990,6 @@
   "lab_ai_look_for": "ما الذي يجب أن أبحث عنه؟",
   "lab_ai_compare": "قارن العقد",
   "lab_ai_thinking": "جارٍ التفكير...",
-  "lab_ai_collapse": "طي"
+  "lab_ai_collapse": "طي",
+  "my_datasets": "مجموعات بياناتي"
 }

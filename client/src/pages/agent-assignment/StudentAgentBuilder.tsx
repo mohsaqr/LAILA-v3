@@ -21,13 +21,16 @@ import {
   Save,
   Bot,
   Clock,
+  Database,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { agentAssignmentsApi } from '../../api/agentAssignments';
+import { resolveFileUrl } from '../../api/client';
 import { AgentIdentityTab } from '../../components/agent-assignment/AgentIdentityTab';
 import { AgentBehaviorTab } from '../../components/agent-assignment/AgentBehaviorTab';
 import { AgentAdvancedTab } from '../../components/agent-assignment/AgentAdvancedTab';
 import { AgentTestTab } from '../../components/agent-assignment/AgentTestTab';
+import { AgentDatasetTab } from '../../components/agent-assignment/AgentDatasetTab';
 import { Card, CardBody } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
@@ -44,7 +47,7 @@ import {
 } from '../../services/agentDesignLogger';
 import { useAuth } from '../../hooks/useAuth';
 
-type TabType = 'identity' | 'behavior' | 'advanced' | 'test';
+type TabType = 'identity' | 'behavior' | 'advanced' | 'test' | 'dataset';
 
 // Default form data
 const getDefaultFormData = (): AgentConfigFormData => ({
@@ -82,6 +85,7 @@ export const StudentAgentBuilder = () => {
     { id: 'behavior', label: t('behavior'), icon: Sparkles },
     { id: 'advanced', label: t('advanced'), icon: Settings },
     { id: 'test', label: t('test_reflect'), icon: Play },
+    { id: 'dataset', label: t('generate_dataset'), icon: Database },
   ];
   const [activeTab, setActiveTab] = useState<TabType>('identity');
   const [formData, setFormData] = useState<AgentConfigFormData>(getDefaultFormData());
@@ -262,14 +266,6 @@ export const StudentAgentBuilder = () => {
       newErrors.systemPrompt = t('system_prompt_min_length');
     }
 
-    if (formData.avatarImageUrl) {
-      try {
-        new URL(formData.avatarImageUrl);
-      } catch {
-        newErrors.avatarImageUrl = t('invalid_avatar_url');
-      }
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -278,7 +274,7 @@ export const StudentAgentBuilder = () => {
   const handleSave = () => {
     if (!validate()) {
       // Switch to tab with first error
-      if (errors.agentName || errors.avatarImageUrl) {
+      if (errors.agentName) {
         setActiveTab('identity');
       } else if (errors.systemPrompt) {
         setActiveTab('advanced');
@@ -327,6 +323,8 @@ export const StudentAgentBuilder = () => {
   const isSubmitted = Boolean(config && !config.isDraft);
   const isGraded = config?.submission?.status === 'graded';
   const isPastDue = Boolean(assignment.dueDate && new Date(assignment.dueDate.replace('Z', '')) < new Date());
+  const isInGracePeriod = isPastDue && Boolean(assignment.gracePeriodDeadline && new Date(assignment.gracePeriodDeadline.replace('Z', '')) > new Date());
+  const isFullyPastDue = isPastDue && !isInGracePeriod;
   const isSaving = createMutation.isPending || updateMutation.isPending;
   const isSubmitting = submitMutation.isPending;
   const isBuilt = isSubmitted;
@@ -345,13 +343,14 @@ export const StudentAgentBuilder = () => {
   const courseName = assignment.course?.title || 'Course';
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Breadcrumb Navigation */}
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Breadcrumb */}
       <div className="mb-6">
         <Breadcrumb
           items={[
             { label: t('navigation:courses'), href: '/courses' },
             { label: courseName, href: `/courses/${courseId}` },
+            { label: t('assignments'), href: `/courses/${courseId}/assignments` },
             { label: assignment.title },
           ]}
         />
@@ -376,7 +375,7 @@ export const StudentAgentBuilder = () => {
                 {assignment.dueDate && (
                   <div
                     className={`flex items-center gap-1.5 ${
-                      isSubmitted ? 'text-green-600' : isPastDue ? 'text-red-500' : 'text-gray-500'
+                      isSubmitted ? 'text-green-600' : isFullyPastDue ? 'text-red-500' : isInGracePeriod ? 'text-red-500' : 'text-gray-500'
                     }`}
                   >
                     {isSubmitted ? (
@@ -384,7 +383,12 @@ export const StudentAgentBuilder = () => {
                         <CheckCircle className="w-4 h-4" />
                         <span className="font-medium">{t('submitted')}</span>
                       </>
-                    ) : isPastDue ? (
+                    ) : isInGracePeriod ? (
+                      <>
+                        <AlertCircle className="w-4 h-4" />
+                        <span className="font-medium">{t('courses:grace_period_status', { defaultValue: 'Grace Period' })}</span>
+                      </>
+                    ) : isFullyPastDue ? (
                       <>
                         <AlertCircle className="w-4 h-4" />
                         <span className="font-medium">{t('past_due', { date: formatDate(assignment.dueDate) })}</span>
@@ -423,7 +427,7 @@ export const StudentAgentBuilder = () => {
                       logger?.logSubmissionAttempted();
                       setShowSubmitConfirm(true);
                     }}
-                    disabled={isSaving || isPastDue}
+                    disabled={isSaving || isFullyPastDue}
                     icon={<CheckCircle className="w-4 h-4" />}
                     className="whitespace-nowrap"
                   >
@@ -498,7 +502,7 @@ export const StudentAgentBuilder = () => {
               <div className="mb-6">
                 {config?.avatarImageUrl ? (
                   <img
-                    src={config.avatarImageUrl}
+                    src={resolveFileUrl(config.avatarImageUrl)}
                     alt={config.agentName}
                     className="w-28 h-28 rounded-full object-cover shadow-lg mx-auto"
                   />
@@ -549,7 +553,7 @@ export const StudentAgentBuilder = () => {
               {TABS.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
-                const isDisabled = tab.id === 'test' && !config;
+                const isDisabled = (tab.id === 'test' || tab.id === 'dataset') && !config;
 
                 return (
                   <button
@@ -606,6 +610,12 @@ export const StudentAgentBuilder = () => {
                 reflectionRequirement={assignment.reflectionRequirement}
                 onReflectionSubmit={handleTestReflectionSubmit}
                 logger={logger}
+              />
+            )}
+            {activeTab === 'dataset' && (
+              <AgentDatasetTab
+                assignmentId={assId}
+                config={config}
               />
             )}
           </div>

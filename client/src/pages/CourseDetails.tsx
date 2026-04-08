@@ -33,7 +33,7 @@ import activityLogger from '../services/activityLogger';
 export const CourseDetails = () => {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
-  const { isAuthenticated, user, isActualAdmin, isActualInstructor } = useAuth();
+  const { isAuthenticated, user, isActualAdmin } = useAuth();
   const { isDark } = useTheme();
   const { t } = useTranslation(['courses', 'common']);
   const moduleRefs = useRef<Record<number, HTMLElement | null>>({});
@@ -131,7 +131,7 @@ export const CourseDetails = () => {
   const isTeamMember = (course as any)?.isTeamMember;
   const isCourseInstructor = user?.id === course.instructorId;
   const showInstructorControls = isCourseInstructor || isTeamMember;
-  const hasAccess = isEnrolled || isActualAdmin || isActualInstructor || isTeamMember;
+  const hasAccess = isEnrolled || isActualAdmin || isCourseInstructor || isTeamMember;
   const totalLectures = course.modules?.reduce((sum, m) => sum + (m.lectures?.length || 0), 0) || 0;
 
   // Get the view mode from course settings, default to 'mini-cards'
@@ -226,7 +226,7 @@ export const CourseDetails = () => {
 
           {/* Action buttons for non-enrolled users */}
           <div className="mt-4 flex flex-wrap gap-3">
-            {!hasAccess && isAuthenticated && (
+            {!isEnrolled && isAuthenticated && (
               <Button onClick={handleEnrollClick} loading={enrollMutation.isPending} className="bg-white text-primary-600 hover:bg-gray-100">
                 {t('enroll_now')}
               </Button>
@@ -260,6 +260,7 @@ export const CourseDetails = () => {
                       assignments={module.assignments}
                       forums={module.forums}
                       surveys={module.moduleSurveys?.map(ms => ms.survey)}
+                      labAssignments={(module as any).labAssignments}
                       hasAccess={hasAccess}
                       viewMode={viewMode}
                     />

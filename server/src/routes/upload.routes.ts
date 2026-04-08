@@ -218,6 +218,36 @@ router.post(
   }
 );
 
+// Upload agent avatar endpoint - any authenticated user, 1MB limit, png/jpg/jpeg only
+const agentAvatarUpload = multer({
+  storage,
+  fileFilter: thumbnailFilter,
+  limits: { fileSize: 1 * 1024 * 1024 }, // 1MB
+});
+
+router.post(
+  '/agent-avatar',
+  authenticateToken,
+  agentAvatarUpload.single('file'),
+  (req: AuthRequest, res: Response) => {
+    if (!req.file) {
+      res.status(400).json({ success: false, error: 'No file uploaded' });
+      return;
+    }
+    const fileUrl = `/uploads/${req.file.filename}`;
+    res.json({
+      success: true,
+      data: {
+        url: fileUrl,
+        originalName: req.file.originalname,
+        filename: req.file.filename,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+      },
+    });
+  }
+);
+
 // Upload assignment file endpoint - instructors only, 3MB limit, csv/xlsx/png/jpg/pdf
 const assignmentFileFilter = (req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const ext = path.extname(file.originalname).toLowerCase();

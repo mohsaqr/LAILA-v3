@@ -1117,5 +1117,14 @@
   "rename": "Nimeä uudelleen",
   "activation_code": "Aktivointikoodi",
   "code_copied": "Aktivointikoodi kopioitu!",
-  "copy_code": "Kopioi koodi"
+  "copy_code": "Kopioi koodi",
+  "generate_dataset": "Luo tietoaineisto",
+  "generate_dataset_description": "Kuvaile haluamasi tietoaineisto. Tekoälyagenttisi luo CSV-tiedoston osaamisensa perusteella.",
+  "dataset_prompt_placeholder": "Luo {lukumäärä} riviä aiheesta {aihe}. Sarakkeet: {sarake1}, {sarake2}, {sarake3}. Jokainen rivi edustaa {mitä kukin rivi on}.",
+  "dataset_generated": "Tietoaineisto luotu onnistuneesti!",
+  "dataset_generation_failed": "Tietoaineiston luominen epäonnistui",
+  "download_csv": "Lataa CSV",
+  "my_datasets": "Omat tietoaineistot",
+  "create_agent_first": "Luo ensin tekoälyagenttisi luodaksesi tietoaineistoja",
+  "no_datasets": "Ei vielä tietoaineistoja. Luo yksi agenttirakentajasta."
 }

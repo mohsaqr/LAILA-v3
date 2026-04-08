@@ -133,5 +133,8 @@
   "select_course": "اختر مساقاً",
   "select_course_for_tutor": "اختر مساقاً للبدء في الدردشة مع مساعده الذكي",
   "no_courses_with_tutors": "لا توجد مساقات بمساعدين ذكيين",
-  "no_courses_with_tutors_hint": "أنت غير مسجل في أي مساق يحتوي على مساعد ذكي"
+  "no_courses_with_tutors_hint": "أنت غير مسجل في أي مساق يحتوي على مساعد ذكي",
+  "generate": "إنشاء",
+  "generating": "جاري الإنشاء...",
+  "rows": "صفوف"
 }

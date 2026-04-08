@@ -271,6 +271,7 @@ export interface AssignLabData {
   prompt?: string;
   points?: number;
   dueDate?: string;
+  gracePeriodDeadline?: string;
 }
 
 export interface Lecture {
@@ -352,6 +353,7 @@ export interface AssignmentListItem {
   title: string;
   description: string | null;
   dueDate: string | null;
+  gracePeriodDeadline: string | null;
   points: number;
   isPublished: boolean;
   module?: {
@@ -423,6 +425,7 @@ export interface Assignment {
   allowedFileTypes: string | null;
   agentRequirements?: string | null;
   dueDate: string | null;
+  gracePeriodDeadline: string | null;
   points: number;
   weight?: number;
   isPublished: boolean;
@@ -773,6 +776,7 @@ export interface AgentAssignmentDetails {
   instructions: string | null;
   agentRequirements: string | null;
   dueDate: string | null;
+  gracePeriodDeadline: string | null;
   points: number;
   reflectionRequirement?: 'required' | 'optional' | 'disabled' | null;
   course: {
@@ -859,6 +863,27 @@ export interface AgentMessageResponse {
   };
   model: string;
   responseTime: number;
+}
+
+export interface UserDataset {
+  id: number;
+  name: string;
+  description: string | null;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number | null;
+  fileType: string | null;
+  rowCount: number | null;
+  aiModel: string | null;
+  aiProvider: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export interface GenerateDatasetResponse {
+  dataset: UserDataset;
+  explanation: string;
+  csvPreview: string;
 }
 
 export interface AgentConfigurationLog {
@@ -1051,7 +1076,7 @@ export interface AgentDesignEvent {
   totalDesignTime?: number;
 
   // Tab context
-  activeTab?: 'identity' | 'behavior' | 'advanced' | 'test';
+  activeTab?: 'identity' | 'behavior' | 'advanced' | 'test' | 'dataset';
 
   // Template/suggestion tracking
   usedTemplate?: boolean;

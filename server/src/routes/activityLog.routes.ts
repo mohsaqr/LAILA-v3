@@ -158,8 +158,13 @@ router.get('/stats', authenticateToken, asyncHandler(async (req: AuthRequest, re
  * GET /api/activity-log/filter-options
  * Get available filter options for dropdowns (users, courses, verbs, objectTypes)
  */
-router.get('/filter-options', authenticateToken, asyncHandler(async (_req: AuthRequest, res: Response) => {
-  const options = await activityLogService.getFilterOptions();
+router.get('/filter-options', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const courseId = req.query.courseId ? parseInt(req.query.courseId as string) : undefined;
+  const options = await activityLogService.getFilterOptions({
+    courseId,
+    instructorId: req.user!.isInstructor && !req.user!.isAdmin ? req.user!.id : undefined,
+    isAdmin: req.user!.isAdmin,
+  });
   res.json({ success: true, data: options });
 }));
 

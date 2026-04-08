@@ -1,3 +1,108 @@
+### 2026-04-08 — Database workflow documentation
+
+- **Documented full database workflow** in ARCHITECTURE.md, HANDOFF.md: step-by-step schema change process (edit → setup:local → db:push → db:migrate:prod), production deployment commands (`migrate status` to check pending, `migrate deploy` to apply), and key rules.
+
+### 2026-04-07 — Prisma local/prod directory restructure
+
+- **Separate local and prod Prisma directories**: Restructured `server/prisma/` into `local/` (SQLite, gitignored) and `prod/` (PostgreSQL, committed). Each directory has its own `schema.prisma` and `migrations/` folder, eliminating the SQLite/PostgreSQL migration lock conflict.
+  - `server/prisma/prod/schema.prisma`: PostgreSQL schema (source of truth). Existing PostgreSQL migration files moved here.
+  - `server/prisma/local/schema.prisma`: SQLite schema (auto-generated from prod via `setup:local`). Gitignored along with `dev.db` and local migrations.
+  - `server/scripts/setup-local-db.sh`: New script generates `local/schema.prisma` by swapping provider from postgresql to sqlite.
+  - `server/package.json`: Updated all db scripts to use `--schema prisma/local/schema.prisma`. Added `setup:local`, `db:migrate:prod`, `db:generate:prod`. `dev` script runs `setup:local` automatically.
+  - `package.json`: Root db scripts updated with `--schema` flags. Added `db:migrate` and `db:migrate:prod`.
+  - `.gitignore`: Added `server/prisma/local/` (replaces old `schema.local.prisma` entry).
+  - `deploy/deploy.sh`: Updated all prisma commands to use `prisma/prod/schema.prisma`. Removed provider-swap sed command and SQLite migration cleanup logic.
+  - `README.md`, `docs/ARCHITECTURE.md`: Updated project structure, setup instructions, and database workflow documentation.
+
+### 2026-03-31 — Assignment grace period deadline
+
+- **Grace period deadline for assignments**: Assignments now support an optional grace period deadline. After the main due date passes but before the grace deadline, students can still submit with a yellow warning banner. After the grace deadline, submissions are fully blocked.
+  - `server/prisma/schema.prisma`: Added nullable `gracePeriodDeadline` column to `Assignment` model.
+  - `server/src/utils/validation.ts`: Added `gracePeriodDeadline` field to `createAssignmentSchema`.
+  - `server/src/services/assignment.service.ts`: `createAssignment()` and `updateAssignment()` validate grace deadline > due date. `submitAssignment()` uses 3-state check: on-time → grace period (allow) → fully past due (block). Error messages differentiate between expired grace period and expired due date.
+  - `server/src/services/agentAssignment.service.ts`: Same 3-state deadline check in `submitAgentConfig()`.
+  - `client/src/types/index.ts`: Added `gracePeriodDeadline` to `Assignment`, `AssignmentListItem`, and `AgentAssignmentDetails` interfaces.
+  - `client/src/pages/AssignmentView.tsx`: Added `isInGracePeriod`/`isFullyPastDue` states. Yellow grace period warning card. Status badge shows "Grace Period" in amber. Submission area and lab embeds use `isFullyPastDue`.
+  - `client/src/pages/SnaExercise.tsx`: Same 3-state logic. Grace period badge, warning card with grace deadline, submit button shown during grace period.
+  - `client/src/pages/TnaExercise.tsx`: Same 3-state logic. Grace period badge in toolbar.
+  - `client/src/pages/agent-assignment/StudentAgentBuilder.tsx`: Grace period badge and submit button enabled during grace.
+  - `client/src/pages/agent-assignment/UseMyAgent.tsx`: Agent "built" state uses `isFullyPastDue` instead of `isPastDue`.
+  - Instructor forms: Grace period datetime-local input added (disabled until due date set, `min` bound to due date) in `AssignmentManager.tsx`, `ModuleItem.tsx`, and `AssignmentSectionEditor.tsx` (both edit and create forms).
+  - i18n: 7 keys (`grace_period_deadline`, `grace_period_warning_title`, `grace_period_warning`, `grace_period_ends`, `grace_period_until`, `grace_period_status`, `grace_period_expired`) in all 4 locales (en, fi, ar, es).
+
+### 2026-03-27 — Assignment resubmission before grading
+
+- **Allow students to resubmit assignments before grading**: Students can now update their submission for any assignment type until the instructor grades it. After submitting, a "Resubmit" button appears. Clicking it re-enables the editor (for text/file) or reopens the submission panel (for labs/SNA/TNA).
+  - `server/src/services/assignment.service.ts`: Removed the block on resubmitting already-submitted work. Only graded submissions remain locked (admin can bypass).
+  - `client/src/pages/AssignmentView.tsx`: Added `isResubmitting` state. When submitted-but-not-graded, the "waiting for grading" banner includes a "Resubmit" button. Clicking it switches to edit mode — text editor, file upload, and remove buttons are re-enabled. Submit button shows "Resubmit". Cancel returns to readonly view. For lab assignments, `hideSubmit` on `LabRunnerUI` no longer includes the submitted state.
+  - `client/src/components/labs/LabAssignmentPanel.tsx`: Added `isResubmitting` state. When submission exists and is not graded, shows a "Resubmit" button in the submitted banner. Clicking it switches to the form view. Footer submit button shows "Resubmit".
+  - `client/src/pages/LabRunner.tsx`: Added submission query. Bottom button shows "Resubmit" with `RefreshCw` icon when a submission already exists.
+  - `client/src/pages/SnaExercise.tsx`: Added `canResubmit` flag. "Resubmit" button in the submitted banner opens the `LabAssignmentPanel`. Capture buttons remain active for resubmission. Panel rendered when not graded (not just when not submitted).
+  - `client/src/pages/TnaExercise.tsx`: Same changes as SNA. Top toolbar button switches to "Resubmit" icon/text when already submitted.
+  - i18n: Added `resubmit` key in all 4 locales (en: "Resubmit", fi: "Palauta uudelleen", ar: "إعادة التسليم", es: "Volver a entregar").
+
+### 2026-03-26 — Forgot password, all users can complete lectures
+
+- **All users can enroll and complete lectures**: Removed role-based restrictions on lecture completion and progress tracking.
+  - `server/src/services/enrollment.service.ts`: `markLectureComplete()` no longer skips admins/instructors. `getProgress()` checks actual enrollment first; only returns virtual progress for non-enrolled admins/instructors.
+  - `server/src/routes/course.routes.ts`: `enrolled` field now reflects actual enrollment for all users (admins no longer forced to `true`), so they see the Enroll button.
+  - `client/src/pages/LectureView.tsx`: Removed `isStudent` gate from complete button and progress query — all enrolled users see the complete button.
+
+### 2026-03-26 — Forgot password feature
+
+- **Forgot password flow**: 3-step flow — enter email → receive 6-digit verification code (10-min expiry) → enter new password + confirmation → auto-login.
+  - `server/src/services/auth.service.ts`: Added `forgotPassword(email)` and `resetPassword(email, code, newPassword)` methods. Reuses existing `VerificationCode` model and `emailService.sendVerificationCode()`.
+  - `server/src/routes/auth.routes.ts`: Added `POST /auth/forgot-password` and `POST /auth/reset-password` endpoints.
+  - `client/src/api/auth.ts`: Added `forgotPassword()` and `resetPassword()` API methods.
+  - `client/src/hooks/useAuth.ts`: Added `forgotPassword()` and `resetPassword()` hooks with auto-login on success.
+  - `client/src/pages/auth/ForgotPassword.tsx`: New page with 3-step UI — email input, 6-digit code verification (same pattern as registration), new password with confirmation and validation rules. Forced LTR layout.
+  - `client/src/pages/auth/Login.tsx`: Added "Forgot password?" link (left-aligned) below password field.
+  - `client/src/App.tsx`: Added `/forgot-password` public route.
+  - `client/src/api/client.ts`: Added `/forgot-password` to 401 interceptor exclusions to prevent redirect during code entry.
+
+### 2026-03-25 — Interactive lab exercise improvements, enrollment route fix, standalone labs
+
+- **SNA exercise assignment header**: `/courses/{id}/sna-exercise` now shows the same assignment header card as lab template assignments — breadcrumbs with course name, assignment title, deadline, points, status badge (not started/submitted/graded), and grade card with instructor feedback at bottom.
+- **Hide interactive lab when linked as assignment**: In `ModuleSection`, interactive labs (TNA/SNA) from `module.interactiveLabs` are hidden when a published assignment with matching `agentRequirements` already exists in the same module. Requires `agentRequirements` field added to course `getCourseById` assignment select.
+- **Display standalone CustomLabs on course page**: `LabAssignment` records without a linked assignment (`assignmentId: null`) now appear as lab content items in the module section. Links to `/labs/{labId}?courseId={courseId}`.
+  - `server/src/services/course.service.ts`: Added `labAssignments` include (where `assignmentId: null`) with lab details to `getCourseById` module query
+  - `client/src/components/course/ModuleSection.tsx`: Added `labAssignments` prop and renders them as `'lab'` type content items
+  - `client/src/pages/CourseDetails.tsx`: Passes `labAssignments` to `ModuleSection`
+- **Fix enrollment route returning null for admins/instructors**: The `GET /enrollments/course/:courseId` route was short-circuiting with `data: null` for admins/instructors, so the course title was unavailable in breadcrumbs. Now calls `getEnrollment` for all users — returns virtual enrollment with full course data.
+- **Remove assignmentId from exercise redirect URLs**: `AssignmentView.tsx` redirects to `/courses/{id}/tna-exercise` and `/courses/{id}/sna-exercise` without `?assignmentId=` — exercise pages find the assignment automatically via `agentRequirements`.
+- **SNA sidebar layout**: "Enter your own network" and "or generate with AI" buttons now display on separate lines (`flex-col`).
+- **Hide past-due submit button for all lab types**: When assignment due date has passed, the submit button and panel are hidden for lab template assignments (`AssignmentView`), SNA exercise, and TNA exercise. SNA/TNA show a "Deadline Has Passed" card.
+- **Hide capture button when no assignment**: The "Add to report" button in `LabRunnerUI` only appears when the lab is linked to an assignment. SNA/TNA capture buttons also hidden when no assignment, already submitted, graded, or past due.
+- **SNA exercise report capture overhaul**:
+  - Network graph captured via SVG serialization (not `html2canvas`) — renders full SVG at natural dimensions (2x scale), fixing clipped nodes
+  - Analysis content captured separately via `html2canvas`, then combined with network into single snapshot
+  - Capture excludes guide banners, "Ask AI" assistant, CSV export buttons
+  - Keys are analysis-specific (`centrality-InDegree-chart`, `centrality-OutDegree-table`, etc.) — students can capture multiple centrality measures without overwriting
+  - `captureRef` wraps only network graph + analysis data cards
+- **Fix network graph node clipping**: `TnaNetworkGraph` SVG padding now uses `baseNodeRadius * maxNodeScale + 10` instead of `baseNodeRadius + 5`, preventing nodes scaled by centrality from being cut off at edges.
+- **Show submission content after submit**: For lab assignments and SNA exercises, submitted students now see their submission content (text/HTML) and files (with inline PDF preview) alongside the "waiting for grading" status. When graded, both the submission card and grade card are shown.
+  - `client/src/pages/AssignmentView.tsx`: Lab submitted block now displays content + files; graded view excluded for labs (handled by unified block)
+  - `client/src/pages/SnaExercise.tsx`: Submission card with content/files shown for both submitted and graded states; grade card shown separately below
+- **TNA exercise due date and submission state**: Added `mySubmission` query, `isPastDue`/`isSubmitted`/`isGraded` state, and capture button gating to TNA exercise page.
+- 1 new enrollment route test, total 913 passing tests.
+
+### 2026-03-24 — Lab assignment improvements, enrollment fixes, PDF generation
+
+- **Fix duplicate submit button on lab assignments**: When assignment type is lab assignment (`/courses/{id}/assignments/{id}`), the "Your Submission" card (text editor, file upload, submit button) is now hidden since labs have their own submission flow via `LabAssignmentPanel`.
+- **Move lab submit button to page bottom**: Moved the "Submit Assignment" button from the lab toolbar (next to Help/Reset) to a full-width button at the bottom of the page. Uses the `Send` icon matching other assignment types.
+- **Lab submission panel: close on submit and refresh**: After submitting via `LabAssignmentPanel`, the panel closes automatically and the page refreshes to show updated submission state.
+- **Fix PDF preview blocked by Chrome**: Removed `sandbox` attribute from PDF iframes in both `SubmissionDetail.tsx` (instructor view) and `AssignmentView.tsx` (student view). Chrome's PDF viewer requires scripts which the sandbox blocked.
+- **PDF filename based on course/assignment/student**: Generated PDF filenames now use the pattern `{CourseName}_assignment-{id}_{StudentName}.pdf` instead of `lab-report-{timestamp}.pdf`. Unicode characters preserved in filenames.
+- **Lab assignment submitted/graded states**: When a lab assignment is submitted, the submit button is hidden and a "Waiting for grading" banner is shown. When graded, the grade card with score, percentage, and instructor feedback is displayed.
+- **Fix PDF code rendering**: Code blocks in generated PDFs now render as properly formatted text (monospace font, light gray background, line breaks preserved) instead of broken single-line screenshots via `html2canvas`.
+- **PDF captures code + output per snapshot**: Each "Add to report" click captures both the code that was run and the output screenshot as a pair. Multiple captures accumulate (different code = new entry, same code = recapture/overwrite). Button shows "Captured — click to recapture" state.
+- **Fix PDF snapshot stretching**: Snapshot images in PDFs now preserve their original aspect ratio instead of being stretched to full page width. Images are centered horizontally.
+- **Exclude AI Interpretation from snapshots**: The `outputAreaRef` now wraps only the output content box (stdout, stderr, plots), excluding the AI Interpretation section and the "Add to report" button from captures.
+- **Grade card moved to bottom**: For all assignment types, the grade card (score, feedback, grading date) now displays at the bottom of the main content area instead of in a separate sidebar column.
+- **Allow admins and instructors to enroll in courses**: Removed server-side restriction that blocked admins/instructors from enrolling. All users can now enroll in any published course. Updated `CourseDetails.tsx` — the enroll button shows for any authenticated non-enrolled user. 2 new enrollment tests added.
+  - `server/src/services/enrollment.service.ts`: Removed admin/instructor enrollment guard
+  - `client/src/pages/CourseDetails.tsx`: Changed `hasAccess` to use `isCourseInstructor` instead of `isActualInstructor`; enroll button condition simplified to `!isEnrolled && isAuthenticated`
+
 ### 2026-03-17 — Bug fixes
 
 - **Restrict team member assignment to instructors only**: The "Add Team Member" modal on `/teach/courses/{ID}/edit` previously showed all users (including students). Students cannot be team members. Fixed by: (1) adding `role` filter param to `GET /users` API and `userService.getUsers()`, (2) client `CourseRoleManager` now requests only instructors (`role=instructor`), (3) server-side validation in `courseRoleService.assignRole()` rejects non-instructor/non-admin users with 400 error.

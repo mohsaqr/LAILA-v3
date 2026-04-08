@@ -8,6 +8,11 @@ import type { CourseModule, Lecture, CodeLab, Assignment, Survey, ModuleSurvey, 
 import type { Forum } from '../../api/forums';
 import type { Quiz } from '../../api/quizzes';
 
+interface LabAssignmentItem {
+  id: number;
+  lab: { id: number; name: string; labType: string; description: string | null };
+}
+
 interface ModuleSectionProps {
   module: CourseModule;
   moduleIndex: number;
@@ -18,6 +23,7 @@ interface ModuleSectionProps {
   assignments?: Assignment[];
   forums?: Forum[];
   surveys?: (Survey | ModuleSurvey)[];
+  labAssignments?: LabAssignmentItem[];
   hasAccess: boolean;
   viewMode?: CurriculumViewMode;
 }
@@ -73,6 +79,7 @@ export const ModuleSection = ({
   assignments = [],
   forums = [],
   surveys = [],
+  labAssignments = [],
   hasAccess,
   viewMode = 'mini-cards',
 }: ModuleSectionProps) => {
@@ -132,6 +139,13 @@ export const ModuleSection = ({
       subtitle: lab.description || undefined,
       href: `/courses/${courseId}/code-labs/${lab.id}`,
     })),
+    ...labAssignments.map(la => ({
+      id: la.id,
+      type: 'lab' as ContentType,
+      title: la.lab.name,
+      subtitle: la.lab.description || undefined,
+      href: `/labs/${la.lab.id}?courseId=${courseId}`,
+    })),
     ...publishedQuizzes.map(quiz => ({
       id: quiz.id,
       type: 'quiz' as ContentType,
@@ -168,12 +182,18 @@ export const ModuleSection = ({
       href: `/surveys/${survey.id}?moduleId=${module.id}&courseId=${courseId}`,
     })),
     ...(module.interactiveLabs
-      ? module.interactiveLabs.split(',').map((key: string) => key.trim()).filter(Boolean).map((key: string, idx: number) => ({
-          id: -(idx + 1),
-          type: 'interactive_lab' as ContentType,
-          title: key === 'tna' ? t('exercise.title') : key === 'sna' ? t('sna.title') : key,
-          href: `/courses/${courseId}/${key}-exercise`,
-        }))
+      ? module.interactiveLabs.split(',').map((key: string) => key.trim()).filter(Boolean)
+          // Hide interactive lab if it's already linked as an assignment
+          .filter((key: string) => {
+            const req = key === 'tna' ? 'interactive_lab_tna' : key === 'sna' ? 'interactive_lab_sna' : null;
+            return !req || !publishedAssignments.some(a => a.agentRequirements === req);
+          })
+          .map((key: string, idx: number) => ({
+            id: -(idx + 1),
+            type: 'interactive_lab' as ContentType,
+            title: key === 'tna' ? t('exercise.title') : key === 'sna' ? t('sna.title') : key,
+            href: `/courses/${courseId}/${key}-exercise`,
+          }))
       : []),
   ];
 

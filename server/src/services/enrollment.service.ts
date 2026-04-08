@@ -225,16 +225,6 @@ export class EnrollmentService {
   }
 
   async enroll(userId: number, courseId: number, activationCode?: string, context?: EventContext) {
-    // Check if user is admin or instructor - they cannot enroll as students
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { isAdmin: true, isInstructor: true },
-    });
-
-    if (user?.isAdmin || user?.isInstructor) {
-      throw new AppError('Admins and instructors cannot enroll as students. Use "View As" mode to test student experience.', 403);
-    }
-
     // Check if course exists and is published
     const course = await prisma.course.findUnique({
       where: { id: courseId },
@@ -352,18 +342,7 @@ export class EnrollmentService {
   }
 
   async markLectureComplete(userId: number, courseId: number, lectureId: number) {
-    // Check if user is admin or instructor - they don't track progress
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { isAdmin: true, isInstructor: true },
-    });
-
-    if (user?.isAdmin || user?.isInstructor) {
-      // Admins and instructors can view but don't track progress
-      return { message: 'Viewing as admin/instructor - progress not tracked' };
-    }
-
-    // Verify enrollment for regular users
+    // Verify enrollment — all users (including admins/instructors) can track progress if enrolled
     const enrollment = await prisma.enrollment.findUnique({
       where: {
         userId_courseId: { userId, courseId },
@@ -518,14 +497,22 @@ export class EnrollmentService {
   }
 
   async getProgress(userId: number, courseId: number) {
-    // Check if user is admin or instructor
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { isAdmin: true, isInstructor: true },
+    // Check for actual enrollment first — all users track progress if enrolled
+    const actualEnrollment = await prisma.enrollment.findUnique({
+      where: { userId_courseId: { userId, courseId } },
     });
 
-    if (user?.isAdmin || user?.isInstructor) {
-      // Admins and instructors get virtual progress (no tracking)
+    // If not enrolled, admins/instructors get virtual progress
+    if (!actualEnrollment) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { isAdmin: true, isInstructor: true },
+      });
+
+      if (!(user?.isAdmin || user?.isInstructor)) {
+        throw new AppError('Not enrolled in this course', 403);
+      }
+
       const course = await prisma.course.findUnique({
         where: { id: courseId },
         include: {
@@ -573,6 +560,7 @@ export class EnrollmentService {
       };
     }
 
+    // User is enrolled — fetch full enrollment with progress
     const enrollment = await prisma.enrollment.findUnique({
       where: {
         userId_courseId: { userId, courseId },

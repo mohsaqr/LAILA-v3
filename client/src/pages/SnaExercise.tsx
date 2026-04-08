@@ -12,12 +12,20 @@ import { Breadcrumb } from '../components/common/Breadcrumb';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Network, X, GitBranch, Target, BarChart3, Waypoints, Plus,
+  Network, X, GitBranch, Target, BarChart3, Waypoints, Plus, Database,
   ChevronDown, ChevronRight, BookOpen, Users,
-  Microscope, MessageCircle, Sparkles, ClipboardList, Camera, Loader2, CheckCircle, Download,
+  Microscope, MessageCircle, Sparkles, Camera, Loader2, CheckCircle, Download,
+  Award, Calendar, FileText, AlertCircle, MessageSquare, Send, RefreshCw, Clock,
 } from 'lucide-react';
 import { assignmentsApi } from '../api/assignments';
+import { coursesApi } from '../api/courses';
+import { resolveFileUrl } from '../api/client';
+import { sanitizeHtml, isHtmlContent } from '../utils/sanitize';
 import { LabAssignmentPanel, type ReportItem } from '../components/labs/LabAssignmentPanel';
+import { useTheme } from '../hooks/useTheme';
+import { MyDatasetPicker } from '../components/common/MyDatasetPicker';
+import { Card, CardBody } from '../components/common/Card';
+import { Button } from '../components/common/Button';
 import toast from 'react-hot-toast';
 import { INTERACTIVE_LAB_REQUIREMENTS } from '../types';
 import { buildModel, layout as dynaLayout } from 'dynajs';
@@ -227,13 +235,21 @@ const CustomNetworkModal = ({ onClose, onSubmit }: {
 /* ── Main Component ── */
 
 export const SnaExercise = () => {
-  const { t } = useTranslation(['courses']);
+  const { t } = useTranslation(['courses', 'common']);
   const navigate = useNavigate();
   const { courseId } = useParams<{ courseId?: string }>();
   const [searchParams] = useSearchParams();
+  const { isDark } = useTheme();
   const exerciseRef = useRef<HTMLDivElement>(null);
   const analysisContentRef = useRef<HTMLDivElement>(null);
+  const captureRef = useRef<HTMLDivElement>(null);
   const [assignmentPanelOpen, setAssignmentPanelOpen] = useState(false);
+
+  const { data: course } = useQuery({
+    queryKey: ['course', courseId],
+    queryFn: () => coursesApi.getCourseById(Number(courseId)),
+    enabled: !!courseId,
+  });
 
   const { data: courseAssignments } = useQuery({
     queryKey: ['courseAssignments', courseId],
@@ -245,11 +261,57 @@ export const SnaExercise = () => {
     ? courseAssignments?.find(a => a.id === Number(targetAssignmentId)) ?? null
     : courseAssignments?.find(a => a.agentRequirements === INTERACTIVE_LAB_REQUIREMENTS.SNA) ?? null;
 
+  const { data: mySubmission } = useQuery({
+    queryKey: ['mySubmission', snaAssignment?.id],
+    queryFn: () => assignmentsApi.getMySubmission(snaAssignment!.id),
+    enabled: !!snaAssignment,
+    retry: false,
+  });
+
+  const dueDate = snaAssignment?.dueDate ? new Date(snaAssignment.dueDate) : null;
+  const dueDateLocal = snaAssignment?.dueDate ? new Date(String(snaAssignment.dueDate).replace('Z', '')) : null;
+  const gracePeriodDate = snaAssignment?.gracePeriodDeadline ? new Date(snaAssignment.gracePeriodDeadline) : null;
+  const gracePeriodLocal = snaAssignment?.gracePeriodDeadline ? new Date(String(snaAssignment.gracePeriodDeadline).replace('Z', '')) : null;
+  const isPastDue = dueDateLocal ? dueDateLocal < new Date() : false;
+  const isInGracePeriod = isPastDue && gracePeriodLocal ? new Date() < gracePeriodLocal : false;
+  const isFullyPastDue = isPastDue && !isInGracePeriod;
+  const isSubmitted = mySubmission?.status === 'submitted' || mySubmission?.status === 'graded';
+  const isGraded = mySubmission?.status === 'graded';
+  const canResubmit = isSubmitted && !isGraded && !isFullyPastDue;
+
+  const submissionFileUrls = useMemo(() => {
+    if (!mySubmission?.fileUrls) return [];
+    try {
+      const parsed = JSON.parse(mySubmission.fileUrls);
+      return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [];
+    } catch { return []; }
+  }, [mySubmission?.fileUrls]);
+
+  const headerColors = useMemo(() => ({
+    textPrimary: isDark ? '#f3f4f6' : '#111827',
+    textSecondary: isDark ? '#9ca3af' : '#6b7280',
+    textMuted: isDark ? '#6b7280' : '#9ca3af',
+    textRed: isDark ? '#fca5a5' : '#dc2626',
+    textGreen: isDark ? '#86efac' : '#15803d',
+    textBlue: isDark ? '#93c5fd' : '#1d4ed8',
+    bgGreen: isDark ? 'rgba(34, 197, 94, 0.2)' : '#dcfce7',
+    bgBlue: isDark ? 'rgba(59, 130, 246, 0.2)' : '#dbeafe',
+    bgBlueBanner: isDark ? 'rgba(59, 130, 246, 0.1)' : '#eff6ff',
+    bgRed: isDark ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2',
+    bgYellow: isDark ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7',
+    textYellow: isDark ? '#fcd34d' : '#d97706',
+    bgGray: isDark ? '#374151' : '#f3f4f6',
+    textGray: isDark ? '#9ca3af' : '#6b7280',
+    bgGreenCard: isDark ? 'rgba(34, 197, 94, 0.1)' : '#f0fdf4',
+    borderGreen: isDark ? 'rgba(34, 197, 94, 0.3)' : '#bbf7d0',
+  }), [isDark]);
+
   // ── Core state ──
   const [datasetKey, setDatasetKey] = useState<string | null>(null);
   const [modelBuilt, setModelBuilt] = useState(false);
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [showAIGenerator, setShowAIGenerator] = useState(false);
+  const [showDatasetPicker, setShowDatasetPicker] = useState(false);
 
   // ── Custom network ──
   const [customEdges, setCustomEdges] = useState<Edge[] | null>(null);
@@ -280,30 +342,118 @@ export const SnaExercise = () => {
   const logSession = (event: string) =>
     setSessionEvents(prev => [...prev, { ts: Date.now(), event }]);
 
+  // Build a specific key for the current analysis view (e.g., "centrality-InDegree")
+  const getCaptureKey = useCallback(() => {
+    if (!activeAnalysis) return '';
+    if (activeAnalysis === 'centrality') return `centrality-${centralityMetric}-${centralityView}`;
+    return activeAnalysis;
+  }, [activeAnalysis, centralityMetric, centralityView]);
+
+  const getCaptureLabel = useCallback(() => {
+    if (!activeAnalysis) return '';
+    if (activeAnalysis === 'centrality') return `Centrality — ${centralityMetric} (${centralityView})`;
+    if (activeAnalysis === 'metrics') return 'Graph Metrics';
+    if (activeAnalysis === 'communities') return `Communities (${communityMethod})`;
+    if (activeAnalysis === 'adjacency') return 'Adjacency Matrix';
+    return activeAnalysis;
+  }, [activeAnalysis, centralityMetric, centralityView, communityMethod]);
+
   const handleAddToReport = useCallback(async () => {
-    if (!analysisContentRef.current || !activeAnalysis) return;
+    if (!captureRef.current || !activeAnalysis) return;
     setIsCapturing(true);
     try {
+      const el = captureRef.current;
+
+      // Find the SVG inside the network graph and serialize it to an image directly
+      const svg = el.querySelector('svg');
+      const networkCard = svg?.closest('.rounded-xl') as HTMLElement | null;
+
+      // Capture the network graph SVG natively (not via html2canvas)
+      let networkDataUrl: string | null = null;
+      let svgNaturalW = 0;
+      let svgNaturalH = 0;
+      if (svg) {
+        svgNaturalW = svg.width.baseVal.value || parseInt(svg.getAttribute('width') || '0');
+        svgNaturalH = svg.height.baseVal.value || parseInt(svg.getAttribute('height') || '0');
+        const serializer = new XMLSerializer();
+        const svgStr = serializer.serializeToString(svg);
+        const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(svgBlob);
+        const img = new Image();
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = reject;
+          img.src = url;
+        });
+        const c = document.createElement('canvas');
+        const scale = 2;
+        c.width = svgNaturalW * scale;
+        c.height = svgNaturalH * scale;
+        const ctx = c.getContext('2d')!;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        networkDataUrl = c.toDataURL('image/jpeg', 0.9);
+        URL.revokeObjectURL(url);
+      }
+
+      // Capture analysis content (everything except the network graph card) via html2canvas
       const { default: html2canvas } = await import('html2canvas');
-      const el = analysisContentRef.current;
-      const canvas = await html2canvas(el, {
-        scale: 1.2, useCORS: true, allowTaint: true,
-        width: el.scrollWidth, height: el.scrollHeight,
-        scrollX: 0, scrollY: 0,
-      });
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      // Temporarily hide the network graph card so html2canvas only captures analysis
+      if (networkCard) networkCard.style.display = 'none';
+      const hasAnalysisContent = el.scrollHeight > 10;
+      let analysisDataUrl: string | null = null;
+      if (hasAnalysisContent && activeAnalysis) {
+        const analysisCanvas = await html2canvas(el, {
+          scale: 1.5, useCORS: true, allowTaint: true,
+          width: el.scrollWidth, height: el.scrollHeight,
+          scrollX: 0, scrollY: 0,
+        });
+        if (analysisCanvas.height > 5) {
+          analysisDataUrl = analysisCanvas.toDataURL('image/jpeg', 0.85);
+        }
+      }
+      if (networkCard) networkCard.style.display = '';
+
+      // Combine both into a single canvas
+      const combinedCanvas = document.createElement('canvas');
+      const netImg = networkDataUrl ? new Image() : null;
+      const anlImg = analysisDataUrl ? new Image() : null;
+      if (netImg && networkDataUrl) {
+        await new Promise<void>(r => { netImg.onload = () => r(); netImg.src = networkDataUrl!; });
+      }
+      if (anlImg && analysisDataUrl) {
+        await new Promise<void>(r => { anlImg.onload = () => r(); anlImg.src = analysisDataUrl!; });
+      }
+      const netW = netImg?.width || 0;
+      const netH = netImg?.height || 0;
+      const anlW = anlImg?.width || 0;
+      const anlH = anlImg?.height || 0;
+      const totalW = Math.max(netW, anlW);
+      const totalH = netH + anlH;
+      combinedCanvas.width = totalW || 1;
+      combinedCanvas.height = totalH || 1;
+      const cctx = combinedCanvas.getContext('2d')!;
+      cctx.fillStyle = '#ffffff';
+      cctx.fillRect(0, 0, totalW, totalH);
+      if (netImg) cctx.drawImage(netImg, (totalW - netW) / 2, 0);
+      if (anlImg) cctx.drawImage(anlImg, (totalW - anlW) / 2, netH);
+
+      const dataUrl = combinedCanvas.toDataURL('image/jpeg', 0.85);
+      const key = getCaptureKey();
+      const label = getCaptureLabel();
       setReportItems(prev => {
-        const filtered = prev.filter(item => item.key !== activeAnalysis);
-        return [...filtered, { key: activeAnalysis, label: activeAnalysis, dataUrl, timestamp: Date.now() }];
+        const filtered = prev.filter(item => item.key !== key);
+        return [...filtered, { key, label, dataUrl, timestamp: Date.now() }];
       });
-      logSession('Added to report: ' + activeAnalysis);
+      logSession('Added to report: ' + label);
       toast.success('Snapshot added to report');
     } catch {
       toast.error('Failed to capture snapshot');
     } finally {
       setIsCapturing(false);
     }
-  }, [activeAnalysis]);
+  }, [activeAnalysis, getCaptureKey, getCaptureLabel]);
 
   // ── Derived: dataset ──
   const isCustom = datasetKey === '_custom' || datasetKey === '_ai';
@@ -398,6 +548,34 @@ export const SnaExercise = () => {
     setActiveAnalysis(null);
   }, []);
 
+  const handleMyDatasetSelect = useCallback((csvText: string) => {
+    const lines = csvText.trim().split('\n').filter(l => l.trim());
+    if (lines.length < 2) return;
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const fromIdx = headers.findIndex(h => h === 'from' || h === 'source' || h === 'actor1');
+    const toIdx = headers.findIndex(h => h === 'to' || h === 'target' || h === 'actor2');
+    const weightIdx = headers.findIndex(h => h === 'weight' || h === 'value' || h === 'strength');
+
+    const edges: Edge[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+      const from = cols[fromIdx >= 0 ? fromIdx : 0] || '';
+      const to = cols[toIdx >= 0 ? toIdx : 1] || '';
+      const weight = weightIdx >= 0 ? parseFloat(cols[weightIdx]) || 1 : 1;
+      if (from && to) edges.push({ from, to, weight });
+    }
+    if (edges.length === 0) return;
+
+    const { labels, matrix } = edgesToMatrix(edges, true);
+    setCustomEdges(edges);
+    setCustomDirected(true);
+    setCustomLabels(labels);
+    setCustomMatrix(matrix);
+    setDatasetKey('_custom');
+    setModelBuilt(false);
+    setActiveAnalysis(null);
+  }, []);
+
   const handleCustomSubmit = useCallback((edges: Edge[], directed: boolean) => {
     const { labels, matrix } = edgesToMatrix(edges, directed);
     setCustomEdges(edges);
@@ -455,46 +633,105 @@ export const SnaExercise = () => {
   /* ── Render ── */
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {/* Breadcrumb */}
         {courseId && (
-          <div className="mb-4">
+          <div className="mb-6">
             <Breadcrumb
               items={[
                 { label: t('common:courses'), href: '/courses' },
-                { label: t('sna.title') },
+                { label: course?.title || t('common:course'), href: `/courses/${courseId}` },
+                ...(snaAssignment ? [{ label: t('assignments'), href: `/courses/${courseId}/assignments` }] : []),
+                { label: snaAssignment?.title || t('sna.title') },
               ]}
             />
           </div>
         )}
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 flex items-center justify-center">
-              <Network className="w-4.5 h-4.5 text-white" />
+        {/* Assignment Header Card */}
+        {snaAssignment ? (
+          <Card className="mb-6">
+            <CardBody>
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <p className="text-sm mb-1" style={{ color: headerColors.textSecondary }}>{course?.title}</p>
+                  <h1 className="text-2xl font-bold" style={{ color: headerColors.textPrimary }}>{snaAssignment.title}</h1>
+                </div>
+                {/* Status Badge */}
+                {isGraded ? (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium" style={{ backgroundColor: headerColors.bgGreen, color: headerColors.textGreen }}>
+                    <Award className="w-4 h-4" />
+                    {t('graded_with_score', { grade: mySubmission?.grade, total: snaAssignment.points })}
+                  </span>
+                ) : isSubmitted ? (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium" style={{ backgroundColor: headerColors.bgBlue, color: headerColors.textBlue }}>
+                    <CheckCircle className="w-4 h-4" />
+                    {t('submitted_status')}
+                  </span>
+                ) : isInGracePeriod ? (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium" style={{ backgroundColor: headerColors.bgRed, color: headerColors.textRed }}>
+                    <AlertCircle className="w-4 h-4" />
+                    {t('grace_period_status', { defaultValue: 'Grace Period' })}
+                  </span>
+                ) : isFullyPastDue ? (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium" style={{ backgroundColor: headerColors.bgRed, color: headerColors.textRed }}>
+                    <AlertCircle className="w-4 h-4" />
+                    {t('past_due_status')}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium" style={{ backgroundColor: headerColors.bgGray, color: headerColors.textGray }}>
+                    <FileText className="w-4 h-4" />
+                    {t('not_started_status')}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-4 text-sm" style={{ color: headerColors.textSecondary }}>
+                <span className="flex items-center gap-1">
+                  <Award className="w-4 h-4" />
+                  {t('points_format', { points: snaAssignment.points })}
+                </span>
+                {dueDate && (
+                  <span className="flex items-center gap-1" style={{ color: isPastDue ? headerColors.textRed : headerColors.textSecondary }}>
+                    <Calendar className="w-4 h-4" />
+                    {t('due_at', { date: dueDate.toLocaleDateString(undefined, { timeZone: 'UTC' }), time: dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) })}
+                  </span>
+                )}
+                {gracePeriodDate && (
+                  <span className="flex items-center gap-1" style={{ color: isInGracePeriod ? headerColors.textRed : headerColors.textSecondary }}>
+                    <Clock className="w-4 h-4" />
+                    {t('grace_period_until', {
+                      defaultValue: 'Grace period until {{date}} at {{time}}',
+                      date: gracePeriodDate.toLocaleDateString(undefined, { timeZone: 'UTC' }),
+                      time: gracePeriodDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
+                    })}
+                  </span>
+                )}
+                <span className="flex items-center gap-1 capitalize">
+                  <FileText className="w-4 h-4" />
+                  {t('submission_type_label', { type: snaAssignment.submissionType })}
+                </span>
+              </div>
+            </CardBody>
+          </Card>
+        ) : (
+          /* Header without assignment */
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 flex items-center justify-center">
+                <Network className="w-4.5 h-4.5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('sna.title')}</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">{t('sna.subtitle')}</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('sna.title')}</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">{t('sna.subtitle')}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {snaAssignment && (
-              <button
-                onClick={() => setAssignmentPanelOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition-colors"
-              >
-                <ClipboardList className="w-3.5 h-3.5" />
-                {t('submit_assignment', { defaultValue: 'Submit Assignment' })}
-              </button>
-            )}
             <button onClick={() => navigate(courseId ? `/courses/${courseId}` : -1 as any)} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
-        </div>
+        )}
 
         {/* ── Layout: sidebar + main ── */}
         <div className="flex flex-col lg:flex-row gap-6" ref={exerciseRef}>
@@ -524,7 +761,7 @@ export const SnaExercise = () => {
                 </div>
 
                 {/* Custom network & AI buttons */}
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2">
                   <button
                     onClick={() => setShowCustomModal(true)}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
@@ -538,6 +775,13 @@ export const SnaExercise = () => {
                   >
                     <Sparkles className="w-3.5 h-3.5" />
                     {t('ai_gen.or_generate')}
+                  </button>
+                  <button
+                    onClick={() => setShowDatasetPicker(true)}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                  >
+                    <Database className="w-3.5 h-3.5" />
+                    {t('my_datasets')}
                   </button>
                 </div>
 
@@ -846,6 +1090,9 @@ export const SnaExercise = () => {
             {/* After build: Network + Analysis */}
             {modelBuilt && rawModel && (
               <>
+                {/* Capturable area — network graph + analysis content (no buttons/guides/AI) */}
+                <div ref={captureRef} className="space-y-4">
+
                 {/* Network Graph (always visible) */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                   <div className="flex items-center gap-3 mb-3">
@@ -877,6 +1124,92 @@ export const SnaExercise = () => {
                   />
                 </div>
 
+                {/* Graph Metrics (inside capture area) */}
+                {activeAnalysis === 'metrics' && metrics && (
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                        {t('sna.block_metrics')}
+                      </h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        {[
+                          { label: t('sna.metric_nodes'), value: metrics.nNodes },
+                          { label: t('sna.metric_edges'), value: metrics.nEdges },
+                          { label: t('sna.metric_density'), value: metrics.density.toFixed(3) },
+                          { label: t('sna.metric_avg_degree'), value: metrics.avgDegree },
+                          { label: t('sna.metric_avg_weight'), value: metrics.avgWeight },
+                          ...(metrics.reciprocity !== null
+                            ? [{ label: t('sna.metric_reciprocity'), value: metrics.reciprocity }]
+                            : []),
+                        ].map(({ label, value }) => (
+                          <div key={label} className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
+                            <div className="text-[10px] uppercase tracking-wide text-gray-400 mb-1">{label}</div>
+                            <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{value}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                )}
+
+                {/* Centrality (inside capture area) */}
+                {activeAnalysis === 'centrality' && centralityData && (
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                        {t('sna.block_centrality')} — {centralityMetric}
+                      </h3>
+                      {centralityView === 'chart' ? (
+                        <CentralityBarChart centralityData={centralityData} colorMap={colorMap} selectedMeasure={centralityMetric} />
+                      ) : (
+                        <TnaCentralityTable centralityData={centralityData} colorMap={colorMap} />
+                      )}
+                    </div>
+                )}
+
+                {/* Communities (inside capture area) */}
+                {activeAnalysis === 'communities' && communities && (
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                        {t('sna.block_communities')}
+                      </h3>
+                      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {Array.from({ length: communities.k }, (_, ci) => {
+                          const members = nodeLabels.filter((_, ni) => communities.assignments[ni] === ci);
+                          return (
+                            <div key={ci} className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: COMMUNITY_COLORS[ci % COMMUNITY_COLORS.length] }} />
+                                <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
+                                  {t('sna.community_label', { n: ci + 1 })}
+                                </span>
+                                <span className="text-[10px] text-gray-400 ml-auto">
+                                  {members.length} {t('sna.nodes')}
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                {members.map(m => (
+                                  <span key={m} className="px-1.5 py-0.5 rounded text-[10px] bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
+                                    {m}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                )}
+
+                {/* Adjacency Matrix (inside capture area) */}
+                {activeAnalysis === 'adjacency' && (
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                        {t('sna.block_adjacency')}
+                      </h3>
+                      <TransitionHeatmap model={rawModel} colorMap={colorMap} />
+                    </div>
+                )}
+
+                </div>{/* End captureRef */}
+
                 {/* Guide Banner */}
                 {activeAnalysis && guideContent[activeAnalysis] && (
                   <button
@@ -906,173 +1239,59 @@ export const SnaExercise = () => {
                   <SnaStepGuide step={activeAnalysis} />
                 )}
 
-                {/* Add-to-report capture button */}
-                {modelBuilt && activeAnalysis && (
-                  <button
-                    onClick={handleAddToReport}
-                    disabled={isCapturing}
-                    className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                      reportItems.some(r => r.key === activeAnalysis)
-                        ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700'
-                        : 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border-dashed border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:border-indigo-400'
-                    }`}
-                  >
-                    {isCapturing ? <Loader2 className="w-4 h-4 animate-spin" />
-                      : reportItems.some(r => r.key === activeAnalysis) ? <CheckCircle className="w-4 h-4" />
-                      : <Camera className="w-4 h-4" />}
-                    {isCapturing ? 'Capturing...'
-                      : reportItems.some(r => r.key === activeAnalysis) ? 'Captured — click to recapture'
-                      : 'Add this analysis to report'}
-                  </button>
-                )}
+                {/* Add-to-report capture button (only when assignment exists and not past due, or resubmitting) */}
+                {modelBuilt && activeAnalysis && snaAssignment && (!isSubmitted || canResubmit) && !isGraded && !isFullyPastDue && (() => {
+                  const key = getCaptureKey();
+                  const isCaptured = reportItems.some(r => r.key === key);
+                  return (
+                    <button
+                      onClick={handleAddToReport}
+                      disabled={isCapturing}
+                      className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                        isCaptured
+                          ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700'
+                          : 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border-dashed border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:border-indigo-400'
+                      }`}
+                    >
+                      {isCapturing ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : isCaptured ? <CheckCircle className="w-4 h-4" />
+                        : <Camera className="w-4 h-4" />}
+                      {isCapturing ? 'Capturing...'
+                        : isCaptured ? `Captured (${reportItems.length}) — click to recapture`
+                        : `Add this analysis to report${reportItems.length > 0 ? ` (${reportItems.length})` : ''}`}
+                    </button>
+                  );
+                })()}
 
-                {/* Graph Metrics */}
-                {activeAnalysis === 'metrics' && metrics && (
-                  <>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                        {t('sna.block_metrics')}
-                      </h3>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                        {[
-                          { label: t('sna.metric_nodes'), value: metrics.nNodes },
-                          { label: t('sna.metric_edges'), value: metrics.nEdges },
-                          { label: t('sna.metric_density'), value: metrics.density.toFixed(3) },
-                          { label: t('sna.metric_avg_degree'), value: metrics.avgDegree },
-                          { label: t('sna.metric_avg_weight'), value: metrics.avgWeight },
-                          ...(metrics.reciprocity !== null
-                            ? [{ label: t('sna.metric_reciprocity'), value: metrics.reciprocity }]
-                            : []),
-                        ].map(({ label, value }) => (
-                          <div key={label} className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
-                            <div className="text-[10px] uppercase tracking-wide text-gray-400 mb-1">{label}</div>
-                            <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{value}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <LabAIAssistant
-                      labType="sna"
-                      analysisKey="metrics"
-                      context="Graph-level metrics — density, reciprocity, average degree, and average weight of the SNA network"
-                      data={`Nodes: ${metrics.nNodes}. Edges: ${metrics.nEdges}. Density: ${metrics.density.toFixed(3)}. Avg degree: ${metrics.avgDegree}. Avg weight: ${metrics.avgWeight}.${metrics.reciprocity !== null ? ` Reciprocity: ${metrics.reciprocity}.` : ''}`}
-                    />
-                  </>
-                )}
-
-                {/* Centrality */}
+                {/* CSV export buttons (outside capture area) */}
                 {activeAnalysis === 'centrality' && centralityData && (
-                  <>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                          {t('sna.block_centrality')}
-                        </h3>
-                        <button
-                          onClick={() => exportCentralityAsCSV(centralityData, 'sna-centrality.csv')}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                        >
-                          <Download className="w-3 h-3" />
-                          CSV
-                        </button>
-                      </div>
-                      {centralityView === 'chart' ? (
-                        <CentralityBarChart centralityData={centralityData} colorMap={colorMap} selectedMeasure={centralityMetric} />
-                      ) : (
-                        <TnaCentralityTable centralityData={centralityData} colorMap={colorMap} />
-                      )}
-                    </div>
-                    <LabAIAssistant
-                      labType="sna"
-                      analysisKey="centrality"
-                      context={`Centrality analysis — ${centralityMetric} measure showing node importance in the SNA network`}
-                      data={`Measure: ${centralityMetric}. Nodes: ${nodeLabels.join(', ')}.`}
-                    />
-                  </>
+                  <div className="flex justify-end">
+                    <button onClick={() => exportCentralityAsCSV(centralityData, 'sna-centrality.csv')} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"><Download className="w-3 h-3" /> CSV</button>
+                  </div>
                 )}
-
-                {/* Communities */}
                 {activeAnalysis === 'communities' && communities && (
-                  <>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                          {t('sna.block_communities')}
-                        </h3>
-                        <button
-                          onClick={() => exportRowsAsCSV(
-                            nodeLabels.map((label, i) => ({ node: label, community: communities.assignments[i] })),
-                            'sna-communities.csv',
-                          )}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                        >
-                          <Download className="w-3 h-3" />
-                          CSV
-                        </button>
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                        {t('sna.communities_info')}
-                      </p>
-                      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {Array.from({ length: communities.k }, (_, ci) => {
-                          const members = nodeLabels.filter((_, ni) => communities.assignments[ni] === ci);
-                          return (
-                            <div key={ci} className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: COMMUNITY_COLORS[ci % COMMUNITY_COLORS.length] }} />
-                                <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
-                                  {t('sna.community_label', { n: ci + 1 })}
-                                </span>
-                                <span className="text-[10px] text-gray-400 ml-auto">
-                                  {members.length} {t('sna.nodes')}
-                                </span>
-                              </div>
-                              <div className="flex flex-wrap gap-1">
-                                {members.map(m => (
-                                  <span key={m} className="px-1.5 py-0.5 rounded text-[10px] bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
-                                    {m}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    <LabAIAssistant
-                      labType="sna"
-                      analysisKey="communities"
-                      context={`Community detection — ${communities.k} communities detected using ${communityMethod} algorithm`}
-                      data={`Algorithm: ${communityMethod}. Communities: ${communities.k}. Nodes: ${nodeLabels.join(', ')}.`}
-                    />
-                  </>
+                  <div className="flex justify-end">
+                    <button onClick={() => exportRowsAsCSV(nodeLabels.map((label, i) => ({ node: label, community: communities.assignments[i] })), 'sna-communities.csv')} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"><Download className="w-3 h-3" /> CSV</button>
+                  </div>
+                )}
+                {activeAnalysis === 'adjacency' && (
+                  <div className="flex justify-end">
+                    <button onClick={() => exportMatrixAsCSV(matrixData, nodeLabels, 'sna-adjacency-matrix.csv')} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"><Download className="w-3 h-3" /> CSV</button>
+                  </div>
                 )}
 
-                {/* Adjacency Matrix (heatmap) */}
+                {/* AI Assistants (outside capture area) */}
+                {activeAnalysis === 'metrics' && metrics && (
+                  <LabAIAssistant labType="sna" analysisKey="metrics" context="Graph-level metrics — density, reciprocity, average degree, and average weight of the SNA network" data={`Nodes: ${metrics.nNodes}. Edges: ${metrics.nEdges}. Density: ${metrics.density.toFixed(3)}. Avg degree: ${metrics.avgDegree}. Avg weight: ${metrics.avgWeight}.${metrics.reciprocity !== null ? ` Reciprocity: ${metrics.reciprocity}.` : ''}`} />
+                )}
+                {activeAnalysis === 'centrality' && centralityData && (
+                  <LabAIAssistant labType="sna" analysisKey="centrality" context={`Centrality analysis — ${centralityMetric} measure showing node importance in the SNA network`} data={`Measure: ${centralityMetric}. Nodes: ${nodeLabels.join(', ')}.`} />
+                )}
+                {activeAnalysis === 'communities' && communities && (
+                  <LabAIAssistant labType="sna" analysisKey="communities" context={`Community detection — ${communities.k} communities detected using ${communityMethod} algorithm`} data={`Algorithm: ${communityMethod}. Communities: ${communities.k}. Nodes: ${nodeLabels.join(', ')}.`} />
+                )}
                 {activeAnalysis === 'adjacency' && (
-                  <>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                          {t('sna.block_adjacency')}
-                        </h3>
-                        <button
-                          onClick={() => exportMatrixAsCSV(matrixData, nodeLabels, 'sna-adjacency-matrix.csv')}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                        >
-                          <Download className="w-3 h-3" />
-                          CSV
-                        </button>
-                      </div>
-                      <TransitionHeatmap model={rawModel} colorMap={colorMap} />
-                    </div>
-                    <LabAIAssistant
-                      labType="sna"
-                      analysisKey="adjacency"
-                      context={`Adjacency matrix — ${isDirected ? 'directed' : 'undirected'} network with ${nodeLabels.length} nodes`}
-                      data={`Nodes (${nodeLabels.length}): ${nodeLabels.join(', ')}. Directed: ${isDirected}.`}
-                    />
-                  </>
+                  <LabAIAssistant labType="sna" analysisKey="adjacency" context={`Adjacency matrix — ${isDirected ? 'directed' : 'undirected'} network with ${nodeLabels.length} nodes`} data={`Nodes (${nodeLabels.length}): ${nodeLabels.join(', ')}. Directed: ${isDirected}.`} />
                 )}
 
                 {/* No analysis selected — prompt */}
@@ -1117,7 +1336,176 @@ export const SnaExercise = () => {
         />
       )}
 
+      <MyDatasetPicker
+        isOpen={showDatasetPicker}
+        onClose={() => setShowDatasetPicker(false)}
+        onSelect={(csvText) => handleMyDatasetSelect(csvText)}
+      />
+
+      {/* Submit button / Submitted / Graded states */}
       {snaAssignment && (
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 pb-6 space-y-4">
+          {/* Submission content (shown for both submitted and graded) */}
+          {isSubmitted && mySubmission ? (
+            <>
+              <Card>
+                <CardBody>
+                  <h2 className="font-semibold mb-4" style={{ color: headerColors.textPrimary }}>{t('your_submission')}</h2>
+                  {!isGraded && (
+                    <div className="flex items-center justify-between p-4 rounded-lg mb-4" style={{ backgroundColor: headerColors.bgBlueBanner }}>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-5 h-5" style={{ color: headerColors.textBlue }} />
+                        <p style={{ color: headerColors.textBlue }}>{t('submitted_waiting_grading')}</p>
+                      </div>
+                      {canResubmit && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setAssignmentPanelOpen(true)}
+                          icon={<RefreshCw className="w-3.5 h-3.5" />}
+                        >
+                          {t('resubmit', { defaultValue: 'Resubmit' })}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                  {mySubmission.content && (
+                    isHtmlContent(mySubmission.content) ? (
+                      <div className="prose max-w-none mb-4 text-sm" style={{ color: headerColors.textSecondary }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(mySubmission.content) }} />
+                    ) : (
+                      <p className="mb-4 text-sm whitespace-pre-wrap" style={{ color: headerColors.textSecondary }}>{mySubmission.content}</p>
+                    )
+                  )}
+                  {submissionFileUrls.length > 0 && (
+                    <div className="mb-4 space-y-2">
+                      <label className="block text-sm font-medium mb-1" style={{ color: headerColors.textSecondary }}>{t('file_attachments')}</label>
+                      {submissionFileUrls.map((url, index) => {
+                        const rawName = url.split('/').pop() ?? `file-${index + 1}`;
+                        let displayName: string;
+                        try { displayName = decodeURIComponent(rawName.replace(/^[\w-]{36}/, '').replace(/^-/, '')) || rawName; } catch { displayName = rawName; }
+                        const isPdf = url.toLowerCase().endsWith('.pdf');
+                        const resolvedUrl = resolveFileUrl(url);
+                        if (isPdf) {
+                          return (
+                            <div key={index} className="rounded-lg border overflow-hidden" style={{ borderColor: isDark ? '#374151' : '#e5e7eb' }}>
+                              <div className="flex items-center justify-between px-3 py-2" style={{ backgroundColor: isDark ? '#374151' : '#f9fafb' }}>
+                                <div className="flex items-center gap-2">
+                                  <FileText className="w-4 h-4" style={{ color: headerColors.textMuted }} />
+                                  <span className="text-sm font-medium truncate" style={{ color: headerColors.textPrimary }}>{displayName}</span>
+                                </div>
+                                <a href={resolvedUrl} download={displayName} target="_blank" rel="noopener noreferrer" style={{ color: headerColors.textSecondary }}><Download className="w-3.5 h-3.5" /></a>
+                              </div>
+                              <iframe src={resolvedUrl} className="w-full border-0" style={{ height: '500px' }} title={displayName} />
+                            </div>
+                          );
+                        }
+                        return (
+                          <div key={index} className="flex items-center gap-2 p-2 rounded" style={{ backgroundColor: isDark ? '#374151' : '#f9fafb' }}>
+                            <FileText className="w-4 h-4" style={{ color: headerColors.textMuted }} />
+                            <span className="flex-1 text-sm truncate" style={{ color: headerColors.textPrimary }}>{displayName}</span>
+                            <a href={resolvedUrl} download={displayName} target="_blank" rel="noopener noreferrer" style={{ color: headerColors.textSecondary }}><Download className="w-4 h-4" /></a>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <p className="text-sm" style={{ color: headerColors.textMuted }}>
+                    {t('submitted_on', { date: new Date(mySubmission.submittedAt).toLocaleString() })}
+                  </p>
+                </CardBody>
+              </Card>
+
+              {/* Grade card (only when graded) */}
+              {isGraded && (
+                <Card style={{ backgroundColor: headerColors.bgGreenCard, borderColor: headerColors.borderGreen }}>
+                  <CardBody>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Award className="w-5 h-5" style={{ color: headerColors.textGreen }} />
+                      <h2 className="font-semibold" style={{ color: headerColors.textGreen }}>{t('your_grade')}</h2>
+                    </div>
+                    <div className="text-center mb-4">
+                      <span className="text-4xl font-bold" style={{ color: headerColors.textGreen }}>{mySubmission.grade}</span>
+                      <span className="text-xl" style={{ color: headerColors.textGreen }}>/{snaAssignment.points}</span>
+                      {mySubmission.grade != null && snaAssignment.points && (
+                        <p className="text-sm mt-1" style={{ color: headerColors.textGreen }}>
+                          {t('grade_percent', { percent: Math.round((mySubmission.grade / snaAssignment.points) * 100) })}
+                        </p>
+                      )}
+                    </div>
+                    {mySubmission.feedback && (
+                      <div className="border-t pt-4" style={{ borderColor: headerColors.borderGreen }}>
+                        <h3 className="font-medium flex items-center gap-2 mb-2" style={{ color: headerColors.textGreen }}>
+                          <MessageSquare className="w-4 h-4" />
+                          {t('instructor_feedback')}
+                        </h3>
+                        <p className="text-sm" style={{ color: headerColors.textGreen }}>{mySubmission.feedback}</p>
+                      </div>
+                    )}
+                    {mySubmission.gradedAt && (
+                      <p className="text-xs mt-4" style={{ color: headerColors.textGreen }}>
+                        {t('graded_on', { date: new Date(mySubmission.gradedAt).toLocaleString() })}
+                      </p>
+                    )}
+                  </CardBody>
+                </Card>
+              )}
+            </>
+          ) : isInGracePeriod ? (
+            <>
+              <Card style={{ backgroundColor: headerColors.bgRed, borderColor: 'rgba(239, 68, 68, 0.3)' }}>
+                <CardBody className="text-center py-4">
+                  <AlertCircle className="w-8 h-8 mx-auto mb-1" style={{ color: headerColors.textRed }} />
+                  <p className="text-sm font-medium" style={{ color: headerColors.textRed }}>
+                    {t('grace_period_warning', { defaultValue: 'The original deadline has passed. You are submitting during the grace period.' })}
+                  </p>
+                  {gracePeriodDate && (
+                    <p className="text-xs mt-1" style={{ color: headerColors.textRed, opacity: 0.8 }}>
+                      {t('grace_period_ends', {
+                        defaultValue: 'Grace period ends: {{date}} at {{time}}',
+                        date: gracePeriodDate.toLocaleDateString(undefined, { timeZone: 'UTC' }),
+                        time: gracePeriodDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
+                      })}
+                    </p>
+                  )}
+                </CardBody>
+              </Card>
+              <div className="flex justify-end">
+                <Button
+                  variant="primary"
+                  onClick={() => setAssignmentPanelOpen(true)}
+                  icon={<Send className="w-4 h-4" />}
+                >
+                  {t('submit_assignment', { defaultValue: 'Submit Assignment' })}
+                </Button>
+              </div>
+            </>
+          ) : isFullyPastDue ? (
+            <Card style={{ backgroundColor: headerColors.bgRed, borderColor: 'rgba(239, 68, 68, 0.3)' }}>
+              <CardBody className="text-center py-6">
+                <AlertCircle className="w-10 h-10 mx-auto mb-2" style={{ color: headerColors.textRed }} />
+                <h2 className="text-lg font-semibold mb-1" style={{ color: headerColors.textRed }}>
+                  {t('deadline_passed', { defaultValue: 'Deadline Has Passed' })}
+                </h2>
+                <p className="text-sm" style={{ color: headerColors.textRed }}>
+                  {t('deadline_passed_description', { defaultValue: 'The due date for this assignment has passed. You can no longer submit your work.' })}
+                </p>
+              </CardBody>
+            </Card>
+          ) : (
+            <div className="flex justify-end">
+              <Button
+                variant="primary"
+                onClick={() => setAssignmentPanelOpen(true)}
+                icon={<Send className="w-4 h-4" />}
+              >
+                {t('submit_assignment', { defaultValue: 'Submit Assignment' })}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {snaAssignment && !isGraded && !isFullyPastDue && (
         <LabAssignmentPanel
           isOpen={assignmentPanelOpen}
           onClose={() => setAssignmentPanelOpen(false)}
@@ -1149,6 +1537,10 @@ export const SnaExercise = () => {
           courseNumericId={Number(courseId)}
           assignmentId={snaAssignment?.id}
           reportItems={reportItems}
+          courseName={course?.title}
+          onSubmitted={() => {
+            setAssignmentPanelOpen(false);
+          }}
         />
       )}
     </div>

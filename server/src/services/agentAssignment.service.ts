@@ -1,10 +1,14 @@
 import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import fs from 'fs';
+import path from 'path';
+import { randomUUID } from 'crypto';
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { CreateAgentConfigInput, UpdateAgentConfigInput, GradeAgentSubmissionInput } from '../utils/validation.js';
 import { agentAnalyticsService, ClientContext, UserContext, AssignmentContext } from './agentAnalytics.service.js';
-import { activityLogService } from './activityLog.service.js';
+import { activityLogService, type ActivityVerb } from './activityLog.service.js';
+import { llmService } from './llm.service.js';
 
 // AI Config type
 interface AIConfig {
@@ -26,6 +30,37 @@ export interface EventContext {
 }
 
 export class AgentAssignmentService {
+
+  /** Log an agent assignment event to the global LearningActivityLog */
+  private logAgentActivity(params: {
+    userId: number;
+    verb: ActivityVerb;
+    objectId: number;
+    objectTitle: string;
+    courseId?: number;
+    assignmentId?: number;
+    assignmentTitle?: string;
+    extensions?: Record<string, unknown>;
+    context: EventContext;
+  }) {
+    activityLogService.logActivity({
+      userId: params.userId,
+      verb: params.verb,
+      objectType: 'assignment',
+      objectSubtype: 'ai_agent',
+      objectId: params.objectId,
+      objectTitle: `AI Agent Assignment: ${params.objectTitle}`,
+      courseId: params.courseId,
+      extensions: {
+        assignmentId: params.assignmentId,
+        assignmentTitle: params.assignmentTitle,
+        ...params.extensions,
+      },
+      sessionId: params.context.sessionId,
+      deviceType: params.context.userAgent?.includes('Mobile') ? 'mobile' : 'desktop',
+    }).catch(err => console.error('[AgentAssignment] Failed to log activity:', err));
+  }
+
   // =============================================================================
   // AI CONFIGURATION
   // =============================================================================
@@ -207,6 +242,18 @@ export class AgentAssignmentService {
       },
     });
 
+    this.logAgentActivity({
+      userId: context.userId,
+      verb: 'created',
+      objectId: config.id,
+      objectTitle: data.agentName,
+      courseId: assignment.courseId,
+      assignmentId: assignment.id,
+      assignmentTitle: assignment.title,
+      extensions: { pedagogicalRole: data.pedagogicalRole, personality: data.personality },
+      context,
+    });
+
     return this.formatConfig(config);
   }
 
@@ -314,6 +361,23 @@ export class AgentAssignmentService {
       },
     });
 
+    this.logAgentActivity({
+      userId: context.userId,
+      verb: 'updated',
+      objectId: updated.id,
+      objectTitle: updated.agentName,
+      courseId: assignment.courseId,
+      assignmentId: assignment.id,
+      assignmentTitle: assignment.title,
+      extensions: {
+        version: newVersion,
+        changedFields: changedFields.length > 0 ? changedFields : undefined,
+        pedagogicalRole: data.pedagogicalRole,
+        personality: data.personality,
+      },
+      context,
+    });
+
     return this.formatConfig(updated);
   }
 
@@ -325,9 +389,16 @@ export class AgentAssignmentService {
   async submitAgentConfig(assignmentId: number, userId: number, context: EventContext) {
     const assignment = await this.getAgentAssignment(assignmentId);
 
-    // Check due date
+    // Check due date and grace period
     if (assignment.dueDate && new Date() > assignment.dueDate) {
-      throw new AppError('Assignment due date has passed', 400);
+      if (assignment.gracePeriodDeadline && new Date() <= assignment.gracePeriodDeadline) {
+        // Within grace period — allow submission (client shows warning)
+      } else {
+        const msg = assignment.gracePeriodDeadline
+          ? 'The grace period deadline has passed'
+          : 'Assignment due date has passed';
+        throw new AppError(msg, 400);
+      }
     }
 
     const config = await prisma.studentAgentConfig.findUnique({
@@ -394,6 +465,18 @@ export class AgentAssignmentService {
         userAgent: context.userAgent,
         sessionId: context.sessionId,
       },
+    });
+
+    this.logAgentActivity({
+      userId: context.userId,
+      verb: 'submitted',
+      objectId: config.id,
+      objectTitle: config.agentName,
+      courseId: assignment.courseId,
+      assignmentId: assignment.id,
+      assignmentTitle: assignment.title,
+      extensions: { version: config.version },
+      context,
     });
 
     return { config: updated, submission };
@@ -465,6 +548,18 @@ export class AgentAssignmentService {
         userAgent: context.userAgent,
         sessionId: context.sessionId,
       },
+    });
+
+    this.logAgentActivity({
+      userId: context.userId,
+      verb: 'updated',
+      objectId: config.id,
+      objectTitle: config.agentName,
+      courseId: assignment.courseId,
+      assignmentId: assignment.id,
+      assignmentTitle: assignment.title,
+      extensions: { action: 'unsubmit', version: config.version },
+      context,
     });
 
     return updated;
@@ -542,6 +637,18 @@ export class AgentAssignmentService {
       },
     });
 
+    this.logAgentActivity({
+      userId: testerInfo.userId,
+      verb: 'started',
+      objectId: config.id,
+      objectTitle: config.agentName,
+      courseId: config.assignment.courseId,
+      assignmentId: config.assignmentId,
+      assignmentTitle: config.assignment.title,
+      extensions: { action: 'test_conversation', conversationId: conversation.id, version: config.version },
+      context,
+    });
+
     return {
       conversation,
       welcomeMessage: config.welcomeMessage,
@@ -555,7 +662,8 @@ export class AgentAssignmentService {
     conversationId: number,
     message: string,
     testerInfo: { userId: number; role: 'student' | 'instructor'; fullname?: string; email?: string },
-    context: EventContext
+    context: EventContext,
+    llmOverrides?: { model?: string; provider?: string }
   ) {
     const startTime = Date.now();
 
@@ -585,9 +693,9 @@ export class AgentAssignmentService {
     }
 
     const config = conversation.agentConfig;
-    const aiConfig = await this.getAIConfig();
+    const aiConfig = llmOverrides?.provider ? null : await this.getAIConfig();
 
-    if (!aiConfig) {
+    if (!aiConfig && !llmOverrides?.provider) {
       throw new AppError('No AI provider configured', 500);
     }
 
@@ -618,6 +726,8 @@ export class AgentAssignmentService {
     ];
 
     let aiResponse: string;
+    let resolvedModel: string = 'unknown';
+    let resolvedProvider: string = 'unknown';
     let promptTokens: number | undefined;
     let completionTokens: number | undefined;
     let totalTokens: number | undefined;
@@ -627,14 +737,34 @@ export class AgentAssignmentService {
     const temperature = config.temperature ?? undefined;
 
     try {
-      if (aiConfig.provider === 'openai') {
-        const result = await this.chatWithOpenAI(chatMessages, aiConfig.model, aiConfig.apiKey, temperature, aiConfig.baseUrl);
+      if (llmOverrides?.provider) {
+        // Use unified LLM service with per-request override
+        const llmResponse = await llmService.chat({
+          messages: chatMessages,
+          model: llmOverrides.model,
+          provider: llmOverrides.provider as any,
+          temperature,
+          maxTokens: 2000,
+        });
+        const content = llmResponse.choices[0]?.message?.content;
+        aiResponse = typeof content === 'string' ? content : 'No response generated';
+        resolvedModel = llmResponse.model;
+        resolvedProvider = llmResponse.provider;
+        promptTokens = llmResponse.usage?.promptTokens;
+        completionTokens = llmResponse.usage?.completionTokens;
+        totalTokens = llmResponse.usage?.totalTokens;
+      } else if (aiConfig!.provider === 'openai') {
+        const result = await this.chatWithOpenAI(chatMessages, aiConfig!.model, aiConfig!.apiKey, temperature, aiConfig!.baseUrl);
         aiResponse = result.content;
+        resolvedModel = aiConfig!.model;
+        resolvedProvider = aiConfig!.provider;
         promptTokens = result.promptTokens;
         completionTokens = result.completionTokens;
         totalTokens = result.totalTokens;
       } else {
-        aiResponse = await this.chatWithGemini(chatMessages, aiConfig.model, aiConfig.apiKey, temperature);
+        aiResponse = await this.chatWithGemini(chatMessages, aiConfig!.model, aiConfig!.apiKey, temperature);
+        resolvedModel = aiConfig!.model;
+        resolvedProvider = aiConfig!.provider;
       }
     } catch (error: any) {
       // Log error
@@ -680,8 +810,8 @@ export class AgentAssignmentService {
         role: 'assistant',
         content: aiResponse,
         messageIndex: messageIndex + 1,
-        aiModel: aiConfig.model,
-        aiProvider: aiConfig.provider,
+        aiModel: resolvedModel,
+        aiProvider: resolvedProvider,
         promptTokens,
         completionTokens,
         totalTokens,
@@ -714,8 +844,8 @@ export class AgentAssignmentService {
       messageContent: message,
       responseContent: aiResponse,
       responseTime: responseTimeMs / 1000,
-      aiModel: aiConfig.model,
-      aiProvider: aiConfig.provider,
+      aiModel: resolvedModel,
+      aiProvider: resolvedProvider,
       promptTokens,
       completionTokens,
       totalTokens,
@@ -744,8 +874,8 @@ export class AgentAssignmentService {
         assistantMessage: aiResponse,
         messageLength: message.length,
         responseLength: aiResponse.length,
-        aiModel: aiConfig.model,
-        aiProvider: aiConfig.provider,
+        aiModel: resolvedModel,
+        aiProvider: resolvedProvider,
         responseTimeMs,
       },
       sessionId: context.sessionId,
@@ -761,7 +891,7 @@ export class AgentAssignmentService {
         messageIndex: messageIndex + 1,
         createdAt: assistantMessage.createdAt,
       },
-      model: aiConfig.model,
+      model: resolvedModel,
       responseTime: responseTimeMs / 1000,
     };
   }
@@ -1091,6 +1221,274 @@ export class AgentAssignmentService {
     if (!enrollment) {
       throw new AppError('You must be enrolled to submit', 403);
     }
+  }
+
+  // =============================================================================
+  // DATASET GENERATION
+  // =============================================================================
+
+  async generateDataset(
+    assignmentId: number,
+    userId: number,
+    description: string,
+    context: EventContext,
+    llmOverrides?: { model?: string; provider?: string }
+  ) {
+    const config = await prisma.studentAgentConfig.findUnique({
+      where: { assignmentId_userId: { assignmentId, userId } },
+      include: { assignment: { include: { course: { select: { id: true, title: true } } } } },
+    });
+    if (!config) {
+      throw new AppError('Agent config not found', 404);
+    }
+
+    const agentPrompt = this.buildSystemPrompt(config);
+
+    // Resolve provider: prefer openai, fall back to default
+    const datasetProvider = llmOverrides?.provider || await this.resolveDatasetProvider();
+
+    // Step 1: Intent classification (fast, small call)
+    const classifyResponse = await llmService.chat({
+      messages: [
+        {
+          role: 'system',
+          content: `You are an intent classifier. Determine if the user's message is a valid dataset generation request.
+
+A VALID request describes what kind of tabular data to generate — it mentions data, columns, rows, records, samples, survey responses, students, measurements, or similar concepts that can be represented as a CSV table.
+
+INVALID requests include: greetings, casual conversation, questions not about data, jokes, code requests, general chat, or anything that does not ask for generating structured tabular data.
+
+Respond with ONLY one word: "valid" or "invalid". Nothing else.`,
+        },
+        { role: 'user', content: description },
+      ],
+      maxTokens: 10,
+      temperature: 0,
+      ...(datasetProvider ? { provider: datasetProvider as any } : {}),
+      ...(llmOverrides?.model ? { model: llmOverrides.model } : {}),
+    });
+
+    const classifyResult = (typeof classifyResponse.choices[0]?.message?.content === 'string'
+      ? classifyResponse.choices[0].message.content : '').trim().toLowerCase();
+
+    if (classifyResult !== 'valid') {
+      throw new AppError(
+        'Your request doesn\'t appear to be about generating a dataset. Please describe the dataset you\'d like to create — for example: "Generate 50 student survey responses with columns for age, gender, and motivation score".',
+        400
+      );
+    }
+
+    // Step 2: Generate the dataset
+    const systemPrompt = `${agentPrompt}
+
+---
+
+## Dataset Generation Task
+
+You are now being asked to generate a synthetic dataset. Use your persona, knowledge, and expertise to create realistic, diverse data.
+
+You MUST respond with ONLY a JSON object — no markdown, no code fences, no explanation outside the JSON. The JSON object must have exactly two keys:
+
+{
+  "explanation": "A 2-3 sentence description of the dataset, including what each column represents.",
+  "rows": [
+    {"column1": "value1", "column2": "value2"},
+    {"column1": "value3", "column2": "value4"}
+  ]
+}
+
+CRITICAL RULES:
+- Output ONLY a JSON object. No markdown, no code fences, no text before or after.
+- "rows" must be a JSON array of objects. Every object must have the same keys.
+- ROW COUNT: The user will request a specific number of rows. You MUST generate at least 90% of the requested amount and no more than 110%. For example, if the user asks for 100 rows, generate between 90 and 110 rows. If the user asks for 50, generate between 45 and 55. Do NOT stop early at 5 or 10 rows. Do NOT summarize or truncate.
+- If the user does not specify a number, generate exactly 20 rows.
+- Make data realistic and varied — no repetitive patterns. Each row should have unique, plausible values.
+- Stay in character: the data should reflect your domain expertise.`;
+
+    // Estimate tokens needed: ~50-80 tokens per row depending on columns
+    const rowCountMatch = description.match(/\b(\d+)\s*(?:rows?|items?|entries|samples?|responses?|records?|students?|people|users?|participants?)\b/i);
+    const estimatedRows = rowCountMatch ? parseInt(rowCountMatch[1]) : 20;
+    const maxTokens = Math.max(4000, Math.min(estimatedRows * 100, 16000));
+
+    const llmResponse = await llmService.chat({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: description },
+      ],
+      temperature: config.temperature ?? 0.7,
+      maxTokens,
+      ...(datasetProvider ? { provider: datasetProvider as any } : {}),
+      ...(llmOverrides?.model ? { model: llmOverrides.model } : {}),
+    });
+
+    const rawContent = llmResponse.choices[0]?.message?.content;
+    const contentStr = typeof rawContent === 'string' ? rawContent : '';
+
+    const { explanation, rows } = this.parseDatasetJsonResponse(contentStr);
+    if (rows.length === 0) {
+      throw new AppError('The AI could not generate a valid dataset from your description. Please be more specific about the data you need — include column names, data types, and the number of rows.', 400);
+    }
+    const csv = this.jsonRowsToCsv(rows);
+
+    // Save CSV file
+    const uploadsDir = path.join(process.cwd(), 'uploads', 'datasets');
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    const fileName = `${randomUUID()}.csv`;
+    const filePath = path.join(uploadsDir, fileName);
+    fs.writeFileSync(filePath, csv, 'utf-8');
+    const fileSize = Buffer.byteLength(csv, 'utf-8');
+    const rowCount = csv.trim().split('\n').length - 1; // minus header
+
+    const dataset = await prisma.userDataset.create({
+      data: {
+        userId,
+        agentConfigId: config.id,
+        name: `dataset-${fileName}`,
+        description,
+        fileName,
+        fileUrl: `/uploads/datasets/${fileName}`,
+        fileSize,
+        fileType: 'text/csv',
+        rowCount: rowCount > 0 ? rowCount : null,
+        aiModel: llmResponse.model,
+        aiProvider: llmResponse.provider,
+        agentPrompt: agentPrompt.slice(0, 5000),
+        generationConfig: JSON.stringify({
+          temperature: config.temperature ?? 0.7,
+          maxTokens: 4000,
+          agentConfigId: config.id,
+          agentConfigVersion: config.version,
+        }),
+        status: 'completed',
+      },
+    });
+
+    // CSV preview: first 5 rows
+    const lines = csv.trim().split('\n');
+    const csvPreview = lines.slice(0, 6).join('\n');
+
+    this.logAgentActivity({
+      userId,
+      verb: 'created',
+      objectId: dataset.id,
+      objectTitle: dataset.name,
+      courseId: config.assignment.courseId,
+      assignmentId: config.assignmentId,
+      assignmentTitle: config.assignment.title,
+      extensions: {
+        action: 'dataset_generated',
+        rowCount: dataset.rowCount,
+        aiModel: dataset.aiModel,
+        aiProvider: dataset.aiProvider,
+      },
+      context,
+    });
+
+    return { dataset, explanation, csvPreview };
+  }
+
+  async renameDataset(datasetId: number, userId: number, name: string) {
+    const dataset = await prisma.userDataset.findUnique({ where: { id: datasetId } });
+    if (!dataset) throw new AppError('Dataset not found', 404);
+    if (dataset.userId !== userId) throw new AppError('Unauthorized', 403);
+
+    return prisma.userDataset.update({
+      where: { id: datasetId },
+      data: { name },
+    });
+  }
+
+  async deleteDataset(datasetId: number, userId: number) {
+    const dataset = await prisma.userDataset.findUnique({ where: { id: datasetId } });
+    if (!dataset) throw new AppError('Dataset not found', 404);
+    if (dataset.userId !== userId) throw new AppError('Unauthorized', 403);
+
+    // Delete the file
+    const filePath = path.join(process.cwd(), 'uploads', 'datasets', dataset.fileName);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+    return prisma.userDataset.delete({ where: { id: datasetId } });
+  }
+
+  async getAllMyDatasets(userId: number) {
+    return prisma.userDataset.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getMyDatasets(assignmentId: number, userId: number) {
+    const config = await prisma.studentAgentConfig.findUnique({
+      where: { assignmentId_userId: { assignmentId, userId } },
+      select: { id: true },
+    });
+    if (!config) return [];
+
+    return prisma.userDataset.findMany({
+      where: { agentConfigId: config.id },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  private async resolveDatasetProvider(): Promise<string | undefined> {
+    try {
+      const openai = await llmService.getProvider('openai');
+      if (openai?.isEnabled) return 'openai';
+    } catch {}
+    return undefined; // falls back to default provider
+  }
+
+  private parseDatasetJsonResponse(raw: string): { explanation: string; rows: Record<string, unknown>[] } {
+    const fallback = { explanation: 'Dataset generated by your AI agent.', rows: [] as Record<string, unknown>[] };
+
+    const tryParse = (text: string) => {
+      try {
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed.rows) && parsed.rows.length > 0) {
+          return { explanation: parsed.explanation || fallback.explanation, rows: parsed.rows };
+        }
+      } catch {}
+      return null;
+    };
+
+    // Try direct JSON parse
+    const direct = tryParse(raw);
+    if (direct) return direct;
+
+    // Try extracting JSON from markdown code block
+    const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      const fromBlock = tryParse(jsonMatch[1].trim());
+      if (fromBlock) return fromBlock;
+    }
+
+    // Try extracting JSON object from surrounding text
+    const braceMatch = raw.match(/\{[\s\S]*"rows"\s*:\s*\[[\s\S]*\][\s\S]*\}/);
+    if (braceMatch) {
+      const fromBrace = tryParse(braceMatch[0]);
+      if (fromBrace) return fromBrace;
+    }
+
+    return fallback;
+  }
+
+  private jsonRowsToCsv(rows: Record<string, unknown>[]): string {
+    if (rows.length === 0) return '';
+
+    const headers = Object.keys(rows[0]);
+    const escapeField = (val: unknown): string => {
+      const str = val === null || val === undefined ? '' : String(val);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const lines = [headers.join(',')];
+    for (const row of rows) {
+      lines.push(headers.map((h) => escapeField(row[h])).join(','));
+    }
+    return lines.join('\n');
   }
 
   private buildSystemPrompt(config: {

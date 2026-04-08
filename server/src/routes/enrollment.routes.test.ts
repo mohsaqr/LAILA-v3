@@ -107,6 +107,28 @@ describe('Enrollment Routes', () => {
       expect(response.body.enrolled).toBe(false);
       expect(response.body.data).toBeNull();
     });
+
+    it('should return virtual enrollment with course data for privileged users', async () => {
+      const mockVirtualEnrollment = {
+        id: -5,
+        userId: 1,
+        courseId: 5,
+        status: 'active',
+        isVirtualEnrollment: true,
+        course: { id: 5, title: 'Test Course', slug: 'test-course' },
+      };
+      vi.mocked(enrollmentService.getEnrollment).mockResolvedValue(mockVirtualEnrollment as any);
+
+      const response = await request(app)
+        .get('/api/enrollments/course/5')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.enrolled).toBe(true);
+      expect(response.body.data.course.title).toBe('Test Course');
+      expect(response.body.data.isVirtualEnrollment).toBe(true);
+      expect(enrollmentService.getEnrollment).toHaveBeenCalledWith(1, 5);
+    });
   });
 
   // ===========================================================================

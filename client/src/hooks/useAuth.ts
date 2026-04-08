@@ -54,6 +54,17 @@ export const useAuth = () => {
     return response;
   };
 
+  const forgotPassword = async (email: string) => {
+    const response = await authApi.forgotPassword(email);
+    return response;
+  };
+
+  const resetPassword = async (email: string, code: string, newPassword: string) => {
+    const response = await authApi.resetPassword({ email, code, newPassword });
+    setAuth(response.user, response.token);
+    return response;
+  };
+
   const signOut = async () => {
     try {
       await authApi.logout();
@@ -80,6 +91,8 @@ export const useAuth = () => {
     login,
     register,
     verifyCode,
+    forgotPassword,
+    resetPassword,
     logout: signOut,
     // Effective roles (affected by viewAs)
     isAdmin: effectiveRole.isAdmin,

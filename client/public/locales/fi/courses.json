@@ -310,6 +310,14 @@
   "max_file_size": "Maksimikoko: {{size}}MB",
   "save_draft": "Tallenna luonnos",
   "submit_assignment": "Palauta tehtävä",
+  "resubmit": "Palauta uudelleen",
+  "grace_period_deadline": "Lisäajan määräaika",
+  "grace_period_warning_title": "Lisäaika",
+  "grace_period_warning": "Alkuperäinen määräaika on umpeutunut. Palautat tehtävän lisäajalla.",
+  "grace_period_ends": "Lisäaika päättyy: {{date}} klo {{time}}",
+  "grace_period_until": "Lisäaika {{date}} klo {{time}} asti",
+  "grace_period_status": "Lisäaika",
+  "grace_period_expired": "Lisäaika on päättynyt. Et voi enää palauttaa tehtävää.",
   "draft_saved": "Luonnos tallennettu",
   "failed_save_draft": "Luonnoksen tallennus epäonnistui",
   "assignment_submitted": "Tehtävä palautettu onnistuneesti!",
@@ -982,5 +990,6 @@
   "lab_ai_look_for": "Mitä minun tulisi etsiä?",
   "lab_ai_compare": "Vertaile solmuja",
   "lab_ai_thinking": "Ajattelee...",
-  "lab_ai_collapse": "Pienennä"
+  "lab_ai_collapse": "Pienennä",
+  "my_datasets": "Omat tietoaineistot"
 }

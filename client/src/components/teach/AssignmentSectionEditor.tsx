@@ -28,6 +28,7 @@ interface AssignmentFormData {
   instructions: string;
   submissionType: 'text' | 'file' | 'mixed';
   dueDate: string;
+  gracePeriodDeadline: string;
   points: number;
   isPublished: boolean;
 }
@@ -38,6 +39,7 @@ const initialFormData: AssignmentFormData = {
   instructions: '',
   submissionType: 'text',
   dueDate: '',
+  gracePeriodDeadline: '',
   points: 100,
   isPublished: false,
 };
@@ -48,6 +50,7 @@ const assignmentToFormData = (a: Assignment): AssignmentFormData => ({
   instructions: a.instructions ?? '',
   submissionType: (a.submissionType === 'ai_agent' ? 'text' : a.submissionType) as 'text' | 'file' | 'mixed',
   dueDate: a.dueDate ? new Date(a.dueDate).toISOString().slice(0, 16) : '',
+  gracePeriodDeadline: a.gracePeriodDeadline ? new Date(a.gracePeriodDeadline).toISOString().slice(0, 16) : '',
   points: a.points,
   isPublished: a.isPublished,
 });
@@ -261,6 +264,7 @@ export const AssignmentSectionEditor = ({
         moduleId: moduleId ?? null,
         lectureId: lectureId ?? null,
         dueDate: data.dueDate ? data.dueDate + ':00.000Z' : null,
+        gracePeriodDeadline: data.gracePeriodDeadline ? data.gracePeriodDeadline + ':00.000Z' : null,
       }),
     onSuccess: async (newAssignment) => {
       // Upload any staged files
@@ -296,6 +300,7 @@ export const AssignmentSectionEditor = ({
       assignmentsApi.updateAssignment(selectedAssignmentId!, {
         ...data,
         dueDate: data.dueDate ? data.dueDate + ':00.000Z' : null,
+        gracePeriodDeadline: data.gracePeriodDeadline ? data.gracePeriodDeadline + ':00.000Z' : null,
       }),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
@@ -467,7 +472,19 @@ export const AssignmentSectionEditor = ({
           label={t('due_date')}
           type="datetime-local"
           value={formData.dueDate}
-          onChange={e => handleFormChange('dueDate', e.target.value)}
+          onChange={e => {
+            handleFormChange('dueDate', e.target.value);
+            if (!e.target.value) handleFormChange('gracePeriodDeadline', '');
+          }}
+        />
+
+        <Input
+          label={t('courses:grace_period_deadline', { defaultValue: 'Grace Period Deadline' })}
+          type="datetime-local"
+          value={formData.gracePeriodDeadline}
+          onChange={e => handleFormChange('gracePeriodDeadline', e.target.value)}
+          disabled={!formData.dueDate}
+          min={formData.dueDate || undefined}
         />
 
         <div className="flex items-center gap-3">
@@ -707,7 +724,19 @@ export const AssignmentSectionEditor = ({
             label={t('due_date')}
             type="datetime-local"
             value={formData.dueDate}
-            onChange={e => handleFormChange('dueDate', e.target.value)}
+            onChange={e => {
+              handleFormChange('dueDate', e.target.value);
+              if (!e.target.value) handleFormChange('gracePeriodDeadline', '');
+            }}
+          />
+
+          <Input
+            label={t('courses:grace_period_deadline', { defaultValue: 'Grace Period Deadline' })}
+            type="datetime-local"
+            value={formData.gracePeriodDeadline}
+            onChange={e => handleFormChange('gracePeriodDeadline', e.target.value)}
+            disabled={!formData.dueDate}
+            min={formData.dueDate || undefined}
           />
 
           <div className="flex items-center gap-3">

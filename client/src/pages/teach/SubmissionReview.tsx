@@ -176,6 +176,14 @@ export const SubmissionReview = () => {
                       : t('no_due_date')}
                   </span>
                 </div>
+                {assignment.gracePeriodDeadline && (
+                  <div className="flex items-center gap-2 text-amber-600">
+                    <Clock className="w-4 h-4" />
+                    <span>
+                      {t('courses:grace_period_deadline', { defaultValue: 'Grace Period Deadline' })}: {formatDate(assignment.gracePeriodDeadline, true)}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -239,8 +247,20 @@ export const SubmissionReview = () => {
 
                     {/* Submission date */}
                     {config.submittedAt && (
-                      <div className="mt-2 text-xs text-gray-500">
+                      <div className={`mt-2 text-xs ${
+                        assignment.dueDate && assignment.gracePeriodDeadline
+                          && new Date(config.submittedAt) > new Date(assignment.dueDate)
+                          && new Date(config.submittedAt) <= new Date(assignment.gracePeriodDeadline)
+                          ? 'text-amber-600 font-medium'
+                          : assignment.dueDate && new Date(config.submittedAt) > new Date(assignment.dueDate)
+                          ? 'text-red-500 font-medium'
+                          : 'text-gray-500'
+                      }`}>
                         {t('submitted')} {formatDate(config.submittedAt)}
+                        {assignment.dueDate && assignment.gracePeriodDeadline
+                          && new Date(config.submittedAt) > new Date(assignment.dueDate)
+                          && new Date(config.submittedAt) <= new Date(assignment.gracePeriodDeadline)
+                          && ` (${t('courses:grace_period_status', { defaultValue: 'Grace Period' })})`}
                       </div>
                     )}
 
@@ -311,8 +331,20 @@ export const SubmissionReview = () => {
                     </div>
 
                     {/* Submission date */}
-                    <div className="mt-2 text-xs text-gray-500">
+                    <div className={`mt-2 text-xs ${
+                      assignment.dueDate && assignment.gracePeriodDeadline
+                        && new Date(submission.submittedAt) > new Date(assignment.dueDate)
+                        && new Date(submission.submittedAt) <= new Date(assignment.gracePeriodDeadline)
+                        ? 'text-amber-600 font-medium'
+                        : assignment.dueDate && new Date(submission.submittedAt) > new Date(assignment.dueDate)
+                        ? 'text-red-500 font-medium'
+                        : 'text-gray-500'
+                    }`}>
                       {t('submitted_at', { date: formatDate(submission.submittedAt) })}
+                      {assignment.dueDate && assignment.gracePeriodDeadline
+                        && new Date(submission.submittedAt) > new Date(assignment.dueDate)
+                        && new Date(submission.submittedAt) <= new Date(assignment.gracePeriodDeadline)
+                        && ` (${t('courses:grace_period_status', { defaultValue: 'Grace Period' })})`}
                     </div>
 
                     {/* Existing Feedback */}

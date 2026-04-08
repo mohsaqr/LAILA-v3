@@ -574,8 +574,9 @@ export const activityLogApi = {
     return response.data.data;
   },
 
-  getFilterOptions: async (): Promise<ActivityLogFilterOptions> => {
-    const response = await apiClient.get<any>('/activity-log/filter-options');
+  getFilterOptions: async (courseId?: number): Promise<ActivityLogFilterOptions> => {
+    const params = courseId ? `?courseId=${courseId}` : '';
+    const response = await apiClient.get<any>(`/activity-log/filter-options${params}`);
     return response.data.data;
   },
 

@@ -1,4 +1,37 @@
-# Session Handoff — 2026-03-17
+# Session Handoff — 2026-04-07
+
+## Completed (2026-04-07)
+- **Prisma local/prod directory restructure**: Split `server/prisma/` into `local/` (SQLite, gitignored) and `prod/` (PostgreSQL, committed). Each has its own `schema.prisma` and `migrations/`. `setup:local` script generates local schema from prod. All package.json scripts and deploy script updated. Eliminates the SQLite/PostgreSQL migration lock conflict that prevented `npx prisma migrate dev` from working locally.
+
+## Completed (2026-03-31)
+- **Assignment grace period deadline**: Added optional `gracePeriodDeadline` column to `Assignment` model. When set, students can still submit between the due date and the grace deadline (yellow warning shown). Submissions blocked after grace deadline. Server: validation in create/update ensures grace > due. `submitAssignment` and `submitAgentConfig` use 3-state check (on time / grace / blocked). Client: all assignment views (AssignmentView, SnaExercise, TnaExercise, StudentAgentBuilder, UseMyAgent) use `isInGracePeriod`/`isFullyPastDue`. Grace period input in all 4 instructor forms (AssignmentManager, ModuleItem, AssignmentSectionEditor). i18n in 4 locales.
+
+## Completed (2026-03-27)
+- **Assignment resubmission before grading**: Students can now resubmit any assignment type (text/file, lab, SNA exercise, TNA exercise) until the instructor grades it. Server: removed the resubmission block in `assignment.service.ts` (graded guard remains). Client: added "Resubmit" button/flow to `AssignmentView.tsx` (normal + lab), `LabAssignmentPanel.tsx`, `SnaExercise.tsx`, `TnaExercise.tsx`, and `LabRunner.tsx`. i18n `resubmit` key in 4 locales.
+
+## Completed (2026-03-26)
+- **Forgot password feature**: 3-step flow (email → 6-digit verification code → new password). Reuses `VerificationCode` model with 10-minute expiry. Auto-login after reset. New page at `/forgot-password`, link on login page, 401 interceptor exclusion added.
+- **All users can enroll and complete lectures**: Removed role-based restrictions. Admins see the Enroll button (no longer forced `enrolled: true`). `markLectureComplete` and `getProgress` work for all enrolled users. Complete button visible to everyone.
+
+## Completed (2026-03-25)
+- **SNA exercise page assignment integration**: Full assignment header card with breadcrumbs, deadline, status badge, submit button, submitted/graded states, and grade card — matching the lab template assignment page design.
+- **Hide interactive labs when linked as assignments**: Interactive lab entries (TNA/SNA) in module sections are hidden when a published assignment with matching `agentRequirements` exists. Added `agentRequirements` to course `getCourseById` select.
+- **Display standalone CustomLabs**: `LabAssignment` records without an assignment now appear as lab items on the course page, linking to `/labs/{id}?courseId={id}`.
+- **Fix enrollment route for admins/instructors**: Route now calls `getEnrollment` for all users, returning course data in breadcrumbs.
+- **Removed redundant `assignmentId` from exercise redirect URLs**.
+- **SNA sidebar**: Custom network/AI buttons on separate lines.
+- **Past-due submit hidden for all lab types**: Lab templates, SNA, TNA all hide submit button and panel when due date passed.
+- **SNA report capture overhaul**: SVG serialization for network graph (no clipping), separate html2canvas for analysis, excludes guide/AI/buttons, analysis-specific keys allow multiple centrality captures.
+- **Network graph node clipping fix**: `TnaNetworkGraph` padding accounts for max centrality-scaled node radius.
+- **Submission content visible after submit**: Lab assignments and SNA exercises show submitted text/files (with PDF preview) for both submitted and graded states.
+- **TNA exercise due date/submission state**: Added submission query and past-due/submitted/graded gating.
+
+## Completed (2026-03-24)
+- **Lab assignment submission flow overhaul**: Hid duplicate "Your Submission" card for lab assignments. Moved submit button to page bottom. Panel closes on submit and page refreshes. Submitted/graded states now show correctly (waiting for grading banner, grade card with feedback).
+- **PDF generation fixes**: Code renders as formatted text (not broken screenshot). Each snapshot captures code + output as a pair. Fixed horizontal stretching (aspect ratio preserved). Excluded AI Interpretation and buttons from captures. PDF filename uses `{course}_{assignment}_{student}.pdf`.
+- **Fix PDF preview in Chrome**: Removed `sandbox` attribute from PDF iframes in student and instructor views.
+- **Grade card layout**: Moved from sidebar column to bottom of main content for all assignment types.
+- **Allow all users to enroll**: Removed server restriction blocking admin/instructor enrollment. Enroll button shows for any non-enrolled authenticated user. 2 new tests.
 
 ## Completed (2026-03-17)
 - **Restrict team member assignment to instructors**: "Add Team Member" dropdown on course edit page now only shows instructors (not students). Added `role` filter to `GET /users` API. Server-side validation rejects students in `assignRole()`. 12 new tests.
@@ -79,8 +112,9 @@
 - **Add surveys to course modules**: Many-to-many `ModuleSurvey` model linking surveys to modules. "Add Survey" button in module footer opens searchable modal showing published surveys not yet linked. Surveys display with indigo styling and remove button. Full server CRUD with authorization. 11 tests added.
 
 ## Current State
-- Branch: `issues_version1`
+- Branch: `dev`
 - Client: compiles cleanly (only pre-existing type warnings in unrelated files)
+- Server: 89 pre-existing test failures (section, module, lecture, forum, course, assignment, enrollment services — all related to missing `prisma.courseRole` mock), not caused by this session's changes
 - New component: `client/src/components/layout/RequireEnrollment.tsx` — reusable enrollment guard for routes
 
 ## Key Decisions
@@ -93,6 +127,19 @@
 - Registration uses two-step flow: register → verify code. Hardcoded code `123456` until SMTP is configured. Code expires after 2 minutes
 - Instructor submission routes unified: `/teach/courses/{ID}/assignments/{ID}/submissions` handles both regular and agent types
 - Student-facing agent routes (`/courses/{ID}/agent-assignments/{ID}`) unchanged
+- Lab assignments hide the generic "Your Submission" card — submission goes through `LabAssignmentPanel` only
+- `LabRunnerUI` accepts `hideSubmit` prop to suppress submit button when embedded in `AssignmentView` and already submitted/graded
+- PDF report items use code content as key: same code = recapture (overwrite), different code = new entry
+- All users (admins, instructors, students) can enroll in any published course — no role-based enrollment restrictions
+- Grade card displays inline at bottom of assignment page, not in a sidebar column
+- Interactive labs (TNA/SNA) are hidden from module content when a published assignment with matching `agentRequirements` exists — avoids duplicate entries
+- Standalone `CustomLab` (via `LabAssignment` with `assignmentId: null`) appears as lab content item, links to `/labs/{id}?courseId={id}`
+- Enrollment route no longer short-circuits for admins/instructors — always calls `getEnrollment` to return course data
+- Exercise pages find their assignment automatically via `agentRequirements` — no `assignmentId` query param needed
+- SNA report capture uses SVG serialization for the network graph (bypasses html2canvas clipping) and html2canvas for analysis cards; combined into single image
+- SNA capture keys are analysis-specific (e.g., `centrality-InDegree-chart`) so multiple centrality measures can coexist in the report
+- `TnaNetworkGraph` padding uses `maxNodeScale` to prevent centrality-scaled nodes from being clipped
+- Submission content (text + files) shown to students after submit for all assignment types (lab, SNA, TNA), not just after grading
 
 ## Open Issues
 - Lectures, assignments, quizzes, codeLabs, codeBlocks in seed.ts still use `prisma.*.create()` — will create duplicates on re-seed. Low priority.
@@ -100,6 +147,14 @@
 
 ## Context
 - Dev servers: client on port 5174, server on port 5001
-- SQLite database — timestamps stored as epoch milliseconds (integers)
+- Database: `prisma/prod/schema.prisma` (PostgreSQL, source of truth), `prisma/local/schema.prisma` (SQLite, gitignored, auto-generated)
+- Schema change workflow:
+  1. Edit `prisma/prod/schema.prisma`
+  2. `npm run setup:local` (regenerate local schema)
+  3. `npm run db:push` (sync local SQLite)
+  4. `npm run db:migrate:prod -- --name <name>` (generate PostgreSQL migration file — no DB needed)
+  5. Commit schema + migration file
+- Production deployment: `npx prisma migrate status --schema prisma/prod/schema.prisma` to check pending, then `npx prisma migrate deploy --schema prisma/prod/schema.prisma` to apply
+- `npm run dev` auto-runs `setup:local` to regenerate local schema
 - Pre-push hook runs all tests
 - 4 locales: en, fi, ar, es

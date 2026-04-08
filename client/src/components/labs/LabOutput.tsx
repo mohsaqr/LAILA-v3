@@ -20,6 +20,8 @@ interface LabOutputProps {
   templateTitle?: string;
   /** The language of the lab (r or python) — used for code fence in AI prompt */
   language?: 'r' | 'python';
+  /** Ref attached to the output content area only (excludes AI interpretation) */
+  outputRef?: React.RefObject<HTMLDivElement>;
 }
 
 // Storage key for interpretations
@@ -63,7 +65,7 @@ const ACTION_PROMPTS = {
 
 type ActionType = keyof typeof ACTION_PROMPTS;
 
-export const LabOutput = ({ outputs, onClear, labId, code, templateTitle, language = 'r' }: LabOutputProps) => {
+export const LabOutput = ({ outputs, onClear, labId, code, templateTitle, language = 'r', outputRef }: LabOutputProps) => {
   const { isDark } = useTheme();
   const [selectedAction, setSelectedAction] = useState<ActionType | null>(null);
   const [isInterpreting, setIsInterpreting] = useState(false);
@@ -196,6 +198,7 @@ Provide your response:`;
   return (
     <div className="space-y-4">
       <div
+        ref={outputRef}
         className="rounded-lg border overflow-hidden"
         style={{ borderColor: colors.border }}
       >

@@ -31,8 +31,8 @@ LAILA (Learning and AI-powered Instructional Analytics) is a comprehensive learn
 | Express.js | Web framework |
 | TypeScript | Type safety |
 | Prisma | ORM & database toolkit |
-| SQLite | Database (development) |
-| PostgreSQL | Database (production) |
+| SQLite | Database (local dev, `prisma/local/`) |
+| PostgreSQL | Database (production, `prisma/prod/`) |
 | Socket.IO | Real-time WebSocket server |
 | JWT | Authentication |
 | Multer | File uploads |
@@ -68,8 +68,13 @@ LAILA-v3/
 │
 ├── server/                    # Backend Express application
 │   ├── prisma/
-│   │   ├── schema.prisma     # Database schema
-│   │   └── dev.db            # SQLite database
+│   │   ├── prod/
+│   │   │   ├── schema.prisma       # PostgreSQL schema (production, source of truth)
+│   │   │   └── migrations/         # PostgreSQL migration files (committed)
+│   │   ├── local/                  # Gitignored — auto-generated for local dev
+│   │   │   ├── schema.prisma       # SQLite schema (generated from prod)
+│   │   │   ├── dev.db              # SQLite database
+│   │   │   └── migrations/         # SQLite migration files
 │   ├── src/
 │   │   ├── middleware/       # Express middleware
 │   │   ├── routes/           # API route handlers
@@ -375,8 +380,8 @@ model LearningActivityLog {
 │  ┌─────────────────────────────────────────────────────────┐│
 │  │                   Database                              ││
 │  │                                                          ││
-│  │  SQLite (development) / PostgreSQL (production)          ││
-│  │  server/prisma/dev.db                                    ││
+│  │  SQLite (local dev)  → prisma/local/dev.db               ││
+│  │  PostgreSQL (prod)   → prisma/prod/schema.prisma         ││
 │  └─────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -496,6 +501,40 @@ All instructor submission review goes through unified routes:
 ```
 `SubmissionReview.tsx` checks `assignment.submissionType` and conditionally fetches via `assignmentsApi.getSubmissions()` or `agentAssignmentsApi.getAgentSubmissions()`.
 
+### 5c. Lab & Interactive Lab Assignment Flow
+
+Assignments can be linked to labs in two ways:
+
+**Lab Template Assignments** (R/Python labs via `LabAssignment` model):
+- `AssignmentView.tsx` embeds `LabRunnerUI` when `linkedLab` exists
+- The generic "Your Submission" card is hidden — submission goes through `LabAssignmentPanel`
+- `LabRunnerUI` accepts `hideSubmit` prop (true when submitted/graded/past due)
+- Students capture code+output snapshots → generate PDF report → submit via panel
+
+**Interactive Lab Assignments** (TNA/SNA exercises via `agentRequirements`):
+- `AssignmentView.tsx` redirects to `/courses/{id}/tna-exercise` or `/courses/{id}/sna-exercise`
+- Exercise pages find their assignment via `agentRequirements` field (no `assignmentId` query param needed)
+- Assignment header card shows deadline, points, status badge
+- Students capture analysis snapshots → generate PDF → submit via `LabAssignmentPanel`
+- SNA capture uses SVG serialization for the network graph (bypasses html2canvas clipping) + html2canvas for analysis cards
+- Capture keys are analysis-specific (e.g., `centrality-InDegree-chart`) allowing multiple captures
+
+**Standalone Labs** (no linked assignment):
+- `LabAssignment` records with `assignmentId: null` appear as lab items on the course page
+- Link to `/labs/{labId}?courseId={courseId}`
+- No submit button or report capture
+
+**Post-submission view** (all lab types):
+- Students see their submission content (text/HTML) and files (inline PDF preview)
+- "Waiting for grading" banner (submitted but not graded)
+- Grade card with score, percentage, instructor feedback (when graded)
+
+#### Assignment Resubmission
+Students can resubmit any assignment type (text/file, lab, SNA, TNA) **before the instructor grades it**:
+- Server: `submitAssignment()` upserts — graded submissions are blocked, submitted ones are overwritten
+- Client: A "Resubmit" button appears in the "waiting for grading" state, re-enabling the editor/panel
+- Once graded, submission is permanently locked (admin-only bypass)
+
 #### Due Date Timezone Convention
 Due dates use a "wall clock" pattern — stored as literal UTC, displayed with `timeZone: 'UTC'`:
 - **Save**: `datetime-local` value + `':00.000Z'` (no timezone conversion)
@@ -552,7 +591,7 @@ Due dates use a "wall clock" pattern — stored as literal UTC, displayed with `
 Course content is protected by enrollment checks at two levels:
 
 ### Server-Side (Service Layer)
-Services like `quiz.service`, `assignment.service`, `forum.service`, `lecture.service` check enrollment via `prisma.enrollment.findUnique()`. Admins bypass all checks; instructors bypass for their own courses. Throws `AppError('...', 403)` if student is not enrolled.
+Services like `quiz.service`, `assignment.service`, `forum.service`, `lecture.service` check enrollment via `prisma.enrollment.findUnique()`. Admins bypass content access checks; instructors bypass for their own courses. Throws `AppError('...', 403)` if student is not enrolled. All users (including admins/instructors) can enroll, complete lectures, and track progress — no role-based restrictions on enrollment or progress.
 
 ### Client-Side (Route Guard)
 `RequireEnrollment` component (`client/src/components/layout/RequireEnrollment.tsx`) wraps course content routes in `App.tsx`:
@@ -584,6 +623,8 @@ The `CollaborativeModule` component on `CourseDetails` page receives tutors as a
 | POST | /api/auth/verify-code | Verify 6-digit activation code (returns user + JWT) |
 | POST | /api/auth/resend-code | Resend activation code (2-minute expiry) |
 | POST | /api/auth/login | Login (blocked if email not verified) |
+| POST | /api/auth/forgot-password | Send 6-digit reset code to email (10-min expiry) |
+| POST | /api/auth/reset-password | Verify code + set new password (returns user + JWT) |
 | GET | /api/auth/profile | Get current user |
 
 ### Courses
@@ -687,16 +728,50 @@ cd ../client && npm install
 
 # Setup database
 cd server
-npx prisma db push
-npx prisma generate
+npm run setup:local        # Generate local SQLite schema from prod PostgreSQL schema
+npm run db:push            # Sync local SQLite database
 
-# Start development servers
-# Terminal 1:
-cd server && npm run dev
-
-# Terminal 2:
-cd client && npm run dev
+# Start development servers (auto-runs setup:local)
+npm run dev
 ```
+
+### Database Workflow
+
+**Schema changes (development):**
+```bash
+# 1. Edit the source of truth
+vim server/prisma/prod/schema.prisma
+
+# 2. Regenerate local SQLite schema (also runs automatically on npm run dev)
+npm run setup:local
+
+# 3. Sync local database
+npm run db:push
+
+# 4. Generate production migration file (no DB connection needed)
+npm run db:migrate:prod -- --name <descriptive_name>
+
+# 5. Commit both schema.prisma + the migration file
+```
+
+**Production deployment:**
+```bash
+# Check which migrations are pending
+npx prisma migrate status --schema prisma/prod/schema.prisma
+
+# Review pending migration SQL
+cat server/prisma/prod/migrations/<timestamp>_<name>/migration.sql
+
+# Apply pending migrations
+npx prisma migrate deploy --schema prisma/prod/schema.prisma
+```
+
+**Key rules:**
+- **Source of truth**: `prisma/prod/schema.prisma` (PostgreSQL)
+- **Local dev**: `prisma/local/schema.prisma` (SQLite) — auto-generated, gitignored
+- **Always generate a prod migration** after editing `prod/schema.prisma`
+- `migrate deploy` only applies new migrations (tracks state in `_prisma_migrations` table)
+- Never edit `prisma/local/schema.prisma` manually
 
 ### Build
 ```bash

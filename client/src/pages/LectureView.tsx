@@ -1,17 +1,17 @@
 import { useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Download, FileText, Sparkles, Upload, BookOpen, ChevronLeft, ChevronRight, CheckCircle, Circle } from 'lucide-react';
+import { Download, FileText, Sparkles, Upload, BookOpen, ChevronLeft, ChevronRight, CheckCircle, Circle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../api/courses';
 import { enrollmentsApi } from '../api/enrollments';
 import { resolveFileUrl } from '../api/client';
 import { useTheme } from '../hooks/useTheme';
-import { useAuth } from '../hooks/useAuth';
+
 import { Card, CardBody } from '../components/common/Card';
-import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
+import { Loading } from '../components/common/Loading';
 import { LectureAIHelper } from '../components/lecture';
 import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStudent';
 import { AssignmentSectionStudent } from '../components/course/AssignmentSectionStudent';
@@ -30,9 +30,9 @@ export const LectureView = () => {
   const { t } = useTranslation(['courses', 'common']);
   const { courseId, lectureId } = useParams<{ courseId: string; lectureId: string }>();
   const { isDark } = useTheme();
-  const { isAdmin, isInstructor } = useAuth();
+
   const queryClient = useQueryClient();
-  const isStudent = !isAdmin && !isInstructor;
+
 
   // Theme colors
   const colors = {
@@ -71,7 +71,7 @@ export const LectureView = () => {
   const { data: courseProgress } = useQuery({
     queryKey: ['courseProgress', courseId],
     queryFn: () => enrollmentsApi.getProgress(parseInt(courseId!)),
-    enabled: !!courseId && isStudent,
+    enabled: !!courseId,
     staleTime: 10000,
   });
 
@@ -109,9 +109,8 @@ export const LectureView = () => {
     }
   }, [lecture?.id, courseId, lectureId]);
 
-  // Find current module and lecture position for navigation
-  const currentModule = course?.modules?.find(m =>
-    m.lectures?.some(l => l.id === parseInt(lectureId!))
+  const currentModule = course?.modules?.find((m: any) =>
+    m.lectures?.some((l: any) => l.id === parseInt(lectureId!))
   );
 
   // Get all lectures in order across all modules for prev/next navigation
@@ -125,19 +124,6 @@ export const LectureView = () => {
   const prevLecture = currentIndex > 0 ? allLectures[currentIndex - 1] : null;
   const nextLecture = currentIndex < allLectures.length - 1 ? allLectures[currentIndex + 1] : null;
 
-  // Build breadcrumb items
-  const breadcrumbItems: Array<{ label: string; href?: string }> = [
-    { label: t('courses'), href: '/courses' },
-    { label: course?.title || t('course'), href: `/courses/${courseId}` },
-  ];
-
-  if (currentModule) {
-    breadcrumbItems.push({ label: currentModule.title });
-  }
-
-  if (lecture) {
-    breadcrumbItems.push({ label: lecture.title });
-  }
 
   if (isLoading) {
     return <Loading fullScreen text={t('loading_lecture')} />;
@@ -285,23 +271,21 @@ export const LectureView = () => {
   };
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: colors.bg }}>
-      {/* Header with Breadcrumb */}
-      <div className="sticky top-0 z-10" style={{ backgroundColor: colors.bgCard, borderBottom: `1px solid ${colors.border}` }}>
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-4">
-          <Link
-            to={`/courses/${courseId}`}
-            className="p-2 rounded-lg transition-colors flex-shrink-0 hover:bg-gray-100 dark:hover:bg-gray-800"
-            title="Back to course"
-          >
-            <ArrowLeft className="w-5 h-5" style={{ color: colors.textSecondary }} />
-          </Link>
-          <Breadcrumb items={breadcrumbItems} />
-        </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Breadcrumb */}
+      <div className="mb-6">
+        <Breadcrumb
+          items={[
+            { label: t('courses'), href: '/courses' },
+            { label: course?.title || t('course'), href: `/courses/${courseId}` },
+            ...(currentModule ? [{ label: currentModule.title }] : []),
+            ...(lecture ? [{ label: lecture.title }] : []),
+          ]}
+        />
       </div>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div>
         <Card>
           {/* Lecture Header */}
           <div className="px-6 py-4" style={{ borderBottom: `1px solid ${colors.borderLight}`, backgroundColor: colors.bgHeader }}>
@@ -373,8 +357,8 @@ export const LectureView = () => {
               </div>
             )}
 
-            {/* Complete button (students only) */}
-            {isStudent && (
+            {/* Complete button */}
+            {(
               <div className="mt-8 pt-6 flex justify-end" style={{ borderTop: `1px solid ${colors.border}` }}>
                 {isCompleted ? (
                   <div className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400 font-medium">

@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -50,6 +50,7 @@ model User {
   settings                    UserSetting[]
   userSubmissions             UserSubmission[]
   verificationCodes           VerificationCode[]
+  datasets                    UserDataset[]
 
   @@map("users")
 }
@@ -596,6 +597,7 @@ model Assignment {
   maxFileSize           Int?                   @map("max_file_size")
   allowedFileTypes      String?                @map("allowed_file_types")
   dueDate               DateTime?              @map("due_date")
+  gracePeriodDeadline   DateTime?              @map("grace_period_deadline")
   points                Int                    @default(100)
   weight                Float?                 @default(1.0)
   isPublished           Boolean                @default(false) @map("is_published")
@@ -983,6 +985,7 @@ model StudentAgentConfig {
   designEvents          AgentDesignEventLog[]
   gradeLogs             AgentGradeLog[]
   testConversations     AgentTestConversation[]
+  datasets              UserDataset[]
   submission            AssignmentSubmission?
   assignment            Assignment              @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
 
@@ -990,6 +993,32 @@ model StudentAgentConfig {
   @@index([assignmentId])
   @@index([userId])
   @@map("student_agent_configs")
+}
+
+model UserDataset {
+  id               Int                 @id @default(autoincrement())
+  userId           Int                 @map("user_id")
+  agentConfigId    Int?                @map("agent_config_id")
+  name             String
+  description      String?
+  fileName         String              @map("file_name")
+  fileUrl          String              @map("file_url")
+  fileSize         Int?                @map("file_size")
+  fileType         String?             @map("file_type")
+  rowCount         Int?                @map("row_count")
+  aiModel          String?             @map("ai_model")
+  aiProvider       String?             @map("ai_provider")
+  agentPrompt      String?             @map("agent_prompt")
+  generationConfig String?             @map("generation_config")
+  status           String              @default("completed")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agentConfig      StudentAgentConfig? @relation(fields: [agentConfigId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([agentConfigId])
+  @@map("user_datasets")
 }
 
 model AgentConfigurationLog {

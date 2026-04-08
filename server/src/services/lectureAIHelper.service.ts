@@ -396,7 +396,8 @@ ${lectureContent}`;
     message: string,
     userId: number,
     sessionId?: string,
-    isAdmin = false
+    isAdmin = false,
+    llmOverrides?: { model?: string; provider?: string }
   ): Promise<ChatResult> {
     // Verify access
     await this.verifyAccess(lectureId, userId, isAdmin);
@@ -421,6 +422,8 @@ ${lectureContent}`;
           module: `lecture-ai-helper-${lectureId}`,
           systemPrompt,
           conversationHistory,
+          model: llmOverrides?.model,
+          provider: llmOverrides?.provider,
         },
         userId
       );
@@ -567,7 +570,8 @@ ${lectureContent}`;
     userId: number,
     question: string,
     isAdmin = false,
-    pdfPageRanges?: PDFPageRanges
+    pdfPageRanges?: PDFPageRanges,
+    llmOverrides?: { model?: string; provider?: string }
   ): Promise<ExplainThread> {
     // Verify access
     await this.verifyAccess(lectureId, userId, isAdmin);
@@ -588,6 +592,8 @@ ${lectureContent}`;
           { role: 'user', content: question },
         ],
         module: 'lecture',
+        model: llmOverrides?.model,
+        provider: llmOverrides?.provider as any,
       });
       const content = llmResponse.choices[0]?.message?.content;
       aiResponse = typeof content === 'string' ? content : 'I apologize, but I was unable to generate a response.';
@@ -766,6 +772,7 @@ ${lectureContent}`;
           { role: 'user', content: question },
         ],
         module: 'lecture',
+        provider: 'lmstudio',
       });
       const content = llmResponse.choices[0]?.message?.content;
       aiResponse = typeof content === 'string' ? content : 'I apologize, but I was unable to generate a response.';

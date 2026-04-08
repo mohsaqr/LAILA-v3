@@ -153,8 +153,6 @@ export const TnaNetworkGraph = ({
   const svgW = svgH;
   const cx = svgW / 2;
   const cy = svgH / 2;
-  const padding = baseNodeRadius + 5;
-  const layoutRadius = Math.min(cx, cy) - padding;
 
   const colors = useMemo(() => {
     if (externalColorMap) return labels.map(l => externalColorMap[l] ?? '#888');
@@ -176,6 +174,10 @@ export const TnaNetworkGraph = ({
     const range = max - min || 1;
     return labels.map((_, i) => 0.6 + ((values[i] - min) / range) * 0.8);
   }, [centralityData, nodeSizeMetric, labels]);
+
+  const maxNodeScale = Math.max(...nodeScales);
+  const padding = baseNodeRadius * maxNodeScale + 10;
+  const layoutRadius = Math.min(cx, cy) - padding;
 
   const nodePositions = useMemo(() => {
     if (externalPositions && externalPositions.length === labels.length) return externalPositions;

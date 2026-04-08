@@ -248,6 +248,7 @@ export const ModuleItem = ({
     instructions: '',
     submissionType: 'text' as 'text' | 'file' | 'mixed',
     dueDate: '',
+    gracePeriodDeadline: '',
     points: 100,
     isPublished: false,
   });
@@ -259,6 +260,7 @@ export const ModuleItem = ({
         moduleId: module.id,
         lectureId,
         dueDate: form.dueDate ? form.dueDate + ':00.000Z' : null,
+        gracePeriodDeadline: form.gracePeriodDeadline ? form.gracePeriodDeadline + ':00.000Z' : null,
       });
       await coursesApi.createSection(lectureId, {
         type: 'assignment',
@@ -291,7 +293,7 @@ export const ModuleItem = ({
     setAssignmentLectureId(null);
     setAssignmentForm({
       title: '', description: '', instructions: '',
-      submissionType: 'text', dueDate: '', points: 100, isPublished: false,
+      submissionType: 'text', dueDate: '', gracePeriodDeadline: '', points: 100, isPublished: false,
     });
   };
 
@@ -940,7 +942,19 @@ export const ModuleItem = ({
             label={t('due_date')}
             type="datetime-local"
             value={assignmentForm.dueDate}
-            onChange={e => handleAssignmentFormChange('dueDate', e.target.value)}
+            onChange={e => {
+              handleAssignmentFormChange('dueDate', e.target.value);
+              if (!e.target.value) handleAssignmentFormChange('gracePeriodDeadline', '');
+            }}
+          />
+
+          <Input
+            label={t('courses:grace_period_deadline', { defaultValue: 'Grace Period Deadline' })}
+            type="datetime-local"
+            value={assignmentForm.gracePeriodDeadline}
+            onChange={e => handleAssignmentFormChange('gracePeriodDeadline', e.target.value)}
+            disabled={!assignmentForm.dueDate}
+            min={assignmentForm.dueDate || undefined}
           />
 
           <div className="flex items-center gap-3">

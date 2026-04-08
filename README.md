@@ -67,7 +67,7 @@ A multi-agent tutoring platform built around pedagogically distinct AI personas.
 |-------|-----------|
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS, Zustand |
 | Backend | Express.js, TypeScript, Prisma ORM |
-| Database | PostgreSQL |
+| Database | SQLite (local dev), PostgreSQL (production) |
 | AI Providers | OpenAI, Anthropic, Google Gemini, Ollama, LM Studio, Groq |
 | Code Execution | WebR (WebAssembly R), Monaco Editor |
 | Testing | Vitest (900+ tests) |
@@ -88,7 +88,9 @@ LAILA-v3/
 │   │   └── store/          # Zustand stores
 │   └── package.json
 ├── server/                 # Express backend
-│   ├── prisma/             # Database schema and seed data
+│   ├── prisma/
+│   │   ├── prod/           # PostgreSQL schema + migrations (committed)
+│   │   ├── local/          # SQLite schema + dev.db (gitignored, auto-generated)
 │   ├── src/
 │   │   ├── routes/         # API routes
 │   │   ├── services/       # Business logic
@@ -103,41 +105,34 @@ LAILA-v3/
 
 ### Prerequisites
 - Node.js 18+
-- PostgreSQL
 - At least one AI provider API key (OpenAI, Anthropic, Gemini, or local Ollama)
 
 ### Installation
 
 ```bash
-# Install dependencies
-cd client && npm install
-cd ../server && npm install
+# 1. Clone and install all dependencies (root, server, client)
+git clone <repo-url> && cd LAILA-v3
+npm run install:all
 
-# Set up environment
-cp .env.example server/.env    # Configure database URL and API keys
+# 2. Set up environment
+cp .env.example server/.env    # Then edit server/.env with your API keys
 
-# Initialize database
+# 3. Initialize local database (SQLite — no PostgreSQL needed for local dev)
 cd server
-npx prisma migrate dev
-npx prisma db seed
-```
+npm run setup:local            # Generate local SQLite schema from production schema
+npm run db:push                # Create/sync the local database
+npx prisma db seed             # Seed with demo data (admin, instructor, student accounts)
+cd ..
 
-### Development
-
-```bash
-# Start both client and server (from root)
-npm run dev
-
-# Or separately:
-cd client && npm run dev     # Frontend on port 5174
-cd server && npm run dev     # Backend on port 5001
+# 4. Start the app
+npm run dev                    # Starts both client + server (auto-runs setup:local)
 ```
 
 ### Access
 
 - **Frontend:** http://localhost:5174
-- **Backend:** http://localhost:5001
-- **Database UI:** `cd server && npx prisma studio`
+- **Backend:** http://localhost:5001 (or 6000 when started from root)
+- **Database UI:** `cd server && npm run db:studio`
 
 ### Demo Accounts
 
@@ -146,6 +141,34 @@ cd server && npm run dev     # Backend on port 5001
 | Admin | admin@laila.edu | admin123 |
 | Instructor | instructor@laila.edu | instructor123 |
 | Student | student@laila.edu | student123 |
+
+### Database Workflow (for contributors)
+
+The project uses **SQLite for local development** and **PostgreSQL for production**. Schema files live in `server/prisma/`:
+- `prod/schema.prisma` — PostgreSQL (source of truth, committed)
+- `local/schema.prisma` — SQLite (auto-generated, gitignored)
+
+**After pulling new changes:**
+```bash
+npm run setup:local            # Regenerate local schema
+npm run db:push                # Sync local database with any new tables/columns
+```
+
+**Making schema changes:**
+```bash
+# 1. Edit server/prisma/prod/schema.prisma
+# 2. Regenerate + sync local
+npm run setup:local && npm run db:push
+# 3. Generate production migration file (no PostgreSQL needed)
+npm run db:migrate:prod -- --name describe_your_change
+# 4. Commit schema.prisma + the migration file
+```
+
+**Production deployment:**
+```bash
+npx prisma migrate status --schema prisma/prod/schema.prisma   # Check pending
+npx prisma migrate deploy --schema prisma/prod/schema.prisma   # Apply
+```
 
 ## Testing
 

@@ -56,7 +56,10 @@ const PAGES_WITH_OWN_BREADCRUMBS = [
   /^\/teach\/courses\/\d+\/logs/,
   /^\/teach\/courses\/\d+\/analytics/,
   /^\/courses\/\d+$/,
+  /^\/courses\/\d+\/lectures\//,
+  /^\/courses\/\d+\/assignments$/,
   /^\/courses\/\d+\/assignments\/\d+$/,
+  /^\/courses\/\d+\/agent-assignments\/\d+$/,
   /^\/courses\/\d+\/analytics$/,
   /^\/courses\/\d+\/tna-exercise/,
   /^\/courses\/\d+\/sna-exercise/,
@@ -64,6 +67,8 @@ const PAGES_WITH_OWN_BREADCRUMBS = [
   /^\/labs\/sna-exercise/,
   /^\/admin\/users/,
   /^\/admin\/enrollments/,
+  /^\/courses$/,
+  /^\/labs\//,
 ];
 
 /** Pages where breadcrumb is not useful (root-level dashboards) */
@@ -109,15 +114,41 @@ const AutoBreadcrumbInner = ({ path, courseId }: { path: string; courseId: numbe
 
     // Skip numeric IDs — they'll be resolved to names
     if (/^\d+$/.test(seg)) {
-      // If this is a course ID, insert the course title
-      if (i > 0 && (segments[i - 1] === 'courses')) {
-        const label = course?.title || `Course ${seg}`;
-        const isLast = i === segments.length - 1;
+      const prevSeg = i > 0 ? segments[i - 1] : '';
+      const isLast = i === segments.length - 1;
+
+      if (prevSeg === 'courses') {
+        // Course ID → course title
         items.push({
-          label,
+          label: course?.title || `Course ${seg}`,
           href: isLast ? undefined : currentPath,
         });
+      } else if (prevSeg === 'lectures' && course?.modules) {
+        // Module ID after /lectures/ → module title
+        const mod = course.modules.find((m: any) => m.id === parseInt(seg));
+        if (mod) {
+          items.push({
+            label: mod.title,
+            href: isLast ? undefined : currentPath,
+          });
+        }
+      } else if (i > 1 && segments[i - 2] === 'lectures' && course?.modules) {
+        // Lecture ID (third segment after /lectures/moduleId/lectureId) → lecture title
+        const modId = parseInt(segments[i - 1]);
+        const mod = course.modules.find((m: any) => m.id === modId);
+        const lec = mod?.lectures?.find((l: any) => l.id === parseInt(seg));
+        if (lec) {
+          items.push({
+            label: lec.title,
+            href: isLast ? undefined : undefined,
+          });
+        }
       }
+      continue;
+    }
+
+    // Skip 'lectures' segment — module/lecture titles are shown instead
+    if (seg === 'lectures' && i + 1 < segments.length && /^\d+$/.test(segments[i + 1])) {
       continue;
     }
 

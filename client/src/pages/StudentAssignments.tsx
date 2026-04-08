@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
 import {
-  ArrowLeft,
   FileText,
   Clock,
   CheckCircle,
@@ -16,6 +15,7 @@ import { assignmentsApi } from '../api/assignments';
 import { enrollmentsApi } from '../api/enrollments';
 import { useTheme } from '../hooks/useTheme';
 import { Card, CardBody } from '../components/common/Card';
+import { Breadcrumb } from '../components/common/Breadcrumb';
 import { Loading } from '../components/common/Loading';
 import { Button } from '../components/common/Button';
 import { Assignment } from '../types';
@@ -90,14 +90,16 @@ export const StudentAssignments = () => {
   });
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ minHeight: '100vh' }}>
-      {/* Header */}
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ minHeight: '100vh' }}>
+      {/* Breadcrumb */}
       <div className="mb-6">
-        <Link to={`/learn/${courseId}`}>
-          <Button variant="ghost" size="sm" icon={<ArrowLeft className="w-4 h-4" />}>
-            {t('back_to_course')}
-          </Button>
-        </Link>
+        <Breadcrumb
+          items={[
+            { label: t('common:courses'), href: '/courses' },
+            { label: course?.title || t('common:course'), href: `/courses/${courseId}` },
+            { label: t('assignments') },
+          ]}
+        />
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">

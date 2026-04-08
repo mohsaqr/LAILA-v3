@@ -178,7 +178,7 @@ export class MCQGenerationService {
   // MCQ GENERATION
   // ===========================================================================
 
-  async generateQuestions(input: MCQGenerationInput): Promise<MCQGenerationResult> {
+  async generateQuestions(input: MCQGenerationInput, llmOverrides?: { model?: string; provider?: string }): Promise<MCQGenerationResult> {
     const settings = await this.getGenerationSettings();
 
     // Validate and sanitize input
@@ -209,6 +209,8 @@ export class MCQGenerationService {
         ],
         temperature: settings.defaults.temperature,
         maxTokens: 4000, // Allow for longer responses with multiple questions
+        model: llmOverrides?.model,
+        provider: llmOverrides?.provider as any,
       });
 
       const content = response.choices[0]?.message?.content;
@@ -252,7 +254,8 @@ export class MCQGenerationService {
   async generatePracticeQuestions(
     lectureId: number,
     userId: number,
-    options: { questionCount: number; difficulty?: string }
+    options: { questionCount: number; difficulty?: string },
+    llmOverrides?: { model?: string; provider?: string }
   ): Promise<GeneratedMCQ[]> {
     // Fetch lecture content
     const lecture = await prisma.lecture.findUnique({
@@ -315,7 +318,7 @@ export class MCQGenerationService {
       difficulty: (options.difficulty as 'easy' | 'medium' | 'hard') || 'medium',
       includeExplanations: true,
       courseContext: lecture.module.course.title,
-    });
+    }, llmOverrides);
 
     return result.questions;
   }

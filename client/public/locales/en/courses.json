@@ -309,6 +309,14 @@
   "max_file_size": "Max size: {{size}}MB",
   "save_draft": "Save Draft",
   "submit_assignment": "Submit Assignment",
+  "resubmit": "Resubmit",
+  "grace_period_deadline": "Grace Period Deadline",
+  "grace_period_warning_title": "Grace Period",
+  "grace_period_warning": "The original deadline has passed. You are submitting during the grace period.",
+  "grace_period_ends": "Grace period ends: {{date}} at {{time}}",
+  "grace_period_until": "Grace period until {{date}} at {{time}}",
+  "grace_period_status": "Grace Period",
+  "grace_period_expired": "The grace period has expired. You can no longer submit your work.",
   "draft_saved": "Draft saved",
   "failed_save_draft": "Failed to save draft",
   "assignment_submitted": "Assignment submitted successfully!",
@@ -985,5 +993,6 @@
   "lab_ai_look_for": "What should I look for?",
   "lab_ai_compare": "Compare nodes",
   "lab_ai_thinking": "Thinking...",
-  "lab_ai_collapse": "Collapse"
+  "lab_ai_collapse": "Collapse",
+  "my_datasets": "My Datasets"
 }

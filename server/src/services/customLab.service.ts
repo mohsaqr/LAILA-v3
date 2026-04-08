@@ -3054,7 +3054,7 @@ export class CustomLabService {
     moduleId: number | null,
     userId: number,
     isAdmin = false,
-    assignmentConfig?: { prompt?: string; points?: number; dueDate?: string }
+    assignmentConfig?: { prompt?: string; points?: number; dueDate?: string; gracePeriodDeadline?: string }
   ) {
     // Verify lab ownership or public access
     const lab = await prisma.customLab.findUnique({
@@ -3097,6 +3097,7 @@ export class CustomLabService {
             isPublished: true,
             points: assignmentConfig.points ?? 100,
             dueDate: assignmentConfig.dueDate ? new Date(assignmentConfig.dueDate) : null,
+            gracePeriodDeadline: assignmentConfig.gracePeriodDeadline ? new Date(assignmentConfig.gracePeriodDeadline) : null,
           },
         });
         createdAssignmentId = newAssignment.id;

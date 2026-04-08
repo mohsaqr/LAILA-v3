@@ -18,11 +18,13 @@ import {
   Network, X, BarChart3, GitBranch,
   Scissors, Target, Users,
   Database, Share2, BookOpen, ChevronDown, ChevronRight,
-  Sparkles, ClipboardList, Camera, Loader2, CheckCircle, Download,
+  Sparkles, ClipboardList, Camera, Loader2, CheckCircle, Download, RefreshCw,
 } from 'lucide-react';
 import { assignmentsApi } from '../api/assignments';
+import { coursesApi } from '../api/courses';
 import { LabAssignmentPanel, type ReportItem } from '../components/labs/LabAssignmentPanel';
 import toast from 'react-hot-toast';
+import { MyDatasetPicker } from '../components/common/MyDatasetPicker';
 import { INTERACTIVE_LAB_REQUIREMENTS } from '../types';
 import { tna, ftna, ctna, atna, prune, centralities, summary } from 'dynajs';
 import type { TNA } from 'dynajs';
@@ -99,6 +101,11 @@ export const TnaExercise = () => {
   const analysisContentRef = useRef<HTMLDivElement>(null);
   const [assignmentPanelOpen, setAssignmentPanelOpen] = useState(false);
 
+  const { data: course } = useQuery({
+    queryKey: ['course', courseId],
+    queryFn: () => coursesApi.getCourseById(Number(courseId)),
+    enabled: !!courseId,
+  });
   const { data: courseAssignments } = useQuery({
     queryKey: ['courseAssignments', courseId],
     queryFn: () => assignmentsApi.getAssignments(Number(courseId)),
@@ -108,6 +115,22 @@ export const TnaExercise = () => {
   const tnaAssignment = targetAssignmentId
     ? courseAssignments?.find(a => a.id === Number(targetAssignmentId)) ?? null
     : courseAssignments?.find(a => a.agentRequirements === INTERACTIVE_LAB_REQUIREMENTS.TNA) ?? null;
+
+  const { data: mySubmission } = useQuery({
+    queryKey: ['mySubmission', tnaAssignment?.id],
+    queryFn: () => assignmentsApi.getMySubmission(tnaAssignment!.id),
+    enabled: !!tnaAssignment,
+    retry: false,
+  });
+
+  const dueDateLocal = tnaAssignment?.dueDate ? new Date(String(tnaAssignment.dueDate).replace('Z', '')) : null;
+  const gracePeriodLocal = tnaAssignment?.gracePeriodDeadline ? new Date(String(tnaAssignment.gracePeriodDeadline).replace('Z', '')) : null;
+  const isPastDue = dueDateLocal ? dueDateLocal < new Date() : false;
+  const isInGracePeriod = isPastDue && gracePeriodLocal ? new Date() < gracePeriodLocal : false;
+  const isFullyPastDue = isPastDue && !isInGracePeriod;
+  const isSubmitted = mySubmission?.status === 'submitted' || mySubmission?.status === 'graded';
+  const isGraded = mySubmission?.status === 'graded';
+  const canResubmit = isSubmitted && !isGraded && !isFullyPastDue;
 
   // ── Core state ──
   const [datasetKey, setDatasetKey] = useState<string | null>(null);
@@ -135,6 +158,7 @@ export const TnaExercise = () => {
   const [clusterK, setClusterK] = useState(3);
   const [showGuide, setShowGuide] = useState(false);
   const [showAIGenerator, setShowAIGenerator] = useState(false);
+  const [showDatasetPicker, setShowDatasetPicker] = useState(false);
   const [visitedAnalyses, setVisitedAnalyses] = useState<string[]>([]);
   const [sessionEvents, setSessionEvents] = useState<Array<{ ts: number; event: string }>>([]);
   const [reportItems, setReportItems] = useState<ReportItem[]>([]);
@@ -257,6 +281,28 @@ export const TnaExercise = () => {
     setActiveAnalysis(null);
   }, []);
 
+  const handleMyDatasetSelect = useCallback((csvText: string) => {
+    const lines = csvText.trim().split('\n').filter(l => l.trim());
+    if (lines.length < 2) return;
+    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    const rows: import('../components/tna-exercise/sampleDatasets').RawRow[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+      const row: Record<string, string> = {};
+      headers.forEach((h, idx) => { row[h] = cols[idx] || ''; });
+      rows.push(row);
+    }
+    if (rows.length === 0) return;
+    setAiColumns(headers);
+    setAiRows(rows);
+    setDatasetKey('_ai');
+    setActorCol('');
+    setActionCol('');
+    setTimeCol('');
+    setModelBuilt(false);
+    setActiveAnalysis(null);
+  }, []);
+
   const handleBuildModel = useCallback(() => {
     setModelBuilt(true);
     setActiveAnalysis(null);
@@ -289,15 +335,17 @@ export const TnaExercise = () => {
   /* ── Render ── */
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {/* Breadcrumb */}
         {courseId && (
-          <div className="mb-4">
+          <div className="mb-6">
             <Breadcrumb
               items={[
                 { label: t('common:courses'), href: '/courses' },
-                { label: t('exercise.title') },
+                { label: course?.title || t('common:course'), href: `/courses/${courseId}` },
+                ...(tnaAssignment ? [{ label: t('assignments'), href: `/courses/${courseId}/assignments` }] : []),
+                { label: tnaAssignment?.title || t('exercise.title') },
               ]}
             />
           </div>
@@ -315,13 +363,21 @@ export const TnaExercise = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {tnaAssignment && (
+            {tnaAssignment && isInGracePeriod && !isGraded && (
+              <span className="text-xs px-2 py-1 rounded-full font-medium" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#dc2626' }}>
+                {t('courses:grace_period_status', { defaultValue: 'Grace Period' })}
+              </span>
+            )}
+            {tnaAssignment && !isGraded && !isFullyPastDue && (
               <button
                 onClick={() => setAssignmentPanelOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition-colors"
               >
-                <ClipboardList className="w-3.5 h-3.5" />
-                {t('submit_assignment', { defaultValue: 'Submit Assignment' })}
+                {isSubmitted ? <RefreshCw className="w-3.5 h-3.5" /> : <ClipboardList className="w-3.5 h-3.5" />}
+                {isSubmitted
+                  ? t('resubmit', { defaultValue: 'Resubmit' })
+                  : t('submit_assignment', { defaultValue: 'Submit Assignment' })
+                }
               </button>
             )}
             <button onClick={() => navigate(courseId ? `/courses/${courseId}` : -1 as any)} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
@@ -355,13 +411,22 @@ export const TnaExercise = () => {
                       {rawRows.length} {t('exercise.rows')}, {columns.length} col
                     </p>
                   )}
-                  <button
-                    onClick={() => setShowAIGenerator(true)}
-                    className="w-full mt-1.5 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    {t('ai_gen.or_generate')}
-                  </button>
+                  <div className="flex flex-col gap-1.5 mt-1.5">
+                    <button
+                      onClick={() => setShowAIGenerator(true)}
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      {t('ai_gen.or_generate')}
+                    </button>
+                    <button
+                      onClick={() => setShowDatasetPicker(true)}
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                    >
+                      <Database className="w-3.5 h-3.5" />
+                      {t('my_datasets')}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Column Mapping (NOT pre-filled) */}
@@ -769,8 +834,8 @@ export const TnaExercise = () => {
                   </div>
                 )}
 
-                {/* Add-to-report capture button */}
-                {modelBuilt && activeAnalysis && (
+                {/* Add-to-report capture button (only when assignment exists and not past due, or resubmitting) */}
+                {modelBuilt && activeAnalysis && tnaAssignment && (!isSubmitted || canResubmit) && !isGraded && !isFullyPastDue && (
                   <button
                     onClick={handleAddToReport}
                     disabled={isCapturing}
@@ -998,7 +1063,13 @@ export const TnaExercise = () => {
         />
       )}
 
-      {tnaAssignment && (
+      <MyDatasetPicker
+        isOpen={showDatasetPicker}
+        onClose={() => setShowDatasetPicker(false)}
+        onSelect={(csvText) => handleMyDatasetSelect(csvText)}
+      />
+
+      {tnaAssignment && !isGraded && !isFullyPastDue && (
         <LabAssignmentPanel
           isOpen={assignmentPanelOpen}
           onClose={() => setAssignmentPanelOpen(false)}

@@ -8,7 +8,10 @@ const logger = createLogger('activity-log');
 // Standardized verb types
 export type ActivityVerb =
   | 'enrolled' | 'unenrolled' | 'viewed' | 'started' | 'completed'
-  | 'progressed' | 'submitted' | 'interacted' | 'downloaded' | 'selected';
+  | 'progressed' | 'paused' | 'resumed' | 'seeked' | 'scrolled'
+  | 'downloaded' | 'submitted' | 'graded' | 'messaged' | 'received'
+  | 'cleared' | 'interacted' | 'expressed' | 'selected' | 'switched'
+  | 'created' | 'updated' | 'deleted';
 
 export type ObjectType =
   | 'course' | 'module' | 'lecture' | 'section' | 'video'
@@ -566,17 +569,55 @@ class ActivityLogService {
   /**
    * Get filter options for dropdowns (users, courses, verbs, objectTypes)
    */
-  async getFilterOptions() {
-    const [users, courses, verbs, objectTypes] = await Promise.all([
-      prisma.learningActivityLog.findMany({
+  async getFilterOptions(options?: { courseId?: number; instructorId?: number; isAdmin?: boolean }) {
+    // Build course filter for instructors (only their own courses)
+    let courseWhere: any = { courseId: { not: null } };
+    let courseIds: number[] | undefined;
+
+    if (options?.instructorId && !options?.isAdmin) {
+      // Instructor: only courses they own or are a team member of
+      const ownedCourses = await prisma.course.findMany({
+        where: { instructorId: options.instructorId },
+        select: { id: true },
+      });
+      const teamCourses = await prisma.courseRole.findMany({
+        where: { userId: options.instructorId },
+        select: { courseId: true },
+      });
+      courseIds = [...new Set([...ownedCourses.map(c => c.id), ...teamCourses.map(c => c.courseId)])];
+      courseWhere = { courseId: { in: courseIds } };
+    }
+
+    // If a specific course is selected, filter users by enrollment in that course
+    let userQuery;
+    if (options?.courseId) {
+      userQuery = prisma.enrollment.findMany({
+        where: { courseId: options.courseId },
+        select: { user: { select: { id: true, fullname: true, email: true } } },
+        orderBy: { user: { fullname: 'asc' } },
+      }).then(enrollments => enrollments.map(e => ({
+        id: e.user.id,
+        fullname: e.user.fullname,
+        email: e.user.email,
+      })));
+    } else {
+      userQuery = prisma.learningActivityLog.findMany({
         select: { userId: true, userFullname: true, userEmail: true },
         distinct: ['userId'],
         orderBy: { userFullname: 'asc' },
-      }),
+      }).then(users => users.map(u => ({
+        id: u.userId,
+        fullname: u.userFullname,
+        email: u.userEmail,
+      })));
+    }
+
+    const [users, courses, verbs, objectTypes] = await Promise.all([
+      userQuery,
       prisma.learningActivityLog.findMany({
         select: { courseId: true, courseTitle: true },
         distinct: ['courseId'],
-        where: { courseId: { not: null } },
+        where: courseWhere,
         orderBy: { courseTitle: 'asc' },
       }),
       prisma.learningActivityLog.groupBy({
@@ -592,7 +633,7 @@ class ActivityLogService {
     ]);
 
     return {
-      users: users.map(u => ({ id: u.userId, fullname: u.userFullname, email: u.userEmail })),
+      users,
       courses: courses.filter(c => c.courseId !== null).map(c => ({ id: c.courseId, title: c.courseTitle })),
       verbs: verbs.map(v => ({ verb: v.verb, count: v._count.id })),
       objectTypes: objectTypes.map(o => ({ objectType: o.objectType, count: o._count.id })),

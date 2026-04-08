@@ -202,36 +202,57 @@ describe('EnrollmentService', () => {
       });
     });
 
-    it('should throw error if user is admin', async () => {
-      vi.mocked(prisma.user.findUnique).mockResolvedValue({
-        isAdmin: true,
-        isInstructor: false,
+    it('should allow instructor to enroll in a course', async () => {
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({
+        id: 2,
+        title: 'Other Course',
+        status: 'published',
       } as any);
 
-      await expect(enrollmentService.enroll(1, 1)).rejects.toThrow(AppError);
-      await expect(enrollmentService.enroll(1, 1)).rejects.toThrow(
-        'Admins and instructors cannot enroll as students'
-      );
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null);
+
+      vi.mocked(prisma.enrollment.create).mockResolvedValue({
+        id: 2,
+        userId: 5,
+        courseId: 2,
+        status: 'active',
+        course: { id: 2, title: 'Other Course', slug: 'other-course' },
+        user: { id: 5, fullname: 'Instructor', email: 'instructor@uef.fi' },
+      } as any);
+
+      const result = await enrollmentService.enroll(5, 2);
+
+      expect(result.userId).toBe(5);
+      expect(result.courseId).toBe(2);
+      expect(prisma.enrollment.create).toHaveBeenCalled();
     });
 
-    it('should throw error if user is instructor', async () => {
-      vi.mocked(prisma.user.findUnique).mockResolvedValue({
-        isAdmin: false,
-        isInstructor: true,
+    it('should allow admin to enroll in a course', async () => {
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({
+        id: 3,
+        title: 'Admin Course',
+        status: 'published',
       } as any);
 
-      await expect(enrollmentService.enroll(1, 1)).rejects.toThrow(AppError);
-      await expect(enrollmentService.enroll(1, 1)).rejects.toThrow(
-        'Admins and instructors cannot enroll as students'
-      );
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null);
+
+      vi.mocked(prisma.enrollment.create).mockResolvedValue({
+        id: 3,
+        userId: 1,
+        courseId: 3,
+        status: 'active',
+        course: { id: 3, title: 'Admin Course', slug: 'admin-course' },
+        user: { id: 1, fullname: 'Admin', email: 'admin@uef.fi' },
+      } as any);
+
+      const result = await enrollmentService.enroll(1, 3);
+
+      expect(result.userId).toBe(1);
+      expect(result.courseId).toBe(3);
+      expect(prisma.enrollment.create).toHaveBeenCalled();
     });
 
     it('should throw error if course not found', async () => {
-      vi.mocked(prisma.user.findUnique).mockResolvedValue({
-        isAdmin: false,
-        isInstructor: false,
-      } as any);
-
       vi.mocked(prisma.course.findUnique).mockResolvedValue(null);
 
       await expect(enrollmentService.enroll(10, 999)).rejects.toThrow(AppError);

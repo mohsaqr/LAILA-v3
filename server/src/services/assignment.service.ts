@@ -129,11 +129,19 @@ export class AssignmentService {
       }
     }
 
+    // Validate grace period is after due date
+    if (data.dueDate && data.gracePeriodDeadline) {
+      if (new Date(data.gracePeriodDeadline) <= new Date(data.dueDate)) {
+        throw new AppError('Grace period deadline must be after the due date', 400);
+      }
+    }
+
     const assignment = await prisma.assignment.create({
       data: {
         ...data,
         courseId,
         dueDate: data.dueDate ? new Date(data.dueDate) : null,
+        gracePeriodDeadline: data.gracePeriodDeadline ? new Date(data.gracePeriodDeadline) : null,
       },
       include: {
         module: {
@@ -162,11 +170,23 @@ export class AssignmentService {
       }
     }
 
+    // Validate grace period is after due date
+    const effectiveDueDate = data.dueDate ? new Date(data.dueDate) : assignment.dueDate;
+    const effectiveGrace = data.gracePeriodDeadline !== undefined
+      ? (data.gracePeriodDeadline ? new Date(data.gracePeriodDeadline) : null)
+      : assignment.gracePeriodDeadline;
+    if (effectiveDueDate && effectiveGrace && effectiveGrace <= effectiveDueDate) {
+      throw new AppError('Grace period deadline must be after the due date', 400);
+    }
+
     const updated = await prisma.assignment.update({
       where: { id: assignmentId },
       data: {
         ...data,
         dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+        gracePeriodDeadline: data.gracePeriodDeadline !== undefined
+          ? (data.gracePeriodDeadline ? new Date(data.gracePeriodDeadline) : null)
+          : undefined,
       },
     });
 
@@ -362,9 +382,16 @@ export class AssignmentService {
       }
     }
 
-    // Check due date
+    // Check due date and grace period
     if (!canBypass && assignment.dueDate && new Date() > assignment.dueDate) {
-      throw new AppError('Assignment due date has passed', 400);
+      if (assignment.gracePeriodDeadline && new Date() <= assignment.gracePeriodDeadline) {
+        // Within grace period — allow submission (client shows warning)
+      } else {
+        const msg = assignment.gracePeriodDeadline
+          ? 'The grace period deadline has passed'
+          : 'Assignment due date has passed';
+        throw new AppError(msg, 400);
+      }
     }
 
     // Check for existing submission to get attempt number
@@ -381,10 +408,8 @@ export class AssignmentService {
       throw new AppError('This submission has already been graded and cannot be modified', 400);
     }
 
-    // Prevent resubmission of already-submitted work (draft saves are still allowed)
-    if (!canBypass && existingSubmission?.status === 'submitted') {
-      throw new AppError('Assignment has already been submitted', 400);
-    }
+    // Allow resubmission of already-submitted work (before grading)
+    // Students can update their submission until the instructor grades it
 
     // Upsert submission
     const submittedAt = effectiveStatus !== 'draft' ? new Date() : undefined;

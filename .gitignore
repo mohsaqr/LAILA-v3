@@ -18,6 +18,7 @@ build/
 # Database
 *.db
 *.db-journal
+server/prisma/local/ 
 
 # Logs (but not admin logs component dir)
 /logs/

@@ -70,7 +70,7 @@ const EVENT_CATEGORY_MAP: Record<AgentDesignEventType, AgentDesignEventCategory>
 };
 
 // Tab types
-type TabType = 'identity' | 'behavior' | 'advanced' | 'test';
+type TabType = 'identity' | 'behavior' | 'advanced' | 'test' | 'dataset';
 
 // Browser/device detection helpers
 function getDeviceType(): string {

@@ -277,6 +277,7 @@ When a due date is a "wall clock" time (instructor picks 20:00, everyone should 
 - **Comparisons** (isPastDue etc.) still work: both `new Date(dueDateUTC)` and `new Date()` are absolute timestamps
 - Submission timestamps (`submittedAt`, `createdAt`) are real UTC — display those without `timeZone: 'UTC'`
 - Zod validates with `z.string().datetime()` which accepts `2026-03-15T20:00:00.000Z` format
+- **Grace period deadline** follows the same wall-clock pattern. `gracePeriodDeadline` is nullable DateTime — same save/display/comparison rules as `dueDate`. Client uses 3-state logic: `isPastDue` (after due), `isInGracePeriod` (after due but before grace), `isFullyPastDue` (after both). Server validates grace > due on create/update. Submission allowed during grace period with client-side warning.
 
 ## 2026-03-12 — Unified submission routes pattern
 
