@@ -990,5 +990,6 @@
   "lab_ai_look_for": "¿Qué debo buscar?",
   "lab_ai_compare": "Comparar nodos",
   "lab_ai_thinking": "Pensando...",
-  "lab_ai_collapse": "Contraer"
+  "lab_ai_collapse": "Contraer",
+  "my_datasets": "Mis conjuntos de datos"
 }

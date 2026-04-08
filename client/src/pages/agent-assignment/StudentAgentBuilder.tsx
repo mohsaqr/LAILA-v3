@@ -350,13 +350,14 @@ export const StudentAgentBuilder = () => {
   const courseName = assignment.course?.title || 'Course';
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Breadcrumb Navigation */}
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Breadcrumb */}
       <div className="mb-6">
         <Breadcrumb
           items={[
             { label: t('navigation:courses'), href: '/courses' },
             { label: courseName, href: `/courses/${courseId}` },
+            { label: t('assignments'), href: `/courses/${courseId}/assignments` },
             { label: assignment.title },
           ]}
         />

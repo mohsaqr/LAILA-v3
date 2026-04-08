@@ -993,5 +993,6 @@
   "lab_ai_look_for": "What should I look for?",
   "lab_ai_compare": "Compare nodes",
   "lab_ai_thinking": "Thinking...",
-  "lab_ai_collapse": "Collapse"
+  "lab_ai_collapse": "Collapse",
+  "my_datasets": "My Datasets"
 }

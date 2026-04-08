@@ -21,6 +21,7 @@ import {
   Sparkles, ClipboardList, Camera, Loader2, CheckCircle, Download, RefreshCw,
 } from 'lucide-react';
 import { assignmentsApi } from '../api/assignments';
+import { coursesApi } from '../api/courses';
 import { LabAssignmentPanel, type ReportItem } from '../components/labs/LabAssignmentPanel';
 import toast from 'react-hot-toast';
 import { MyDatasetPicker } from '../components/common/MyDatasetPicker';
@@ -100,6 +101,11 @@ export const TnaExercise = () => {
   const analysisContentRef = useRef<HTMLDivElement>(null);
   const [assignmentPanelOpen, setAssignmentPanelOpen] = useState(false);
 
+  const { data: course } = useQuery({
+    queryKey: ['course', courseId],
+    queryFn: () => coursesApi.getCourseById(Number(courseId)),
+    enabled: !!courseId,
+  });
   const { data: courseAssignments } = useQuery({
     queryKey: ['courseAssignments', courseId],
     queryFn: () => assignmentsApi.getAssignments(Number(courseId)),
@@ -329,15 +335,17 @@ export const TnaExercise = () => {
   /* ── Render ── */
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {/* Breadcrumb */}
         {courseId && (
-          <div className="mb-4">
+          <div className="mb-6">
             <Breadcrumb
               items={[
                 { label: t('common:courses'), href: '/courses' },
-                { label: t('exercise.title') },
+                { label: course?.title || t('common:course'), href: `/courses/${courseId}` },
+                ...(tnaAssignment ? [{ label: t('assignments'), href: `/courses/${courseId}/assignments` }] : []),
+                { label: tnaAssignment?.title || t('exercise.title') },
               ]}
             />
           </div>
@@ -416,7 +424,7 @@ export const TnaExercise = () => {
                       className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
                     >
                       <Database className="w-3.5 h-3.5" />
-                      {t('teaching:my_datasets')}
+                      {t('my_datasets')}
                     </button>
                   </div>
                 </div>
