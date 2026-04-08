@@ -28,6 +28,9 @@ import { useTheme } from '../hooks/useTheme';
 import { LabTemplate } from '../types';
 import { activityLogger } from '../services/activityLogger';
 
+// Module-level set to prevent duplicate logs (survives React strict mode remount)
+const _loggedLabIds = new Set<number>();
+
 interface OutputItem {
   type: 'stdout' | 'stderr' | 'plot' | 'message';
   content: string;
@@ -112,13 +115,12 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
     textSecondary: isDark ? '#9ca3af' : '#6b7280',
   };
 
-  // Log lab viewed/started when lab loads
-  const hasLoggedStartRef = useRef(false);
+  // Log lab viewed when lab loads (module-level set survives strict mode remount)
   useEffect(() => {
-    if (hasLoggedStartRef.current) return;
-    hasLoggedStartRef.current = true;
+    if (_loggedLabIds.has(lab.id)) return;
+    _loggedLabIds.add(lab.id);
     activityLogger.log({
-      verb: 'started',
+      verb: 'viewed',
       objectType: 'lab',
       objectId: lab.id,
       objectTitle: lab.name,
@@ -136,7 +138,7 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
     setSessionEvents([]);
     setVisitedTemplates([]);
     setAssignmentPanelOpen(false);
-    hasLoggedStartRef.current = false;
+    // _loggedLabIds is not reset — re-viewing same lab in same session won't re-log
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lab.id]);
 

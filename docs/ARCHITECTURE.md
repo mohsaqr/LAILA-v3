@@ -463,13 +463,26 @@ Unified logging system tracking all learning activities with **batch-first** arc
 | Verb | Description |
 |------|-------------|
 | enrolled | User enrolled in course |
-| viewed | Content viewed |
-| started | Activity started |
-| completed | Activity finished |
-| submitted | Work submitted |
+| viewed | Content viewed (lecture, section, video, file, lab) |
+| started | Activity started (quiz, assignment) |
+| completed | Activity finished (lecture, module, video) |
+| submitted | Work submitted (quiz, assignment, lab, survey) |
 | graded | Work graded |
-| messaged | Chatbot message sent |
-| downloaded | File downloaded |
+| interacted | Active interaction (tutor chat, lab work, forum, chatbot) |
+| expressed | Emotional self-report (emotional pulse) |
+| selected | Selection made (tutor agent, lab dataset) |
+| downloaded | File downloaded (file, certificate) |
+
+**TNA Learning State Categories (verb:objectType → category):**
+| Category | Meaning | Key triggers |
+|----------|---------|-------------|
+| learning | Consuming content | `viewed:lecture`, `viewed:section`, `viewed:video`, `viewed:lab`, `downloaded:file` |
+| browsing | Navigating/exploring | `viewed:course`, `viewed:module`, `enrolled:course` |
+| practiced | Hands-on lab work | `interacted:lab`, `selected:lab` |
+| regulated | Completing, self-monitoring | `completed:lecture`, `viewed:gradebook`, `viewed:certificate` |
+| assessment | Quiz/assignment activity | `started:quiz`, `submitted:assignment`, `submitted:lab` |
+| AI_engaged | AI tutor interactions | `interacted:tutor_agent`, `interacted:course_tutor` |
+| expressed | Emotional self-report | `expressed:emotional_pulse`, `submitted:survey` |
 
 ### 4. AI Tools Suite
 

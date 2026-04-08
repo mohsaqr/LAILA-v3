@@ -114,6 +114,7 @@ export class TutorService {
         objectId: session.id,
         objectTitle: 'AI Tutor Session',
         objectSubtype: 'manual',
+        courseId: courseId ?? undefined,
         extensions: { mode: 'manual' },
       }).catch(err => logger.warn({ err }, 'Failed to log session start activity'));
     }
@@ -240,6 +241,7 @@ export class TutorService {
       objectId: chatbotId,
       objectTitle: chatbot.displayName,
       objectSubtype: chatbot.personality || 'tutor',
+      courseId: session.courseId ?? undefined,
       extensions: {
         agentName: chatbot.name,
         agentDisplayName: chatbot.displayName,
@@ -477,6 +479,7 @@ export class TutorService {
       objectId: conversation.id,
       objectTitle: `Conversation with ${conversation.chatbot.displayName}`,
       objectSubtype: conversation.chatbot.name,
+      courseId: session.courseId ?? undefined,
       extensions: {
         agentId: chatbotId,
         agentName: conversation.chatbot.name,
@@ -567,7 +570,7 @@ export class TutorService {
    * Handle manual mode - direct chat with selected agent
    */
   private async handleManualMode(
-    session: { id: number; userId: number; mode: string },
+    session: { id: number; userId: number; mode: string; courseId?: number | null },
     conversation: TutorConversationData & { messages: TutorMessageData[] },
     chatbot: any,
     message: string,
@@ -610,6 +613,7 @@ export class TutorService {
       objectId: chatbot.id,
       objectTitle: chatbot.displayName,
       objectSubtype: 'user_message',
+      courseId: session.courseId ?? undefined,
       extensions: {
         agentName: chatbot.name,
         conversationId: conversation.id,
@@ -760,6 +764,7 @@ RESPONSE GUIDELINES:
       objectId: chatbot.id,
       objectTitle: chatbot.displayName,
       objectSubtype: 'assistant_message',
+      courseId: session.courseId ?? undefined,
       duration: responseTimeMs,
       extensions: {
         agentName: chatbot.name,
@@ -800,7 +805,7 @@ RESPONSE GUIDELINES:
    * Handle router mode - AI analyzes message and routes to best agent
    */
   private async handleRouterMode(
-    session: { id: number; userId: number; mode: string },
+    session: { id: number; userId: number; mode: string; courseId?: number | null },
     message: string,
     clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
     courseId?: number,
@@ -891,7 +896,7 @@ RESPONSE GUIDELINES:
    * Handle random mode - pick a single random tutor to respond
    */
   private async handleRandomMode(
-    session: { id: number; userId: number; mode: string },
+    session: { id: number; userId: number; mode: string; courseId?: number | null },
     message: string,
     clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
     courseId?: number,
@@ -1388,7 +1393,7 @@ RESPONSE GUIDELINES:
    * Styles: parallel, sequential, debate, random
    */
   private async handleCollaborativeMode(
-    session: { id: number; userId: number; mode: string },
+    session: { id: number; userId: number; mode: string; courseId?: number | null },
     message: string,
     clientInfo?: { ipAddress?: string; userAgent?: string; deviceType?: string },
     settings?: CollaborativeSettings,
@@ -1586,6 +1591,7 @@ RESPONSE GUIDELINES:
       objectId: teamChatAgent.id,
       objectTitle: 'Team Chat Response',
       objectSubtype: style,
+      courseId: session.courseId ?? undefined,
       duration: responseTimeMs,
       extensions: {
         style,

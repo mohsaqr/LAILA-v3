@@ -160,9 +160,9 @@ class ActivityLogger {
     });
   }
 
-  async logLectureStarted(lectureId: number, lectureTitle?: string, courseId?: number, moduleId?: number) {
+  async logLectureViewed(lectureId: number, lectureTitle?: string, courseId?: number, moduleId?: number) {
     return this.log({
-      verb: 'started',
+      verb: 'viewed',
       objectType: 'lecture',
       objectId: lectureId,
       objectTitle: lectureTitle,

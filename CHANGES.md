@@ -1,3 +1,13 @@
+### 2026-04-08 — TNA activity logging fixes
+
+- **Unified TNA verb:objectType → category mapping**: 7 learning states (learning, browsing, practiced, regulated, assessment, AI_engaged, expressed). Documented full mapping in ARCHITECTURE.md.
+- **Fix lecture logging**: `started:lecture` replaced with `viewed:lecture` — one event per lecture view, maps to `learning`. Removes redundant `started` + `viewed` double logging.
+- **Fix lab logging**: `started:lab` replaced with `viewed:lab` (maps to `learning`). `interacted:lab` maps to `practiced`. Fixed duplicate logging via module-level dedup set.
+- **Fix tutor courseId**: All 7 tutor activity log calls now include `courseId` from session — previously most logged with null courseId, making them invisible in course-filtered analytics.
+- **Fix TNA grouping**: Default changed from `actor-session` to `actor` so all events per user form one sequence regardless of sessionId.
+- **Fix emotional pulse**: Verb changed from `interacted` to `expressed`, `courseId` added. `expressed` verb fallback added to Dashboard mapping.
+- **Remap `started:*`**: `started:lecture/section/video/lab` → `learning` (was `engaged`). `started:quiz/assignment` stays as `assessment`.
+
 ### 2026-04-08 — Database workflow documentation
 
 - **Documented full database workflow** in ARCHITECTURE.md, HANDOFF.md: step-by-step schema change process (edit → setup:local → db:push → db:migrate:prod), production deployment commands (`migrate status` to check pending, `migrate deploy` to apply), and key rules.

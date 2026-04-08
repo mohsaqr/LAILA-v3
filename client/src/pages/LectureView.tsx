@@ -100,7 +100,7 @@ export const LectureView = () => {
   // Log lecture view
   useEffect(() => {
     if (lecture && courseId) {
-      activityLogger.logLectureStarted(
+      activityLogger.logLectureViewed(
         parseInt(lectureId!),
         lecture.title,
         parseInt(courseId),
