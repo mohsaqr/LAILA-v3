@@ -7,7 +7,7 @@ import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { CreateAgentConfigInput, UpdateAgentConfigInput, GradeAgentSubmissionInput } from '../utils/validation.js';
 import { agentAnalyticsService, ClientContext, UserContext, AssignmentContext } from './agentAnalytics.service.js';
-import { activityLogService } from './activityLog.service.js';
+import { activityLogService, type ActivityVerb } from './activityLog.service.js';
 import { llmService } from './llm.service.js';
 
 // AI Config type
@@ -30,6 +30,37 @@ export interface EventContext {
 }
 
 export class AgentAssignmentService {
+
+  /** Log an agent assignment event to the global LearningActivityLog */
+  private logAgentActivity(params: {
+    userId: number;
+    verb: ActivityVerb;
+    objectId: number;
+    objectTitle: string;
+    courseId?: number;
+    assignmentId?: number;
+    assignmentTitle?: string;
+    extensions?: Record<string, unknown>;
+    context: EventContext;
+  }) {
+    activityLogService.logActivity({
+      userId: params.userId,
+      verb: params.verb,
+      objectType: 'assignment',
+      objectSubtype: 'ai_agent',
+      objectId: params.objectId,
+      objectTitle: `AI Agent Assignment: ${params.objectTitle}`,
+      courseId: params.courseId,
+      extensions: {
+        assignmentId: params.assignmentId,
+        assignmentTitle: params.assignmentTitle,
+        ...params.extensions,
+      },
+      sessionId: params.context.sessionId,
+      deviceType: params.context.userAgent?.includes('Mobile') ? 'mobile' : 'desktop',
+    }).catch(err => console.error('[AgentAssignment] Failed to log activity:', err));
+  }
+
   // =============================================================================
   // AI CONFIGURATION
   // =============================================================================
@@ -211,6 +242,18 @@ export class AgentAssignmentService {
       },
     });
 
+    this.logAgentActivity({
+      userId: context.userId,
+      verb: 'created',
+      objectId: config.id,
+      objectTitle: data.agentName,
+      courseId: assignment.courseId,
+      assignmentId: assignment.id,
+      assignmentTitle: assignment.title,
+      extensions: { pedagogicalRole: data.pedagogicalRole, personality: data.personality },
+      context,
+    });
+
     return this.formatConfig(config);
   }
 
@@ -318,6 +361,23 @@ export class AgentAssignmentService {
       },
     });
 
+    this.logAgentActivity({
+      userId: context.userId,
+      verb: 'updated',
+      objectId: updated.id,
+      objectTitle: updated.agentName,
+      courseId: assignment.courseId,
+      assignmentId: assignment.id,
+      assignmentTitle: assignment.title,
+      extensions: {
+        version: newVersion,
+        changedFields: changedFields.length > 0 ? changedFields : undefined,
+        pedagogicalRole: data.pedagogicalRole,
+        personality: data.personality,
+      },
+      context,
+    });
+
     return this.formatConfig(updated);
   }
 
@@ -407,6 +467,18 @@ export class AgentAssignmentService {
       },
     });
 
+    this.logAgentActivity({
+      userId: context.userId,
+      verb: 'submitted',
+      objectId: config.id,
+      objectTitle: config.agentName,
+      courseId: assignment.courseId,
+      assignmentId: assignment.id,
+      assignmentTitle: assignment.title,
+      extensions: { version: config.version },
+      context,
+    });
+
     return { config: updated, submission };
   }
 
@@ -476,6 +548,18 @@ export class AgentAssignmentService {
         userAgent: context.userAgent,
         sessionId: context.sessionId,
       },
+    });
+
+    this.logAgentActivity({
+      userId: context.userId,
+      verb: 'updated',
+      objectId: config.id,
+      objectTitle: config.agentName,
+      courseId: assignment.courseId,
+      assignmentId: assignment.id,
+      assignmentTitle: assignment.title,
+      extensions: { action: 'unsubmit', version: config.version },
+      context,
     });
 
     return updated;
@@ -551,6 +635,18 @@ export class AgentAssignmentService {
         userAgent: context.userAgent,
         sessionId: context.sessionId,
       },
+    });
+
+    this.logAgentActivity({
+      userId: testerInfo.userId,
+      verb: 'started',
+      objectId: config.id,
+      objectTitle: config.agentName,
+      courseId: config.assignment.courseId,
+      assignmentId: config.assignmentId,
+      assignmentTitle: config.assignment.title,
+      extensions: { action: 'test_conversation', conversationId: conversation.id, version: config.version },
+      context,
     });
 
     return {
@@ -1135,10 +1231,12 @@ export class AgentAssignmentService {
     assignmentId: number,
     userId: number,
     description: string,
+    context: EventContext,
     llmOverrides?: { model?: string; provider?: string }
   ) {
     const config = await prisma.studentAgentConfig.findUnique({
       where: { assignmentId_userId: { assignmentId, userId } },
+      include: { assignment: { include: { course: { select: { id: true, title: true } } } } },
     });
     if (!config) {
       throw new AppError('Agent config not found', 404);
@@ -1268,6 +1366,23 @@ CRITICAL RULES:
     // CSV preview: first 5 rows
     const lines = csv.trim().split('\n');
     const csvPreview = lines.slice(0, 6).join('\n');
+
+    this.logAgentActivity({
+      userId,
+      verb: 'created',
+      objectId: dataset.id,
+      objectTitle: dataset.name,
+      courseId: config.assignment.courseId,
+      assignmentId: config.assignmentId,
+      assignmentTitle: config.assignment.title,
+      extensions: {
+        action: 'dataset_generated',
+        rowCount: dataset.rowCount,
+        aiModel: dataset.aiModel,
+        aiProvider: dataset.aiProvider,
+      },
+      context,
+    });
 
     return { dataset, explanation, csvPreview };
   }

@@ -185,10 +185,12 @@ router.post(
     const assignmentId = parseInt(req.params.assignmentId);
     const { description, model, provider } = generateDatasetSchema.parse(req.body);
 
+    const context = buildEventContext(req);
     const result = await agentAssignmentService.generateDataset(
       assignmentId,
       req.user!.id,
       description,
+      context,
       { model, provider }
     );
     res.json({ success: true, data: result });
