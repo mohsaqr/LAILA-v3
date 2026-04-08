@@ -291,7 +291,7 @@ export const createAgentConfigSchema = z.object({
   dosRules: z.array(z.string()).optional(),
   dontsRules: z.array(z.string()).optional(),
   welcomeMessage: z.string().max(500).optional(),
-  avatarImageUrl: z.string().url().optional().nullable(),
+  avatarImageUrl: z.string().optional().nullable(),
   // Enhanced builder fields
   pedagogicalRole: z.string().max(50).optional().nullable(),
   personality: z.string().max(50).optional().nullable(),

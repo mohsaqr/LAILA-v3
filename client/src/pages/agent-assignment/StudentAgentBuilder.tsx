@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { agentAssignmentsApi } from '../../api/agentAssignments';
+import { resolveFileUrl } from '../../api/client';
 import { AgentIdentityTab } from '../../components/agent-assignment/AgentIdentityTab';
 import { AgentBehaviorTab } from '../../components/agent-assignment/AgentBehaviorTab';
 import { AgentAdvancedTab } from '../../components/agent-assignment/AgentAdvancedTab';
@@ -265,14 +266,6 @@ export const StudentAgentBuilder = () => {
       newErrors.systemPrompt = t('system_prompt_min_length');
     }
 
-    if (formData.avatarImageUrl) {
-      try {
-        new URL(formData.avatarImageUrl);
-      } catch {
-        newErrors.avatarImageUrl = t('invalid_avatar_url');
-      }
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -281,7 +274,7 @@ export const StudentAgentBuilder = () => {
   const handleSave = () => {
     if (!validate()) {
       // Switch to tab with first error
-      if (errors.agentName || errors.avatarImageUrl) {
+      if (errors.agentName) {
         setActiveTab('identity');
       } else if (errors.systemPrompt) {
         setActiveTab('advanced');
@@ -509,7 +502,7 @@ export const StudentAgentBuilder = () => {
               <div className="mb-6">
                 {config?.avatarImageUrl ? (
                   <img
-                    src={config.avatarImageUrl}
+                    src={resolveFileUrl(config.avatarImageUrl)}
                     alt={config.agentName}
                     className="w-28 h-28 rounded-full object-cover shadow-lg mx-auto"
                   />

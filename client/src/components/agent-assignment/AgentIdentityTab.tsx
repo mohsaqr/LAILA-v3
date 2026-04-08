@@ -9,11 +9,15 @@
  * - Welcome message
  */
 
-import { Bot, Image } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Bot, Image, Upload, X, Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Input, TextArea } from '../common/Input';
 import { AgentConfigFormData, PedagogicalRoleConfig } from '../../types';
 import { PedagogicalRoleSelector } from './PedagogicalRoleSelector';
 import { AgentDesignLogger } from '../../services/agentDesignLogger';
+import { uploadsApi } from '../../api/uploads';
+import { resolveFileUrl } from '../../api/client';
 
 interface AgentIdentityTabProps {
   formData: AgentConfigFormData;
@@ -26,6 +30,88 @@ interface AgentIdentityTabProps {
   onRoleSelect: (role: PedagogicalRoleConfig) => void;
   logger?: AgentDesignLogger | null;
 }
+
+const AvatarUpload = ({
+  avatarUrl,
+  disabled,
+  onChange,
+}: {
+  avatarUrl: string | null;
+  disabled: boolean;
+  onChange: (url: string) => void;
+}) => {
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUpload = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Only image files (PNG, JPG) are allowed');
+      return;
+    }
+    if (file.size > 1 * 1024 * 1024) {
+      toast.error('Image must be less than 1 MB');
+      return;
+    }
+    setUploading(true);
+    try {
+      const result = await uploadsApi.uploadAgentAvatar(file);
+      onChange(result.url);
+    } catch {
+      toast.error('Failed to upload avatar');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const resolvedUrl = avatarUrl ? resolveFileUrl(avatarUrl) : null;
+
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-sm font-medium text-gray-700">Avatar Image</label>
+      <div className="flex items-center gap-4">
+        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-gray-200 flex-shrink-0">
+          {resolvedUrl ? (
+            <img src={resolvedUrl} alt="Avatar" className="w-full h-full object-cover" />
+          ) : (
+            <Image className="w-6 h-6 text-gray-400" />
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".png,.jpg,.jpeg"
+            className="hidden"
+            disabled={disabled || uploading}
+            onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={disabled || uploading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+            {uploading ? 'Uploading...' : 'Upload'}
+          </button>
+          {avatarUrl && (
+            <button
+              type="button"
+              onClick={() => onChange('')}
+              disabled={disabled}
+              className="inline-flex items-center gap-1 px-2 py-1.5 text-xs text-gray-500 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+              Remove
+            </button>
+          )}
+        </div>
+      </div>
+      <p className="text-xs text-gray-500">Optional. PNG or JPG, max 1 MB.</p>
+    </div>
+  );
+};
 
 export const AgentIdentityTab = ({
   formData,
@@ -116,52 +202,12 @@ export const AgentIdentityTab = ({
         </p>
       </div>
 
-      {/* Avatar URL */}
-      <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-gray-700">
-          Avatar Image URL
-        </label>
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <input
-              type="url"
-              value={formData.avatarImageUrl || ''}
-              onChange={(e) =>
-                handleFieldChange('avatarImageUrl', e.target.value || '', formData.avatarImageUrl || '')
-              }
-              onFocus={() => handleFieldFocus('avatarImageUrl')}
-              onBlur={() => handleFieldBlur('avatarImageUrl', formData.avatarImageUrl || '')}
-              placeholder="https://example.com/avatar.png"
-              disabled={disabled}
-              className={`w-full px-4 py-2.5 border rounded-lg outline-none transition-all ${
-                errors.avatarImageUrl
-                  ? 'border-red-300 focus:ring-2 focus:ring-red-500 focus:border-red-500'
-                  : 'border-gray-300 focus:ring-2 focus:ring-primary-500 focus:border-primary-500'
-              }`}
-            />
-            {errors.avatarImageUrl && (
-              <p className="text-sm text-red-500 mt-1">{errors.avatarImageUrl}</p>
-            )}
-          </div>
-          <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200 flex-shrink-0">
-            {formData.avatarImageUrl ? (
-              <img
-                src={formData.avatarImageUrl}
-                alt="Avatar preview"
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
-            ) : (
-              <Image className="w-5 h-5 text-gray-400" />
-            )}
-          </div>
-        </div>
-        <p className="text-xs text-gray-500">
-          Optional: Add a profile image for your agent. Use a direct image URL.
-        </p>
-      </div>
+      {/* Avatar Upload */}
+      <AvatarUpload
+        avatarUrl={formData.avatarImageUrl ?? null}
+        disabled={disabled}
+        onChange={(url) => handleFieldChange('avatarImageUrl', url, formData.avatarImageUrl || '')}
+      />
 
       {/* Welcome Message */}
       <div>

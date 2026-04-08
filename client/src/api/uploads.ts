@@ -21,6 +21,17 @@ export const uploadsApi = {
     return response.data.data!;
   },
 
+  uploadAgentAvatar: async (file: File): Promise<UploadResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post<ApiResponse<UploadResponse>>(
+      '/uploads/agent-avatar',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+    return response.data.data!;
+  },
+
   uploadAssignmentFile: async (file: File): Promise<UploadResponse> => {
     const formData = new FormData();
     formData.append('file', file);
