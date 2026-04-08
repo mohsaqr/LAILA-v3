@@ -83,6 +83,7 @@ const VERB_FALLBACKS: Record<string, string> = {
   completed: 'regulated',
   submitted: 'assessment',
   selected: 'engaged',
+  expressed: 'expressed',
   enrolled: 'browsing',
   unenrolled: 'browsing',
 };
@@ -148,6 +149,7 @@ const DEFAULT_INTERPRETATIONS: Record<string, string> = {
   'interacted:tutor_conversation': 'AI_engaged',
 
   // expressed – emotional pulse
+  'expressed:emotional_pulse': 'expressed',
   'interacted:emotional_pulse': 'expressed',
 
   // practiced – lab activity

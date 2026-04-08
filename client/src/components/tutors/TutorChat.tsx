@@ -34,6 +34,7 @@ interface TutorChatProps {
   mode: TutorMode;
   conversationId?: number;
   onEmotionalPulse?: (emotion: EmotionType) => void;
+  courseId?: number;
   /** Allow students to change routing mode (default: true) */
   allowModeSwitch?: boolean;
 }
@@ -49,6 +50,7 @@ export const TutorChat = ({
   mode,
   conversationId,
   onEmotionalPulse,
+  courseId,
   allowModeSwitch = true,
 }: TutorChatProps) => {
   const { isDark } = useTheme();
@@ -358,6 +360,7 @@ export const TutorChat = ({
         context="chatbot"
         contextId={conversationId}
         agentId={agent.id}
+        courseId={courseId}
         cooldownMs={10000}
         compact
         onPulse={onEmotionalPulse}

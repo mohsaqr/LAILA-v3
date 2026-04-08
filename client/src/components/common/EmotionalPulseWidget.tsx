@@ -28,6 +28,7 @@ interface EmotionalPulseWidgetProps {
   context?: EmotionalPulseContext;
   contextId?: number;
   agentId?: number;
+  courseId?: number;
   cooldownMs?: number;
   emotions?: EmotionType[];
   compact?: boolean;
@@ -38,6 +39,7 @@ export const EmotionalPulseWidget = ({
   context = 'chatbot',
   contextId,
   agentId,
+  courseId,
   cooldownMs = 10000,
   emotions = DEFAULT_EMOTIONS,
   compact = false,
@@ -109,6 +111,7 @@ export const EmotionalPulseWidget = ({
           context,
           contextId,
           agentId,
+          courseId,
         });
 
         // Start cooldown

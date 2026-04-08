@@ -1529,6 +1529,7 @@ export interface LogEmotionalPulseInput {
   context?: EmotionalPulseContext;
   contextId?: number;
   agentId?: number;
+  courseId?: number;
 }
 
 export interface EmotionalPulseHistory {
