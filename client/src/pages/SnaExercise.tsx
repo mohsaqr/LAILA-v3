@@ -14,7 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   Network, X, GitBranch, Target, BarChart3, Waypoints, Plus, Database,
   ChevronDown, ChevronRight, BookOpen, Users,
-  Microscope, MessageCircle, Sparkles, Camera, Loader2, CheckCircle, Download,
+  Microscope, MessageCircle, Camera, Loader2, CheckCircle, Download,
   Award, Calendar, FileText, AlertCircle, MessageSquare, Send, RefreshCw, Clock,
 } from 'lucide-react';
 import { assignmentsApi } from '../api/assignments';
