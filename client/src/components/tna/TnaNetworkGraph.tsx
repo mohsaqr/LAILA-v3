@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import type { TNA } from 'dynajs';
 import { createColorMap } from './colorFix';
 
@@ -34,6 +34,12 @@ interface TnaNetworkGraphProps {
   externalPositions?: { x: number; y: number }[];
   /** Maximum edge stroke width (default 4). */
   maxEdgeWidth?: number;
+  /** Override directed/undirected (if undefined, inferred from modelType). */
+  directed?: boolean;
+  /** Whether to show node labels (default true). */
+  showNodeLabels?: boolean;
+  /** Custom font size for node labels. */
+  nodeFontSize?: number;
 }
 
 function fmtWeight(w: number): string {
@@ -53,7 +59,7 @@ function arrowPoly(tipX: number, tipY: number, dx: number, dy: number): string {
 
 function computeEdgePath(
   sx: number, sy: number, tx: number, ty: number,
-  curvature: number, nodeRadius: number,
+  curvature: number, sourceRadius: number, targetRadius: number, hasArrow: boolean,
 ) {
   const dx = tx - sx;
   const dy = ty - sy;
@@ -71,8 +77,8 @@ function computeEdgePath(
   const sdx = mx - sx;
   const sdy = my - sy;
   const slen = Math.sqrt(sdx * sdx + sdy * sdy);
-  const startX = sx + (sdx / slen) * nodeRadius;
-  const startY = sy + (sdy / slen) * nodeRadius;
+  const startX = sx + (sdx / slen) * sourceRadius;
+  const startY = sy + (sdy / slen) * sourceRadius;
 
   const edx = tx - mx;
   const edy = ty - my;
@@ -80,10 +86,11 @@ function computeEdgePath(
   const eux = edx / elen;
   const euy = edy / elen;
 
-  const tipX = tx - eux * nodeRadius;
-  const tipY = ty - euy * nodeRadius;
-  const endX = tx - eux * (nodeRadius + 8);
-  const endY = ty - euy * (nodeRadius + 8);
+  const tipX = tx - eux * targetRadius;
+  const tipY = ty - euy * targetRadius;
+  const arrowGap = hasArrow ? 8 : 0;
+  const endX = tx - eux * (targetRadius + arrowGap);
+  const endY = ty - euy * (targetRadius + arrowGap);
 
   const t = 0.55;
   const labelX = (1 - t) * (1 - t) * startX + 2 * (1 - t) * t * mx + t * t * endX;
@@ -143,11 +150,19 @@ export const TnaNetworkGraph = ({
   modelType,
   externalPositions,
   maxEdgeWidth = EDGE_WIDTH_MAX,
+  directed,
+  showNodeLabels = true,
+  nodeFontSize,
 }: TnaNetworkGraphProps) => {
   const { labels, weights, inits } = model;
-  const isUndirected = modelType === 'co-occurrence';
+  const isUndirected = directed !== undefined ? !directed : modelType === 'co-occurrence';
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
   const [hoveredNode, setHoveredNode] = useState<number | null>(null);
+
+  // Drag state
+  const [draggedPositions, setDraggedPositions] = useState<Record<number, { x: number; y: number }>>({});
+  const [draggingNode, setDraggingNode] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
 
   const svgH = height;
   const svgW = svgH;
@@ -179,13 +194,51 @@ export const TnaNetworkGraph = ({
   const padding = baseNodeRadius * maxNodeScale + 10;
   const layoutRadius = Math.min(cx, cy) - padding;
 
-  const nodePositions = useMemo(() => {
+  // Layout positions (reset drag when layout changes)
+  const layoutPositions = useMemo(() => {
+    setDraggedPositions({});
     if (externalPositions && externalPositions.length === labels.length) return externalPositions;
     return labels.map((_, i) => {
       const angle = (2 * Math.PI * i) / labels.length - Math.PI / 2;
       return { x: cx + layoutRadius * Math.cos(angle), y: cy + layoutRadius * Math.sin(angle) };
     });
   }, [labels, cx, cy, layoutRadius, externalPositions]);
+
+  // Merge layout positions with any drag overrides
+  const nodePositions = useMemo(() => {
+    if (Object.keys(draggedPositions).length === 0) return layoutPositions;
+    return layoutPositions.map((pos, i) => draggedPositions[i] ?? pos);
+  }, [layoutPositions, draggedPositions]);
+
+  // Drag handlers
+  const screenToSvg = useCallback((clientX: number, clientY: number) => {
+    const svg = svgRef.current;
+    if (!svg) return { x: 0, y: 0 };
+    const pt = svg.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return { x: 0, y: 0 };
+    const svgPt = pt.matrixTransform(ctm.inverse());
+    return { x: svgPt.x, y: svgPt.y };
+  }, []);
+
+  const handlePointerDown = useCallback((idx: number, e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDraggingNode(idx);
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+  }, []);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (draggingNode === null) return;
+    const { x, y } = screenToSvg(e.clientX, e.clientY);
+    setDraggedPositions(prev => ({ ...prev, [draggingNode]: { x, y } }));
+  }, [draggingNode, screenToSvg]);
+
+  const handlePointerUp = useCallback(() => {
+    setDraggingNode(null);
+  }, []);
 
   const { edges, bidir } = useMemo(() => {
     const result: { from: number; to: number; weight: number }[] = [];
@@ -246,9 +299,27 @@ export const TnaNetworkGraph = ({
   const widthScale = (w: number) => EDGE_WIDTH_MIN + (w / globalMaxW) * (maxEdgeWidth - EDGE_WIDTH_MIN);
   const opacityScale = (w: number) => EDGE_OPACITY_MIN + (w / globalMaxW) * (EDGE_OPACITY_MAX - EDGE_OPACITY_MIN);
 
+  // Responsive viewBox computed from node positions
+  const viewBox = useMemo(() => {
+    if (nodePositions.length === 0) return `0 0 ${svgW} ${svgH}`;
+    const maxR = baseNodeRadius * maxNodeScale;
+    const pad = maxR + 20;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of nodePositions) {
+      if (p.x < minX) minX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y > maxY) maxY = p.y;
+    }
+    return `${minX - pad} ${minY - pad} ${maxX - minX + 2 * pad} ${maxY - minY + 2 * pad}`;
+  }, [nodePositions, baseNodeRadius, maxNodeScale, svgW, svgH]);
+
   return (
     <div className="overflow-x-auto">
-      <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} className="mx-auto max-w-full">
+      <svg width="100%" height={svgH} ref={svgRef} viewBox={viewBox}
+        preserveAspectRatio="xMidYMid meet" className="mx-auto max-w-full"
+        style={{ touchAction: 'none' }}
+        onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp}>
         {selfLoops.map(({ idx, weight }) => {
           const nodeRadius = baseNodeRadius * nodeScales[idx];
           const pos = nodePositions[idx];
@@ -285,8 +356,9 @@ export const TnaNetworkGraph = ({
           const p2 = nodePositions[to];
           const isBidir = bidir.has(`${from}-${to}`);
           const curvature = isUndirected ? 0 : (isBidir ? EDGE_CURVATURE : 0);
-          const nodeRadius = baseNodeRadius * nodeScales[to];
-          const result = computeEdgePath(p1.x, p1.y, p2.x, p2.y, curvature, nodeRadius);
+          const sourceR = baseNodeRadius * nodeScales[from];
+          const targetR = baseNodeRadius * nodeScales[to];
+          const result = computeEdgePath(p1.x, p1.y, p2.x, p2.y, curvature, sourceR, targetR, !isUndirected);
           if (!result) return null;
           const op = opacityScale(weight);
           const key = `${from}-${to}`;
@@ -321,19 +393,25 @@ export const TnaNetworkGraph = ({
           const nodeRadius = baseNodeRadius * nodeScales[i];
           const color = colors[i]!;
           const isHovered = hoveredNode === i;
+          const isDragging = draggingNode === i;
+          const customFontSize = nodeFontSize ?? (label.length > 10 ? 8 : label.length > 7 ? 9 : 11);
           return (
-            <g key={label} transform={`translate(${pos.x},${pos.y})`} style={{ cursor: 'pointer' }}
-              onMouseEnter={() => setHoveredNode(i)} onMouseLeave={() => setHoveredNode(null)}>
+            <g key={label} transform={`translate(${pos.x},${pos.y})`}
+              style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+              onMouseEnter={() => setHoveredNode(i)} onMouseLeave={() => setHoveredNode(null)}
+              onPointerDown={e => handlePointerDown(i, e)}>
               <circle r={nodeRadius} fill={color} stroke={isHovered ? '#333333' : '#999999'}
                 strokeWidth={isHovered ? 3 : 2}>
                 <title>{`${label} (init: ${((inits[i] ?? 0) * 100).toFixed(1)}%)`}</title>
               </circle>
-              <text y={1} textAnchor="middle" dominantBaseline="middle" fill="#ffffff"
-                fontSize={label.length > 10 ? 8 : label.length > 7 ? 9 : 11} fontWeight={600}
-                pointerEvents="none"
-                style={{ paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.3)', strokeWidth: 2, strokeLinejoin: 'round' } as React.CSSProperties}>
-                {label.length > 12 ? label.slice(0, 11) + '\u2026' : label}
-              </text>
+              {showNodeLabels && (
+                <text y={1} textAnchor="middle" dominantBaseline="middle" fill="#ffffff"
+                  fontSize={customFontSize} fontWeight={600}
+                  pointerEvents="none"
+                  style={{ paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.3)', strokeWidth: 2, strokeLinejoin: 'round' } as React.CSSProperties}>
+                  {label.length > 12 ? label.slice(0, 11) + '\u2026' : label}
+                </text>
+              )}
             </g>
           );
         })}

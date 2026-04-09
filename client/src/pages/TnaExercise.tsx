@@ -144,6 +144,7 @@ export const TnaExercise = () => {
   const [showSelfLoops, setShowSelfLoops] = useState(true);
   const [showEdgeLabels, setShowEdgeLabels] = useState(true);
   const [nodeRadius, setNodeRadius] = useState(25);
+  const [nodeSizeBy, setNodeSizeBy] = useState<string>('fixed');
 
   // ── Active analysis (radio — one at a time) ──
   const [activeAnalysis, setActiveAnalysis] = useState<AnalysisKey | null>(null);
@@ -512,6 +513,15 @@ export const TnaExercise = () => {
                         className="rounded w-3.5 h-3.5 text-blue-600" />
                       {t('exercise.edge_labels')}
                     </label>
+                    <div>
+                      <span className="text-[10px] text-gray-400 block mb-1">{t('exercise.node_size_by')}</span>
+                      <select value={nodeSizeBy} onChange={e => setNodeSizeBy(e.target.value)} className={selectCls}>
+                        <option value="fixed">{t('exercise.fixed_size')}</option>
+                        <option value="InStrength">{t('exercise.in_strength')}</option>
+                        <option value="OutStrength">{t('exercise.out_strength')}</option>
+                        <option value="Betweenness">{t('exercise.betweenness')}</option>
+                      </select>
+                    </div>
                     <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
                       {t('exercise.node_size')}
                       <input type="range" min={15} max={50} value={nodeRadius}
@@ -797,8 +807,8 @@ export const TnaExercise = () => {
                     nodeRadius={nodeRadius}
                     height={500}
                     colorMap={colorMap}
-                    centralityData={isCentralityActive ? centralityData! : undefined}
-                    nodeSizeMetric={isCentralityActive ? centralityMetric : undefined}
+                    centralityData={centralityData ?? undefined}
+                    nodeSizeMetric={isCentralityActive ? centralityMetric : nodeSizeBy !== 'fixed' ? nodeSizeBy : undefined}
                     modelType={modelType}
                   />
                 </div>

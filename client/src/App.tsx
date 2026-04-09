@@ -308,9 +308,7 @@ function App() {
           path="/courses/:courseId/lectures/:lectureId"
           element={
             <ProtectedRoute>
-              <RequireEnrollment>
-                <LectureView />
-              </RequireEnrollment>
+              <LectureView />
             </ProtectedRoute>
           }
         />

@@ -535,7 +535,10 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
     for (const seq of seqs) for (const v of seq) labelSet.add(v);
     const labels = [...labelSet].sort();
 
-    return { sequences: seqs, labels };
+    // Count total mapped events (sum of all sequence lengths)
+    const mappedEventCount = seqs.reduce((sum, seq) => sum + seq.length, 0);
+
+    return { sequences: seqs, labels, mappedEventCount };
   }, [tnaData, sequenceMode, interpretations, verbRenames, verbExcludes]);
 
   /* --- Raw verb:objectType combinations (for raw mode editor) --- */
@@ -751,9 +754,9 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
         {tnaData && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
             <StatCard icon={<Users className="w-5 h-5" style={{ color: c.txBlue }} />}
-              iconBgColor={c.bgBlue} value={tnaData.metadata.totalSequences} label={t('sequences_count')} />
+              iconBgColor={c.bgBlue} value={transformedData?.sequences.length ?? tnaData.metadata.totalSequences} label={t('sequences_count')} />
             <StatCard icon={<Activity className="w-5 h-5" style={{ color: c.txGreen }} />}
-              iconBgColor={c.bgGreen} value={tnaData.metadata.totalEvents} label={t('events_count')} />
+              iconBgColor={c.bgGreen} value={transformedData?.mappedEventCount ?? tnaData.metadata.totalEvents} label={t('events_count')} />
             <StatCard icon={<Hash className="w-5 h-5" style={{ color: c.txTeal }} />}
               iconBgColor={c.bgTeal} value={transformedData?.labels.length ?? tnaData.metadata.uniqueVerbs.length}
               label={sequenceMode === 'objectType' ? t('object_types') : sequenceMode === 'combined' ? t('states_count') : sequenceMode === 'raw' ? t('raw_combinations') : t('verbs_count')} />
