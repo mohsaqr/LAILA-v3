@@ -18,7 +18,8 @@ import {
   Network, X, BarChart3, GitBranch,
   Scissors, Target, Users,
   Database, Share2, BookOpen, ChevronDown, ChevronRight,
-  ClipboardList, Camera, Loader2, CheckCircle, Download, RefreshCw,
+  Camera, Loader2, CheckCircle, Download,
+  Award, Calendar, Clock, Send, FileText, AlertCircle,
 } from 'lucide-react';
 import { assignmentsApi } from '../api/assignments';
 import { coursesApi } from '../api/courses';
@@ -26,6 +27,8 @@ import { LabAssignmentPanel, type ReportItem } from '../components/labs/LabAssig
 import toast from 'react-hot-toast';
 import { MyDatasetPicker } from '../components/common/MyDatasetPicker';
 import { SearchableSelect } from '../components/common/SearchableSelect';
+import { Card, CardBody } from '../components/common/Card';
+import { Button } from '../components/common/Button';
 import { INTERACTIVE_LAB_REQUIREMENTS } from '../types';
 import { tna, ftna, ctna, atna, prune, centralities, summary } from 'dynajs';
 import type { TNA } from 'dynajs';
@@ -180,14 +183,60 @@ export const TnaExercise = () => {
     if (!analysisContentRef.current || !activeAnalysis) return;
     setIsCapturing(true);
     try {
-      const { default: html2canvas } = await import('html2canvas');
       const el = analysisContentRef.current;
-      const canvas = await html2canvas(el, {
-        scale: 1.2, useCORS: true, allowTaint: true,
-        width: el.scrollWidth, height: el.scrollHeight,
-        scrollX: 0, scrollY: 0,
-      });
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      const { default: html2canvas } = await import('html2canvas');
+
+      // Hide elements that shouldn't be captured
+      const hideEls = el.querySelectorAll('[data-no-capture]');
+      hideEls.forEach(e => (e as HTMLElement).style.display = 'none');
+
+      // 1. Capture network card (hide toolbar)
+      const networkCard = el.querySelector('[data-network-card]') as HTMLElement | null;
+      const toolbar = networkCard?.querySelector('[data-graph-toolbar]') as HTMLElement | null;
+      let networkDataUrl: string | null = null;
+      if (networkCard) {
+        if (toolbar) toolbar.style.display = 'none';
+        const netCanvas = await html2canvas(networkCard, {
+          scale: 2, useCORS: true, allowTaint: true,
+          width: networkCard.scrollWidth, height: networkCard.scrollHeight,
+          scrollX: 0, scrollY: 0,
+        });
+        if (toolbar) toolbar.style.display = '';
+        if (netCanvas.height > 5) networkDataUrl = netCanvas.toDataURL('image/jpeg', 0.9);
+      }
+
+      // 2. Capture analysis content card directly
+      const analysisCard = el.querySelector('[data-analysis-content]') as HTMLElement | null;
+      let analysisDataUrl: string | null = null;
+      if (analysisCard && analysisCard.scrollHeight > 5) {
+        const analysisCanvas = await html2canvas(analysisCard, {
+          scale: 2, useCORS: true, allowTaint: true,
+          width: analysisCard.scrollWidth, height: analysisCard.scrollHeight,
+          scrollX: 0, scrollY: 0,
+        });
+        if (analysisCanvas.height > 5) analysisDataUrl = analysisCanvas.toDataURL('image/jpeg', 0.9);
+      }
+      hideEls.forEach(e => (e as HTMLElement).style.display = '');
+
+      // 3. Combine: network on top, analysis below
+      const netImg = networkDataUrl ? new Image() : null;
+      const anlImg = analysisDataUrl ? new Image() : null;
+      if (netImg && networkDataUrl) await new Promise<void>(r => { netImg.onload = () => r(); netImg.src = networkDataUrl!; });
+      if (anlImg && analysisDataUrl) await new Promise<void>(r => { anlImg.onload = () => r(); anlImg.src = analysisDataUrl!; });
+      const netW = netImg?.width || 0, netH = netImg?.height || 0;
+      const anlW = anlImg?.width || 0, anlH = anlImg?.height || 0;
+      const totalW = Math.max(netW, anlW, 1);
+      const totalH = netH + anlH || 1;
+      const combinedCanvas = document.createElement('canvas');
+      combinedCanvas.width = totalW;
+      combinedCanvas.height = totalH;
+      const cctx = combinedCanvas.getContext('2d')!;
+      cctx.fillStyle = '#ffffff';
+      cctx.fillRect(0, 0, totalW, totalH);
+      if (netImg) cctx.drawImage(netImg, (totalW - netW) / 2, 0);
+      if (anlImg) cctx.drawImage(anlImg, (totalW - anlW) / 2, netH);
+
+      const dataUrl = combinedCanvas.toDataURL('image/jpeg', 0.85);
       setReportItems(prev => {
         const filtered = prev.filter(item => item.key !== activeAnalysis);
         return [...filtered, { key: activeAnalysis, label: activeAnalysis, dataUrl, timestamp: Date.now() }];
@@ -356,40 +405,90 @@ export const TnaExercise = () => {
           </div>
         )}
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center">
-              <Network className="w-4.5 h-4.5 text-white" />
+        {/* Assignment Header Card */}
+        {tnaAssignment ? (
+          <Card className="mb-6">
+            <CardBody>
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <p className="text-sm mb-1 text-gray-500 dark:text-gray-400">{course?.title}</p>
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{tnaAssignment.title}</h1>
+                </div>
+                {isGraded ? (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400">
+                    <Award className="w-4 h-4" />
+                    {t('graded_with_score', { grade: mySubmission?.grade, total: tnaAssignment.points, defaultValue: `${mySubmission?.grade}/${tnaAssignment.points}` })}
+                  </span>
+                ) : isSubmitted ? (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400">
+                    <CheckCircle className="w-4 h-4" />
+                    {t('submitted_status', { defaultValue: 'Submitted' })}
+                  </span>
+                ) : isInGracePeriod ? (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400">
+                    <AlertCircle className="w-4 h-4" />
+                    {t('grace_period_status', { defaultValue: 'Grace Period' })}
+                  </span>
+                ) : isFullyPastDue ? (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400">
+                    <AlertCircle className="w-4 h-4" />
+                    {t('past_due_status', { defaultValue: 'Past Due' })}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                    <FileText className="w-4 h-4" />
+                    {t('not_started_status', { defaultValue: 'Not Started' })}
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                <span className="flex items-center gap-1">
+                  <Award className="w-4 h-4" />
+                  {tnaAssignment.points} {t('common:points', { defaultValue: 'points' })}
+                </span>
+                {dueDateLocal && (
+                  <span className={`flex items-center gap-1 ${isPastDue ? 'text-red-600' : ''}`}>
+                    <Calendar className="w-4 h-4" />
+                    {t('due_at', {
+                      defaultValue: 'Due {{date}} at {{time}}',
+                      date: dueDateLocal.toLocaleDateString(undefined, { timeZone: 'UTC' }),
+                      time: dueDateLocal.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
+                    })}
+                  </span>
+                )}
+                {gracePeriodLocal && (
+                  <span className={`flex items-center gap-1 ${isInGracePeriod ? 'text-red-600' : ''}`}>
+                    <Clock className="w-4 h-4" />
+                    {t('grace_period_until', {
+                      defaultValue: 'Grace period until {{date}} at {{time}}',
+                      date: gracePeriodLocal.toLocaleDateString(undefined, { timeZone: 'UTC' }),
+                      time: gracePeriodLocal.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
+                    })}
+                  </span>
+                )}
+                <span className="flex items-center gap-1 capitalize">
+                  <FileText className="w-4 h-4" />
+                  {t('submission_type_label', { type: tnaAssignment.submissionType, defaultValue: tnaAssignment.submissionType })}
+                </span>
+              </div>
+            </CardBody>
+          </Card>
+        ) : (
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center">
+                <Network className="w-4.5 h-4.5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('exercise.title')}</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">{t('exercise.subtitle')}</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('exercise.title')}</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">{t('exercise.subtitle')}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {tnaAssignment && isInGracePeriod && !isGraded && (
-              <span className="text-xs px-2 py-1 rounded-full font-medium" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#dc2626' }}>
-                {t('courses:grace_period_status', { defaultValue: 'Grace Period' })}
-              </span>
-            )}
-            {tnaAssignment && !isGraded && !isFullyPastDue && (
-              <button
-                onClick={() => setAssignmentPanelOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition-colors"
-              >
-                {isSubmitted ? <RefreshCw className="w-3.5 h-3.5" /> : <ClipboardList className="w-3.5 h-3.5" />}
-                {isSubmitted
-                  ? t('resubmit', { defaultValue: 'Resubmit' })
-                  : t('submit_assignment', { defaultValue: 'Submit Assignment' })
-                }
-              </button>
-            )}
             <button onClick={() => navigate(courseId ? `/courses/${courseId}` : -1 as any)} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
-        </div>
+        )}
 
         {/* ── Layout: sidebar + main ── */}
         <div className="flex flex-col lg:flex-row gap-6" ref={exerciseRef}>
@@ -645,7 +744,7 @@ export const TnaExercise = () => {
             {modelBuilt && rawModel && (
               <>
                 {/* ── Network Graph with controls ── */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                <div data-network-card className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                   <div className="flex items-center gap-3 mb-4">
                     <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                       {t('exercise.pipe_network')}
@@ -663,7 +762,7 @@ export const TnaExercise = () => {
                   </div>
 
                   {/* Graph controls toolbar */}
-                  <div className="space-y-3 mb-4 pb-4 border-b border-gray-100 dark:border-gray-700">
+                  <div data-graph-toolbar className="space-y-3 mb-4 pb-4 border-b border-gray-100 dark:border-gray-700">
                     {/* Row 1: Dropdowns + Checkboxes */}
                     <div className="flex flex-wrap items-end gap-3">
                       <SearchableSelect
@@ -738,7 +837,7 @@ export const TnaExercise = () => {
                 </div>
 
                 {/* Analysis tabs (horizontal) */}
-                <div className="flex flex-wrap items-center gap-2">
+                <div data-no-capture className="flex flex-wrap items-center gap-2">
                   {ANALYSIS_ITEMS.map(({ key, icon: Icon }) => {
                     const isActive = activeAnalysis === key;
                     return (
@@ -760,7 +859,7 @@ export const TnaExercise = () => {
 
                 {/* Sub-options for active analysis */}
                 {activeAnalysis === 'frequencies' && (
-                  <div className="flex flex-wrap items-center gap-3">
+                  <div data-no-capture className="flex flex-wrap items-center gap-3">
                     <ToggleGroup value={freqView} onChange={v => setFreqView(v as typeof freqView)} options={[
                       { key: 'bar', label: 'Bar' }, { key: 'distribution', label: 'Dist' }, { key: 'both', label: 'Both' },
                     ]} />
@@ -770,14 +869,14 @@ export const TnaExercise = () => {
                   </div>
                 )}
                 {activeAnalysis === 'transitions' && (
-                  <div className="flex flex-wrap items-center gap-3">
+                  <div data-no-capture className="flex flex-wrap items-center gap-3">
                     <ToggleGroup value={transitionView} onChange={v => { setTransitionView(v as typeof transitionView); logSession('Transition view: ' + v); }} options={[
                       { key: 'counts', label: t('exercise.raw_counts') }, { key: 'probs', label: t('exercise.probabilities') }, { key: 'both', label: 'Both' },
                     ]} />
                   </div>
                 )}
                 {activeAnalysis === 'pruning' && (
-                  <div className="flex flex-wrap items-center gap-4">
+                  <div data-no-capture className="flex flex-wrap items-center gap-4">
                     <div className="flex items-center gap-2 min-w-[250px]">
                       <span className="text-[12px] text-gray-500 whitespace-nowrap">{t('exercise.prune_threshold')}</span>
                       <input type="range" min={0} max={0.5} step={0.01} value={pruneThreshold}
@@ -789,7 +888,7 @@ export const TnaExercise = () => {
                   </div>
                 )}
                 {activeAnalysis === 'centrality' && (
-                  <div className="flex flex-wrap items-center gap-3">
+                  <div data-no-capture className="flex flex-wrap items-center gap-3">
                     <ToggleGroup value={centralityMetric} onChange={v => { setCentralityMetric(v as typeof centralityMetric); logSession('Centrality metric: ' + v); }} options={[
                       { key: 'InStrength', label: 'In-Strength' }, { key: 'OutStrength', label: 'Out-Strength' }, { key: 'Betweenness', label: 'Betweenness' },
                     ]} />
@@ -802,7 +901,7 @@ export const TnaExercise = () => {
                   </div>
                 )}
                 {activeAnalysis === 'clusters' && (
-                  <div className="flex items-center gap-3">
+                  <div data-no-capture className="flex items-center gap-3">
                     <span className="text-[12px] text-gray-500">{t('exercise.num_clusters')}</span>
                     <input type="range" min={2} max={10} value={clusterK}
                       onChange={e => { setClusterK(Number(e.target.value)); logSession('Cluster k: ' + e.target.value); }}
@@ -842,36 +941,10 @@ export const TnaExercise = () => {
                   </div>
                 )}
 
-                {/* Add-to-report capture button (only when assignment exists and not past due, or resubmitting) */}
-                {modelBuilt && activeAnalysis && tnaAssignment && (!isSubmitted || canResubmit) && !isGraded && !isFullyPastDue && (
-                  <button
-                    onClick={handleAddToReport}
-                    disabled={isCapturing}
-                    className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                      reportItems.some(r => r.key === activeAnalysis)
-                        ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700'
-                        : 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border-dashed border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:border-indigo-400'
-                    }`}
-                  >
-                    {isCapturing ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : reportItems.some(r => r.key === activeAnalysis) ? (
-                      <CheckCircle className="w-4 h-4" />
-                    ) : (
-                      <Camera className="w-4 h-4" />
-                    )}
-                    {isCapturing
-                      ? 'Capturing...'
-                      : reportItems.some(r => r.key === activeAnalysis)
-                        ? `Captured — click to recapture`
-                        : 'Add this analysis to report'}
-                  </button>
-                )}
-
-                {/* ── Analysis Result (swaps based on sidebar selection) ── */}
+                {/* ── Analysis Result ── */}
                 {activeAnalysis === 'frequencies' && (
                   <>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                    <div data-analysis-content className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
                         {t('exercise.block_frequencies')}
                       </h3>
@@ -903,7 +976,7 @@ export const TnaExercise = () => {
 
                 {activeAnalysis === 'transitions' && (
                   <>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                    <div data-analysis-content className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                           {t('exercise.block_transitions')}
@@ -955,7 +1028,7 @@ export const TnaExercise = () => {
 
                 {activeAnalysis === 'pruning' && (
                   <>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                    <div data-analysis-content className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
                         {t('exercise.block_pruning')}
                       </h3>
@@ -979,7 +1052,7 @@ export const TnaExercise = () => {
 
                 {activeAnalysis === 'centrality' && centralityData && (
                   <>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                    <div data-analysis-content className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                           {t('exercise.block_centrality')}
@@ -1020,7 +1093,7 @@ export const TnaExercise = () => {
 
                 {activeAnalysis === 'clusters' && (
                   <>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                    <div data-analysis-content className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
                         {t('exercise.block_clusters')}
                       </h3>
@@ -1041,6 +1114,33 @@ export const TnaExercise = () => {
                       data={`Number of clusters (k): ${clusterK}. States: ${labels.join(', ')}.`}
                     />
                   </>
+                )}
+
+                {/* Add-to-report capture button (after analysis results) */}
+                {modelBuilt && activeAnalysis && tnaAssignment && (!isSubmitted || canResubmit) && !isGraded && !isFullyPastDue && (
+                  <button
+                    data-no-capture
+                    onClick={handleAddToReport}
+                    disabled={isCapturing}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                      reportItems.some(r => r.key === activeAnalysis)
+                        ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700'
+                        : 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border-dashed border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:border-indigo-400'
+                    }`}
+                  >
+                    {isCapturing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : reportItems.some(r => r.key === activeAnalysis) ? (
+                      <CheckCircle className="w-4 h-4" />
+                    ) : (
+                      <Camera className="w-4 h-4" />
+                    )}
+                    {isCapturing
+                      ? 'Capturing...'
+                      : reportItems.some(r => r.key === activeAnalysis)
+                        ? `Captured — click to recapture`
+                        : 'Add this analysis to report'}
+                  </button>
                 )}
 
                 {/* No analysis selected — show network guide */}
@@ -1076,6 +1176,24 @@ export const TnaExercise = () => {
         onClose={() => setShowDatasetPicker(false)}
         onSelect={(csvText) => handleMyDatasetSelect(csvText)}
       />
+
+      {/* Submit button at bottom */}
+      {tnaAssignment && !isGraded && !isFullyPastDue && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-6">
+          <div className="flex justify-end">
+            <Button
+              variant="primary"
+              onClick={() => setAssignmentPanelOpen(true)}
+              icon={<Send className="w-4 h-4" />}
+            >
+              {isSubmitted
+                ? t('resubmit', { defaultValue: 'Resubmit' })
+                : t('submit_assignment', { defaultValue: 'Submit Assignment' })
+              }
+            </Button>
+          </div>
+        </div>
+      )}
 
       {tnaAssignment && !isGraded && !isFullyPastDue && (
         <LabAssignmentPanel
