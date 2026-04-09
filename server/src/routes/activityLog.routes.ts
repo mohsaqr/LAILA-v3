@@ -196,7 +196,8 @@ router.get('/hourly-counts', authenticateToken, asyncHandler(async (req: AuthReq
     endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
   };
 
-  const data = await activityLogService.getHourlyCounts(filters);
+  const timezone = (req.query.timezone as string) || undefined;
+  const data = await activityLogService.getHourlyCounts({ ...filters, timezone });
   res.json({ success: true, data });
 }));
 
@@ -229,7 +230,8 @@ router.get('/daily-counts', authenticateToken, asyncHandler(async (req: AuthRequ
     endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
   };
 
-  const data = await activityLogService.getDailyCounts(filters);
+  const timezone = (req.query.timezone as string) || undefined;
+  const data = await activityLogService.getDailyCounts({ ...filters, timezone });
   res.json({ success: true, data });
 }));
 

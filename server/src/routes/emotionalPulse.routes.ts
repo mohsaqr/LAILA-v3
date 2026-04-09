@@ -13,6 +13,7 @@ const logPulseSchema = z.object({
   context: z.string().optional(),
   contextId: z.number().optional(),
   agentId: z.number().optional(),
+  courseId: z.number().optional(),
 });
 
 // =============================================================================

@@ -464,6 +464,7 @@ export const AITutors = () => {
         mode={mode}
         conversationId={conversationData?.id}
         onEmotionalPulse={handleEmotionalPulse}
+        courseId={parsedCourseId}
       />
 
       {/* Emotional Pulse History (right) - Desktop */}

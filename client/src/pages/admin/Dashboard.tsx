@@ -78,11 +78,12 @@ const VERB_FALLBACKS: Record<string, string> = {
   viewed: 'learning',
   downloaded: 'learning',
   progressed: 'progressing',
-  started: 'progressing',
+  started: 'learning',
   interacted: 'engaged',
   completed: 'regulated',
   submitted: 'assessment',
   selected: 'engaged',
+  expressed: 'expressed',
   enrolled: 'browsing',
   unenrolled: 'browsing',
 };
@@ -119,10 +120,12 @@ const DEFAULT_INTERPRETATIONS: Record<string, string> = {
   'progressed:video': 'progressing',
   'progressed:section': 'progressing',
 
-  // engaged – actively starting/interacting with activities
-  'started:lecture': 'engaged',
-  'started:section': 'engaged',
-  'started:video': 'engaged',
+  // learning – opening content (started is treated same as viewed)
+  'started:lecture': 'learning',
+  'started:section': 'learning',
+  'started:video': 'learning',
+
+  // engaged – actively interacting with activities
   'interacted:section': 'engaged',
 
   // regulated – completing activities (self-regulation)
@@ -148,10 +151,12 @@ const DEFAULT_INTERPRETATIONS: Record<string, string> = {
   'interacted:tutor_conversation': 'AI_engaged',
 
   // expressed – emotional pulse
+  'expressed:emotional_pulse': 'expressed',
   'interacted:emotional_pulse': 'expressed',
 
   // practiced – lab activity
-  'started:lab': 'practiced',
+  'viewed:lab': 'learning',
+  'started:lab': 'learning',
   'interacted:lab': 'practiced',
   'selected:lab': 'practiced',
   'submitted:lab': 'assessment',

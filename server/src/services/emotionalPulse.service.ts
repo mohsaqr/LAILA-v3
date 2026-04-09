@@ -7,6 +7,7 @@ export interface LogPulseInput {
   context?: string;
   contextId?: number;
   agentId?: number;
+  courseId?: number;
 }
 
 export class EmotionalPulseService {
@@ -60,11 +61,12 @@ export class EmotionalPulseService {
     // Log to unified activity log
     activityLogService.logActivity({
       userId,
-      verb: 'interacted',
+      verb: 'expressed',
       objectType: 'emotional_pulse',
       objectId: pulse.id,
       objectTitle: emotion,
       objectSubtype: context,
+      courseId: data.courseId,
       extensions: {
         emotion,
         context,
