@@ -132,7 +132,7 @@ import { Settings } from './pages/Settings';
 import { AIBuilder, Chatbots, PromptHelper, BiasResearch, DataAnalyzer } from './pages/ai-tools';
 
 function App() {
-  const { setLoading, token, user } = useAuthStore();
+  const { setLoading, token, user, logout } = useAuthStore();
   const { direction, initFromUser, isInitialized } = useLanguageStore();
 
   // Initialize language from user preference or localStorage
@@ -154,12 +154,18 @@ function App() {
       flushIntervalMs: 30000, // Flush every 30 seconds
     });
 
-    // Initial auth check
+    // Initial auth check — verify token hasn't expired
     if (token) {
-      setLoading(false);
-    } else {
-      setLoading(false);
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.exp && payload.exp * 1000 < Date.now()) {
+          logout();
+        }
+      } catch {
+        logout();
+      }
     }
+    setLoading(false);
 
     // Cleanup on unmount
     return () => {

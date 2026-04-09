@@ -43,13 +43,13 @@ export const usersApi = {
     return response.data.data!;
   },
 
-  getUserStats: async (id: number) => {
-    const response = await apiClient.get<ApiResponse<UserStats>>(`/users/${id}/stats`);
+  getUserStats: async () => {
+    const response = await apiClient.get<ApiResponse<UserStats>>('/users/me/stats');
     return response.data.data!;
   },
 
-  getInstructorStats: async (id: number) => {
-    const response = await apiClient.get<ApiResponse<InstructorStats>>(`/users/${id}/instructor-stats`);
+  getInstructorStats: async () => {
+    const response = await apiClient.get<ApiResponse<InstructorStats>>('/users/me/instructor-stats');
     return response.data.data!;
   },
 };

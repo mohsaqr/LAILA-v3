@@ -62,8 +62,8 @@ export const TeachDashboard = () => {
   };
 
   const { data: instructorStats, isLoading: statsLoading } = useQuery({
-    queryKey: ['instructorStats', user?.id],
-    queryFn: () => usersApi.getInstructorStats(user!.id),
+    queryKey: ['instructorStats'],
+    queryFn: () => usersApi.getInstructorStats(),
     enabled: !!user,
   });
 
