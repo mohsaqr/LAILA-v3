@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { createColorMap } from './colorFix';
+import { useContainerWidth } from '../../hooks/useContainerWidth';
 
 interface TnaFrequencyChartProps {
   sequences: string[][];
@@ -24,17 +25,18 @@ export const TnaFrequencyChart = ({ sequences, labels, colorMap: externalColorMa
   }, [sequences, labels]);
 
   const maxCount = Math.max(...sortedVerbs.map(v => v.count), 1);
+  const { ref: containerRef, width: containerWidth } = useContainerWidth(600);
 
-  const svgWidth = 600;
   const barHeight = 28;
   const gap = 4;
   const margin = { top: 10, right: 60, bottom: 10, left: 100 };
+  const svgWidth = containerWidth;
   const plotW = svgWidth - margin.left - margin.right;
   const svgHeight = margin.top + margin.bottom + sortedVerbs.length * (barHeight + gap);
 
   return (
-    <div className="overflow-x-auto">
-      <svg width={svgWidth} height={svgHeight} className="mx-auto">
+    <div ref={containerRef}>
+      <svg width="100%" height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`} preserveAspectRatio="xMinYMin meet">
         <g transform={`translate(${margin.left},${margin.top})`}>
           {sortedVerbs.map((item, i) => {
             const y = i * (barHeight + gap);

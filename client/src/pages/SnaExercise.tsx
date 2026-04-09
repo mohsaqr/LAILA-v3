@@ -797,13 +797,13 @@ export const SnaExercise = () => {
                     <Plus className="w-3.5 h-3.5" />
                     {t('sna.custom_enter')}
                   </button>
-                  <button
+                  {/* <button
                     onClick={() => setShowAIGenerator(true)}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
                     {t('ai_gen.or_generate')}
-                  </button>
+                  </button> */}
                   <button
                     onClick={() => setShowDatasetPicker(true)}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
@@ -919,12 +919,19 @@ export const SnaExercise = () => {
                       <Plus className="w-4 h-4" />
                       {t('sna.custom_enter')}
                     </button>
-                    <button
+                    {/* <button
                       onClick={() => setShowAIGenerator(true)}
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
                     >
                       <Sparkles className="w-4 h-4" />
                       {t('ai_gen.or_generate')}
+                    </button> */}
+                    <button
+                      onClick={() => setShowDatasetPicker(true)}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                    >
+                      <Database className="w-4 h-4" />
+                      {t('my_datasets')}
                     </button>
                   </div>
                 </div>

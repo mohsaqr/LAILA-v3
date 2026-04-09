@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useContainerWidth } from '../../hooks/useContainerWidth';
 import { useTranslation } from 'react-i18next';
 
 interface CentralityData {
@@ -52,15 +53,17 @@ export const CentralityBarChart = ({ centralityData, colorMap, selectedMeasure }
 
   const maxVal = useMemo(() => Math.max(...values, 1e-6), [values]);
 
+  const { ref: containerRef, width: containerWidth } = useContainerWidth(600);
+
   const barHeight = 26;
   const gap = 5;
   const margin = { top: 10, right: 55, bottom: 10, left: 100 };
-  const svgWidth = 600;
+  const svgWidth = containerWidth;
   const plotW = svgWidth - margin.left - margin.right;
   const svgHeight = margin.top + margin.bottom + labels.length * (barHeight + gap);
 
   return (
-    <div>
+    <div ref={containerRef}>
       {/* Measure tabs (hidden when controlled externally) */}
       {showTabs && (
         <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden text-xs mb-3 w-fit">
@@ -76,8 +79,8 @@ export const CentralityBarChart = ({ centralityData, colorMap, selectedMeasure }
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <svg width={svgWidth} height={svgHeight} className="mx-auto">
+      <div>
+        <svg width="100%" height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`} preserveAspectRatio="xMinYMin meet">
           <g transform={`translate(${margin.left},${margin.top})`}>
             {sortedIndices.map((li, rank) => {
               const label = labels[li];
