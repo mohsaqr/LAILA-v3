@@ -825,183 +825,6 @@ export const SnaExercise = () => {
                 )}
               </div>
 
-              {/* Network controls + Analysis nav (after build) */}
-              {modelBuilt && rawModel && (
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-3">
-
-                  {/* Network controls */}
-                  <div className="space-y-3">
-                    <label className={labelCls}>{t('exercise.pipe_network')}</label>
-
-                    {/* Dropdowns */}
-                    <div className="space-y-2">
-                      <SearchableSelect
-                        label={t('sna.layout')}
-                        value={layout}
-                        onChange={val => setLayout(val as LayoutAlgorithm)}
-                        options={LAYOUT_OPTIONS.map(o => ({ value: o.key, label: t(o.i18nKey) }))}
-                      />
-                      <SearchableSelect
-                        label={t('exercise.node_size_by')}
-                        value={nodeSizeBy}
-                        onChange={setNodeSizeBy}
-                        options={[
-                          { value: 'fixed', label: t('exercise.fixed_size') },
-                          { value: 'InStrength', label: t('exercise.in_strength') },
-                          { value: 'OutStrength', label: t('exercise.out_strength') },
-                          { value: 'InDegree', label: t('exercise.in_degree') },
-                          { value: 'OutDegree', label: t('exercise.out_degree') },
-                          { value: 'Betweenness', label: t('exercise.betweenness') },
-                        ]}
-                      />
-                    </div>
-
-                    {/* Checkboxes */}
-                    <div className="space-y-2">
-                      <label className="flex items-center gap-2.5 text-[13px] text-gray-700 dark:text-gray-200 cursor-pointer">
-                        <input type="checkbox" checked={!isDirected} onChange={e => setDirectedOverride(e.target.checked ? false : true)}
-                          className="rounded w-4 h-4 text-violet-600" />
-                        {t('sna.undirected')}
-                      </label>
-                      <label className="flex items-center gap-2.5 text-[13px] text-gray-700 dark:text-gray-200 cursor-pointer">
-                        <input type="checkbox" checked={showSelfLoops} onChange={e => setShowSelfLoops(e.target.checked)}
-                          className="rounded w-4 h-4 text-violet-600" />
-                        {t('exercise.self_loops')}
-                      </label>
-                      <label className="flex items-center gap-2.5 text-[13px] text-gray-700 dark:text-gray-200 cursor-pointer">
-                        <input type="checkbox" checked={showEdgeLabels} onChange={e => setShowEdgeLabels(e.target.checked)}
-                          className="rounded w-4 h-4 text-violet-600" />
-                        {t('exercise.edge_labels')}
-                      </label>
-                      <label className="flex items-center gap-2.5 text-[13px] text-gray-700 dark:text-gray-200 cursor-pointer">
-                        <input type="checkbox" checked={showNodeLabels} onChange={e => setShowNodeLabels(e.target.checked)}
-                          className="rounded w-4 h-4 text-violet-600" />
-                        {t('exercise.node_labels')}
-                      </label>
-                    </div>
-
-                    {/* Sliders */}
-                    <div className="space-y-3">
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">{t('exercise.node_size')}</span>
-                          <span className="text-[11px] font-semibold text-violet-600 tabular-nums">{nodeRadius}</span>
-                        </div>
-                        <input type="range" min={15} max={50} value={nodeRadius}
-                          onChange={e => setNodeRadius(Number(e.target.value))} className="w-full h-2 rounded-full accent-violet-600 cursor-pointer" />
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">{t('exercise.label_size')}</span>
-                          <span className="text-[11px] font-semibold text-violet-600 tabular-nums">{nodeFontSize}</span>
-                        </div>
-                        <input type="range" min={6} max={18} value={nodeFontSize}
-                          onChange={e => setNodeFontSize(Number(e.target.value))} className="w-full h-2 rounded-full accent-violet-600 cursor-pointer" />
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">{t('sna.edge_width')}</span>
-                          <span className="text-[11px] font-semibold text-violet-600 tabular-nums">{edgeWidth}</span>
-                        </div>
-                        <input type="range" min={1} max={12} step={0.5} value={edgeWidth}
-                          onChange={e => setEdgeWidth(Number(e.target.value))} className="w-full h-2 rounded-full accent-violet-600 cursor-pointer" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <hr className="border-gray-100 dark:border-gray-700" />
-
-                  {/* Analysis navigation (radio-style) */}
-                  <div className="space-y-0.5">
-                    <label className={labelCls}>{t('exercise.analysis_blocks')}</label>
-                    {ANALYSIS_ITEMS.map(({ key, icon: Icon }) => {
-                      const isActive = activeAnalysis === key;
-                      return (
-                        <div key={key}>
-                          <button
-                            onClick={() => toggleAnalysis(key)}
-                            className={`flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-left text-xs font-medium transition-all ${
-                              isActive
-                                ? 'bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300 border-l-2 border-violet-500 ml-0'
-                                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                            }`}
-                          >
-                            <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${isActive ? 'text-violet-500' : 'text-gray-400'}`} />
-                            <span>{t(`sna.block_${key}`)}</span>
-                          </button>
-
-                          {/* Inline options */}
-                          {isActive && key === 'communities' && (
-                            <div className="ml-6 mt-1 mb-2 space-y-2">
-                              <div>
-                                <span className="text-[11px] text-gray-400 block mb-1">{t('sna.community_algorithm')}</span>
-                                <select
-                                  value={communityMethod}
-                                  onChange={e => { setCommunityMethod(e.target.value as CommunityMethod); logSession('Community method: ' + e.target.value); }}
-                                  className={selectCls}
-                                >
-                                  {COMMUNITY_METHOD_OPTIONS.map(opt => (
-                                    <option key={opt.key} value={opt.key}>{t(opt.i18nKey)}</option>
-                                  ))}
-                                </select>
-                              </div>
-                              {communities && (
-                                <div className="text-[12px] text-gray-500 dark:text-gray-400">
-                                  {t('sna.communities_detected', { count: communities.k })}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          {isActive && key === 'centrality' && (
-                            <div className="ml-6 mt-1 mb-2 space-y-2">
-                              <div>
-                                <span className="text-[11px] text-gray-400 block mb-1">{t('sna.centrality_measure')}</span>
-                                <div className="flex flex-wrap gap-1">
-                                  {CENTRALITY_OPTIONS.map(opt => (
-                                    <button
-                                      key={opt.key}
-                                      onClick={() => { setCentralityMetric(opt.key); logSession('Centrality metric: ' + opt.key); }}
-                                      className={`px-2.5 py-1 rounded text-[12px] font-medium transition-colors ${
-                                        centralityMetric === opt.key
-                                          ? 'bg-violet-600 text-white'
-                                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                                      }`}
-                                    >
-                                      {t(opt.i18nKey)}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                              <div className="flex rounded border border-gray-200 dark:border-gray-600 overflow-hidden">
-                                <button
-                                  onClick={() => { setCentralityView('chart'); logSession('Centrality view: chart'); }}
-                                  className={`flex-1 px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                                    centralityView === 'chart'
-                                      ? 'bg-violet-600 text-white'
-                                      : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                                  }`}
-                                >
-                                  {t('exercise.centrality_chart')}
-                                </button>
-                                <button
-                                  onClick={() => { setCentralityView('table'); logSession('Centrality view: table'); }}
-                                  className={`flex-1 px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                                    centralityView === 'table'
-                                      ? 'bg-violet-600 text-white'
-                                      : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                                  }`}
-                                >
-                                  {t('exercise.centrality_table')}
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
 
               {/* Download Data */}
               {datasetKey && currentEdges.length > 0 && (
@@ -1164,9 +987,9 @@ export const SnaExercise = () => {
                 {/* Capturable area — network graph + analysis content (no buttons/guides/AI) */}
                 <div ref={captureRef} className="space-y-4">
 
-                {/* Network Graph (always visible) */}
+                {/* Network Graph with controls */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                  <div className="flex items-center gap-3 mb-3">
+                  <div className="flex items-center gap-3 mb-4">
                     <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                       {t('sna.network_graph')}
                     </h2>
@@ -1181,6 +1004,78 @@ export const SnaExercise = () => {
                       </span>
                     )}
                   </div>
+
+                  {/* Graph controls toolbar */}
+                  <div className="space-y-3 mb-4 pb-4 border-b border-gray-100 dark:border-gray-700">
+                    {/* Row 1: Dropdowns + Checkboxes */}
+                    <div className="flex flex-wrap items-end gap-3">
+                      <SearchableSelect
+                        label={t('sna.layout')}
+                        value={layout}
+                        onChange={val => setLayout(val as LayoutAlgorithm)}
+                        options={LAYOUT_OPTIONS.map(o => ({ value: o.key, label: t(o.i18nKey) }))}
+                        className="w-[160px]"
+                      />
+                      <SearchableSelect
+                        label={t('exercise.node_size_by')}
+                        value={nodeSizeBy}
+                        onChange={setNodeSizeBy}
+                        options={[
+                          { value: 'fixed', label: t('exercise.fixed_size') },
+                          { value: 'InStrength', label: t('exercise.in_strength') },
+                          { value: 'OutStrength', label: t('exercise.out_strength') },
+                          { value: 'InDegree', label: t('exercise.in_degree') },
+                          { value: 'OutDegree', label: t('exercise.out_degree') },
+                          { value: 'Betweenness', label: t('exercise.betweenness') },
+                        ]}
+                        className="w-[160px]"
+                      />
+                      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 ml-2">
+                        <label className="flex items-center gap-1.5 text-[13px] text-gray-700 dark:text-gray-200 cursor-pointer">
+                          <input type="checkbox" checked={!isDirected} onChange={e => setDirectedOverride(e.target.checked ? false : true)}
+                            className="rounded w-4 h-4 text-violet-600" />
+                          {t('sna.undirected')}
+                        </label>
+                        <label className="flex items-center gap-1.5 text-[13px] text-gray-700 dark:text-gray-200 cursor-pointer">
+                          <input type="checkbox" checked={showSelfLoops} onChange={e => setShowSelfLoops(e.target.checked)}
+                            className="rounded w-4 h-4 text-violet-600" />
+                          {t('exercise.self_loops')}
+                        </label>
+                        <label className="flex items-center gap-1.5 text-[13px] text-gray-700 dark:text-gray-200 cursor-pointer">
+                          <input type="checkbox" checked={showEdgeLabels} onChange={e => setShowEdgeLabels(e.target.checked)}
+                            className="rounded w-4 h-4 text-violet-600" />
+                          {t('exercise.edge_labels')}
+                        </label>
+                        <label className="flex items-center gap-1.5 text-[13px] text-gray-700 dark:text-gray-200 cursor-pointer">
+                          <input type="checkbox" checked={showNodeLabels} onChange={e => setShowNodeLabels(e.target.checked)}
+                            className="rounded w-4 h-4 text-violet-600" />
+                          {t('exercise.node_labels')}
+                        </label>
+                      </div>
+                    </div>
+                    {/* Row 2: Sliders */}
+                    <div className="flex flex-wrap items-center gap-6">
+                      <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                        <span className="text-[12px] text-gray-500 whitespace-nowrap">{t('exercise.node_size')}</span>
+                        <input type="range" min={15} max={50} value={nodeRadius}
+                          onChange={e => setNodeRadius(Number(e.target.value))} className="flex-1 h-2 rounded-full accent-violet-600 cursor-pointer" />
+                        <span className="text-[12px] font-semibold text-violet-600 tabular-nums w-6 text-right">{nodeRadius}</span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                        <span className="text-[12px] text-gray-500 whitespace-nowrap">{t('exercise.label_size')}</span>
+                        <input type="range" min={6} max={18} value={nodeFontSize}
+                          onChange={e => setNodeFontSize(Number(e.target.value))} className="flex-1 h-2 rounded-full accent-violet-600 cursor-pointer" />
+                        <span className="text-[12px] font-semibold text-violet-600 tabular-nums w-6 text-right">{nodeFontSize}</span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                        <span className="text-[12px] text-gray-500 whitespace-nowrap">{t('sna.edge_width')}</span>
+                        <input type="range" min={1} max={12} step={0.5} value={edgeWidth}
+                          onChange={e => setEdgeWidth(Number(e.target.value))} className="flex-1 h-2 rounded-full accent-violet-600 cursor-pointer" />
+                        <span className="text-[12px] font-semibold text-violet-600 tabular-nums w-6 text-right">{edgeWidth}</span>
+                      </div>
+                    </div>
+                  </div>
+
                   <TnaNetworkGraph
                     model={rawModel}
                     showSelfLoops={showSelfLoops}
@@ -1197,6 +1092,85 @@ export const SnaExercise = () => {
                     nodeFontSize={nodeFontSize}
                   />
                 </div>
+
+                {/* Analysis tabs (horizontal) */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {ANALYSIS_ITEMS.map(({ key, icon: Icon }) => {
+                    const isActive = activeAnalysis === key;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => toggleAnalysis(key)}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                          isActive
+                            ? 'bg-violet-600 text-white shadow-sm'
+                            : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                        }`}
+                      >
+                        <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-gray-400'}`} />
+                        {t(`sna.block_${key}`)}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Sub-options for active analysis */}
+                {activeAnalysis === 'centrality' && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {CENTRALITY_OPTIONS.map(opt => (
+                      <button
+                        key={opt.key}
+                        onClick={() => { setCentralityMetric(opt.key); logSession('Centrality metric: ' + opt.key); }}
+                        className={`px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors ${
+                          centralityMetric === opt.key
+                            ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        {t(opt.i18nKey)}
+                      </button>
+                    ))}
+                    <span className="w-px h-5 bg-gray-200 dark:bg-gray-700" />
+                    <div className="flex rounded-md border border-gray-200 dark:border-gray-600 overflow-hidden">
+                      <button
+                        onClick={() => { setCentralityView('chart'); logSession('Centrality view: chart'); }}
+                        className={`px-3 py-1 text-[12px] font-medium transition-colors ${
+                          centralityView === 'chart'
+                            ? 'bg-violet-600 text-white'
+                            : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                        }`}
+                      >
+                        {t('exercise.centrality_chart')}
+                      </button>
+                      <button
+                        onClick={() => { setCentralityView('table'); logSession('Centrality view: table'); }}
+                        className={`px-3 py-1 text-[12px] font-medium transition-colors ${
+                          centralityView === 'table'
+                            ? 'bg-violet-600 text-white'
+                            : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                        }`}
+                      >
+                        {t('exercise.centrality_table')}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {activeAnalysis === 'communities' && (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <SearchableSelect
+                      label={t('sna.community_algorithm')}
+                      value={communityMethod}
+                      onChange={val => { setCommunityMethod(val as CommunityMethod); logSession('Community method: ' + val); }}
+                      options={COMMUNITY_METHOD_OPTIONS.map(o => ({ value: o.key, label: t(o.i18nKey) }))}
+                      className="w-[200px]"
+                    />
+                    {communities && (
+                      <span className="text-[12px] text-gray-500 dark:text-gray-400 self-end pb-1.5">
+                        {t('sna.communities_detected', { count: communities.k })}
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {/* Graph Metrics (inside capture area) */}
                 {activeAnalysis === 'metrics' && metrics && (
