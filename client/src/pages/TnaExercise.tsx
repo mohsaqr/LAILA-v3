@@ -1109,6 +1109,7 @@ export const TnaExercise = () => {
           courseNumericId={Number(courseId)}
           assignmentId={tnaAssignment?.id}
           reportItems={reportItems}
+          onRemoveReportItem={(key) => setReportItems(prev => prev.filter(i => i.key !== key))}
         />
       )}
     </div>

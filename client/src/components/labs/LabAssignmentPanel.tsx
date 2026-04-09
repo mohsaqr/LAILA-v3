@@ -52,6 +52,7 @@ interface LabAssignmentPanelProps {
   courseNumericId?: number;
   assignmentId?: number;
   reportItems?: ReportItem[];
+  onRemoveReportItem?: (key: string) => void;
   onSubmitted?: () => void;
   courseName?: string;
   code?: string;
@@ -70,6 +71,7 @@ export const LabAssignmentPanel = ({
   courseNumericId,
   assignmentId,
   reportItems,
+  onRemoveReportItem,
   onSubmitted,
   courseName,
   code,
@@ -502,7 +504,16 @@ export const LabAssignmentPanel = ({
                     {reportItems.map(item => (
                       <div key={item.key} className="flex items-center gap-3 p-2 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
                         <img src={item.dataUrl} alt={item.label} className="h-10 w-16 object-cover rounded border border-gray-200 dark:border-gray-600 flex-shrink-0" />
-                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 capitalize">{item.label}</span>
+                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 capitalize flex-1">{item.label}</span>
+                        {onRemoveReportItem && (
+                          <button
+                            onClick={() => onRemoveReportItem(item.key)}
+                            className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors flex-shrink-0"
+                            title="Remove"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
