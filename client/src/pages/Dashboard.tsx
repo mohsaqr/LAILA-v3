@@ -35,14 +35,14 @@ export const Dashboard = () => {
   };
 
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['userStats', user?.id],
-    queryFn: () => usersApi.getUserStats(user!.id),
+    queryKey: ['userStats'],
+    queryFn: () => usersApi.getUserStats(),
     enabled: !!user,
   });
 
   const { data: instructorStats } = useQuery({
-    queryKey: ['instructorStats', user?.id],
-    queryFn: () => usersApi.getInstructorStats(user!.id),
+    queryKey: ['instructorStats'],
+    queryFn: () => usersApi.getInstructorStats(),
     enabled: !!user && isInstructor,
   });
 

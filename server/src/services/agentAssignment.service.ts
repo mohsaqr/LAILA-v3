@@ -1410,6 +1410,21 @@ CRITICAL RULES:
     return prisma.userDataset.delete({ where: { id: datasetId } });
   }
 
+  async getDatasetsByAgentConfigId(agentConfigId: number, instructorId: number, isAdmin = false) {
+    const config = await prisma.studentAgentConfig.findUnique({
+      where: { id: agentConfigId },
+      include: { assignment: { include: { course: { select: { instructorId: true } } } } },
+    });
+    if (!config) throw new AppError('Agent config not found', 404);
+    if (config.assignment.course.instructorId !== instructorId && !isAdmin) {
+      throw new AppError('Not authorized', 403);
+    }
+    return prisma.userDataset.findMany({
+      where: { agentConfigId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async getAllMyDatasets(userId: number) {
     return prisma.userDataset.findMany({
       where: { userId },

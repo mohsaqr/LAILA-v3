@@ -201,6 +201,16 @@ export const agentAssignmentsApi = {
   },
 
   // Get all test conversations for a submission
+  getSubmissionDatasets: async (
+    assignmentId: number,
+    submissionId: number
+  ): Promise<UserDataset[]> => {
+    const response = await apiClient.get<ApiResponse<UserDataset[]>>(
+      `/agent-assignments/${assignmentId}/submissions/${submissionId}/datasets`
+    );
+    return response.data.data!;
+  },
+
   getSubmissionTestConversations: async (
     assignmentId: number,
     submissionId: number

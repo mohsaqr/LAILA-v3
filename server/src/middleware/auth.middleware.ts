@@ -171,7 +171,7 @@ export const requireInstructor = (
 };
 
 export const generateToken = (user: UserPayload): string => {
-  return jwt.sign(user, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign(user, JWT_SECRET, { expiresIn: '30d' });
 };
 
 export const verifyToken = (token: string): UserPayload | null => {

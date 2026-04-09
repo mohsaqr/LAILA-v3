@@ -82,29 +82,15 @@ router.put('/:id/settings/:key', authenticateToken, asyncHandler(async (req: Aut
   res.json({ success: true, data: setting });
 }));
 
-// Get user stats (for dashboard)
-router.get('/:id/stats', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const id = parseInt(req.params.id);
-
-  if (req.user!.id !== id && !req.user!.isAdmin) {
-    res.status(403).json({ success: false, error: 'Not authorized' });
-    return;
-  }
-
-  const stats = await userService.getUserStats(id);
+// Get my stats (from token — no user ID exposed in URL)
+router.get('/me/stats', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const stats = await userService.getUserStats(req.user!.id);
   res.json({ success: true, data: stats });
 }));
 
-// Get instructor stats
-router.get('/:id/instructor-stats', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const id = parseInt(req.params.id);
-
-  if (req.user!.id !== id && !req.user!.isAdmin) {
-    res.status(403).json({ success: false, error: 'Not authorized' });
-    return;
-  }
-
-  const stats = await userService.getInstructorStats(id);
+// Get my instructor stats (from token)
+router.get('/me/instructor-stats', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const stats = await userService.getInstructorStats(req.user!.id);
   res.json({ success: true, data: stats });
 }));
 
