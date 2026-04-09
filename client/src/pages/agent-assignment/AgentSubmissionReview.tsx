@@ -13,10 +13,14 @@ import {
   PlayCircle,
   FileEdit,
   Activity,
+  Database,
+  Download,
+  FileSpreadsheet,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { agentAssignmentsApi } from '../../api/agentAssignments';
 import { assignmentsApi } from '../../api/assignments';
+import { resolveFileUrl } from '../../api/client';
 import { AgentConfigViewer } from '../../components/agent-assignment/instructor/AgentConfigViewer';
 import { ConfigHistoryTimeline } from '../../components/agent-assignment/instructor/ConfigHistoryTimeline';
 import { TestConversationViewer } from '../../components/agent-assignment/instructor/TestConversationViewer';
@@ -28,7 +32,7 @@ import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { StatusBadge } from '../../components/common/StatusBadge';
 
-type TabType = 'config' | 'design' | 'history' | 'conversations' | 'test' | 'grade';
+type TabType = 'config' | 'design' | 'history' | 'conversations' | 'test' | 'datasets' | 'grade';
 
 export const AgentSubmissionReview = () => {
   const { t } = useTranslation(['teaching', 'common']);
@@ -69,6 +73,12 @@ export const AgentSubmissionReview = () => {
     queryKey: ['agentTestConversations', assId, subId],
     queryFn: () => agentAssignmentsApi.getSubmissionTestConversations(assId, subId),
     enabled: activeTab === 'conversations',
+  });
+
+  const { data: datasets = [] } = useQuery({
+    queryKey: ['agentSubmissionDatasets', assId, subId],
+    queryFn: () => agentAssignmentsApi.getSubmissionDatasets(assId, subId),
+    enabled: activeTab === 'datasets',
   });
 
   // Grade mutation
@@ -133,6 +143,7 @@ export const AgentSubmissionReview = () => {
       icon: <MessageSquare className="w-4 h-4" />,
     },
     { id: 'test', label: t('test_agent'), icon: <PlayCircle className="w-4 h-4" /> },
+    { id: 'datasets', label: t('datasets'), icon: <Database className="w-4 h-4" /> },
     { id: 'grade', label: t('grade_tab'), icon: <Award className="w-4 h-4" /> },
   ];
 
@@ -245,6 +256,52 @@ export const AgentSubmissionReview = () => {
           submissionId={subId}
           config={config}
         />
+      )}
+
+      {activeTab === 'datasets' && (
+        <Card>
+          <CardBody>
+            {datasets.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <Database className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                <p className="text-sm">{t('no_datasets_generated')}</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">{t('generated_datasets')}</h3>
+                {datasets.map((ds) => (
+                  <div key={ds.id} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <FileSpreadsheet className="w-4 h-4 text-violet-500" />
+                        <span className="font-medium text-sm">{ds.name}</span>
+                      </div>
+                      <a
+                        href={resolveFileUrl(ds.fileUrl)}
+                        download={ds.name}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-violet-600 hover:text-violet-800 bg-violet-50 hover:bg-violet-100 rounded-lg transition-colors"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        {t('download')}
+                      </a>
+                    </div>
+                    <div className="text-xs text-gray-500 space-y-1">
+                      {ds.rowCount && <span>{ds.rowCount} rows</span>}
+                      {ds.aiModel && <span> · {ds.aiModel}</span>}
+                      <span> · {new Date(ds.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    {ds.description && (
+                      <div className="mt-3 p-3 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
+                        <p className="text-xs font-medium text-gray-500 mb-1">{t('used_prompt')}</p>
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{ds.description}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardBody>
+        </Card>
       )}
 
       {activeTab === 'grade' && (
