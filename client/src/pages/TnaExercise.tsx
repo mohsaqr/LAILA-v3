@@ -18,11 +18,12 @@ import {
   Network, X, BarChart3, GitBranch,
   Scissors, Target, Users,
   Database, Share2, BookOpen, ChevronDown, ChevronRight,
-  Camera, Loader2, CheckCircle, Download,
+  Camera, Loader2, CheckCircle, Download, RefreshCw,
   Award, Calendar, Clock, Send, FileText, AlertCircle,
 } from 'lucide-react';
 import { assignmentsApi } from '../api/assignments';
 import { coursesApi } from '../api/courses';
+import { resolveFileUrl } from '../api/client';
 import { LabAssignmentPanel, type ReportItem } from '../components/labs/LabAssignmentPanel';
 import toast from 'react-hot-toast';
 import { MyDatasetPicker } from '../components/common/MyDatasetPicker';
@@ -1177,21 +1178,86 @@ export const TnaExercise = () => {
         onSelect={(csvText) => handleMyDatasetSelect(csvText)}
       />
 
-      {/* Submit button at bottom */}
-      {tnaAssignment && !isGraded && !isFullyPastDue && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-6">
-          <div className="flex justify-end">
-            <Button
-              variant="primary"
-              onClick={() => setAssignmentPanelOpen(true)}
-              icon={<Send className="w-4 h-4" />}
-            >
-              {isSubmitted
-                ? t('resubmit', { defaultValue: 'Resubmit' })
-                : t('submit_assignment', { defaultValue: 'Submit Assignment' })
-              }
-            </Button>
-          </div>
+      {/* Submit / Submitted / Graded states */}
+      {tnaAssignment && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-6 space-y-4">
+          {isSubmitted && mySubmission ? (
+            <>
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                <h2 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('your_submission', { defaultValue: 'Your Submission' })}</h2>
+                {!isGraded && (
+                  <div className="flex items-center justify-between p-4 rounded-lg mb-4 bg-blue-50 dark:bg-blue-900/20">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      <p className="text-blue-700 dark:text-blue-300">{t('submitted_waiting_grading', { defaultValue: 'Your assignment has been submitted. Waiting for grading.' })}</p>
+                    </div>
+                    {canResubmit && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setAssignmentPanelOpen(true)}
+                        icon={<RefreshCw className="w-3.5 h-3.5" />}
+                      >
+                        {t('resubmit', { defaultValue: 'Resubmit' })}
+                      </Button>
+                    )}
+                  </div>
+                )}
+                {isGraded && mySubmission.grade != null && (
+                  <div className="flex items-center justify-between p-4 rounded-lg mb-4 bg-green-50 dark:bg-green-900/20">
+                    <div className="flex items-center gap-2">
+                      <Award className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      <p className="text-green-700 dark:text-green-300">{t('graded_with_score', { grade: mySubmission.grade, total: tnaAssignment.points, defaultValue: `Grade: ${mySubmission.grade}/${tnaAssignment.points}` })}</p>
+                    </div>
+                  </div>
+                )}
+                {mySubmission.content && (
+                  <p className="mb-4 text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{mySubmission.content}</p>
+                )}
+                {(() => {
+                  let fileUrls: string[] = [];
+                  try { const p = mySubmission.fileUrls ? JSON.parse(mySubmission.fileUrls) : []; fileUrls = Array.isArray(p) ? p.filter((v: unknown): v is string => typeof v === 'string') : []; } catch {}
+                  return fileUrls.length > 0 ? (
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{t('file_attachments', { defaultValue: 'File Attachments' })}</label>
+                    {fileUrls.map((url: string, idx: number) => {
+                      const name = url.split('/').pop() ?? `file-${idx + 1}`;
+                      const resolvedUrl = resolveFileUrl(url);
+                      const isPdf = url.toLowerCase().endsWith('.pdf');
+                      return (
+                        <div key={idx} className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                          <div className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-700">
+                            <div className="flex items-center gap-2">
+                              <FileText className="w-4 h-4 text-gray-400" />
+                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{name}</span>
+                            </div>
+                            <a href={resolvedUrl} download={name} target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-gray-700"><Download className="w-3.5 h-3.5" /></a>
+                          </div>
+                          {isPdf && <iframe src={resolvedUrl} className="w-full border-0" style={{ height: '500px' }} title={name} />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  ) : null;
+                })()}
+              </div>
+            </>
+          ) : isFullyPastDue ? (
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-red-200 dark:border-red-800 p-6 text-center">
+              <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
+              <p className="text-sm text-red-600 dark:text-red-400">{t('deadline_passed_description', { defaultValue: 'The due date for this assignment has passed. You can no longer submit your work.' })}</p>
+            </div>
+          ) : (
+            <div className="flex justify-end">
+              <Button
+                variant="primary"
+                onClick={() => setAssignmentPanelOpen(true)}
+                icon={<Send className="w-4 h-4" />}
+              >
+                {t('submit_assignment', { defaultValue: 'Submit Assignment' })}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1228,6 +1294,10 @@ export const TnaExercise = () => {
           assignmentId={tnaAssignment?.id}
           reportItems={reportItems}
           onRemoveReportItem={(key) => setReportItems(prev => prev.filter(i => i.key !== key))}
+          onSubmitted={() => {
+            setAssignmentPanelOpen(false);
+            window.location.reload();
+          }}
         />
       )}
     </div>

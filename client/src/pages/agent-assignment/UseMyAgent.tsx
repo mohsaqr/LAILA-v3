@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { agentAssignmentsApi } from '../../api/agentAssignments';
+import { ChatMarkdown } from '../../components/agent-assignment/ChatMarkdown';
+import { resolveFileUrl } from '../../api/client';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
@@ -201,26 +203,28 @@ export const UseMyAgent = () => {
   const courseName = assignment.course?.title || 'Course';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-indigo-50 flex flex-col">
+    <div className="bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 py-2">
-          {/* Breadcrumb Navigation */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 w-full flex-shrink-0">
+        {/* Breadcrumb */}
+        <div className="mb-6">
           <Breadcrumb
             items={[
               { label: t('navigation:courses'), href: '/courses' },
               { label: courseName, href: `/courses/${courseId}` },
-              { label: config.agentName },
+              { label: t('assignments'), href: `/courses/${courseId}/assignments` },
+              { label: assignment.title },
             ]}
-            className="mb-3"
           />
+        </div>
 
-          {/* Agent Info */}
-          <div className="flex items-center justify-between">
+        {/* Agent Info Card */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 mb-3">
+          <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               {config.avatarImageUrl ? (
                 <img
-                  src={config.avatarImageUrl}
+                  src={resolveFileUrl(config.avatarImageUrl)}
                   alt={config.agentName}
                   className="w-10 h-10 rounded-full object-cover shadow-sm"
                 />
@@ -230,10 +234,11 @@ export const UseMyAgent = () => {
                 </div>
               )}
               <div>
-                <h1 className="font-semibold text-gray-900">{config.agentName}</h1>
+                <h1 className="text-base font-bold text-gray-900 dark:text-gray-100">{config.agentName}</h1>
                 {config.agentTitle && (
-                  <p className="text-xs text-violet-600 font-medium">{config.agentTitle}</p>
+                  <p className="text-sm text-violet-600 font-medium">{config.agentTitle}</p>
                 )}
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{assignment.title}</p>
               </div>
             </div>
             {conversationId && (
@@ -248,10 +253,11 @@ export const UseMyAgent = () => {
             )}
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Main Chat Area */}
-      <main className="flex-1 flex flex-col max-w-4xl mx-auto w-full">
+      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pb-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden" style={{ height: 'calc(100vh - 300px)' }}>
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* New Session Indicator */}
@@ -309,7 +315,13 @@ export const UseMyAgent = () => {
                             : 'bg-white shadow-sm border border-gray-100 rounded-bl-md'
                         }`}
                       >
-                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        {msg.role === 'assistant' ? (
+                          <div className="text-sm prose prose-sm max-w-none dark:prose-invert prose-pre:bg-gray-50 prose-pre:border prose-pre:border-gray-200 prose-pre:rounded-lg prose-code:text-xs">
+                            <ChatMarkdown content={msg.content} />
+                          </div>
+                        ) : (
+                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -383,7 +395,7 @@ export const UseMyAgent = () => {
 
           {/* Input - only show when conversation is active */}
           {conversationId && (
-            <div className="p-4 bg-white border-t border-gray-200">
+            <div className="p-3 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
               <form onSubmit={handleSendMessage} className="flex items-center gap-3">
                 <input
                   ref={inputRef}
@@ -408,6 +420,7 @@ export const UseMyAgent = () => {
               </form>
             </div>
           )}
+        </div>{/* End chat card */}
       </main>
     </div>
   );

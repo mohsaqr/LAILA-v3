@@ -819,6 +819,10 @@ export class AgentAssignmentService {
       },
     });
 
+    // Detect and save CSV datasets from the response
+    this.detectAndSaveDataset(aiResponse, config, testerInfo.userId, resolvedModel, resolvedProvider)
+      .catch(err => console.error('[AgentAssignment] Failed to save detected dataset:', err));
+
     // Log interaction to agent analytics
     await agentAnalyticsService.logTestInteraction({
       user: {
@@ -1445,6 +1449,62 @@ CRITICAL RULES:
     });
   }
 
+  private async detectAndSaveDataset(
+    response: string,
+    config: { id: number; assignmentId: number; agentName: string },
+    userId: number,
+    aiModel?: string,
+    aiProvider?: string,
+  ) {
+    // Look for CSV data in markdown code blocks: ```csv ... ``` or ``` ... ``` with comma-separated lines
+    const codeBlockRegex = /```(?:csv|plaintext|text)?\s*\n([\s\S]*?)```/g;
+    let match;
+    while ((match = codeBlockRegex.exec(response)) !== null) {
+      const block = match[1].trim();
+      const lines = block.split('\n').filter(l => l.trim());
+      if (lines.length < 2) continue;
+
+      // Check if it looks like CSV (consistent comma counts)
+      const headerCommas = (lines[0].match(/,/g) || []).length;
+      if (headerCommas === 0) continue;
+
+      const isCSV = lines.slice(1).every(line => {
+        const commas = (line.match(/,/g) || []).length;
+        return commas === headerCommas;
+      });
+      if (!isCSV) continue;
+
+      // Save as a CSV file
+      const uploadsDir = path.join(process.cwd(), 'uploads', 'datasets');
+      fs.mkdirSync(uploadsDir, { recursive: true });
+      const fileName = `${randomUUID()}.csv`;
+      const filePath = path.join(uploadsDir, fileName);
+      fs.writeFileSync(filePath, block, 'utf-8');
+      const fileSize = Buffer.byteLength(block, 'utf-8');
+      const rowCount = lines.length - 1;
+
+      await prisma.userDataset.create({
+        data: {
+          userId,
+          agentConfigId: config.id,
+          name: `chat-dataset-${fileName}`,
+          description: `Auto-detected from chat with ${config.agentName}`,
+          fileName,
+          fileUrl: `/uploads/datasets/${fileName}`,
+          fileSize,
+          fileType: 'text/csv',
+          rowCount: rowCount > 0 ? rowCount : null,
+          aiModel: aiModel || null,
+          aiProvider: aiProvider || null,
+          agentPrompt: null,
+          generationConfig: JSON.stringify({ source: 'chat', agentConfigId: config.id }),
+          status: 'completed',
+        },
+      });
+      break; // Save only the first CSV block per message
+    }
+  }
+
   private async resolveDatasetProvider(): Promise<string | undefined> {
     try {
       const openai = await llmService.getProvider('openai');
@@ -1567,6 +1627,12 @@ CRITICAL RULES:
         prompt += `${i + 1}. ${rule}\n`;
       });
     }
+
+    // Data generation capability
+    prompt += '\n## Data Generation Capability\n';
+    prompt += 'You CAN generate datasets and CSV files. When the user asks for data, a dataset, or a CSV file, generate the data directly inside a markdown code block with the csv language tag. For example:\n';
+    prompt += '```csv\ncolumn1,column2,column3\nvalue1,value2,value3\n```\n';
+    prompt += 'The system will automatically detect CSV code blocks and offer the user a download button. Never say you cannot generate files — just produce the data in a csv code block.\n';
 
     return prompt;
   }
