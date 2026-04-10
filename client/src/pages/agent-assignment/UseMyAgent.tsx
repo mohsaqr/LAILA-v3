@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { agentAssignmentsApi } from '../../api/agentAssignments';
+import { ChatMarkdown } from '../../components/agent-assignment/ChatMarkdown';
 import { resolveFileUrl } from '../../api/client';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
@@ -314,7 +315,13 @@ export const UseMyAgent = () => {
                             : 'bg-white shadow-sm border border-gray-100 rounded-bl-md'
                         }`}
                       >
-                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        {msg.role === 'assistant' ? (
+                          <div className="text-sm prose prose-sm max-w-none dark:prose-invert prose-pre:bg-gray-50 prose-pre:border prose-pre:border-gray-200 prose-pre:rounded-lg prose-code:text-xs">
+                            <ChatMarkdown content={msg.content} />
+                          </div>
+                        ) : (
+                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        )}
                       </div>
                     </div>
                   ))}

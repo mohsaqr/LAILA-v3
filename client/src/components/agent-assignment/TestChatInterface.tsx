@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Loader2, MessageCircle, Bot } from 'lucide-react';
 import { AgentTestMessage } from '../../types';
+import { ChatMarkdown } from './ChatMarkdown';
 
 interface TestChatInterfaceProps {
   agentName: string;
@@ -108,7 +109,13 @@ export const TestChatInterface = ({
                       : 'bg-white shadow-sm border border-gray-100 rounded-bl-md'
                   }`}
                 >
-                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  {msg.role === 'assistant' ? (
+                    <div className="text-sm prose prose-sm max-w-none dark:prose-invert prose-pre:bg-gray-50 prose-pre:border prose-pre:border-gray-200 prose-pre:rounded-lg prose-code:text-xs">
+                      <ChatMarkdown content={msg.content} />
+                    </div>
+                  ) : (
+                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  )}
                 </div>
               </div>
             ))}

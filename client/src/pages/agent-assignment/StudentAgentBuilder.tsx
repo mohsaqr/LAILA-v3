@@ -85,7 +85,7 @@ export const StudentAgentBuilder = () => {
     { id: 'behavior', label: t('behavior'), icon: Sparkles },
     { id: 'advanced', label: t('advanced'), icon: Settings },
     { id: 'test', label: t('test_reflect'), icon: Play },
-    { id: 'dataset', label: t('generate_dataset'), icon: Database },
+    { id: 'dataset', label: t('datasets'), icon: Database },
   ];
   const [activeTab, setActiveTab] = useState<TabType>('identity');
   const [showDatasetPanel, setShowDatasetPanel] = useState(false);
@@ -536,7 +536,7 @@ export const StudentAgentBuilder = () => {
                   onClick={() => setShowDatasetPanel(prev => !prev)}
                   icon={<Database className="w-4 h-4" />}
                 >
-                  {t('generate_dataset')}
+                  {t('datasets')}
                 </Button>
               </div>
 
