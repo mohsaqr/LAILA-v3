@@ -595,7 +595,7 @@ export const StudentAgentBuilder = () => {
           </div>
 
           {/* Tab Content */}
-          <div className="min-h-[400px]">
+          <div style={{ height: 'calc(100vh - 450px)', minHeight: '300px' }}>
             {activeTab === 'identity' && (
               <AgentIdentityTab
                 formData={formData}
