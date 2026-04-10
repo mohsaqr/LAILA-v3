@@ -561,6 +561,19 @@ Due dates use a "wall clock" pattern — stored as literal UTC, displayed with `
 - The resolved emotion is injected into the system prompt as a `STUDENT EMOTIONAL STATE` section with tailored tone guidance from `EMOTION_GUIDANCE` map (e.g., "Be extra patient and empathetic" for frustrated, "Re-spark interest" for bored).
 - Works across all tutor modes: manual, router, random, and collaborative (including all collaborative styles: parallel, sequential, debate, random).
 
+### 5d. SNA & TNA Exercise Pages
+
+Both exercise pages share the same layout pattern:
+- **Sidebar**: Dataset picker, column mapping (TNA), model type, build button, download data
+- **Main area**: Network graph card (with toolbar) → Analysis tabs → Analysis content
+- **Network graph**: Pure React SVG via `TnaNetworkGraph` component (no D3). Supports drag-and-drop, responsive viewBox, node label toggle, font size, directed/undirected toggle, centrality-based node sizing.
+- **Graph toolbar**: Searchable Layout/Size by dropdowns, checkboxes (Undirected, Self loops, Edge labels, Node labels), sliders (Node size, Label size, Edge width)
+- **Analysis tabs**: Horizontal pill buttons (SNA: Graph Metrics, Centrality, Communities, Adjacency Matrix. TNA: Frequencies, Transitions, Pruning, Centrality, Clusters)
+- **Capture**: html2canvas captures network card (toolbar hidden) + analysis card separately, combines vertically. Buttons/tabs excluded via `data-no-capture` attribute.
+- **Assignment integration**: Header card with status badge, points, due date, grace period. Submit button bottom right-aligned.
+
+All SVG charts (CentralityBarChart, TnaFrequencyChart, TnaDistributionPlot, TnaIndexPlot, ActivityTimelineChart) use `useContainerWidth` hook with ResizeObserver for responsive width — no hardcoded pixel widths.
+
 ### 6. Admin Dashboard
 
 - User management
