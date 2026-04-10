@@ -12,7 +12,7 @@ import { Breadcrumb } from '../components/common/Breadcrumb';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Network, X, GitBranch, Target, BarChart3, Waypoints, Plus, Database,
+  Network, X, GitBranch, Target, BarChart3, Waypoints, Plus, Database, Upload,
   ChevronDown, ChevronRight, BookOpen, Users,
   Microscope, MessageCircle, Camera, Loader2, CheckCircle, Download,
   Award, Calendar, FileText, AlertCircle, MessageSquare, Send, RefreshCw, Clock,
@@ -241,6 +241,7 @@ export const SnaExercise = () => {
   const { courseId } = useParams<{ courseId?: string }>();
   const [searchParams] = useSearchParams();
   const { isDark } = useTheme();
+  const csvUploadRef = useRef<HTMLInputElement>(null);
   const exerciseRef = useRef<HTMLDivElement>(null);
   const analysisContentRef = useRef<HTMLDivElement>(null);
   const captureRef = useRef<HTMLDivElement>(null);
@@ -574,6 +575,18 @@ export const SnaExercise = () => {
     setActiveAnalysis(null);
   }, []);
 
+  const handleCsvUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      if (text) handleMyDatasetSelect(text);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }, [handleMyDatasetSelect]);
+
   const handleCustomSubmit = useCallback((edges: Edge[], directed: boolean) => {
     const { labels, matrix } = edgesToMatrix(edges, directed);
     setCustomEdges(edges);
@@ -781,6 +794,14 @@ export const SnaExercise = () => {
                     <Database className="w-3.5 h-3.5" />
                     {t('my_datasets')}
                   </button>
+                  <button
+                    onClick={() => csvUploadRef.current?.click()}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    {t('upload_csv', { defaultValue: 'Upload CSV' })}
+                  </button>
+                  <input ref={csvUploadRef} type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} />
                 </div>
 
                 {/* Build Button */}
@@ -902,6 +923,13 @@ export const SnaExercise = () => {
                     >
                       <Database className="w-4 h-4" />
                       {t('my_datasets')}
+                    </button>
+                    <button
+                      onClick={() => csvUploadRef.current?.click()}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                    >
+                      <Upload className="w-4 h-4" />
+                      {t('upload_csv', { defaultValue: 'Upload CSV' })}
                     </button>
                   </div>
                 </div>

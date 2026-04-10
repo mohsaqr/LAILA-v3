@@ -19,7 +19,7 @@ import {
   Scissors, Target, Users,
   Database, Share2, BookOpen, ChevronDown, ChevronRight,
   Camera, Loader2, CheckCircle, Download, RefreshCw,
-  Award, Calendar, Clock, Send, FileText, AlertCircle,
+  Award, Calendar, Clock, Send, FileText, AlertCircle, Upload,
 } from 'lucide-react';
 import { assignmentsApi } from '../api/assignments';
 import { coursesApi } from '../api/courses';
@@ -102,6 +102,7 @@ export const TnaExercise = () => {
   const navigate = useNavigate();
   const { courseId } = useParams<{ courseId?: string }>();
   const [searchParams] = useSearchParams();
+  const csvUploadRef = useRef<HTMLInputElement>(null);
   const exerciseRef = useRef<HTMLDivElement>(null);
   const analysisContentRef = useRef<HTMLDivElement>(null);
   const [assignmentPanelOpen, setAssignmentPanelOpen] = useState(false);
@@ -358,6 +359,18 @@ export const TnaExercise = () => {
     setActiveAnalysis(null);
   }, []);
 
+  const handleCsvUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      if (text) handleMyDatasetSelect(text);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }, [handleMyDatasetSelect]);
+
   const handleBuildModel = useCallback(() => {
     setModelBuilt(true);
     setActiveAnalysis(null);
@@ -531,6 +544,14 @@ export const TnaExercise = () => {
                       <Database className="w-3.5 h-3.5" />
                       {t('my_datasets')}
                     </button>
+                    <button
+                      onClick={() => csvUploadRef.current?.click()}
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      {t('upload_csv', { defaultValue: 'Upload CSV' })}
+                    </button>
+                    <input ref={csvUploadRef} type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} />
                   </div>
                 </div>
 
