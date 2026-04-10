@@ -495,6 +495,7 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
           }}
           sessionEvents={sessionEvents}
           reportItems={reportItems}
+          onRemoveReportItem={(key) => setReportItems(prev => prev.filter(i => i.key !== key))}
           courseNumericId={courseId ?? 0}
           assignmentId={assignmentConfig.assignment.id}
           courseName={assignmentConfig.course?.title}

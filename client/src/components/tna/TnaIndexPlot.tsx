@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { createColorMap } from './colorFix';
+import { useContainerWidth } from '../../hooks/useContainerWidth';
 
 interface TnaIndexPlotProps {
   sequences: string[][];
@@ -14,9 +15,11 @@ export const TnaIndexPlot = ({ sequences, labels, colorMap: externalColorMap }: 
     return Math.min(Math.max(...sequences.map(s => s.length), 0), 50);
   }, [sequences]);
 
+  const { ref: containerRef, width: containerWidth } = useContainerWidth(700);
+
   if (maxLen === 0) return null;
 
-  const svgWidth = 700;
+  const svgWidth = containerWidth;
   const margin = { top: 40, right: 130, bottom: 40, left: 50 };
   const plotW = svgWidth - margin.left - margin.right;
   const plotH = 350 - margin.top - margin.bottom;
@@ -28,8 +31,8 @@ export const TnaIndexPlot = ({ sequences, labels, colorMap: externalColorMap }: 
   const contentH = Math.max(actualH + margin.top + margin.bottom, legendH + margin.top + 10);
 
   return (
-    <div className="overflow-x-auto">
-      <svg width={svgWidth} height={contentH} className="mx-auto">
+    <div ref={containerRef}>
+      <svg width="100%" height={contentH} viewBox={`0 0 ${svgWidth} ${contentH}`} preserveAspectRatio="xMinYMin meet">
         <g transform={`translate(${margin.left},${margin.top})`}>
           {/* Y-axis label */}
           <text x={-actualH / 2} y={-35} transform="rotate(-90)" textAnchor="middle"

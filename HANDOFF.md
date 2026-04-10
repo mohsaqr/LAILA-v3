@@ -1,4 +1,21 @@
-# Session Handoff — 2026-04-07
+# Session Handoff — 2026-04-09
+
+## Completed (2026-04-09)
+- **SNA/TNA exercise redesign**: Graph controls in horizontal toolbar above SVG. Analysis blocks as horizontal pill buttons. Searchable dropdowns. Drag-and-drop nodes. Responsive viewBox. Node labels toggle + font size. Directed/undirected toggle. Capture: network + analysis separately via html2canvas. Delete snapshots.
+- **TNA assignment header**: Status badge, points, due date, grace period, submission type (matching SNA). Submit button bottom right-aligned.
+- **Responsive SVG charts**: All 5 chart components use `useContainerWidth` hook — no hardcoded widths.
+- **Admin analytics toolbar**: Searchable dropdowns, node labels, label size, DeferredSlider, expanded centrality options.
+- **New components**: `SearchableSelect`, `useContainerWidth` hook.
+
+## Completed (2026-04-08)
+- **Auth/security**: JWT 30d expiry, token check on app load, `/users/me/stats` (no user ID in URL).
+- **Agent assignment logging**: All events logged to global LearningActivityLog.
+- **Analytics filters**: Searchable student/course on all tabs, enrollment-based user filtering, instructor course restriction.
+- **Agent avatar upload**: File upload replaces URL input.
+- **Datasets tab** in instructor submission review.
+- **PostgreSQL-compatible SQL** for activity log queries + timezone support.
+- **TNA category mapping**: 7 learning states, verb remapping, TNA grouping by actor (not session).
+- **Free preview lectures**, breadcrumb fixes, page layout unification.
 
 ## Completed (2026-04-07)
 - **Prisma local/prod directory restructure**: Split `server/prisma/` into `local/` (SQLite, gitignored) and `prod/` (PostgreSQL, committed). Each has its own `schema.prisma` and `migrations/`. `setup:local` script generates local schema from prod. All package.json scripts and deploy script updated. Eliminates the SQLite/PostgreSQL migration lock conflict that prevented `npx prisma migrate dev` from working locally.

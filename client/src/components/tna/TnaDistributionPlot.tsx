@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { createColorMap } from './colorFix';
+import { useContainerWidth } from '../../hooks/useContainerWidth';
 
 interface TnaDistributionPlotProps {
   sequences: string[][];
@@ -24,9 +25,11 @@ export const TnaDistributionPlot = ({ sequences, labels, colorMap: externalColor
     return { timesteps: steps, maxTimestep: maxLen };
   }, [sequences, labels]);
 
+  const { ref: containerRef, width: containerWidth } = useContainerWidth(700);
+
   if (maxTimestep === 0) return null;
 
-  const svgWidth = 700;
+  const svgWidth = containerWidth;
   const svgHeight = 350;
   const margin = { top: 20, right: 120, bottom: 40, left: 50 };
   const plotW = svgWidth - margin.left - margin.right;
@@ -34,8 +37,8 @@ export const TnaDistributionPlot = ({ sequences, labels, colorMap: externalColor
   const barWidth = Math.max(plotW / maxTimestep - 1, 2);
 
   return (
-    <div className="overflow-x-auto">
-      <svg width={svgWidth} height={svgHeight} className="mx-auto">
+    <div ref={containerRef}>
+      <svg width="100%" height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`} preserveAspectRatio="xMinYMin meet">
         <g transform={`translate(${margin.left},${margin.top})`}>
           <text x={-plotH / 2} y={-35} transform="rotate(-90)" textAnchor="middle"
             className="fill-gray-500 dark:fill-gray-400" fontSize={11}>Proportion</text>

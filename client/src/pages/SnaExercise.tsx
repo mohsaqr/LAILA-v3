@@ -14,7 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   Network, X, GitBranch, Target, BarChart3, Waypoints, Plus, Database,
   ChevronDown, ChevronRight, BookOpen, Users,
-  Microscope, MessageCircle, Sparkles, Camera, Loader2, CheckCircle, Download,
+  Microscope, MessageCircle, Camera, Loader2, CheckCircle, Download,
   Award, Calendar, FileText, AlertCircle, MessageSquare, Send, RefreshCw, Clock,
 } from 'lucide-react';
 import { assignmentsApi } from '../api/assignments';
@@ -368,88 +368,58 @@ export const SnaExercise = () => {
     setIsCapturing(true);
     try {
       const el = captureRef.current;
+      const { default: html2canvas } = await import('html2canvas');
 
-      // Find the SVG inside the network graph and serialize it to an image directly
-      const svg = el.querySelector('svg');
-      const networkCard = svg?.closest('.rounded-xl') as HTMLElement | null;
+      // Hide elements we don't want in captures
+      const hideEls = el.querySelectorAll('[data-no-capture]');
+      hideEls.forEach(e => (e as HTMLElement).style.display = 'none');
 
-      // Capture the network graph SVG natively (not via html2canvas)
+      // 1. Capture the network card (graph only, hide toolbar)
+      const networkCard = el.querySelector('[data-network-card]') as HTMLElement | null;
+      const toolbar = networkCard?.querySelector('[data-graph-toolbar]') as HTMLElement | null;
       let networkDataUrl: string | null = null;
-      let svgNaturalW = 0;
-      let svgNaturalH = 0;
-      if (svg) {
-        // Use viewBox dimensions for responsive SVGs (width="100%" has no baseVal)
-        const vb = svg.getAttribute('viewBox');
-        if (vb) {
-          const parts = vb.split(/[\s,]+/).map(Number);
-          svgNaturalW = parts[2] || 500;
-          svgNaturalH = parts[3] || 500;
-        } else {
-          svgNaturalW = svg.width.baseVal.value || parseInt(svg.getAttribute('width') || '500');
-          svgNaturalH = svg.height.baseVal.value || parseInt(svg.getAttribute('height') || '500');
-        }
-        // Clone SVG and set explicit width/height for rasterization
-        const clonedSvg = svg.cloneNode(true) as SVGSVGElement;
-        clonedSvg.setAttribute('width', String(svgNaturalW));
-        clonedSvg.setAttribute('height', String(svgNaturalH));
-        const serializer = new XMLSerializer();
-        const svgStr = serializer.serializeToString(clonedSvg);
-        const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
-        const url = URL.createObjectURL(svgBlob);
-        const img = new Image();
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => resolve();
-          img.onerror = reject;
-          img.src = url;
+      if (networkCard) {
+        if (toolbar) toolbar.style.display = 'none';
+        const netCanvas = await html2canvas(networkCard, {
+          scale: 2, useCORS: true, allowTaint: true,
+          width: networkCard.scrollWidth, height: networkCard.scrollHeight,
+          scrollX: 0, scrollY: 0,
         });
-        const c = document.createElement('canvas');
-        const scale = 2;
-        c.width = svgNaturalW * scale;
-        c.height = svgNaturalH * scale;
-        const ctx = c.getContext('2d')!;
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, c.width, c.height);
-        ctx.drawImage(img, 0, 0, c.width, c.height);
-        networkDataUrl = c.toDataURL('image/jpeg', 0.9);
-        URL.revokeObjectURL(url);
+        if (toolbar) toolbar.style.display = '';
+        if (netCanvas.height > 5) {
+          networkDataUrl = netCanvas.toDataURL('image/jpeg', 0.9);
+        }
       }
 
-      // Capture analysis content (everything except the network graph card) via html2canvas
-      const { default: html2canvas } = await import('html2canvas');
-      // Temporarily hide the network graph card so html2canvas only captures analysis
-      if (networkCard) networkCard.style.display = 'none';
-      const hasAnalysisContent = el.scrollHeight > 10;
+      // 2. Capture analysis content card directly (the visible analysis card)
+      const analysisCard = el.querySelector('[data-analysis-content]') as HTMLElement | null;
       let analysisDataUrl: string | null = null;
-      if (hasAnalysisContent && activeAnalysis) {
-        const analysisCanvas = await html2canvas(el, {
-          scale: 1.5, useCORS: true, allowTaint: true,
-          width: el.scrollWidth, height: el.scrollHeight,
+      if (analysisCard && analysisCard.scrollHeight > 5) {
+        const analysisCanvas = await html2canvas(analysisCard, {
+          scale: 2, useCORS: true, allowTaint: true,
+          width: analysisCard.scrollWidth, height: analysisCard.scrollHeight,
           scrollX: 0, scrollY: 0,
         });
         if (analysisCanvas.height > 5) {
-          analysisDataUrl = analysisCanvas.toDataURL('image/jpeg', 0.85);
+          analysisDataUrl = analysisCanvas.toDataURL('image/jpeg', 0.9);
         }
       }
-      if (networkCard) networkCard.style.display = '';
+      hideEls.forEach(e => (e as HTMLElement).style.display = '');
 
-      // Combine both into a single canvas
-      const combinedCanvas = document.createElement('canvas');
+      // 3. Combine: network on top, analysis below
       const netImg = networkDataUrl ? new Image() : null;
       const anlImg = analysisDataUrl ? new Image() : null;
-      if (netImg && networkDataUrl) {
-        await new Promise<void>(r => { netImg.onload = () => r(); netImg.src = networkDataUrl!; });
-      }
-      if (anlImg && analysisDataUrl) {
-        await new Promise<void>(r => { anlImg.onload = () => r(); anlImg.src = analysisDataUrl!; });
-      }
+      if (netImg && networkDataUrl) await new Promise<void>(r => { netImg.onload = () => r(); netImg.src = networkDataUrl!; });
+      if (anlImg && analysisDataUrl) await new Promise<void>(r => { anlImg.onload = () => r(); anlImg.src = analysisDataUrl!; });
       const netW = netImg?.width || 0;
       const netH = netImg?.height || 0;
       const anlW = anlImg?.width || 0;
       const anlH = anlImg?.height || 0;
-      const totalW = Math.max(netW, anlW);
-      const totalH = netH + anlH;
-      combinedCanvas.width = totalW || 1;
-      combinedCanvas.height = totalH || 1;
+      const totalW = Math.max(netW, anlW, 1);
+      const totalH = netH + anlH || 1;
+      const combinedCanvas = document.createElement('canvas');
+      combinedCanvas.width = totalW;
+      combinedCanvas.height = totalH;
       const cctx = combinedCanvas.getContext('2d')!;
       cctx.fillStyle = '#ffffff';
       cctx.fillRect(0, 0, totalW, totalH);
@@ -797,13 +767,13 @@ export const SnaExercise = () => {
                     <Plus className="w-3.5 h-3.5" />
                     {t('sna.custom_enter')}
                   </button>
-                  <button
+                  {/* <button
                     onClick={() => setShowAIGenerator(true)}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
                     {t('ai_gen.or_generate')}
-                  </button>
+                  </button> */}
                   <button
                     onClick={() => setShowDatasetPicker(true)}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
@@ -919,12 +889,19 @@ export const SnaExercise = () => {
                       <Plus className="w-4 h-4" />
                       {t('sna.custom_enter')}
                     </button>
-                    <button
+                    {/* <button
                       onClick={() => setShowAIGenerator(true)}
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
                     >
                       <Sparkles className="w-4 h-4" />
                       {t('ai_gen.or_generate')}
+                    </button> */}
+                    <button
+                      onClick={() => setShowDatasetPicker(true)}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                    >
+                      <Database className="w-4 h-4" />
+                      {t('my_datasets')}
                     </button>
                   </div>
                 </div>
@@ -988,7 +965,7 @@ export const SnaExercise = () => {
                 <div ref={captureRef} className="space-y-4">
 
                 {/* Network Graph with controls */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                <div data-network-card className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                   <div className="flex items-center gap-3 mb-4">
                     <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                       {t('sna.network_graph')}
@@ -1006,7 +983,7 @@ export const SnaExercise = () => {
                   </div>
 
                   {/* Graph controls toolbar */}
-                  <div className="space-y-3 mb-4 pb-4 border-b border-gray-100 dark:border-gray-700">
+                  <div data-graph-toolbar className="space-y-3 mb-4 pb-4 border-b border-gray-100 dark:border-gray-700">
                     {/* Row 1: Dropdowns + Checkboxes */}
                     <div className="flex flex-wrap items-end gap-3">
                       <SearchableSelect
@@ -1094,7 +1071,7 @@ export const SnaExercise = () => {
                 </div>
 
                 {/* Analysis tabs (horizontal) */}
-                <div className="flex flex-wrap items-center gap-2">
+                <div data-analysis-tabs data-no-capture className="flex flex-wrap items-center gap-2">
                   {ANALYSIS_ITEMS.map(({ key, icon: Icon }) => {
                     const isActive = activeAnalysis === key;
                     return (
@@ -1116,7 +1093,7 @@ export const SnaExercise = () => {
 
                 {/* Sub-options for active analysis */}
                 {activeAnalysis === 'centrality' && (
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div data-no-capture className="flex flex-wrap items-center gap-2">
                     {CENTRALITY_OPTIONS.map(opt => (
                       <button
                         key={opt.key}
@@ -1156,7 +1133,7 @@ export const SnaExercise = () => {
                   </div>
                 )}
                 {activeAnalysis === 'communities' && (
-                  <div className="flex flex-wrap items-center gap-3">
+                  <div data-no-capture className="flex flex-wrap items-center gap-3">
                     <SearchableSelect
                       label={t('sna.community_algorithm')}
                       value={communityMethod}
@@ -1174,7 +1151,7 @@ export const SnaExercise = () => {
 
                 {/* Graph Metrics (inside capture area) */}
                 {activeAnalysis === 'metrics' && metrics && (
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                    <div data-analysis-content className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
                         {t('sna.block_metrics')}
                       </h3>
@@ -1200,7 +1177,7 @@ export const SnaExercise = () => {
 
                 {/* Centrality (inside capture area) */}
                 {activeAnalysis === 'centrality' && centralityData && (
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                    <div data-analysis-content className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
                         {t('sna.block_centrality')} — {centralityMetric}
                       </h3>
@@ -1214,9 +1191,9 @@ export const SnaExercise = () => {
 
                 {/* Communities (inside capture area) */}
                 {activeAnalysis === 'communities' && communities && (
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                    <div data-analysis-content className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                        {t('sna.block_communities')}
+                        {t('sna.block_communities')} — {t(COMMUNITY_METHOD_OPTIONS.find(o => o.key === communityMethod)?.i18nKey ?? communityMethod)}
                       </h3>
                       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         {Array.from({ length: communities.k }, (_, ci) => {
@@ -1248,7 +1225,7 @@ export const SnaExercise = () => {
 
                 {/* Adjacency Matrix (inside capture area) */}
                 {activeAnalysis === 'adjacency' && (
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                    <div data-analysis-content className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
                         {t('sna.block_adjacency')}
                       </h3>
@@ -1585,6 +1562,7 @@ export const SnaExercise = () => {
           courseNumericId={Number(courseId)}
           assignmentId={snaAssignment?.id}
           reportItems={reportItems}
+          onRemoveReportItem={(key) => setReportItems(prev => prev.filter(i => i.key !== key))}
           courseName={course?.title}
           onSubmitted={() => {
             setAssignmentPanelOpen(false);

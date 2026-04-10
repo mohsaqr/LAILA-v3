@@ -18,13 +18,17 @@ import {
   Network, X, BarChart3, GitBranch,
   Scissors, Target, Users,
   Database, Share2, BookOpen, ChevronDown, ChevronRight,
-  Sparkles, ClipboardList, Camera, Loader2, CheckCircle, Download, RefreshCw,
+  Camera, Loader2, CheckCircle, Download,
+  Award, Calendar, Clock, Send, FileText, AlertCircle,
 } from 'lucide-react';
 import { assignmentsApi } from '../api/assignments';
 import { coursesApi } from '../api/courses';
 import { LabAssignmentPanel, type ReportItem } from '../components/labs/LabAssignmentPanel';
 import toast from 'react-hot-toast';
 import { MyDatasetPicker } from '../components/common/MyDatasetPicker';
+import { SearchableSelect } from '../components/common/SearchableSelect';
+import { Card, CardBody } from '../components/common/Card';
+import { Button } from '../components/common/Button';
 import { INTERACTIVE_LAB_REQUIREMENTS } from '../types';
 import { tna, ftna, ctna, atna, prune, centralities, summary } from 'dynajs';
 import type { TNA } from 'dynajs';
@@ -145,6 +149,9 @@ export const TnaExercise = () => {
   const [showEdgeLabels, setShowEdgeLabels] = useState(true);
   const [nodeRadius, setNodeRadius] = useState(25);
   const [nodeSizeBy, setNodeSizeBy] = useState<string>('fixed');
+  const [showNodeLabels, setShowNodeLabels] = useState(true);
+  const [nodeFontSize, setNodeFontSize] = useState(11);
+  const [edgeWidth, setEdgeWidth] = useState(2);
 
   // ── Active analysis (radio — one at a time) ──
   const [activeAnalysis, setActiveAnalysis] = useState<AnalysisKey | null>(null);
@@ -176,14 +183,60 @@ export const TnaExercise = () => {
     if (!analysisContentRef.current || !activeAnalysis) return;
     setIsCapturing(true);
     try {
-      const { default: html2canvas } = await import('html2canvas');
       const el = analysisContentRef.current;
-      const canvas = await html2canvas(el, {
-        scale: 1.2, useCORS: true, allowTaint: true,
-        width: el.scrollWidth, height: el.scrollHeight,
-        scrollX: 0, scrollY: 0,
-      });
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      const { default: html2canvas } = await import('html2canvas');
+
+      // Hide elements that shouldn't be captured
+      const hideEls = el.querySelectorAll('[data-no-capture]');
+      hideEls.forEach(e => (e as HTMLElement).style.display = 'none');
+
+      // 1. Capture network card (hide toolbar)
+      const networkCard = el.querySelector('[data-network-card]') as HTMLElement | null;
+      const toolbar = networkCard?.querySelector('[data-graph-toolbar]') as HTMLElement | null;
+      let networkDataUrl: string | null = null;
+      if (networkCard) {
+        if (toolbar) toolbar.style.display = 'none';
+        const netCanvas = await html2canvas(networkCard, {
+          scale: 2, useCORS: true, allowTaint: true,
+          width: networkCard.scrollWidth, height: networkCard.scrollHeight,
+          scrollX: 0, scrollY: 0,
+        });
+        if (toolbar) toolbar.style.display = '';
+        if (netCanvas.height > 5) networkDataUrl = netCanvas.toDataURL('image/jpeg', 0.9);
+      }
+
+      // 2. Capture analysis content card directly
+      const analysisCard = el.querySelector('[data-analysis-content]') as HTMLElement | null;
+      let analysisDataUrl: string | null = null;
+      if (analysisCard && analysisCard.scrollHeight > 5) {
+        const analysisCanvas = await html2canvas(analysisCard, {
+          scale: 2, useCORS: true, allowTaint: true,
+          width: analysisCard.scrollWidth, height: analysisCard.scrollHeight,
+          scrollX: 0, scrollY: 0,
+        });
+        if (analysisCanvas.height > 5) analysisDataUrl = analysisCanvas.toDataURL('image/jpeg', 0.9);
+      }
+      hideEls.forEach(e => (e as HTMLElement).style.display = '');
+
+      // 3. Combine: network on top, analysis below
+      const netImg = networkDataUrl ? new Image() : null;
+      const anlImg = analysisDataUrl ? new Image() : null;
+      if (netImg && networkDataUrl) await new Promise<void>(r => { netImg.onload = () => r(); netImg.src = networkDataUrl!; });
+      if (anlImg && analysisDataUrl) await new Promise<void>(r => { anlImg.onload = () => r(); anlImg.src = analysisDataUrl!; });
+      const netW = netImg?.width || 0, netH = netImg?.height || 0;
+      const anlW = anlImg?.width || 0, anlH = anlImg?.height || 0;
+      const totalW = Math.max(netW, anlW, 1);
+      const totalH = netH + anlH || 1;
+      const combinedCanvas = document.createElement('canvas');
+      combinedCanvas.width = totalW;
+      combinedCanvas.height = totalH;
+      const cctx = combinedCanvas.getContext('2d')!;
+      cctx.fillStyle = '#ffffff';
+      cctx.fillRect(0, 0, totalW, totalH);
+      if (netImg) cctx.drawImage(netImg, (totalW - netW) / 2, 0);
+      if (anlImg) cctx.drawImage(anlImg, (totalW - anlW) / 2, netH);
+
+      const dataUrl = combinedCanvas.toDataURL('image/jpeg', 0.85);
       setReportItems(prev => {
         const filtered = prev.filter(item => item.key !== activeAnalysis);
         return [...filtered, { key: activeAnalysis, label: activeAnalysis, dataUrl, timestamp: Date.now() }];
@@ -352,40 +405,90 @@ export const TnaExercise = () => {
           </div>
         )}
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center">
-              <Network className="w-4.5 h-4.5 text-white" />
+        {/* Assignment Header Card */}
+        {tnaAssignment ? (
+          <Card className="mb-6">
+            <CardBody>
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <p className="text-sm mb-1 text-gray-500 dark:text-gray-400">{course?.title}</p>
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{tnaAssignment.title}</h1>
+                </div>
+                {isGraded ? (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400">
+                    <Award className="w-4 h-4" />
+                    {t('graded_with_score', { grade: mySubmission?.grade, total: tnaAssignment.points, defaultValue: `${mySubmission?.grade}/${tnaAssignment.points}` })}
+                  </span>
+                ) : isSubmitted ? (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400">
+                    <CheckCircle className="w-4 h-4" />
+                    {t('submitted_status', { defaultValue: 'Submitted' })}
+                  </span>
+                ) : isInGracePeriod ? (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400">
+                    <AlertCircle className="w-4 h-4" />
+                    {t('grace_period_status', { defaultValue: 'Grace Period' })}
+                  </span>
+                ) : isFullyPastDue ? (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400">
+                    <AlertCircle className="w-4 h-4" />
+                    {t('past_due_status', { defaultValue: 'Past Due' })}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                    <FileText className="w-4 h-4" />
+                    {t('not_started_status', { defaultValue: 'Not Started' })}
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                <span className="flex items-center gap-1">
+                  <Award className="w-4 h-4" />
+                  {tnaAssignment.points} {t('common:points', { defaultValue: 'points' })}
+                </span>
+                {dueDateLocal && (
+                  <span className={`flex items-center gap-1 ${isPastDue ? 'text-red-600' : ''}`}>
+                    <Calendar className="w-4 h-4" />
+                    {t('due_at', {
+                      defaultValue: 'Due {{date}} at {{time}}',
+                      date: dueDateLocal.toLocaleDateString(undefined, { timeZone: 'UTC' }),
+                      time: dueDateLocal.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
+                    })}
+                  </span>
+                )}
+                {gracePeriodLocal && (
+                  <span className={`flex items-center gap-1 ${isInGracePeriod ? 'text-red-600' : ''}`}>
+                    <Clock className="w-4 h-4" />
+                    {t('grace_period_until', {
+                      defaultValue: 'Grace period until {{date}} at {{time}}',
+                      date: gracePeriodLocal.toLocaleDateString(undefined, { timeZone: 'UTC' }),
+                      time: gracePeriodLocal.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
+                    })}
+                  </span>
+                )}
+                <span className="flex items-center gap-1 capitalize">
+                  <FileText className="w-4 h-4" />
+                  {t('submission_type_label', { type: tnaAssignment.submissionType, defaultValue: tnaAssignment.submissionType })}
+                </span>
+              </div>
+            </CardBody>
+          </Card>
+        ) : (
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center">
+                <Network className="w-4.5 h-4.5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('exercise.title')}</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">{t('exercise.subtitle')}</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('exercise.title')}</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">{t('exercise.subtitle')}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {tnaAssignment && isInGracePeriod && !isGraded && (
-              <span className="text-xs px-2 py-1 rounded-full font-medium" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#dc2626' }}>
-                {t('courses:grace_period_status', { defaultValue: 'Grace Period' })}
-              </span>
-            )}
-            {tnaAssignment && !isGraded && !isFullyPastDue && (
-              <button
-                onClick={() => setAssignmentPanelOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition-colors"
-              >
-                {isSubmitted ? <RefreshCw className="w-3.5 h-3.5" /> : <ClipboardList className="w-3.5 h-3.5" />}
-                {isSubmitted
-                  ? t('resubmit', { defaultValue: 'Resubmit' })
-                  : t('submit_assignment', { defaultValue: 'Submit Assignment' })
-                }
-              </button>
-            )}
             <button onClick={() => navigate(courseId ? `/courses/${courseId}` : -1 as any)} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
-        </div>
+        )}
 
         {/* ── Layout: sidebar + main ── */}
         <div className="flex flex-col lg:flex-row gap-6" ref={exerciseRef}>
@@ -413,13 +516,13 @@ export const TnaExercise = () => {
                     </p>
                   )}
                   <div className="flex flex-col gap-1.5 mt-1.5">
-                    <button
+                    {/* <button
                       onClick={() => setShowAIGenerator(true)}
                       className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
                     >
                       <Sparkles className="w-3.5 h-3.5" />
                       {t('ai_gen.or_generate')}
-                    </button>
+                    </button> */}
                     <button
                       onClick={() => setShowDatasetPicker(true)}
                       className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
@@ -497,149 +600,6 @@ export const TnaExercise = () => {
               </div>
 
               {/* Network controls + Analysis nav (after build) */}
-              {modelBuilt && rawModel && (
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-3">
-
-                  {/* Network controls */}
-                  <div className="space-y-1.5">
-                    <label className={labelCls}>{t('exercise.pipe_network')}</label>
-                    <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300 cursor-pointer">
-                      <input type="checkbox" checked={showSelfLoops} onChange={e => setShowSelfLoops(e.target.checked)}
-                        className="rounded w-3.5 h-3.5 text-blue-600" />
-                      {t('exercise.self_loops')}
-                    </label>
-                    <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300 cursor-pointer">
-                      <input type="checkbox" checked={showEdgeLabels} onChange={e => setShowEdgeLabels(e.target.checked)}
-                        className="rounded w-3.5 h-3.5 text-blue-600" />
-                      {t('exercise.edge_labels')}
-                    </label>
-                    <div>
-                      <span className="text-[10px] text-gray-400 block mb-1">{t('exercise.node_size_by')}</span>
-                      <select value={nodeSizeBy} onChange={e => setNodeSizeBy(e.target.value)} className={selectCls}>
-                        <option value="fixed">{t('exercise.fixed_size')}</option>
-                        <option value="InStrength">{t('exercise.in_strength')}</option>
-                        <option value="OutStrength">{t('exercise.out_strength')}</option>
-                        <option value="Betweenness">{t('exercise.betweenness')}</option>
-                      </select>
-                    </div>
-                    <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
-                      {t('exercise.node_size')}
-                      <input type="range" min={15} max={50} value={nodeRadius}
-                        onChange={e => setNodeRadius(Number(e.target.value))} className="w-16 h-1.5 accent-blue-600" />
-                    </label>
-                  </div>
-
-                  <hr className="border-gray-100 dark:border-gray-700" />
-
-                  {/* Analysis navigation (radio-style) */}
-                  <div className="space-y-0.5">
-                    <label className={labelCls}>{t('exercise.analysis_blocks')}</label>
-                    {ANALYSIS_ITEMS.map(({ key, icon: Icon }) => {
-                      const isActive = activeAnalysis === key;
-                      return (
-                        <div key={key}>
-                          <button
-                            onClick={() => toggleAnalysis(key)}
-                            className={`flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-left text-xs font-medium transition-all ${
-                              isActive
-                                ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-l-2 border-blue-500 ml-0'
-                                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                            }`}
-                          >
-                            <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${isActive ? 'text-blue-500' : 'text-gray-400'}`} />
-                            <span>{t(`exercise.block_${key}`)}</span>
-                          </button>
-
-                          {/* Inline options (expand below active item) */}
-                          {isActive && (
-                            <div className="ml-6 mt-1 mb-2 space-y-2">
-                              {key === 'frequencies' && (
-                                <>
-                                  <div>
-                                    <span className="text-[10px] text-gray-400 block mb-1">{t('exercise.show')}</span>
-                                    <ToggleGroup value={freqView} onChange={v => setFreqView(v as typeof freqView)} options={[
-                                      { key: 'bar', label: 'Bar' },
-                                      { key: 'distribution', label: 'Dist' },
-                                      { key: 'both', label: 'Both' },
-                                    ]} />
-                                  </div>
-                                  <div>
-                                    <span className="text-[10px] text-gray-400 block mb-1">{t('sort_by')}</span>
-                                    <ToggleGroup value={freqSort} onChange={v => setFreqSort(v as typeof freqSort)} options={[
-                                      { key: 'alpha', label: 'A-Z' },
-                                      { key: 'count', label: '#' },
-                                    ]} />
-                                  </div>
-                                </>
-                              )}
-
-                              {key === 'transitions' && (
-                                <div>
-                                  <span className="text-[10px] text-gray-400 block mb-1">{t('exercise.show')}</span>
-                                  <ToggleGroup value={transitionView} onChange={v => { setTransitionView(v as typeof transitionView); logSession('Transition view: ' + v); }} options={[
-                                    { key: 'counts', label: t('exercise.raw_counts') },
-                                    { key: 'probs', label: t('exercise.probabilities') },
-                                    { key: 'both', label: 'Both' },
-                                  ]} />
-                                </div>
-                              )}
-
-                              {key === 'pruning' && (
-                                <div>
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className="text-[10px] text-gray-400">{t('exercise.prune_threshold')}</span>
-                                    <span className="text-[11px] font-mono font-bold text-blue-600 dark:text-blue-400">
-                                      {pruneThreshold.toFixed(2)}
-                                    </span>
-                                  </div>
-                                  <input type="range" min={0} max={0.5} step={0.01}
-                                    value={pruneThreshold} onChange={e => { setPruneThreshold(Number(e.target.value)); logSession('Prune threshold: ' + e.target.value); }}
-                                    className="w-full h-1.5 accent-blue-600" />
-                                  <div className="flex justify-between text-[10px] text-gray-400 mt-1">
-                                    <span>{edgeCount.pruned}/{edgeCount.original} edges</span>
-                                    <span>-{edgeCount.original - edgeCount.pruned}</span>
-                                  </div>
-                                </div>
-                              )}
-
-                              {key === 'centrality' && (
-                                <>
-                                  <div>
-                                    <span className="text-[10px] text-gray-400 block mb-1">{t('exercise.size_by')}</span>
-                                    <ToggleGroup value={centralityMetric} onChange={v => { setCentralityMetric(v as typeof centralityMetric); logSession('Centrality metric: ' + v); }} options={[
-                                      { key: 'InStrength', label: 'In' },
-                                      { key: 'OutStrength', label: 'Out' },
-                                      { key: 'Betweenness', label: 'Btw' },
-                                    ]} />
-                                  </div>
-                                  <label className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-300 cursor-pointer">
-                                    <input type="checkbox" checked={showCentralityTable}
-                                      onChange={e => setShowCentralityTable(e.target.checked)}
-                                      className="rounded w-3 h-3 text-blue-600" />
-                                    {t('exercise.centrality_table')}
-                                  </label>
-                                </>
-                              )}
-
-                              {key === 'clusters' && (
-                                <div>
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className="text-[10px] text-gray-400">{t('exercise.num_clusters')}</span>
-                                    <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400">{clusterK}</span>
-                                  </div>
-                                  <input type="range" min={2} max={10}
-                                    value={clusterK} onChange={e => { setClusterK(Number(e.target.value)); logSession('Cluster k: ' + e.target.value); }}
-                                    className="w-full h-1.5 accent-blue-600" />
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
 
               {/* Download Data */}
               {datasetKey && rawRows.length > 0 && (
@@ -783,9 +743,9 @@ export const TnaExercise = () => {
             {/* After build: Network + Analysis */}
             {modelBuilt && rawModel && (
               <>
-                {/* ── Network Graph (always visible) ── */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                  <div className="flex items-center gap-3 mb-3">
+                {/* ── Network Graph with controls ── */}
+                <div data-network-card className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                  <div className="flex items-center gap-3 mb-4">
                     <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                       {t('exercise.pipe_network')}
                     </h2>
@@ -800,6 +760,66 @@ export const TnaExercise = () => {
                       </span>
                     )}
                   </div>
+
+                  {/* Graph controls toolbar */}
+                  <div data-graph-toolbar className="space-y-3 mb-4 pb-4 border-b border-gray-100 dark:border-gray-700">
+                    {/* Row 1: Dropdowns + Checkboxes */}
+                    <div className="flex flex-wrap items-end gap-3">
+                      <SearchableSelect
+                        label={t('exercise.node_size_by')}
+                        value={nodeSizeBy}
+                        onChange={setNodeSizeBy}
+                        options={[
+                          { value: 'fixed', label: t('exercise.fixed_size') },
+                          { value: 'InStrength', label: t('exercise.in_strength') },
+                          { value: 'OutStrength', label: t('exercise.out_strength') },
+                          { value: 'InDegree', label: t('exercise.in_degree') },
+                          { value: 'OutDegree', label: t('exercise.out_degree') },
+                          { value: 'Betweenness', label: t('exercise.betweenness') },
+                        ]}
+                        className="w-[160px]"
+                      />
+                      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 ml-2">
+                        <label className="flex items-center gap-1.5 text-[13px] text-gray-700 dark:text-gray-200 cursor-pointer">
+                          <input type="checkbox" checked={showSelfLoops} onChange={e => setShowSelfLoops(e.target.checked)}
+                            className="rounded w-4 h-4 text-blue-600" />
+                          {t('exercise.self_loops')}
+                        </label>
+                        <label className="flex items-center gap-1.5 text-[13px] text-gray-700 dark:text-gray-200 cursor-pointer">
+                          <input type="checkbox" checked={showEdgeLabels} onChange={e => setShowEdgeLabels(e.target.checked)}
+                            className="rounded w-4 h-4 text-blue-600" />
+                          {t('exercise.edge_labels')}
+                        </label>
+                        <label className="flex items-center gap-1.5 text-[13px] text-gray-700 dark:text-gray-200 cursor-pointer">
+                          <input type="checkbox" checked={showNodeLabels} onChange={e => setShowNodeLabels(e.target.checked)}
+                            className="rounded w-4 h-4 text-blue-600" />
+                          {t('exercise.node_labels')}
+                        </label>
+                      </div>
+                    </div>
+                    {/* Row 2: Sliders */}
+                    <div className="flex flex-wrap items-center gap-6">
+                      <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                        <span className="text-[12px] text-gray-500 whitespace-nowrap">{t('exercise.node_size')}</span>
+                        <input type="range" min={15} max={50} value={nodeRadius}
+                          onChange={e => setNodeRadius(Number(e.target.value))} className="flex-1 h-2 rounded-full accent-blue-600 cursor-pointer" />
+                        <span className="text-[12px] font-semibold text-blue-600 tabular-nums w-6 text-right">{nodeRadius}</span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                        <span className="text-[12px] text-gray-500 whitespace-nowrap">{t('exercise.label_size')}</span>
+                        <input type="range" min={6} max={18} value={nodeFontSize}
+                          onChange={e => setNodeFontSize(Number(e.target.value))} className="flex-1 h-2 rounded-full accent-blue-600 cursor-pointer" />
+                        <span className="text-[12px] font-semibold text-blue-600 tabular-nums w-6 text-right">{nodeFontSize}</span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                        <span className="text-[12px] text-gray-500 whitespace-nowrap">{t('sna.edge_width')}</span>
+                        <input type="range" min={1} max={12} step={0.5} value={edgeWidth}
+                          onChange={e => setEdgeWidth(Number(e.target.value))} className="flex-1 h-2 rounded-full accent-blue-600 cursor-pointer" />
+                        <span className="text-[12px] font-semibold text-blue-600 tabular-nums w-6 text-right">{edgeWidth}</span>
+                      </div>
+                    </div>
+                  </div>
+
                   <TnaNetworkGraph
                     model={displayModel!}
                     showSelfLoops={showSelfLoops}
@@ -810,8 +830,85 @@ export const TnaExercise = () => {
                     centralityData={centralityData ?? undefined}
                     nodeSizeMetric={isCentralityActive ? centralityMetric : nodeSizeBy !== 'fixed' ? nodeSizeBy : undefined}
                     modelType={modelType}
+                    showNodeLabels={showNodeLabels}
+                    nodeFontSize={nodeFontSize}
+                    maxEdgeWidth={edgeWidth}
                   />
                 </div>
+
+                {/* Analysis tabs (horizontal) */}
+                <div data-no-capture className="flex flex-wrap items-center gap-2">
+                  {ANALYSIS_ITEMS.map(({ key, icon: Icon }) => {
+                    const isActive = activeAnalysis === key;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => toggleAnalysis(key)}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                          isActive
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                        }`}
+                      >
+                        <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-gray-400'}`} />
+                        {t(`exercise.block_${key}`)}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Sub-options for active analysis */}
+                {activeAnalysis === 'frequencies' && (
+                  <div data-no-capture className="flex flex-wrap items-center gap-3">
+                    <ToggleGroup value={freqView} onChange={v => setFreqView(v as typeof freqView)} options={[
+                      { key: 'bar', label: 'Bar' }, { key: 'distribution', label: 'Dist' }, { key: 'both', label: 'Both' },
+                    ]} />
+                    <ToggleGroup value={freqSort} onChange={v => setFreqSort(v as typeof freqSort)} options={[
+                      { key: 'alpha', label: 'A-Z' }, { key: 'count', label: '#' },
+                    ]} />
+                  </div>
+                )}
+                {activeAnalysis === 'transitions' && (
+                  <div data-no-capture className="flex flex-wrap items-center gap-3">
+                    <ToggleGroup value={transitionView} onChange={v => { setTransitionView(v as typeof transitionView); logSession('Transition view: ' + v); }} options={[
+                      { key: 'counts', label: t('exercise.raw_counts') }, { key: 'probs', label: t('exercise.probabilities') }, { key: 'both', label: 'Both' },
+                    ]} />
+                  </div>
+                )}
+                {activeAnalysis === 'pruning' && (
+                  <div data-no-capture className="flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-2 min-w-[250px]">
+                      <span className="text-[12px] text-gray-500 whitespace-nowrap">{t('exercise.prune_threshold')}</span>
+                      <input type="range" min={0} max={0.5} step={0.01} value={pruneThreshold}
+                        onChange={e => { setPruneThreshold(Number(e.target.value)); logSession('Prune threshold: ' + e.target.value); }}
+                        className="flex-1 h-2 rounded-full accent-blue-600 cursor-pointer" />
+                      <span className="text-[12px] font-semibold text-blue-600 tabular-nums">{pruneThreshold.toFixed(2)}</span>
+                    </div>
+                    <span className="text-[12px] text-gray-500">{edgeCount.pruned}/{edgeCount.original} edges</span>
+                  </div>
+                )}
+                {activeAnalysis === 'centrality' && (
+                  <div data-no-capture className="flex flex-wrap items-center gap-3">
+                    <ToggleGroup value={centralityMetric} onChange={v => { setCentralityMetric(v as typeof centralityMetric); logSession('Centrality metric: ' + v); }} options={[
+                      { key: 'InStrength', label: 'In-Strength' }, { key: 'OutStrength', label: 'Out-Strength' }, { key: 'Betweenness', label: 'Betweenness' },
+                    ]} />
+                    <label className="flex items-center gap-1.5 text-[13px] text-gray-700 dark:text-gray-200 cursor-pointer">
+                      <input type="checkbox" checked={showCentralityTable}
+                        onChange={e => setShowCentralityTable(e.target.checked)}
+                        className="rounded w-4 h-4 text-blue-600" />
+                      {t('exercise.centrality_table')}
+                    </label>
+                  </div>
+                )}
+                {activeAnalysis === 'clusters' && (
+                  <div data-no-capture className="flex items-center gap-3">
+                    <span className="text-[12px] text-gray-500">{t('exercise.num_clusters')}</span>
+                    <input type="range" min={2} max={10} value={clusterK}
+                      onChange={e => { setClusterK(Number(e.target.value)); logSession('Cluster k: ' + e.target.value); }}
+                      className="w-32 h-2 rounded-full accent-blue-600 cursor-pointer" />
+                    <span className="text-[12px] font-semibold text-blue-600 tabular-nums">{clusterK}</span>
+                  </div>
+                )}
 
                 {/* ── Guide Banner (prominent collapsible, below network) ── */}
                 {activeAnalysis && (
@@ -844,36 +941,10 @@ export const TnaExercise = () => {
                   </div>
                 )}
 
-                {/* Add-to-report capture button (only when assignment exists and not past due, or resubmitting) */}
-                {modelBuilt && activeAnalysis && tnaAssignment && (!isSubmitted || canResubmit) && !isGraded && !isFullyPastDue && (
-                  <button
-                    onClick={handleAddToReport}
-                    disabled={isCapturing}
-                    className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                      reportItems.some(r => r.key === activeAnalysis)
-                        ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700'
-                        : 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border-dashed border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:border-indigo-400'
-                    }`}
-                  >
-                    {isCapturing ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : reportItems.some(r => r.key === activeAnalysis) ? (
-                      <CheckCircle className="w-4 h-4" />
-                    ) : (
-                      <Camera className="w-4 h-4" />
-                    )}
-                    {isCapturing
-                      ? 'Capturing...'
-                      : reportItems.some(r => r.key === activeAnalysis)
-                        ? `Captured — click to recapture`
-                        : 'Add this analysis to report'}
-                  </button>
-                )}
-
-                {/* ── Analysis Result (swaps based on sidebar selection) ── */}
+                {/* ── Analysis Result ── */}
                 {activeAnalysis === 'frequencies' && (
                   <>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                    <div data-analysis-content className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
                         {t('exercise.block_frequencies')}
                       </h3>
@@ -905,7 +976,7 @@ export const TnaExercise = () => {
 
                 {activeAnalysis === 'transitions' && (
                   <>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                    <div data-analysis-content className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                           {t('exercise.block_transitions')}
@@ -957,7 +1028,7 @@ export const TnaExercise = () => {
 
                 {activeAnalysis === 'pruning' && (
                   <>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                    <div data-analysis-content className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
                         {t('exercise.block_pruning')}
                       </h3>
@@ -981,7 +1052,7 @@ export const TnaExercise = () => {
 
                 {activeAnalysis === 'centrality' && centralityData && (
                   <>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                    <div data-analysis-content className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                           {t('exercise.block_centrality')}
@@ -1022,7 +1093,7 @@ export const TnaExercise = () => {
 
                 {activeAnalysis === 'clusters' && (
                   <>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                    <div data-analysis-content className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
                         {t('exercise.block_clusters')}
                       </h3>
@@ -1043,6 +1114,33 @@ export const TnaExercise = () => {
                       data={`Number of clusters (k): ${clusterK}. States: ${labels.join(', ')}.`}
                     />
                   </>
+                )}
+
+                {/* Add-to-report capture button (after analysis results) */}
+                {modelBuilt && activeAnalysis && tnaAssignment && (!isSubmitted || canResubmit) && !isGraded && !isFullyPastDue && (
+                  <button
+                    data-no-capture
+                    onClick={handleAddToReport}
+                    disabled={isCapturing}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                      reportItems.some(r => r.key === activeAnalysis)
+                        ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700'
+                        : 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border-dashed border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:border-indigo-400'
+                    }`}
+                  >
+                    {isCapturing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : reportItems.some(r => r.key === activeAnalysis) ? (
+                      <CheckCircle className="w-4 h-4" />
+                    ) : (
+                      <Camera className="w-4 h-4" />
+                    )}
+                    {isCapturing
+                      ? 'Capturing...'
+                      : reportItems.some(r => r.key === activeAnalysis)
+                        ? `Captured — click to recapture`
+                        : 'Add this analysis to report'}
+                  </button>
                 )}
 
                 {/* No analysis selected — show network guide */}
@@ -1079,6 +1177,24 @@ export const TnaExercise = () => {
         onSelect={(csvText) => handleMyDatasetSelect(csvText)}
       />
 
+      {/* Submit button at bottom */}
+      {tnaAssignment && !isGraded && !isFullyPastDue && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-6">
+          <div className="flex justify-end">
+            <Button
+              variant="primary"
+              onClick={() => setAssignmentPanelOpen(true)}
+              icon={<Send className="w-4 h-4" />}
+            >
+              {isSubmitted
+                ? t('resubmit', { defaultValue: 'Resubmit' })
+                : t('submit_assignment', { defaultValue: 'Submit Assignment' })
+              }
+            </Button>
+          </div>
+        </div>
+      )}
+
       {tnaAssignment && !isGraded && !isFullyPastDue && (
         <LabAssignmentPanel
           isOpen={assignmentPanelOpen}
@@ -1111,6 +1227,7 @@ export const TnaExercise = () => {
           courseNumericId={Number(courseId)}
           assignmentId={tnaAssignment?.id}
           reportItems={reportItems}
+          onRemoveReportItem={(key) => setReportItems(prev => prev.filter(i => i.key !== key))}
         />
       )}
     </div>

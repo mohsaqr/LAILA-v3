@@ -11,6 +11,7 @@ import { activityLogApi } from '../../api/admin';
 import { useTheme } from '../../hooks/useTheme';
 import { AdminLayout, StatCard } from '../../components/admin';
 import { Loading } from '../../components/common/Loading';
+import { SearchableSelect } from '../../components/common/SearchableSelect';
 import { TnaDistributionPlot } from '../../components/tna/TnaDistributionPlot';
 import { TnaIndexPlot } from '../../components/tna/TnaIndexPlot';
 import { TnaFrequencyChart } from '../../components/tna/TnaFrequencyChart';
@@ -43,6 +44,10 @@ const MODEL_BUILDERS: Record<ModelType, typeof tna> = {
 const NODE_SIZE_OPTIONS = [
   { value: 'fixed', i18nKey: 'fixed_size' },
   { value: 'InStrength', i18nKey: 'in_strength' },
+  { value: 'OutStrength', i18nKey: 'out_strength' },
+  { value: 'InDegree', i18nKey: 'in_degree' },
+  { value: 'OutDegree', i18nKey: 'out_degree' },
+  { value: 'Betweenness', i18nKey: 'betweenness' },
 ];
 
 const LAYOUT_OPTIONS: { value: LayoutAlgorithm; i18nKey: string }[] = [
@@ -287,6 +292,30 @@ const SearchableFilterSelect = ({
 };
 
 /* ------------------------------------------------------------------ */
+/*  Deferred range slider — smooth local state, commits on pointerUp  */
+/* ------------------------------------------------------------------ */
+
+const DeferredSlider = ({ label, value, onChange, min, max, step }: {
+  label: string; value: number; onChange: (v: number) => void;
+  min: number; max: number; step?: number;
+}) => {
+  const [local, setLocal] = useState(value);
+  const dragging = useRef(false);
+  useEffect(() => { if (!dragging.current) setLocal(value); }, [value]);
+  return (
+    <div className="flex items-center gap-2 flex-1 min-w-[180px]">
+      <span className="text-[12px] text-gray-500 whitespace-nowrap">{label}</span>
+      <input type="range" min={min} max={max} step={step} value={local}
+        onChange={e => { dragging.current = true; setLocal(Number(e.target.value)); }}
+        onPointerUp={() => { dragging.current = false; onChange(local); }}
+        onMouseUp={() => { dragging.current = false; onChange(local); }}
+        className="flex-1 h-2 rounded-full accent-violet-600 cursor-pointer" />
+      <span className="text-[12px] font-semibold text-violet-600 tabular-nums w-6 text-right">{local}</span>
+    </div>
+  );
+};
+
+/* ------------------------------------------------------------------ */
 /*  Dashboard (exported page component)                                */
 /* ------------------------------------------------------------------ */
 
@@ -333,6 +362,8 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
   const [networkSettingsOpen, setNetworkSettingsOpen] = useState(false);
   const [nodeSizeMetric, setNodeSizeMetric] = useState('fixed');
   const [graphLayout, setGraphLayout] = useState<LayoutAlgorithm>('circle');
+  const [showNodeLabels, setShowNodeLabels] = useState(true);
+  const [nodeFontSize, setNodeFontSize] = useState(11);
   const [palette, setPalette] = useState<PaletteName>('default');
   const [networkModalOpen, setNetworkModalOpen] = useState(false);
 
@@ -595,13 +626,13 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
     if (!analysis?.prunedModel) return undefined;
     const result = dynaLayout(analysis.prunedModel, { algorithm: graphLayout });
     const h = 380;
-    const pad = nodeRadius + 5;
+    const pad = 50; // fixed padding — nodeRadius changes shouldn't recompute layout
     // Convert normalized [0,1] positions to pixel positions within the SVG
     return Array.from({ length: result.labels.length }, (_, i) => ({
       x: pad + result.x[i]! * (h - 2 * pad),
       y: pad + result.y[i]! * (h - 2 * pad),
     }));
-  }, [analysis?.prunedModel, graphLayout, nodeRadius]);
+  }, [analysis?.prunedModel, graphLayout]);
 
   /* --- Theme colors for stat cards --- */
 
@@ -949,42 +980,46 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
                       </div>
                     </div>
                     {networkSettingsOpen && (
-                      <div className="mx-3 mt-2 mb-1 flex flex-wrap gap-3 items-center text-sm">
-                        <label className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
-                          <input type="checkbox" checked={showSelfLoops}
-                            onChange={e => setShowSelfLoops(e.target.checked)} className="rounded" />
-                          {t('show_self_loops')}
-                        </label>
-                        <label className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
-                          <input type="checkbox" checked={showEdgeLabels}
-                            onChange={e => setShowEdgeLabels(e.target.checked)} className="rounded" />
-                          {t('show_edge_labels')}
-                        </label>
-                        <label className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
-                          {t('node_radius')}: {nodeRadius}
-                          <input type="range" min={15} max={50} value={nodeRadius}
-                            onChange={e => setNodeRadius(parseInt(e.target.value))} className="w-20" />
-                        </label>
-                        <label className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
-                          {t('node_size_by')}:
-                          <select value={nodeSizeMetric}
-                            onChange={e => setNodeSizeMetric(e.target.value)}
-                            className="px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                            {NODE_SIZE_OPTIONS.map(opt => (
-                              <option key={opt.value} value={opt.value}>{t(opt.i18nKey)}</option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
-                          {t('layout')}:
-                          <select value={graphLayout}
-                            onChange={e => setGraphLayout(e.target.value as LayoutAlgorithm)}
-                            className="px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                            {LAYOUT_OPTIONS.map(opt => (
-                              <option key={opt.value} value={opt.value}>{t(opt.i18nKey)}</option>
-                            ))}
-                          </select>
-                        </label>
+                      <div className="mx-3 mt-2 mb-3 space-y-3 border-b border-gray-100 dark:border-gray-700 pb-3">
+                        {/* Row 1: Dropdowns + Checkboxes */}
+                        <div className="flex flex-wrap items-end gap-3">
+                          <SearchableSelect
+                            label={t('layout')}
+                            value={graphLayout}
+                            onChange={val => setGraphLayout(val as LayoutAlgorithm)}
+                            options={LAYOUT_OPTIONS.map(o => ({ value: o.value, label: t(o.i18nKey) }))}
+                            className="w-[150px]"
+                          />
+                          <SearchableSelect
+                            label={t('node_size_by')}
+                            value={nodeSizeMetric}
+                            onChange={setNodeSizeMetric}
+                            options={NODE_SIZE_OPTIONS.map(o => ({ value: o.value, label: t(o.i18nKey) }))}
+                            className="w-[150px]"
+                          />
+                          <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 ml-2">
+                            <label className="flex items-center gap-1.5 text-[13px] text-gray-700 dark:text-gray-200 cursor-pointer">
+                              <input type="checkbox" checked={showSelfLoops}
+                                onChange={e => setShowSelfLoops(e.target.checked)} className="rounded w-4 h-4 text-violet-600" />
+                              {t('show_self_loops')}
+                            </label>
+                            <label className="flex items-center gap-1.5 text-[13px] text-gray-700 dark:text-gray-200 cursor-pointer">
+                              <input type="checkbox" checked={showEdgeLabels}
+                                onChange={e => setShowEdgeLabels(e.target.checked)} className="rounded w-4 h-4 text-violet-600" />
+                              {t('show_edge_labels')}
+                            </label>
+                            <label className="flex items-center gap-1.5 text-[13px] text-gray-700 dark:text-gray-200 cursor-pointer">
+                              <input type="checkbox" checked={showNodeLabels}
+                                onChange={e => setShowNodeLabels(e.target.checked)} className="rounded w-4 h-4 text-violet-600" />
+                              {t('exercise.node_labels', { defaultValue: 'Node labels' })}
+                            </label>
+                          </div>
+                        </div>
+                        {/* Row 2: Sliders */}
+                        <div className="flex flex-wrap items-center gap-6">
+                          <DeferredSlider label={t('node_radius')} value={nodeRadius} onChange={setNodeRadius} min={15} max={50} />
+                          <DeferredSlider label={t('exercise.label_size', { defaultValue: 'Label size' })} value={nodeFontSize} onChange={setNodeFontSize} min={6} max={18} />
+                        </div>
                       </div>
                     )}
                     <TnaNetworkGraph
@@ -998,6 +1033,8 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
                       nodeSizeMetric={nodeSizeMetric}
                       modelType={modelType}
                       externalPositions={graphPositions}
+                      showNodeLabels={showNodeLabels}
+                      nodeFontSize={nodeFontSize}
                     />
                   </div>
                 )}

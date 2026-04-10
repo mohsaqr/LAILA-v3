@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { createColorMap } from './colorFix';
+import { useContainerWidth } from '../../hooks/useContainerWidth';
 import type { PaletteName } from './colorFix';
 
 interface ActivityTimelineChartProps {
@@ -27,8 +28,10 @@ export const ActivityTimelineChart = ({ days, verbs, series, palette = 'default'
     });
   }, [verbs, series]);
 
+  const { ref: containerRef, width: containerWidth } = useContainerWidth(900);
+
   // Chart dimensions
-  const svgWidth = 900;
+  const svgWidth = containerWidth;
   const svgHeight = 360;
   const margin = { top: 20, right: 20, bottom: 60, left: 50 };
   const plotW = svgWidth - margin.left - margin.right;
@@ -150,11 +153,12 @@ export const ActivityTimelineChart = ({ days, verbs, series, palette = 'default'
       </div>
 
       {/* Chart */}
-      <div className="overflow-x-auto">
+      <div ref={containerRef}>
         <svg
-          width={svgWidth}
+          width="100%"
           height={svgHeight}
-          className="mx-auto"
+          viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+          preserveAspectRatio="xMinYMin meet"
           onMouseLeave={() => setTooltip(null)}
         >
           <g transform={`translate(${margin.left},${margin.top})`}>
