@@ -1,3 +1,17 @@
+### 2026-04-10 — Agent chat with markdown, CSV detection & inline network visualization
+
+- **Markdown chat rendering**: Agent test chat and UseMyAgent page render assistant messages as markdown via `react-markdown` with styled code blocks, tables, lists, headings.
+- **CSV detection & auto-save**: Server detects CSV data in AI responses (code blocks tagged `csv`, `plaintext`, or auto-detected), saves to `user_datasets` table, and saves CSV file to disk. Client shows "Dataset saved to your Datasets list" notification.
+- **Inline SNA/TNA visualization**: CSV code blocks show [SNA] and [TNA] buttons. Clicking builds and renders a network graph inline in the chat using `dynajs` + `TnaNetworkGraph`. Full controls: Layout dropdown, Size by (6 centrality metrics), Node size slider, Edge width slider, Weights/Labels/Self-loops/Undirected checkboxes.
+- **System prompt enhancement**: Agent told it CAN generate CSV files in code blocks — prevents "I can't create files" responses.
+- **Datasets tab**: Renamed from "Generate Dataset" to "Datasets", simplified to list-only (no text editor). "Datasets" button on submitted view toggles panel.
+- **UseMyAgent redesign**: Assignment-style layout with breadcrumb, agent info card, chat card with `calc(100vh - 300px)` height. No page scroll.
+- **Conversation history**: Previous conversations listed on Test & Reflect start page (before conversation starts). Clickable to load messages. Conversations with 0 messages filtered server-side.
+- **TNA submission display**: "Your Submission" card with waiting/graded banner, resubmit button, file attachments with PDF preview. Panel closes + page reloads on submit.
+- **Route fix**: `/test/history` moved before `/test/:conversationId` to prevent route conflict.
+- **MyDatasetPicker** width increased from `max-w-md` to `max-w-2xl`.
+- **Duplicate breadcrumb fix** on `/teach/courses/:id/assignments`.
+
 ### 2026-04-09 — SNA/TNA exercise redesign & chart improvements
 
 - **SNA exercise redesign**: Graph controls moved from sidebar to horizontal toolbar above SVG. Analysis blocks moved from sidebar to horizontal pill buttons below graph. Searchable dropdowns (Layout, Size by, Community algorithm). Full-width sliders with values. Capture fix: html2canvas for network + analysis card separately. Delete snapshots button.

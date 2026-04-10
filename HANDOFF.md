@@ -1,4 +1,13 @@
-# Session Handoff — 2026-04-09
+# Session Handoff — 2026-04-10
+
+## Completed (2026-04-10)
+- **Markdown chat + CSV detection**: Agent chat renders markdown. CSV in code blocks auto-detected, saved to `user_datasets`, shows download + SNA/TNA visualization buttons inline.
+- **Inline network visualization**: Full controls (layout, size by centrality, node/edge size, labels, directed toggle) rendered inside chat messages.
+- **UseMyAgent redesign**: Assignment-style layout, fixed chat height, no page scroll.
+- **Conversation history**: Listed on Test & Reflect start page. Clickable to load. 0-message conversations filtered server-side.
+- **TNA submission display**: Matching SNA pattern — submission card, resubmit, file attachments. Panel closes + reloads on submit.
+- **Datasets tab** simplified to list-only. "Datasets" button on submitted view.
+- **Route fix**: `/test/history` before `/test/:conversationId`.
 
 ## Completed (2026-04-09)
 - **SNA/TNA exercise redesign**: Graph controls in horizontal toolbar above SVG. Analysis blocks as horizontal pill buttons. Searchable dropdowns. Drag-and-drop nodes. Responsive viewBox. Node labels toggle + font size. Directed/undirected toggle. Capture: network + analysis separately via html2canvas. Delete snapshots.
