@@ -88,6 +88,7 @@ export const StudentAgentBuilder = () => {
     { id: 'dataset', label: t('generate_dataset'), icon: Database },
   ];
   const [activeTab, setActiveTab] = useState<TabType>('identity');
+  const [showDatasetPanel, setShowDatasetPanel] = useState(false);
   const [formData, setFormData] = useState<AgentConfigFormData>(getDefaultFormData());
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [logger, setLogger] = useState<AgentDesignLogger | null>(null);
@@ -495,6 +496,7 @@ export const StudentAgentBuilder = () => {
       {/* Show Builder OR Built Agent View */}
       {isBuilt ? (
         /* Built Agent View - Simple, focused on using the agent */
+        <>
         <Card>
           <CardBody>
             <div className="text-center py-12">
@@ -519,14 +521,24 @@ export const StudentAgentBuilder = () => {
                 <p className="text-violet-600 font-medium mb-4">{config.agentTitle}</p>
               )}
 
-              {/* Use Agent Button */}
-              <Button
-                size="lg"
-                onClick={() => navigate(`/courses/${courseId}/agent-assignments/${assignmentId}/use`)}
-                icon={<Bot className="w-5 h-5" />}
-              >
-                {t('chat_with_agent', { name: config?.agentName })}
-              </Button>
+              {/* Action Buttons */}
+              <div className="flex items-center justify-center gap-3">
+                <Button
+                  size="sm"
+                  onClick={() => navigate(`/courses/${courseId}/agent-assignments/${assignmentId}/use`)}
+                  icon={<Bot className="w-4 h-4" />}
+                >
+                  {t('chat_with_agent', { name: config?.agentName })}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setShowDatasetPanel(prev => !prev)}
+                  icon={<Database className="w-4 h-4" />}
+                >
+                  {t('generate_dataset')}
+                </Button>
+              </div>
 
               {/* Unsubmit - only before grading */}
               {!isGraded && (
@@ -544,6 +556,14 @@ export const StudentAgentBuilder = () => {
             </div>
           </CardBody>
         </Card>
+
+        {/* Dataset generation panel (toggled from submitted view) */}
+        {showDatasetPanel && config && (
+          <div className="mt-6">
+            <AgentDatasetTab assignmentId={assId} config={config} />
+          </div>
+        )}
+      </>
       ) : (
         /* Builder View - Agent is being designed */
         <>
