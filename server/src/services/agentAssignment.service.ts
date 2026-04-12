@@ -947,7 +947,8 @@ export class AgentAssignmentService {
     return prisma.agentTestConversation.findMany({
       where: {
         agentConfigId: config.id,
-        testerId: userId, // Only student's own tests
+        testerId: userId,
+        messages: { some: {} }, // Only conversations with at least 1 message
       },
       include: {
         messages: {

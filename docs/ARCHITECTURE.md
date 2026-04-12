@@ -496,6 +496,13 @@ Unified logging system tracking all learning activities with **batch-first** arc
 
 ### 5. Agent Assignment Submission Flow
 
+**Agent Chat Features:**
+- **Markdown rendering**: Assistant messages rendered via `react-markdown` with styled code blocks, tables, lists
+- **CSV detection**: Server auto-detects CSV in AI responses (code blocks tagged `csv`, `plaintext`, or auto-detected by column consistency). Saves to `user_datasets` table + disk. Client shows "Dataset saved" notification.
+- **Inline SNA/TNA visualization**: CSV code blocks show [SNA] and [TNA] buttons. Clicking builds a network graph inline using `dynajs` + `TnaNetworkGraph` with full controls (layout, centrality-based sizing, node/edge size, labels, directed toggle).
+- **System prompt**: All agents are told they CAN generate CSV files in code blocks. Handled in `buildSystemPrompt()`.
+- **Components**: `ChatMarkdown` (markdown + code blocks + CSV buttons), `TestChatInterface` (test chat UI), `UseMyAgent` (post-submission chat page)
+
 Assignments with `submissionType === 'ai_agent'` follow a dedicated submission flow:
 
 - **Client**: `AssignmentView.tsx` redirects ai_agent assignments to `StudentAgentBuilder` (agent-assignment page)

@@ -247,7 +247,7 @@ export class AgentAnalyticsService {
   // Get test conversations for an agent config
   async getTestConversations(agentConfigId: number) {
     return prisma.agentTestConversation.findMany({
-      where: { agentConfigId },
+      where: { agentConfigId, messages: { some: {} } },
       include: {
         messages: {
           orderBy: { messageIndex: 'asc' },

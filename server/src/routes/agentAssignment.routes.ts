@@ -151,6 +151,17 @@ router.post(
   })
 );
 
+// Get all my test conversations for an assignment (must be before :conversationId route)
+router.get(
+  '/:assignmentId/test/history',
+  authenticateToken,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const assignmentId = parseInt(req.params.assignmentId);
+    const conversations = await agentAssignmentService.getMyTestConversations(assignmentId, req.user!.id);
+    res.json({ success: true, data: conversations });
+  })
+);
+
 // Get test conversation history
 router.get(
   '/:assignmentId/test/:conversationId',
@@ -159,17 +170,6 @@ router.get(
     const conversationId = parseInt(req.params.conversationId);
     const conversation = await agentAssignmentService.getTestHistory(conversationId, req.user!.id);
     res.json({ success: true, data: conversation });
-  })
-);
-
-// Get all my test conversations for an assignment
-router.get(
-  '/:assignmentId/test/history',
-  authenticateToken,
-  asyncHandler(async (req: AuthRequest, res: Response) => {
-    const assignmentId = parseInt(req.params.assignmentId);
-    const conversations = await agentAssignmentService.getMyTestConversations(assignmentId, req.user!.id);
-    res.json({ success: true, data: conversations });
   })
 );
 

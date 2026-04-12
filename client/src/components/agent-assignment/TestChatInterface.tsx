@@ -89,7 +89,7 @@ export const TestChatInterface = ({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 min-h-[300px]">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 min-h-[400px]">
         {displayMessages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-500">
             <MessageCircle className="w-10 h-10 mb-2 opacity-50" />
@@ -103,10 +103,10 @@ export const TestChatInterface = ({
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${
+                  className={`rounded-2xl px-4 py-2.5 ${
                     msg.role === 'user'
-                      ? 'bg-primary-600 text-white rounded-br-md'
-                      : 'bg-white shadow-sm border border-gray-100 rounded-bl-md'
+                      ? 'max-w-[80%] bg-primary-600 text-white rounded-br-md'
+                      : 'max-w-[95%] bg-white shadow-sm border border-gray-100 rounded-bl-md'
                   }`}
                 >
                   {msg.role === 'assistant' ? (

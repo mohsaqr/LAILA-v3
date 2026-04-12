@@ -9,7 +9,7 @@
  */
 
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   Play,
   RotateCcw,
@@ -45,6 +45,13 @@ export const AgentTestTab = ({
   onReflectionSubmit,
   logger,
 }: AgentTestTabProps) => {
+  // Fetch conversation history
+  const { data: conversationHistory = [] } = useQuery({
+    queryKey: ['agentTestHistory', assignmentId],
+    queryFn: () => agentAssignmentsApi.getMyTestConversations(assignmentId),
+    enabled: !!config,
+  });
+
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [messages, setMessages] = useState<AgentTestMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -220,6 +227,45 @@ export const AgentTestTab = ({
           </div>
         )}
 
+        {/* Previous Conversations */}
+        {conversationHistory.filter(c => (c._count?.messages || 0) > 0).length > 0 && (
+          <div>
+            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <MessageSquare className="w-4 h-4" />
+              Previous Conversations
+            </h4>
+            <div className="space-y-2">
+              {conversationHistory
+                .filter(c => (c._count?.messages || 0) > 0)
+                .map(conv => (
+                  <button
+                    key={conv.id}
+                    onClick={() => {
+                      setConversationId(conv.id);
+                      setMessages(conv.messages || []);
+                      setTestCount(prev => prev + 1);
+                    }}
+                    className="w-full text-left p-3 bg-white rounded-lg border border-gray-200 hover:border-violet-300 hover:bg-violet-50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-700">
+                        {new Date(conv.startedAt).toLocaleDateString()} at {new Date(conv.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {conv._count?.messages || 0} messages
+                      </span>
+                    </div>
+                    {conv.messages && conv.messages.length > 0 && (
+                      <p className="text-xs text-gray-500 mt-1 truncate">
+                        {conv.messages[0].content.slice(0, 100)}...
+                      </p>
+                    )}
+                  </button>
+                ))}
+            </div>
+          </div>
+        )}
+
         {/* Testing Tips */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-start gap-3">
@@ -240,7 +286,7 @@ export const AgentTestTab = ({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col h-full gap-4">
       {/* Conversation Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -261,7 +307,7 @@ export const AgentTestTab = ({
       </div>
 
       {/* Chat Interface */}
-      <div className="h-[500px]">
+      <div className="flex-1" style={{ minHeight: '400px' }}>
         <TestChatInterface
           agentName={config.agentName}
           agentTitle={config.agentTitle}

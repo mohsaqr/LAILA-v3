@@ -256,8 +256,8 @@ export const UseMyAgent = () => {
       </div>
 
       {/* Main Chat Area */}
-      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pb-4">
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden" style={{ height: 'calc(100vh - 300px)' }}>
+      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pb-8">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden" style={{ height: 'calc(100vh - 300px)', minHeight: '300px' }}>
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* New Session Indicator */}
@@ -309,10 +309,10 @@ export const UseMyAgent = () => {
                         </div>
                       )}
                       <div
-                        className={`max-w-[75%] rounded-2xl px-4 py-3 ${
+                        className={`rounded-2xl px-4 py-3 ${
                           msg.role === 'user'
-                            ? 'bg-violet-600 text-white rounded-br-md'
-                            : 'bg-white shadow-sm border border-gray-100 rounded-bl-md'
+                            ? 'max-w-[75%] bg-violet-600 text-white rounded-br-md'
+                            : 'max-w-[90%] bg-white shadow-sm border border-gray-100 rounded-bl-md'
                         }`}
                       >
                         {msg.role === 'assistant' ? (
@@ -421,6 +421,7 @@ export const UseMyAgent = () => {
             </div>
           )}
         </div>{/* End chat card */}
+
       </main>
     </div>
   );
