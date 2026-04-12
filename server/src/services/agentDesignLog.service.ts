@@ -529,6 +529,7 @@ export class AgentDesignLogService {
       usedTemplate?: boolean;
       reflectionPromptId?: string | null;
       reflectionResponse?: string | null;
+      designSessionId?: string | null;
     }>,
     config?: { pedagogicalRole?: string | null; personality?: string | null }
   ): Record<string, unknown> {
@@ -609,15 +610,35 @@ export class AgentDesignLogService {
         }
       });
 
-    // Event category breakdown
+    // Event category breakdown — excludes the 'session' category because
+    // sittings are surfaced as a dedicated top-level metric (sittingCount)
+    // rather than as a bar in the activity breakdown.
     const categoryBreakdown: Record<string, number> = {};
     events.forEach((e) => {
+      if (e.eventCategory === 'session') return;
       categoryBreakdown[e.eventCategory] =
         (categoryBreakdown[e.eventCategory] || 0) + 1;
     });
 
+    // Sitting count = distinct designSessionId values. One sitting = one
+    // continuous page visit (mount → real unmount). Matches the client-side
+    // debounce-based definition in agentDesignLogger.ts.
+    const sittingCount = new Set(
+      events
+        .map((e) => e.designSessionId)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0)
+    ).size;
+
+    // totalEvents reported to the UI should match the bars we render — i.e.,
+    // exclude the session events we just stripped from categoryBreakdown.
+    const breakdownEventCount = Object.values(categoryBreakdown).reduce(
+      (a, b) => a + b,
+      0
+    );
+
     return {
       totalDesignTime,
+      sittingCount,
       iterationCount,
       testConversationCount,
       templateUsage: {
@@ -627,7 +648,7 @@ export class AgentDesignLogService {
       },
       reflectionResponses,
       categoryBreakdown,
-      totalEvents: events.length,
+      totalEvents: breakdownEventCount,
     };
   }
 }

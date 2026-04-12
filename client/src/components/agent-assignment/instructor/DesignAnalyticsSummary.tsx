@@ -15,6 +15,7 @@ import {
   BarChart2,
   Network,
   LayoutList,
+  LogIn,
 } from 'lucide-react';
 import { tna } from 'dynajs';
 import type { TNA } from 'dynajs';
@@ -25,6 +26,7 @@ import { createColorMap } from '../../tna/colorFix';
 
 interface DesignAnalytics {
   totalDesignTime: number;
+  sittingCount?: number;
   iterationCount: number;
   testConversationCount: number;
   templateUsage: {
@@ -62,7 +64,6 @@ export const DesignAnalyticsSummary = ({ analytics, events }: DesignAnalyticsSum
   const reflectionCount = Object.keys(analytics.reflectionResponses || {}).length;
 
   const categoryLabels: Record<string, string> = {
-    session: 'Sessions',
     navigation: 'Navigation',
     field: 'Field Changes',
     template: 'Templates',
@@ -75,7 +76,7 @@ export const DesignAnalyticsSummary = ({ analytics, events }: DesignAnalyticsSum
   return (
     <div className="space-y-6">
       {/* Key Metrics */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         {/* Total Design Time */}
         <div className="bg-white border border-gray-200 rounded-lg p-4">
           <div className="flex items-center gap-2 text-gray-500 mb-1">
@@ -87,6 +88,20 @@ export const DesignAnalyticsSummary = ({ analytics, events }: DesignAnalyticsSum
               ? formatDuration(analytics.totalDesignTime)
               : 'N/A'}
           </div>
+        </div>
+
+        {/* Sittings */}
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-gray-500 mb-1">
+            <LogIn className="w-4 h-4" />
+            <span className="text-xs font-medium">Sittings</span>
+          </div>
+          <div className="text-2xl font-bold text-amber-600">
+            {analytics.sittingCount ?? 0}
+          </div>
+          <p className="text-xs text-gray-500 mt-0.5">
+            (times the page was opened)
+          </p>
         </div>
 
         {/* Iterations */}
@@ -239,12 +254,18 @@ function TnaChartsSection({
   categoryLabels: Record<string, string>;
 }) {
   const { sequence, labels, colorMap, tnaModel, donutData } = useMemo(() => {
-    if (!events || events.length < 2) {
+    // Session events are surfaced as the Sittings stat, not as a node in the
+    // transition network or a bar in the sequence plot. Drop them here so
+    // they don't pollute the charts.
+    const filteredEvents = (events || []).filter(
+      (e) => e.eventCategory !== 'session'
+    );
+    if (filteredEvents.length < 2) {
       return { sequence: [], labels: [], colorMap: {}, tnaModel: null, donutData: null };
     }
 
     // Build the sequence of category labels from events
-    const seq = events.map(e => categoryLabels[e.eventCategory] || e.eventCategory);
+    const seq = filteredEvents.map(e => categoryLabels[e.eventCategory] || e.eventCategory);
 
     // Derive unique labels preserving order of first appearance
     const seen = new Set<string>();
@@ -278,7 +299,7 @@ function TnaChartsSection({
     return { sequence: seq, labels: uniqueLabels, colorMap: cm, tnaModel: model, donutData: donut };
   }, [events, categoryBreakdown, categoryLabels]);
 
-  if (!events || events.length < 2) return null;
+  if (sequence.length < 2) return null;
 
   return (
     <>

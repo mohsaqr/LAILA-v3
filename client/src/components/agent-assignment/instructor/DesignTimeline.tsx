@@ -139,10 +139,19 @@ export const DesignTimeline = ({
   const [expandedEventId, setExpandedEventId] = useState<number | null>(null);
   const [selectedForCompare, setSelectedForCompare] = useState<DesignEvent | null>(null);
 
+  // Hide legacy pause/resume rows (they fired on every browser-tab hide/show
+  // in the old logger and are noise — the timeline only needs to show the
+  // real start and end of each sitting).
+  const visibleEvents = events.filter(
+    (e) =>
+      e.eventType !== 'design_session_pause' &&
+      e.eventType !== 'design_session_resume'
+  );
+
   const filteredEvents =
     selectedCategory === 'all'
-      ? events
-      : events.filter((e) => e.eventCategory === selectedCategory);
+      ? visibleEvents
+      : visibleEvents.filter((e) => e.eventCategory === selectedCategory);
 
   const formatTime = (timestamp: string) => {
     return new Date(timestamp).toLocaleString('en-US', {
@@ -229,7 +238,7 @@ export const DesignTimeline = ({
             {cat.label}
             {cat.id !== 'all' && (
               <span className="ml-1 text-gray-400">
-                ({events.filter((e) => e.eventCategory === cat.id).length})
+                ({visibleEvents.filter((e) => e.eventCategory === cat.id).length})
               </span>
             )}
           </button>

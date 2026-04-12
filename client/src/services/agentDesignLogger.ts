@@ -116,6 +116,14 @@ export class AgentDesignLogger {
   private readonly FLUSH_INTERVAL = 10000; // 10 seconds
   private readonly BATCH_SIZE = 50; // Max events per batch
 
+  // A "sitting" = one continuous page visit: from mount to real unmount.
+  // React StrictMode / route transitions can unmount-then-remount the builder
+  // in <100ms; we debounce endSession by this window so those do not close a
+  // sitting. A real unmount (navigation away, tab close) exceeds the window
+  // and ends the sitting properly.
+  private readonly END_DEBOUNCE_MS = 1500;
+  private endTimer: ReturnType<typeof setTimeout> | null = null;
+
   constructor(userId: number, assignmentId: number) {
     this.sessionId = localStorage.getItem('session_id') || generateUUID();
     localStorage.setItem('session_id', this.sessionId);
@@ -129,61 +137,74 @@ export class AgentDesignLogger {
   }
 
   /**
-   * Start design session logging
+   * Start a design sitting. If a pending end-debounce is in flight, the
+   * previous sitting is simply resumed (no new session_start event, same
+   * designSessionId). Otherwise a fresh designSessionId is generated so
+   * distinct sittings can be counted server-side.
    */
   startSession(agentConfigId?: number, version?: number): void {
+    // A transient unmount-remount (StrictMode, layout re-render, suspense
+    // resolution) lands here while an end-debounce is still pending. Cancel
+    // the pending end and continue the same sitting.
+    if (this.endTimer) {
+      clearTimeout(this.endTimer);
+      this.endTimer = null;
+      if (agentConfigId) this.agentConfigId = agentConfigId;
+      if (version) this.currentVersion = version;
+      return;
+    }
+
     if (this.isActive) return;
 
+    // Real new sitting — fresh id so COUNT(DISTINCT designSessionId) matches
+    // reality even when the module-level logger singleton is reused.
+    this.designSessionId = generateUUID();
     this.isActive = true;
     this.sessionStartTime = Date.now();
     this.tabStartTime = Date.now();
 
-    if (agentConfigId) {
-      this.agentConfigId = agentConfigId;
-    }
-    if (version) {
-      this.currentVersion = version;
-    }
+    if (agentConfigId) this.agentConfigId = agentConfigId;
+    if (version) this.currentVersion = version;
 
-    // Add event listeners
     document.addEventListener('visibilitychange', this.handleVisibilityChange);
     window.addEventListener('beforeunload', this.handleBeforeUnload);
-
-    // Start flush interval
     this.flushInterval = setInterval(() => this.flush(), this.FLUSH_INTERVAL);
 
-    // Log session start
     this.logEvent('design_session_start');
   }
 
   /**
-   * End design session
+   * Request end of the current sitting. The actual termination is deferred
+   * by END_DEBOUNCE_MS so transient unmounts can reclaim the sitting via
+   * startSession().
    */
   async endSession(): Promise<void> {
     if (!this.isActive) return;
+    if (this.endTimer) clearTimeout(this.endTimer);
+    this.endTimer = setTimeout(() => {
+      this.endTimer = null;
+      void this.performEndSession();
+    }, this.END_DEBOUNCE_MS);
+  }
 
-    // Record final tab time
+  private async performEndSession(): Promise<void> {
+    if (!this.isActive) return;
+
     this.recordTabTime();
-
-    // Log session end with total time
     this.totalDesignTime = Math.floor((Date.now() - this.sessionStartTime) / 1000);
     this.logEvent('design_session_end', {
       totalDesignTime: this.totalDesignTime,
     });
 
-    // Remove event listeners
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     window.removeEventListener('beforeunload', this.handleBeforeUnload);
 
-    // Clear flush interval
     if (this.flushInterval) {
       clearInterval(this.flushInterval);
       this.flushInterval = null;
     }
 
-    // Final flush
     await this.flush(true);
-
     this.isActive = false;
   }
 
@@ -600,23 +621,31 @@ export class AgentDesignLogger {
   // ==================== Event Handlers ====================
 
   private handleVisibilityChange(): void {
+    // Browser-tab hide/show is not a new sitting — don't emit session events.
+    // We still rebase tab-time tracking so time-per-tab stays accurate.
     if (document.hidden) {
       this.recordTabTime();
-      this.logEvent('design_session_pause');
       this.flush();
     } else {
       this.tabStartTime = Date.now();
-      this.logEvent('design_session_resume');
     }
   }
 
   private handleBeforeUnload(): void {
+    // Page is actually unloading — cancel any pending debounce and finalize
+    // synchronously via sendBeacon.
+    if (this.endTimer) {
+      clearTimeout(this.endTimer);
+      this.endTimer = null;
+    }
+    if (!this.isActive) return;
+
     this.recordTabTime();
     this.logEvent('design_session_end', {
       totalDesignTime: Math.floor((Date.now() - this.sessionStartTime) / 1000),
     });
-    // Synchronous flush using sendBeacon
     this.flushSync();
+    this.isActive = false;
   }
 
   // ==================== Flush Methods ====================
