@@ -119,7 +119,7 @@ export const InstructorTestPanel = ({
         </Button>
       </div>
 
-      <div className="h-[400px]">
+      <div className="h-[600px] max-h-[calc(100vh-260px)] min-h-[420px]">
         <TestChatInterface
           agentName={config.agentName}
           avatarImageUrl={config.avatarImageUrl}

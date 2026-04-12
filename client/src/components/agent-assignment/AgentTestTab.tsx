@@ -307,7 +307,7 @@ export const AgentTestTab = ({
       </div>
 
       {/* Chat Interface */}
-      <div className="flex-1" style={{ minHeight: '400px' }}>
+      <div className="h-[600px] max-h-[calc(100vh-260px)] min-h-[420px]">
         <TestChatInterface
           agentName={config.agentName}
           agentTitle={config.agentTitle}

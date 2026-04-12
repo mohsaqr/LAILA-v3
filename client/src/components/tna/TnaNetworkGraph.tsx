@@ -103,37 +103,50 @@ function computeSelfLoop(
   nodeX: number, nodeY: number, centroidX: number, centroidY: number,
   nodeRadius: number,
 ) {
-  const loopR = nodeRadius * 0.55;
-  let dirX = nodeX - centroidX;
-  let dirY = nodeY - centroidY;
-  const dirLen = Math.sqrt(dirX * dirX + dirY * dirY) || 1;
-  dirX /= dirLen;
-  dirY /= dirLen;
+  // Outward direction: from graph centroid through the node, so the loop
+  // always bulges away from the rest of the graph. Fallback to straight-up
+  // when the node sits exactly on the centroid.
+  let ox = nodeX - centroidX;
+  let oy = nodeY - centroidY;
+  const olen = Math.sqrt(ox * ox + oy * oy);
+  if (olen < 1e-3) { ox = 0; oy = -1; } else { ox /= olen; oy /= olen; }
 
-  const loopCX = nodeX + dirX * (nodeRadius + loopR);
-  const loopCY = nodeY + dirY * (nodeRadius + loopR);
+  const baseAngle = Math.atan2(oy, ox);
+  // ~28° between the two anchor points on the node perimeter — wide enough
+  // for a clearly visible loop, narrow enough that the teardrop stays tidy.
+  const spread = 0.5;
+  const a1 = baseAngle - spread;
+  const a2 = baseAngle + spread;
 
-  const toNodeAngle = Math.atan2(nodeY - loopCY, nodeX - loopCX);
-  const gapHalf = 0.4;
-  const startAngle = toNodeAngle + gapHalf;
-  const endAngle = toNodeAngle - gapHalf + 2 * Math.PI;
+  const sx = nodeX + nodeRadius * Math.cos(a1);
+  const sy = nodeY + nodeRadius * Math.sin(a1);
+  const ex = nodeX + nodeRadius * Math.cos(a2);
+  const ey = nodeY + nodeRadius * Math.sin(a2);
 
-  const sx = loopCX + loopR * Math.cos(startAngle);
-  const sy = loopCY + loopR * Math.sin(startAngle);
-  const ex = loopCX + loopR * Math.cos(endAngle);
-  const ey = loopCY + loopR * Math.sin(endAngle);
+  // Control-point distance: large enough to form a visible bulge scaled
+  // with the node. Minimum of 22px prevents collapse on very small nodes.
+  const bulge = Math.max(nodeRadius * 2.4, 22);
+  const c1x = nodeX + bulge * Math.cos(a1);
+  const c1y = nodeY + bulge * Math.sin(a1);
+  const c2x = nodeX + bulge * Math.cos(a2);
+  const c2y = nodeY + bulge * Math.sin(a2);
 
-  const adx = nodeX - ex;
-  const ady = nodeY - ey;
+  // Tangent at the end-point of a cubic Bezier is (end - c2). That's the
+  // direction the curve is travelling when it hits the node perimeter, so
+  // it's also the correct orientation for the incoming arrowhead.
+  let adx = ex - c2x;
+  let ady = ey - c2y;
   const al = Math.sqrt(adx * adx + ady * ady) || 1;
+  adx /= al; ady /= al;
 
-  const labelX = loopCX + dirX * (loopR + 6);
-  const labelY = loopCY + dirY * (loopR + 6);
+  // Label sits just beyond the bulge apex along the outward axis.
+  const labelX = nodeX + (bulge + 10) * Math.cos(baseAngle);
+  const labelY = nodeY + (bulge + 10) * Math.sin(baseAngle);
 
   return {
-    path: `M${sx},${sy} A${loopR},${loopR} 0 1,0 ${ex},${ey}`,
+    path: `M${sx},${sy} C${c1x},${c1y} ${c2x},${c2y} ${ex},${ey}`,
     arrowTipX: ex, arrowTipY: ey,
-    arrowDx: adx / al, arrowDy: ady / al,
+    arrowDx: adx, arrowDy: ady,
     labelX, labelY,
   };
 }
