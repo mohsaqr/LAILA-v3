@@ -105,7 +105,6 @@ export class AgentDesignLogger {
   private flushInterval: ReturnType<typeof setInterval> | null = null;
   private isActive = false;
   private sessionStartTime: number = 0;
-  private totalDesignTime = 0;
   private currentTab: TabType = 'identity';
   private tabStartTime: number = 0;
   private lastTestConversationId: number | null = null;
@@ -116,13 +115,17 @@ export class AgentDesignLogger {
   private readonly FLUSH_INTERVAL = 10000; // 10 seconds
   private readonly BATCH_SIZE = 50; // Max events per batch
 
-  // A "sitting" = one continuous page visit: from mount to real unmount.
-  // React StrictMode / route transitions can unmount-then-remount the builder
-  // in <100ms; we debounce endSession by this window so those do not close a
-  // sitting. A real unmount (navigation away, tab close) exceeds the window
-  // and ends the sitting properly.
-  private readonly END_DEBOUNCE_MS = 1500;
-  private endTimer: ReturnType<typeof setTimeout> | null = null;
+  // A "sitting" = one continuous period of work on the assignment. Two opens
+  // of the same assignment within this wall-clock gap count as the same
+  // sitting; beyond it, the next open is a new sitting (distinct
+  // designSessionId). 10 minutes is generous enough to span coffee breaks,
+  // router transitions, and tab-close-reopen loops without undercounting.
+  private readonly SITTING_GAP_MS = 10 * 60 * 1000;
+
+  // localStorage persistence: a fresh mount reads this to decide whether to
+  // resume the previous sitting or start a new one. See loadSitting() /
+  // saveSitting() / clearSitting() below.
+  private readonly storageKey: string;
 
   constructor(userId: number, assignmentId: number) {
     this.sessionId = localStorage.getItem('session_id') || generateUUID();
@@ -130,38 +133,105 @@ export class AgentDesignLogger {
     this.designSessionId = generateUUID();
     this.userId = userId;
     this.assignmentId = assignmentId;
+    this.storageKey = `agentDesign:sitting:${userId}:${assignmentId}`;
 
     // Bind visibility change handler
     this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
     this.handleBeforeUnload = this.handleBeforeUnload.bind(this);
   }
 
+  // ---------- sitting persistence ----------
+
+  private loadSitting(): {
+    designSessionId: string;
+    sessionStartTime: number;
+    lastActiveAt: number;
+  } | null {
+    try {
+      const raw = localStorage.getItem(this.storageKey);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (
+        typeof parsed?.designSessionId === 'string' &&
+        typeof parsed?.sessionStartTime === 'number' &&
+        typeof parsed?.lastActiveAt === 'number'
+      ) {
+        return parsed;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  private saveSitting(lastActiveAt: number = Date.now()): void {
+    try {
+      localStorage.setItem(
+        this.storageKey,
+        JSON.stringify({
+          designSessionId: this.designSessionId,
+          sessionStartTime: this.sessionStartTime,
+          lastActiveAt,
+        })
+      );
+    } catch {
+      // ignore quota / privacy-mode failures
+    }
+  }
+
   /**
-   * Start a design sitting. If a pending end-debounce is in flight, the
-   * previous sitting is simply resumed (no new session_start event, same
-   * designSessionId). Otherwise a fresh designSessionId is generated so
-   * distinct sittings can be counted server-side.
+   * Start a design sitting. If the localStorage entry for this user+
+   * assignment is fresh (within SITTING_GAP_MS of its last activity), the
+   * previous sitting is resumed: same designSessionId, same sessionStartTime,
+   * no new design_session_start event is emitted. Otherwise — and
+   * specifically when the previous sitting was stale — a synthetic
+   * design_session_end is emitted for the old sitting using its persisted
+   * timing (so the timeline shows the correct duration), then a new sitting
+   * starts with a fresh id.
    */
   startSession(agentConfigId?: number, version?: number): void {
-    // A transient unmount-remount (StrictMode, layout re-render, suspense
-    // resolution) lands here while an end-debounce is still pending. Cancel
-    // the pending end and continue the same sitting.
-    if (this.endTimer) {
-      clearTimeout(this.endTimer);
-      this.endTimer = null;
+    if (this.isActive) {
       if (agentConfigId) this.agentConfigId = agentConfigId;
       if (version) this.currentVersion = version;
       return;
     }
 
-    if (this.isActive) return;
+    const now = Date.now();
+    const persisted = this.loadSitting();
+    const isFresh = persisted && now - persisted.lastActiveAt < this.SITTING_GAP_MS;
 
-    // Real new sitting — fresh id so COUNT(DISTINCT designSessionId) matches
-    // reality even when the module-level logger singleton is reused.
-    this.designSessionId = generateUUID();
+    if (isFresh && persisted) {
+      // Resume the existing sitting — same id, same start time.
+      this.designSessionId = persisted.designSessionId;
+      this.sessionStartTime = persisted.sessionStartTime;
+    } else {
+      // Previous sitting went stale → emit a synthetic end for it before
+      // starting the new one, so the timeline closes the old sitting with
+      // its real duration. We restore the old ids temporarily for the log.
+      if (persisted) {
+        const prevId = this.designSessionId;
+        const prevStart = this.sessionStartTime;
+        this.designSessionId = persisted.designSessionId;
+        this.sessionStartTime = persisted.sessionStartTime;
+        const elapsed = Math.floor(
+          (persisted.lastActiveAt - persisted.sessionStartTime) / 1000
+        );
+        // This event must be emittable even though isActive is false.
+        this.emitUnsafe('design_session_end', {
+          totalDesignTime: elapsed,
+          timestamp: new Date(persisted.lastActiveAt),
+        });
+        this.designSessionId = prevId;
+        this.sessionStartTime = prevStart;
+      }
+
+      // New sitting.
+      this.designSessionId = generateUUID();
+      this.sessionStartTime = now;
+    }
+
     this.isActive = true;
-    this.sessionStartTime = Date.now();
-    this.tabStartTime = Date.now();
+    this.tabStartTime = now;
 
     if (agentConfigId) this.agentConfigId = agentConfigId;
     if (version) this.currentVersion = version;
@@ -170,31 +240,26 @@ export class AgentDesignLogger {
     window.addEventListener('beforeunload', this.handleBeforeUnload);
     this.flushInterval = setInterval(() => this.flush(), this.FLUSH_INTERVAL);
 
-    this.logEvent('design_session_start');
+    if (!isFresh) {
+      this.logEvent('design_session_start');
+    }
+    this.saveSitting(now);
   }
 
   /**
-   * Request end of the current sitting. The actual termination is deferred
-   * by END_DEBOUNCE_MS so transient unmounts can reclaim the sitting via
-   * startSession().
+   * Pause the current sitting without emitting design_session_end. The
+   * sitting is persisted to localStorage; if the same (user, assignment)
+   * opens again within SITTING_GAP_MS, the next startSession() resumes it.
+   * design_session_end is only emitted from handleBeforeUnload (reliable
+   * tab-close signal) or from startSession() when it detects a stale
+   * sitting. This avoids the "phantom short sitting" that the old debounced
+   * approach produced whenever a remount landed outside the debounce window.
    */
   async endSession(): Promise<void> {
     if (!this.isActive) return;
-    if (this.endTimer) clearTimeout(this.endTimer);
-    this.endTimer = setTimeout(() => {
-      this.endTimer = null;
-      void this.performEndSession();
-    }, this.END_DEBOUNCE_MS);
-  }
-
-  private async performEndSession(): Promise<void> {
-    if (!this.isActive) return;
 
     this.recordTabTime();
-    this.totalDesignTime = Math.floor((Date.now() - this.sessionStartTime) / 1000);
-    this.logEvent('design_session_end', {
-      totalDesignTime: this.totalDesignTime,
-    });
+    this.saveSitting(Date.now());
 
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     window.removeEventListener('beforeunload', this.handleBeforeUnload);
@@ -230,7 +295,20 @@ export class AgentDesignLogger {
     data: Partial<AgentDesignEvent> = {}
   ): void {
     if (!this.isActive && eventType !== 'design_session_start') return;
+    this.emitUnsafe(eventType, data);
+    // Refresh the persisted sitting so subsequent mounts see recent activity.
+    this.saveSitting(Date.now());
+  }
 
+  /**
+   * Emit an event without the isActive guard. Used internally for synthetic
+   * close-out events that are produced while transitioning sittings (see
+   * startSession's stale-sitting branch).
+   */
+  private emitUnsafe(
+    eventType: AgentDesignEventType,
+    data: Partial<AgentDesignEvent> = {}
+  ): void {
     const event: AgentDesignEvent = {
       userId: this.userId,
       assignmentId: this.assignmentId,
@@ -251,7 +329,6 @@ export class AgentDesignLogger {
 
     this.eventQueue.push(event);
 
-    // Flush if queue is getting large
     if (this.eventQueue.length >= this.BATCH_SIZE) {
       this.flush();
     }
@@ -585,37 +662,34 @@ export class AgentDesignLogger {
 
   // ==================== Save Events ====================
 
-  /**
-   * Log draft saved with config snapshot
-   */
+  // Save/submit events are force-flushed immediately. Without this, a
+  // student submitting and then navigating away within the 10-second flush
+  // interval would lose the submission_completed row and the timeline would
+  // show no submission event.
+
   logDraftSaved(config: Partial<AgentConfigFormData>): void {
     this.logEvent('draft_saved', {
       agentConfigSnapshot: config as Record<string, unknown>,
     });
+    void this.flush(true);
   }
 
-  /**
-   * Log submission attempted
-   */
   logSubmissionAttempted(): void {
     this.logEvent('submission_attempted');
+    void this.flush(true);
   }
 
-  /**
-   * Log submission completed
-   */
   logSubmissionCompleted(config: Partial<AgentConfigFormData>): void {
     this.logEvent('submission_completed', {
       agentConfigSnapshot: config as Record<string, unknown>,
       totalDesignTime: Math.floor((Date.now() - this.sessionStartTime) / 1000),
     });
+    void this.flush(true);
   }
 
-  /**
-   * Log unsubmit requested
-   */
   logUnsubmitRequested(): void {
     this.logEvent('unsubmit_requested');
+    void this.flush(true);
   }
 
   // ==================== Event Handlers ====================
@@ -632,18 +706,14 @@ export class AgentDesignLogger {
   }
 
   private handleBeforeUnload(): void {
-    // Page is actually unloading — cancel any pending debounce and finalize
-    // synchronously via sendBeacon.
-    if (this.endTimer) {
-      clearTimeout(this.endTimer);
-      this.endTimer = null;
-    }
+    // Reliable tab-close signal — finalize synchronously via sendBeacon.
     if (!this.isActive) return;
 
     this.recordTabTime();
     this.logEvent('design_session_end', {
       totalDesignTime: Math.floor((Date.now() - this.sessionStartTime) / 1000),
     });
+    this.saveSitting(Date.now());
     this.flushSync();
     this.isActive = false;
   }
