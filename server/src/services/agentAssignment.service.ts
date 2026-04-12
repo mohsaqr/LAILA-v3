@@ -144,7 +144,13 @@ export class AgentAssignmentService {
           },
         },
         _count: {
-          select: { testConversations: true },
+          // Filter out empty test conversations (no messages) so counts on
+          // the instructor-facing views reflect actual student activity.
+          select: {
+            testConversations: {
+              where: { messages: { some: {} } },
+            },
+          },
         },
       },
     });
@@ -988,7 +994,15 @@ export class AgentAssignmentService {
           },
         },
         _count: {
-          select: { testConversations: true },
+          // Only count test conversations that actually have messages.
+          // Students who click "Start Test Conversation" and never type leave
+          // behind empty AgentTestConversation rows that would otherwise
+          // inflate the conversation count on the instructor submissions list.
+          select: {
+            testConversations: {
+              where: { messages: { some: {} } },
+            },
+          },
         },
       },
       orderBy: { updatedAt: 'desc' },
@@ -1032,7 +1046,13 @@ export class AgentAssignmentService {
         agentConfig: {
           include: {
             _count: {
-              select: { testConversations: true },
+              // Match the submissions-list behaviour: only count conversations
+              // that have at least one message.
+              select: {
+                testConversations: {
+                  where: { messages: { some: {} } },
+                },
+              },
             },
           },
         },
