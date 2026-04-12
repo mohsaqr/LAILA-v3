@@ -67,6 +67,7 @@ const EVENT_ICONS: Record<string, React.ElementType> = {
   design_session_pause: Pause,
   design_session_resume: Play,
   tab_switch: Settings,
+  tab_time_recorded: Clock,
   field_focus: Edit,
   field_blur: Edit,
   field_change: Edit,
@@ -94,6 +95,7 @@ const EVENT_LABELS: Record<string, string> = {
   design_session_pause: 'Paused session',
   design_session_resume: 'Resumed session',
   tab_switch: 'Switched tab',
+  tab_time_recorded: 'Time on tab',
   field_focus: 'Focused on field',
   field_blur: 'Left field',
   field_change: 'Changed field',
@@ -194,6 +196,9 @@ export const DesignTimeline = ({
     }
     if (event.activeTab && event.eventType === 'tab_switch') {
       label += ` to ${event.activeTab}`;
+    }
+    if (event.activeTab && event.eventType === 'tab_time_recorded') {
+      label += `: ${event.activeTab}`;
     }
 
     return label;
