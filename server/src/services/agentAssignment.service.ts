@@ -825,8 +825,9 @@ export class AgentAssignmentService {
       },
     });
 
-    // Detect and save CSV datasets from the response
-    this.detectAndSaveDataset(aiResponse, config, testerInfo.userId, resolvedModel, resolvedProvider)
+    // Detect and save CSV datasets from the response. We pass the user's
+    // message so the dataset record keeps the prompt that produced the CSV.
+    this.detectAndSaveDataset(aiResponse, config, testerInfo.userId, resolvedModel, resolvedProvider, message)
       .catch(err => console.error('[AgentAssignment] Failed to save detected dataset:', err));
 
     // Log interaction to agent analytics
@@ -1476,6 +1477,7 @@ CRITICAL RULES:
     userId: number,
     aiModel?: string,
     aiProvider?: string,
+    userPrompt?: string,
   ) {
     // Look for CSV data in markdown code blocks: ```csv ... ``` or ``` ... ``` with comma-separated lines
     const codeBlockRegex = /```(?:csv|plaintext|text)?\s*\n([\s\S]*?)```/g;
@@ -1518,6 +1520,7 @@ CRITICAL RULES:
           aiModel: aiModel || null,
           aiProvider: aiProvider || null,
           agentPrompt: null,
+          userPrompt: userPrompt || null,
           generationConfig: JSON.stringify({ source: 'chat', agentConfigId: config.id }),
           status: 'completed',
         },

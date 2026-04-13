@@ -876,6 +876,7 @@ export interface UserDataset {
   rowCount: number | null;
   aiModel: string | null;
   aiProvider: string | null;
+  userPrompt: string | null;
   status: string;
   createdAt: string;
 }

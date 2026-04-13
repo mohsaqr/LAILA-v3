@@ -867,6 +867,7 @@
   "change_history": "Historial de cambios",
   "test_agent": "Probar agente",
   "datasets": "Conjuntos de datos",
+  "generated_from_prompt": "Generado a partir del mensaje",
   "generated_datasets": "Conjuntos de datos generados",
   "no_datasets_generated": "Este agente no ha generado conjuntos de datos.",
   "used_prompt": "Prompt utilizado",

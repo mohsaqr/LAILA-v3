@@ -867,6 +867,7 @@
   "change_history": "سجل التغييرات",
   "test_agent": "اختبار الوكيل",
   "datasets": "مجموعات البيانات",
+  "generated_from_prompt": "تم إنشاؤه من المطالبة",
   "generated_datasets": "مجموعات البيانات المُنشأة",
   "no_datasets_generated": "لم يتم إنشاء أي مجموعات بيانات بواسطة هذا الوكيل.",
   "used_prompt": "الأمر المستخدم",

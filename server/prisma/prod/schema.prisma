@@ -1009,6 +1009,7 @@ model UserDataset {
   aiModel          String?             @map("ai_model")
   aiProvider       String?             @map("ai_provider")
   agentPrompt      String?             @map("agent_prompt")
+  userPrompt       String?             @map("user_prompt")
   generationConfig String?             @map("generation_config")
   status           String              @default("completed")
   createdAt        DateTime            @default(now()) @map("created_at")
