@@ -892,6 +892,8 @@
   "identity_role": "Identity & Role",
   "behavior": "Behavior",
   "test_reflect": "Test & Reflect",
+  "submit_before_test": "You need to submit your assignment before you can test your agent.",
+  "submit_before_test_title": "Submit First to Test Your Agent",
   "agent_created": "Agent created successfully!",
   "agent_saved": "Agent saved!",
   "failed_to_create_agent": "Failed to create agent",

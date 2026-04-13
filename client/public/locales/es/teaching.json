@@ -892,6 +892,8 @@
   "identity_role": "Identidad y rol",
   "behavior": "Comportamiento",
   "test_reflect": "Probar y reflexionar",
+  "submit_before_test": "Debes entregar tu tarea antes de poder probar tu agente.",
+  "submit_before_test_title": "Entrega primero para probar tu agente",
   "agent_created": "¡Agente creado exitosamente!",
   "agent_saved": "¡Agente guardado!",
   "failed_to_create_agent": "Error al crear agente",

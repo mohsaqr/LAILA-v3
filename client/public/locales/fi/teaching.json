@@ -892,6 +892,8 @@
   "identity_role": "Identiteetti ja rooli",
   "behavior": "Käyttäytyminen",
   "test_reflect": "Testaa ja pohdi",
+  "submit_before_test": "Sinun on palautettava tehtävä ennen kuin voit testata agenttia.",
+  "submit_before_test_title": "Palauta ensin testataksesi agenttiasi",
   "agent_created": "Agentti luotu onnistuneesti!",
   "agent_saved": "Agentti tallennettu!",
   "failed_to_create_agent": "Agentin luonti epäonnistui",

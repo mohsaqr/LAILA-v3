@@ -108,6 +108,7 @@ import {
   StudentAgentBuilder,
   AgentSubmissionReview,
   UseMyAgent,
+  TestAndReflect,
 } from './pages/agent-assignment';
 
 // Admin pages
@@ -298,6 +299,16 @@ function App() {
             <ProtectedRoute>
               <RequireEnrollment>
                 <UseMyAgent />
+              </RequireEnrollment>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/courses/:courseId/agent-assignments/:assignmentId/test"
+          element={
+            <ProtectedRoute>
+              <RequireEnrollment>
+                <TestAndReflect />
               </RequireEnrollment>
             </ProtectedRoute>
           }

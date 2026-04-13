@@ -29,7 +29,6 @@ import { resolveFileUrl } from '../../api/client';
 import { AgentIdentityTab } from '../../components/agent-assignment/AgentIdentityTab';
 import { AgentBehaviorTab } from '../../components/agent-assignment/AgentBehaviorTab';
 import { AgentAdvancedTab } from '../../components/agent-assignment/AgentAdvancedTab';
-import { AgentTestTab } from '../../components/agent-assignment/AgentTestTab';
 import { AgentDatasetTab } from '../../components/agent-assignment/AgentDatasetTab';
 import { Card, CardBody } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
@@ -290,17 +289,6 @@ export const StudentAgentBuilder = () => {
     }
   };
 
-  // Reflection callback from test tab
-  const handleTestReflectionSubmit = (promptId: string, response: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      reflectionResponses: {
-        ...(prev.reflectionResponses || {}),
-        [promptId]: response,
-      },
-    }));
-  };
-
   if (isLoading) {
     return <Loading fullScreen text={t('loading_assignment')} />;
   }
@@ -522,13 +510,13 @@ export const StudentAgentBuilder = () => {
               )}
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-center gap-3">
+              <div className="flex items-center justify-center gap-3 flex-wrap">
                 <Button
                   size="sm"
-                  onClick={() => navigate(`/courses/${courseId}/agent-assignments/${assignmentId}/use`)}
-                  icon={<Bot className="w-4 h-4" />}
+                  onClick={() => navigate(`/courses/${courseId}/agent-assignments/${assignmentId}/test`)}
+                  icon={<Play className="w-4 h-4" />}
                 >
-                  {t('chat_with_agent', { name: config?.agentName })}
+                  {t('test_reflect')}
                 </Button>
                 <Button
                   size="sm"
@@ -624,13 +612,29 @@ export const StudentAgentBuilder = () => {
               />
             )}
             {activeTab === 'test' && (
-              <AgentTestTab
-                assignmentId={assId}
-                config={config}
-                reflectionRequirement={assignment.reflectionRequirement}
-                onReflectionSubmit={handleTestReflectionSubmit}
-                logger={logger}
-              />
+              <div className="bg-gradient-to-br from-violet-50 to-purple-50 rounded-lg border border-violet-200 p-8 text-center">
+                <div className="w-16 h-16 bg-violet-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <AlertCircle className="w-8 h-8 text-violet-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  {t('submit_before_test_title')}
+                </h3>
+                <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                  {t('submit_before_test')}
+                </p>
+                {config && config.isDraft && (
+                  <Button
+                    onClick={() => {
+                      logger?.logSubmissionAttempted();
+                      setShowSubmitConfirm(true);
+                    }}
+                    disabled={isSaving || isFullyPastDue}
+                    icon={<CheckCircle className="w-4 h-4" />}
+                  >
+                    {t('common:submit')}
+                  </Button>
+                )}
+              </div>
             )}
             {activeTab === 'dataset' && (
               <AgentDatasetTab

@@ -892,6 +892,8 @@
   "identity_role": "الهوية والدور",
   "behavior": "السلوك",
   "test_reflect": "اختبار وتأمل",
+  "submit_before_test": "يجب عليك تسليم المهمة قبل أن تتمكن من اختبار وكيلك.",
+  "submit_before_test_title": "قم بالتسليم أولاً لاختبار وكيلك",
   "agent_created": "تم إنشاء الوكيل بنجاح!",
   "agent_saved": "تم حفظ الوكيل!",
   "failed_to_create_agent": "فشل في إنشاء الوكيل",

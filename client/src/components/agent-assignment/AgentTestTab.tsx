@@ -36,6 +36,12 @@ interface AgentTestTabProps {
   reflectionRequirement?: 'required' | 'optional' | 'disabled' | null;
   onReflectionSubmit?: (promptId: string, response: string) => void;
   logger?: AgentDesignLogger | null;
+  /**
+   * Optional override for the active-chat container height. Defaults to the
+   * compact in-builder sizing; the dedicated Test & Reflect page passes a
+   * taller value to fill the viewport.
+   */
+  chatHeightClass?: string;
 }
 
 export const AgentTestTab = ({
@@ -44,6 +50,7 @@ export const AgentTestTab = ({
   reflectionRequirement = 'optional',
   onReflectionSubmit,
   logger,
+  chatHeightClass = 'h-[600px] max-h-[calc(100vh-260px)] min-h-[420px]',
 }: AgentTestTabProps) => {
   // Fetch conversation history
   const { data: conversationHistory = [] } = useQuery({
@@ -307,7 +314,7 @@ export const AgentTestTab = ({
       </div>
 
       {/* Chat Interface */}
-      <div className="h-[600px] max-h-[calc(100vh-260px)] min-h-[420px]">
+      <div className={chatHeightClass}>
         <TestChatInterface
           agentName={config.agentName}
           agentTitle={config.agentTitle}
