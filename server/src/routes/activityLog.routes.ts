@@ -47,6 +47,7 @@ const logActivitySchema = z.object({
   actionSubtype: z.string().max(128).optional(),
   eventUuid: z.string().max(64).optional(),
   route: z.string().max(512).optional(),
+  clientTimestamp: z.string().datetime().optional(),
 });
 
 const BATCH_MAX = 500;

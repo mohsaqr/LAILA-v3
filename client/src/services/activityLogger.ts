@@ -42,6 +42,13 @@ export interface LogActivityInput {
   eventUuid?: string;
   /** Page route when the event fired, e.g. `/teach/courses/12/agent-assignment/5`. */
   route?: string;
+  /**
+   * ISO 8601 timestamp captured at queue-push time on the client.
+   * The server uses this to set the row's `timestamp` column so batch
+   * ordering and parallel Prisma writes can't shuffle the events' true
+   * chronological order.
+   */
+  clientTimestamp?: string;
 }
 
 function detectDeviceType(): 'desktop' | 'tablet' | 'mobile' {
@@ -226,7 +233,14 @@ class ActivityLogger {
     if (!this.isEnabled) return;
     if (this.isDuplicate(activity)) return;
 
-    this.pendingActivities.push(activity);
+    // Stamp with the client-side wall-clock time RIGHT NOW so the row's
+    // eventual `timestamp` column reflects when the user actually did
+    // the thing, not when the 3-second batch flushed or which parallel
+    // Prisma create finished first on the server.
+    this.pendingActivities.push({
+      ...activity,
+      clientTimestamp: activity.clientTimestamp ?? new Date().toISOString(),
+    });
     this.scheduleBatchFlush();
   }
 
@@ -297,7 +311,10 @@ class ActivityLogger {
     // suppression that direct log() callers get.
     if (this.isDuplicate(activity)) return;
 
-    this.pendingActivities.push(activity);
+    this.pendingActivities.push({
+      ...activity,
+      clientTimestamp: new Date().toISOString(),
+    });
     this.scheduleBatchFlush();
   }
 
