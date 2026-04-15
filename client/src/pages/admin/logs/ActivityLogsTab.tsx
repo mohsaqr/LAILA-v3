@@ -29,6 +29,7 @@ import { activityLogApi, ActivityLogFilters } from '../../../api/admin';
 import { Card, CardBody, CardHeader } from '../../../components/common/Card';
 import { Button } from '../../../components/common/Button';
 import { Loading } from '../../../components/common/Loading';
+import { SearchableSelect } from '../../../components/common/SearchableSelect';
 import { verbColors, objectTypeColors } from './constants';
 import { formatDate } from './exportUtils';
 
@@ -75,22 +76,6 @@ interface ActivityLog {
   eventUuid: string | null;
   extensions: Record<string, unknown> | null;
 }
-
-// Curated quick-filter presets that surface the agent assignment corpus in
-// admin/logs. Presets match by prefix (trailing dot) so every leaf event
-// under that namespace is included. Free-text override is always available.
-const ACTION_SUBTYPE_PRESETS: Array<{ label: string; value: string }> = [
-  { label: 'All agent design', value: 'agent_design.' },
-  { label: '— Session', value: 'agent_design.session.' },
-  { label: '— Tabs', value: 'agent_design.tab.' },
-  { label: '— Field edits', value: 'agent_design.field.' },
-  { label: '— Role / personality', value: 'agent_design.role.selected' },
-  { label: '— Templates', value: 'agent_design.template.' },
-  { label: '— Prompt blocks', value: 'agent_design.prompt_block.' },
-  { label: '— Rules (do/don\'t)', value: 'agent_design.rule.' },
-  { label: '— Test conversations', value: 'agent_design.test.' },
-  { label: '— Save / submit', value: 'agent_design.save.' },
-];
 
 type SortField = 'timestamp' | 'userFullname' | 'verb' | 'objectType' | 'objectTitle' | 'courseTitle' | 'progress' | 'duration';
 
@@ -245,7 +230,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus, fixedCourseId }
   };
 
   // Check if any filters are active
-  const hasActiveFilters = filters.userId || filters.courseId || filters.verb || filters.objectType || filters.actionSubtype || filters.startDate || filters.endDate || filters.search;
+  const hasActiveFilters = filters.userId || filters.courseId || filters.verb || filters.objectType || filters.startDate || filters.endDate || filters.search;
 
   return (
     <>
@@ -393,100 +378,62 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus, fixedCourseId }
             </div>
 
             {/* User Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('user')}</label>
-              <select
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                value={filters.userId || ''}
-                onChange={(e) => updateFilter('userId', e.target.value ? parseInt(e.target.value) : undefined)}
-              >
-                <option value="">{t('all_users')}</option>
-                {filterOptions?.users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.fullname || u.email || `User #${u.id}`}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <SearchableSelect
+              label={t('user')}
+              value={filters.userId ? String(filters.userId) : ''}
+              onChange={(val) => updateFilter('userId', val ? parseInt(val) : undefined)}
+              options={[
+                { value: '', label: t('all_users') },
+                ...(filterOptions?.users.map((u) => ({
+                  value: String(u.id),
+                  label: u.fullname || u.email || `User #${u.id}`,
+                })) ?? []),
+              ]}
+            />
 
             {/* Course Filter (hidden when fixedCourseId is set) */}
             {!fixedCourseId && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('course')}</label>
-              <select
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                value={filters.courseId || ''}
-                onChange={(e) => updateFilter('courseId', e.target.value ? parseInt(e.target.value) : undefined)}
-              >
-                <option value="">{t('all_courses')}</option>
-                {filterOptions?.courses.map((c) => (
-                  <option key={c.id} value={c.id || ''}>
-                    {c.title || `Course #${c.id}`}
-                  </option>
-                ))}
-              </select>
-            </div>
+              <SearchableSelect
+                label={t('course')}
+                value={filters.courseId ? String(filters.courseId) : ''}
+                onChange={(val) => updateFilter('courseId', val ? parseInt(val) : undefined)}
+                options={[
+                  { value: '', label: t('all_courses') },
+                  ...(filterOptions?.courses.map((c) => ({
+                    value: c.id ? String(c.id) : '',
+                    label: c.title || `Course #${c.id}`,
+                  })) ?? []),
+                ]}
+              />
             )}
 
             {/* Verb Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('verb')}</label>
-              <select
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                value={filters.verb || ''}
-                onChange={(e) => updateFilter('verb', e.target.value || undefined)}
-              >
-                <option value="">{t('all_verbs')}</option>
-                {filterOptions?.verbs.map((v) => (
-                  <option key={v.verb} value={v.verb}>
-                    {v.verb} ({v.count})
-                  </option>
-                ))}
-              </select>
-            </div>
+            <SearchableSelect
+              label={t('verb')}
+              value={filters.verb || ''}
+              onChange={(val) => updateFilter('verb', val || undefined)}
+              options={[
+                { value: '', label: t('all_verbs') },
+                ...(filterOptions?.verbs.map((v) => ({
+                  value: v.verb,
+                  label: `${v.verb} (${v.count})`,
+                })) ?? []),
+              ]}
+            />
 
             {/* Object Type Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('object_type')}</label>
-              <select
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                value={filters.objectType || ''}
-                onChange={(e) => updateFilter('objectType', e.target.value || undefined)}
-              >
-                <option value="">{t('all_types')}</option>
-                {filterOptions?.objectTypes.map((o) => (
-                  <option key={o.objectType} value={o.objectType}>
-                    {o.objectType} ({o.count})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Action Subtype Filter — fine-grained slices like `agent_design.*` */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Action subtype
-              </label>
-              <div className="flex gap-2">
-                <select
-                  className="flex-1 border border-gray-300 dark:border-gray-600 rounded-md px-2 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                  value={filters.actionSubtype || ''}
-                  onChange={(e) => updateFilter('actionSubtype', e.target.value || undefined)}
-                >
-                  <option value="">All subtypes</option>
-                  {ACTION_SUBTYPE_PRESETS.map((p) => (
-                    <option key={p.value} value={p.value}>{p.label}</option>
-                  ))}
-                </select>
-                <input
-                  type="text"
-                  placeholder="custom e.g. agent_design.field.change"
-                  className="flex-1 border border-gray-300 dark:border-gray-600 rounded-md px-2 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                  value={filters.actionSubtype || ''}
-                  onChange={(e) => updateFilter('actionSubtype', e.target.value || undefined)}
-                />
-              </div>
-            </div>
+            <SearchableSelect
+              label={t('object_type')}
+              value={filters.objectType || ''}
+              onChange={(val) => updateFilter('objectType', val || undefined)}
+              options={[
+                { value: '', label: t('all_types') },
+                ...(filterOptions?.objectTypes.map((o) => ({
+                  value: o.objectType,
+                  label: `${o.objectType} (${o.count})`,
+                })) ?? []),
+              ]}
+            />
           </div>
 
           {/* Date Filters */}
@@ -696,17 +643,12 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus, fixedCourseId }
                         </td>
                         <td className="px-4 py-3">
                           {log.actionSubtype ? (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setFilters(prev => ({ ...prev, actionSubtype: log.actionSubtype || undefined, page: 1 }));
-                              }}
-                              className="inline-flex px-2 py-1 rounded text-xs font-mono bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60"
-                              title="Click to filter by this subtype"
+                            <span
+                              className="inline-flex px-2 py-1 rounded text-xs font-mono bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300"
+                              title={log.actionSubtype}
                             >
                               {log.actionSubtype}
-                            </button>
+                            </span>
                           ) : (
                             <span className="text-gray-400 dark:text-gray-500">-</span>
                           )}
