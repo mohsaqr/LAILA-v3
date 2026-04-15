@@ -108,28 +108,37 @@ export const StudentAgentBuilder = () => {
     };
   }, [user?.id, assId]);
 
-  // One-shot "page opened" row in the admin activity log. Fires exactly
-  // once per mount (ref-guarded against React StrictMode's double-invoke)
-  // and is independent of the design logger's sitting management.
   const openedRef = useRef(false);
-  useEffect(() => {
-    if (openedRef.current) return;
-    if (!user?.id || !assId) return;
-    openedRef.current = true;
-    void activityLogger.log({
-      verb: 'started',
-      objectType: 'assignment_agent',
-      objectId: assId,
-      objectTitle: 'Agent assignment',
-      actionSubtype: 'agent_design.session.start',
-    });
-  }, [user?.id, assId]);
 
   // Fetch agent config
   const { data, isLoading, error } = useQuery({
     queryKey: ['myAgentConfig', assId],
     queryFn: () => agentAssignmentsApi.getMyAgentConfig(assId),
   });
+
+  // One-shot "page opened" row in the admin activity log. Fires exactly
+  // once per mount (ref-guarded against React StrictMode's double-invoke)
+  // and is independent of the design logger's sitting management. We
+  // wait for `data?.assignment` so the row carries the real courseId —
+  // the server enricher then populates courseTitle / courseSlug from
+  // the Course table.
+  useEffect(() => {
+    if (openedRef.current) return;
+    if (!user?.id || !assId) return;
+    const resolvedCourseId =
+      (data as any)?.assignment?.course?.id ??
+      (courseId ? parseInt(courseId, 10) : undefined);
+    if (!resolvedCourseId) return;
+    openedRef.current = true;
+    void activityLogger.log({
+      verb: 'started',
+      objectType: 'assignment_agent',
+      objectId: assId,
+      objectTitle: (data as any)?.assignment?.title || 'Agent assignment',
+      courseId: resolvedCourseId,
+      actionSubtype: 'agent_design.session.start',
+    });
+  }, [user?.id, assId, courseId, (data as any)?.assignment?.id]);
 
   // Initialize form and logger when data loads
   useEffect(() => {
