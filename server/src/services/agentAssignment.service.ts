@@ -121,7 +121,6 @@ export class AgentAssignmentService {
       dontsRules: config.dontsRules ? JSON.parse(config.dontsRules) : [],
       suggestedQuestions: config.suggestedQuestions ? JSON.parse(config.suggestedQuestions) : [],
       selectedPromptBlocks: config.selectedPromptBlocks ? JSON.parse(config.selectedPromptBlocks) : [],
-      reflectionResponses: config.reflectionResponses ? JSON.parse(config.reflectionResponses) : {},
     };
   }
 
@@ -216,8 +215,6 @@ export class AgentAssignmentService {
         knowledgeContext: data.knowledgeContext,
         // Prompt building blocks
         selectedPromptBlocks: data.selectedPromptBlocks ? JSON.stringify(data.selectedPromptBlocks) : null,
-        // Reflection tracking
-        reflectionResponses: data.reflectionResponses ? JSON.stringify(data.reflectionResponses) : null,
         version: 1,
         isDraft: true,
       },
@@ -248,17 +245,10 @@ export class AgentAssignmentService {
       },
     });
 
-    this.logAgentActivity({
-      userId: context.userId,
-      verb: 'created',
-      objectId: config.id,
-      objectTitle: data.agentName,
-      courseId: assignment.courseId,
-      assignmentId: assignment.id,
-      assignmentTitle: assignment.title,
-      extensions: { pedagogicalRole: data.pedagogicalRole, personality: data.personality },
-      context,
-    });
+    // Note: we intentionally do NOT write a `created`/`assignment` row to
+    // LearningActivityLog here. The client-side design logger already
+    // captures save actions as `progressed`/`assignment_agent` with the
+    // `agent_design.save.draft` subtype, which is the canonical signal.
 
     return this.formatConfig(config);
   }
@@ -309,7 +299,6 @@ export class AgentAssignmentService {
     if (data.suggestedQuestions !== undefined) changedFields.push('suggestedQuestions');
     if (data.knowledgeContext !== undefined && data.knowledgeContext !== existing.knowledgeContext) changedFields.push('knowledgeContext');
     if (data.selectedPromptBlocks !== undefined) changedFields.push('selectedPromptBlocks');
-    if (data.reflectionResponses !== undefined) changedFields.push('reflectionResponses');
 
     const newVersion = existing.version + 1;
 
@@ -334,8 +323,6 @@ export class AgentAssignmentService {
         knowledgeContext: data.knowledgeContext,
         // Prompt building blocks
         selectedPromptBlocks: data.selectedPromptBlocks ? JSON.stringify(data.selectedPromptBlocks) : undefined,
-        // Reflection tracking
-        reflectionResponses: data.reflectionResponses ? JSON.stringify(data.reflectionResponses) : undefined,
         version: newVersion,
       },
     });
@@ -367,22 +354,9 @@ export class AgentAssignmentService {
       },
     });
 
-    this.logAgentActivity({
-      userId: context.userId,
-      verb: 'updated',
-      objectId: updated.id,
-      objectTitle: updated.agentName,
-      courseId: assignment.courseId,
-      assignmentId: assignment.id,
-      assignmentTitle: assignment.title,
-      extensions: {
-        version: newVersion,
-        changedFields: changedFields.length > 0 ? changedFields : undefined,
-        pedagogicalRole: data.pedagogicalRole,
-        personality: data.personality,
-      },
-      context,
-    });
+    // Note: we intentionally do NOT write an `updated`/`assignment` row to
+    // LearningActivityLog here. Covered client-side via
+    // `agent_design.save.draft` → `progressed`/`assignment_agent`.
 
     return this.formatConfig(updated);
   }
@@ -473,17 +447,11 @@ export class AgentAssignmentService {
       },
     });
 
-    this.logAgentActivity({
-      userId: context.userId,
-      verb: 'submitted',
-      objectId: config.id,
-      objectTitle: config.agentName,
-      courseId: assignment.courseId,
-      assignmentId: assignment.id,
-      assignmentTitle: assignment.title,
-      extensions: { version: config.version },
-      context,
-    });
+    // Note: we intentionally do NOT write a `submitted`/`assignment` row
+    // to LearningActivityLog. The client-side design logger already emits
+    // `submitted`/`assignment_agent` with the `agent_design.save.submission_attempted`
+    // subtype when the student clicks the Submit button, which is the
+    // canonical signal.
 
     return { config: updated, submission };
   }
@@ -556,17 +524,11 @@ export class AgentAssignmentService {
       },
     });
 
-    this.logAgentActivity({
-      userId: context.userId,
-      verb: 'updated',
-      objectId: config.id,
-      objectTitle: config.agentName,
-      courseId: assignment.courseId,
-      assignmentId: assignment.id,
-      assignmentTitle: assignment.title,
-      extensions: { action: 'unsubmit', version: config.version },
-      context,
-    });
+    // Note: we intentionally do NOT write an `updated`/`assignment` row
+    // here. The client-side design logger already emits
+    // `unsubmitted`/`assignment_agent` via `agent_design.save.unsubmit_requested`
+    // when the student clicks the Unsubmit button — that's the canonical
+    // signal and the only row we want in admin/logs for this action.
 
     return updated;
   }
@@ -643,17 +605,11 @@ export class AgentAssignmentService {
       },
     });
 
-    this.logAgentActivity({
-      userId: testerInfo.userId,
-      verb: 'started',
-      objectId: config.id,
-      objectTitle: config.agentName,
-      courseId: config.assignment.courseId,
-      assignmentId: config.assignmentId,
-      assignmentTitle: config.assignment.title,
-      extensions: { action: 'test_conversation', conversationId: conversation.id, version: config.version },
-      context,
-    });
+    // Note: we intentionally do NOT write a `started`/`assignment` row
+    // here. The client-side agentDesignLogger already emits
+    // `started`/`agent_conversation` via `agent_design.test.conversation_started`
+    // when the student clicks "Start Test Conversation", which is the
+    // canonical signal.
 
     return {
       conversation,
@@ -867,16 +823,21 @@ export class AgentAssignmentService {
       },
     });
 
-    // Log to unified activity log for comprehensive tracking
+    // Log to unified activity log for comprehensive tracking. Tagging with
+    // `actionSubtype: agent_design.test.response_received` makes this row
+    // filterable in admin/logs/activity alongside every other agent design
+    // event the client-side bridge emits, even though admins have no access
+    // to the instructor-only Design Process view.
     activityLogService.logActivity({
       userId: testerInfo.userId,
       verb: 'interacted',
-      objectType: 'tutor_agent',
+      objectType: 'agent_conversation',
       objectId: config.id,
       objectTitle: config.agentName || 'Student Agent',
       objectSubtype: 'agent_assignment',
       courseId: config.assignment.courseId,
       duration: responseTimeMs,
+      actionSubtype: 'agent_design.test.response_received',
       extensions: {
         conversationId,
         assignmentId: config.assignmentId,
@@ -888,6 +849,9 @@ export class AgentAssignmentService {
         aiModel: resolvedModel,
         aiProvider: resolvedProvider,
         responseTimeMs,
+        promptTokens,
+        completionTokens,
+        totalTokens,
       },
       sessionId: context.sessionId,
       deviceType: context.userAgent?.includes('Mobile') ? 'mobile' : 'desktop',

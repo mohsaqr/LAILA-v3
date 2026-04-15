@@ -171,34 +171,6 @@ router.get(
 );
 
 /**
- * GET /api/agent-design-logs/config/:agentConfigId/reflections
- * Get reflection responses for a student's config
- */
-router.get(
-  '/config/:agentConfigId/reflections',
-  async (req: AuthRequest, res: Response, next: NextFunction) => {
-    try {
-      const agentConfigId = parseInt(req.params.agentConfigId);
-      const instructorId = req.user!.id;
-      const isAdmin = req.user!.isAdmin;
-
-      const reflections = await agentDesignLogService.getReflectionResponses(
-        agentConfigId,
-        instructorId,
-        isAdmin
-      );
-
-      res.json({
-        success: true,
-        data: reflections,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-/**
  * GET /api/agent-design-logs/assignment/:assignmentId/analytics
  * Get design analytics for an assignment (instructor summary)
  */

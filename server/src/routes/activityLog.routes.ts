@@ -11,7 +11,8 @@ const router = Router();
 // Valid verbs and object types
 const validVerbs = [
   'enrolled', 'unenrolled', 'viewed', 'started', 'completed', 'progressed',
-  'submitted', 'interacted', 'downloaded', 'selected',
+  'submitted', 'unsubmitted', 'interacted', 'downloaded', 'selected',
+  'designed',
 ] as const;
 
 const validObjectTypes = [
@@ -19,6 +20,7 @@ const validObjectTypes = [
   'assignment', 'chatbot', 'file', 'quiz',
   'emotional_pulse', 'tutor_agent', 'tutor_session', 'tutor_conversation',
   'course_tutor', 'course_tutor_conversation',
+  'assignment_agent', 'agent_conversation',
   'lab', 'forum', 'certificate', 'survey', 'gradebook',
 ] as const;
 
@@ -42,10 +44,14 @@ const logActivitySchema = z.object({
   sessionId: z.string().optional(),
   deviceType: z.enum(['desktop', 'tablet', 'mobile']).optional(),
   browserName: z.string().optional(),
+  actionSubtype: z.string().max(128).optional(),
+  eventUuid: z.string().max(64).optional(),
+  route: z.string().max(512).optional(),
 });
 
+const BATCH_MAX = 500;
 const batchLogSchema = z.object({
-  activities: z.array(logActivitySchema).min(1).max(100),
+  activities: z.array(logActivitySchema).min(1).max(BATCH_MAX),
 });
 
 // ============================================================================
@@ -75,8 +81,8 @@ router.post('/', authenticateToken, asyncHandler(async (req: AuthRequest, res: R
 router.post('/batch', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   // Validate the batch wrapper (must have activities array)
   const rawActivities = req.body?.activities;
-  if (!Array.isArray(rawActivities) || rawActivities.length === 0 || rawActivities.length > 100) {
-    res.status(400).json({ success: false, error: 'activities must be an array with 1-100 items' });
+  if (!Array.isArray(rawActivities) || rawActivities.length === 0 || rawActivities.length > BATCH_MAX) {
+    res.status(400).json({ success: false, error: `activities must be an array with 1-${BATCH_MAX} items` });
     return;
   }
 
@@ -126,6 +132,7 @@ router.get('/', authenticateToken, asyncHandler(async (req: AuthRequest, res: Re
     courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
     verb: req.query.verb as string | undefined,
     objectType: req.query.objectType as string | undefined,
+    actionSubtype: req.query.actionSubtype as string | undefined,
     startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
     endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
     page: req.query.page ? parseInt(req.query.page as string) : 1,

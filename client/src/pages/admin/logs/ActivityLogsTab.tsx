@@ -70,8 +70,27 @@ interface ActivityLog {
   duration: number | null;
   deviceType: string | null;
   browserName: string | null;
+  actionSubtype: string | null;
+  route: string | null;
+  eventUuid: string | null;
   extensions: Record<string, unknown> | null;
 }
+
+// Curated quick-filter presets that surface the agent assignment corpus in
+// admin/logs. Presets match by prefix (trailing dot) so every leaf event
+// under that namespace is included. Free-text override is always available.
+const ACTION_SUBTYPE_PRESETS: Array<{ label: string; value: string }> = [
+  { label: 'All agent design', value: 'agent_design.' },
+  { label: '— Session', value: 'agent_design.session.' },
+  { label: '— Tabs', value: 'agent_design.tab.' },
+  { label: '— Field edits', value: 'agent_design.field.' },
+  { label: '— Role / personality', value: 'agent_design.role.selected' },
+  { label: '— Templates', value: 'agent_design.template.' },
+  { label: '— Prompt blocks', value: 'agent_design.prompt_block.' },
+  { label: '— Rules (do/don\'t)', value: 'agent_design.rule.' },
+  { label: '— Test conversations', value: 'agent_design.test.' },
+  { label: '— Save / submit', value: 'agent_design.save.' },
+];
 
 type SortField = 'timestamp' | 'userFullname' | 'verb' | 'objectType' | 'objectTitle' | 'courseTitle' | 'progress' | 'duration';
 
@@ -226,7 +245,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus, fixedCourseId }
   };
 
   // Check if any filters are active
-  const hasActiveFilters = filters.userId || filters.courseId || filters.verb || filters.objectType || filters.startDate || filters.endDate || filters.search;
+  const hasActiveFilters = filters.userId || filters.courseId || filters.verb || filters.objectType || filters.actionSubtype || filters.startDate || filters.endDate || filters.search;
 
   return (
     <>
@@ -442,6 +461,32 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus, fixedCourseId }
                 ))}
               </select>
             </div>
+
+            {/* Action Subtype Filter — fine-grained slices like `agent_design.*` */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Action subtype
+              </label>
+              <div className="flex gap-2">
+                <select
+                  className="flex-1 border border-gray-300 dark:border-gray-600 rounded-md px-2 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  value={filters.actionSubtype || ''}
+                  onChange={(e) => updateFilter('actionSubtype', e.target.value || undefined)}
+                >
+                  <option value="">All subtypes</option>
+                  {ACTION_SUBTYPE_PRESETS.map((p) => (
+                    <option key={p.value} value={p.value}>{p.label}</option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  placeholder="custom e.g. agent_design.field.change"
+                  className="flex-1 border border-gray-300 dark:border-gray-600 rounded-md px-2 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  value={filters.actionSubtype || ''}
+                  onChange={(e) => updateFilter('actionSubtype', e.target.value || undefined)}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Date Filters */}
@@ -576,6 +621,9 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus, fixedCourseId }
                         <SortIcon field="duration" />
                       </div>
                     </th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
+                      Subtype
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -646,12 +694,29 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus, fixedCourseId }
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
                           {log.duration != null ? `${log.duration}s` : '-'}
                         </td>
+                        <td className="px-4 py-3">
+                          {log.actionSubtype ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFilters(prev => ({ ...prev, actionSubtype: log.actionSubtype || undefined, page: 1 }));
+                              }}
+                              className="inline-flex px-2 py-1 rounded text-xs font-mono bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60"
+                              title="Click to filter by this subtype"
+                            >
+                              {log.actionSubtype}
+                            </button>
+                          ) : (
+                            <span className="text-gray-400 dark:text-gray-500">-</span>
+                          )}
+                        </td>
                       </tr>
                       {/* Expanded Details Row */}
                       {expandedRows.has(log.id) && (
                         <tr key={`${log.id}-expanded`} className="bg-gray-50 dark:bg-gray-800/50">
-                          <td colSpan={9} className="px-4 py-4">
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+                          <td colSpan={10} className="px-4 py-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 text-sm">
                               {/* User Context */}
                               <div className="space-y-2">
                                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
@@ -663,6 +728,38 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus, fixedCourseId }
                                   <div><span className="text-gray-500 dark:text-gray-500">{t('name')}:</span> {log.userFullname || '-'}</div>
                                   <div><span className="text-gray-500 dark:text-gray-500">{t('role')}:</span> {log.userRole || '-'}</div>
                                   <div><span className="text-gray-500 dark:text-gray-500">{t('session')}:</span> {log.sessionId ? log.sessionId.substring(0, 16) + '...' : '-'}</div>
+                                </div>
+                              </div>
+
+                              {/* Object */}
+                              <div className="space-y-2">
+                                <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
+                                  Object
+                                </h4>
+                                <div className="space-y-1 text-gray-600 dark:text-gray-400 break-words">
+                                  <div>
+                                    <span className="text-gray-500 dark:text-gray-500">Type:</span>{' '}
+                                    <span className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${objectTypeColors[log.objectType] || 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`}>
+                                      {log.objectType}
+                                    </span>
+                                  </div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">Title:</span> {log.objectTitle || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">ID:</span> {log.objectId ?? '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">Subtype:</span> {log.objectSubtype || '-'}</div>
+                                  <div>
+                                    <span className="text-gray-500 dark:text-gray-500">Action:</span>{' '}
+                                    {log.actionSubtype ? (
+                                      <span className="font-mono text-xs text-indigo-700 dark:text-indigo-300">{log.actionSubtype}</span>
+                                    ) : (
+                                      '-'
+                                    )}
+                                  </div>
+                                  {log.route && (
+                                    <div className="truncate">
+                                      <span className="text-gray-500 dark:text-gray-500">Route:</span>{' '}
+                                      <span className="font-mono text-xs">{log.route}</span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
 
@@ -700,8 +797,6 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus, fixedCourseId }
                                 <div className="space-y-1 text-gray-600 dark:text-gray-400">
                                   <div><span className="text-gray-500 dark:text-gray-500">{t('device')}:</span> {log.deviceType || '-'}</div>
                                   <div><span className="text-gray-500 dark:text-gray-500">{t('browser')}:</span> {log.browserName || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('object_id')}:</span> {log.objectId || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('subtype')}:</span> {log.objectSubtype || '-'}</div>
                                 </div>
                               </div>
                             </div>

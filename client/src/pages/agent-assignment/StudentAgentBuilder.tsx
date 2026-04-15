@@ -5,7 +5,7 @@
  * and obsessive design process logging.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -44,6 +44,7 @@ import {
   getDesignLogger,
   endCurrentDesignSession,
 } from '../../services/agentDesignLogger';
+import activityLogger from '../../services/activityLogger';
 import { useAuth } from '../../hooks/useAuth';
 
 type TabType = 'identity' | 'behavior' | 'advanced' | 'test' | 'dataset';
@@ -65,7 +66,6 @@ const getDefaultFormData = (): AgentConfigFormData => ({
   temperature: 0.7,
   suggestedQuestions: [],
   knowledgeContext: '',
-  reflectionResponses: {},
   selectedPromptBlocks: [],
 });
 
@@ -108,6 +108,23 @@ export const StudentAgentBuilder = () => {
     };
   }, [user?.id, assId]);
 
+  // One-shot "page opened" row in the admin activity log. Fires exactly
+  // once per mount (ref-guarded against React StrictMode's double-invoke)
+  // and is independent of the design logger's sitting management.
+  const openedRef = useRef(false);
+  useEffect(() => {
+    if (openedRef.current) return;
+    if (!user?.id || !assId) return;
+    openedRef.current = true;
+    void activityLogger.log({
+      verb: 'started',
+      objectType: 'assignment_agent',
+      objectId: assId,
+      objectTitle: 'Agent assignment',
+      actionSubtype: 'agent_design.session.start',
+    });
+  }, [user?.id, assId]);
+
   // Fetch agent config
   const { data, isLoading, error } = useQuery({
     queryKey: ['myAgentConfig', assId],
@@ -134,7 +151,6 @@ export const StudentAgentBuilder = () => {
         temperature: config.temperature ?? 0.7,
         suggestedQuestions: config.suggestedQuestions || [],
         knowledgeContext: config.knowledgeContext || '',
-        reflectionResponses: config.reflectionResponses || {},
         selectedPromptBlocks: config.selectedPromptBlocks || [],
       });
 
@@ -142,9 +158,11 @@ export const StudentAgentBuilder = () => {
       if (logger) {
         logger.setAgentConfigId(config.id);
         logger.setVersion(config.version);
+        logger.setCourseContext((data as any)?.assignment?.course?.id);
         logger.startSession(config.id, config.version);
       }
     } else if (logger) {
+      logger.setCourseContext((data as any)?.assignment?.course?.id);
       // Start session without config (new agent)
       logger.startSession();
     }

@@ -302,8 +302,6 @@ export const createAgentConfigSchema = z.object({
   knowledgeContext: z.string().max(2000).optional().nullable(),
   // Prompt building blocks
   selectedPromptBlocks: z.array(z.string()).optional(),
-  // Reflection tracking
-  reflectionResponses: z.record(z.string()).optional(),
 });
 
 export const updateAgentConfigSchema = createAgentConfigSchema.partial();

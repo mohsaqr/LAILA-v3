@@ -12,9 +12,11 @@ export const ACTIVITY_VERBS = [
   'completed',
   'progressed',
   'submitted',
+  'unsubmitted',
   'interacted',
   'downloaded',
   'selected',
+  'designed',
 ] as const;
 
 export type ActivityVerb = (typeof ACTIVITY_VERBS)[number];
@@ -34,6 +36,8 @@ export const ACTIVITY_OBJECT_TYPES = [
   'tutor_agent',
   'tutor_session',
   'tutor_conversation',
+  'assignment_agent',
+  'agent_conversation',
 ] as const;
 
 export type ActivityObjectType = (typeof ACTIVITY_OBJECT_TYPES)[number];
@@ -76,11 +80,15 @@ export const verbColors: Record<string, string> = {
 
   // Content & Assessment
   submitted: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300',
+  unsubmitted: 'bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-300',
   downloaded: 'bg-violet-100 dark:bg-violet-900/30 text-violet-800 dark:text-violet-300',
 
   // Interaction
   interacted: 'bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-800 dark:text-fuchsia-300',
   selected: 'bg-lime-100 dark:bg-lime-900/30 text-lime-800 dark:text-lime-300',
+
+  // Agent design
+  designed: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300',
 };
 
 // Object Type color mappings
@@ -98,6 +106,8 @@ export const objectTypeColors: Record<string, string> = {
   tutor_agent: 'bg-violet-100 dark:bg-violet-900/30 text-violet-800 dark:text-violet-300',
   tutor_session: 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300',
   tutor_conversation: 'bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-800 dark:text-fuchsia-300',
+  assignment_agent: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300',
+  agent_conversation: 'bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-800 dark:text-fuchsia-300',
 };
 
 // Legacy event type colors (for backward compatibility with content/assessment events)

@@ -11,15 +11,17 @@ const isPostgres = (process.env.DATABASE_URL || '').startsWith('postgres');
 export type ActivityVerb =
   | 'enrolled' | 'unenrolled' | 'viewed' | 'started' | 'completed'
   | 'progressed' | 'paused' | 'resumed' | 'seeked' | 'scrolled'
-  | 'downloaded' | 'submitted' | 'graded' | 'messaged' | 'received'
+  | 'downloaded' | 'submitted' | 'unsubmitted' | 'graded' | 'messaged' | 'received'
   | 'cleared' | 'interacted' | 'expressed' | 'selected' | 'switched'
+  | 'designed'
   | 'created' | 'updated' | 'deleted';
 
 export type ObjectType =
   | 'course' | 'module' | 'lecture' | 'section' | 'video'
   | 'assignment' | 'chatbot' | 'file' | 'quiz' | 'emotional_pulse'
   | 'tutor_agent' | 'tutor_session' | 'tutor_conversation'
-  | 'course_tutor' | 'course_tutor_conversation' | 'lab'
+  | 'course_tutor' | 'course_tutor_conversation'
+  | 'assignment_agent' | 'agent_conversation' | 'lab'
   | 'forum' | 'certificate' | 'survey' | 'gradebook';
 
 export interface LogActivityInput {
@@ -42,6 +44,9 @@ export interface LogActivityInput {
   sessionId?: string;
   deviceType?: string;
   browserName?: string;
+  actionSubtype?: string;
+  eventUuid?: string;
+  route?: string;
 }
 
 export interface LogQueryFilters {
@@ -49,6 +54,11 @@ export interface LogQueryFilters {
   courseId?: number;
   verb?: string;
   objectType?: string;
+  /**
+   * Exact match on `action_subtype`, or a prefix with a trailing dot
+   * (e.g. `agent_design.` matches every agent design event).
+   */
+  actionSubtype?: string;
   startDate?: Date;
   endDate?: Date;
   page?: number;
@@ -103,6 +113,9 @@ class ActivityLogService {
       extensions: input.extensions ? JSON.stringify(input.extensions) : null,
       deviceType: input.deviceType,
       browserName: input.browserName,
+      actionSubtype: input.actionSubtype,
+      eventUuid: input.eventUuid,
+      route: input.route,
     };
 
     // Enrich with course hierarchy context
@@ -213,6 +226,29 @@ class ActivityLogService {
       hasCourse: !!logData.course,
     }, 'Creating activity log entry');
 
+    // Idempotent insert: if the same (userId, eventUuid) was already logged
+    // (e.g. retried batch after a dropped connection), return the existing row
+    // instead of creating a duplicate. Legacy events with no eventUuid fall
+    // through to a plain create — multiple NULLs are allowed by the unique.
+    if (input.eventUuid) {
+      try {
+        const result = await prisma.learningActivityLog.create({ data: logData });
+        logger.debug({ logId: result.id }, 'Activity log entry created');
+        return result;
+      } catch (err) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+          const existing = await prisma.learningActivityLog.findFirst({
+            where: { userId: input.userId, eventUuid: input.eventUuid },
+          });
+          if (existing) {
+            logger.debug({ logId: existing.id, eventUuid: input.eventUuid }, 'Activity log dedupe hit');
+            return existing;
+          }
+        }
+        throw err;
+      }
+    }
+
     const result = await prisma.learningActivityLog.create({ data: logData });
     logger.debug({ logId: result.id }, 'Activity log entry created');
     return result;
@@ -222,13 +258,21 @@ class ActivityLogService {
    * Query logs with filters, pagination, search and sorting
    */
   async queryLogs(filters: LogQueryFilters) {
-    const { userId, courseId, verb, objectType, startDate, endDate, page = 1, limit = 50, search, sortBy = 'timestamp', sortOrder = 'desc' } = filters;
+    const { userId, courseId, verb, objectType, actionSubtype, startDate, endDate, page = 1, limit = 50, search, sortBy = 'timestamp', sortOrder = 'desc' } = filters;
 
     const where: Prisma.LearningActivityLogWhereInput = {};
     if (userId) where.userId = userId;
     if (courseId) where.courseId = courseId;
     if (verb) where.verb = verb;
     if (objectType) where.objectType = objectType;
+    if (actionSubtype) {
+      // Prefix filter when caller passes "agent_design.", exact otherwise.
+      if (actionSubtype.endsWith('.')) {
+        where.actionSubtype = { startsWith: actionSubtype };
+      } else {
+        where.actionSubtype = actionSubtype;
+      }
+    }
     if (startDate || endDate) {
       where.timestamp = {};
       if (startDate) where.timestamp.gte = startDate;

@@ -431,8 +431,6 @@ export interface Assignment {
   isPublished: boolean;
   aiAssisted: boolean;
   aiPrompt: string | null;
-  // AI Agent assignment settings
-  reflectionRequirement?: 'required' | 'optional' | 'disabled' | null;
   // Post-submission survey
   postSurveyId?: number | null;
   postSurveyRequired?: boolean;
@@ -740,8 +738,6 @@ export interface StudentAgentConfig {
   knowledgeContext: string | null;
   // Prompt building blocks
   selectedPromptBlocks: string[] | null;
-  // Reflection tracking
-  reflectionResponses: Record<string, string> | null;
   // Design metrics
   totalDesignTime: number | null;
   testConversationCount: number | null;
@@ -778,7 +774,6 @@ export interface AgentAssignmentDetails {
   dueDate: string | null;
   gracePeriodDeadline: string | null;
   points: number;
-  reflectionRequirement?: 'required' | 'optional' | 'disabled' | null;
   course: {
     id: number;
     title: string;
@@ -805,8 +800,6 @@ export interface AgentConfigFormData {
   knowledgeContext?: string | null;
   // Prompt building blocks
   selectedPromptBlocks?: string[];
-  // Reflection tracking
-  reflectionResponses?: Record<string, string>;
 }
 
 export interface AgentTestConversation {
@@ -1030,10 +1023,6 @@ export type AgentDesignEventType =
   | 'test_response_received'
   | 'test_conversation_reset'
   | 'post_test_edit'
-  // Reflection events
-  | 'reflection_prompt_shown'
-  | 'reflection_dismissed'
-  | 'reflection_submitted'
   // Save/submit events
   | 'draft_saved'
   | 'submission_attempted'
@@ -1047,7 +1036,6 @@ export type AgentDesignEventCategory =
   | 'template'
   | 'rule'
   | 'test'
-  | 'reflection'
   | 'save';
 
 export interface AgentDesignEvent {
@@ -1092,12 +1080,6 @@ export interface AgentDesignEvent {
   promptBlockCategory?: string;
   selectedBlockIds?: string[];
 
-  // Reflection tracking
-  reflectionPromptId?: string;
-  reflectionPromptText?: string;
-  reflectionResponse?: string;
-  reflectionDismissed?: boolean;
-
   // Test context
   testConversationId?: number;
   testMessageCount?: number;
@@ -1110,21 +1092,6 @@ export interface AgentDesignEvent {
 
   // Snapshots
   agentConfigSnapshot?: Record<string, unknown>;
-}
-
-// Reflection prompt types
-export type ReflectionPromptTrigger =
-  | 'role_selected'
-  | 'system_prompt_written'
-  | 'first_test_completed'
-  | 'post_test_edit'
-  | 'before_submission';
-
-export interface ReflectionPrompt {
-  id: string;
-  trigger: ReflectionPromptTrigger;
-  prompt: string;
-  required?: boolean;
 }
 
 // =============================================================================
@@ -1175,10 +1142,6 @@ export interface AgentDesignEventLog {
   suggestionSource: string | null;
   roleSelected: string | null;
   personalitySelected: string | null;
-  reflectionPromptId: string | null;
-  reflectionPromptText: string | null;
-  reflectionResponse: string | null;
-  reflectionDismissed: boolean;
   testConversationId: number | null;
   testMessageCount: number | null;
   deviceType: string | null;
@@ -1196,7 +1159,6 @@ export interface AgentDesignAnalytics {
     personalityUsed: string | null;
     templatesApplied: number;
   };
-  reflectionResponses: Record<string, string>;
   timelineEvents: AgentDesignEventLog[];
 }
 

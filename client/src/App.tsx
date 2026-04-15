@@ -109,6 +109,8 @@ import {
   AgentSubmissionReview,
   UseMyAgent,
   TestAndReflect,
+  AgentTestChat,
+  ConversationReplay,
   AgentDatasets,
 } from './pages/agent-assignment';
 
@@ -310,6 +312,16 @@ function App() {
             <ProtectedRoute>
               <RequireEnrollment>
                 <TestAndReflect />
+              </RequireEnrollment>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/courses/:courseId/agent-assignments/:assignmentId/test/chat"
+          element={
+            <ProtectedRoute>
+              <RequireEnrollment>
+                <AgentTestChat />
               </RequireEnrollment>
             </ProtectedRoute>
           }
@@ -709,6 +721,14 @@ function App() {
           element={
             <ProtectedRoute requireInstructor>
               <AgentSubmissionReview />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teach/courses/:id/assignments/:assignmentId/agent-submissions/:submissionId/conversations/:conversationId"
+          element={
+            <ProtectedRoute requireInstructor>
+              <ConversationReplay />
             </ProtectedRoute>
           }
         />

@@ -13,6 +13,18 @@ interface TestChatInterfaceProps {
   isSending: boolean;
   error?: string | null;
   suggestedQuestions?: string[];
+  /**
+   * Optional node rendered as a horizontal bar directly above the input
+   * form — used by the agent test chat page to embed the EmotionalPulse
+   * widget exactly like the AI Tutors chat does.
+   */
+  footerSlot?: React.ReactNode;
+  /**
+   * When true, hides the input form and suggested questions — used by the
+   * instructor/admin ConversationReplay view to display an archived chat
+   * in read-only mode with the same visual identity as the live test page.
+   */
+  readOnly?: boolean;
 }
 
 export const TestChatInterface = ({
@@ -25,6 +37,8 @@ export const TestChatInterface = ({
   isSending,
   error,
   suggestedQuestions = [],
+  footerSlot,
+  readOnly = false,
 }: TestChatInterfaceProps) => {
   const [message, setMessage] = useState('');
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -171,7 +185,7 @@ export const TestChatInterface = ({
       )}
 
       {/* Suggested Questions */}
-      {suggestedQuestions.length > 0 && messages.length === 0 && (
+      {!readOnly && suggestedQuestions.length > 0 && messages.length === 0 && (
         <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
           <p className="text-xs text-gray-500 mb-2">Suggested questions:</p>
           <div className="flex flex-wrap gap-2">
@@ -190,7 +204,21 @@ export const TestChatInterface = ({
         </div>
       )}
 
+      {/* Footer slot (e.g. emotional pulse horizontal bar) */}
+      {!readOnly && footerSlot && (
+        <div className="border-t border-gray-200 px-4 py-2 bg-white">
+          {footerSlot}
+        </div>
+      )}
+
+      {readOnly && (
+        <div className="border-t border-gray-200 px-4 py-3 bg-gray-50 text-xs text-gray-500 text-center">
+          Read-only archive · {messages.length} message{messages.length === 1 ? '' : 's'}
+        </div>
+      )}
+
       {/* Input */}
+      {!readOnly && (
       <form onSubmit={handleSubmit} className="border-t border-gray-200 p-4 bg-white">
         <div className="flex items-center gap-3">
           <input
@@ -215,6 +243,7 @@ export const TestChatInterface = ({
           </button>
         </div>
       </form>
+      )}
     </div>
   );
 };

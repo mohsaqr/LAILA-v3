@@ -43,6 +43,8 @@ const PAGES_WITH_OWN_BREADCRUMBS = [
   /^\/teach\/courses\/\d+\/curriculum/,
   /^\/teach\/courses\/\d+\/assignments\/\d+\/submissions\/\d+/,
   /^\/teach\/courses\/\d+\/assignments\/\d+\/submissions$/,
+  /^\/teach\/courses\/\d+\/assignments\/\d+\/agent-submissions\/\d+$/,
+  /^\/teach\/courses\/\d+\/assignments\/\d+\/agent-submissions\/\d+\/conversations\/\d+$/,
   /^\/teach\/courses\/\d+\/gradebook/,
   /^\/teach\/courses\/\d+\/quizzes/,
   /^\/teach\/courses\/\d+\/forums/,
@@ -62,6 +64,7 @@ const PAGES_WITH_OWN_BREADCRUMBS = [
   /^\/courses\/\d+\/agent-assignments\/\d+$/,
   /^\/courses\/\d+\/agent-assignments\/\d+\/use$/,
   /^\/courses\/\d+\/agent-assignments\/\d+\/test$/,
+  /^\/courses\/\d+\/agent-assignments\/\d+\/test\/chat$/,
   /^\/courses\/\d+\/agent-assignments\/\d+\/datasets$/,
   /^\/teach\/courses\/\d+\/assignments$/,
   /^\/courses\/\d+\/analytics$/,
@@ -69,8 +72,10 @@ const PAGES_WITH_OWN_BREADCRUMBS = [
   /^\/courses\/\d+\/sna-exercise/,
   /^\/labs\/tna-exercise/,
   /^\/labs\/sna-exercise/,
-  /^\/admin\/users/,
-  /^\/admin\/enrollments/,
+  // All admin pages use AdminLayout, which already renders its own
+  // breadcrumb via `buildAdminBreadcrumb`. The global AutoBreadcrumb
+  // would otherwise stack a second one above it.
+  /^\/admin(\/|$)/,
   /^\/courses$/,
   /^\/labs\//,
 ];

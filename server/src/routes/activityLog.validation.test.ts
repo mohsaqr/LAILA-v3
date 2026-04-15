@@ -10,7 +10,8 @@ import { z } from 'zod';
 
 const validVerbs = [
   'enrolled', 'unenrolled', 'viewed', 'started', 'completed', 'progressed',
-  'submitted', 'interacted', 'downloaded', 'selected',
+  'submitted', 'unsubmitted', 'interacted', 'downloaded', 'selected',
+  'designed',
 ] as const;
 
 const validObjectTypes = [
@@ -18,6 +19,7 @@ const validObjectTypes = [
   'assignment', 'chatbot', 'file', 'quiz',
   'emotional_pulse', 'tutor_agent', 'tutor_session', 'tutor_conversation',
   'course_tutor', 'course_tutor_conversation',
+  'assignment_agent', 'agent_conversation',
   'lab', 'forum', 'certificate', 'survey', 'gradebook',
 ] as const;
 
@@ -51,11 +53,19 @@ describe('Activity Log Zod Validation', () => {
     expect(result.success).toBe(false);
   });
 
-  it('should accept all 10 valid verbs', () => {
+  it('should accept every valid verb', () => {
     for (const verb of validVerbs) {
       const result = logActivitySchema.safeParse({ verb, objectType: 'course' });
       expect(result.success, `Expected verb '${verb}' to be accepted`).toBe(true);
     }
+  });
+
+  it('should accept assignment_agent object type with unsubmitted verb', () => {
+    const result = logActivitySchema.safeParse({
+      verb: 'unsubmitted',
+      objectType: 'assignment_agent',
+    });
+    expect(result.success).toBe(true);
   });
 
   it('should reject unknown verb', () => {

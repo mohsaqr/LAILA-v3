@@ -3,7 +3,6 @@
  *
  * Fourth tab of the enhanced agent builder containing:
  * - Test chat interface
- * - Post-test reflection prompts
  * - Conversation analytics
  * - Design iteration suggestions
  */
@@ -23,18 +22,14 @@ import { agentAssignmentsApi } from '../../api/agentAssignments';
 import {
   AgentTestMessage,
   StudentAgentConfig,
-  ReflectionPromptTrigger,
 } from '../../types';
 import { TestChatInterface } from './TestChatInterface';
-import { ReflectionPrompt } from './ReflectionPrompt';
 import { Button } from '../common/Button';
 import { AgentDesignLogger } from '../../services/agentDesignLogger';
 
 interface AgentTestTabProps {
   assignmentId: number;
   config: StudentAgentConfig | null;
-  reflectionRequirement?: 'required' | 'optional' | 'disabled' | null;
-  onReflectionSubmit?: (promptId: string, response: string) => void;
   logger?: AgentDesignLogger | null;
   /**
    * Optional override for the active-chat container height. Defaults to the
@@ -47,8 +42,6 @@ interface AgentTestTabProps {
 export const AgentTestTab = ({
   assignmentId,
   config,
-  reflectionRequirement = 'optional',
-  onReflectionSubmit,
   logger,
   chatHeightClass = 'h-[600px] max-h-[calc(100vh-260px)] min-h-[420px]',
 }: AgentTestTabProps) => {
@@ -64,10 +57,6 @@ export const AgentTestTab = ({
   const [error, setError] = useState<string | null>(null);
   const [testCount, setTestCount] = useState(0);
   const [totalMessages, setTotalMessages] = useState(0);
-  const [showReflection, setShowReflection] = useState(false);
-  const [currentReflectionTrigger, setCurrentReflectionTrigger] =
-    useState<ReflectionPromptTrigger | null>(null);
-  const [hasSeenFirstTestReflection, setHasSeenFirstTestReflection] = useState(false);
 
   // Start conversation mutation
   const startConversationMutation = useMutation({
@@ -117,23 +106,20 @@ export const AgentTestTab = ({
       setTotalMessages((prev) => prev + 2);
       setError(null);
 
-      logger?.logTestMessageSent(conversationId!, newMessages.length - 1);
-      logger?.logTestResponseReceived(conversationId!, newMessages.length);
-
-      // Show first test reflection after a few messages
-      if (
-        !hasSeenFirstTestReflection &&
-        newMessages.length >= 4 &&
-        reflectionRequirement !== 'disabled'
-      ) {
-        setHasSeenFirstTestReflection(true);
-        setCurrentReflectionTrigger('first_test_completed');
-        setShowReflection(true);
-        logger?.logReflectionShown(
-          'first_test_completed',
-          'Did your agent behave as expected? What surprised you?'
-        );
-      }
+      logger?.logTestMessageSent(conversationId!, newMessages.length - 1, {
+        userMessage: data.userMessage.content,
+        aiModel: (data as any).aiModel,
+        aiProvider: (data as any).aiProvider,
+      });
+      logger?.logTestResponseReceived(conversationId!, newMessages.length, {
+        assistantMessage: data.assistantMessage.content,
+        aiModel: (data as any).aiModel,
+        aiProvider: (data as any).aiProvider,
+        responseTimeMs: (data as any).responseTimeMs,
+        promptTokens: (data as any).promptTokens,
+        completionTokens: (data as any).completionTokens,
+        totalTokens: (data as any).totalTokens,
+      });
     },
     onError: (err: any) => {
       setError(err.response?.data?.error || 'Failed to send message');
@@ -153,19 +139,6 @@ export const AgentTestTab = ({
     setMessages([]);
     setError(null);
     logger?.logTestReset();
-  };
-
-  const handleReflectionSubmit = (promptId: string, response: string) => {
-    setShowReflection(false);
-    setCurrentReflectionTrigger(null);
-    logger?.logReflectionSubmitted(promptId, response);
-    onReflectionSubmit?.(promptId, response);
-  };
-
-  const handleReflectionDismiss = (promptId: string) => {
-    setShowReflection(false);
-    setCurrentReflectionTrigger(null);
-    logger?.logReflectionDismissed(promptId);
   };
 
   // Calculate analytics
@@ -336,16 +309,6 @@ export const AgentTestTab = ({
           {messages.filter((m) => m.role === 'assistant').length} agent responses
         </span>
       </div>
-
-      {/* Reflection Prompt Modal/Inline */}
-      {showReflection && currentReflectionTrigger && (
-        <ReflectionPrompt
-          trigger={currentReflectionTrigger}
-          required={reflectionRequirement === 'required'}
-          onSubmit={handleReflectionSubmit}
-          onDismiss={handleReflectionDismiss}
-        />
-      )}
     </div>
   );
 };

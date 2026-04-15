@@ -11,7 +11,6 @@ import {
   MessageSquare,
   Target,
   Sparkles,
-  FileText,
   BarChart2,
   Network,
   LayoutList,
@@ -34,7 +33,6 @@ interface DesignAnalytics {
     personalityUsed: string | null;
     templatesApplied: number;
   };
-  reflectionResponses: Record<string, string>;
   categoryBreakdown?: Record<string, number>;
   totalEvents?: number;
 }
@@ -61,22 +59,19 @@ export const DesignAnalyticsSummary = ({ analytics, events }: DesignAnalyticsSum
     return `${hours}h ${mins}m`;
   };
 
-  const reflectionCount = Object.keys(analytics.reflectionResponses || {}).length;
-
   const categoryLabels: Record<string, string> = {
     navigation: 'Navigation',
     field: 'Field Changes',
     template: 'Templates',
     rule: 'Rules',
     test: 'Testing',
-    reflection: 'Reflections',
     save: 'Saves',
   };
 
   return (
     <div className="space-y-6">
       {/* Key Metrics */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {/* Total Design Time */}
         <div className="bg-white border border-gray-200 rounded-lg p-4">
           <div className="flex items-center gap-2 text-gray-500 mb-1">
@@ -127,15 +122,6 @@ export const DesignAnalyticsSummary = ({ analytics, events }: DesignAnalyticsSum
           <div className="text-2xl font-bold text-cyan-600">
             {analytics.testConversationCount}
           </div>
-        </div>
-
-        {/* Reflections */}
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-gray-500 mb-1">
-            <FileText className="w-4 h-4" />
-            <span className="text-xs font-medium">Reflections</span>
-          </div>
-          <div className="text-2xl font-bold text-pink-600">{reflectionCount}</div>
         </div>
       </div>
 
@@ -200,36 +186,6 @@ export const DesignAnalyticsSummary = ({ analytics, events }: DesignAnalyticsSum
                   </div>
                 );
               })}
-          </div>
-        </div>
-      )}
-
-      {/* Reflection Responses */}
-      {reflectionCount > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <FileText className="w-4 h-4 text-pink-600" />
-            Reflection Responses
-          </h4>
-          <div className="space-y-4">
-            {Object.entries(analytics.reflectionResponses).map(([promptId, response]) => {
-              const promptLabels: Record<string, string> = {
-                role_selected: 'Role Selection',
-                system_prompt_written: 'System Prompt',
-                first_test_completed: 'First Test',
-                post_test_edit: 'Post-Test Edit',
-                before_submission: 'Before Submission',
-              };
-
-              return (
-                <div key={promptId} className="border-l-2 border-pink-300 pl-3">
-                  <h5 className="text-xs font-medium text-pink-700 mb-1">
-                    {promptLabels[promptId] || promptId}
-                  </h5>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{response}</p>
-                </div>
-              );
-            })}
           </div>
         </div>
       )}

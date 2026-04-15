@@ -14,7 +14,6 @@ import {
   Edit,
   Send,
   MessageSquare,
-  Lightbulb,
   Save,
   Sparkles,
   Settings,
@@ -37,8 +36,6 @@ interface DesignEvent {
   roleSelected?: string | null;
   personalitySelected?: string | null;
   templateName?: string | null;
-  reflectionPromptId?: string | null;
-  reflectionResponse?: string | null;
   testConversationId?: number | null;
   totalDesignTime?: number | null;
   agentConfigSnapshot?: Record<string, unknown> | null;
@@ -57,7 +54,6 @@ const CATEGORY_COLORS: Record<string, { bg: string; border: string; text: string
   template: { bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-700' },
   rule: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700' },
   test: { bg: 'bg-cyan-50', border: 'border-cyan-200', text: 'text-cyan-700' },
-  reflection: { bg: 'bg-pink-50', border: 'border-pink-200', text: 'text-pink-700' },
   save: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700' },
 };
 
@@ -81,9 +77,6 @@ const EVENT_ICONS: Record<string, React.ElementType> = {
   test_message_sent: Send,
   test_response_received: MessageSquare,
   test_conversation_reset: MessageSquare,
-  reflection_prompt_shown: Lightbulb,
-  reflection_submitted: Lightbulb,
-  reflection_dismissed: Lightbulb,
   draft_saved: Save,
   submission_attempted: Send,
   submission_completed: Send,
@@ -111,9 +104,6 @@ const EVENT_LABELS: Record<string, string> = {
   test_message_sent: 'Sent test message',
   test_response_received: 'Received response',
   test_conversation_reset: 'Reset conversation',
-  reflection_prompt_shown: 'Reflection prompt shown',
-  reflection_submitted: 'Submitted reflection',
-  reflection_dismissed: 'Dismissed reflection',
   draft_saved: 'Saved draft',
   submission_attempted: 'Attempted submission',
   submission_completed: 'Submitted agent',
@@ -128,7 +118,6 @@ const CATEGORIES = [
   { id: 'template', label: 'Templates' },
   { id: 'rule', label: 'Rules' },
   { id: 'test', label: 'Testing' },
-  { id: 'reflection', label: 'Reflections' },
   { id: 'save', label: 'Saves' },
 ];
 
@@ -344,7 +333,7 @@ export const DesignTimeline = ({
                             </button>
                           </>
                         )}
-                        {(event.previousValue || event.newValue || event.reflectionResponse) && (
+                        {(event.previousValue || event.newValue) && (
                           <button
                             onClick={() =>
                               setExpandedEventId(isExpanded ? null : event.id)
@@ -379,14 +368,6 @@ export const DesignTimeline = ({
                             <div className="bg-green-50 text-green-800 p-2 rounded mt-1 font-mono whitespace-pre-wrap max-h-24 overflow-y-auto">
                               {event.newValue.substring(0, 500)}
                               {event.newValue.length > 500 && '...'}
-                            </div>
-                          </div>
-                        )}
-                        {event.reflectionResponse && (
-                          <div className="text-xs">
-                            <span className="text-gray-500">Reflection Response:</span>
-                            <div className="bg-white p-2 rounded border border-gray-200 mt-1 whitespace-pre-wrap">
-                              {event.reflectionResponse}
                             </div>
                           </div>
                         )}

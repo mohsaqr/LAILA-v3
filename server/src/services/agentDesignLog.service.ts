@@ -41,9 +41,6 @@ type AgentDesignEventType =
   | 'test_response_received'
   | 'test_conversation_reset'
   | 'post_test_edit'
-  | 'reflection_prompt_shown'
-  | 'reflection_dismissed'
-  | 'reflection_submitted'
   | 'draft_saved'
   | 'submission_attempted'
   | 'submission_completed'
@@ -56,7 +53,6 @@ type AgentDesignEventCategory =
   | 'template'
   | 'rule'
   | 'test'
-  | 'reflection'
   | 'save';
 
 interface DesignEventInput {
@@ -88,11 +84,6 @@ interface DesignEventInput {
   promptBlockId?: string;
   promptBlockCategory?: string;
   selectedBlockIds?: string[];
-  // Reflection tracking
-  reflectionPromptId?: string;
-  reflectionPromptText?: string;
-  reflectionResponse?: string;
-  reflectionDismissed?: boolean;
   testConversationId?: number;
   testMessageCount?: number;
   ipAddress?: string;
@@ -154,10 +145,14 @@ export class AgentDesignLogService {
             selectedBlockIds: event.selectedBlockIds
               ? JSON.stringify(event.selectedBlockIds)
               : null,
-            reflectionPromptId: event.reflectionPromptId || null,
-            reflectionPromptText: event.reflectionPromptText || null,
-            reflectionResponse: event.reflectionResponse || null,
-            reflectionDismissed: event.reflectionDismissed || false,
+            // Reflection columns retained in the Prisma schema as NOT NULL
+            // with defaults until a cleanup migration is generated; the
+            // reflection feature itself no longer emits events, so these
+            // just get null/false for every new row.
+            reflectionPromptId: null,
+            reflectionPromptText: null,
+            reflectionResponse: null,
+            reflectionDismissed: false,
             testConversationId: event.testConversationId || null,
             testMessageCount: event.testMessageCount || null,
             ipAddress: clientContext?.ipAddress || event.ipAddress || null,
@@ -468,53 +463,6 @@ export class AgentDesignLogService {
   }
 
   /**
-   * Get reflection responses for a student's config
-   */
-  async getReflectionResponses(
-    agentConfigId: number,
-    instructorId: number,
-    isAdmin = false
-  ): Promise<Array<{ promptId: string; promptText: string; response: string; timestamp: Date }>> {
-    // Verify access
-    const config = await prisma.studentAgentConfig.findUnique({
-      where: { id: agentConfigId },
-      include: {
-        assignment: {
-          include: {
-            course: {
-              select: { instructorId: true },
-            },
-          },
-        },
-      },
-    });
-
-    if (!config) {
-      throw new AppError('Agent config not found', 404);
-    }
-
-    if (config.assignment.course.instructorId !== instructorId && !isAdmin) {
-      throw new AppError('Not authorized', 403);
-    }
-
-    const events = await prisma.agentDesignEventLog.findMany({
-      where: {
-        agentConfigId,
-        eventType: 'reflection_submitted',
-        reflectionResponse: { not: null },
-      },
-      orderBy: { timestamp: 'asc' },
-    });
-
-    return events.map((e) => ({
-      promptId: e.reflectionPromptId!,
-      promptText: e.reflectionPromptText || '',
-      response: e.reflectionResponse!,
-      timestamp: e.timestamp,
-    }));
-  }
-
-  /**
    * Calculate analytics from events
    */
   private calculateAnalytics(
@@ -527,8 +475,6 @@ export class AgentDesignLogService {
       roleSelected?: string | null;
       personalitySelected?: string | null;
       usedTemplate?: boolean;
-      reflectionPromptId?: string | null;
-      reflectionResponse?: string | null;
       designSessionId?: string | null;
     }>,
     config?: { pedagogicalRole?: string | null; personality?: string | null }
@@ -598,18 +544,6 @@ export class AgentDesignLogService {
     );
     const templateAppliedCount = events.filter((e) => e.usedTemplate).length;
 
-    // Reflection responses
-    const reflectionResponses: Record<string, string> = {};
-    events
-      .filter(
-        (e) => e.eventType === 'reflection_submitted' && e.reflectionResponse
-      )
-      .forEach((e) => {
-        if (e.reflectionPromptId) {
-          reflectionResponses[e.reflectionPromptId] = e.reflectionResponse!;
-        }
-      });
-
     // Event category breakdown — excludes the 'session' category because
     // sittings are surfaced as a dedicated top-level metric (sittingCount)
     // rather than as a bar in the activity breakdown.
@@ -646,7 +580,6 @@ export class AgentDesignLogService {
         personalityUsed: personalityEvent?.personalitySelected || config?.personality || null,
         templatesApplied: templateAppliedCount,
       },
-      reflectionResponses,
       categoryBreakdown,
       totalEvents: breakdownEventCount,
     };

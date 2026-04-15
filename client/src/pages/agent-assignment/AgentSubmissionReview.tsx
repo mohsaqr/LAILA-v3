@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  ArrowLeft,
   User,
   Calendar,
   Award,
@@ -17,6 +16,7 @@ import {
   Download,
   FileSpreadsheet,
 } from 'lucide-react';
+import { Breadcrumb } from '../../components/common/Breadcrumb';
 import toast from 'react-hot-toast';
 import { agentAssignmentsApi } from '../../api/agentAssignments';
 import { assignmentsApi } from '../../api/assignments';
@@ -148,19 +148,28 @@ export const AgentSubmissionReview = () => {
   ];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Breadcrumb */}
       <div className="mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            navigate(`/teach/courses/${courseId}/assignments/${assId}/submissions`)
-          }
-          icon={<ArrowLeft className="w-4 h-4" />}
-        >
-          {t('back_to_submissions')}
-        </Button>
+        <Breadcrumb
+          items={[
+            { label: t('common:teaching', { defaultValue: 'Teaching' }), href: '/teach' },
+            {
+              label: assignment.course?.title || `Course #${courseId}`,
+              href: `/teach/courses/${courseId}`,
+            },
+            { label: t('assignments'), href: `/teach/courses/${courseId}/assignments` },
+            {
+              label: assignment.title,
+              href: `/teach/courses/${courseId}/assignments/${assId}`,
+            },
+            {
+              label: t('submissions', { defaultValue: 'Submissions' }),
+              href: `/teach/courses/${courseId}/assignments/${assId}/submissions`,
+            },
+            { label: student?.fullname || t('unknown_student') },
+          ]}
+        />
       </div>
 
       {/* Submission Info */}
