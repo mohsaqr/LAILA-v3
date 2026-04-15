@@ -457,10 +457,7 @@ export const StudentAgentBuilder = () => {
                 {config && config.isDraft && !showSubmitConfirm && (
                   <Button
                     size="sm"
-                    onClick={() => {
-                      logger?.logSubmissionAttempted();
-                      setShowSubmitConfirm(true);
-                    }}
+                    onClick={() => setShowSubmitConfirm(true)}
                     disabled={isSaving || isFullyPastDue}
                     icon={<CheckCircle className="w-4 h-4" />}
                     className="whitespace-nowrap"
@@ -475,7 +472,14 @@ export const StudentAgentBuilder = () => {
                     <span className="text-sm text-yellow-800 font-medium">{t('confirm_submit_agent')}</span>
                     <Button
                       size="sm"
-                      onClick={() => submitMutation.mutate()}
+                      onClick={() => {
+                        // Emit the `submitted/assignment_agent` row at the
+                        // exact moment the student commits — not when they
+                        // merely opened the confirmation dialog. This is the
+                        // only place the submit API is actually called.
+                        logger?.logSubmissionAttempted();
+                        submitMutation.mutate();
+                      }}
                       loading={isSubmitting}
                     >
                       {t('confirm')}
@@ -669,10 +673,7 @@ export const StudentAgentBuilder = () => {
                 </p>
                 {config && config.isDraft && (
                   <Button
-                    onClick={() => {
-                      logger?.logSubmissionAttempted();
-                      setShowSubmitConfirm(true);
-                    }}
+                    onClick={() => setShowSubmitConfirm(true)}
                     disabled={isSaving || isFullyPastDue}
                     icon={<CheckCircle className="w-4 h-4" />}
                   >
