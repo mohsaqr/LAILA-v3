@@ -187,6 +187,20 @@ const DEFAULT_INTERPRETATIONS: Record<string, string> = {
   'viewed:course': 'browsing',
   'viewed:module': 'browsing',
   'enrolled:course': 'browsing',
+
+  // practiced – student is actively working on their AI agent assignment
+  // (hands-on design work on the builder). `submitted` is carved out as
+  // assessment since it's the graded artifact, not design activity.
+  'started:assignment_agent': 'practiced',
+  'progressed:assignment_agent': 'practiced',
+  'designed:assignment_agent': 'practiced',
+  'unsubmitted:assignment_agent': 'practiced',
+  'submitted:assignment_agent': 'assessment',
+
+  // AI_engaged – student chatting with their own student-built agent
+  // inside the test conversation surface.
+  'started:agent_conversation': 'AI_engaged',
+  'interacted:agent_conversation': 'AI_engaged',
 };
 
 /** Resolve a verb:objectType combo using: explicit map → object override → verb fallback */
