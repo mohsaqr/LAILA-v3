@@ -118,27 +118,45 @@ export const StudentAgentBuilder = () => {
 
   // One-shot "page opened" row in the admin activity log. Fires exactly
   // once per mount (ref-guarded against React StrictMode's double-invoke)
-  // and is independent of the design logger's sitting management. We
-  // wait for `data?.assignment` so the row carries the real courseId —
-  // the server enricher then populates courseTitle / courseSlug from
-  // the Course table.
+  // and is independent of the design logger's sitting management.
+  //
+  // Semantics:
+  //   - When the student still has an unsubmitted agent (draft, or
+  //     no config yet) opening the builder counts as `started` — they
+  //     are actively designing.
+  //   - Once the agent has been submitted, opening the builder is just
+  //     a `viewed` — the student is reviewing their submission. Only
+  //     clicking Unsubmit returns them to `started` territory on the
+  //     next open.
+  //
+  // We wait for `data?.assignment` so the row carries the real courseId
+  // AND so we know whether the config is still a draft before we pick
+  // the verb — otherwise the first mount with data=null would always
+  // fall through to `started` and never get corrected.
   useEffect(() => {
     if (openedRef.current) return;
     if (!user?.id || !assId) return;
+    if (!data?.assignment) return;
     const resolvedCourseId =
       (data as any)?.assignment?.course?.id ??
       (courseId ? parseInt(courseId, 10) : undefined);
     if (!resolvedCourseId) return;
+
+    const isSubmitted =
+      data.config != null && (data.config as any).isDraft === false;
     openedRef.current = true;
+
     void activityLogger.log({
-      verb: 'started',
+      verb: isSubmitted ? 'viewed' : 'started',
       objectType: 'assignment_agent',
       objectId: assId,
       objectTitle: (data as any)?.assignment?.title || 'Agent assignment',
       courseId: resolvedCourseId,
-      actionSubtype: 'agent_design.session.start',
+      actionSubtype: isSubmitted
+        ? 'agent_design.session.viewed'
+        : 'agent_design.session.start',
     });
-  }, [user?.id, assId, courseId, (data as any)?.assignment?.id]);
+  }, [user?.id, assId, courseId, data?.assignment?.id, (data?.config as any)?.isDraft]);
 
   // Initialize form and logger when data loads
   useEffect(() => {

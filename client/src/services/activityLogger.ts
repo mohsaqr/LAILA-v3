@@ -115,6 +115,7 @@ export const SUBTYPE_VERB_MAP: Record<string, { verb: ActivityVerb; objectType: 
   // platform's instructor-built `tutor_agent`). Test-conversation events
   // still use `tutor_conversation` because they represent an actual chat.
   'agent_design.session.start':             { verb: 'started',     objectType: 'assignment_agent' },
+  'agent_design.session.viewed':            { verb: 'viewed',      objectType: 'assignment_agent' },
   'agent_design.session.end':               { verb: 'completed',   objectType: 'assignment_agent' },
   // session.pause / session.resume / tab.time_recorded are intentionally
   // unmapped — they're blocked by BRIDGE_SKIP_EVENT_TYPES and must never
