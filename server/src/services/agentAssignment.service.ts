@@ -1028,17 +1028,15 @@ export class AgentAssignmentService {
       throw new AppError('Submission not found', 404);
     }
 
+    // Use the shared formatConfig helper so every JSON-string field
+    // (dosRules, dontsRules, suggestedQuestions, selectedPromptBlocks)
+    // is parsed back into its real array/object shape. Before this
+    // fix, suggestedQuestions and selectedPromptBlocks leaked through
+    // as raw JSON strings and crashed any caller that did
+    // `.slice(...).map(...)` on them.
     return {
       ...submission,
-      agentConfig: {
-        ...submission.agentConfig,
-        dosRules: submission.agentConfig.dosRules
-          ? JSON.parse(submission.agentConfig.dosRules)
-          : [],
-        dontsRules: submission.agentConfig.dontsRules
-          ? JSON.parse(submission.agentConfig.dontsRules)
-          : [],
-      },
+      agentConfig: this.formatConfig(submission.agentConfig),
     };
   }
 

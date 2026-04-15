@@ -110,6 +110,7 @@ import {
   UseMyAgent,
   TestAndReflect,
   AgentTestChat,
+  InstructorAgentTestChat,
   ConversationReplay,
   AgentDatasets,
 } from './pages/agent-assignment';
@@ -729,6 +730,14 @@ function App() {
           element={
             <ProtectedRoute requireInstructor>
               <ConversationReplay />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teach/courses/:id/assignments/:assignmentId/agent-submissions/:submissionId/test"
+          element={
+            <ProtectedRoute requireInstructor>
+              <InstructorAgentTestChat />
             </ProtectedRoute>
           }
         />

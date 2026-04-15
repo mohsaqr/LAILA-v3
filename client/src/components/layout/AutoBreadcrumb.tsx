@@ -45,6 +45,7 @@ const PAGES_WITH_OWN_BREADCRUMBS = [
   /^\/teach\/courses\/\d+\/assignments\/\d+\/submissions$/,
   /^\/teach\/courses\/\d+\/assignments\/\d+\/agent-submissions\/\d+$/,
   /^\/teach\/courses\/\d+\/assignments\/\d+\/agent-submissions\/\d+\/conversations\/\d+$/,
+  /^\/teach\/courses\/\d+\/assignments\/\d+\/agent-submissions\/\d+\/test$/,
   /^\/teach\/courses\/\d+\/gradebook/,
   /^\/teach\/courses\/\d+\/quizzes/,
   /^\/teach\/courses\/\d+\/forums/,
