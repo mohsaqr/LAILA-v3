@@ -22,7 +22,8 @@ export type ObjectType =
   | 'tutor_agent' | 'tutor_session' | 'tutor_conversation'
   | 'course_tutor' | 'course_tutor_conversation'
   | 'assignment_agent' | 'agent_conversation' | 'lab'
-  | 'forum' | 'certificate' | 'survey' | 'gradebook';
+  | 'forum' | 'certificate' | 'survey' | 'gradebook'
+  | 'dashboard' | 'profile' | 'catalog' | 'analytics';
 
 export interface LogActivityInput {
   userId: number;

@@ -1,9 +1,11 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { BookOpen, GraduationCap, Clock, ArrowRight, CheckCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { enrollmentsApi } from '../api/enrollments';
 import { useTheme } from '../hooks/useTheme';
+import { activityLogger } from '../services/activityLogger';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { Enrollment } from '../types';
@@ -24,6 +26,10 @@ export const MyLearning = () => {
     textMuted: isDark ? '#6b7280' : '#9ca3af',
     bgProgress: isDark ? '#374151' : '#e5e7eb',
   };
+
+  useEffect(() => {
+    activityLogger.logMyLearningViewed();
+  }, []);
 
   const activeEnrollments = enrollments?.filter(e => e.status === 'active') || [];
   const completedEnrollments = enrollments?.filter(e => e.status === 'completed') || [];

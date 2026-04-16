@@ -303,7 +303,7 @@ export const Catalog = () => {
 
   // Log catalog viewed once
   useEffect(() => {
-    activityLogger.log({ verb: 'viewed', objectType: 'course', objectTitle: 'Course Catalog' });
+    activityLogger.log({ verb: 'viewed', objectType: 'catalog', objectTitle: 'Course Catalog' });
   }, []);
 
   // Fetch user's enrollments when filter is active
@@ -332,6 +332,37 @@ export const Catalog = () => {
     queryKey: ['courses', { search, categoryIds, difficulty, page }],
     queryFn: () => coursesApi.getCourses({ search, categoryIds: categoryIds.length ? categoryIds : undefined, difficulty, page, limit: 12 }),
   });
+  // Log search with debounce (fires 800ms after user stops typing)
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!search.trim()) return;
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      activityLogger.logCatalogSearched(search.trim());
+    }, 800);
+    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
+  }, [search]);
+
+  // Log filter changes (category, difficulty, tab)
+  useEffect(() => {
+    if (categoryIds.length > 0) {
+      const names = (categoriesList || []).filter(c => categoryIds.includes(c.id)).map(c => c.title);
+      activityLogger.logCatalogFiltered({ filterType: 'category', categoryIds, categoryNames: names });
+    }
+  }, [categoryIds, categoriesList]);
+
+  useEffect(() => {
+    if (difficulty) {
+      activityLogger.logCatalogFiltered({ filterType: 'difficulty', difficulty });
+    }
+  }, [difficulty]);
+
+  useEffect(() => {
+    if (filter) {
+      activityLogger.logCatalogFiltered({ filterType: 'tab', filter });
+    }
+  }, [filter]);
+
   const difficulties = [
     { value: 'beginner', label: t('beginner') },
     { value: 'intermediate', label: t('intermediate') },

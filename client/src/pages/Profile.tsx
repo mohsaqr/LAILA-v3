@@ -1,10 +1,11 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { User, Mail, Shield, Calendar, Save, Camera } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
+import { activityLogger } from '../services/activityLogger';
 import { authApi } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
 import { resolveFileUrl } from '../api/client';
@@ -32,10 +33,15 @@ export const Profile = () => {
     iconColor: isDark ? '#9ca3af' : '#9ca3af',
   };
 
+  useEffect(() => {
+    activityLogger.logProfileViewed();
+  }, []);
+
   const updateMutation = useMutation({
     mutationFn: (data: { fullname: string }) => authApi.updateProfile(data),
     onSuccess: (updated) => {
       setUser({ ...user!, fullname: updated.fullname });
+      activityLogger.logProfileUpdated({ field: 'fullname' });
       toast.success(t('profile_updated'));
       setIsEditing(false);
     },
@@ -57,6 +63,7 @@ export const Profile = () => {
     try {
       const { avatarUrl } = await authApi.uploadAvatar(file);
       setUser({ ...user!, avatarUrl });
+      activityLogger.logProfileUpdated({ field: 'avatar' });
       toast.success(t('profile_updated'));
     } catch (error: any) {
       toast.error(error.message || t('failed_update_profile'));

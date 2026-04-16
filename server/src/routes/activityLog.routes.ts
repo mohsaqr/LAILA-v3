@@ -22,6 +22,7 @@ const validObjectTypes = [
   'course_tutor', 'course_tutor_conversation',
   'assignment_agent', 'agent_conversation',
   'lab', 'forum', 'certificate', 'survey', 'gradebook',
+  'dashboard', 'profile', 'catalog', 'analytics',
 ] as const;
 
 // Validation schemas

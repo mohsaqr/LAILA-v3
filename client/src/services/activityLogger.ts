@@ -13,7 +13,8 @@ export type ObjectType =
   | 'tutor_agent' | 'tutor_session' | 'tutor_conversation'
   | 'course_tutor' | 'course_tutor_conversation'
   | 'assignment_agent' | 'agent_conversation' | 'lab'
-  | 'forum' | 'certificate' | 'survey' | 'gradebook';
+  | 'forum' | 'certificate' | 'survey' | 'gradebook'
+  | 'dashboard' | 'profile' | 'catalog' | 'analytics';
 
 export interface LogActivityInput {
   verb: ActivityVerb;
@@ -560,6 +561,40 @@ class ActivityLogger {
 
   async logGradebookViewed(courseId: number) {
     return this.log({ verb: 'viewed', objectType: 'gradebook', courseId });
+  }
+
+  async logDashboardViewed() {
+    return this.log({ verb: 'viewed', objectType: 'dashboard', objectTitle: 'Dashboard' });
+  }
+
+  async logMyLearningViewed() {
+    return this.log({ verb: 'viewed', objectType: 'course', objectTitle: 'My Learning' });
+  }
+
+  async logProfileViewed() {
+    return this.log({ verb: 'viewed', objectType: 'profile', objectTitle: 'Profile' });
+  }
+
+  async logProfileUpdated(extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'interacted', objectType: 'profile', objectTitle: 'Profile Updated', extensions });
+  }
+
+  async logCatalogSearched(query: string) {
+    return this.log({
+      verb: 'interacted',
+      objectType: 'catalog',
+      objectTitle: 'Catalog Search',
+      extensions: { searchQuery: query },
+    });
+  }
+
+  async logCatalogFiltered(extensions: Record<string, unknown>) {
+    return this.log({
+      verb: 'interacted',
+      objectType: 'catalog',
+      objectTitle: 'Catalog Filter',
+      extensions,
+    });
   }
 }
 
