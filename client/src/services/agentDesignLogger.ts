@@ -49,6 +49,11 @@ const BRIDGE_SKIP_EVENT_TYPES: ReadonlySet<string> = new Set([
   // or effect-dep re-runs. The internal event is still written to
   // AgentDesignEventLog for the instructor timeline.
   'design_session_start',
+  // `design_session_end` fires on beforeunload and as a synthetic close
+  // for stale sittings when the page reopens. Bridging it would produce
+  // a spurious `completed`/`assignment_agent` row every time a student
+  // revisits an already-submitted assignment.
+  'design_session_end',
   // `submission_completed` fires on the submit mutation's onSuccess, but
   // the click itself already produces `submission_attempted` →
   // `submitted`/`assignment_agent`, which is the canonical "student
