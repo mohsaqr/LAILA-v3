@@ -32,8 +32,6 @@ interface DesignEvent {
   roleSelected?: string | null;
   personalitySelected?: string | null;
   templateName?: string | null;
-  reflectionPromptId?: string | null;
-  reflectionResponse?: string | null;
   testConversationId?: number | null;
   totalDesignTime?: number | null;
   agentConfigSnapshot?: Record<string, unknown> | null;
@@ -113,7 +111,6 @@ export const DesignProcessTab = ({ agentConfigId }: DesignProcessTabProps) => {
       personalityUsed: string | null;
       templatesApplied: number;
     };
-    reflectionResponses: Record<string, string>;
     categoryBreakdown?: Record<string, number>;
     totalEvents?: number;
   };

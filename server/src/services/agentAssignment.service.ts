@@ -121,7 +121,6 @@ export class AgentAssignmentService {
       dontsRules: config.dontsRules ? JSON.parse(config.dontsRules) : [],
       suggestedQuestions: config.suggestedQuestions ? JSON.parse(config.suggestedQuestions) : [],
       selectedPromptBlocks: config.selectedPromptBlocks ? JSON.parse(config.selectedPromptBlocks) : [],
-      reflectionResponses: config.reflectionResponses ? JSON.parse(config.reflectionResponses) : {},
     };
   }
 
@@ -144,7 +143,13 @@ export class AgentAssignmentService {
           },
         },
         _count: {
-          select: { testConversations: true },
+          // Filter out empty test conversations (no messages) so counts on
+          // the instructor-facing views reflect actual student activity.
+          select: {
+            testConversations: {
+              where: { messages: { some: {} } },
+            },
+          },
         },
       },
     });
@@ -210,8 +215,6 @@ export class AgentAssignmentService {
         knowledgeContext: data.knowledgeContext,
         // Prompt building blocks
         selectedPromptBlocks: data.selectedPromptBlocks ? JSON.stringify(data.selectedPromptBlocks) : null,
-        // Reflection tracking
-        reflectionResponses: data.reflectionResponses ? JSON.stringify(data.reflectionResponses) : null,
         version: 1,
         isDraft: true,
       },
@@ -242,17 +245,10 @@ export class AgentAssignmentService {
       },
     });
 
-    this.logAgentActivity({
-      userId: context.userId,
-      verb: 'created',
-      objectId: config.id,
-      objectTitle: data.agentName,
-      courseId: assignment.courseId,
-      assignmentId: assignment.id,
-      assignmentTitle: assignment.title,
-      extensions: { pedagogicalRole: data.pedagogicalRole, personality: data.personality },
-      context,
-    });
+    // Note: we intentionally do NOT write a `created`/`assignment` row to
+    // LearningActivityLog here. The client-side design logger already
+    // captures save actions as `progressed`/`assignment_agent` with the
+    // `agent_design.save.draft` subtype, which is the canonical signal.
 
     return this.formatConfig(config);
   }
@@ -303,7 +299,6 @@ export class AgentAssignmentService {
     if (data.suggestedQuestions !== undefined) changedFields.push('suggestedQuestions');
     if (data.knowledgeContext !== undefined && data.knowledgeContext !== existing.knowledgeContext) changedFields.push('knowledgeContext');
     if (data.selectedPromptBlocks !== undefined) changedFields.push('selectedPromptBlocks');
-    if (data.reflectionResponses !== undefined) changedFields.push('reflectionResponses');
 
     const newVersion = existing.version + 1;
 
@@ -328,8 +323,6 @@ export class AgentAssignmentService {
         knowledgeContext: data.knowledgeContext,
         // Prompt building blocks
         selectedPromptBlocks: data.selectedPromptBlocks ? JSON.stringify(data.selectedPromptBlocks) : undefined,
-        // Reflection tracking
-        reflectionResponses: data.reflectionResponses ? JSON.stringify(data.reflectionResponses) : undefined,
         version: newVersion,
       },
     });
@@ -361,22 +354,9 @@ export class AgentAssignmentService {
       },
     });
 
-    this.logAgentActivity({
-      userId: context.userId,
-      verb: 'updated',
-      objectId: updated.id,
-      objectTitle: updated.agentName,
-      courseId: assignment.courseId,
-      assignmentId: assignment.id,
-      assignmentTitle: assignment.title,
-      extensions: {
-        version: newVersion,
-        changedFields: changedFields.length > 0 ? changedFields : undefined,
-        pedagogicalRole: data.pedagogicalRole,
-        personality: data.personality,
-      },
-      context,
-    });
+    // Note: we intentionally do NOT write an `updated`/`assignment` row to
+    // LearningActivityLog here. Covered client-side via
+    // `agent_design.save.draft` → `progressed`/`assignment_agent`.
 
     return this.formatConfig(updated);
   }
@@ -467,17 +447,11 @@ export class AgentAssignmentService {
       },
     });
 
-    this.logAgentActivity({
-      userId: context.userId,
-      verb: 'submitted',
-      objectId: config.id,
-      objectTitle: config.agentName,
-      courseId: assignment.courseId,
-      assignmentId: assignment.id,
-      assignmentTitle: assignment.title,
-      extensions: { version: config.version },
-      context,
-    });
+    // Note: we intentionally do NOT write a `submitted`/`assignment` row
+    // to LearningActivityLog. The client-side design logger already emits
+    // `submitted`/`assignment_agent` with the `agent_design.save.submission_attempted`
+    // subtype when the student clicks the Submit button, which is the
+    // canonical signal.
 
     return { config: updated, submission };
   }
@@ -550,17 +524,11 @@ export class AgentAssignmentService {
       },
     });
 
-    this.logAgentActivity({
-      userId: context.userId,
-      verb: 'updated',
-      objectId: config.id,
-      objectTitle: config.agentName,
-      courseId: assignment.courseId,
-      assignmentId: assignment.id,
-      assignmentTitle: assignment.title,
-      extensions: { action: 'unsubmit', version: config.version },
-      context,
-    });
+    // Note: we intentionally do NOT write an `updated`/`assignment` row
+    // here. The client-side design logger already emits
+    // `unsubmitted`/`assignment_agent` via `agent_design.save.unsubmit_requested`
+    // when the student clicks the Unsubmit button — that's the canonical
+    // signal and the only row we want in admin/logs for this action.
 
     return updated;
   }
@@ -637,17 +605,11 @@ export class AgentAssignmentService {
       },
     });
 
-    this.logAgentActivity({
-      userId: testerInfo.userId,
-      verb: 'started',
-      objectId: config.id,
-      objectTitle: config.agentName,
-      courseId: config.assignment.courseId,
-      assignmentId: config.assignmentId,
-      assignmentTitle: config.assignment.title,
-      extensions: { action: 'test_conversation', conversationId: conversation.id, version: config.version },
-      context,
-    });
+    // Note: we intentionally do NOT write a `started`/`assignment` row
+    // here. The client-side agentDesignLogger already emits
+    // `started`/`agent_conversation` via `agent_design.test.conversation_started`
+    // when the student clicks "Start Test Conversation", which is the
+    // canonical signal.
 
     return {
       conversation,
@@ -819,8 +781,9 @@ export class AgentAssignmentService {
       },
     });
 
-    // Detect and save CSV datasets from the response
-    this.detectAndSaveDataset(aiResponse, config, testerInfo.userId, resolvedModel, resolvedProvider)
+    // Detect and save CSV datasets from the response. We pass the user's
+    // message so the dataset record keeps the prompt that produced the CSV.
+    this.detectAndSaveDataset(aiResponse, config, testerInfo.userId, resolvedModel, resolvedProvider, message)
       .catch(err => console.error('[AgentAssignment] Failed to save detected dataset:', err));
 
     // Log interaction to agent analytics
@@ -860,16 +823,21 @@ export class AgentAssignmentService {
       },
     });
 
-    // Log to unified activity log for comprehensive tracking
+    // Log to unified activity log for comprehensive tracking. Tagging with
+    // `actionSubtype: agent_design.test.response_received` makes this row
+    // filterable in admin/logs/activity alongside every other agent design
+    // event the client-side bridge emits, even though admins have no access
+    // to the instructor-only Design Process view.
     activityLogService.logActivity({
       userId: testerInfo.userId,
       verb: 'interacted',
-      objectType: 'tutor_agent',
+      objectType: 'agent_conversation',
       objectId: config.id,
       objectTitle: config.agentName || 'Student Agent',
       objectSubtype: 'agent_assignment',
       courseId: config.assignment.courseId,
       duration: responseTimeMs,
+      actionSubtype: 'agent_design.test.response_received',
       extensions: {
         conversationId,
         assignmentId: config.assignmentId,
@@ -881,6 +849,9 @@ export class AgentAssignmentService {
         aiModel: resolvedModel,
         aiProvider: resolvedProvider,
         responseTimeMs,
+        promptTokens,
+        completionTokens,
+        totalTokens,
       },
       sessionId: context.sessionId,
       deviceType: context.userAgent?.includes('Mobile') ? 'mobile' : 'desktop',
@@ -988,7 +959,15 @@ export class AgentAssignmentService {
           },
         },
         _count: {
-          select: { testConversations: true },
+          // Only count test conversations that actually have messages.
+          // Students who click "Start Test Conversation" and never type leave
+          // behind empty AgentTestConversation rows that would otherwise
+          // inflate the conversation count on the instructor submissions list.
+          select: {
+            testConversations: {
+              where: { messages: { some: {} } },
+            },
+          },
         },
       },
       orderBy: { updatedAt: 'desc' },
@@ -1032,7 +1011,13 @@ export class AgentAssignmentService {
         agentConfig: {
           include: {
             _count: {
-              select: { testConversations: true },
+              // Match the submissions-list behaviour: only count conversations
+              // that have at least one message.
+              select: {
+                testConversations: {
+                  where: { messages: { some: {} } },
+                },
+              },
             },
           },
         },
@@ -1043,17 +1028,15 @@ export class AgentAssignmentService {
       throw new AppError('Submission not found', 404);
     }
 
+    // Use the shared formatConfig helper so every JSON-string field
+    // (dosRules, dontsRules, suggestedQuestions, selectedPromptBlocks)
+    // is parsed back into its real array/object shape. Before this
+    // fix, suggestedQuestions and selectedPromptBlocks leaked through
+    // as raw JSON strings and crashed any caller that did
+    // `.slice(...).map(...)` on them.
     return {
       ...submission,
-      agentConfig: {
-        ...submission.agentConfig,
-        dosRules: submission.agentConfig.dosRules
-          ? JSON.parse(submission.agentConfig.dosRules)
-          : [],
-        dontsRules: submission.agentConfig.dontsRules
-          ? JSON.parse(submission.agentConfig.dontsRules)
-          : [],
-      },
+      agentConfig: this.formatConfig(submission.agentConfig),
     };
   }
 
@@ -1456,6 +1439,7 @@ CRITICAL RULES:
     userId: number,
     aiModel?: string,
     aiProvider?: string,
+    userPrompt?: string,
   ) {
     // Look for CSV data in markdown code blocks: ```csv ... ``` or ``` ... ``` with comma-separated lines
     const codeBlockRegex = /```(?:csv|plaintext|text)?\s*\n([\s\S]*?)```/g;
@@ -1498,6 +1482,7 @@ CRITICAL RULES:
           aiModel: aiModel || null,
           aiProvider: aiProvider || null,
           agentPrompt: null,
+          userPrompt: userPrompt || null,
           generationConfig: JSON.stringify({ source: 'chat', agentConfigId: config.id }),
           status: 'completed',
         },

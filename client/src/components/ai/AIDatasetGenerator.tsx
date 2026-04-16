@@ -164,6 +164,7 @@ export const AIDatasetGenerator = ({
       const response = await chatApi.sendMessage({
         message: prompt.trim(),
         module: `ai-dataset-${type}`,
+        provider: 'openai',
         systemPrompt: type === 'tna' ? TNA_SYSTEM_PROMPT : SNA_SYSTEM_PROMPT,
       });
 

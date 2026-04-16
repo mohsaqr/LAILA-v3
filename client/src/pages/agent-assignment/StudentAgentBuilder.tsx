@@ -5,7 +5,7 @@
  * and obsessive design process logging.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -29,7 +29,6 @@ import { resolveFileUrl } from '../../api/client';
 import { AgentIdentityTab } from '../../components/agent-assignment/AgentIdentityTab';
 import { AgentBehaviorTab } from '../../components/agent-assignment/AgentBehaviorTab';
 import { AgentAdvancedTab } from '../../components/agent-assignment/AgentAdvancedTab';
-import { AgentTestTab } from '../../components/agent-assignment/AgentTestTab';
 import { AgentDatasetTab } from '../../components/agent-assignment/AgentDatasetTab';
 import { Card, CardBody } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
@@ -45,6 +44,7 @@ import {
   getDesignLogger,
   endCurrentDesignSession,
 } from '../../services/agentDesignLogger';
+import activityLogger from '../../services/activityLogger';
 import { useAuth } from '../../hooks/useAuth';
 
 type TabType = 'identity' | 'behavior' | 'advanced' | 'test' | 'dataset';
@@ -66,7 +66,6 @@ const getDefaultFormData = (): AgentConfigFormData => ({
   temperature: 0.7,
   suggestedQuestions: [],
   knowledgeContext: '',
-  reflectionResponses: {},
   selectedPromptBlocks: [],
 });
 
@@ -109,11 +108,55 @@ export const StudentAgentBuilder = () => {
     };
   }, [user?.id, assId]);
 
+  const openedRef = useRef(false);
+
   // Fetch agent config
   const { data, isLoading, error } = useQuery({
     queryKey: ['myAgentConfig', assId],
     queryFn: () => agentAssignmentsApi.getMyAgentConfig(assId),
   });
+
+  // One-shot "page opened" row in the admin activity log. Fires exactly
+  // once per mount (ref-guarded against React StrictMode's double-invoke)
+  // and is independent of the design logger's sitting management.
+  //
+  // Semantics:
+  //   - When the student still has an unsubmitted agent (draft, or
+  //     no config yet) opening the builder counts as `started` — they
+  //     are actively designing.
+  //   - Once the agent has been submitted, opening the builder is just
+  //     a `viewed` — the student is reviewing their submission. Only
+  //     clicking Unsubmit returns them to `started` territory on the
+  //     next open.
+  //
+  // We wait for `data?.assignment` so the row carries the real courseId
+  // AND so we know whether the config is still a draft before we pick
+  // the verb — otherwise the first mount with data=null would always
+  // fall through to `started` and never get corrected.
+  useEffect(() => {
+    if (openedRef.current) return;
+    if (!user?.id || !assId) return;
+    if (!data?.assignment) return;
+    const resolvedCourseId =
+      (data as any)?.assignment?.course?.id ??
+      (courseId ? parseInt(courseId, 10) : undefined);
+    if (!resolvedCourseId) return;
+
+    const isSubmitted =
+      data.config != null && (data.config as any).isDraft === false;
+    openedRef.current = true;
+
+    void activityLogger.log({
+      verb: isSubmitted ? 'viewed' : 'started',
+      objectType: 'assignment_agent',
+      objectId: assId,
+      objectTitle: (data as any)?.assignment?.title || 'Agent assignment',
+      courseId: resolvedCourseId,
+      actionSubtype: isSubmitted
+        ? 'agent_design.session.viewed'
+        : 'agent_design.session.start',
+    });
+  }, [user?.id, assId, courseId, data?.assignment?.id, (data?.config as any)?.isDraft]);
 
   // Initialize form and logger when data loads
   useEffect(() => {
@@ -135,7 +178,6 @@ export const StudentAgentBuilder = () => {
         temperature: config.temperature ?? 0.7,
         suggestedQuestions: config.suggestedQuestions || [],
         knowledgeContext: config.knowledgeContext || '',
-        reflectionResponses: config.reflectionResponses || {},
         selectedPromptBlocks: config.selectedPromptBlocks || [],
       });
 
@@ -143,9 +185,11 @@ export const StudentAgentBuilder = () => {
       if (logger) {
         logger.setAgentConfigId(config.id);
         logger.setVersion(config.version);
+        logger.setCourseContext((data as any)?.assignment?.course?.id);
         logger.startSession(config.id, config.version);
       }
     } else if (logger) {
+      logger.setCourseContext((data as any)?.assignment?.course?.id);
       // Start session without config (new agent)
       logger.startSession();
     }
@@ -290,17 +334,6 @@ export const StudentAgentBuilder = () => {
     }
   };
 
-  // Reflection callback from test tab
-  const handleTestReflectionSubmit = (promptId: string, response: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      reflectionResponses: {
-        ...(prev.reflectionResponses || {}),
-        [promptId]: response,
-      },
-    }));
-  };
-
   if (isLoading) {
     return <Loading fullScreen text={t('loading_assignment')} />;
   }
@@ -424,10 +457,7 @@ export const StudentAgentBuilder = () => {
                 {config && config.isDraft && !showSubmitConfirm && (
                   <Button
                     size="sm"
-                    onClick={() => {
-                      logger?.logSubmissionAttempted();
-                      setShowSubmitConfirm(true);
-                    }}
+                    onClick={() => setShowSubmitConfirm(true)}
                     disabled={isSaving || isFullyPastDue}
                     icon={<CheckCircle className="w-4 h-4" />}
                     className="whitespace-nowrap"
@@ -442,7 +472,14 @@ export const StudentAgentBuilder = () => {
                     <span className="text-sm text-yellow-800 font-medium">{t('confirm_submit_agent')}</span>
                     <Button
                       size="sm"
-                      onClick={() => submitMutation.mutate()}
+                      onClick={() => {
+                        // Emit the `submitted/assignment_agent` row at the
+                        // exact moment the student commits — not when they
+                        // merely opened the confirmation dialog. This is the
+                        // only place the submit API is actually called.
+                        logger?.logSubmissionAttempted();
+                        submitMutation.mutate();
+                      }}
                       loading={isSubmitting}
                     >
                       {t('confirm')}
@@ -522,13 +559,13 @@ export const StudentAgentBuilder = () => {
               )}
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-center gap-3">
+              <div className="flex items-center justify-center gap-3 flex-wrap">
                 <Button
                   size="sm"
-                  onClick={() => navigate(`/courses/${courseId}/agent-assignments/${assignmentId}/use`)}
-                  icon={<Bot className="w-4 h-4" />}
+                  onClick={() => navigate(`/courses/${courseId}/agent-assignments/${assignmentId}/test`)}
+                  icon={<Play className="w-4 h-4" />}
                 >
-                  {t('chat_with_agent', { name: config?.agentName })}
+                  {t('test_reflect')}
                 </Button>
                 <Button
                   size="sm"
@@ -624,13 +661,26 @@ export const StudentAgentBuilder = () => {
               />
             )}
             {activeTab === 'test' && (
-              <AgentTestTab
-                assignmentId={assId}
-                config={config}
-                reflectionRequirement={assignment.reflectionRequirement}
-                onReflectionSubmit={handleTestReflectionSubmit}
-                logger={logger}
-              />
+              <div className="bg-gradient-to-br from-violet-50 to-purple-50 rounded-lg border border-violet-200 p-8 text-center">
+                <div className="w-16 h-16 bg-violet-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <AlertCircle className="w-8 h-8 text-violet-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  {t('submit_before_test_title')}
+                </h3>
+                <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                  {t('submit_before_test')}
+                </p>
+                {config && config.isDraft && (
+                  <Button
+                    onClick={() => setShowSubmitConfirm(true)}
+                    disabled={isSaving || isFullyPastDue}
+                    icon={<CheckCircle className="w-4 h-4" />}
+                  >
+                    {t('common:submit')}
+                  </Button>
+                )}
+              </div>
             )}
             {activeTab === 'dataset' && (
               <AgentDatasetTab

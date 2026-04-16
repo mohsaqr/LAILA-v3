@@ -11,16 +11,19 @@ const isPostgres = (process.env.DATABASE_URL || '').startsWith('postgres');
 export type ActivityVerb =
   | 'enrolled' | 'unenrolled' | 'viewed' | 'started' | 'completed'
   | 'progressed' | 'paused' | 'resumed' | 'seeked' | 'scrolled'
-  | 'downloaded' | 'submitted' | 'graded' | 'messaged' | 'received'
+  | 'downloaded' | 'submitted' | 'unsubmitted' | 'graded' | 'messaged' | 'received'
   | 'cleared' | 'interacted' | 'expressed' | 'selected' | 'switched'
+  | 'designed'
   | 'created' | 'updated' | 'deleted';
 
 export type ObjectType =
   | 'course' | 'module' | 'lecture' | 'section' | 'video'
   | 'assignment' | 'chatbot' | 'file' | 'quiz' | 'emotional_pulse'
   | 'tutor_agent' | 'tutor_session' | 'tutor_conversation'
-  | 'course_tutor' | 'course_tutor_conversation' | 'lab'
-  | 'forum' | 'certificate' | 'survey' | 'gradebook';
+  | 'course_tutor' | 'course_tutor_conversation'
+  | 'assignment_agent' | 'agent_conversation' | 'lab'
+  | 'forum' | 'certificate' | 'survey' | 'gradebook'
+  | 'dashboard' | 'profile' | 'catalog' | 'analytics';
 
 export interface LogActivityInput {
   userId: number;
@@ -42,6 +45,15 @@ export interface LogActivityInput {
   sessionId?: string;
   deviceType?: string;
   browserName?: string;
+  actionSubtype?: string;
+  eventUuid?: string;
+  route?: string;
+  /**
+   * Client-stamped wall-clock timestamp captured at event push time.
+   * Overrides the row's `@default(now())` so parallel batch writes
+   * can't shuffle chronological order.
+   */
+  clientTimestamp?: string;
 }
 
 export interface LogQueryFilters {
@@ -49,6 +61,11 @@ export interface LogQueryFilters {
   courseId?: number;
   verb?: string;
   objectType?: string;
+  /**
+   * Exact match on `action_subtype`, or a prefix with a trailing dot
+   * (e.g. `agent_design.` matches every agent design event).
+   */
+  actionSubtype?: string;
   startDate?: Date;
   endDate?: Date;
   page?: number;
@@ -103,6 +120,16 @@ class ActivityLogService {
       extensions: input.extensions ? JSON.stringify(input.extensions) : null,
       deviceType: input.deviceType,
       browserName: input.browserName,
+      actionSubtype: input.actionSubtype,
+      eventUuid: input.eventUuid,
+      route: input.route,
+      // Honour the client-stamped timestamp when present so the row's
+      // chronological position reflects when the user actually did the
+      // thing, not when parallel batch writes finished on the server.
+      // Falls back to Prisma's @default(now()) when omitted.
+      ...(input.clientTimestamp
+        ? { timestamp: new Date(input.clientTimestamp) }
+        : {}),
     };
 
     // Enrich with course hierarchy context
@@ -213,6 +240,29 @@ class ActivityLogService {
       hasCourse: !!logData.course,
     }, 'Creating activity log entry');
 
+    // Idempotent insert: if the same (userId, eventUuid) was already logged
+    // (e.g. retried batch after a dropped connection), return the existing row
+    // instead of creating a duplicate. Legacy events with no eventUuid fall
+    // through to a plain create — multiple NULLs are allowed by the unique.
+    if (input.eventUuid) {
+      try {
+        const result = await prisma.learningActivityLog.create({ data: logData });
+        logger.debug({ logId: result.id }, 'Activity log entry created');
+        return result;
+      } catch (err) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+          const existing = await prisma.learningActivityLog.findFirst({
+            where: { userId: input.userId, eventUuid: input.eventUuid },
+          });
+          if (existing) {
+            logger.debug({ logId: existing.id, eventUuid: input.eventUuid }, 'Activity log dedupe hit');
+            return existing;
+          }
+        }
+        throw err;
+      }
+    }
+
     const result = await prisma.learningActivityLog.create({ data: logData });
     logger.debug({ logId: result.id }, 'Activity log entry created');
     return result;
@@ -222,13 +272,21 @@ class ActivityLogService {
    * Query logs with filters, pagination, search and sorting
    */
   async queryLogs(filters: LogQueryFilters) {
-    const { userId, courseId, verb, objectType, startDate, endDate, page = 1, limit = 50, search, sortBy = 'timestamp', sortOrder = 'desc' } = filters;
+    const { userId, courseId, verb, objectType, actionSubtype, startDate, endDate, page = 1, limit = 50, search, sortBy = 'timestamp', sortOrder = 'desc' } = filters;
 
     const where: Prisma.LearningActivityLogWhereInput = {};
     if (userId) where.userId = userId;
     if (courseId) where.courseId = courseId;
     if (verb) where.verb = verb;
     if (objectType) where.objectType = objectType;
+    if (actionSubtype) {
+      // Prefix filter when caller passes "agent_design.", exact otherwise.
+      if (actionSubtype.endsWith('.')) {
+        where.actionSubtype = { startsWith: actionSubtype };
+      } else {
+        where.actionSubtype = actionSubtype;
+      }
+    }
     if (startDate || endDate) {
       where.timestamp = {};
       if (startDate) where.timestamp.gte = startDate;
@@ -472,6 +530,50 @@ class ActivityLogService {
   }
 
   /**
+   * Parse the stringified `extensions` JSON on each row and collect the
+   * union of all top-level keys found across the corpus. Used by the
+   * CSV and Excel exporters to flatten extensions into first-class
+   * columns — admins get readable per-field columns instead of a single
+   * mega-JSON string that Excel can't parse.
+   *
+   * Returns the per-row parsed objects (in the same order as `logs`)
+   * and the sorted union of keys.
+   */
+  private flattenExtensions<T extends { extensions: string | null }>(
+    logs: T[]
+  ): { parsed: Array<Record<string, unknown>>; keys: string[] } {
+    const keys = new Set<string>();
+    const parsed: Array<Record<string, unknown>> = logs.map((log) => {
+      if (!log.extensions) return {};
+      try {
+        const obj = JSON.parse(log.extensions);
+        if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+          for (const k of Object.keys(obj)) keys.add(k);
+          return obj as Record<string, unknown>;
+        }
+      } catch {
+        /* malformed — fall through to empty object */
+      }
+      return {};
+    });
+    return { parsed, keys: Array.from(keys).sort() };
+  }
+
+  /** Render an extension value as a single cell (primitive → string,
+   *  object/array → JSON, null/undefined → empty). */
+  private renderExtensionCell(value: unknown): string {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'object') {
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return String(value);
+      }
+    }
+    return String(value);
+  }
+
+  /**
    * Export logs to CSV with all 28+ fields
    */
   async exportToCsv(filters: LogQueryFilters): Promise<string> {
@@ -506,16 +608,26 @@ class ActivityLogService {
 
     if (logs.length === 0) return 'No data to export';
 
-    const headers = [
+    // Flatten extensions into first-class `ext_*` columns so admins can
+    // actually read the export in Excel/Sheets. The original JSON blob
+    // is kept as the final column so anyone using it programmatically
+    // still has the raw source.
+    const { parsed: parsedExtensions, keys: extensionKeys } =
+      this.flattenExtensions(logs);
+
+    const baseHeaders = [
       'id', 'timestamp', 'userId', 'userEmail', 'userFullname', 'userRole', 'sessionId',
       'verb', 'objectType', 'objectId', 'objectTitle', 'objectSubtype',
+      'actionSubtype', 'route',
       'courseId', 'courseTitle', 'courseSlug',
       'moduleId', 'moduleTitle', 'moduleOrder',
       'lectureId', 'lectureTitle', 'lectureOrder',
       'sectionId', 'sectionTitle', 'sectionOrder',
       'success', 'score', 'maxScore', 'progress', 'duration',
-      'deviceType', 'browserName', 'extensions',
+      'deviceType', 'browserName',
     ];
+    const extensionHeaders = extensionKeys.map((k) => `ext_${k}`);
+    const headers = [...baseHeaders, ...extensionHeaders, 'extensions_raw'];
 
     const escapeCSV = (value: unknown): string => {
       if (value === null || value === undefined) return '';
@@ -526,9 +638,16 @@ class ActivityLogService {
       return str;
     };
 
-    const rows = logs.map((log) =>
-      headers.map((h) => escapeCSV((log as Record<string, unknown>)[h])).join(',')
-    );
+    const rows = logs.map((log, idx) => {
+      const baseCells = baseHeaders.map((h) =>
+        escapeCSV((log as Record<string, unknown>)[h])
+      );
+      const extensionCells = extensionKeys.map((k) =>
+        escapeCSV(this.renderExtensionCell(parsedExtensions[idx][k]))
+      );
+      const rawCell = escapeCSV(log.extensions ?? '');
+      return [...baseCells, ...extensionCells, rawCell].join(',');
+    });
 
     return [headers.join(','), ...rows].join('\n');
   }
@@ -640,11 +759,17 @@ class ActivityLogService {
       take: 10000,
     });
 
+    // Flatten extensions into first-class `ext_*` columns so the sheet
+    // is actually readable instead of a single JSON-blob column.
+    const { parsed: parsedExtensions, keys: extensionKeys } =
+      this.flattenExtensions(logs);
+
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'LAILA Learning Analytics';
     workbook.created = new Date();
 
-    // Sheet 1: All Activity Logs (28+ columns)
+    // Sheet 1: All Activity Logs — core columns + one column per
+    // discovered extension key + the raw JSON as a safety net.
     const mainSheet = workbook.addWorksheet('Activity Logs');
     mainSheet.columns = [
       { header: 'ID', key: 'id', width: 10 },
@@ -659,6 +784,8 @@ class ActivityLogService {
       { header: 'Object ID', key: 'objectId', width: 10 },
       { header: 'Object Title', key: 'objectTitle', width: 30 },
       { header: 'Object Subtype', key: 'objectSubtype', width: 15 },
+      { header: 'Action Subtype', key: 'actionSubtype', width: 28 },
+      { header: 'Route', key: 'route', width: 30 },
       { header: 'Course ID', key: 'courseId', width: 10 },
       { header: 'Course Title', key: 'courseTitle', width: 25 },
       { header: 'Course Slug', key: 'courseSlug', width: 20 },
@@ -678,7 +805,13 @@ class ActivityLogService {
       { header: 'Duration (s)', key: 'duration', width: 12 },
       { header: 'Device Type', key: 'deviceType', width: 12 },
       { header: 'Browser', key: 'browserName', width: 15 },
-      { header: 'Extensions', key: 'extensions', width: 50 },
+      // One column per discovered extension key
+      ...extensionKeys.map((k) => ({
+        header: `ext_${k}`,
+        key: `ext_${k}`,
+        width: 22,
+      })),
+      { header: 'Extensions (raw JSON)', key: 'extensions_raw', width: 50 },
     ];
 
     // Style header row
@@ -690,11 +823,16 @@ class ActivityLogService {
     };
 
     // Add data rows
-    logs.forEach(log => {
+    logs.forEach((log, idx) => {
+      const extCells: Record<string, string> = {};
+      for (const k of extensionKeys) {
+        extCells[`ext_${k}`] = this.renderExtensionCell(parsedExtensions[idx][k]);
+      }
       mainSheet.addRow({
         ...log,
         timestamp: log.timestamp.toISOString(),
-        extensions: log.extensions || '',
+        ...extCells,
+        extensions_raw: log.extensions || '',
       });
     });
 

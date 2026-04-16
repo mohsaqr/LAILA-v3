@@ -1009,6 +1009,7 @@ model UserDataset {
   aiModel          String?             @map("ai_model")
   aiProvider       String?             @map("ai_provider")
   agentPrompt      String?             @map("agent_prompt")
+  userPrompt       String?             @map("user_prompt")
   generationConfig String?             @map("generation_config")
   status           String              @default("completed")
   createdAt        DateTime            @default(now()) @map("created_at")
@@ -1299,15 +1300,21 @@ model LearningActivityLog {
   timestamp     DateTime @default(now())
   deviceType    String?  @map("device_type")
   browserName   String?  @map("browser_name")
+  actionSubtype String?  @map("action_subtype")
+  eventUuid     String?  @map("event_uuid")
+  route         String?
   course        Course?  @relation("CourseActivityLogs", fields: [courseId], references: [id])
   user          User     @relation("ActivityLogs", fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, eventUuid], name: "learning_activity_logs_user_event_uuid_key")
   @@index([userId])
   @@index([courseId])
   @@index([verb])
   @@index([objectType])
   @@index([timestamp])
   @@index([userId, courseId, timestamp])
+  @@index([actionSubtype])
+  @@index([timestamp(sort: Desc)], map: "learning_activity_logs_timestamp_desc_idx")
   @@map("learning_activity_logs")
 }
 

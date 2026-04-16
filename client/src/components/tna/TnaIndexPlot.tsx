@@ -11,8 +11,11 @@ interface TnaIndexPlotProps {
 export const TnaIndexPlot = ({ sequences, labels, colorMap: externalColorMap }: TnaIndexPlotProps) => {
   const colorMap = useMemo(() => externalColorMap ?? createColorMap(labels), [externalColorMap, labels]);
 
+  // Use the full length of the longest sequence — cell width is derived from
+  // container width / maxLen below, so cells shrink to keep everything in
+  // view no matter how many events there are.
   const maxLen = useMemo(() => {
-    return Math.min(Math.max(...sequences.map(s => s.length), 0), 50);
+    return Math.max(...sequences.map(s => s.length), 0);
   }, [sequences]);
 
   const { ref: containerRef, width: containerWidth } = useContainerWidth(700);

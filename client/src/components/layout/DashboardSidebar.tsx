@@ -20,6 +20,10 @@ import {
   Users,
   FileText,
   BookMarked,
+  Tag,
+  Bot,
+  Blocks,
+  Settings,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
@@ -122,11 +126,54 @@ export const DashboardSidebar = () => {
     // Course-level Logs + Analytics are in courseNavItems above
   ];
 
-  const navItems = (isInstructor || isActualAdmin) ? instructorNavItems : studentNavItems;
+  // Admin section — same visual identity as the rest of the sidebar,
+  // only the items change. We pin these to the /admin/* namespace so
+  // entering the admin area swaps the menu without swapping the shell.
+  const onAdminPage = location.pathname === '/admin' || location.pathname.startsWith('/admin/');
+  const adminNavItems: NavItem[] = [
+    { label: t('admin:frontpage', { defaultValue: 'Frontpage' }), icon: LayoutDashboard, path: '/admin' },
+    { label: t('admin:users', { defaultValue: 'Users' }), icon: Users, path: '/admin/settings?tab=users' },
+    { label: t('admin:enrollments', { defaultValue: 'Enrollments' }), icon: GraduationCap, path: '/admin/settings?tab=enrollments' },
+    { label: t('admin:categories', { defaultValue: 'Categories' }), icon: Tag, path: '/admin/settings?tab=categories' },
+    { label: t('admin:chatbots', { defaultValue: 'Chatbots' }), icon: MessageSquare, path: '/admin/chatbot-registry' },
+    { label: t('admin:prompts', { defaultValue: 'Prompts' }), icon: Blocks, path: '/admin/prompt-blocks' },
+    { label: t('admin:llm', { defaultValue: 'LLM' }), icon: Bot, path: '/admin/settings?tab=llm' },
+    { label: t('admin:mcq_generation', { defaultValue: 'MCQ Generation' }), icon: FileQuestion, path: '/admin/settings?tab=mcq' },
+    { label: t('admin:analytics', { defaultValue: 'Analytics' }), icon: Network, path: '/admin/analytics' },
+    { label: t('admin:logs', { defaultValue: 'Logs' }), icon: BarChart3, path: '/admin/logs' },
+    { label: t('admin:system_label', { defaultValue: 'System' }), icon: Settings, path: '/admin/settings?tab=system' },
+  ];
+
+  const navItems = onAdminPage
+    ? adminNavItems
+    : (isInstructor || isActualAdmin) ? instructorNavItems : studentNavItems;
 
   const isActive = (path: string) => {
     if (path === '/dashboard') {
       return location.pathname === '/dashboard';
+    }
+    // Admin query-param routes: match exact pathname + search string.
+    if (path.includes('?')) {
+      const [basePath, search] = path.split('?');
+      // Frontpage special case is handled below via exact match.
+      if (location.pathname === basePath && location.search === `?${search}`) {
+        return true;
+      }
+      // /admin/settings with no explicit tab defaults to "users".
+      if (
+        basePath === '/admin/settings' &&
+        search === 'tab=users' &&
+        location.pathname === '/admin/settings' &&
+        !location.search
+      ) {
+        return true;
+      }
+      return false;
+    }
+    // /admin frontpage must be exact — otherwise it would swallow every
+    // /admin/* path and stay permanently active.
+    if (path === '/admin') {
+      return location.pathname === '/admin' && !location.search;
     }
     return location.pathname.startsWith(path);
   };

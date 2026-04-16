@@ -168,6 +168,16 @@ export const AgentDatasetTab = ({ assignmentId, config }: AgentDatasetTabProps) 
                     {ds.description}
                   </p>
                 )}
+                {ds.userPrompt && (
+                  <div className="mt-2 p-2 bg-white border border-gray-200 rounded">
+                    <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium mb-0.5">
+                      {t('generated_from_prompt')}
+                    </p>
+                    <p className="text-xs text-gray-700 line-clamp-3 whitespace-pre-wrap">
+                      {ds.userPrompt}
+                    </p>
+                  </div>
+                )}
               </div>
             ))}
           </div>

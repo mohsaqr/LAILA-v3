@@ -1,25 +1,33 @@
-import { useState } from 'react';
-import { MessageCircle, User, Bot, ChevronDown, ChevronUp, Clock } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { MessageCircle, User, Clock, ChevronRight } from 'lucide-react';
 import { AgentTestConversation } from '../../../types';
-import { Card, CardBody, CardHeader } from '../../common/Card';
+import { Card } from '../../common/Card';
 
 interface TestConversationViewerProps {
   conversations: AgentTestConversation[];
 }
 
+/**
+ * Instructor/admin list of a student's test conversations. Each row is a
+ * navigation target — clicking opens a full-screen ConversationReplay page
+ * that mirrors the live student test chat in read-only mode, instead of
+ * the previous inline accordion preview.
+ */
 export const TestConversationViewer = ({ conversations }: TestConversationViewerProps) => {
-  const [expandedId, setExpandedId] = useState<number | null>(
-    conversations.length > 0 ? conversations[0].id : null
-  );
+  const navigate = useNavigate();
+  const { id, assignmentId, submissionId } = useParams<{
+    id: string;
+    assignmentId: string;
+    submissionId: string;
+  }>();
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString('en-US', {
+  const formatDate = (dateStr: string) =>
+    new Date(dateStr).toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
     });
-  };
 
   if (conversations.length === 0) {
     return (
@@ -30,120 +38,72 @@ export const TestConversationViewer = ({ conversations }: TestConversationViewer
     );
   }
 
+  const openConversation = (conversationId: number) => {
+    navigate(
+      `/teach/courses/${id}/assignments/${assignmentId}/agent-submissions/${submissionId}/conversations/${conversationId}`
+    );
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {conversations.map((conversation) => {
-        const isExpanded = expandedId === conversation.id;
         const messageCount = conversation._count?.messages || conversation.messages?.length || 0;
+        const isInstructor = conversation.testerRole === 'instructor';
 
         return (
-          <Card key={conversation.id}>
-            <CardHeader className="cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : conversation.id)}>
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      conversation.testerRole === 'instructor'
-                        ? 'bg-violet-100'
-                        : 'bg-blue-100'
+          <Card
+            key={conversation.id}
+            className="cursor-pointer transition-shadow hover:shadow-md"
+          >
+            <button
+              type="button"
+              onClick={() => openConversation(conversation.id)}
+              className="w-full text-left p-4 flex items-center justify-between gap-4"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    isInstructor ? 'bg-violet-100' : 'bg-blue-100'
+                  }`}
+                >
+                  <User
+                    className={`w-5 h-5 ${
+                      isInstructor ? 'text-violet-600' : 'text-blue-600'
                     }`}
-                  >
-                    <User
-                      className={`w-4 h-4 ${
-                        conversation.testerRole === 'instructor'
-                          ? 'text-violet-600'
-                          : 'text-blue-600'
-                      }`}
-                    />
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-gray-900">
-                      {conversation.testerFullname || 'Unknown tester'}
-                    </h4>
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <span
-                        className={`px-2 py-0.5 rounded text-xs ${
-                          conversation.testerRole === 'instructor'
-                            ? 'bg-violet-100 text-violet-700'
-                            : 'bg-blue-100 text-blue-700'
-                        }`}
-                      >
-                        {conversation.testerRole}
-                      </span>
-                      <span>•</span>
-                      <span>{messageCount} messages</span>
-                      <span>•</span>
-                      <span>v{conversation.configVersion}</span>
-                    </div>
-                  </div>
+                  />
                 </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="text-sm text-gray-500 flex items-center gap-1">
-                    <Clock className="w-4 h-4" />
-                    {formatDate(conversation.startedAt)}
+                <div className="min-w-0">
+                  <h4 className="font-medium text-gray-900 truncate">
+                    {conversation.testerFullname || 'Unknown tester'}
+                  </h4>
+                  <div className="flex items-center gap-2 text-sm text-gray-500 flex-wrap">
+                    <span
+                      className={`px-2 py-0.5 rounded text-xs ${
+                        isInstructor
+                          ? 'bg-violet-100 text-violet-700'
+                          : 'bg-blue-100 text-blue-700'
+                      }`}
+                    >
+                      {conversation.testerRole}
+                    </span>
+                    <span>•</span>
+                    <span>
+                      {messageCount} message{messageCount === 1 ? '' : 's'}
+                    </span>
+                    <span>•</span>
+                    <span>v{conversation.configVersion}</span>
                   </div>
-                  {isExpanded ? (
-                    <ChevronUp className="w-5 h-5 text-gray-400" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5 text-gray-400" />
-                  )}
                 </div>
               </div>
-            </CardHeader>
 
-            {isExpanded && (
-              <CardBody className="pt-0">
-                <div className="border-t border-gray-100 pt-4">
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {conversation.messages && conversation.messages.length > 0 ? (
-                      conversation.messages.map((message) => (
-                        <div
-                          key={message.id}
-                          className={`flex ${
-                            message.role === 'user' ? 'justify-end' : 'justify-start'
-                          }`}
-                        >
-                          <div
-                            className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                              message.role === 'user'
-                                ? 'bg-blue-100 text-blue-900'
-                                : 'bg-gray-100 text-gray-900'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 mb-1">
-                              {message.role === 'user' ? (
-                                <User className="w-3 h-3" />
-                              ) : (
-                                <Bot className="w-3 h-3" />
-                              )}
-                              <span className="text-xs font-medium capitalize">
-                                {message.role}
-                              </span>
-                              {message.aiModel && (
-                                <span className="text-xs text-gray-500">
-                                  ({message.aiModel})
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                            {message.responseTimeMs && (
-                              <p className="text-xs text-gray-500 mt-1">
-                                Response time: {(message.responseTimeMs / 1000).toFixed(2)}s
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-gray-500 text-sm text-center py-4">
-                        No messages in this conversation
-                      </p>
-                    )}
-                  </div>
+              <div className="flex items-center gap-3 flex-shrink-0">
+                <div className="text-sm text-gray-500 hidden sm:flex items-center gap-1">
+                  <Clock className="w-4 h-4" />
+                  {formatDate(conversation.startedAt)}
                 </div>
-              </CardBody>
-            )}
+                <ChevronRight className="w-5 h-5 text-gray-400" />
+              </div>
+            </button>
           </Card>
         );
       })}

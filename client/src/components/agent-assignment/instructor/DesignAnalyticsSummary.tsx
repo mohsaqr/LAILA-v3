@@ -11,10 +11,10 @@ import {
   MessageSquare,
   Target,
   Sparkles,
-  FileText,
   BarChart2,
   Network,
   LayoutList,
+  LogIn,
 } from 'lucide-react';
 import { tna } from 'dynajs';
 import type { TNA } from 'dynajs';
@@ -25,6 +25,7 @@ import { createColorMap } from '../../tna/colorFix';
 
 interface DesignAnalytics {
   totalDesignTime: number;
+  sittingCount?: number;
   iterationCount: number;
   testConversationCount: number;
   templateUsage: {
@@ -32,7 +33,6 @@ interface DesignAnalytics {
     personalityUsed: string | null;
     templatesApplied: number;
   };
-  reflectionResponses: Record<string, string>;
   categoryBreakdown?: Record<string, number>;
   totalEvents?: number;
 }
@@ -59,16 +59,12 @@ export const DesignAnalyticsSummary = ({ analytics, events }: DesignAnalyticsSum
     return `${hours}h ${mins}m`;
   };
 
-  const reflectionCount = Object.keys(analytics.reflectionResponses || {}).length;
-
   const categoryLabels: Record<string, string> = {
-    session: 'Sessions',
     navigation: 'Navigation',
     field: 'Field Changes',
     template: 'Templates',
     rule: 'Rules',
     test: 'Testing',
-    reflection: 'Reflections',
     save: 'Saves',
   };
 
@@ -87,6 +83,20 @@ export const DesignAnalyticsSummary = ({ analytics, events }: DesignAnalyticsSum
               ? formatDuration(analytics.totalDesignTime)
               : 'N/A'}
           </div>
+        </div>
+
+        {/* Sittings */}
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-gray-500 mb-1">
+            <LogIn className="w-4 h-4" />
+            <span className="text-xs font-medium">Sittings</span>
+          </div>
+          <div className="text-2xl font-bold text-amber-600">
+            {analytics.sittingCount ?? 0}
+          </div>
+          <p className="text-xs text-gray-500 mt-0.5">
+            (times the page was opened)
+          </p>
         </div>
 
         {/* Iterations */}
@@ -112,15 +122,6 @@ export const DesignAnalyticsSummary = ({ analytics, events }: DesignAnalyticsSum
           <div className="text-2xl font-bold text-cyan-600">
             {analytics.testConversationCount}
           </div>
-        </div>
-
-        {/* Reflections */}
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-gray-500 mb-1">
-            <FileText className="w-4 h-4" />
-            <span className="text-xs font-medium">Reflections</span>
-          </div>
-          <div className="text-2xl font-bold text-pink-600">{reflectionCount}</div>
         </div>
       </div>
 
@@ -189,36 +190,6 @@ export const DesignAnalyticsSummary = ({ analytics, events }: DesignAnalyticsSum
         </div>
       )}
 
-      {/* Reflection Responses */}
-      {reflectionCount > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <FileText className="w-4 h-4 text-pink-600" />
-            Reflection Responses
-          </h4>
-          <div className="space-y-4">
-            {Object.entries(analytics.reflectionResponses).map(([promptId, response]) => {
-              const promptLabels: Record<string, string> = {
-                role_selected: 'Role Selection',
-                system_prompt_written: 'System Prompt',
-                first_test_completed: 'First Test',
-                post_test_edit: 'Post-Test Edit',
-                before_submission: 'Before Submission',
-              };
-
-              return (
-                <div key={promptId} className="border-l-2 border-pink-300 pl-3">
-                  <h5 className="text-xs font-medium text-pink-700 mb-1">
-                    {promptLabels[promptId] || promptId}
-                  </h5>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{response}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* TNA Charts */}
       <TnaChartsSection events={events} categoryBreakdown={analytics.categoryBreakdown} categoryLabels={categoryLabels} />
     </div>
@@ -239,12 +210,18 @@ function TnaChartsSection({
   categoryLabels: Record<string, string>;
 }) {
   const { sequence, labels, colorMap, tnaModel, donutData } = useMemo(() => {
-    if (!events || events.length < 2) {
+    // Session events are surfaced as the Sittings stat, not as a node in the
+    // transition network or a bar in the sequence plot. Drop them here so
+    // they don't pollute the charts.
+    const filteredEvents = (events || []).filter(
+      (e) => e.eventCategory !== 'session'
+    );
+    if (filteredEvents.length < 2) {
       return { sequence: [], labels: [], colorMap: {}, tnaModel: null, donutData: null };
     }
 
     // Build the sequence of category labels from events
-    const seq = events.map(e => categoryLabels[e.eventCategory] || e.eventCategory);
+    const seq = filteredEvents.map(e => categoryLabels[e.eventCategory] || e.eventCategory);
 
     // Derive unique labels preserving order of first appearance
     const seen = new Set<string>();
@@ -278,7 +255,7 @@ function TnaChartsSection({
     return { sequence: seq, labels: uniqueLabels, colorMap: cm, tnaModel: model, donutData: donut };
   }, [events, categoryBreakdown, categoryLabels]);
 
-  if (!events || events.length < 2) return null;
+  if (sequence.length < 2) return null;
 
   return (
     <>

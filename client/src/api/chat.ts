@@ -7,6 +7,7 @@ interface ChatRequest {
   sessionId?: string;
   context?: string;
   model?: string;
+  provider?: string;
   systemPrompt?: string;
 }
 

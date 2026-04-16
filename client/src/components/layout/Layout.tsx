@@ -29,7 +29,7 @@ export const Layout = () => {
   };
 
   // Pages where sidebar should be shown (authenticated main dashboard pages)
-  const sidebarPages = ['/dashboard', '/courses', '/course', '/ai-tools', '/ai-tutors', '/settings', '/profile', '/teach', '/labs', '/forums', '/certificates', '/certificate', '/quizzes', '/reports', '/surveys'];
+  const sidebarPages = ['/dashboard', '/courses', '/course', '/ai-tools', '/ai-tutors', '/settings', '/profile', '/teach', '/labs', '/forums', '/certificates', '/certificate', '/quizzes', '/reports', '/surveys', '/admin'];
   const showSidebar = isAuthenticated && sidebarPages.some(path =>
     location.pathname === path || location.pathname.startsWith(path + '/')
   );

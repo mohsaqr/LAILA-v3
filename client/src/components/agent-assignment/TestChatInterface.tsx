@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useLayoutEffect } from 'react';
 import { Send, Loader2, MessageCircle, Bot } from 'lucide-react';
 import { AgentTestMessage } from '../../types';
 import { ChatMarkdown } from './ChatMarkdown';
@@ -13,6 +13,18 @@ interface TestChatInterfaceProps {
   isSending: boolean;
   error?: string | null;
   suggestedQuestions?: string[];
+  /**
+   * Optional node rendered as a horizontal bar directly above the input
+   * form — used by the agent test chat page to embed the EmotionalPulse
+   * widget exactly like the AI Tutors chat does.
+   */
+  footerSlot?: React.ReactNode;
+  /**
+   * When true, hides the input form and suggested questions — used by the
+   * instructor/admin ConversationReplay view to display an archived chat
+   * in read-only mode with the same visual identity as the live test page.
+   */
+  readOnly?: boolean;
 }
 
 export const TestChatInterface = ({
@@ -25,13 +37,29 @@ export const TestChatInterface = ({
   isSending,
   error,
   suggestedQuestions = [],
+  footerSlot,
+  readOnly = false,
 }: TestChatInterfaceProps) => {
   const [message, setMessage] = useState('');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const prevMessageCountRef = useRef(0);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // Scroll to bottom when new messages arrive or typing indicator toggles.
+  // Uses useLayoutEffect + direct scrollTop to avoid the nested-flex gotchas
+  // of scrollIntoView, so the latest message is always visible at the bottom
+  // while earlier messages remain reachable by scrolling up.
+  useLayoutEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const hadNewMessage = messages.length > prevMessageCountRef.current;
+    prevMessageCountRef.current = messages.length;
+    // Always jump to bottom on first paint / new message / sending state.
+    el.scrollTop = el.scrollHeight;
+    // Smooth scroll on subsequent new messages for a polished feel.
+    if (hadNewMessage) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    }
   }, [messages, isSending]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -89,7 +117,10 @@ export const TestChatInterface = ({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 min-h-[400px]">
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 bg-gray-50"
+      >
         {displayMessages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-500">
             <MessageCircle className="w-10 h-10 mb-2 opacity-50" />
@@ -142,7 +173,6 @@ export const TestChatInterface = ({
               </div>
             )}
 
-            <div ref={messagesEndRef} />
           </>
         )}
       </div>
@@ -155,7 +185,7 @@ export const TestChatInterface = ({
       )}
 
       {/* Suggested Questions */}
-      {suggestedQuestions.length > 0 && messages.length === 0 && (
+      {!readOnly && suggestedQuestions.length > 0 && messages.length === 0 && (
         <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
           <p className="text-xs text-gray-500 mb-2">Suggested questions:</p>
           <div className="flex flex-wrap gap-2">
@@ -174,7 +204,21 @@ export const TestChatInterface = ({
         </div>
       )}
 
+      {/* Footer slot (e.g. emotional pulse horizontal bar) */}
+      {!readOnly && footerSlot && (
+        <div className="border-t border-gray-200 px-4 py-2 bg-white">
+          {footerSlot}
+        </div>
+      )}
+
+      {readOnly && (
+        <div className="border-t border-gray-200 px-4 py-3 bg-gray-50 text-xs text-gray-500 text-center">
+          Read-only archive · {messages.length} message{messages.length === 1 ? '' : 's'}
+        </div>
+      )}
+
       {/* Input */}
+      {!readOnly && (
       <form onSubmit={handleSubmit} className="border-t border-gray-200 p-4 bg-white">
         <div className="flex items-center gap-3">
           <input
@@ -199,6 +243,7 @@ export const TestChatInterface = ({
           </button>
         </div>
       </form>
+      )}
     </div>
   );
 };

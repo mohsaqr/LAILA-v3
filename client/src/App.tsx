@@ -108,6 +108,11 @@ import {
   StudentAgentBuilder,
   AgentSubmissionReview,
   UseMyAgent,
+  TestAndReflect,
+  AgentTestChat,
+  InstructorAgentTestChat,
+  ConversationReplay,
+  AgentDatasets,
 } from './pages/agent-assignment';
 
 // Admin pages
@@ -298,6 +303,36 @@ function App() {
             <ProtectedRoute>
               <RequireEnrollment>
                 <UseMyAgent />
+              </RequireEnrollment>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/courses/:courseId/agent-assignments/:assignmentId/test"
+          element={
+            <ProtectedRoute>
+              <RequireEnrollment>
+                <TestAndReflect />
+              </RequireEnrollment>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/courses/:courseId/agent-assignments/:assignmentId/test/chat"
+          element={
+            <ProtectedRoute>
+              <RequireEnrollment>
+                <AgentTestChat />
+              </RequireEnrollment>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/courses/:courseId/agent-assignments/:assignmentId/datasets"
+          element={
+            <ProtectedRoute>
+              <RequireEnrollment>
+                <AgentDatasets />
               </RequireEnrollment>
             </ProtectedRoute>
           }
@@ -687,6 +722,22 @@ function App() {
           element={
             <ProtectedRoute requireInstructor>
               <AgentSubmissionReview />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teach/courses/:id/assignments/:assignmentId/agent-submissions/:submissionId/conversations/:conversationId"
+          element={
+            <ProtectedRoute requireInstructor>
+              <ConversationReplay />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teach/courses/:id/assignments/:assignmentId/agent-submissions/:submissionId/test"
+          element={
+            <ProtectedRoute requireInstructor>
+              <InstructorAgentTestChat />
             </ProtectedRoute>
           }
         />

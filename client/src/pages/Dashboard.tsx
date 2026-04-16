@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
+import { activityLogger } from '../services/activityLogger';
 import { usersApi } from '../api/users';
 import { coursesApi } from '../api/courses';
 import { Card, CardBody } from '../components/common/Card';
@@ -51,6 +53,10 @@ export const Dashboard = () => {
     queryFn: () => coursesApi.getMyCourses(),
     enabled: !!user && isInstructor,
   });
+
+  useEffect(() => {
+    activityLogger.logDashboardViewed();
+  }, []);
 
   if (statsLoading) {
     return <Loading fullScreen text={t('loading_dashboard')} />;

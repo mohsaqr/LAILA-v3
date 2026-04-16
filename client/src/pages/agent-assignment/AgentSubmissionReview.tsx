@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  ArrowLeft,
   User,
   Calendar,
   Award,
@@ -17,6 +16,7 @@ import {
   Download,
   FileSpreadsheet,
 } from 'lucide-react';
+import { Breadcrumb } from '../../components/common/Breadcrumb';
 import toast from 'react-hot-toast';
 import { agentAssignmentsApi } from '../../api/agentAssignments';
 import { assignmentsApi } from '../../api/assignments';
@@ -24,7 +24,6 @@ import { resolveFileUrl } from '../../api/client';
 import { AgentConfigViewer } from '../../components/agent-assignment/instructor/AgentConfigViewer';
 import { ConfigHistoryTimeline } from '../../components/agent-assignment/instructor/ConfigHistoryTimeline';
 import { TestConversationViewer } from '../../components/agent-assignment/instructor/TestConversationViewer';
-import { InstructorTestPanel } from '../../components/agent-assignment/instructor/InstructorTestPanel';
 import { GradeAgentForm } from '../../components/agent-assignment/instructor/GradeAgentForm';
 import { DesignProcessTab } from '../../components/agent-assignment/instructor/DesignProcessTab';
 import { Card, CardBody } from '../../components/common/Card';
@@ -148,19 +147,28 @@ export const AgentSubmissionReview = () => {
   ];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Breadcrumb */}
       <div className="mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            navigate(`/teach/courses/${courseId}/assignments/${assId}/submissions`)
-          }
-          icon={<ArrowLeft className="w-4 h-4" />}
-        >
-          {t('back_to_submissions')}
-        </Button>
+        <Breadcrumb
+          items={[
+            { label: t('common:teaching', { defaultValue: 'Teaching' }), href: '/teach' },
+            {
+              label: assignment.course?.title || `Course #${courseId}`,
+              href: `/teach/courses/${courseId}`,
+            },
+            { label: t('assignments'), href: `/teach/courses/${courseId}/assignments` },
+            {
+              label: assignment.title,
+              href: `/teach/courses/${courseId}/assignments/${assId}`,
+            },
+            {
+              label: t('submissions', { defaultValue: 'Submissions' }),
+              href: `/teach/courses/${courseId}/assignments/${assId}/submissions`,
+            },
+            { label: student?.fullname || t('unknown_student') },
+          ]}
+        />
       </div>
 
       {/* Submission Info */}
@@ -222,20 +230,34 @@ export const AgentSubmissionReview = () => {
       {/* Tabs */}
       <div className="border-b border-gray-200 mb-6">
         <nav className="-mb-px flex gap-6 overflow-x-auto">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'border-violet-500 text-violet-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              {tab.icon}
-              {tab.label}
-            </button>
-          ))}
+          {tabs.map((tab) => {
+            // "Test Agent" is not a local tab — clicking it navigates to a
+            // dedicated full-screen instructor chat page so the testing
+            // experience mirrors the student's own test chat.
+            const isTestTab = tab.id === 'test';
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  if (isTestTab) {
+                    navigate(
+                      `/teach/courses/${courseId}/assignments/${assId}/agent-submissions/${subId}/test`
+                    );
+                    return;
+                  }
+                  setActiveTab(tab.id);
+                }}
+                className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 whitespace-nowrap ${
+                  activeTab === tab.id && !isTestTab
+                    ? 'border-violet-500 text-violet-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            );
+          })}
         </nav>
       </div>
 
@@ -248,14 +270,6 @@ export const AgentSubmissionReview = () => {
 
       {activeTab === 'conversations' && (
         <TestConversationViewer conversations={testConversations} />
-      )}
-
-      {activeTab === 'test' && (
-        <InstructorTestPanel
-          assignmentId={assId}
-          submissionId={subId}
-          config={config}
-        />
       )}
 
       {activeTab === 'datasets' && (

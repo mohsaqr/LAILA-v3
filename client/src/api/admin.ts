@@ -504,6 +504,13 @@ export interface ActivityLogFilters {
   courseId?: number;
   verb?: string;
   objectType?: string;
+  /**
+   * Dotted action subtype, e.g. `agent_design.field.change` or a prefix
+   * like `agent_design.` (trailing-dot match is applied server-side via the
+   * shared search field). Filter-by-exact is handled by the top-level
+   * activity-log endpoint when supplied.
+   */
+  actionSubtype?: string;
   startDate?: string;
   endDate?: string;
   page?: number;
@@ -552,6 +559,7 @@ export const activityLogApi = {
     if (filters.courseId) params.append('courseId', filters.courseId.toString());
     if (filters.verb) params.append('verb', filters.verb);
     if (filters.objectType) params.append('objectType', filters.objectType);
+    if (filters.actionSubtype) params.append('actionSubtype', filters.actionSubtype);
     if (filters.startDate) params.append('startDate', filters.startDate);
     if (filters.endDate) params.append('endDate', filters.endDate);
     if (filters.page) params.append('page', filters.page.toString());

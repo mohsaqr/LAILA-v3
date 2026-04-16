@@ -297,16 +297,6 @@ export const agentAssignmentsApi = {
     return response.data.data!;
   },
 
-  // Get reflection responses for a student's config
-  getReflectionResponses: async (
-    agentConfigId: number
-  ): Promise<Array<{ promptId: string; promptText: string; response: string; timestamp: string }>> => {
-    const response = await apiClient.get<
-      ApiResponse<Array<{ promptId: string; promptText: string; response: string; timestamp: string }>>
-    >(`/agent-design-logs/config/${agentConfigId}/reflections`);
-    return response.data.data!;
-  },
-
   // Get assignment-level design analytics
   getAssignmentDesignAnalytics: async (
     assignmentId: number

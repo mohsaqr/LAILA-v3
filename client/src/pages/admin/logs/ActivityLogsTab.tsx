@@ -29,6 +29,7 @@ import { activityLogApi, ActivityLogFilters } from '../../../api/admin';
 import { Card, CardBody, CardHeader } from '../../../components/common/Card';
 import { Button } from '../../../components/common/Button';
 import { Loading } from '../../../components/common/Loading';
+import { SearchableSelect } from '../../../components/common/SearchableSelect';
 import { verbColors, objectTypeColors } from './constants';
 import { formatDate } from './exportUtils';
 
@@ -70,6 +71,9 @@ interface ActivityLog {
   duration: number | null;
   deviceType: string | null;
   browserName: string | null;
+  actionSubtype: string | null;
+  route: string | null;
+  eventUuid: string | null;
   extensions: Record<string, unknown> | null;
 }
 
@@ -374,74 +378,62 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus, fixedCourseId }
             </div>
 
             {/* User Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('user')}</label>
-              <select
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                value={filters.userId || ''}
-                onChange={(e) => updateFilter('userId', e.target.value ? parseInt(e.target.value) : undefined)}
-              >
-                <option value="">{t('all_users')}</option>
-                {filterOptions?.users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.fullname || u.email || `User #${u.id}`}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <SearchableSelect
+              label={t('user')}
+              value={filters.userId ? String(filters.userId) : ''}
+              onChange={(val) => updateFilter('userId', val ? parseInt(val) : undefined)}
+              options={[
+                { value: '', label: t('all_users') },
+                ...(filterOptions?.users.map((u) => ({
+                  value: String(u.id),
+                  label: u.fullname || u.email || `User #${u.id}`,
+                })) ?? []),
+              ]}
+            />
 
             {/* Course Filter (hidden when fixedCourseId is set) */}
             {!fixedCourseId && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('course')}</label>
-              <select
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                value={filters.courseId || ''}
-                onChange={(e) => updateFilter('courseId', e.target.value ? parseInt(e.target.value) : undefined)}
-              >
-                <option value="">{t('all_courses')}</option>
-                {filterOptions?.courses.map((c) => (
-                  <option key={c.id} value={c.id || ''}>
-                    {c.title || `Course #${c.id}`}
-                  </option>
-                ))}
-              </select>
-            </div>
+              <SearchableSelect
+                label={t('course')}
+                value={filters.courseId ? String(filters.courseId) : ''}
+                onChange={(val) => updateFilter('courseId', val ? parseInt(val) : undefined)}
+                options={[
+                  { value: '', label: t('all_courses') },
+                  ...(filterOptions?.courses.map((c) => ({
+                    value: c.id ? String(c.id) : '',
+                    label: c.title || `Course #${c.id}`,
+                  })) ?? []),
+                ]}
+              />
             )}
 
             {/* Verb Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('verb')}</label>
-              <select
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                value={filters.verb || ''}
-                onChange={(e) => updateFilter('verb', e.target.value || undefined)}
-              >
-                <option value="">{t('all_verbs')}</option>
-                {filterOptions?.verbs.map((v) => (
-                  <option key={v.verb} value={v.verb}>
-                    {v.verb} ({v.count})
-                  </option>
-                ))}
-              </select>
-            </div>
+            <SearchableSelect
+              label={t('verb')}
+              value={filters.verb || ''}
+              onChange={(val) => updateFilter('verb', val || undefined)}
+              options={[
+                { value: '', label: t('all_verbs') },
+                ...(filterOptions?.verbs.map((v) => ({
+                  value: v.verb,
+                  label: `${v.verb} (${v.count})`,
+                })) ?? []),
+              ]}
+            />
 
             {/* Object Type Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('object_type')}</label>
-              <select
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                value={filters.objectType || ''}
-                onChange={(e) => updateFilter('objectType', e.target.value || undefined)}
-              >
-                <option value="">{t('all_types')}</option>
-                {filterOptions?.objectTypes.map((o) => (
-                  <option key={o.objectType} value={o.objectType}>
-                    {o.objectType} ({o.count})
-                  </option>
-                ))}
-              </select>
-            </div>
+            <SearchableSelect
+              label={t('object_type')}
+              value={filters.objectType || ''}
+              onChange={(val) => updateFilter('objectType', val || undefined)}
+              options={[
+                { value: '', label: t('all_types') },
+                ...(filterOptions?.objectTypes.map((o) => ({
+                  value: o.objectType,
+                  label: `${o.objectType} (${o.count})`,
+                })) ?? []),
+              ]}
+            />
           </div>
 
           {/* Date Filters */}
@@ -576,6 +568,9 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus, fixedCourseId }
                         <SortIcon field="duration" />
                       </div>
                     </th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
+                      Subtype
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -646,12 +641,24 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus, fixedCourseId }
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
                           {log.duration != null ? `${log.duration}s` : '-'}
                         </td>
+                        <td className="px-4 py-3">
+                          {log.actionSubtype ? (
+                            <span
+                              className="inline-flex px-2 py-1 rounded text-xs font-mono bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300"
+                              title={log.actionSubtype}
+                            >
+                              {log.actionSubtype}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 dark:text-gray-500">-</span>
+                          )}
+                        </td>
                       </tr>
                       {/* Expanded Details Row */}
                       {expandedRows.has(log.id) && (
                         <tr key={`${log.id}-expanded`} className="bg-gray-50 dark:bg-gray-800/50">
-                          <td colSpan={9} className="px-4 py-4">
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+                          <td colSpan={10} className="px-4 py-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 text-sm">
                               {/* User Context */}
                               <div className="space-y-2">
                                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
@@ -663,6 +670,38 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus, fixedCourseId }
                                   <div><span className="text-gray-500 dark:text-gray-500">{t('name')}:</span> {log.userFullname || '-'}</div>
                                   <div><span className="text-gray-500 dark:text-gray-500">{t('role')}:</span> {log.userRole || '-'}</div>
                                   <div><span className="text-gray-500 dark:text-gray-500">{t('session')}:</span> {log.sessionId ? log.sessionId.substring(0, 16) + '...' : '-'}</div>
+                                </div>
+                              </div>
+
+                              {/* Object */}
+                              <div className="space-y-2">
+                                <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
+                                  Object
+                                </h4>
+                                <div className="space-y-1 text-gray-600 dark:text-gray-400 break-words">
+                                  <div>
+                                    <span className="text-gray-500 dark:text-gray-500">Type:</span>{' '}
+                                    <span className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${objectTypeColors[log.objectType] || 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`}>
+                                      {log.objectType}
+                                    </span>
+                                  </div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">Title:</span> {log.objectTitle || '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">ID:</span> {log.objectId ?? '-'}</div>
+                                  <div><span className="text-gray-500 dark:text-gray-500">Subtype:</span> {log.objectSubtype || '-'}</div>
+                                  <div>
+                                    <span className="text-gray-500 dark:text-gray-500">Action:</span>{' '}
+                                    {log.actionSubtype ? (
+                                      <span className="font-mono text-xs text-indigo-700 dark:text-indigo-300">{log.actionSubtype}</span>
+                                    ) : (
+                                      '-'
+                                    )}
+                                  </div>
+                                  {log.route && (
+                                    <div className="truncate">
+                                      <span className="text-gray-500 dark:text-gray-500">Route:</span>{' '}
+                                      <span className="font-mono text-xs">{log.route}</span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
 
@@ -700,8 +739,6 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus, fixedCourseId }
                                 <div className="space-y-1 text-gray-600 dark:text-gray-400">
                                   <div><span className="text-gray-500 dark:text-gray-500">{t('device')}:</span> {log.deviceType || '-'}</div>
                                   <div><span className="text-gray-500 dark:text-gray-500">{t('browser')}:</span> {log.browserName || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('object_id')}:</span> {log.objectId || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('subtype')}:</span> {log.objectSubtype || '-'}</div>
                                 </div>
                               </div>
                             </div>
