@@ -19,7 +19,7 @@ import {
   Scissors, Target, Users,
   Database, Share2, BookOpen, ChevronDown, ChevronRight,
   Camera, Loader2, CheckCircle, Download, RefreshCw,
-  Award, Calendar, Clock, Send, FileText, AlertCircle, Upload,
+  Award, Calendar, Clock, Send, FileText, AlertCircle, Upload, Sparkles,
 } from 'lucide-react';
 import { assignmentsApi } from '../api/assignments';
 import { coursesApi } from '../api/courses';
@@ -541,13 +541,13 @@ export const TnaExercise = () => {
                     </p>
                   )}
                   <div className="flex flex-col gap-1.5 mt-1.5">
-                    {/* <button
+                    <button
                       onClick={() => setShowAIGenerator(true)}
                       className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
                     >
                       <Sparkles className="w-3.5 h-3.5" />
                       {t('ai_gen.or_generate')}
-                    </button> */}
+                    </button>
                     <button
                       onClick={() => setShowDatasetPicker(true)}
                       className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
