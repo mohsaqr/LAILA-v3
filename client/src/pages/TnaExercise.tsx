@@ -264,19 +264,20 @@ export const TnaExercise = () => {
     return buildSequences(rawRows, actorCol, actionCol, timeCol);
   }, [rawRows, actorCol, actionCol, timeCol]);
 
-  const hasData = sequences.length >= 2 && labels.length >= 2;
+  const hasData = rawRows.length > 0 && !!actorCol && !!actionCol;
+  const hasTnaSequences = sequences.length >= 1 && labels.length >= 1;
   const colorMap = useMemo(() => labels.length > 0 ? createColorMap(labels, 'default') : {}, [labels]);
 
   // ── Derived: models ──
   const rawModel = useMemo((): TNA | null => {
-    if (!hasData || !modelBuilt) return null;
+    if (!hasTnaSequences || !modelBuilt) return null;
     try { return MODEL_BUILDERS[modelType](sequences, { labels }) as TNA; } catch { return null; }
-  }, [sequences, labels, modelType, hasData, modelBuilt]);
+  }, [sequences, labels, modelType, hasTnaSequences, modelBuilt]);
 
   const ftnaModel = useMemo((): TNA | null => {
-    if (!hasData || !modelBuilt) return null;
+    if (!hasTnaSequences || !modelBuilt) return null;
     try { return ftna(sequences, { labels }) as TNA; } catch { return null; }
-  }, [sequences, labels, hasData, modelBuilt]);
+  }, [sequences, labels, hasTnaSequences, modelBuilt]);
 
   const prunedModel = useMemo((): TNA | null => {
     if (!rawModel) return null;
@@ -372,11 +373,21 @@ export const TnaExercise = () => {
   }, [handleMyDatasetSelect]);
 
   const handleBuildModel = useCallback(() => {
+    if (!hasTnaSequences) {
+      toast.error(
+        t('exercise.no_sequences', {
+          defaultValue:
+            'No transitions found. TNA needs at least one actor with 2 or more events. ' +
+            'Make sure your data has repeated actors.',
+        })
+      );
+      return;
+    }
     setModelBuilt(true);
     setActiveAnalysis(null);
     logSession('Model built: ' + modelType + ', ' + sequences.length + ' sequences, ' + labels.length + ' states');
     activityLogger.logLabModelBuilt('TNA', Number(courseId), { modelType, sequenceCount: sequences.length, stateCount: labels.length });
-  }, [modelType, sequences, labels, courseId]);
+  }, [modelType, sequences, labels, courseId, hasTnaSequences, t]);
 
   const toggleAnalysis = useCallback((key: AnalysisKey) => {
     // Side effects must live outside the updater (updaters are pure in React 18)
