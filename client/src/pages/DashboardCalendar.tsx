@@ -9,17 +9,23 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { assignmentsApi } from '../api/assignments';
 import { useTheme } from '../hooks/useTheme';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
+import activityLogger from '../services/activityLogger';
 
 export const DashboardCalendar = () => {
   const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
   const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  // Log page view on mount
+  useEffect(() => {
+    activityLogger.logCalendarViewed();
+  }, []);
 
   // Theme colors
   const colors = {

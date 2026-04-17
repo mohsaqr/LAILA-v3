@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -22,6 +22,7 @@ import { Breadcrumb } from '../components/common/Breadcrumb';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import { CustomLab, LabType } from '../types';
+import activityLogger from '../services/activityLogger';
 
 // Lab type icons and colors
 const labTypeConfig: Record<string, { icon: typeof FlaskConical; gradient: string }> = {
@@ -46,6 +47,11 @@ export const Labs = () => {
 
   const [search, setSearch] = useState('');
   const [selectedType, setSelectedType] = useState<string>('');
+
+  // Log page view
+  useEffect(() => {
+    activityLogger.logLabsViewed();
+  }, []);
 
   // Fetch labs
   const { data: labs, isLoading: labsLoading } = useQuery({

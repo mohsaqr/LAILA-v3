@@ -33,6 +33,7 @@ import { canTestAgent } from '../../utils/agentAccess';
 import { AgentTestMessage } from '../../types';
 import { getDesignLogger, endCurrentDesignSession } from '../../services/agentDesignLogger';
 import { useAuthStore } from '../../store/authStore';
+import activityLogger from '../../services/activityLogger';
 
 export const AgentTestChat = () => {
   const { t } = useTranslation(['teaching', 'common', 'navigation']);
@@ -58,6 +59,15 @@ export const AgentTestChat = () => {
     queryKey: ['myAgentConfig', assId],
     queryFn: () => agentAssignmentsApi.getMyAgentConfig(assId),
   });
+
+  const parsedCourseId = courseId ? parseInt(courseId, 10) : undefined;
+
+  // Log page view
+  useEffect(() => {
+    if (data?.config && canTestAgent(data.config)) {
+      activityLogger.logAgentTested(data.config.id, data.config.agentName, parsedCourseId);
+    }
+  }, [data?.config?.id, data?.config?.agentName, parsedCourseId]);
 
   // Design logger — same subsystem the builder uses, so every message flows
   // into AgentDesignEventLog AND the bridged LearningActivityLog row admins

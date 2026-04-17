@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -30,6 +30,7 @@ import { Card, CardBody } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { StatusBadge } from '../../components/common/StatusBadge';
+import activityLogger from '../../services/activityLogger';
 
 type TabType = 'config' | 'design' | 'history' | 'conversations' | 'test' | 'datasets' | 'grade';
 
@@ -47,6 +48,12 @@ export const AgentSubmissionReview = () => {
   const courseId = parseInt(id!, 10);
   const assId = parseInt(assignmentId!, 10);
   const subId = parseInt(submissionId!, 10);
+
+  useEffect(() => {
+    if (subId && courseId) {
+      activityLogger.logAgentSubmissionViewed(subId, courseId);
+    }
+  }, [subId, courseId]);
 
   // Fetch assignment
   const { data: assignment, isLoading: assignmentLoading } = useQuery({

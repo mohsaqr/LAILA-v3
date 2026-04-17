@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +18,7 @@ import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { EmptyState } from '../components/common/EmptyState';
 import { Breadcrumb } from '../components/common/Breadcrumb';
+import activityLogger from '../services/activityLogger';
 
 interface CourseGrade {
   courseId: number;
@@ -40,6 +42,11 @@ export const DashboardGradebook = () => {
   const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
   const { isInstructor } = useAuth();
+
+  // Log page view on mount
+  useEffect(() => {
+    activityLogger.logDashboardGradebookViewed();
+  }, []);
 
   // Theme colors
   const colors = {

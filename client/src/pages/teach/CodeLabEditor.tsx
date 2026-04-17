@@ -16,6 +16,7 @@ import { CodeBlockEditor } from '../../components/teach/CodeBlockEditor';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { UpdateCodeBlockData } from '../../types';
+import activityLogger from '../../services/activityLogger';
 
 export const CodeLabEditor = () => {
   const { t } = useTranslation('teaching');
@@ -47,6 +48,12 @@ export const CodeLabEditor = () => {
   });
 
   useEffect(() => {
+    if (labId && courseId) {
+      activityLogger.logCodeLabEditorViewed(labId, undefined, courseId);
+    }
+  }, [labId, courseId]);
+
+  useEffect(() => {
     if (codeLab) {
       setFormData({
         title: codeLab.title || '',
@@ -60,6 +67,7 @@ export const CodeLabEditor = () => {
   const updateCodeLabMutation = useMutation({
     mutationFn: (data: typeof formData) => codeLabsApi.updateCodeLab(labId, data),
     onSuccess: () => {
+      activityLogger.logCodeLabUpdated(labId, formData.title, courseId);
       queryClient.invalidateQueries({ queryKey: ['codeLab', labId] });
       queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
       toast.success(t('code_lab_saved'));

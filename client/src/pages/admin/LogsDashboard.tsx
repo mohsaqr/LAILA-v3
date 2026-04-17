@@ -3,15 +3,19 @@
  * Refactored to use extracted tab components for better maintainability.
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import {
   Activity,
   MousePointer,
   MessagesSquare,
   Bot,
   MessageSquare,
+  X,
+  User,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../../components/admin';
 import { useTheme } from '../../hooks/useTheme';
 import { TabType } from './logs/constants';
@@ -20,12 +24,39 @@ import { InteractionsTab } from './logs/InteractionsTab';
 import { MessagesTab } from './logs/MessagesTab';
 import { ChatbotRegistryTab } from './logs/ChatbotRegistryTab';
 import { ForumLogsTab } from './logs/ForumLogsTab';
+import activityLogger from '../../services/activityLogger';
+import { useTracker } from '../../services/tracker';
 
 export const LogsDashboard = () => {
   const { t } = useTranslation(['admin', 'common']);
+  const [searchParams] = useSearchParams();
+  const initialUserId = useMemo(() => {
+    const uid = searchParams.get('userId');
+    return uid ? parseInt(uid, 10) : undefined;
+  }, [searchParams]);
   const [activeTab, setActiveTab] = useState<TabType>('activity');
   const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const { isDark } = useTheme();
+  const track = useTracker('admin.logs');
+  const navigate = useNavigate();
+
+  // Log page view
+  useEffect(() => {
+    activityLogger.logAdminLogsViewed();
+  }, []);
+
+  // Log tab switches
+  useEffect(() => {
+    activityLogger.logTabSwitched('analytics', activeTab);
+    track('tab_switched', { verb: 'interacted', objectType: 'analytics', payload: { tab: activeTab } });
+  }, [activeTab, track]);
+
+  // Log export
+  useEffect(() => {
+    if (exportStatus === 'loading') {
+      activityLogger.logExportRequested('analytics', 'csv');
+    }
+  }, [exportStatus]);
 
   // Theme colors
   const colors = {
@@ -47,6 +78,23 @@ export const LogsDashboard = () => {
       title={t('logs_analytics')}
       description={t('logs_analytics_desc')}
     >
+      {/* User filter banner */}
+      {initialUserId && (
+        <div className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+          <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+          <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
+            {t('filtered_by_user', { userId: initialUserId, defaultValue: `Showing logs for user ID: ${initialUserId}` })}
+          </span>
+          <button
+            onClick={() => navigate('/admin/logs')}
+            className="ml-auto p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-800 text-blue-600 dark:text-blue-400"
+            title={t('clear_filter', { defaultValue: 'Clear filter' })}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Tab Navigation */}
       <div className="flex gap-2 mb-6 pb-4" style={{ borderBottom: `1px solid ${colors.border}` }}>
         {tabs.map((tab) => (
@@ -75,6 +123,7 @@ export const LogsDashboard = () => {
         <ActivityLogsTab
           exportStatus={exportStatus}
           setExportStatus={setExportStatus}
+          initialUserId={initialUserId}
         />
       )}
 
@@ -82,6 +131,7 @@ export const LogsDashboard = () => {
         <MessagesTab
           exportStatus={exportStatus}
           setExportStatus={setExportStatus}
+          initialUserId={initialUserId}
         />
       )}
 
@@ -89,6 +139,7 @@ export const LogsDashboard = () => {
         <InteractionsTab
           exportStatus={exportStatus}
           setExportStatus={setExportStatus}
+          initialUserId={initialUserId}
         />
       )}
 

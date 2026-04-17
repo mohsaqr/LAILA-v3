@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +9,7 @@ import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { useTheme } from '../../hooks/useTheme';
 import { ActivityLogsTab } from '../admin/logs/ActivityLogsTab';
 import { ChatbotLogs } from './ChatbotLogs';
+import activityLogger from '../../services/activityLogger';
 
 type TabId = 'activity' | 'chatbot';
 
@@ -19,6 +20,12 @@ export const CourseLogs = () => {
   const courseId = Number(id);
   const [activeTab, setActiveTab] = useState<TabId>('activity');
   const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+  useEffect(() => {
+    if (courseId) {
+      activityLogger.logCourseLogsViewed(courseId);
+    }
+  }, [courseId]);
 
   const { data: course } = useQuery({
     queryKey: ['course', courseId],

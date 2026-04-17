@@ -32,6 +32,7 @@ import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { EmptyState } from '../../components/common/EmptyState';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
+import activityLogger from '../../services/activityLogger';
 
 // Drag and drop helper (simple implementation)
 const useDragAndDrop = (items: CourseTutor[], onReorder: (ids: number[]) => void) => {
@@ -96,6 +97,12 @@ export const CourseTutorManager = () => {
     bgGreen: isDark ? 'rgba(16, 185, 129, 0.2)' : '#d1fae5',
     textGreen: isDark ? '#6ee7b7' : '#059669',
   };
+
+  useEffect(() => {
+    if (courseId) {
+      activityLogger.logTutorManagerViewed(parseInt(courseId));
+    }
+  }, [courseId]);
 
   // Fetch course details
   const { data: course, isLoading: courseLoading } = useQuery({
@@ -170,6 +177,7 @@ export const CourseTutorManager = () => {
       defaultTutorId?: number | null;
     }) => coursesApi.updateCourseAISettings(parseInt(courseId!), settings),
     onSuccess: () => {
+      activityLogger.logTutorConfigured(0, parseInt(courseId!));
       queryClient.invalidateQueries({ queryKey: ['course', courseId] });
       toast.success(t('settings_saved'));
     },

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, BarChart3, Upload, FileSpreadsheet, TrendingUp } from 'lucide-react';
@@ -7,6 +7,7 @@ import { chatApi } from '../../api/chat';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { TextArea, Select } from '../../components/common/Input';
+import activityLogger from '../../services/activityLogger';
 
 const ANALYSIS_TYPES = [
   { value: 'descriptive', label: 'Descriptive Statistics' },
@@ -18,6 +19,12 @@ const ANALYSIS_TYPES = [
 
 export const DataAnalyzer = () => {
   const { t } = useTranslation(['courses', 'common']);
+
+  // Log page view
+  useEffect(() => {
+    activityLogger.logAIToolViewed('Data Analyzer');
+  }, []);
+
   const [data, setData] = useState('');
   const [analysisType, setAnalysisType] = useState('descriptive');
   const [question, setQuestion] = useState('');
@@ -32,6 +39,7 @@ export const DataAnalyzer = () => {
 
     setIsAnalyzing(true);
     setResult('');
+    activityLogger.logAIToolInteracted('Data Analyzer', { action: 'analyze', analysisType });
 
     try {
       const analysisPrompts: Record<string, string> = {

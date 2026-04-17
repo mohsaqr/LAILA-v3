@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Award, UserCheck, Calendar, Search, Send } from 'lucide-react';
@@ -11,6 +11,7 @@ import { Modal } from '../../components/common/Modal';
 import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import apiClient from '../../api/client';
+import activityLogger from '../../services/activityLogger';
 
 interface CourseInfo {
   id: number;
@@ -58,6 +59,12 @@ export const CourseCertificateManager = () => {
     accent: '#088F8F',
     gold: '#f59e0b',
   };
+
+  useEffect(() => {
+    if (courseId) {
+      activityLogger.logCertificateManagerViewed(parseInt(courseId));
+    }
+  }, [courseId]);
 
   const { data: course } = useQuery({
     queryKey: ['course', courseId],

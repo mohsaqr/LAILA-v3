@@ -48,7 +48,7 @@ import { AIDatasetGenerator } from '../components/ai/AIDatasetGenerator';
 import type { SnaGeneratedData } from '../components/ai/AIDatasetGenerator';
 import { SnaStepGuide } from '../components/sna-exercise/SnaStepGuide';
 import { LabAIAssistant } from '../components/ai/LabAIAssistant';
-import { activityLogger } from '../services/activityLogger';
+import { useTracker } from '../services/tracker';
 import { exportEdgesAsCSV, exportMatrixAsCSV, exportCentralityAsCSV, exportRowsAsCSV } from '../utils/csvExport';
 
 /* ── Types ── */
@@ -241,6 +241,7 @@ export const SnaExercise = () => {
   const { courseId } = useParams<{ courseId?: string }>();
   const [searchParams] = useSearchParams();
   const { isDark } = useTheme();
+  const track = useTracker('sna');
   const csvUploadRef = useRef<HTMLInputElement>(null);
   const exerciseRef = useRef<HTMLDivElement>(null);
   const analysisContentRef = useRef<HTMLDivElement>(null);
@@ -435,6 +436,7 @@ export const SnaExercise = () => {
         return [...filtered, { key, label, dataUrl, timestamp: Date.now() }];
       });
       logSession('Added to report: ' + label);
+      track('report_captured', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId), payload: { analysisType: label } });
       toast.success('Snapshot added to report');
     } catch {
       toast.error('Failed to capture snapshot');
@@ -528,13 +530,13 @@ export const SnaExercise = () => {
     if (!key) { setDatasetKey(null); return; }
     const netName = key === '_custom' ? 'Custom Network' : (SAMPLE_NETWORKS.find(d => d.key === key)?.key ?? key);
     logSession('Network selected: ' + netName);
-    activityLogger.logLabDatasetSelected('SNA', netName, Number(courseId), { datasetKey: key });
+    track('dataset_selected', { verb: 'selected', objectType: 'lab', courseId: Number(courseId), payload: { datasetKey: key, datasetName: netName } });
     setDatasetKey(key);
     setCustomEdges(null);
     setModelBuilt(false);
     setActiveAnalysis(null);
     setDirectedOverride(undefined);
-  }, [courseId]);
+  }, [courseId, track]);
 
   const handleAiSnaData = useCallback((data: SnaGeneratedData) => {
     const { labels, matrix } = edgesToMatrix(data.edges, data.directed);
@@ -578,6 +580,7 @@ export const SnaExercise = () => {
   const handleCsvUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    track('csv_uploaded', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId), payload: { fileName: file.name } });
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
@@ -585,7 +588,7 @@ export const SnaExercise = () => {
     };
     reader.readAsText(file);
     e.target.value = '';
-  }, [handleMyDatasetSelect]);
+  }, [handleMyDatasetSelect, track, courseId]);
 
   const handleCustomSubmit = useCallback((edges: Edge[], directed: boolean) => {
     const { labels, matrix } = edgesToMatrix(edges, directed);
@@ -603,19 +606,19 @@ export const SnaExercise = () => {
     setModelBuilt(true);
     setActiveAnalysis(null);
     logSession('Network built: ' + nodeLabels.length + ' nodes, ' + currentEdges.length + ' edges');
-    activityLogger.logLabModelBuilt('SNA', Number(courseId), { nodeCount: nodeLabels.length, edgeCount: currentEdges.length });
-  }, [nodeLabels, currentEdges, courseId]);
+    track('network_built', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId), payload: { datasetKey, nodeCount: nodeLabels.length, edgeCount: currentEdges.length } });
+  }, [nodeLabels, currentEdges, courseId, track, datasetKey]);
 
   const toggleAnalysis = useCallback((key: AnalysisKey) => {
     // Side effects must live outside the updater (updaters are pure in React 18)
     if (activeAnalysis !== key) {
       logSession('Analysis opened: ' + key);
       setVisitedAnalyses(prev => [...new Set([...prev, key])]);
-      activityLogger.logLabAnalysisViewed('SNA', key, Number(courseId), { datasetKey, communityMethod });
+      track('analysis_tab_clicked', { verb: 'viewed', objectType: 'lab', courseId: Number(courseId), payload: { tab: key, datasetKey, communityMethod } });
     }
     setActiveAnalysis(prev => prev === key ? null : key);
     setShowGuide(false);
-  }, [activeAnalysis, courseId, datasetKey, communityMethod]);
+  }, [activeAnalysis, courseId, datasetKey, communityMethod, track]);
 
   // ── Style constants ──
   const selectCls = "w-full px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500";
@@ -738,7 +741,7 @@ export const SnaExercise = () => {
                 <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">{t('sna.subtitle')}</p>
               </div>
             </div>
-            <button onClick={() => navigate(courseId ? `/courses/${courseId}` : -1 as any)} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+            <button onClick={() => { track('page_closed', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId) }); navigate(courseId ? `/courses/${courseId}` : -1 as any); }} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -774,28 +777,28 @@ export const SnaExercise = () => {
                 {/* Custom network & AI buttons */}
                 <div className="flex flex-col gap-2">
                   <button
-                    onClick={() => setShowCustomModal(true)}
+                    onClick={() => { setShowCustomModal(true); track('custom_network_opened', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId) }); }}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     {t('sna.custom_enter')}
                   </button>
                   <button
-                    onClick={() => setShowAIGenerator(true)}
+                    onClick={() => { setShowAIGenerator(true); track('ai_generator_opened', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId) }); }}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
                     {t('ai_gen.or_generate')}
                   </button>
                   <button
-                    onClick={() => setShowDatasetPicker(true)}
+                    onClick={() => { setShowDatasetPicker(true); track('my_datasets_opened', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId) }); }}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
                   >
                     <Database className="w-3.5 h-3.5" />
                     {t('my_datasets')}
                   </button>
                   <button
-                    onClick={() => csvUploadRef.current?.click()}
+                    onClick={() => { csvUploadRef.current?.click(); track('csv_upload_clicked', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId) }); }}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
                   >
                     <Upload className="w-3.5 h-3.5" />
@@ -825,7 +828,7 @@ export const SnaExercise = () => {
                     Download Data
                   </label>
                   <button
-                    onClick={() => exportEdgesAsCSV(currentEdges, 'sna-edge-list.csv')}
+                    onClick={() => { exportEdgesAsCSV(currentEdges, 'sna-edge-list.csv'); track('edge_list_downloaded', { verb: 'downloaded', objectType: 'lab', courseId: Number(courseId) }); }}
                     className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                   >
                     Edge List ({currentEdges.length} edges)
@@ -833,14 +836,14 @@ export const SnaExercise = () => {
                   {modelBuilt && (
                     <>
                       <button
-                        onClick={() => exportMatrixAsCSV(matrixData, nodeLabels, 'sna-adjacency-matrix.csv')}
+                        onClick={() => { exportMatrixAsCSV(matrixData, nodeLabels, 'sna-adjacency-matrix.csv'); track('adjacency_matrix_downloaded', { verb: 'downloaded', objectType: 'lab', courseId: Number(courseId) }); }}
                         className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       >
                         Adjacency Matrix
                       </button>
                       {centralityData && (
                         <button
-                          onClick={() => exportCentralityAsCSV(centralityData, 'sna-centrality.csv')}
+                          onClick={() => { exportCentralityAsCSV(centralityData, 'sna-centrality.csv'); track('centrality_downloaded', { verb: 'downloaded', objectType: 'lab', courseId: Number(courseId) }); }}
                           className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                         >
                           Centrality Measures
@@ -848,10 +851,10 @@ export const SnaExercise = () => {
                       )}
                       {communities && (
                         <button
-                          onClick={() => exportRowsAsCSV(
+                          onClick={() => { exportRowsAsCSV(
                             nodeLabels.map((label, i) => ({ node: label, community: communities.assignments[i] })),
                             'sna-communities.csv',
-                          )}
+                          ); track('communities_downloaded', { verb: 'downloaded', objectType: 'lab', courseId: Number(courseId) }); }}
                           className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                         >
                           Communities
@@ -886,7 +889,7 @@ export const SnaExercise = () => {
                       return (
                         <button
                           key={ds.key}
-                          onClick={() => handleSelectDataset(ds.key)}
+                          onClick={() => { track('sample_network_clicked', { verb: 'selected', objectType: 'lab', courseId: Number(courseId), payload: { datasetKey: ds.key } }); handleSelectDataset(ds.key); }}
                           className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-violet-300 dark:hover:border-violet-700 hover:bg-violet-50 dark:hover:bg-violet-950/20 transition-all text-left"
                         >
                           <div className={`w-10 h-10 rounded-lg bg-gradient-to-r ${ds.gradient} flex items-center justify-center mb-3`}>
@@ -904,28 +907,28 @@ export const SnaExercise = () => {
                   </div>
                   <div className="flex items-center justify-center gap-3">
                     <button
-                      onClick={() => setShowCustomModal(true)}
+                      onClick={() => { setShowCustomModal(true); track('custom_network_opened', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId) }); }}
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
                     >
                       <Plus className="w-4 h-4" />
                       {t('sna.custom_enter')}
                     </button>
                     <button
-                      onClick={() => setShowAIGenerator(true)}
+                      onClick={() => { setShowAIGenerator(true); track('ai_generator_opened', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId) }); }}
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
                     >
                       <Sparkles className="w-4 h-4" />
                       {t('ai_gen.or_generate')}
                     </button>
                     <button
-                      onClick={() => setShowDatasetPicker(true)}
+                      onClick={() => { setShowDatasetPicker(true); track('my_datasets_opened', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId) }); }}
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
                     >
                       <Database className="w-4 h-4" />
                       {t('my_datasets')}
                     </button>
                     <button
-                      onClick={() => csvUploadRef.current?.click()}
+                      onClick={() => { csvUploadRef.current?.click(); track('csv_upload_clicked', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId) }); }}
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
                     >
                       <Upload className="w-4 h-4" />
@@ -1017,14 +1020,14 @@ export const SnaExercise = () => {
                       <SearchableSelect
                         label={t('sna.layout')}
                         value={layout}
-                        onChange={val => setLayout(val as LayoutAlgorithm)}
+                        onChange={val => { setLayout(val as LayoutAlgorithm); track('layout_changed', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId), payload: { layout: val } }); }}
                         options={LAYOUT_OPTIONS.map(o => ({ value: o.key, label: t(o.i18nKey) }))}
                         className="w-[160px]"
                       />
                       <SearchableSelect
                         label={t('exercise.node_size_by')}
                         value={nodeSizeBy}
-                        onChange={setNodeSizeBy}
+                        onChange={val => { setNodeSizeBy(val); track('node_size_metric_changed', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId), payload: { metric: val } }); }}
                         options={[
                           { value: 'fixed', label: t('exercise.fixed_size') },
                           { value: 'InStrength', label: t('exercise.in_strength') },
@@ -1037,22 +1040,22 @@ export const SnaExercise = () => {
                       />
                       <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 ml-2">
                         <label className="flex items-center gap-1.5 text-[13px] text-gray-700 dark:text-gray-200 cursor-pointer">
-                          <input type="checkbox" checked={!isDirected} onChange={e => setDirectedOverride(e.target.checked ? false : true)}
+                          <input type="checkbox" checked={!isDirected} onChange={e => { setDirectedOverride(e.target.checked ? false : true); track('directed_toggled', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId), payload: { undirected: e.target.checked } }); }}
                             className="rounded w-4 h-4 text-violet-600" />
                           {t('sna.undirected')}
                         </label>
                         <label className="flex items-center gap-1.5 text-[13px] text-gray-700 dark:text-gray-200 cursor-pointer">
-                          <input type="checkbox" checked={showSelfLoops} onChange={e => setShowSelfLoops(e.target.checked)}
+                          <input type="checkbox" checked={showSelfLoops} onChange={e => { setShowSelfLoops(e.target.checked); track('self_loops_toggled', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId), payload: { enabled: e.target.checked } }); }}
                             className="rounded w-4 h-4 text-violet-600" />
                           {t('exercise.self_loops')}
                         </label>
                         <label className="flex items-center gap-1.5 text-[13px] text-gray-700 dark:text-gray-200 cursor-pointer">
-                          <input type="checkbox" checked={showEdgeLabels} onChange={e => setShowEdgeLabels(e.target.checked)}
+                          <input type="checkbox" checked={showEdgeLabels} onChange={e => { setShowEdgeLabels(e.target.checked); track('edge_labels_toggled', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId), payload: { enabled: e.target.checked } }); }}
                             className="rounded w-4 h-4 text-violet-600" />
                           {t('exercise.edge_labels')}
                         </label>
                         <label className="flex items-center gap-1.5 text-[13px] text-gray-700 dark:text-gray-200 cursor-pointer">
-                          <input type="checkbox" checked={showNodeLabels} onChange={e => setShowNodeLabels(e.target.checked)}
+                          <input type="checkbox" checked={showNodeLabels} onChange={e => { setShowNodeLabels(e.target.checked); track('node_labels_toggled', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId), payload: { enabled: e.target.checked } }); }}
                             className="rounded w-4 h-4 text-violet-600" />
                           {t('exercise.node_labels')}
                         </label>
@@ -1063,19 +1066,25 @@ export const SnaExercise = () => {
                       <div className="flex items-center gap-2 flex-1 min-w-[200px]">
                         <span className="text-[12px] text-gray-500 whitespace-nowrap">{t('exercise.node_size')}</span>
                         <input type="range" min={15} max={50} value={nodeRadius}
-                          onChange={e => setNodeRadius(Number(e.target.value))} className="flex-1 h-2 rounded-full accent-violet-600 cursor-pointer" />
+                          onChange={e => setNodeRadius(Number(e.target.value))}
+                          onPointerUp={e => track('node_size_changed', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId), payload: { value: Number((e.target as HTMLInputElement).value) } })}
+                          className="flex-1 h-2 rounded-full accent-violet-600 cursor-pointer" />
                         <span className="text-[12px] font-semibold text-violet-600 tabular-nums w-6 text-right">{nodeRadius}</span>
                       </div>
                       <div className="flex items-center gap-2 flex-1 min-w-[200px]">
                         <span className="text-[12px] text-gray-500 whitespace-nowrap">{t('exercise.label_size')}</span>
                         <input type="range" min={6} max={18} value={nodeFontSize}
-                          onChange={e => setNodeFontSize(Number(e.target.value))} className="flex-1 h-2 rounded-full accent-violet-600 cursor-pointer" />
+                          onChange={e => setNodeFontSize(Number(e.target.value))}
+                          onPointerUp={e => track('label_size_changed', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId), payload: { value: Number((e.target as HTMLInputElement).value) } })}
+                          className="flex-1 h-2 rounded-full accent-violet-600 cursor-pointer" />
                         <span className="text-[12px] font-semibold text-violet-600 tabular-nums w-6 text-right">{nodeFontSize}</span>
                       </div>
                       <div className="flex items-center gap-2 flex-1 min-w-[200px]">
                         <span className="text-[12px] text-gray-500 whitespace-nowrap">{t('sna.edge_width')}</span>
                         <input type="range" min={1} max={12} step={0.5} value={edgeWidth}
-                          onChange={e => setEdgeWidth(Number(e.target.value))} className="flex-1 h-2 rounded-full accent-violet-600 cursor-pointer" />
+                          onChange={e => setEdgeWidth(Number(e.target.value))}
+                          onPointerUp={e => track('edge_width_changed', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId), payload: { value: Number((e.target as HTMLInputElement).value) } })}
+                          className="flex-1 h-2 rounded-full accent-violet-600 cursor-pointer" />
                         <span className="text-[12px] font-semibold text-violet-600 tabular-nums w-6 text-right">{edgeWidth}</span>
                       </div>
                     </div>
@@ -1125,7 +1134,7 @@ export const SnaExercise = () => {
                     {CENTRALITY_OPTIONS.map(opt => (
                       <button
                         key={opt.key}
-                        onClick={() => { setCentralityMetric(opt.key); logSession('Centrality metric: ' + opt.key); }}
+                        onClick={() => { setCentralityMetric(opt.key); logSession('Centrality metric: ' + opt.key); track('centrality_metric_changed', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId), payload: { metric: opt.key } }); }}
                         className={`px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors ${
                           centralityMetric === opt.key
                             ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300'
@@ -1138,7 +1147,7 @@ export const SnaExercise = () => {
                     <span className="w-px h-5 bg-gray-200 dark:bg-gray-700" />
                     <div className="flex rounded-md border border-gray-200 dark:border-gray-600 overflow-hidden">
                       <button
-                        onClick={() => { setCentralityView('chart'); logSession('Centrality view: chart'); }}
+                        onClick={() => { setCentralityView('chart'); logSession('Centrality view: chart'); track('centrality_view_changed', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId), payload: { view: 'chart' } }); }}
                         className={`px-3 py-1 text-[12px] font-medium transition-colors ${
                           centralityView === 'chart'
                             ? 'bg-violet-600 text-white'
@@ -1148,7 +1157,7 @@ export const SnaExercise = () => {
                         {t('exercise.centrality_chart')}
                       </button>
                       <button
-                        onClick={() => { setCentralityView('table'); logSession('Centrality view: table'); }}
+                        onClick={() => { setCentralityView('table'); logSession('Centrality view: table'); track('centrality_view_changed', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId), payload: { view: 'table' } }); }}
                         className={`px-3 py-1 text-[12px] font-medium transition-colors ${
                           centralityView === 'table'
                             ? 'bg-violet-600 text-white'
@@ -1165,7 +1174,7 @@ export const SnaExercise = () => {
                     <SearchableSelect
                       label={t('sna.community_algorithm')}
                       value={communityMethod}
-                      onChange={val => { setCommunityMethod(val as CommunityMethod); logSession('Community method: ' + val); }}
+                      onChange={val => { setCommunityMethod(val as CommunityMethod); logSession('Community method: ' + val); track('community_method_changed', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId), payload: { method: val } }); }}
                       options={COMMUNITY_METHOD_OPTIONS.map(o => ({ value: o.key, label: t(o.i18nKey) }))}
                       className="w-[200px]"
                     />
@@ -1266,7 +1275,7 @@ export const SnaExercise = () => {
                 {/* Guide Banner */}
                 {activeAnalysis && guideContent[activeAnalysis] && (
                   <button
-                    onClick={() => setShowGuide(g => !g)}
+                    onClick={() => { setShowGuide(g => { track('guide_toggled', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId), payload: { shown: !g } }); return !g; }); }}
                     className={`w-full flex items-center gap-3 px-5 py-3 rounded-xl border text-left transition-colors ${
                       showGuide
                         ? 'bg-violet-50 dark:bg-violet-950/30 border-violet-200 dark:border-violet-800 text-violet-800 dark:text-violet-200'
@@ -1319,17 +1328,17 @@ export const SnaExercise = () => {
                 {/* CSV export buttons (outside capture area) */}
                 {activeAnalysis === 'centrality' && centralityData && (
                   <div className="flex justify-end">
-                    <button onClick={() => exportCentralityAsCSV(centralityData, 'sna-centrality.csv')} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"><Download className="w-3 h-3" /> CSV</button>
+                    <button onClick={() => { exportCentralityAsCSV(centralityData, 'sna-centrality.csv'); track('centrality_csv_downloaded', { verb: 'downloaded', objectType: 'lab', courseId: Number(courseId) }); }} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"><Download className="w-3 h-3" /> CSV</button>
                   </div>
                 )}
                 {activeAnalysis === 'communities' && communities && (
                   <div className="flex justify-end">
-                    <button onClick={() => exportRowsAsCSV(nodeLabels.map((label, i) => ({ node: label, community: communities.assignments[i] })), 'sna-communities.csv')} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"><Download className="w-3 h-3" /> CSV</button>
+                    <button onClick={() => { exportRowsAsCSV(nodeLabels.map((label, i) => ({ node: label, community: communities.assignments[i] })), 'sna-communities.csv'); track('communities_csv_downloaded', { verb: 'downloaded', objectType: 'lab', courseId: Number(courseId) }); }} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"><Download className="w-3 h-3" /> CSV</button>
                   </div>
                 )}
                 {activeAnalysis === 'adjacency' && (
                   <div className="flex justify-end">
-                    <button onClick={() => exportMatrixAsCSV(matrixData, nodeLabels, 'sna-adjacency-matrix.csv')} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"><Download className="w-3 h-3" /> CSV</button>
+                    <button onClick={() => { exportMatrixAsCSV(matrixData, nodeLabels, 'sna-adjacency-matrix.csv'); track('matrix_csv_downloaded', { verb: 'downloaded', objectType: 'lab', courseId: Number(courseId) }); }} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"><Download className="w-3 h-3" /> CSV</button>
                   </div>
                 )}
 
@@ -1414,7 +1423,7 @@ export const SnaExercise = () => {
                         <Button
                           variant="secondary"
                           size="sm"
-                          onClick={() => setAssignmentPanelOpen(true)}
+                          onClick={() => { setAssignmentPanelOpen(true); track('assignment_panel_opened', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId) }); }}
                           icon={<RefreshCw className="w-3.5 h-3.5" />}
                         >
                           {t('resubmit', { defaultValue: 'Resubmit' })}
@@ -1525,7 +1534,7 @@ export const SnaExercise = () => {
               <div className="flex justify-end">
                 <Button
                   variant="primary"
-                  onClick={() => setAssignmentPanelOpen(true)}
+                  onClick={() => { setAssignmentPanelOpen(true); track('assignment_panel_opened', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId) }); }}
                   icon={<Send className="w-4 h-4" />}
                 >
                   {t('submit_assignment', { defaultValue: 'Submit Assignment' })}
@@ -1548,7 +1557,7 @@ export const SnaExercise = () => {
             <div className="flex justify-end">
               <Button
                 variant="primary"
-                onClick={() => setAssignmentPanelOpen(true)}
+                onClick={() => { setAssignmentPanelOpen(true); track('assignment_panel_opened', { verb: 'interacted', objectType: 'lab', courseId: Number(courseId) }); }}
                 icon={<Send className="w-4 h-4" />}
               >
                 {t('submit_assignment', { defaultValue: 'Submit Assignment' })}

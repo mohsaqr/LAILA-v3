@@ -26,6 +26,7 @@ import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { TestChatInterface } from '../../components/agent-assignment/TestChatInterface';
 import { AgentTestMessage } from '../../types';
+import activityLogger from '../../services/activityLogger';
 
 export const InstructorAgentTestChat = () => {
   const { t } = useTranslation(['teaching', 'common']);
@@ -44,6 +45,12 @@ export const InstructorAgentTestChat = () => {
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [messages, setMessages] = useState<AgentTestMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (subId && courseId) {
+      activityLogger.logAgentTested(subId, undefined, courseId);
+    }
+  }, [subId, courseId]);
 
   const { data: assignment, isLoading: assignmentLoading } = useQuery({
     queryKey: ['assignment', assId],

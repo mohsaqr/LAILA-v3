@@ -24,6 +24,7 @@ import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { AgentTestMessage } from '../../types';
+import activityLogger from '../../services/activityLogger';
 
 export const UseMyAgent = () => {
   const { t } = useTranslation(['teaching', 'common', 'navigation']);
@@ -46,6 +47,15 @@ export const UseMyAgent = () => {
     queryKey: ['myAgentConfig', assId],
     queryFn: () => agentAssignmentsApi.getMyAgentConfig(assId),
   });
+
+  const parsedCourseId = courseId ? parseInt(courseId, 10) : undefined;
+
+  // Log page view
+  useEffect(() => {
+    if (data?.config) {
+      activityLogger.logAgentUsed(data.config.id, data.config.agentName, parsedCourseId);
+    }
+  }, [data?.config?.id, data?.config?.agentName, parsedCourseId]);
 
   // Auto-scroll to bottom
   useEffect(() => {

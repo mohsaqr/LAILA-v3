@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
@@ -10,6 +10,7 @@ import { Loading } from '../components/common/Loading';
 import { CodeLabPlayer } from '../components/code/CodeLabPlayer';
 import { CodeLabAIHelper } from '../components/code/CodeLabAIHelper';
 import { CodeBlock } from '../types';
+import activityLogger from '../services/activityLogger';
 
 interface BlockExecutionResult {
   blockId: number;
@@ -57,6 +58,14 @@ export const CodeLabPage = () => {
     queryFn: () => codeLabsApi.getCodeLabById(labId),
     enabled: !!labId,
   });
+
+  // Log page view
+  const parsedCourseId = courseId ? parseInt(courseId, 10) : undefined;
+  useEffect(() => {
+    if (codeLab) {
+      activityLogger.logCodeLabViewed(labId, codeLab.title, parsedCourseId);
+    }
+  }, [labId, codeLab?.title, parsedCourseId]);
 
   // Track block execution results
   const handleBlockExecuted = useCallback((blockId: number, code: string, output?: string, error?: string) => {

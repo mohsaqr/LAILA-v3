@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -24,6 +24,7 @@ import { Modal } from '../../components/common/Modal';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { sanitizeHtml } from '../../utils/sanitize';
+import activityLogger from '../../services/activityLogger';
 
 export const QuizManager = () => {
   const { t } = useTranslation(['teaching', 'common']);
@@ -53,6 +54,12 @@ export const QuizManager = () => {
     textGreen: isDark ? '#86efac' : '#15803d',
   };
 
+  useEffect(() => {
+    if (parsedCourseId) {
+      activityLogger.logQuizManagerViewed(parsedCourseId);
+    }
+  }, [parsedCourseId]);
+
   // Fetch course info for breadcrumbs
   const { data: course } = useQuery({
     queryKey: ['course', parsedCourseId],
@@ -70,6 +77,7 @@ export const QuizManager = () => {
   const createQuizMutation = useMutation({
     mutationFn: (data: CreateQuizInput) => quizzesApi.createQuiz(parsedCourseId, data),
     onSuccess: (quiz) => {
+      activityLogger.logQuizCreated(quiz.id, quiz.title, parsedCourseId);
       queryClient.invalidateQueries({ queryKey: ['quizzes', parsedCourseId] });
       toast.success(t('quiz_created'));
       setIsCreateModalOpen(false);
@@ -84,7 +92,8 @@ export const QuizManager = () => {
   // Delete quiz mutation
   const deleteQuizMutation = useMutation({
     mutationFn: (quizId: number) => quizzesApi.deleteQuiz(quizId),
-    onSuccess: () => {
+    onSuccess: (_data, quizId) => {
+      activityLogger.logQuizDeleted(quizId, undefined, parsedCourseId);
       queryClient.invalidateQueries({ queryKey: ['quizzes', parsedCourseId] });
       toast.success(t('quiz_deleted'));
     },
@@ -97,7 +106,8 @@ export const QuizManager = () => {
   const togglePublishMutation = useMutation({
     mutationFn: ({ quizId, isPublished }: { quizId: number; isPublished: boolean }) =>
       quizzesApi.updateQuiz(quizId, { isPublished }),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      activityLogger.logQuizUpdated(variables.quizId, undefined, parsedCourseId, { action: variables.isPublished ? 'published' : 'unpublished' });
       queryClient.invalidateQueries({ queryKey: ['quizzes', parsedCourseId] });
     },
     onError: (error: any) => {

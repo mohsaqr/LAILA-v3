@@ -42,6 +42,8 @@ import { PostAssignmentSurveyModal } from '../components/survey';
 import { getSessionId, getClientInfo } from '../utils/analytics';
 import { debug } from '../utils/debug';
 import { activityLogger } from '../services/activityLogger';
+import { useTracker } from '../services/tracker';
+import { TrackedContent } from '../components/common/TrackedContent';
 
 // Thin wrappers that provide the runtime hook and pass courseId directly
 const RLabEmbed = ({ lab, courseId, hideSubmit, openPanel, onPanelClose }: { lab: any; courseId: number; hideSubmit?: boolean; openPanel?: boolean; onPanelClose?: () => void }) => {
@@ -62,6 +64,7 @@ export const AssignmentView = () => {
   const parsedCourseId = parseInt(courseId!, 10);
   const parsedAssignmentId = parseInt(assignmentId!, 10);
   const { isDark } = useTheme();
+  const track = useTracker('assignment');
 
   const [content, setContent] = useState('');
   const [fileUrls, setFileUrls] = useState<string[]>([]);
@@ -286,6 +289,7 @@ export const AssignmentView = () => {
     try {
       const { url } = await uploadsApi.uploadAssignmentSubmission(file, parsedAssignmentId);
       setFileUrls(prev => [...prev, url]);
+      track('file_uploaded', { verb: 'interacted', objectType: 'assignment', objectId: parsedAssignmentId, courseId: parsedCourseId, payload: { fileName: file.name } });
       toast.success(t('file_uploaded', { defaultValue: 'File uploaded' }));
     } catch (err: any) {
       const message = err?.message || t('file_upload_failed', { defaultValue: 'File upload failed' });
@@ -303,6 +307,7 @@ export const AssignmentView = () => {
       toast.error(t('add_content_before_submit'));
       return;
     }
+    track('submit_clicked', { verb: 'submitted', objectType: 'assignment', objectId: parsedAssignmentId, courseId: parsedCourseId });
     submitMutation.mutate();
   };
 
@@ -398,7 +403,7 @@ export const AssignmentView = () => {
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => setIsResubmitting(true)}
+                        onClick={() => { track('resubmit_started', { verb: 'interacted', objectType: 'assignment', objectId: parsedAssignmentId, courseId: parsedCourseId }); setIsResubmitting(true); }}
                         icon={<RefreshCw className="w-3.5 h-3.5" />}
                       >
                         {t('resubmit', { defaultValue: 'Resubmit' })}
@@ -408,11 +413,13 @@ export const AssignmentView = () => {
                 )}
                 {mySubmission.content && (
                   isHtmlContent(mySubmission.content) ? (
-                    <div
-                      className="prose max-w-none mb-4 text-sm"
-                      style={{ color: colors.textSecondary }}
-                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(mySubmission.content) }}
-                    />
+                    <TrackedContent context="assignment" courseId={parsedCourseId} objectId={parsedAssignmentId} objectTitle={assignment?.title}>
+                      <div
+                        className="prose max-w-none mb-4 text-sm"
+                        style={{ color: colors.textSecondary }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(mySubmission.content) }}
+                      />
+                    </TrackedContent>
                   ) : (
                     <p className="mb-4 text-sm whitespace-pre-wrap" style={{ color: colors.textSecondary }}>
                       {mySubmission.content}
@@ -478,15 +485,19 @@ export const AssignmentView = () => {
               </CardHeader>
               <CardBody>
                 {isHtmlContent(assignment.description) ? (
-                  <div
-                    className="prose dark:prose-invert max-w-none"
-                    style={{ color: colors.textSecondary }}
-                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(assignment.description) }}
-                  />
+                  <TrackedContent context="assignment" courseId={parsedCourseId} objectId={parsedAssignmentId} objectTitle={assignment.title}>
+                    <div
+                      className="prose dark:prose-invert max-w-none"
+                      style={{ color: colors.textSecondary }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(assignment.description) }}
+                    />
+                  </TrackedContent>
                 ) : (
-                  <div className="prose max-w-none" style={{ color: colors.textSecondary }}>
-                    <ReactMarkdown>{assignment.description}</ReactMarkdown>
-                  </div>
+                  <TrackedContent context="assignment" courseId={parsedCourseId} objectId={parsedAssignmentId} objectTitle={assignment.title}>
+                    <div className="prose max-w-none" style={{ color: colors.textSecondary }}>
+                      <ReactMarkdown>{assignment.description}</ReactMarkdown>
+                    </div>
+                  </TrackedContent>
                 )}
               </CardBody>
             </Card>
@@ -500,11 +511,13 @@ export const AssignmentView = () => {
               </CardHeader>
               <CardBody>
                 {isHtmlContent(assignment.instructions) ? (
-                  <div
-                    className="prose dark:prose-invert max-w-none"
-                    style={{ color: colors.textSecondary }}
-                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(assignment.instructions) }}
-                  />
+                  <TrackedContent context="assignment" courseId={parsedCourseId} objectId={parsedAssignmentId} objectTitle={assignment.title}>
+                    <div
+                      className="prose dark:prose-invert max-w-none"
+                      style={{ color: colors.textSecondary }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(assignment.instructions) }}
+                    />
+                  </TrackedContent>
                 ) : (
                   <p className="whitespace-pre-wrap" style={{ color: colors.textSecondary }}>
                     {assignment.instructions}
@@ -534,6 +547,7 @@ export const AssignmentView = () => {
                       rel="noopener noreferrer"
                       className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group"
                       style={{ backgroundColor: colors.bgFile }}
+                      onClick={() => track('attachment_downloaded', { verb: 'downloaded', objectType: 'file', objectId: att.id, courseId: parsedCourseId, payload: { fileName: att.fileName } })}
                     >
                       <FileText className="w-5 h-5 flex-shrink-0" style={{ color: colors.textMuted }} />
                       <div className="flex-1 min-w-0">
@@ -616,11 +630,13 @@ export const AssignmentView = () => {
                         {t('your_answer_label')}
                       </label>
                       {isHtmlContent(content) ? (
-                        <div
-                          className="prose max-w-none p-4 rounded-lg border text-sm"
-                          style={{ backgroundColor: colors.bgFile, borderColor: colors.border, color: colors.textPrimary }}
-                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }}
-                        />
+                        <TrackedContent context="assignment" courseId={parsedCourseId} objectId={parsedAssignmentId} objectTitle={assignment.title}>
+                          <div
+                            className="prose max-w-none p-4 rounded-lg border text-sm"
+                            style={{ backgroundColor: colors.bgFile, borderColor: colors.border, color: colors.textPrimary }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }}
+                          />
+                        </TrackedContent>
                       ) : (
                         <p
                           className="p-4 rounded-lg border text-sm whitespace-pre-wrap"
@@ -635,11 +651,13 @@ export const AssignmentView = () => {
                       <label className="block text-sm font-medium mb-2" style={{ color: colors.textSecondary }}>
                         {t('your_answer_label')}
                       </label>
-                      <RichTextEditor
-                        value={content}
-                        onChange={setContent}
-                        placeholder={t('write_answer_placeholder')}
-                      />
+                      <div onBlur={() => { if (content) track('response_edited', { verb: 'interacted', objectType: 'assignment', objectId: parsedAssignmentId, courseId: parsedCourseId, payload: { contentLength: content.length } }); }}>
+                        <RichTextEditor
+                          value={content}
+                          onChange={setContent}
+                          placeholder={t('write_answer_placeholder')}
+                        />
+                      </div>
                     </div>
                   )
                 )}
@@ -734,7 +752,7 @@ export const AssignmentView = () => {
                                     </a>
                                   )}
                                   {(!isSubmitted || isResubmitting) && (
-                                    <button onClick={() => setFileUrls(fileUrls.filter((_, i) => i !== index))} style={{ color: colors.textRed }}>
+                                    <button onClick={() => { track('file_removed', { verb: 'interacted', objectType: 'assignment', objectId: parsedAssignmentId, courseId: parsedCourseId, payload: { fileIndex: index } }); setFileUrls(fileUrls.filter((_, i) => i !== index)); }} style={{ color: colors.textRed }}>
                                       <X className="w-4 h-4" />
                                     </button>
                                   )}
@@ -753,7 +771,7 @@ export const AssignmentView = () => {
                     {!isResubmitting && (
                       <Button
                         variant="secondary"
-                        onClick={() => saveDraftMutation.mutate()}
+                        onClick={() => { track('draft_saved', { verb: 'interacted', objectType: 'assignment', objectId: parsedAssignmentId, courseId: parsedCourseId }); saveDraftMutation.mutate(); }}
                         loading={saveDraftMutation.isPending}
                         icon={<Save className="w-4 h-4" />}
                       >
@@ -763,7 +781,7 @@ export const AssignmentView = () => {
                     {isResubmitting && (
                       <Button
                         variant="secondary"
-                        onClick={() => setIsResubmitting(false)}
+                        onClick={() => { track('resubmit_cancelled', { verb: 'interacted', objectType: 'assignment', objectId: parsedAssignmentId, courseId: parsedCourseId }); setIsResubmitting(false); }}
                       >
                         {t('common:cancel')}
                       </Button>
@@ -793,7 +811,7 @@ export const AssignmentView = () => {
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => setIsResubmitting(true)}
+                        onClick={() => { track('resubmit_started', { verb: 'interacted', objectType: 'assignment', objectId: parsedAssignmentId, courseId: parsedCourseId }); setIsResubmitting(true); }}
                         icon={<RefreshCw className="w-3.5 h-3.5" />}
                       >
                         {t('resubmit', { defaultValue: 'Resubmit' })}
@@ -814,11 +832,13 @@ export const AssignmentView = () => {
               <CardBody>
                 {mySubmission.content && (
                   isHtmlContent(mySubmission.content) ? (
-                    <div
-                      className="prose max-w-none mb-4 text-sm"
-                      style={{ color: colors.textSecondary }}
-                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(mySubmission.content) }}
-                    />
+                    <TrackedContent context="assignment" courseId={parsedCourseId} objectId={parsedAssignmentId} objectTitle={assignment.title}>
+                      <div
+                        className="prose max-w-none mb-4 text-sm"
+                        style={{ color: colors.textSecondary }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(mySubmission.content) }}
+                      />
+                    </TrackedContent>
                   ) : (
                     <p className="mb-4 text-sm whitespace-pre-wrap" style={{ color: colors.textSecondary }}>
                       {mySubmission.content}

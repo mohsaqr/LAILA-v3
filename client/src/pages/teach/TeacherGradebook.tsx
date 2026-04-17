@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -26,6 +26,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { Assignment } from '../../types';
+import activityLogger from '../../services/activityLogger';
 
 interface GradebookGrade {
   assignmentId: number;
@@ -78,6 +79,12 @@ export const TeacherGradebook = () => {
   const queryClient = useQueryClient();
   const parsedCourseId = parseInt(courseId!, 10);
   const { isDark } = useTheme();
+
+  useEffect(() => {
+    if (parsedCourseId) {
+      activityLogger.logTeacherGradebookViewed(parsedCourseId);
+    }
+  }, [parsedCourseId]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [gradeModal, setGradeModal] = useState<{

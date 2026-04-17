@@ -42,6 +42,7 @@ import { useTheme } from '../../hooks/useTheme';
 import apiClient, { resolveFileUrl } from '../../api/client';
 import { getAuthToken } from '../../utils/auth';
 import { courseTutorApi } from '../../api/courseTutor';
+import activityLogger from '../../services/activityLogger';
 
 interface AIComponent {
   id: number;
@@ -240,6 +241,11 @@ export const AIBuilder = () => {
     queryFn: aiComponentsApi.getAll,
   });
 
+  // Log page view
+  useEffect(() => {
+    activityLogger.logAIBuilderViewed();
+  }, []);
+
   // Handle URL parameter to auto-open edit mode for a specific chatbot
   useEffect(() => {
     const editId = searchParams.get('edit');
@@ -274,7 +280,8 @@ export const AIBuilder = () => {
   // Mutation for creating chatbot via admin API (when not in course context)
   const createMutation = useMutation({
     mutationFn: aiComponentsApi.create,
-    onSuccess: () => {
+    onSuccess: (data) => {
+      activityLogger.logAIComponentCreated(data.id, data.displayName);
       toast.success('AI Component created');
       queryClient.invalidateQueries({ queryKey: ['ai-components'] });
       resetForm();
@@ -314,7 +321,8 @@ export const AIBuilder = () => {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<AIComponentFormData> }) =>
       aiComponentsApi.update(id, data),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      activityLogger.logAIComponentUpdated(variables.id, variables.data.displayName);
       toast.success('AI Component updated');
       queryClient.invalidateQueries({ queryKey: ['ai-components'] });
       resetForm();
@@ -327,6 +335,9 @@ export const AIBuilder = () => {
   const deleteMutation = useMutation({
     mutationFn: aiComponentsApi.delete,
     onSuccess: () => {
+      if (componentToDelete) {
+        activityLogger.logAIComponentDeleted(componentToDelete.id, componentToDelete.displayName);
+      }
       toast.success('AI Component deleted');
       queryClient.invalidateQueries({ queryKey: ['ai-components'] });
     },

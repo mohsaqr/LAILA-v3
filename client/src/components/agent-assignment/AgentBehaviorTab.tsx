@@ -74,10 +74,26 @@ export const AgentBehaviorTab = ({
 
   // Handle rules changes with logging
   const handleDosChange = (rules: string[]) => {
+    const prev = formData.dosRules || [];
+    if (rules.length > prev.length) {
+      const added = rules[rules.length - 1];
+      logger?.logRuleAdded('do', added);
+    } else if (rules.length < prev.length) {
+      const removed = prev.find((r, i) => rules[i] !== r) || prev[prev.length - 1];
+      logger?.logRuleRemoved('do', removed);
+    }
     onChange('dosRules', rules);
   };
 
   const handleDontsChange = (rules: string[]) => {
+    const prev = formData.dontsRules || [];
+    if (rules.length > prev.length) {
+      const added = rules[rules.length - 1];
+      logger?.logRuleAdded('dont', added);
+    } else if (rules.length < prev.length) {
+      const removed = prev.find((r, i) => rules[i] !== r) || prev[prev.length - 1];
+      logger?.logRuleRemoved('dont', removed);
+    }
     onChange('dontsRules', rules);
   };
 
@@ -124,6 +140,9 @@ export const AgentBehaviorTab = ({
                   // Switch to custom if they edit
                   onChange('personality', 'custom');
                 }
+              }}
+              onBlur={(e) => {
+                logger?.logFieldChange('personalityPrompt', '', e.target.value);
               }}
               placeholder="Describe how your agent should communicate..."
               rows={3}

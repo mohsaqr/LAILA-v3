@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Search, Download, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
+import { Search, Download, ChevronLeft, ChevronRight, Pencil, Activity } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { usersApi } from '../../../api/users';
 import { adminApi } from '../../../api/admin';
 import { useTheme } from '../../../hooks/useTheme';
@@ -237,6 +238,14 @@ export const UsersPanel = () => {
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
+                    <Link
+                      to={`/admin/logs?userId=${user.id}`}
+                      title={t('view_logs', { defaultValue: 'View Logs' })}
+                      className="p-1 rounded hover:opacity-70 transition-opacity"
+                      style={{ color: colors.textSecondary }}
+                    >
+                      <Activity className="w-3.5 h-3.5" />
+                    </Link>
                     <button
                       onClick={() => toggleStatusMutation.mutate({ userId: user.id, isActive: user.isActive === false })}
                       className="text-xs hover:underline"

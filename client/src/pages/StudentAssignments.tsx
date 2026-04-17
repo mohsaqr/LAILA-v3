@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
 import {
@@ -19,12 +20,18 @@ import { Breadcrumb } from '../components/common/Breadcrumb';
 import { Loading } from '../components/common/Loading';
 import { Button } from '../components/common/Button';
 import { Assignment } from '../types';
+import activityLogger from '../services/activityLogger';
 
 export const StudentAssignments = () => {
   const { t } = useTranslation(['courses', 'common']);
   const { courseId } = useParams<{ courseId: string }>();
   const parsedCourseId = parseInt(courseId!, 10);
   const { isDark } = useTheme();
+
+  // Log page view on mount
+  useEffect(() => {
+    activityLogger.logAssignmentListViewed(parsedCourseId);
+  }, [parsedCourseId]);
 
   // Theme colors
   const colors = {

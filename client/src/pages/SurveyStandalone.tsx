@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +7,7 @@ import { Breadcrumb } from '../components/common/Breadcrumb';
 import { coursesApi } from '../api/courses';
 import { surveysApi } from '../api/surveys';
 import { useTheme } from '../hooks/useTheme';
+import activityLogger from '../services/activityLogger';
 
 export const SurveyStandalone = () => {
   const { t } = useTranslation(['courses', 'common', 'navigation']);
@@ -27,6 +29,13 @@ export const SurveyStandalone = () => {
     queryFn: () => surveysApi.getSurveyById(surveyId),
     enabled: !!surveyId,
   });
+
+  // Log survey view
+  useEffect(() => {
+    if (surveyId && survey) {
+      activityLogger.logSurveyViewed(surveyId, survey.title, courseId);
+    }
+  }, [surveyId, survey?.title, courseId]);
 
   if (!surveyId) {
     return (

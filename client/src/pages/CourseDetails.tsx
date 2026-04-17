@@ -29,6 +29,8 @@ import { Input } from '../components/common/Input';
 import { useEffect, useRef, useState } from 'react';
 import { CurriculumViewMode } from '../types';
 import activityLogger from '../services/activityLogger';
+import { useTracker } from '../services/tracker';
+import { TrackedContent } from '../components/common/TrackedContent';
 
 export const CourseDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -36,6 +38,7 @@ export const CourseDetails = () => {
   const { isAuthenticated, user, isActualAdmin } = useAuth();
   const { isDark } = useTheme();
   const { t } = useTranslation(['courses', 'common']);
+  const track = useTracker('course');
   const moduleRefs = useRef<Record<number, HTMLElement | null>>({});
 
   // Edit mode state — admins/instructors default to view mode; edit is a deliberate act
@@ -76,6 +79,7 @@ export const CourseDetails = () => {
       setActivationCode('');
       queryClient.invalidateQueries({ queryKey: ['course', id] });
       queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+      activityLogger.logCourseEnrolled(parseInt(id!), course?.title);
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -83,7 +87,9 @@ export const CourseDetails = () => {
   });
 
   const handleEnrollClick = () => {
+    track('enroll_clicked', { verb: 'interacted', objectType: 'course', objectId: parseInt(id!), courseId: parseInt(id!) });
     if ((course as any)?.hasActivationCode) {
+      track('activation_modal_opened', { verb: 'interacted', objectType: 'course', objectId: parseInt(id!), courseId: parseInt(id!) });
       setShowCodeModal(true);
     } else {
       enrollMutation.mutate(undefined);
@@ -96,6 +102,7 @@ export const CourseDetails = () => {
       toast.error(t('enter_activation_code'));
       return;
     }
+    track('activation_code_submitted', { verb: 'interacted', objectType: 'course', objectId: parseInt(id!), courseId: parseInt(id!) });
     enrollMutation.mutate(activationCode.trim());
   };
 
@@ -162,7 +169,7 @@ export const CourseDetails = () => {
               </div>
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => setIsEditMode(false)}
+                  onClick={() => { track('edit_mode_toggled', { verb: 'interacted', objectType: 'course', objectId: parseInt(id!), courseId: parseInt(id!), payload: { editMode: false } }); setIsEditMode(false); }}
                   className="flex items-center gap-2 px-3 py-1.5 text-sm text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 rounded-lg transition-colors border border-amber-300 dark:border-amber-700"
                 >
                   <Eye className="w-4 h-4" />
@@ -189,7 +196,7 @@ export const CourseDetails = () => {
           <div className="border-b" style={{ borderColor: isDark ? '#374151' : '#e5e7eb' }}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex justify-end">
               <button
-                onClick={() => setIsEditMode(true)}
+                onClick={() => { track('edit_mode_toggled', { verb: 'interacted', objectType: 'course', objectId: parseInt(id!), courseId: parseInt(id!), payload: { editMode: true } }); setIsEditMode(true); }}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
                 style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
               >
@@ -215,7 +222,9 @@ export const CourseDetails = () => {
             </div>
           )}
           {course.description && (
-            <div className="text-white mb-4 prose prose-sm max-w-none [&_*]:text-white/95 [&_a]:text-white [&_a]:underline" dangerouslySetInnerHTML={{ __html: sanitizeHtml(course.description) }} />
+            <TrackedContent context="course" courseId={parseInt(id!)} objectId={parseInt(id!)} objectTitle={course.title}>
+              <div className="text-white mb-4 prose prose-sm max-w-none [&_*]:text-white/95 [&_a]:text-white [&_a]:underline" dangerouslySetInnerHTML={{ __html: sanitizeHtml(course.description) }} />
+            </TrackedContent>
           )}
           <div className="flex flex-wrap items-center gap-4 text-sm">
             <span className="flex items-center gap-1"><Users className="w-4 h-4" /> {t('n_students', { count: course._count?.enrollments || 0 })}</span>
@@ -294,7 +303,7 @@ export const CourseDetails = () => {
                         {course.modules.map((module, idx) => (
                           <button
                             key={module.id}
-                            onClick={() => scrollToModule(module.id)}
+                            onClick={() => { track('module_navigated', { verb: 'interacted', objectType: 'module', objectId: module.id, courseId: parseInt(id!) }); scrollToModule(module.id); }}
                             className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-3"
                           >
                             <span
@@ -325,7 +334,7 @@ export const CourseDetails = () => {
                 />
 
                 {/* Discussion Forums Card */}
-                <Link to={`/courses/${id}/forums`}>
+                <Link to={`/courses/${id}/forums`} onClick={() => track('forums_link_clicked', { verb: 'interacted', objectType: 'forum', courseId: parseInt(id!) })}>
                   <Card hover className="transition-shadow">
                     <CardBody className="flex items-center gap-4 p-4">
                       <div
@@ -348,7 +357,7 @@ export const CourseDetails = () => {
 
                 {/* My Learning Analytics Card — visible to enrolled students */}
                 {isEnrolled && (
-                  <Link to={`/courses/${id}/analytics`}>
+                  <Link to={`/courses/${id}/analytics`} onClick={() => track('analytics_link_clicked', { verb: 'interacted', objectType: 'analytics', courseId: parseInt(id!) })}>
                     <Card hover className="transition-shadow">
                       <CardBody className="flex items-center gap-4 p-4">
                         <div

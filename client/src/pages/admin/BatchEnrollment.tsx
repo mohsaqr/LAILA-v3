@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
@@ -19,15 +19,23 @@ import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { Modal } from '../../components/common/Modal';
 import { BatchEnrollmentJob, BatchEnrollmentResult, Course } from '../../types';
+import activityLogger from '../../services/activityLogger';
+import { useTracker } from '../../services/tracker';
 
 export const BatchEnrollment = () => {
   const { t } = useTranslation(['admin', 'common']);
   const queryClient = useQueryClient();
+  const track = useTracker('admin.enrollment');
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [selectedJob, setSelectedJob] = useState<BatchEnrollmentJob | null>(null);
   const [isResultsModalOpen, setIsResultsModalOpen] = useState(false);
+
+  // Log page view
+  useEffect(() => {
+    activityLogger.logBatchEnrollmentViewed();
+  }, []);
 
   const { data: coursesData, isLoading: coursesLoading } = useQuery({
     queryKey: ['allCoursesForBatch'],
@@ -74,18 +82,23 @@ export const BatchEnrollment = () => {
       const file = e.dataTransfer.files[0];
       if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
         setSelectedFile(file);
+        track('csv_uploaded', { verb: 'interacted', objectType: 'enrollment', payload: { fileName: file.name } });
       }
     }
   }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      track('csv_uploaded', { verb: 'interacted', objectType: 'enrollment', payload: { fileName: file.name } });
     }
   };
 
   const handleUpload = () => {
     if (!selectedCourseId || !selectedFile) return;
+    activityLogger.logBatchEnrollmentSubmitted({ count: 1, courseId: selectedCourseId });
+    track('enrollment_submitted', { verb: 'submitted', objectType: 'enrollment', courseId: selectedCourseId, payload: { fileName: selectedFile.name } });
     uploadMutation.mutate({ courseId: selectedCourseId, file: selectedFile });
   };
 
@@ -150,7 +163,7 @@ export const BatchEnrollment = () => {
               </label>
               <select
                 value={selectedCourseId || ''}
-                onChange={(e) => setSelectedCourseId(Number(e.target.value) || null)}
+                onChange={(e) => { const id = Number(e.target.value) || null; setSelectedCourseId(id); if (id) { track('course_selected', { verb: 'selected', objectType: 'enrollment', payload: { courseId: id } }); } }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                 disabled={coursesLoading}
               >

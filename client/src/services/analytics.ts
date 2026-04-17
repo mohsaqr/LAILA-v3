@@ -277,6 +277,14 @@ class AnalyticsService {
   private eventSequence: number = 0;
   private testMode: string | null = null; // 'test_instructor', 'test_student', etc.
 
+  // Stored listener references for proper cleanup
+  private clickHandler: ((e: Event) => void) | null = null;
+  private submitHandler: ((e: Event) => void) | null = null;
+  private scrollHandler: (() => void) | null = null;
+  private beforeUnloadHandler: (() => void) | null = null;
+  private visibilityHandler: (() => void) | null = null;
+  private popstateHandler: (() => void) | null = null;
+
   constructor() {
     this.sessionId = this.generateSessionId();
     this.sessionStartTime = Date.now();
@@ -331,21 +339,16 @@ class AnalyticsService {
     }, flushMs);
 
     // Flush on page unload
-    window.addEventListener('beforeunload', () => {
-      this.flush(true);
-    });
+    this.beforeUnloadHandler = () => { this.flush(true); };
+    window.addEventListener('beforeunload', this.beforeUnloadHandler);
 
     // Track page visibility changes
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        this.flush();
-      }
-    });
+    this.visibilityHandler = () => { if (document.hidden) this.flush(); };
+    document.addEventListener('visibilitychange', this.visibilityHandler);
 
     // Track page load time changes
-    window.addEventListener('popstate', () => {
-      this.pageLoadTime = Date.now();
-    });
+    this.popstateHandler = () => { this.pageLoadTime = Date.now(); };
+    window.addEventListener('popstate', this.popstateHandler);
 
     // Auto-track clicks on interactive elements
     this.setupAutoTracking();
@@ -362,8 +365,8 @@ class AnalyticsService {
 
   private setupAutoTracking() {
     // Global click tracking
-    document.addEventListener('click', (e) => {
-      const target = e.target as HTMLElement;
+    this.clickHandler = (e: Event) => {
+      const target = (e as MouseEvent).target as HTMLElement;
       if (!target) return;
 
       // Find the nearest trackable element
@@ -390,10 +393,11 @@ class AnalyticsService {
           ariaLabel: element.getAttribute('aria-label') || undefined,
         },
       });
-    }, { capture: true });
+    };
+    document.addEventListener('click', this.clickHandler, { capture: true });
 
     // Form submission tracking
-    document.addEventListener('submit', (e) => {
+    this.submitHandler = (e: Event) => {
       const form = e.target as HTMLFormElement;
       if (!form) return;
 
@@ -407,12 +411,13 @@ class AnalyticsService {
           method: form.method,
         },
       });
-    }, { capture: true });
+    };
+    document.addEventListener('submit', this.submitHandler, { capture: true });
 
     // Scroll depth tracking (throttled)
     let scrollTimeout: number | null = null;
     let maxScrollDepth = 0;
-    document.addEventListener('scroll', () => {
+    this.scrollHandler = () => {
       if (scrollTimeout) return;
       scrollTimeout = window.setTimeout(() => {
         const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
@@ -436,7 +441,8 @@ class AnalyticsService {
         }
         scrollTimeout = null;
       }, 100);
-    }, { passive: true });
+    };
+    document.addEventListener('scroll', this.scrollHandler, { passive: true });
   }
 
   private inferCategory(element: HTMLElement): string {
@@ -671,12 +677,40 @@ class AnalyticsService {
     }
   }
 
-  // Cleanup
+  // Cleanup — remove all event listeners to prevent duplicates on re-init
   destroy() {
     if (this.flushInterval) {
       window.clearInterval(this.flushInterval);
+      this.flushInterval = null;
     }
     this.flush(true);
+
+    // Remove all auto-tracking listeners
+    if (this.clickHandler) {
+      document.removeEventListener('click', this.clickHandler, { capture: true });
+      this.clickHandler = null;
+    }
+    if (this.submitHandler) {
+      document.removeEventListener('submit', this.submitHandler, { capture: true });
+      this.submitHandler = null;
+    }
+    if (this.scrollHandler) {
+      document.removeEventListener('scroll', this.scrollHandler);
+      this.scrollHandler = null;
+    }
+    if (this.beforeUnloadHandler) {
+      window.removeEventListener('beforeunload', this.beforeUnloadHandler);
+      this.beforeUnloadHandler = null;
+    }
+    if (this.visibilityHandler) {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+      this.visibilityHandler = null;
+    }
+    if (this.popstateHandler) {
+      window.removeEventListener('popstate', this.popstateHandler);
+      this.popstateHandler = null;
+    }
+
     this.isInitialized = false;
   }
 }

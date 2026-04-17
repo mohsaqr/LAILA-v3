@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { MessageSquare, Plus, Edit, Trash2, Users, Eye } from 'lucide-react';
@@ -13,6 +13,7 @@ import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import apiClient from '../../api/client';
 import { forumsApi, CreateForumInput, Forum } from '../../api/forums';
+import activityLogger from '../../services/activityLogger';
 
 interface CourseInfo {
   id: number;
@@ -42,6 +43,12 @@ export const CourseForumManager = () => {
     accent: '#088F8F',
   };
 
+  useEffect(() => {
+    if (courseId) {
+      activityLogger.logForumManagerViewed(parseInt(courseId));
+    }
+  }, [courseId]);
+
   const { data: course } = useQuery({
     queryKey: ['course', courseId],
     queryFn: async () => {
@@ -58,7 +65,8 @@ export const CourseForumManager = () => {
 
   const createMutation = useMutation({
     mutationFn: (data: CreateForumInput) => forumsApi.createForum(parseInt(courseId!), data),
-    onSuccess: () => {
+    onSuccess: (newForum) => {
+      activityLogger.logForumCreated(newForum.id, newForum.title, parseInt(courseId!));
       queryClient.invalidateQueries({ queryKey: ['forums', 'course', courseId] });
       setShowCreateModal(false);
       resetForm();
@@ -81,7 +89,8 @@ export const CourseForumManager = () => {
 
   const deleteMutation = useMutation({
     mutationFn: forumsApi.deleteForum,
-    onSuccess: () => {
+    onSuccess: (_data, deletedId) => {
+      activityLogger.logForumDeleted(deletedId, undefined, parseInt(courseId!));
       queryClient.invalidateQueries({ queryKey: ['forums', 'course', courseId] });
       toast.success(t('forum_deleted_success'));
     },

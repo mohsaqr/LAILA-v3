@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +24,8 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { EmptyState } from '../../components/common/EmptyState';
 import { sanitizeHtml, isHtmlContent } from '../../utils/sanitize';
 import { AssignmentSubmission } from '../../types';
+import activityLogger from '../../services/activityLogger';
+import { TrackedContent } from '../../components/common/TrackedContent';
 
 export const SubmissionReview = () => {
   const { t } = useTranslation(['teaching', 'navigation']);
@@ -30,6 +33,12 @@ export const SubmissionReview = () => {
   const courseId = parseInt(id!, 10);
   const assId = parseInt(assignmentId!, 10);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (assId && courseId) {
+      activityLogger.logSubmissionListViewed(assId, courseId);
+    }
+  }, [assId, courseId]);
 
   const { data: course } = useQuery({
     queryKey: ['course', courseId],
@@ -152,7 +161,9 @@ export const SubmissionReview = () => {
               <h1 className="text-2xl font-bold text-gray-900 mb-2">{assignment.title}</h1>
               {assignment.description && (
                 isHtmlContent(assignment.description)
-                  ? <div className="text-gray-600 mb-4 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(assignment.description) }} />
+                  ? <TrackedContent context="assignment" courseId={courseId} objectId={assId} objectTitle={assignment.title}>
+                      <div className="text-gray-600 mb-4 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(assignment.description) }} />
+                    </TrackedContent>
                   : <p className="text-gray-600 mb-4">{assignment.description}</p>
               )}
               <div className="flex items-center gap-6 text-sm">

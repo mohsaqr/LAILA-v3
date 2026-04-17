@@ -9,6 +9,7 @@ import { enrollmentsApi } from '../api/enrollments';
 import { TutorSidebar, TutorChat, EmotionalPulseHistory } from '../components/tutors';
 import { Loading } from '../components/common/Loading';
 import { activityLogger } from '../services/activityLogger';
+import { useTracker } from '../services/tracker';
 import { useTheme } from '../hooks/useTheme';
 import type {
   TutorAgent,
@@ -46,6 +47,7 @@ export const AITutors = () => {
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const track = useTracker('ai_tutor');
   const [searchParams] = useSearchParams();
 
   // URL params for deep linking
@@ -243,19 +245,21 @@ export const AITutors = () => {
   const handleAgentSelect = useCallback(
     async (agent: TutorAgent) => {
       setSelectedAgent(agent);
+      track('agent_selected', { verb: 'selected', objectType: 'tutor_agent', objectId: agent.id, courseId: parsedCourseId, payload: { agentName: agent.displayName } });
 
       // Update active agent on server
       if (mode === 'manual') {
         activeAgentMutation.mutate(agent.id);
       }
     },
-    [mode, activeAgentMutation]
+    [mode, activeAgentMutation, track, parsedCourseId]
   );
 
   // Handle mode change
   const handleModeChange = useCallback(
     async (newMode: TutorMode) => {
       setMode(newMode);
+      track('session_started', { verb: 'started', objectType: 'tutor_session', courseId: parsedCourseId, payload: { mode: newMode } });
       modeMutation.mutate(newMode);
 
       // In collaborative/router/random mode, switch to team chat (first agent)
@@ -271,7 +275,7 @@ export const AITutors = () => {
   const handleSendMessage = useCallback(
     async (message: string, collaborativeSettings?: CollaborativeSettings) => {
       if (!selectedAgent) return;
-      activityLogger.log({ verb: 'interacted', objectType: 'tutor_agent', objectId: selectedAgent.id, courseId: parsedCourseId, extensions: { action: 'messaged', messageLength: message.length, mode } });
+      track('message_sent', { verb: 'interacted', objectType: 'tutor_conversation', objectId: selectedAgent.id, courseId: parsedCourseId, payload: { messageLength: message.length, mode } });
 
       // Optimistic update - add user message immediately
       const optimisticUserMessage: MessageWithMeta = {
@@ -305,9 +309,9 @@ export const AITutors = () => {
   // Handle clear conversation
   const handleClearConversation = useCallback(() => {
     if (!selectedAgent) return;
-    activityLogger.log({ verb: 'interacted', objectType: 'tutor_session', objectId: conversationData?.id, courseId: parsedCourseId, extensions: { action: 'cleared' } });
+    track('conversation_cleared', { verb: 'interacted', objectType: 'tutor_conversation', objectId: selectedAgent.id, courseId: parsedCourseId });
     clearConversationMutation.mutate(selectedAgent.id);
-  }, [selectedAgent, clearConversationMutation, conversationData?.id, parsedCourseId]);
+  }, [selectedAgent, clearConversationMutation, conversationData?.id, parsedCourseId, track]);
 
   // Handle emotional pulse
   const handleEmotionalPulse = useCallback((emotion: EmotionType) => {
@@ -315,7 +319,15 @@ export const AITutors = () => {
     setLatestEmotion(emotion);
     // Trigger refresh of history sidebar
     setPulseRefreshTrigger(prev => prev + 1);
+    track('emotional_pulse_submitted', { verb: 'submitted', objectType: 'emotional_pulse', payload: { emotion } });
+  }, [track]);
+
+  // Log page view
+  useEffect(() => {
+    activityLogger.logAITutorsViewed();
   }, []);
+
+  // Agent selection is tracked in handleAgentSelect via track('agent_selected')
 
   // Loading state
   if (sessionLoading) {
@@ -383,7 +395,7 @@ export const AITutors = () => {
                 {enrolledCourses.map((enrollment) => (
                   <li key={enrollment.courseId}>
                     <button
-                      onClick={() => navigate(`/ai-tutors?courseId=${enrollment.courseId}`)}
+                      onClick={() => { track('course_selected', { verb: 'selected', objectType: 'tutor_agent', courseId: enrollment.courseId, payload: { courseTitle: enrollment.course?.title } }); navigate(`/ai-tutors?courseId=${enrollment.courseId}`); }}
                       className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors hover:bg-primary-50 dark:hover:bg-primary-900/20 group"
                       style={{ border: `1px solid ${isDark ? '#374151' : '#e5e7eb'}` }}
                     >
@@ -419,7 +431,7 @@ export const AITutors = () => {
       <div className="flex-1 flex relative min-h-0 overflow-hidden">
       {/* Mobile FAB to open sidebar (left) */}
       <button
-        onClick={() => setSidebarOpen(true)}
+        onClick={() => { setSidebarOpen(true); track('sidebar_toggled', { verb: 'interacted', objectType: 'tutor_agent', payload: { visible: true } }); }}
         className="lg:hidden fixed bottom-6 left-6 z-20 w-14 h-14 bg-gradient-to-br from-primary-500 to-secondary-500 text-white rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-shadow"
         aria-label="Open tutor list"
       >

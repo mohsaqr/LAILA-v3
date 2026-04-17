@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Download, FileText, Sparkles, Upload, BookOpen, ChevronLeft, ChevronRight, CheckCircle, Circle } from 'lucide-react';
@@ -17,7 +17,9 @@ import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStuden
 import { AssignmentSectionStudent } from '../components/course/AssignmentSectionStudent';
 import { marked } from 'marked';
 import { sanitizeHtml, isHtmlContent } from '../utils/sanitize';
+import { TrackedContent } from '../components/common/TrackedContent';
 import activityLogger from '../services/activityLogger';
+import { useTracker } from '../services/tracker';
 import { LectureSection } from '../types';
 
 // Parse markdown to HTML, then sanitize for XSS safety
@@ -30,6 +32,7 @@ export const LectureView = () => {
   const { t } = useTranslation(['courses', 'common']);
   const { courseId, lectureId } = useParams<{ courseId: string; lectureId: string }>();
   const { isDark } = useTheme();
+  const track = useTracker('lecture');
 
   const queryClient = useQueryClient();
 
@@ -97,9 +100,12 @@ export const LectureView = () => {
     },
   });
 
-  // Log lecture view
+  // Log lecture view (ref guard prevents StrictMode double-fire)
+  const loggedLectureRef = useRef<string | null>(null);
   useEffect(() => {
-    if (lecture && courseId) {
+    const key = `${lectureId}-${courseId}`;
+    if (lecture && courseId && loggedLectureRef.current !== key) {
+      loggedLectureRef.current = key;
       activityLogger.logLectureViewed(
         parseInt(lectureId!),
         lecture.title,
@@ -108,6 +114,40 @@ export const LectureView = () => {
       ).catch(() => {});
     }
   }, [lecture?.id, courseId, lectureId]);
+
+  // Track scroll depth in lecture content
+  const maxScrollRef = useRef(0);
+  useEffect(() => {
+    if (!lecture) return;
+    maxScrollRef.current = 0;
+    const parsedLectureId = parseInt(lectureId!);
+    const parsedCourseId = parseInt(courseId!);
+    const lecTitle = lecture.title;
+    const modId = lecture.moduleId;
+    const handleScroll = () => {
+      const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+      if (scrollHeight <= 0) return;
+      const depth = Math.round((window.scrollY / scrollHeight) * 100);
+      if (depth > maxScrollRef.current) {
+        maxScrollRef.current = depth;
+        if ([25, 50, 75, 100].includes(depth)) {
+          activityLogger.log({
+            verb: 'progressed',
+            objectType: 'lecture',
+            objectId: parsedLectureId,
+            objectTitle: lecTitle,
+            courseId: parsedCourseId,
+            moduleId: modId,
+            lectureId: parsedLectureId,
+            progress: depth,
+            actionSubtype: 'lecture.scroll_depth',
+          }).catch(() => {});
+        }
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [lecture?.id, lectureId, courseId]);
 
   const currentModule = course?.modules?.find((m: any) =>
     m.lectures?.some((l: any) => l.id === parseInt(lectureId!))
@@ -162,11 +202,13 @@ export const LectureView = () => {
               </div>
             )}
             {section.content && (
-              <div
-                className="prose dark:prose-invert max-w-none"
-                style={{ color: colors.textPrimary }}
-                dangerouslySetInnerHTML={{ __html: isHtml ? sanitizeHtml(section.content) : renderMarkdown(section.content) }}
-              />
+              <TrackedContent context="lecture" courseId={parseInt(courseId!)} objectId={section.id} objectTitle={section.title || undefined}>
+                <div
+                  className="prose dark:prose-invert max-w-none"
+                  style={{ color: colors.textPrimary }}
+                  dangerouslySetInnerHTML={{ __html: isHtml ? sanitizeHtml(section.content) : renderMarkdown(section.content) }}
+                />
+              </TrackedContent>
             )}
           </div>
         );
@@ -307,11 +349,13 @@ export const LectureView = () => {
 
             {/* Legacy content field */}
             {lecture.content && !lecture.sections?.length && (
-              <div
-                className="prose max-w-none mb-8"
-                style={{ color: colors.textPrimary }}
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(lecture.content) }}
-              />
+              <TrackedContent context="lecture" courseId={parseInt(courseId!)} objectId={parseInt(lectureId!)} objectTitle={lecture.title}>
+                <div
+                  className="prose max-w-none mb-8"
+                  style={{ color: colors.textPrimary }}
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(lecture.content) }}
+                />
+              </TrackedContent>
             )}
 
             {/* Sections */}
@@ -367,7 +411,10 @@ export const LectureView = () => {
                   </div>
                 ) : (
                   <button
-                    onClick={() => completeMutation.mutate()}
+                    onClick={() => {
+                      track('marked_complete', { verb: 'completed', objectType: 'lecture', objectId: parseInt(lectureId!), courseId: parseInt(courseId!) });
+                      completeMutation.mutate();
+                    }}
                     disabled={completeMutation.isPending}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-green-50 hover:bg-green-100 text-green-600 dark:bg-green-900/20 dark:hover:bg-green-900/30 dark:text-green-400 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
@@ -400,6 +447,7 @@ export const LectureView = () => {
               to={`/courses/${courseId}/lectures/${prevLecture.id}`}
               className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
               style={{ backgroundColor: colors.bgCard, border: `1px solid ${colors.border}`, color: colors.textPrimary }}
+              onClick={() => track('previous_lecture', { verb: 'interacted', objectType: 'lecture', courseId: parseInt(courseId!), payload: { fromLectureId: parseInt(lectureId!), toLectureId: prevLecture.id } })}
             >
               <ChevronLeft className="w-4 h-4" />
               <div className="text-left">
@@ -416,6 +464,7 @@ export const LectureView = () => {
               to={`/courses/${courseId}/lectures/${nextLecture.id}`}
               className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
               style={{ backgroundColor: colors.bgCard, border: `1px solid ${colors.border}`, color: colors.textPrimary }}
+              onClick={() => track('next_lecture', { verb: 'interacted', objectType: 'lecture', courseId: parseInt(courseId!), payload: { fromLectureId: parseInt(lectureId!), toLectureId: nextLecture.id } })}
             >
               <div className="text-right">
                 <p className="text-xs" style={{ color: colors.textSecondary }}>{t('next_lecture')}</p>
@@ -428,6 +477,7 @@ export const LectureView = () => {
               to={`/courses/${courseId}`}
               className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
               style={{ backgroundColor: colors.bgPrimaryLight, color: colors.textPrimary600 }}
+              onClick={() => track('back_to_course', { verb: 'interacted', objectType: 'course', courseId: parseInt(courseId!) })}
             >
               <BookOpen className="w-4 h-4" />
               <span className="text-sm font-medium">{t('back_to_course_button')}</span>

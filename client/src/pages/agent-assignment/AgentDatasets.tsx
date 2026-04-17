@@ -23,6 +23,7 @@ import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { AgentDatasetTab } from '../../components/agent-assignment/AgentDatasetTab';
 import { canTestAgent } from '../../utils/agentAccess';
+import activityLogger from '../../services/activityLogger';
 
 export const AgentDatasets = () => {
   const { t } = useTranslation(['teaching', 'common', 'navigation']);
@@ -40,6 +41,14 @@ export const AgentDatasets = () => {
 
   const builderPath = `/courses/${courseId}/agent-assignments/${assignmentId}`;
   const testPath = `${builderPath}/test`;
+  const parsedCourseId = courseId ? parseInt(courseId, 10) : undefined;
+
+  // Log page view
+  useEffect(() => {
+    if (data?.config && canTestAgent(data.config)) {
+      activityLogger.logAgentDatasetsViewed(data.config.id, parsedCourseId);
+    }
+  }, [data?.config?.id, parsedCourseId]);
 
   useEffect(() => {
     if (!isLoading && data && !canTestAgent(data.config)) {

@@ -22,6 +22,8 @@ import { Breadcrumb } from '../components/common/Breadcrumb';
 import { buildQuizBreadcrumb } from '../utils/breadcrumbs';
 import { sanitizeHtml } from '../utils/sanitize';
 import { activityLogger } from '../services/activityLogger';
+import { useTracker } from '../services/tracker';
+import { TrackedContent } from '../components/common/TrackedContent';
 
 export const QuizView = () => {
   const { courseId, quizId } = useParams<{ courseId: string; quizId: string }>();
@@ -30,6 +32,7 @@ export const QuizView = () => {
   const parsedQuizId = parseInt(quizId!, 10);
   const { isDark } = useTheme();
   const { t } = useTranslation(['courses', 'common']);
+  const track = useTracker('quiz');
 
   const [attemptData, setAttemptData] = useState<StartAttemptResponse | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -130,14 +133,18 @@ export const QuizView = () => {
     setAnswers(prev => ({ ...prev, [questionId]: answer }));
     // Auto-save answer
     saveAnswerMutation.mutate({ questionId, answer });
-  }, [saveAnswerMutation]);
+    const question = attemptData?.questions.find(q => q.id === questionId);
+    track('answer_changed', { verb: 'interacted', objectType: 'quiz', objectId: parsedQuizId, courseId: parseInt(courseId!, 10), payload: { questionId, questionType: question?.questionType } });
+  }, [saveAnswerMutation, attemptData, track, parsedQuizId, courseId]);
 
   const handleSubmitClick = () => {
     if (isSubmitting) return;
+    track('submit_clicked', { verb: 'interacted', objectType: 'quiz', objectId: parsedQuizId, courseId: parseInt(courseId!, 10) });
     setShowSubmitModal(true);
   };
 
   const handleConfirmSubmit = () => {
+    track('submit_confirmed', { verb: 'submitted', objectType: 'quiz', objectId: parsedQuizId, courseId: parseInt(courseId!, 10) });
     setShowSubmitModal(false);
     setIsSubmitting(true);
     submitAttemptMutation.mutate();
@@ -195,11 +202,13 @@ export const QuizView = () => {
             </div>
 
             {attemptData.quiz.instructions && (
-              <div
-                className="text-sm max-w-xl line-clamp-2"
-                style={{ color: colors.textSecondary }}
-                dangerouslySetInnerHTML={{ __html: sanitizeHtml(attemptData.quiz.instructions) }}
-              />
+              <TrackedContent context="quiz" courseId={parseInt(courseId!, 10)} objectId={parsedQuizId} objectTitle={attemptData.quiz.title}>
+                <div
+                  className="text-sm max-w-xl line-clamp-2"
+                  style={{ color: colors.textSecondary }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(attemptData.quiz.instructions) }}
+                />
+              </TrackedContent>
             )}
 
             {timeRemaining !== null && (
@@ -323,7 +332,7 @@ export const QuizView = () => {
         <div className="flex items-center justify-between mb-6">
           <Button
             variant="secondary"
-            onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
+            onClick={() => { track('previous_question', { verb: 'interacted', objectType: 'quiz', objectId: parsedQuizId, courseId: parseInt(courseId!, 10), payload: { fromIndex: currentQuestionIndex, toIndex: currentQuestionIndex - 1 } }); setCurrentQuestionIndex(prev => Math.max(0, prev - 1)); }}
             disabled={currentQuestionIndex === 0}
           >
             <ChevronLeft size={20} />
@@ -334,7 +343,7 @@ export const QuizView = () => {
             {attemptData.questions.map((q, idx) => (
               <button
                 key={q.id}
-                onClick={() => setCurrentQuestionIndex(idx)}
+                onClick={() => { track('question_jumped', { verb: 'interacted', objectType: 'quiz', objectId: parsedQuizId, courseId: parseInt(courseId!, 10), payload: { fromIndex: currentQuestionIndex, toIndex: idx } }); setCurrentQuestionIndex(idx); }}
                 className={`w-8 h-8 rounded-full text-sm font-medium transition-all ${
                   idx === currentQuestionIndex ? 'ring-2 ring-blue-500 ring-offset-2' : ''
                 }`}
@@ -350,7 +359,7 @@ export const QuizView = () => {
 
           <Button
             variant="secondary"
-            onClick={() => setCurrentQuestionIndex(prev => Math.min(attemptData.questions.length - 1, prev + 1))}
+            onClick={() => { track('next_question', { verb: 'interacted', objectType: 'quiz', objectId: parsedQuizId, courseId: parseInt(courseId!, 10), payload: { fromIndex: currentQuestionIndex, toIndex: currentQuestionIndex + 1 } }); setCurrentQuestionIndex(prev => Math.min(attemptData.questions.length - 1, prev + 1)); }}
             disabled={currentQuestionIndex === attemptData.questions.length - 1}
           >
             {t('next')}
@@ -412,7 +421,7 @@ export const QuizView = () => {
                   {t('submit_warning')}
                 </p>
                 <div className="flex justify-end gap-3 pt-2">
-                  <Button variant="secondary" onClick={() => setShowSubmitModal(false)}>
+                  <Button variant="secondary" onClick={() => { track('submit_cancelled', { verb: 'interacted', objectType: 'quiz', objectId: parsedQuizId, courseId: parseInt(courseId!, 10) }); setShowSubmitModal(false); }}>
                     {t('common:cancel')}
                   </Button>
                   <Button onClick={handleConfirmSubmit}>

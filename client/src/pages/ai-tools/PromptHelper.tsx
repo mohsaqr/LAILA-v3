@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Wand2, Copy, Check, Sparkles, RefreshCw } from 'lucide-react';
@@ -7,6 +7,7 @@ import { chatApi } from '../../api/chat';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { TextArea, Select } from '../../components/common/Input';
+import activityLogger from '../../services/activityLogger';
 
 const PROMPT_TEMPLATES = {
   research: {
@@ -51,6 +52,12 @@ Focus on:
 
 export const PromptHelper = () => {
   const { t } = useTranslation(['courses', 'common']);
+
+  // Log page view
+  useEffect(() => {
+    activityLogger.logAIToolViewed('Prompt Helper');
+  }, []);
+
   const [promptType, setPromptType] = useState<keyof typeof PROMPT_TEMPLATES>('research');
   const [userInput, setUserInput] = useState('');
   const [generatedPrompt, setGeneratedPrompt] = useState('');
@@ -63,6 +70,7 @@ export const PromptHelper = () => {
       toast.error('Please enter your topic or content');
       return;
     }
+    activityLogger.logAIToolInteracted('Prompt Helper', { action: 'generate_prompt', promptType });
 
     const template = PROMPT_TEMPLATES[promptType].template;
     let prompt = template;
@@ -85,6 +93,7 @@ export const PromptHelper = () => {
       toast.error('Generate a prompt first');
       return;
     }
+    activityLogger.logAIToolInteracted('Prompt Helper', { action: 'run_prompt' });
 
     setIsLoading(true);
     try {

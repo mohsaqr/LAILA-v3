@@ -34,6 +34,7 @@ import { debug } from '../../../utils/debug';
 interface MessagesTabProps {
   exportStatus: 'idle' | 'loading' | 'success' | 'error';
   setExportStatus: (status: 'idle' | 'loading' | 'success' | 'error') => void;
+  initialUserId?: number;
 }
 
 const SYSTEM_TYPE_COLORS: Record<string, string> = {
@@ -47,11 +48,12 @@ const ROLE_COLORS: Record<string, string> = {
   assistant: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
 };
 
-export const MessagesTab = ({ exportStatus, setExportStatus }: MessagesTabProps) => {
+export const MessagesTab = ({ exportStatus, setExportStatus, initialUserId }: MessagesTabProps) => {
   const { t } = useTranslation(['admin', 'common']);
   const [filters, setFilters] = useState<MessageFilters>({
     page: 1,
     limit: 50,
+    ...(initialUserId ? { userId: initialUserId } : {}),
   });
   const [showFilters, setShowFilters] = useState(false);
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());

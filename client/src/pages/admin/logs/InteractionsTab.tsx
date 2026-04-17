@@ -36,6 +36,7 @@ import { formatDate } from './exportUtils';
 interface InteractionsTabProps {
   exportStatus: 'idle' | 'loading' | 'success' | 'error';
   setExportStatus: (status: 'idle' | 'loading' | 'success' | 'error') => void;
+  initialUserId?: number;
 }
 
 interface InteractionLog {
@@ -103,7 +104,7 @@ const eventTypeColors: Record<string, string> = {
   custom: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300',
 };
 
-export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsTabProps) => {
+export const InteractionsTab = ({ exportStatus, setExportStatus, initialUserId }: InteractionsTabProps) => {
   const { t } = useTranslation(['admin', 'common']);
   // Filter state
   const [filters, setFilters] = useState<InteractionFilters>({
@@ -111,6 +112,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus }: InteractionsT
     limit: 50,
     sortBy: 'timestamp',
     sortOrder: 'desc',
+    ...(initialUserId ? { userId: initialUserId } : {}),
   });
   const [searchInput, setSearchInput] = useState('');
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());

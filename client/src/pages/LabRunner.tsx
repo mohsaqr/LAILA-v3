@@ -27,6 +27,7 @@ import { useLabPyodide } from '../hooks/useLabPyodide';
 import { useTheme } from '../hooks/useTheme';
 import { LabTemplate } from '../types';
 import { activityLogger } from '../services/activityLogger';
+import { useTracker } from '../services/tracker';
 
 // Module-level set to prevent duplicate logs (survives React strict mode remount)
 const _loggedLabIds = new Set<number>();
@@ -54,6 +55,7 @@ export const isPythonLab = (labType: string) => labType.startsWith('python');
 export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPanelClose }: { lab: any; hook: LabHookResult; courseId: number | null; hideSubmit?: boolean; openPanel?: boolean; onPanelClose?: () => void }) => {
   const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
+  const track = useTracker('lab');
   const queryClient = useQueryClient();
   const labContentRef = useRef<HTMLDivElement>(null);
   const outputAreaRef = useRef<HTMLDivElement>(null);
@@ -158,15 +160,8 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
     setSelectedTemplateId(template.id);
     setOutputs([]);
     logSession('Template selected: ' + template.title);
-    activityLogger.log({
-      verb: 'selected',
-      objectType: 'lab',
-      objectId: lab.id,
-      objectTitle: `${lab.name}: ${template.title}`,
-      courseId: courseId ?? undefined,
-      extensions: { templateId: template.id, templateTitle: template.title },
-    });
-  }, [logSession, lab.id, lab.name, courseId]);
+    track('template_selected', { verb: 'selected', objectType: 'lab', objectId: lab.id, objectTitle: `${lab.name}: ${template.title}`, courseId: courseId ?? undefined, payload: { templateName: template.title, templateId: template.id } });
+  }, [logSession, lab.id, lab.name, courseId, track]);
 
   const handleRunCode = useCallback(async () => {
     if (!isReady || isExecuting) return;
@@ -182,26 +177,19 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
         ...(result.error ? [{ type: 'stderr' as const, content: result.error }] : []),
       ]);
     }
-    // Log code execution
-    activityLogger.log({
-      verb: 'interacted',
-      objectType: 'lab',
-      objectId: lab.id,
-      objectTitle: `${lab.name}: code executed`,
-      courseId: courseId ?? undefined,
-      success: result.success,
-      extensions: { templateTitle, codeLength: code.length, outputCount: result.outputs.length },
-    });
-  }, [code, isReady, isExecuting, executeCode, selectedTemplate, logSession, lab.id, lab.name, courseId]);
+    track('code_executed', { verb: 'interacted', objectType: 'lab', objectId: lab.id, objectTitle: `${lab.name}: code executed`, courseId: courseId ?? undefined, success: result.success, payload: { templateTitle, codeLength: code.length, outputCount: result.outputs.length } });
+  }, [code, isReady, isExecuting, executeCode, selectedTemplate, logSession, lab.id, lab.name, courseId, track]);
 
   const handleResetSession = useCallback(async () => {
+    track('session_reset', { verb: 'interacted', objectType: 'lab', courseId: courseId ?? undefined });
     setOutputs([]);
     await resetRuntime();
-  }, [resetRuntime]);
+  }, [resetRuntime, track, courseId]);
 
   const handleClearOutputs = useCallback(() => {
+    track('output_cleared', { verb: 'interacted', objectType: 'lab', courseId: courseId ?? undefined });
     setOutputs([]);
-  }, []);
+  }, [track, courseId]);
 
   const handleAddToReport = useCallback(async () => {
     const el = outputAreaRef.current;
@@ -224,6 +212,7 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
         return [...filtered, { key, label, dataUrl, timestamp: now, code }];
       });
       logSession('Snapshot added: ' + label);
+      track('report_captured', { verb: 'interacted', objectType: 'lab', courseId: courseId ?? undefined });
       toast.success('Added to report!');
     } catch (err) {
       console.error(err);
@@ -470,7 +459,7 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 pb-6 flex justify-end">
           <Button
             variant="primary"
-            onClick={() => setAssignmentPanelOpen(true)}
+            onClick={() => { track('assignment_panel_opened', { verb: 'interacted', objectType: 'lab', courseId: courseId ?? undefined }); setAssignmentPanelOpen(true); }}
             icon={<Send className="w-4 h-4" />}
           >
             {t('submit_assignment', { defaultValue: 'Submit Assignment' })}

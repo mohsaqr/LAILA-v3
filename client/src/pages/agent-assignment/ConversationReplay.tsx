@@ -9,7 +9,7 @@
  * Route: /teach/courses/:id/assignments/:assignmentId/agent-submissions/:submissionId/conversations/:conversationId
  */
 
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +22,7 @@ import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { TestChatInterface } from '../../components/agent-assignment/TestChatInterface';
 import { AgentTestMessage } from '../../types';
+import activityLogger from '../../services/activityLogger';
 
 export const ConversationReplay = () => {
   const { t } = useTranslation(['teaching', 'common']);
@@ -39,6 +40,12 @@ export const ConversationReplay = () => {
   const convId = parseInt(conversationId!, 10);
 
   const reviewPath = `/teach/courses/${courseId}/assignments/${assId}/agent-submissions/${subId}`;
+
+  useEffect(() => {
+    if (convId && courseId) {
+      activityLogger.logConversationReplayViewed(convId, courseId);
+    }
+  }, [convId, courseId]);
 
   const { data: assignment, isLoading: assignmentLoading } = useQuery({
     queryKey: ['assignment', assId],

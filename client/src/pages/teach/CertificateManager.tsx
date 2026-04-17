@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Award, Plus, Edit, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -13,6 +13,7 @@ import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { RichTextEditor } from '../../components/forum/RichTextEditor';
 import apiClient from '../../api/client';
+import activityLogger from '../../services/activityLogger';
 
 interface CertificateTemplate {
   id: number;
@@ -31,6 +32,10 @@ export const CertificateManager = () => {
   const { isDark } = useTheme();
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
+  useEffect(() => {
+    activityLogger.logCertificateManagerViewed();
+  }, []);
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<CertificateTemplate | null>(null);
   const [templateToDelete, setTemplateToDelete] = useState<CertificateTemplate | null>(null);

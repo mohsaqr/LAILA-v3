@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -25,6 +25,7 @@ import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildAdminBreadcrumb } from '../../utils/breadcrumbs';
 import { ManagedEnrollment } from '../../types';
+import activityLogger from '../../services/activityLogger';
 
 export const EnrollmentsManagement = () => {
   const { t } = useTranslation(['admin', 'common', 'courses']);
@@ -37,6 +38,11 @@ export const EnrollmentsManagement = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [enrollmentToDelete, setEnrollmentToDelete] = useState<ManagedEnrollment | null>(null);
+
+  // Log page view
+  useEffect(() => {
+    activityLogger.logEnrollmentManagementViewed();
+  }, []);
 
   // Add enrollment form state
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);

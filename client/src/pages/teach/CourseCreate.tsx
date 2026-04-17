@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -8,11 +9,16 @@ import { useTheme } from '../../hooks/useTheme';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { CourseForm, CourseFormData } from '../../components/teach/CourseForm';
+import activityLogger from '../../services/activityLogger';
 
 export const CourseCreate = () => {
   const { t } = useTranslation(['teaching', 'common']);
   const navigate = useNavigate();
   const { isDark } = useTheme();
+
+  useEffect(() => {
+    activityLogger.logCourseCreateViewed();
+  }, []);
 
   // Theme colors
   const colors = {
@@ -27,6 +33,7 @@ export const CourseCreate = () => {
         difficulty: data.difficulty || null,
       } as any),
     onSuccess: course => {
+      activityLogger.logCourseCreated(course.id, course.title);
       toast.success(t('course_created'));
       navigate(`/teach/courses/${course.id}/curriculum`);
     },

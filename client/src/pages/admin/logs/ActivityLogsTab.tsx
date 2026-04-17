@@ -37,6 +37,7 @@ interface ActivityLogsTabProps {
   exportStatus: 'idle' | 'loading' | 'success' | 'error';
   setExportStatus: (status: 'idle' | 'loading' | 'success' | 'error') => void;
   fixedCourseId?: number;
+  initialUserId?: number;
 }
 
 interface ActivityLog {
@@ -79,7 +80,7 @@ interface ActivityLog {
 
 type SortField = 'timestamp' | 'userFullname' | 'verb' | 'objectType' | 'objectTitle' | 'courseTitle' | 'progress' | 'duration';
 
-export const ActivityLogsTab = ({ exportStatus, setExportStatus, fixedCourseId }: ActivityLogsTabProps) => {
+export const ActivityLogsTab = ({ exportStatus, setExportStatus, fixedCourseId, initialUserId }: ActivityLogsTabProps) => {
   const { t } = useTranslation(['admin', 'common']);
   // Filter state
   const [filters, setFilters] = useState<ActivityLogFilters>({
@@ -88,6 +89,7 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus, fixedCourseId }
     sortBy: 'timestamp',
     sortOrder: 'desc',
     ...(fixedCourseId ? { courseId: fixedCourseId } : {}),
+    ...(initialUserId ? { userId: initialUserId } : {}),
   });
   const [searchInput, setSearchInput] = useState('');
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
