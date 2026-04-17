@@ -3,8 +3,9 @@
  * Refactored to use extracted tab components for better maintainability.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import {
   Activity,
   MousePointer,
@@ -25,6 +26,11 @@ import { useTracker } from '../../services/tracker';
 
 export const LogsDashboard = () => {
   const { t } = useTranslation(['admin', 'common']);
+  const [searchParams] = useSearchParams();
+  const initialUserId = useMemo(() => {
+    const uid = searchParams.get('userId');
+    return uid ? parseInt(uid, 10) : undefined;
+  }, [searchParams]);
   const [activeTab, setActiveTab] = useState<TabType>('activity');
   const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const { isDark } = useTheme();
@@ -96,6 +102,7 @@ export const LogsDashboard = () => {
         <ActivityLogsTab
           exportStatus={exportStatus}
           setExportStatus={setExportStatus}
+          initialUserId={initialUserId}
         />
       )}
 

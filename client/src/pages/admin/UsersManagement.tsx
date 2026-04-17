@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Filter,
   X,
+  Activity,
 } from 'lucide-react';
 import { userManagementApi } from '../../api/userManagement';
 import activityLogger from '../../services/activityLogger';
@@ -364,6 +365,11 @@ export const UsersManagement = () => {
                           <Link to={`/admin/users/${user.id}`}>
                             <Button variant="ghost" size="sm" title={t('view_details')}>
                               <Eye className="w-4 h-4" />
+                            </Button>
+                          </Link>
+                          <Link to={`/admin/logs?userId=${user.id}`}>
+                            <Button variant="ghost" size="sm" title={t('view_logs', { defaultValue: 'View Logs' })}>
+                              <Activity className="w-4 h-4" />
                             </Button>
                           </Link>
                           <Button
