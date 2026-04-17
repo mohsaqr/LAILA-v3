@@ -120,6 +120,10 @@ export const LectureView = () => {
   useEffect(() => {
     if (!lecture) return;
     maxScrollRef.current = 0;
+    const parsedLectureId = parseInt(lectureId!);
+    const parsedCourseId = parseInt(courseId!);
+    const lecTitle = lecture.title;
+    const modId = lecture.moduleId;
     const handleScroll = () => {
       const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
       if (scrollHeight <= 0) return;
@@ -127,19 +131,23 @@ export const LectureView = () => {
       if (depth > maxScrollRef.current) {
         maxScrollRef.current = depth;
         if ([25, 50, 75, 100].includes(depth)) {
-          track('scroll_depth', {
+          activityLogger.log({
             verb: 'progressed',
             objectType: 'lecture',
-            objectId: parseInt(lectureId!),
-            courseId: parseInt(courseId!),
-            payload: { scrollDepth: depth },
-          });
+            objectId: parsedLectureId,
+            objectTitle: lecTitle,
+            courseId: parsedCourseId,
+            moduleId: modId,
+            lectureId: parsedLectureId,
+            progress: depth,
+            actionSubtype: 'lecture.scroll_depth',
+          }).catch(() => {});
         }
       }
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [lecture?.id, lectureId, courseId, track]);
+  }, [lecture?.id, lectureId, courseId]);
 
   const currentModule = course?.modules?.find((m: any) =>
     m.lectures?.some((l: any) => l.id === parseInt(lectureId!))
