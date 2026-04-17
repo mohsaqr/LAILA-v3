@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -29,11 +29,16 @@ import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { useTheme } from '../../hooks/useTheme';
 import { CustomLab, LabTemplate, LabType, Course } from '../../types';
 import toast from 'react-hot-toast';
+import activityLogger from '../../services/activityLogger';
 
 export const LabManager = () => {
   const { t } = useTranslation('teaching');
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    activityLogger.logLabManagerViewed();
+  }, []);
 
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);

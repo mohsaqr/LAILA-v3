@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -29,6 +29,7 @@ import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { AttachmentManager } from '../../components/teach/AssignmentSectionEditor';
 import { Assignment, CourseModule } from '../../types';
+import activityLogger from '../../services/activityLogger';
 
 interface AssignmentFormData {
   title: string;
@@ -61,6 +62,12 @@ export const AssignmentManager = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  useEffect(() => {
+    if (courseId) {
+      activityLogger.logAssignmentManagerViewed(courseId);
+    }
+  }, [courseId]);
+
   const [formModal, setFormModal] = useState<{ isOpen: boolean; assignment?: Assignment }>({
     isOpen: false,
   });
@@ -92,7 +99,8 @@ export const AssignmentManager = () => {
         dueDate: data.dueDate ? data.dueDate + ':00.000Z' : null,
         gracePeriodDeadline: data.gracePeriodDeadline ? data.gracePeriodDeadline + ':00.000Z' : null,
       }),
-    onSuccess: () => {
+    onSuccess: (newAssignment) => {
+      activityLogger.logAssignmentCreated(newAssignment.id, newAssignment.title, courseId);
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
       toast.success(t('assignment_created'));
       closeModal();
@@ -107,7 +115,8 @@ export const AssignmentManager = () => {
         dueDate: data.dueDate ? data.dueDate + ':00.000Z' : null,
         gracePeriodDeadline: data.gracePeriodDeadline ? data.gracePeriodDeadline + ':00.000Z' : null,
       }),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      activityLogger.logAssignmentUpdated(variables.id, variables.data.title, courseId);
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
       toast.success(t('assignment_updated'));
       closeModal();
@@ -117,7 +126,8 @@ export const AssignmentManager = () => {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => assignmentsApi.deleteAssignment(id),
-    onSuccess: () => {
+    onSuccess: (_data, deletedId) => {
+      activityLogger.logAssignmentDeleted(deletedId, deleteConfirm?.title, courseId);
       queryClient.invalidateQueries({ queryKey: ['courseAssignments', courseId] });
       toast.success(t('assignment_deleted'));
       setDeleteConfirm(null);

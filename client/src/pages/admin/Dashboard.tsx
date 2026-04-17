@@ -25,6 +25,7 @@ import { ActivityDonutChart } from '../../components/tna/ActivityDonutChart';
 import { ActivityHeatmap } from '../../components/tna/ActivityHeatmap';
 import { createColorMap, PALETTE_NAMES } from '../../components/tna/colorFix';
 import type { PaletteName } from '../../components/tna/colorFix';
+import activityLogger from '../../services/activityLogger';
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -352,6 +353,11 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
     : isAdmin
     ? ['activity', 'analytics', 'clusters', 'patterns', 'settings']
     : ['activity', 'analytics', 'clusters', 'patterns', 'settings'];
+
+  // Log page view
+  useEffect(() => {
+    activityLogger.logAdminAnalyticsViewed();
+  }, []);
 
   // Top-level tab
   const [activeTab, setActiveTab] = useState<PageTab>('analytics');

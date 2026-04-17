@@ -14,6 +14,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { SectionEditor, AddSectionToolbar } from '../../components/teach/SectionEditor';
 import { UpdateSectionData } from '../../types';
+import activityLogger from '../../services/activityLogger';
 
 export const LectureEditor = () => {
   const { t } = useTranslation(['teaching', 'common']);
@@ -52,6 +53,12 @@ export const LectureEditor = () => {
   });
 
   useEffect(() => {
+    if (lecId && courseId) {
+      activityLogger.logLectureEditorViewed(lecId, undefined, courseId);
+    }
+  }, [lecId, courseId]);
+
+  useEffect(() => {
     if (lecture) {
       setFormData({
         title: lecture.title || '',
@@ -67,6 +74,7 @@ export const LectureEditor = () => {
   const updateLectureMutation = useMutation({
     mutationFn: (data: typeof formData) => coursesApi.updateLecture(lecId, data),
     onSuccess: () => {
+      activityLogger.logLectureUpdated(lecId, formData.title, courseId, lecture?.moduleId);
       queryClient.invalidateQueries({ queryKey: ['lecture', lecId] });
       queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
       toast.success(t('lesson_saved'));

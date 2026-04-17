@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +8,7 @@ import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import apiClient from '../api/client';
+import activityLogger from '../services/activityLogger';
 
 interface ForumListItem {
   id: number;
@@ -21,6 +23,11 @@ interface ForumListItem {
 export const ForumList = () => {
   const { isDark } = useTheme();
   const { t } = useTranslation(['courses', 'common']);
+
+  // Log page view on mount
+  useEffect(() => {
+    activityLogger.logForumListViewed();
+  }, []);
 
   const colors = {
     bg: isDark ? '#111827' : '#f9fafb',

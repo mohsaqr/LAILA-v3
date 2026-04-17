@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Scale, AlertTriangle, CheckCircle } from 'lucide-react';
@@ -7,6 +7,7 @@ import { chatApi } from '../../api/chat';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { TextArea, Select } from '../../components/common/Input';
+import activityLogger from '../../services/activityLogger';
 
 const BIAS_TYPES = [
   { value: 'general', label: 'General Bias Analysis' },
@@ -26,6 +27,12 @@ interface BiasResult {
 
 export const BiasResearch = () => {
   const { t } = useTranslation(['courses', 'common']);
+
+  // Log page view
+  useEffect(() => {
+    activityLogger.logAIToolViewed('Bias Research');
+  }, []);
+
   const [text, setText] = useState('');
   const [biasType, setBiasType] = useState('general');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -41,6 +48,7 @@ export const BiasResearch = () => {
     setIsAnalyzing(true);
     setResults([]);
     setSummary('');
+    activityLogger.logAIToolInteracted('Bias Research', { action: 'analyze', biasType });
 
     try {
       const prompt = `You are an expert in detecting bias in academic and research texts. Analyze the following text for ${

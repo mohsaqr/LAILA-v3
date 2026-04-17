@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +10,7 @@ import { Breadcrumb } from '../components/common/Breadcrumb';
 import { buildCourseBreadcrumb } from '../utils/breadcrumbs';
 import apiClient from '../api/client';
 import { sanitizeHtml } from '../utils/sanitize';
+import activityLogger from '../services/activityLogger';
 
 interface QuizAttempt {
   attemptNumber: number;
@@ -37,7 +39,13 @@ interface CourseInfo {
 export const CourseQuizList = () => {
   const { t } = useTranslation(['courses']);
   const { courseId } = useParams<{ courseId: string }>();
+  const parsedCourseId = courseId ? parseInt(courseId, 10) : undefined;
   const { isDark } = useTheme();
+
+  // Log page view on mount
+  useEffect(() => {
+    activityLogger.logQuizListViewed(parsedCourseId);
+  }, [parsedCourseId]);
 
   const colors = {
     bg: isDark ? '#111827' : '#f9fafb',

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +24,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { EmptyState } from '../../components/common/EmptyState';
 import { sanitizeHtml, isHtmlContent } from '../../utils/sanitize';
 import { AssignmentSubmission } from '../../types';
+import activityLogger from '../../services/activityLogger';
 
 export const SubmissionReview = () => {
   const { t } = useTranslation(['teaching', 'navigation']);
@@ -30,6 +32,12 @@ export const SubmissionReview = () => {
   const courseId = parseInt(id!, 10);
   const assId = parseInt(assignmentId!, 10);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (assId && courseId) {
+      activityLogger.logSubmissionListViewed(assId, courseId);
+    }
+  }, [assId, courseId]);
 
   const { data: course } = useQuery({
     queryKey: ['course', courseId],

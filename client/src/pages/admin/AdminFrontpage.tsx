@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
@@ -15,10 +16,17 @@ import { useTheme } from '../../hooks/useTheme';
 import { AdminLayout, StatCard } from '../../components/admin';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Loading } from '../../components/common/Loading';
+import activityLogger from '../../services/activityLogger';
 
 export const AdminFrontpage = () => {
   const { t } = useTranslation(['admin', 'common']);
   const { isDark } = useTheme();
+
+  // Log page view
+  useEffect(() => {
+    activityLogger.logAdminDashboardViewed();
+  }, []);
+
   const { data: adminData, isLoading } = useQuery({
     queryKey: ['adminStats'],
     queryFn: () => adminApi.getStats(),

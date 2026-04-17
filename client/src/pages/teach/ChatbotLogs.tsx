@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +20,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { ChatbotConversationMessage } from '../../types';
+import activityLogger from '../../services/activityLogger';
 
 interface ChatbotLogsProps {
   embedded?: boolean;
@@ -30,6 +31,12 @@ export const ChatbotLogs = ({ embedded = false }: ChatbotLogsProps) => {
   const { id } = useParams<{ id: string }>();
   const courseId = parseInt(id!, 10);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (courseId) {
+      activityLogger.logChatbotLogsViewed(courseId);
+    }
+  }, [courseId]);
 
   const [selectedSectionId, setSelectedSectionId] = useState<number | null>(null);
   const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null);

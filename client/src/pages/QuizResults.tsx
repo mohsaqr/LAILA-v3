@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -15,6 +16,7 @@ import { Loading } from '../components/common/Loading';
 import { Button } from '../components/common/Button';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { buildQuizBreadcrumb } from '../utils/breadcrumbs';
+import activityLogger from '../services/activityLogger';
 
 export const QuizResults = () => {
   const { courseId, attemptId } = useParams<{ courseId: string; quizId: string; attemptId: string }>();
@@ -50,6 +52,14 @@ export const QuizResults = () => {
     queryKey: ['quizResults', attemptId],
     queryFn: () => quizzesApi.getAttemptResults(parsedAttemptId),
   });
+
+  // Log page view when results load
+  useEffect(() => {
+    if (results?.quiz) {
+      const parsedCourseId = courseId ? parseInt(courseId, 10) : undefined;
+      activityLogger.logQuizResultsViewed(results.quiz.id, results.quiz.title, parsedCourseId, { attemptId: parsedAttemptId });
+    }
+  }, [results, courseId, parsedAttemptId]);
 
   if (isLoading) {
     return <Loading text={t('loading_results')} />;

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Award, Calendar, ExternalLink, Download } from 'lucide-react';
@@ -8,6 +9,7 @@ import { Button } from '../components/common/Button';
 import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import apiClient from '../api/client';
+import activityLogger from '../services/activityLogger';
 
 interface CertificateItem {
   id: number;
@@ -21,6 +23,11 @@ interface CertificateItem {
 export const CertificateList = () => {
   const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
+
+  // Log page view on mount
+  useEffect(() => {
+    activityLogger.logCertificateListViewed();
+  }, []);
 
   const colors = {
     bg: isDark ? '#111827' : '#f9fafb',

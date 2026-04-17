@@ -24,6 +24,7 @@ import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { resolveFileUrl } from '../../api/client';
 import { sanitizeHtml, isHtmlContent } from '../../utils/sanitize';
+import activityLogger from '../../services/activityLogger';
 
 export const SubmissionDetail = () => {
   const { t } = useTranslation(['teaching', 'common', 'navigation']);
@@ -39,6 +40,12 @@ export const SubmissionDetail = () => {
   const queryClient = useQueryClient();
 
   const [gradeForm, setGradeForm] = useState({ grade: 0, feedback: '' });
+
+  useEffect(() => {
+    if (subId && courseId) {
+      activityLogger.logSubmissionViewed(subId, courseId);
+    }
+  }, [subId, courseId]);
 
   const { data: course } = useQuery({
     queryKey: ['course', courseId],
@@ -75,6 +82,7 @@ export const SubmissionDetail = () => {
         feedback: gradeForm.feedback,
       }),
     onSuccess: () => {
+      activityLogger.logSubmissionGraded(subId, courseId, gradeForm.grade, assignment?.points);
       queryClient.invalidateQueries({ queryKey: ['submission', subId] });
       queryClient.invalidateQueries({ queryKey: ['assignmentSubmissions', assId] });
       toast.success(t('submission_graded'));

@@ -9,6 +9,7 @@ import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { EmptyState } from '../../components/common/EmptyState';
 import { Chatbot, ChatMessage } from '../../types';
+import activityLogger from '../../services/activityLogger';
 
 export const Chatbots = () => {
   const { t } = useTranslation(['courses', 'common']);
@@ -23,6 +24,11 @@ export const Chatbots = () => {
     queryKey: ['chatbots'],
     queryFn: () => chatbotsApi.getChatbots(),
   });
+
+  // Log page view
+  useEffect(() => {
+    activityLogger.logAIToolViewed('Chatbots');
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -45,6 +51,7 @@ export const Chatbots = () => {
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setIsLoading(true);
+    activityLogger.logAIToolInteracted('Chatbots', { action: 'message_sent' });
 
     try {
       const response = await chatbotsApi.chatWithBot(selectedBot.name, userMessage, sessionId);

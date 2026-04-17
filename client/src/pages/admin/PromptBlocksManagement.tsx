@@ -5,7 +5,7 @@
  * Allows creating, editing, deleting, and reordering blocks and categories.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -45,6 +45,7 @@ import { Input, TextArea } from '../../components/common/Input';
 import { Loading } from '../../components/common/Loading';
 import { Modal } from '../../components/common/Modal';
 import toast from 'react-hot-toast';
+import activityLogger from '../../services/activityLogger';
 
 // Icon mapping
 const CATEGORY_ICONS: Record<string, React.ElementType> = {
@@ -102,6 +103,11 @@ export const PromptBlocksManagement = () => {
   const [categoryForm, setCategoryForm] = useState<CategoryFormData>(initialCategoryForm);
   const [showInactive, setShowInactive] = useState(false);
 
+  // Log page view
+  useEffect(() => {
+    activityLogger.logPromptBlocksViewed();
+  }, []);
+
   // Query
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['adminPromptBlocks'],
@@ -111,11 +117,12 @@ export const PromptBlocksManagement = () => {
   // Mutations for blocks
   const createBlockMutation = useMutation({
     mutationFn: (data: CreateBlockInput) => promptBlocksApi.createBlock(data),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['adminPromptBlocks'] });
       queryClient.invalidateQueries({ queryKey: ['promptBlocks'] });
       setShowBlockModal(false);
       setBlockForm(initialBlockForm);
+      activityLogger.logPromptBlockCreated(0, variables.label);
       toast.success(t('block_created'));
     },
     onError: (error: any) => {
@@ -126,10 +133,11 @@ export const PromptBlocksManagement = () => {
   const updateBlockMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: UpdateBlockInput }) =>
       promptBlocksApi.updateBlock(id, data),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['adminPromptBlocks'] });
       queryClient.invalidateQueries({ queryKey: ['promptBlocks'] });
       setShowBlockModal(false);
+      activityLogger.logPromptBlockUpdated(variables.id, editingBlock?.label);
       setEditingBlock(null);
       setBlockForm(initialBlockForm);
       toast.success(t('block_updated'));
@@ -141,9 +149,10 @@ export const PromptBlocksManagement = () => {
 
   const deleteBlockMutation = useMutation({
     mutationFn: (id: number) => promptBlocksApi.deleteBlock(id),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: ['adminPromptBlocks'] });
       queryClient.invalidateQueries({ queryKey: ['promptBlocks'] });
+      activityLogger.logPromptBlockDeleted(id);
       toast.success(t('block_deactivated'));
     },
     onError: (error: any) => {

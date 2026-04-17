@@ -1,6 +1,9 @@
+import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AdminLayout } from '../../components/admin';
+import activityLogger from '../../services/activityLogger';
+import { useTracker } from '../../services/tracker';
 
 // Import setting panels
 import { UsersPanel } from './settings/UsersPanel';
@@ -16,6 +19,18 @@ export const AdminSettings = () => {
   const { t } = useTranslation(['admin', 'common']);
   const [searchParams] = useSearchParams();
   const activeTab = (searchParams.get('tab') as SettingsTab) || 'users';
+  const track = useTracker('admin.settings');
+
+  // Log page view
+  useEffect(() => {
+    activityLogger.logAdminSettingsViewed();
+  }, []);
+
+  // Log tab switches
+  useEffect(() => {
+    activityLogger.logTabSwitched('settings', activeTab);
+    track('tab_switched', { verb: 'interacted', objectType: 'settings', payload: { tab: activeTab } });
+  }, [activeTab, track]);
 
   const TAB_TITLES: Record<SettingsTab, { title: string; description: string }> = {
     users: { title: t('users'), description: t('manage_users_permissions') },

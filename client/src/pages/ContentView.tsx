@@ -10,6 +10,7 @@ import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { buildContentBreadcrumb } from '../utils/breadcrumbs';
 import { sanitizeHtml } from '../utils/sanitize';
+import activityLogger from '../services/activityLogger';
 
 interface LocationState {
   title?: string;
@@ -106,6 +107,16 @@ export const ContentView = () => {
     passedLectureName,
     title
   );
+
+  // Log content view
+  useEffect(() => {
+    if (content && id) {
+      const contentId = parseInt(id, 10);
+      if (!isNaN(contentId)) {
+        activityLogger.logContentViewed(contentId, title, contentType, passedCourseId);
+      }
+    }
+  }, [id, title, contentType, passedCourseId]);
 
   if (!content) {
     return (

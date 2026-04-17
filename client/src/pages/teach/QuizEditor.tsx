@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -27,6 +27,7 @@ import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { MCQGenerator } from '../../components/teaching/MCQGenerator';
 import { RichTextEditor } from '../../components/forum/RichTextEditor';
 import { sanitizeHtml } from '../../utils/sanitize';
+import activityLogger from '../../services/activityLogger';
 
 interface QuestionFormData {
   questionType: 'multiple_choice' | 'true_false' | 'short_answer' | 'fill_in_blank';
@@ -71,6 +72,12 @@ export const QuizEditor = () => {
     bgHover: isDark ? '#374151' : '#f3f4f6',
     bgInput: isDark ? '#374151' : '#ffffff',
   };
+
+  useEffect(() => {
+    if (parsedQuizId) {
+      activityLogger.logQuizEditorViewed(parsedQuizId, undefined, courseId ? parseInt(courseId) : undefined);
+    }
+  }, [parsedQuizId, courseId]);
 
   // Fetch course info for breadcrumbs
   const { data: course } = useQuery({

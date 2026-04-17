@@ -24,6 +24,7 @@ import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { canTestAgent } from '../../utils/agentAccess';
+import activityLogger from '../../services/activityLogger';
 
 export const TestAndReflect = () => {
   const { t } = useTranslation(['teaching', 'common', 'navigation']);
@@ -40,6 +41,14 @@ export const TestAndReflect = () => {
   });
 
   const builderPath = `/courses/${courseId}/agent-assignments/${assignmentId}`;
+  const parsedCourseId = courseId ? parseInt(courseId, 10) : undefined;
+
+  // Log page view
+  useEffect(() => {
+    if (data?.config && canTestAgent(data.config)) {
+      activityLogger.logAgentTested(data.config.id, data.config.agentName, parsedCourseId);
+    }
+  }, [data?.config?.id, data?.config?.agentName, parsedCourseId]);
 
   // Gate: bounce back to the builder if the agent has not been submitted yet.
   useEffect(() => {

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Card, CardBody } from '../components/common/Card';
 import { useTheme } from '../hooks/useTheme';
+import activityLogger from '../services/activityLogger';
 
 const tools = [
   {
@@ -91,6 +93,11 @@ const infoCards = [
 export const AITools = () => {
   const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
+
+  // Log page view
+  useEffect(() => {
+    activityLogger.logAIToolsViewed();
+  }, []);
 
   // Theme colors
   const colors = {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { useTheme } from '../../hooks/useTheme';
+import activityLogger from '../../services/activityLogger';
 
 export const SurveyResponses = () => {
   const { t } = useTranslation(['teaching', 'common', 'navigation']);
@@ -39,6 +40,12 @@ export const SurveyResponses = () => {
     queryFn: () => surveysApi.getResponses(parseInt(surveyId!), moduleId ? parseInt(moduleId) : undefined),
     enabled: !!surveyId,
   });
+
+  useEffect(() => {
+    if (surveyId) {
+      activityLogger.logSurveyResponsesViewed(parseInt(surveyId), courseId ? parseInt(courseId) : undefined);
+    }
+  }, [surveyId, courseId]);
 
   const error = queryError ? ((queryError as any).response?.data?.message || 'Failed to load responses') : null;
   const [exporting, setExporting] = useState(false);

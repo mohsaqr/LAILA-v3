@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { sanitizeHtml } from '../../utils/sanitize';
+import activityLogger from '../../services/activityLogger';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -164,6 +165,12 @@ export const CurriculumEditor = () => {
     isPublished: false,
   });
 
+  useEffect(() => {
+    if (courseId) {
+      activityLogger.logCurriculumViewed(courseId);
+    }
+  }, [courseId]);
+
   // Single query: fetches course, assignments, tutors, labs, and forums in one request
   const { data: courseDetails, isLoading: courseLoading } = useQuery({
     queryKey: ['courseDetails', courseId],
@@ -192,7 +199,8 @@ export const CurriculumEditor = () => {
   // Mutations
   const createModuleMutation = useMutation({
     mutationFn: (data: ModuleFormData) => coursesApi.createModule(courseId, data),
-    onSuccess: () => {
+    onSuccess: (newModule) => {
+      activityLogger.logModuleCreated(newModule.id, newModule.title, courseId);
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('module_created'));
       closeModuleModal();
@@ -213,7 +221,8 @@ export const CurriculumEditor = () => {
 
   const deleteModuleMutation = useMutation({
     mutationFn: (id: number) => coursesApi.deleteModule(id),
-    onSuccess: () => {
+    onSuccess: (_data, deletedId) => {
+      activityLogger.logModuleDeleted(deletedId, deleteModuleConfirm?.title, courseId);
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('module_deleted'));
       setDeleteModuleConfirm(null);
@@ -242,7 +251,8 @@ export const CurriculumEditor = () => {
   const createLectureMutation = useMutation({
     mutationFn: ({ moduleId, data }: { moduleId: number; data: LectureFormData }) =>
       coursesApi.createLecture(moduleId, data),
-    onSuccess: () => {
+    onSuccess: (newLecture, variables) => {
+      activityLogger.logLectureCreated(newLecture.id, newLecture.title, courseId, variables.moduleId);
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('lesson_created'));
       closeLectureModal();
@@ -273,7 +283,8 @@ export const CurriculumEditor = () => {
 
   const deleteLectureMutation = useMutation({
     mutationFn: (id: number) => coursesApi.deleteLecture(id),
-    onSuccess: () => {
+    onSuccess: (_data, deletedId) => {
+      activityLogger.logLectureDeleted(deletedId, deleteLectureConfirm?.title, courseId);
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('lesson_deleted'));
       setDeleteLectureConfirm(null);

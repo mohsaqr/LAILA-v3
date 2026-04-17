@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
@@ -8,6 +9,7 @@ import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { buildCourseBreadcrumb } from '../utils/breadcrumbs';
 import apiClient from '../api/client';
+import activityLogger from '../services/activityLogger';
 
 interface Forum {
   id: number;
@@ -25,8 +27,14 @@ interface CourseInfo {
 
 export const CourseForumList = () => {
   const { courseId } = useParams<{ courseId: string }>();
+  const parsedCourseId = courseId ? parseInt(courseId, 10) : undefined;
   const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
+
+  // Log page view on mount
+  useEffect(() => {
+    activityLogger.logForumListViewed(parsedCourseId);
+  }, [parsedCourseId]);
 
   const colors = {
     bg: isDark ? '#111827' : '#f9fafb',

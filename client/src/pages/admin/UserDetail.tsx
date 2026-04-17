@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -25,6 +25,7 @@ import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { Input } from '../../components/common/Input';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { UpdateUserData, Course } from '../../types';
+import activityLogger from '../../services/activityLogger';
 
 export const UserDetail = () => {
   const { t } = useTranslation(['admin', 'common']);
@@ -32,6 +33,11 @@ export const UserDetail = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const userId = parseInt(id!);
+
+  // Log page view
+  useEffect(() => {
+    activityLogger.logUserDetailViewed(userId);
+  }, [userId]);
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);

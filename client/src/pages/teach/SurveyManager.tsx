@@ -28,6 +28,7 @@ import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { useTheme } from '../../hooks/useTheme';
 import { SurveyGenerator } from '../../components/teaching/SurveyGenerator';
+import activityLogger from '../../services/activityLogger';
 
 export const SurveyManager = () => {
   const { t } = useTranslation(['teaching', 'common', 'navigation']);
@@ -73,6 +74,10 @@ export const SurveyManager = () => {
   const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
+    activityLogger.logSurveyManagerViewed(courseId ? parseInt(courseId) : undefined);
+  }, [courseId]);
+
+  useEffect(() => {
     fetchSurveys();
   }, [courseId]);
 
@@ -99,6 +104,7 @@ export const SurveyManager = () => {
     setSubmitting(true);
     try {
       const newSurvey = await surveysApi.createSurvey(surveyForm);
+      activityLogger.logSurveyCreated(newSurvey.id, newSurvey.title, courseId ? parseInt(courseId) : undefined);
       setSurveys(prev => [newSurvey, ...prev]);
       setShowCreateModal(false);
       setSurveyForm({ title: '', description: '', isAnonymous: false });
