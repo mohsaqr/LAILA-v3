@@ -5,7 +5,8 @@ import { useAuthStore } from '../store/authStore';
 export type ActivityVerb =
   | 'enrolled' | 'unenrolled' | 'viewed' | 'started' | 'completed'
   | 'progressed' | 'submitted' | 'unsubmitted' | 'interacted'
-  | 'downloaded' | 'selected' | 'designed';
+  | 'downloaded' | 'selected' | 'designed'
+  | 'created' | 'updated' | 'deleted';
 
 export type ObjectType =
   | 'course' | 'module' | 'lecture' | 'section' | 'video'
@@ -14,7 +15,9 @@ export type ObjectType =
   | 'course_tutor' | 'course_tutor_conversation'
   | 'assignment_agent' | 'agent_conversation' | 'lab'
   | 'forum' | 'certificate' | 'survey' | 'gradebook'
-  | 'dashboard' | 'profile' | 'catalog' | 'analytics';
+  | 'dashboard' | 'profile' | 'catalog' | 'analytics'
+  | 'settings' | 'calendar' | 'enrollment' | 'curriculum'
+  | 'code_lab' | 'ai_tool' | 'prompt_block' | 'user' | 'submission';
 
 export interface LogActivityInput {
   verb: ActivityVerb;
@@ -595,6 +598,453 @@ class ActivityLogger {
       objectTitle: 'Catalog Filter',
       extensions,
     });
+  }
+
+  async logCatalogViewed() {
+    return this.log({ verb: 'viewed', objectType: 'catalog', objectTitle: 'Course Catalog' });
+  }
+
+  // Settings
+  async logSettingsViewed() {
+    return this.log({ verb: 'viewed', objectType: 'settings', objectTitle: 'User Settings' });
+  }
+
+  async logSettingsUpdated(extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'updated', objectType: 'settings', objectTitle: 'User Settings', extensions });
+  }
+
+  // Calendar
+  async logCalendarViewed() {
+    return this.log({ verb: 'viewed', objectType: 'calendar', objectTitle: 'Dashboard Calendar' });
+  }
+
+  // Gradebook
+  async logDashboardGradebookViewed() {
+    return this.log({ verb: 'viewed', objectType: 'gradebook', objectTitle: 'Dashboard Gradebook' });
+  }
+
+  // Assignment viewing (not just submission)
+  async logAssignmentViewed(assignmentId: number, assignmentTitle?: string, courseId?: number) {
+    return this.log({ verb: 'viewed', objectType: 'assignment', objectId: assignmentId, objectTitle: assignmentTitle, courseId });
+  }
+
+  // Quiz
+  async logQuizViewed(quizId: number, quizTitle?: string, courseId?: number) {
+    return this.log({ verb: 'viewed', objectType: 'quiz', objectId: quizId, objectTitle: quizTitle, courseId });
+  }
+
+  async logQuizResultsViewed(quizId: number, quizTitle?: string, courseId?: number, extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'viewed', objectType: 'quiz', objectId: quizId, objectTitle: quizTitle, courseId, actionSubtype: 'quiz.results_viewed', extensions });
+  }
+
+  async logQuizListViewed(courseId?: number) {
+    return this.log({ verb: 'viewed', objectType: 'quiz', objectTitle: 'Quiz List', courseId });
+  }
+
+  // Forum viewing
+  async logForumViewed(forumId: number, forumTitle?: string, courseId?: number) {
+    return this.log({ verb: 'viewed', objectType: 'forum', objectId: forumId, objectTitle: forumTitle, courseId });
+  }
+
+  async logForumListViewed(courseId?: number) {
+    return this.log({ verb: 'viewed', objectType: 'forum', objectTitle: 'Forum List', courseId });
+  }
+
+  // Certificate list
+  async logCertificateListViewed(courseId?: number) {
+    return this.log({ verb: 'viewed', objectType: 'certificate', objectTitle: 'Certificate List', courseId });
+  }
+
+  // Code Lab
+  async logCodeLabViewed(codeLabId: number, codeLabTitle?: string, courseId?: number) {
+    return this.log({ verb: 'viewed', objectType: 'code_lab', objectId: codeLabId, objectTitle: codeLabTitle, courseId });
+  }
+
+  async logCodeLabStarted(codeLabId: number, codeLabTitle?: string, courseId?: number) {
+    return this.log({ verb: 'started', objectType: 'code_lab', objectId: codeLabId, objectTitle: codeLabTitle, courseId });
+  }
+
+  async logCodeLabSubmitted(codeLabId: number, codeLabTitle?: string, courseId?: number, extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'submitted', objectType: 'code_lab', objectId: codeLabId, objectTitle: codeLabTitle, courseId, extensions });
+  }
+
+  // AI Tutors
+  async logAITutorsViewed() {
+    return this.log({ verb: 'viewed', objectType: 'tutor_agent', objectTitle: 'AI Tutors' });
+  }
+
+  async logTutorAgentSelected(agentId: number, agentTitle?: string, courseId?: number) {
+    return this.log({ verb: 'selected', objectType: 'tutor_agent', objectId: agentId, objectTitle: agentTitle, courseId });
+  }
+
+  async logTutorSessionStarted(agentId: number, agentTitle?: string, courseId?: number) {
+    return this.log({ verb: 'started', objectType: 'tutor_session', objectId: agentId, objectTitle: agentTitle, courseId });
+  }
+
+  async logTutorMessage(agentId: number, courseId?: number, extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'interacted', objectType: 'tutor_conversation', objectId: agentId, courseId, extensions });
+  }
+
+  // Labs
+  async logLabsViewed(courseId?: number) {
+    return this.log({ verb: 'viewed', objectType: 'lab', objectTitle: 'Labs Catalog', courseId });
+  }
+
+  // Content
+  async logContentViewed(contentId: number, contentTitle?: string, contentType?: string, courseId?: number) {
+    return this.log({ verb: 'viewed', objectType: 'section', objectId: contentId, objectTitle: contentTitle, objectSubtype: contentType, courseId });
+  }
+
+  // Agent usage
+  async logAgentUsed(agentId: number, agentTitle?: string, courseId?: number) {
+    return this.log({ verb: 'interacted', objectType: 'assignment_agent', objectId: agentId, objectTitle: agentTitle, courseId, actionSubtype: 'agent.use' });
+  }
+
+  async logAgentTested(agentId: number, agentTitle?: string, courseId?: number) {
+    return this.log({ verb: 'interacted', objectType: 'assignment_agent', objectId: agentId, objectTitle: agentTitle, courseId, actionSubtype: 'agent.test' });
+  }
+
+  async logAgentDatasetsViewed(agentId: number, courseId?: number) {
+    return this.log({ verb: 'viewed', objectType: 'assignment_agent', objectId: agentId, objectTitle: 'Agent Datasets', courseId, actionSubtype: 'agent.datasets_viewed' });
+  }
+
+  // Survey
+  async logSurveyViewed(surveyId: number, surveyTitle?: string, courseId?: number) {
+    return this.log({ verb: 'viewed', objectType: 'survey', objectId: surveyId, objectTitle: surveyTitle, courseId });
+  }
+
+  // Assignments list
+  async logAssignmentListViewed(courseId: number) {
+    return this.log({ verb: 'viewed', objectType: 'assignment', objectTitle: 'Assignment List', courseId });
+  }
+
+  // ============ INSTRUCTOR PAGES ============
+
+  // Course management
+  async logCourseCreateViewed() {
+    return this.log({ verb: 'viewed', objectType: 'course', objectTitle: 'Course Create', actionSubtype: 'course.create_viewed' });
+  }
+
+  async logCourseCreated(courseId: number, courseTitle?: string) {
+    return this.log({ verb: 'created', objectType: 'course', objectId: courseId, objectTitle: courseTitle, courseId });
+  }
+
+  async logCourseEditViewed(courseId: number, courseTitle?: string) {
+    return this.log({ verb: 'viewed', objectType: 'course', objectId: courseId, objectTitle: courseTitle, courseId, actionSubtype: 'course.edit_viewed' });
+  }
+
+  async logCourseUpdated(courseId: number, courseTitle?: string, extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'updated', objectType: 'course', objectId: courseId, objectTitle: courseTitle, courseId, extensions });
+  }
+
+  async logCourseDeleted(courseId: number, courseTitle?: string) {
+    return this.log({ verb: 'deleted', objectType: 'course', objectId: courseId, objectTitle: courseTitle, courseId });
+  }
+
+  // Curriculum
+  async logCurriculumViewed(courseId: number, courseTitle?: string) {
+    return this.log({ verb: 'viewed', objectType: 'curriculum', objectTitle: courseTitle, courseId });
+  }
+
+  async logModuleCreated(moduleId: number, moduleTitle?: string, courseId?: number) {
+    return this.log({ verb: 'created', objectType: 'module', objectId: moduleId, objectTitle: moduleTitle, courseId, moduleId });
+  }
+
+  async logModuleUpdated(moduleId: number, moduleTitle?: string, courseId?: number) {
+    return this.log({ verb: 'updated', objectType: 'module', objectId: moduleId, objectTitle: moduleTitle, courseId, moduleId });
+  }
+
+  async logModuleDeleted(moduleId: number, moduleTitle?: string, courseId?: number) {
+    return this.log({ verb: 'deleted', objectType: 'module', objectId: moduleId, objectTitle: moduleTitle, courseId });
+  }
+
+  async logLectureCreated(lectureId: number, lectureTitle?: string, courseId?: number, moduleId?: number) {
+    return this.log({ verb: 'created', objectType: 'lecture', objectId: lectureId, objectTitle: lectureTitle, courseId, moduleId, lectureId });
+  }
+
+  async logLectureUpdated(lectureId: number, lectureTitle?: string, courseId?: number, moduleId?: number) {
+    return this.log({ verb: 'updated', objectType: 'lecture', objectId: lectureId, objectTitle: lectureTitle, courseId, moduleId, lectureId });
+  }
+
+  async logLectureDeleted(lectureId: number, lectureTitle?: string, courseId?: number) {
+    return this.log({ verb: 'deleted', objectType: 'lecture', objectId: lectureId, objectTitle: lectureTitle, courseId });
+  }
+
+  // Lecture editor
+  async logLectureEditorViewed(lectureId: number, lectureTitle?: string, courseId?: number) {
+    return this.log({ verb: 'viewed', objectType: 'lecture', objectId: lectureId, objectTitle: lectureTitle, courseId, lectureId, actionSubtype: 'lecture.editor_viewed' });
+  }
+
+  // Code Lab editor
+  async logCodeLabEditorViewed(codeLabId: number, codeLabTitle?: string, courseId?: number) {
+    return this.log({ verb: 'viewed', objectType: 'code_lab', objectId: codeLabId, objectTitle: codeLabTitle, courseId, actionSubtype: 'code_lab.editor_viewed' });
+  }
+
+  async logCodeLabCreated(codeLabId: number, codeLabTitle?: string, courseId?: number) {
+    return this.log({ verb: 'created', objectType: 'code_lab', objectId: codeLabId, objectTitle: codeLabTitle, courseId });
+  }
+
+  async logCodeLabUpdated(codeLabId: number, codeLabTitle?: string, courseId?: number) {
+    return this.log({ verb: 'updated', objectType: 'code_lab', objectId: codeLabId, objectTitle: codeLabTitle, courseId });
+  }
+
+  // Quiz management
+  async logQuizManagerViewed(courseId: number) {
+    return this.log({ verb: 'viewed', objectType: 'quiz', objectTitle: 'Quiz Manager', courseId, actionSubtype: 'quiz.manager_viewed' });
+  }
+
+  async logQuizCreated(quizId: number, quizTitle?: string, courseId?: number) {
+    return this.log({ verb: 'created', objectType: 'quiz', objectId: quizId, objectTitle: quizTitle, courseId });
+  }
+
+  async logQuizUpdated(quizId: number, quizTitle?: string, courseId?: number, extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'updated', objectType: 'quiz', objectId: quizId, objectTitle: quizTitle, courseId, extensions });
+  }
+
+  async logQuizDeleted(quizId: number, quizTitle?: string, courseId?: number) {
+    return this.log({ verb: 'deleted', objectType: 'quiz', objectId: quizId, objectTitle: quizTitle, courseId });
+  }
+
+  async logQuizEditorViewed(quizId: number, quizTitle?: string, courseId?: number) {
+    return this.log({ verb: 'viewed', objectType: 'quiz', objectId: quizId, objectTitle: quizTitle, courseId, actionSubtype: 'quiz.editor_viewed' });
+  }
+
+  // Assignment management
+  async logAssignmentManagerViewed(courseId: number) {
+    return this.log({ verb: 'viewed', objectType: 'assignment', objectTitle: 'Assignment Manager', courseId, actionSubtype: 'assignment.manager_viewed' });
+  }
+
+  async logAssignmentCreated(assignmentId: number, assignmentTitle?: string, courseId?: number) {
+    return this.log({ verb: 'created', objectType: 'assignment', objectId: assignmentId, objectTitle: assignmentTitle, courseId });
+  }
+
+  async logAssignmentUpdated(assignmentId: number, assignmentTitle?: string, courseId?: number, extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'updated', objectType: 'assignment', objectId: assignmentId, objectTitle: assignmentTitle, courseId, extensions });
+  }
+
+  async logAssignmentDeleted(assignmentId: number, assignmentTitle?: string, courseId?: number) {
+    return this.log({ verb: 'deleted', objectType: 'assignment', objectId: assignmentId, objectTitle: assignmentTitle, courseId });
+  }
+
+  // Submission review
+  async logSubmissionListViewed(assignmentId: number, courseId?: number) {
+    return this.log({ verb: 'viewed', objectType: 'submission', objectTitle: 'Submission List', objectId: assignmentId, courseId, actionSubtype: 'submission.list_viewed' });
+  }
+
+  async logSubmissionViewed(submissionId: number, courseId?: number, extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'viewed', objectType: 'submission', objectId: submissionId, courseId, extensions });
+  }
+
+  async logSubmissionGraded(submissionId: number, courseId?: number, score?: number, maxScore?: number) {
+    return this.log({ verb: 'interacted', objectType: 'submission', objectId: submissionId, courseId, score, maxScore, actionSubtype: 'submission.graded' });
+  }
+
+  // Teacher gradebook
+  async logTeacherGradebookViewed(courseId: number) {
+    return this.log({ verb: 'viewed', objectType: 'gradebook', objectTitle: 'Teacher Gradebook', courseId, actionSubtype: 'gradebook.teacher_viewed' });
+  }
+
+  // Forum management
+  async logForumManagerViewed(courseId: number) {
+    return this.log({ verb: 'viewed', objectType: 'forum', objectTitle: 'Forum Manager', courseId, actionSubtype: 'forum.manager_viewed' });
+  }
+
+  async logForumCreated(forumId: number, forumTitle?: string, courseId?: number) {
+    return this.log({ verb: 'created', objectType: 'forum', objectId: forumId, objectTitle: forumTitle, courseId });
+  }
+
+  async logForumUpdated(forumId: number, forumTitle?: string, courseId?: number) {
+    return this.log({ verb: 'updated', objectType: 'forum', objectId: forumId, objectTitle: forumTitle, courseId });
+  }
+
+  async logForumDeleted(forumId: number, forumTitle?: string, courseId?: number) {
+    return this.log({ verb: 'deleted', objectType: 'forum', objectId: forumId, objectTitle: forumTitle, courseId });
+  }
+
+  // Certificate management
+  async logCertificateManagerViewed(courseId?: number) {
+    return this.log({ verb: 'viewed', objectType: 'certificate', objectTitle: 'Certificate Manager', courseId, actionSubtype: 'certificate.manager_viewed' });
+  }
+
+  async logCertificateCreated(certificateId: number, courseId?: number) {
+    return this.log({ verb: 'created', objectType: 'certificate', objectId: certificateId, courseId });
+  }
+
+  // Tutor management
+  async logTutorManagerViewed(courseId: number) {
+    return this.log({ verb: 'viewed', objectType: 'course_tutor', objectTitle: 'Tutor Manager', courseId, actionSubtype: 'tutor.manager_viewed' });
+  }
+
+  async logTutorConfigured(tutorId: number, courseId?: number, extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'updated', objectType: 'course_tutor', objectId: tutorId, courseId, extensions });
+  }
+
+  // Chatbot logs
+  async logChatbotLogsViewed(courseId: number) {
+    return this.log({ verb: 'viewed', objectType: 'chatbot', objectTitle: 'Chatbot Logs', courseId, actionSubtype: 'chatbot.logs_viewed' });
+  }
+
+  // Survey management
+  async logSurveyManagerViewed(courseId?: number) {
+    return this.log({ verb: 'viewed', objectType: 'survey', objectTitle: 'Survey Manager', courseId, actionSubtype: 'survey.manager_viewed' });
+  }
+
+  async logSurveyCreated(surveyId: number, surveyTitle?: string, courseId?: number) {
+    return this.log({ verb: 'created', objectType: 'survey', objectId: surveyId, objectTitle: surveyTitle, courseId });
+  }
+
+  async logSurveyUpdated(surveyId: number, surveyTitle?: string, courseId?: number) {
+    return this.log({ verb: 'updated', objectType: 'survey', objectId: surveyId, objectTitle: surveyTitle, courseId });
+  }
+
+  async logSurveyResponsesViewed(surveyId: number, courseId?: number) {
+    return this.log({ verb: 'viewed', objectType: 'survey', objectId: surveyId, courseId, actionSubtype: 'survey.responses_viewed' });
+  }
+
+  // Lab management
+  async logLabManagerViewed() {
+    return this.log({ verb: 'viewed', objectType: 'lab', objectTitle: 'Lab Manager', actionSubtype: 'lab.manager_viewed' });
+  }
+
+  // Course analytics
+  async logCourseAnalyticsViewed(courseId: number) {
+    return this.log({ verb: 'viewed', objectType: 'analytics', objectTitle: 'Course Analytics', courseId, actionSubtype: 'analytics.course_viewed' });
+  }
+
+  // Course logs
+  async logCourseLogsViewed(courseId: number) {
+    return this.log({ verb: 'viewed', objectType: 'analytics', objectTitle: 'Course Logs', courseId, actionSubtype: 'analytics.course_logs_viewed' });
+  }
+
+  // Agent submission review
+  async logAgentSubmissionViewed(submissionId: number, courseId?: number) {
+    return this.log({ verb: 'viewed', objectType: 'submission', objectId: submissionId, courseId, actionSubtype: 'submission.agent_viewed' });
+  }
+
+  async logConversationReplayViewed(conversationId: number, courseId?: number) {
+    return this.log({ verb: 'viewed', objectType: 'agent_conversation', objectId: conversationId, courseId, actionSubtype: 'conversation.replay_viewed' });
+  }
+
+  // ============ ADMIN PAGES ============
+
+  async logAdminDashboardViewed() {
+    return this.log({ verb: 'viewed', objectType: 'dashboard', objectTitle: 'Admin Dashboard', actionSubtype: 'admin.dashboard_viewed' });
+  }
+
+  async logAdminSettingsViewed(extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'viewed', objectType: 'settings', objectTitle: 'Admin Settings', actionSubtype: 'admin.settings_viewed', extensions });
+  }
+
+  async logAdminSettingsUpdated(extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'updated', objectType: 'settings', objectTitle: 'Admin Settings', actionSubtype: 'admin.settings_updated', extensions });
+  }
+
+  async logUserManagementViewed() {
+    return this.log({ verb: 'viewed', objectType: 'user', objectTitle: 'User Management', actionSubtype: 'admin.users_viewed' });
+  }
+
+  async logUserDetailViewed(userId: number, extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'viewed', objectType: 'user', objectId: userId, actionSubtype: 'admin.user_detail_viewed', extensions });
+  }
+
+  async logUserCreated(userId: number, extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'created', objectType: 'user', objectId: userId, extensions });
+  }
+
+  async logUserUpdated(userId: number, extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'updated', objectType: 'user', objectId: userId, extensions });
+  }
+
+  async logUserDeleted(userId: number) {
+    return this.log({ verb: 'deleted', objectType: 'user', objectId: userId });
+  }
+
+  async logEnrollmentManagementViewed() {
+    return this.log({ verb: 'viewed', objectType: 'enrollment', objectTitle: 'Enrollment Management', actionSubtype: 'admin.enrollments_viewed' });
+  }
+
+  async logBatchEnrollmentViewed() {
+    return this.log({ verb: 'viewed', objectType: 'enrollment', objectTitle: 'Batch Enrollment', actionSubtype: 'admin.batch_enrollment_viewed' });
+  }
+
+  async logBatchEnrollmentSubmitted(extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'submitted', objectType: 'enrollment', objectTitle: 'Batch Enrollment', extensions, actionSubtype: 'admin.batch_enrollment_submitted' });
+  }
+
+  async logAdminLogsViewed(extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'viewed', objectType: 'analytics', objectTitle: 'Admin Logs Dashboard', actionSubtype: 'admin.logs_viewed', extensions });
+  }
+
+  async logAdminAnalyticsViewed() {
+    return this.log({ verb: 'viewed', objectType: 'analytics', objectTitle: 'Admin Analytics', actionSubtype: 'admin.analytics_viewed' });
+  }
+
+  async logPromptBlocksViewed() {
+    return this.log({ verb: 'viewed', objectType: 'prompt_block', objectTitle: 'Prompt Blocks', actionSubtype: 'admin.prompt_blocks_viewed' });
+  }
+
+  async logPromptBlockCreated(blockId: number, blockTitle?: string) {
+    return this.log({ verb: 'created', objectType: 'prompt_block', objectId: blockId, objectTitle: blockTitle });
+  }
+
+  async logPromptBlockUpdated(blockId: number, blockTitle?: string) {
+    return this.log({ verb: 'updated', objectType: 'prompt_block', objectId: blockId, objectTitle: blockTitle });
+  }
+
+  async logPromptBlockDeleted(blockId: number, blockTitle?: string) {
+    return this.log({ verb: 'deleted', objectType: 'prompt_block', objectId: blockId, objectTitle: blockTitle });
+  }
+
+  async logChatbotRegistryViewed() {
+    return this.log({ verb: 'viewed', objectType: 'chatbot', objectTitle: 'Chatbot Registry', actionSubtype: 'admin.chatbot_registry_viewed' });
+  }
+
+  // ============ AI TOOLS ============
+
+  async logAIToolsViewed() {
+    return this.log({ verb: 'viewed', objectType: 'ai_tool', objectTitle: 'AI Tools Hub' });
+  }
+
+  async logAIToolViewed(toolName: string, extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'viewed', objectType: 'ai_tool', objectTitle: toolName, extensions, actionSubtype: `ai_tool.${toolName.toLowerCase().replace(/\s+/g, '_')}_viewed` });
+  }
+
+  async logAIToolInteracted(toolName: string, extensions?: Record<string, unknown>) {
+    return this.log({ verb: 'interacted', objectType: 'ai_tool', objectTitle: toolName, extensions, actionSubtype: `ai_tool.${toolName.toLowerCase().replace(/\s+/g, '_')}_interacted` });
+  }
+
+  async logAIBuilderViewed() {
+    return this.log({ verb: 'viewed', objectType: 'ai_tool', objectTitle: 'AI Builder', actionSubtype: 'ai_tool.builder_viewed' });
+  }
+
+  async logAIComponentCreated(componentId: number, componentTitle?: string) {
+    return this.log({ verb: 'created', objectType: 'chatbot', objectId: componentId, objectTitle: componentTitle, actionSubtype: 'ai_tool.component_created' });
+  }
+
+  async logAIComponentUpdated(componentId: number, componentTitle?: string) {
+    return this.log({ verb: 'updated', objectType: 'chatbot', objectId: componentId, objectTitle: componentTitle, actionSubtype: 'ai_tool.component_updated' });
+  }
+
+  async logAIComponentDeleted(componentId: number, componentTitle?: string) {
+    return this.log({ verb: 'deleted', objectType: 'chatbot', objectId: componentId, objectTitle: componentTitle, actionSubtype: 'ai_tool.component_deleted' });
+  }
+
+  // ============ GENERIC TAB/ACTION HELPERS ============
+
+  async logTabSwitched(objectType: ObjectType, tabName: string, objectId?: number, courseId?: number) {
+    return this.log({ verb: 'interacted', objectType, objectId, courseId, actionSubtype: `${objectType}.tab_switched`, extensions: { tab: tabName } });
+  }
+
+  async logSearchPerformed(objectType: ObjectType, query: string, courseId?: number) {
+    return this.log({ verb: 'interacted', objectType, courseId, actionSubtype: `${objectType}.searched`, extensions: { searchQuery: query } });
+  }
+
+  async logFilterApplied(objectType: ObjectType, filterType: string, filterValue: string, courseId?: number) {
+    return this.log({ verb: 'interacted', objectType, courseId, actionSubtype: `${objectType}.filtered`, extensions: { filterType, filterValue } });
+  }
+
+  async logExportRequested(objectType: ObjectType, format: string, courseId?: number) {
+    return this.log({ verb: 'downloaded', objectType, courseId, actionSubtype: `${objectType}.exported`, extensions: { format } });
   }
 }
 

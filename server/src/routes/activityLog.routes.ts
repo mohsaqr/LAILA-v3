@@ -12,7 +12,7 @@ const router = Router();
 const validVerbs = [
   'enrolled', 'unenrolled', 'viewed', 'started', 'completed', 'progressed',
   'submitted', 'unsubmitted', 'interacted', 'downloaded', 'selected',
-  'designed',
+  'designed', 'created', 'updated', 'deleted',
 ] as const;
 
 const validObjectTypes = [
@@ -23,6 +23,8 @@ const validObjectTypes = [
   'assignment_agent', 'agent_conversation',
   'lab', 'forum', 'certificate', 'survey', 'gradebook',
   'dashboard', 'profile', 'catalog', 'analytics',
+  'settings', 'calendar', 'enrollment', 'curriculum',
+  'code_lab', 'ai_tool', 'prompt_block', 'user', 'submission',
 ] as const;
 
 // Validation schemas
