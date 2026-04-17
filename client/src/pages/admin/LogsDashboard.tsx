@@ -12,7 +12,10 @@ import {
   MessagesSquare,
   Bot,
   MessageSquare,
+  X,
+  User,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../../components/admin';
 import { useTheme } from '../../hooks/useTheme';
 import { TabType } from './logs/constants';
@@ -35,6 +38,7 @@ export const LogsDashboard = () => {
   const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const { isDark } = useTheme();
   const track = useTracker('admin.logs');
+  const navigate = useNavigate();
 
   // Log page view
   useEffect(() => {
@@ -74,6 +78,23 @@ export const LogsDashboard = () => {
       title={t('logs_analytics')}
       description={t('logs_analytics_desc')}
     >
+      {/* User filter banner */}
+      {initialUserId && (
+        <div className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+          <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+          <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
+            {t('filtered_by_user', { userId: initialUserId, defaultValue: `Showing logs for user ID: ${initialUserId}` })}
+          </span>
+          <button
+            onClick={() => navigate('/admin/logs')}
+            className="ml-auto p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-800 text-blue-600 dark:text-blue-400"
+            title={t('clear_filter', { defaultValue: 'Clear filter' })}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Tab Navigation */}
       <div className="flex gap-2 mb-6 pb-4" style={{ borderBottom: `1px solid ${colors.border}` }}>
         {tabs.map((tab) => (
@@ -110,6 +131,7 @@ export const LogsDashboard = () => {
         <MessagesTab
           exportStatus={exportStatus}
           setExportStatus={setExportStatus}
+          initialUserId={initialUserId}
         />
       )}
 
@@ -117,6 +139,7 @@ export const LogsDashboard = () => {
         <InteractionsTab
           exportStatus={exportStatus}
           setExportStatus={setExportStatus}
+          initialUserId={initialUserId}
         />
       )}
 
