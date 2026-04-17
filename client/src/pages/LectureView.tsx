@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Download, FileText, Sparkles, Upload, BookOpen, ChevronLeft, ChevronRight, CheckCircle, Circle } from 'lucide-react';
@@ -100,9 +100,12 @@ export const LectureView = () => {
     },
   });
 
-  // Log lecture view
+  // Log lecture view (ref guard prevents StrictMode double-fire)
+  const loggedLectureRef = useRef<string | null>(null);
   useEffect(() => {
-    if (lecture && courseId) {
+    const key = `${lectureId}-${courseId}`;
+    if (lecture && courseId && loggedLectureRef.current !== key) {
+      loggedLectureRef.current = key;
       activityLogger.logLectureViewed(
         parseInt(lectureId!),
         lecture.title,
@@ -111,6 +114,32 @@ export const LectureView = () => {
       ).catch(() => {});
     }
   }, [lecture?.id, courseId, lectureId]);
+
+  // Track scroll depth in lecture content
+  const maxScrollRef = useRef(0);
+  useEffect(() => {
+    if (!lecture) return;
+    maxScrollRef.current = 0;
+    const handleScroll = () => {
+      const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+      if (scrollHeight <= 0) return;
+      const depth = Math.round((window.scrollY / scrollHeight) * 100);
+      if (depth > maxScrollRef.current) {
+        maxScrollRef.current = depth;
+        if ([25, 50, 75, 100].includes(depth)) {
+          track('scroll_depth', {
+            verb: 'progressed',
+            objectType: 'lecture',
+            objectId: parseInt(lectureId!),
+            courseId: parseInt(courseId!),
+            payload: { scrollDepth: depth },
+          });
+        }
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [lecture?.id, lectureId, courseId, track]);
 
   const currentModule = course?.modules?.find((m: any) =>
     m.lectures?.some((l: any) => l.id === parseInt(lectureId!))
