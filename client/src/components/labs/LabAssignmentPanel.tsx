@@ -354,15 +354,7 @@ export const LabAssignmentPanel = ({
       const { url } = await customLabsApi.uploadLabSubmission(pdfFile);
       setPdfUrl(url);
 
-      // Log to platform
-      if (courseNumericId && assignmentId) {
-        activityLogger.logLabSubmitted(
-          sessionConfig.labType.toUpperCase(),
-          assignmentId,
-          courseNumericId,
-          { datasetName: sessionConfig.datasetName, analysesVisited: visitedAnalyses }
-        );
-      }
+      // PDF generation logged — actual submission is logged separately in submitMutation.onSuccess
       toast.success(t('pdf_generated', { defaultValue: 'PDF report generated!' }));
     } catch (err) {
       console.error(err);
