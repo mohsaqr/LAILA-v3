@@ -18,6 +18,7 @@ import { AssignmentSectionStudent } from '../components/course/AssignmentSection
 import { marked } from 'marked';
 import { sanitizeHtml, isHtmlContent } from '../utils/sanitize';
 import activityLogger from '../services/activityLogger';
+import { useTracker } from '../services/tracker';
 import { LectureSection } from '../types';
 
 // Parse markdown to HTML, then sanitize for XSS safety
@@ -30,6 +31,7 @@ export const LectureView = () => {
   const { t } = useTranslation(['courses', 'common']);
   const { courseId, lectureId } = useParams<{ courseId: string; lectureId: string }>();
   const { isDark } = useTheme();
+  const track = useTracker('lecture');
 
   const queryClient = useQueryClient();
 
@@ -367,7 +369,10 @@ export const LectureView = () => {
                   </div>
                 ) : (
                   <button
-                    onClick={() => completeMutation.mutate()}
+                    onClick={() => {
+                      track('marked_complete', { verb: 'completed', objectType: 'lecture', objectId: parseInt(lectureId!), courseId: parseInt(courseId!) });
+                      completeMutation.mutate();
+                    }}
                     disabled={completeMutation.isPending}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-green-50 hover:bg-green-100 text-green-600 dark:bg-green-900/20 dark:hover:bg-green-900/30 dark:text-green-400 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
@@ -400,6 +405,7 @@ export const LectureView = () => {
               to={`/courses/${courseId}/lectures/${prevLecture.id}`}
               className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
               style={{ backgroundColor: colors.bgCard, border: `1px solid ${colors.border}`, color: colors.textPrimary }}
+              onClick={() => track('previous_lecture', { verb: 'interacted', objectType: 'lecture', courseId: parseInt(courseId!), payload: { fromLectureId: parseInt(lectureId!), toLectureId: prevLecture.id } })}
             >
               <ChevronLeft className="w-4 h-4" />
               <div className="text-left">
@@ -416,6 +422,7 @@ export const LectureView = () => {
               to={`/courses/${courseId}/lectures/${nextLecture.id}`}
               className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
               style={{ backgroundColor: colors.bgCard, border: `1px solid ${colors.border}`, color: colors.textPrimary }}
+              onClick={() => track('next_lecture', { verb: 'interacted', objectType: 'lecture', courseId: parseInt(courseId!), payload: { fromLectureId: parseInt(lectureId!), toLectureId: nextLecture.id } })}
             >
               <div className="text-right">
                 <p className="text-xs" style={{ color: colors.textSecondary }}>{t('next_lecture')}</p>
@@ -428,6 +435,7 @@ export const LectureView = () => {
               to={`/courses/${courseId}`}
               className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
               style={{ backgroundColor: colors.bgPrimaryLight, color: colors.textPrimary600 }}
+              onClick={() => track('back_to_course', { verb: 'interacted', objectType: 'course', courseId: parseInt(courseId!) })}
             >
               <BookOpen className="w-4 h-4" />
               <span className="text-sm font-medium">{t('back_to_course_button')}</span>

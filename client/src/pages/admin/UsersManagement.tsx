@@ -16,6 +16,8 @@ import {
   X,
 } from 'lucide-react';
 import { userManagementApi } from '../../api/userManagement';
+import activityLogger from '../../services/activityLogger';
+import { useTracker } from '../../services/tracker';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
@@ -29,6 +31,7 @@ import { ManagedUser, UpdateUserData } from '../../types';
 export const UsersManagement = () => {
   const { t } = useTranslation(['admin', 'common']);
   const queryClient = useQueryClient();
+  const track = useTracker('admin.users');
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -42,10 +45,19 @@ export const UsersManagement = () => {
   // Edit form state
   const [editForm, setEditForm] = useState<UpdateUserData>({});
 
+  // Log page view
+  useEffect(() => {
+    activityLogger.logUserManagementViewed();
+  }, []);
+
   // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchInput);
+      if (searchInput) {
+        activityLogger.logSearchPerformed('user', searchInput);
+        track('searched', { verb: 'interacted', objectType: 'user', payload: { query: searchInput } });
+      }
       setPage(1);
     }, 300);
     return () => clearTimeout(timer);
@@ -103,10 +115,13 @@ export const UsersManagement = () => {
       isAdmin: user.isAdmin,
     });
     setIsEditModalOpen(true);
+    track('edit_modal_opened', { verb: 'interacted', objectType: 'user', objectId: user.id });
   };
 
   const handleSaveUser = () => {
     if (!selectedUser) return;
+    activityLogger.logUserUpdated(selectedUser.id, { field: 'profile' });
+    track('role_changed', { verb: 'updated', objectType: 'user', objectId: selectedUser.id, payload: { newRole: editForm.isAdmin ? 'admin' : editForm.isInstructor ? 'instructor' : 'student' } });
     updateUserMutation.mutate({ id: selectedUser.id, data: editForm });
   };
 
@@ -117,6 +132,8 @@ export const UsersManagement = () => {
 
   const handleConfirmDelete = () => {
     if (!userToDelete) return;
+    activityLogger.logUserDeleted(userToDelete.id);
+    track('user_deleted', { verb: 'deleted', objectType: 'user', objectId: userToDelete.id });
     deleteUserMutation.mutate(userToDelete.id);
   };
 
@@ -239,8 +256,13 @@ export const UsersManagement = () => {
               <select
                 value={roleFilter}
                 onChange={(e) => {
-                  setRoleFilter(e.target.value as typeof roleFilter);
+                  const val = e.target.value as typeof roleFilter;
+                  setRoleFilter(val);
                   setPage(1);
+                  if (val) {
+                    activityLogger.logFilterApplied('user', 'role', val);
+                  }
+                  track('role_filtered', { verb: 'interacted', objectType: 'user', payload: { role: val || 'all' } });
                 }}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
               >
@@ -252,8 +274,10 @@ export const UsersManagement = () => {
               <select
                 value={activeFilter === undefined ? '' : activeFilter.toString()}
                 onChange={(e) => {
-                  setActiveFilter(e.target.value === '' ? undefined : e.target.value === 'true');
+                  const val = e.target.value;
+                  setActiveFilter(val === '' ? undefined : val === 'true');
                   setPage(1);
+                  track('status_filtered', { verb: 'interacted', objectType: 'user', payload: { status: val || 'all' } });
                 }}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
               >
@@ -376,7 +400,7 @@ export const UsersManagement = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      onClick={() => { const newPage = Math.max(1, page - 1); setPage(newPage); track('page_changed', { verb: 'interacted', objectType: 'user', payload: { page: newPage } }); }}
                       disabled={page === 1}
                     >
                       <ChevronLeft className="w-4 h-4" />
@@ -384,7 +408,7 @@ export const UsersManagement = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setPage((p) => Math.min(data.pagination.totalPages, p + 1))}
+                      onClick={() => { const newPage = Math.min(data.pagination.totalPages, page + 1); setPage(newPage); track('page_changed', { verb: 'interacted', objectType: 'user', payload: { page: newPage } }); }}
                       disabled={page === data.pagination.totalPages}
                     >
                       <ChevronRight className="w-4 h-4" />

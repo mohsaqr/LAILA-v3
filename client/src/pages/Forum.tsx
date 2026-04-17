@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, Link, useNavigate } from 'react-router-dom';
@@ -33,6 +33,7 @@ import { ForumReplyInput } from '../components/forum/ForumReplyInput';
 import { buildForumBreadcrumb, buildThreadBreadcrumb } from '../utils/breadcrumbs';
 import DOMPurify from 'dompurify';
 import { activityLogger } from '../services/activityLogger';
+import { useTracker } from '../services/tracker';
 import { RichTextEditor } from '../components/forum/RichTextEditor';
 
 interface ThreadedPost extends ForumPost {
@@ -48,6 +49,7 @@ export const Forum = () => {
   const parsedForumId = parseInt(forumId!, 10);
   const parsedThreadId = threadId ? parseInt(threadId, 10) : null;
   const { isDark } = useTheme();
+  const track = useTracker('forum');
 
   const [isCreateThreadOpen, setIsCreateThreadOpen] = useState(false);
   const [newThread, setNewThread] = useState<CreateThreadInput>({ title: '', content: '' });
@@ -105,12 +107,19 @@ export const Forum = () => {
     enabled: !!parsedCourseId,
   });
 
+  // Log forum view when forum data loads
+  useEffect(() => {
+    if (forum && !parsedThreadId) {
+      activityLogger.logForumViewed(parsedForumId, forum.title, parsedCourseId);
+    }
+  }, [forum, parsedForumId, parsedCourseId, parsedThreadId]);
+
   // Mutations
   const createThreadMutation = useMutation({
     mutationFn: (data: CreateThreadInput) => forumsApi.createThread(parsedForumId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['forum', parsedForumId] });
-      activityLogger.logForumPostCreated(parsedForumId, newThread.title, parseInt(courseId!), { action: 'thread_created' });
+      track('thread_created', { verb: 'created', objectType: 'forum', objectId: parsedForumId, courseId: parsedCourseId, payload: { title: newThread.title, isAnonymous: newThread.isAnonymous } });
       toast.success(t('discussion_started'));
       setIsCreateThreadOpen(false);
       setNewThread({ title: '', content: '' });
@@ -122,7 +131,7 @@ export const Forum = () => {
     mutationFn: (data: CreatePostInput) => forumsApi.createPost(parsedThreadId!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['thread', parsedThreadId] });
-      activityLogger.logForumPostCreated(parsedForumId, undefined, parseInt(courseId!), { action: 'reply_created', threadId: parsedThreadId });
+      track('reply_submitted', { verb: 'submitted', objectType: 'forum', objectId: parsedForumId, courseId: parsedCourseId, payload: { isReplyToPost: !!replyingToId, threadId: parsedThreadId } });
       toast.success(t('reply_posted'));
       setReplyContent('');
       setReplyingToId(null);
@@ -138,6 +147,7 @@ export const Forum = () => {
     onSuccess: (post, variables) => {
       queryClient.invalidateQueries({ queryKey: ['thread', parsedThreadId] });
       activityLogger.log({ verb: 'interacted', objectType: 'tutor_agent', objectId: variables.agentId, courseId: parseInt(courseId!), extensions: { action: 'forum_ai_reply', forumId: parsedForumId, threadId: parsedThreadId } });
+      track('ai_agent_selected', { verb: 'selected', objectType: 'forum', courseId: parsedCourseId, payload: { agentId: variables.agentId, agentName: post.aiAgentName } });
       toast.success(t('ai_responded', { name: post.aiAgentName || t('tutors:ai_tutor') }));
       setShowAiSelector(false);
       setAiReplyToId(null);
@@ -152,6 +162,7 @@ export const Forum = () => {
   const deleteThreadMutation = useMutation({
     mutationFn: () => forumsApi.deleteThread(parsedThreadId!),
     onSuccess: () => {
+      track('thread_deleted', { verb: 'deleted', objectType: 'forum', objectId: parsedThreadId!, courseId: parsedCourseId });
       toast.success(t('discussion_deleted'));
       navigate(`/courses/${courseId}/forums/${forumId}`);
     },
@@ -218,12 +229,14 @@ export const Forum = () => {
   };
 
   const handleReplyToPost = (postId: number, authorName: string) => {
+    track('reply_to_post_started', { verb: 'interacted', objectType: 'forum', objectId: postId, courseId: parsedCourseId });
     setReplyingToId(postId);
     setReplyingToName(authorName);
     setReplyContent('');
   };
 
   const handleReplyToThread = () => {
+    track('reply_started', { verb: 'interacted', objectType: 'forum', objectId: parsedThreadId!, courseId: parsedCourseId });
     setReplyingToId(null);
     setReplyingToName('');
     setReplyContent('');
@@ -262,6 +275,7 @@ export const Forum = () => {
   };
 
   const cancelReply = () => {
+    track('reply_cancelled', { verb: 'interacted', objectType: 'forum', objectId: parsedForumId, courseId: parsedCourseId });
     setReplyingToId(null);
     setReplyingToName('');
     setReplyContent('');
@@ -277,6 +291,7 @@ export const Forum = () => {
       setShowAiSelector(false);
       setAiReplyToId(null);
     } else {
+      track('ai_requested', { verb: 'interacted', objectType: 'forum', objectId: parsedForumId, courseId: parsedCourseId });
       setShowAiSelector(true);
       setAiReplyToId(postId);
     }
@@ -513,6 +528,7 @@ export const Forum = () => {
                           >
                             <button
                               onClick={() => {
+                                track('thread_pinned', { verb: 'interacted', objectType: 'forum', objectId: parsedThreadId!, courseId: parsedCourseId, payload: { pinned: !thread.isPinned } });
                                 pinThreadMutation.mutate(!thread.isPinned);
                                 setShowThreadActions(false);
                               }}
@@ -525,6 +541,7 @@ export const Forum = () => {
                             </button>
                             <button
                               onClick={() => {
+                                track('thread_locked', { verb: 'interacted', objectType: 'forum', objectId: parsedThreadId!, courseId: parsedCourseId, payload: { locked: !thread.isLocked } });
                                 lockThreadMutation.mutate(!thread.isLocked);
                                 setShowThreadActions(false);
                               }}
@@ -678,7 +695,7 @@ export const Forum = () => {
                 </Button>
                 <Button
                   variant="danger"
-                  onClick={() => deleteThreadMutation.mutate()}
+                  onClick={() => { track('delete_confirmed', { verb: 'deleted', objectType: 'forum', objectId: parsedThreadId!, courseId: parsedCourseId }); deleteThreadMutation.mutate(); }}
                   disabled={deleteThreadMutation.isPending}
                 >
                   {deleteThreadMutation.isPending ? t('deleting') : t('delete')}
@@ -732,7 +749,7 @@ export const Forum = () => {
               <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>{forum.description}</p>
             )}
           </div>
-          <Button onClick={() => setIsCreateThreadOpen(true)} className="whitespace-nowrap flex-shrink-0">
+          <Button onClick={() => { track('new_discussion_opened', { verb: 'interacted', objectType: 'forum', objectId: parsedForumId, courseId: parsedCourseId }); setIsCreateThreadOpen(true); }} className="whitespace-nowrap flex-shrink-0">
             <Plus size={18} />
             {t('new_discussion')}
           </Button>
@@ -746,6 +763,7 @@ export const Forum = () => {
                 key={thread.id}
                 to={`/courses/${courseId}/forums/${forumId}/threads/${thread.id}`}
                 className="block"
+                onClick={() => track('thread_viewed', { verb: 'viewed', objectType: 'forum', objectId: thread.id, courseId: parsedCourseId, payload: { threadTitle: thread.title } })}
               >
                 <Card
                   className="hover:shadow-md transition-shadow"
@@ -797,7 +815,7 @@ export const Forum = () => {
               <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
                 {t('start_first_discussion')}
               </p>
-              <Button onClick={() => setIsCreateThreadOpen(true)} className="mt-4">
+              <Button onClick={() => { track('new_discussion_opened', { verb: 'interacted', objectType: 'forum', objectId: parsedForumId, courseId: parsedCourseId }); setIsCreateThreadOpen(true); }} className="mt-4">
                 <Plus size={18} />
                 {t('start_discussion')}
               </Button>
@@ -840,7 +858,7 @@ export const Forum = () => {
               <input
                 type="checkbox"
                 checked={newThread.isAnonymous}
-                onChange={(e) => setNewThread({ ...newThread, isAnonymous: e.target.checked })}
+                onChange={(e) => { track('anonymous_toggled', { verb: 'interacted', objectType: 'forum', courseId: parsedCourseId, payload: { anonymous: e.target.checked } }); setNewThread({ ...newThread, isAnonymous: e.target.checked }); }}
                 className="w-4 h-4"
               />
               <span className="text-sm" style={{ color: colors.textPrimary }}>{t('post_anonymously')}</span>

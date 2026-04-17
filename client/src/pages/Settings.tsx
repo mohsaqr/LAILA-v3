@@ -11,6 +11,8 @@ import { Card, CardBody, CardHeader } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { useLanguageStore } from '../store/languageStore';
 import { supportedLanguages, SupportedLanguage } from '../i18n/config';
+import activityLogger from '../services/activityLogger';
+import { useTracker } from '../services/tracker';
 
 interface SettingToggleProps {
   label: string;
@@ -52,6 +54,12 @@ export const Settings = () => {
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
   const { language: currentLanguage, setLanguage } = useLanguageStore();
+  const track = useTracker('settings');
+
+  // Log page view on mount
+  useEffect(() => {
+    activityLogger.logSettingsViewed();
+  }, []);
 
   const colors = {
     bg: isDark ? '#111827' : '#f9fafb',
@@ -152,6 +160,7 @@ export const Settings = () => {
 
   const handleLanguageChange = (newLanguage: SupportedLanguage) => {
     setLanguage(newLanguage);
+    track('language_changed', { verb: 'updated', objectType: 'settings', payload: { language: newLanguage } });
     if (user) {
       updateLanguageMutation.mutate(newLanguage);
     }
@@ -160,6 +169,10 @@ export const Settings = () => {
   const handleToggle = (key: keyof typeof settings) => {
     const newValue = !settings[key];
     setSettings(s => ({ ...s, [key]: newValue }));
+
+    if (key === 'darkMode') {
+      track('theme_changed', { verb: 'updated', objectType: 'settings', payload: { theme: newValue ? 'dark' : 'light' } });
+    }
 
     // Handle dark mode toggle specially - apply theme immediately
     if (key === 'darkMode') {
@@ -179,6 +192,7 @@ export const Settings = () => {
     const newValue = !notifSettings[key];
     setNotifSettings(s => ({ ...s, [key]: newValue }));
     updateNotificationPrefsMutation.mutate({ [key]: newValue });
+    track('notification_toggled', { verb: 'updated', objectType: 'settings', payload: { notificationType: key, enabled: newValue } });
   };
 
   return (
@@ -372,7 +386,7 @@ export const Settings = () => {
                   {t('delete_account_description')}
                 </p>
               </div>
-              <Button variant="danger" size="sm">
+              <Button variant="danger" size="sm" onClick={() => track('delete_account_clicked', { verb: 'interacted', objectType: 'settings' })}>
                 {t('delete_account')}
               </Button>
             </div>

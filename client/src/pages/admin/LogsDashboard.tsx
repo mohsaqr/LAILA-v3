@@ -3,7 +3,7 @@
  * Refactored to use extracted tab components for better maintainability.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Activity,
@@ -20,12 +20,33 @@ import { InteractionsTab } from './logs/InteractionsTab';
 import { MessagesTab } from './logs/MessagesTab';
 import { ChatbotRegistryTab } from './logs/ChatbotRegistryTab';
 import { ForumLogsTab } from './logs/ForumLogsTab';
+import activityLogger from '../../services/activityLogger';
+import { useTracker } from '../../services/tracker';
 
 export const LogsDashboard = () => {
   const { t } = useTranslation(['admin', 'common']);
   const [activeTab, setActiveTab] = useState<TabType>('activity');
   const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const { isDark } = useTheme();
+  const track = useTracker('admin.logs');
+
+  // Log page view
+  useEffect(() => {
+    activityLogger.logAdminLogsViewed();
+  }, []);
+
+  // Log tab switches
+  useEffect(() => {
+    activityLogger.logTabSwitched('analytics', activeTab);
+    track('tab_switched', { verb: 'interacted', objectType: 'analytics', payload: { tab: activeTab } });
+  }, [activeTab, track]);
+
+  // Log export
+  useEffect(() => {
+    if (exportStatus === 'loading') {
+      activityLogger.logExportRequested('analytics', 'csv');
+    }
+  }, [exportStatus]);
 
   // Theme colors
   const colors = {

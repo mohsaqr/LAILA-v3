@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import { activityLogger } from '../services/activityLogger';
+import { useTracker } from '../services/tracker';
 import { authApi } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
 import { resolveFileUrl } from '../api/client';
@@ -17,6 +18,7 @@ export const Profile = () => {
   const { t } = useTranslation(['settings', 'common']);
   const { user } = useAuth();
   const { isDark } = useTheme();
+  const track = useTracker('profile');
   const setUser = useAuthStore(s => s.setUser);
   const [isEditing, setIsEditing] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
@@ -53,6 +55,7 @@ export const Profile = () => {
       toast.error(t('name_required'));
       return;
     }
+    track('save_clicked', { verb: 'interacted', objectType: 'profile' });
     updateMutation.mutate({ fullname: formData.fullname });
   };
 
@@ -91,12 +94,12 @@ export const Profile = () => {
           <CardHeader className="flex items-center justify-between">
             <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>{t('personal_information')}</h2>
             {!isEditing ? (
-              <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+              <Button variant="outline" size="sm" onClick={() => { track('edit_started', { verb: 'interacted', objectType: 'profile' }); setIsEditing(true); }}>
                 {t('common:edit')}
               </Button>
             ) : (
               <div className="flex gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>
+                <Button variant="ghost" size="sm" onClick={() => { track('edit_cancelled', { verb: 'interacted', objectType: 'profile' }); setIsEditing(false); }}>
                   {t('common:cancel')}
                 </Button>
                 <Button
@@ -128,7 +131,7 @@ export const Profile = () => {
                 {isEditing && (
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => { track('avatar_upload_clicked', { verb: 'interacted', objectType: 'profile' }); fileInputRef.current?.click(); }}
                     disabled={isUploadingAvatar}
                     className="absolute inset-0 rounded-full flex items-center justify-center transition-opacity"
                     style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
@@ -168,6 +171,7 @@ export const Profile = () => {
                   <Input
                     value={formData.fullname}
                     onChange={e => setFormData(f => ({ ...f, fullname: e.target.value }))}
+                    onBlur={() => track('name_changed', { verb: 'updated', objectType: 'profile', payload: { field: 'fullname' } })}
                     placeholder={t('full_name_placeholder')}
                     className="flex-1"
                   />
