@@ -35,6 +35,7 @@ import DOMPurify from 'dompurify';
 import { activityLogger } from '../services/activityLogger';
 import { useTracker } from '../services/tracker';
 import { RichTextEditor } from '../components/forum/RichTextEditor';
+import { TrackedContent } from '../components/common/TrackedContent';
 
 interface ThreadedPost extends ForumPost {
   replies?: ThreadedPost[];
@@ -385,11 +386,13 @@ export const Forum = () => {
                   </p>
                 )}
 
-                <div
-                  className="mt-2 text-sm prose prose-sm dark:prose-invert max-w-none break-words"
-                  style={{ color: colors.textPrimary }}
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
-                />
+                <TrackedContent context="forum" courseId={parsedCourseId} objectId={parsedForumId} objectTitle={post.author?.fullname || 'post'}>
+                  <div
+                    className="mt-2 text-sm prose prose-sm dark:prose-invert max-w-none break-words"
+                    style={{ color: colors.textPrimary }}
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
+                  />
+                </TrackedContent>
 
                 {/* Reply and Ask AI buttons */}
                 {showReplyButton && (
@@ -571,11 +574,13 @@ export const Forum = () => {
                   <p className="text-sm mb-4" style={{ color: colors.textSecondary }}>
                     {thread.author ? thread.author.fullname : t('anonymous')} · {formatDate(thread.createdAt)} · {thread.viewCount} {t('views')}
                   </p>
-                  <div
-                    className="prose prose-sm dark:prose-invert max-w-none break-words"
-                    style={{ color: colors.textPrimary }}
-                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(thread.content) }}
-                  />
+                  <TrackedContent context="forum" courseId={parsedCourseId} objectId={parsedForumId} objectTitle={thread.title}>
+                    <div
+                      className="prose prose-sm dark:prose-invert max-w-none break-words"
+                      style={{ color: colors.textPrimary }}
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(thread.content) }}
+                    />
+                  </TrackedContent>
 
                   {/* Reply to thread button and Ask AI */}
                   {!thread.isLocked && (

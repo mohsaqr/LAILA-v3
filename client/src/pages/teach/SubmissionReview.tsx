@@ -25,6 +25,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { sanitizeHtml, isHtmlContent } from '../../utils/sanitize';
 import { AssignmentSubmission } from '../../types';
 import activityLogger from '../../services/activityLogger';
+import { TrackedContent } from '../../components/common/TrackedContent';
 
 export const SubmissionReview = () => {
   const { t } = useTranslation(['teaching', 'navigation']);
@@ -160,7 +161,9 @@ export const SubmissionReview = () => {
               <h1 className="text-2xl font-bold text-gray-900 mb-2">{assignment.title}</h1>
               {assignment.description && (
                 isHtmlContent(assignment.description)
-                  ? <div className="text-gray-600 mb-4 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(assignment.description) }} />
+                  ? <TrackedContent context="assignment" courseId={courseId} objectId={assId} objectTitle={assignment.title}>
+                      <div className="text-gray-600 mb-4 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(assignment.description) }} />
+                    </TrackedContent>
                   : <p className="text-gray-600 mb-4">{assignment.description}</p>
               )}
               <div className="flex items-center gap-6 text-sm">

@@ -5,6 +5,7 @@ import { LectureSection } from '../../types';
 import { sanitizeHtml, isHtmlContent } from '../../utils/sanitize';
 import { Card, CardBody } from '../common/Card';
 import { Button } from '../common/Button';
+import { TrackedContent } from '../common/TrackedContent';
 
 interface AssignmentSectionStudentProps {
   section: LectureSection;
@@ -90,7 +91,9 @@ export const AssignmentSectionStudent = ({ section, courseId }: AssignmentSectio
       <CardBody>
         {assignment.description && (
           isHtmlContent(assignment.description)
-            ? <div className="text-gray-600 mb-4 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(assignment.description) }} />
+            ? <TrackedContent context="assignment" courseId={courseId} objectId={assignment.id} objectTitle={assignment.title}>
+                <div className="text-gray-600 mb-4 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(assignment.description) }} />
+              </TrackedContent>
             : <p className="text-gray-600 mb-4">{assignment.description}</p>
         )}
 

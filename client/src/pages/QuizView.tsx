@@ -23,6 +23,7 @@ import { buildQuizBreadcrumb } from '../utils/breadcrumbs';
 import { sanitizeHtml } from '../utils/sanitize';
 import { activityLogger } from '../services/activityLogger';
 import { useTracker } from '../services/tracker';
+import { TrackedContent } from '../components/common/TrackedContent';
 
 export const QuizView = () => {
   const { courseId, quizId } = useParams<{ courseId: string; quizId: string }>();
@@ -201,11 +202,13 @@ export const QuizView = () => {
             </div>
 
             {attemptData.quiz.instructions && (
-              <div
-                className="text-sm max-w-xl line-clamp-2"
-                style={{ color: colors.textSecondary }}
-                dangerouslySetInnerHTML={{ __html: sanitizeHtml(attemptData.quiz.instructions) }}
-              />
+              <TrackedContent context="quiz" courseId={parseInt(courseId!, 10)} objectId={parsedQuizId} objectTitle={attemptData.quiz.title}>
+                <div
+                  className="text-sm max-w-xl line-clamp-2"
+                  style={{ color: colors.textSecondary }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(attemptData.quiz.instructions) }}
+                />
+              </TrackedContent>
             )}
 
             {timeRemaining !== null && (

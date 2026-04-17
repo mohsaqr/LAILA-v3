@@ -30,6 +30,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CurriculumViewMode } from '../types';
 import activityLogger from '../services/activityLogger';
 import { useTracker } from '../services/tracker';
+import { TrackedContent } from '../components/common/TrackedContent';
 
 export const CourseDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -221,7 +222,9 @@ export const CourseDetails = () => {
             </div>
           )}
           {course.description && (
-            <div className="text-white mb-4 prose prose-sm max-w-none [&_*]:text-white/95 [&_a]:text-white [&_a]:underline" dangerouslySetInnerHTML={{ __html: sanitizeHtml(course.description) }} />
+            <TrackedContent context="course" courseId={parseInt(id!)} objectId={parseInt(id!)} objectTitle={course.title}>
+              <div className="text-white mb-4 prose prose-sm max-w-none [&_*]:text-white/95 [&_a]:text-white [&_a]:underline" dangerouslySetInnerHTML={{ __html: sanitizeHtml(course.description) }} />
+            </TrackedContent>
           )}
           <div className="flex flex-wrap items-center gap-4 text-sm">
             <span className="flex items-center gap-1"><Users className="w-4 h-4" /> {t('n_students', { count: course._count?.enrollments || 0 })}</span>

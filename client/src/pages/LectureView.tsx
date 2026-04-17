@@ -17,6 +17,7 @@ import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStuden
 import { AssignmentSectionStudent } from '../components/course/AssignmentSectionStudent';
 import { marked } from 'marked';
 import { sanitizeHtml, isHtmlContent } from '../utils/sanitize';
+import { TrackedContent } from '../components/common/TrackedContent';
 import activityLogger from '../services/activityLogger';
 import { useTracker } from '../services/tracker';
 import { LectureSection } from '../types';
@@ -164,11 +165,13 @@ export const LectureView = () => {
               </div>
             )}
             {section.content && (
-              <div
-                className="prose dark:prose-invert max-w-none"
-                style={{ color: colors.textPrimary }}
-                dangerouslySetInnerHTML={{ __html: isHtml ? sanitizeHtml(section.content) : renderMarkdown(section.content) }}
-              />
+              <TrackedContent context="lecture" courseId={parseInt(courseId!)} objectId={section.id} objectTitle={section.title || undefined}>
+                <div
+                  className="prose dark:prose-invert max-w-none"
+                  style={{ color: colors.textPrimary }}
+                  dangerouslySetInnerHTML={{ __html: isHtml ? sanitizeHtml(section.content) : renderMarkdown(section.content) }}
+                />
+              </TrackedContent>
             )}
           </div>
         );
@@ -309,11 +312,13 @@ export const LectureView = () => {
 
             {/* Legacy content field */}
             {lecture.content && !lecture.sections?.length && (
-              <div
-                className="prose max-w-none mb-8"
-                style={{ color: colors.textPrimary }}
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(lecture.content) }}
-              />
+              <TrackedContent context="lecture" courseId={parseInt(courseId!)} objectId={parseInt(lectureId!)} objectTitle={lecture.title}>
+                <div
+                  className="prose max-w-none mb-8"
+                  style={{ color: colors.textPrimary }}
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(lecture.content) }}
+                />
+              </TrackedContent>
             )}
 
             {/* Sections */}

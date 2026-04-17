@@ -11,6 +11,7 @@ import { Breadcrumb } from '../components/common/Breadcrumb';
 import { buildContentBreadcrumb } from '../utils/breadcrumbs';
 import { sanitizeHtml } from '../utils/sanitize';
 import activityLogger from '../services/activityLogger';
+import { TrackedContent } from '../components/common/TrackedContent';
 
 interface LocationState {
   title?: string;
@@ -163,11 +164,13 @@ export const ContentView = () => {
             </div>
           )}
           <CardBody className="py-6">
-            <div
-              className="prose max-w-none"
-              style={{ color: colors.textPrimary }}
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }}
-            />
+            <TrackedContent context="content" objectId={id ? parseInt(id, 10) : undefined} objectTitle={title} courseId={passedCourseId}>
+              <div
+                className="prose max-w-none"
+                style={{ color: colors.textPrimary }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }}
+              />
+            </TrackedContent>
           </CardBody>
         </Card>
       </div>

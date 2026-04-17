@@ -43,6 +43,7 @@ import { getSessionId, getClientInfo } from '../utils/analytics';
 import { debug } from '../utils/debug';
 import { activityLogger } from '../services/activityLogger';
 import { useTracker } from '../services/tracker';
+import { TrackedContent } from '../components/common/TrackedContent';
 
 // Thin wrappers that provide the runtime hook and pass courseId directly
 const RLabEmbed = ({ lab, courseId, hideSubmit, openPanel, onPanelClose }: { lab: any; courseId: number; hideSubmit?: boolean; openPanel?: boolean; onPanelClose?: () => void }) => {
@@ -412,11 +413,13 @@ export const AssignmentView = () => {
                 )}
                 {mySubmission.content && (
                   isHtmlContent(mySubmission.content) ? (
-                    <div
-                      className="prose max-w-none mb-4 text-sm"
-                      style={{ color: colors.textSecondary }}
-                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(mySubmission.content) }}
-                    />
+                    <TrackedContent context="assignment" courseId={parsedCourseId} objectId={parsedAssignmentId} objectTitle={assignment?.title}>
+                      <div
+                        className="prose max-w-none mb-4 text-sm"
+                        style={{ color: colors.textSecondary }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(mySubmission.content) }}
+                      />
+                    </TrackedContent>
                   ) : (
                     <p className="mb-4 text-sm whitespace-pre-wrap" style={{ color: colors.textSecondary }}>
                       {mySubmission.content}
@@ -482,15 +485,19 @@ export const AssignmentView = () => {
               </CardHeader>
               <CardBody>
                 {isHtmlContent(assignment.description) ? (
-                  <div
-                    className="prose dark:prose-invert max-w-none"
-                    style={{ color: colors.textSecondary }}
-                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(assignment.description) }}
-                  />
+                  <TrackedContent context="assignment" courseId={parsedCourseId} objectId={parsedAssignmentId} objectTitle={assignment.title}>
+                    <div
+                      className="prose dark:prose-invert max-w-none"
+                      style={{ color: colors.textSecondary }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(assignment.description) }}
+                    />
+                  </TrackedContent>
                 ) : (
-                  <div className="prose max-w-none" style={{ color: colors.textSecondary }}>
-                    <ReactMarkdown>{assignment.description}</ReactMarkdown>
-                  </div>
+                  <TrackedContent context="assignment" courseId={parsedCourseId} objectId={parsedAssignmentId} objectTitle={assignment.title}>
+                    <div className="prose max-w-none" style={{ color: colors.textSecondary }}>
+                      <ReactMarkdown>{assignment.description}</ReactMarkdown>
+                    </div>
+                  </TrackedContent>
                 )}
               </CardBody>
             </Card>
@@ -504,11 +511,13 @@ export const AssignmentView = () => {
               </CardHeader>
               <CardBody>
                 {isHtmlContent(assignment.instructions) ? (
-                  <div
-                    className="prose dark:prose-invert max-w-none"
-                    style={{ color: colors.textSecondary }}
-                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(assignment.instructions) }}
-                  />
+                  <TrackedContent context="assignment" courseId={parsedCourseId} objectId={parsedAssignmentId} objectTitle={assignment.title}>
+                    <div
+                      className="prose dark:prose-invert max-w-none"
+                      style={{ color: colors.textSecondary }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(assignment.instructions) }}
+                    />
+                  </TrackedContent>
                 ) : (
                   <p className="whitespace-pre-wrap" style={{ color: colors.textSecondary }}>
                     {assignment.instructions}
@@ -621,11 +630,13 @@ export const AssignmentView = () => {
                         {t('your_answer_label')}
                       </label>
                       {isHtmlContent(content) ? (
-                        <div
-                          className="prose max-w-none p-4 rounded-lg border text-sm"
-                          style={{ backgroundColor: colors.bgFile, borderColor: colors.border, color: colors.textPrimary }}
-                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }}
-                        />
+                        <TrackedContent context="assignment" courseId={parsedCourseId} objectId={parsedAssignmentId} objectTitle={assignment.title}>
+                          <div
+                            className="prose max-w-none p-4 rounded-lg border text-sm"
+                            style={{ backgroundColor: colors.bgFile, borderColor: colors.border, color: colors.textPrimary }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }}
+                          />
+                        </TrackedContent>
                       ) : (
                         <p
                           className="p-4 rounded-lg border text-sm whitespace-pre-wrap"
@@ -821,11 +832,13 @@ export const AssignmentView = () => {
               <CardBody>
                 {mySubmission.content && (
                   isHtmlContent(mySubmission.content) ? (
-                    <div
-                      className="prose max-w-none mb-4 text-sm"
-                      style={{ color: colors.textSecondary }}
-                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(mySubmission.content) }}
-                    />
+                    <TrackedContent context="assignment" courseId={parsedCourseId} objectId={parsedAssignmentId} objectTitle={assignment.title}>
+                      <div
+                        className="prose max-w-none mb-4 text-sm"
+                        style={{ color: colors.textSecondary }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(mySubmission.content) }}
+                      />
+                    </TrackedContent>
                   ) : (
                     <p className="mb-4 text-sm whitespace-pre-wrap" style={{ color: colors.textSecondary }}>
                       {mySubmission.content}

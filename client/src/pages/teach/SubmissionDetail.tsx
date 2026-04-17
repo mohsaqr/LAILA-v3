@@ -25,6 +25,7 @@ import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { resolveFileUrl } from '../../api/client';
 import { sanitizeHtml, isHtmlContent } from '../../utils/sanitize';
 import activityLogger from '../../services/activityLogger';
+import { TrackedContent } from '../../components/common/TrackedContent';
 
 export const SubmissionDetail = () => {
   const { t } = useTranslation(['teaching', 'common', 'navigation']);
@@ -244,10 +245,12 @@ export const SubmissionDetail = () => {
             </h2>
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
               {isHtmlContent(submission.content) ? (
-                <div
-                  className="prose prose-sm max-w-none text-gray-800"
-                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(submission.content) }}
-                />
+                <TrackedContent context="submission" courseId={courseId} objectId={subId} objectTitle={assignment.title}>
+                  <div
+                    className="prose prose-sm max-w-none text-gray-800"
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(submission.content) }}
+                  />
+                </TrackedContent>
               ) : (
                 <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
                   {submission.content}
