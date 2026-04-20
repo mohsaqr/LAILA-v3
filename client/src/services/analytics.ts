@@ -415,7 +415,11 @@ class AnalyticsService {
     };
     document.addEventListener('submit', this.submitHandler, { capture: true });
 
-    // Scroll depth tracking (throttled)
+    // Scroll depth tracking (throttled). We fire once per threshold crossed
+    // (25/50/75/100), not just when the rounded depth equals a threshold —
+    // otherwise fast scrolling that jumps e.g. 22 → 38 in a single handler
+    // tick would skip the 25% event entirely.
+    const SCROLL_THRESHOLDS = [25, 50, 75, 100];
     let scrollTimeout: number | null = null;
     let maxScrollDepth = 0;
     this.scrollHandler = () => {
@@ -424,17 +428,17 @@ class AnalyticsService {
         const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
         const scrollDepth = scrollHeight > 0 ? Math.round((window.scrollY / scrollHeight) * 100) : 0;
         if (scrollDepth > maxScrollDepth) {
+          const crossed = SCROLL_THRESHOLDS.filter(t => t > maxScrollDepth && t <= scrollDepth);
           maxScrollDepth = scrollDepth;
-          // Only track at 25%, 50%, 75%, 100% thresholds
-          if ([25, 50, 75, 100].includes(maxScrollDepth)) {
+          for (const threshold of crossed) {
             this.track({
               type: 'scroll',
               page: window.location.pathname,
               pageUrl: window.location.href,
               pageTitle: document.title,
-              action: `scroll_${maxScrollDepth}`,
+              action: `scroll_${threshold}`,
               category: 'engagement',
-              scrollDepth: maxScrollDepth,
+              scrollDepth: threshold,
               viewportWidth: window.innerWidth,
               viewportHeight: window.innerHeight,
             });
@@ -459,8 +463,11 @@ class AnalyticsService {
                 verb: 'progressed',
                 objectType: 'page',
                 objectTitle: document.title || path,
-                progress: maxScrollDepth,
-                actionSubtype: 'page.scroll_depth',
+                progress: threshold,
+                // Threshold is baked into the subtype so that a fast scroll
+                // crossing multiple thresholds in the same 500ms dedupe
+                // window doesn't collapse 4 events into 1.
+                actionSubtype: `page.scroll_depth.${threshold}`,
                 courseId,
                 moduleId: moduleMatch ? parseInt(moduleMatch[1]) : undefined,
                 lectureId: lectureMatch ? parseInt(lectureMatch[1]) : undefined,

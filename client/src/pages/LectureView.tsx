@@ -100,22 +100,15 @@ export const LectureView = () => {
     },
   });
 
-  // Log lecture view (ref guard prevents StrictMode double-fire)
-  const loggedLectureRef = useRef<string | null>(null);
-  useEffect(() => {
-    const key = `${lectureId}-${courseId}`;
-    if (lecture && courseId && loggedLectureRef.current !== key) {
-      loggedLectureRef.current = key;
-      activityLogger.logLectureViewed(
-        parseInt(lectureId!),
-        lecture.title,
-        parseInt(courseId),
-        lecture.moduleId
-      ).catch(() => {});
-    }
-  }, [lecture?.id, courseId, lectureId]);
+  // Note: no client-side `viewed lecture` log — the server already
+  // writes one on each GET /lectures/:id in lecture.service.ts.
+  // A client-side mirror would produce a duplicate row.
 
-  // Track scroll depth in lecture content
+  // Track scroll depth in lecture content. We fire once per threshold
+  // crossed (25/50/75/100), not just when the rounded depth equals a
+  // threshold — otherwise a fast scroll that jumps e.g. 22 → 38 in one
+  // frame would skip the 25% event. Threshold is baked into the subtype
+  // so multiple crossings in the same 500ms dedupe window don't collapse.
   const maxScrollRef = useRef(0);
   useEffect(() => {
     if (!lecture) return;
@@ -124,13 +117,15 @@ export const LectureView = () => {
     const parsedCourseId = parseInt(courseId!);
     const lecTitle = lecture.title;
     const modId = lecture.moduleId;
+    const thresholds = [25, 50, 75, 100];
     const handleScroll = () => {
       const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
       if (scrollHeight <= 0) return;
       const depth = Math.round((window.scrollY / scrollHeight) * 100);
       if (depth > maxScrollRef.current) {
+        const crossed = thresholds.filter(t => t > maxScrollRef.current && t <= depth);
         maxScrollRef.current = depth;
-        if ([25, 50, 75, 100].includes(depth)) {
+        for (const threshold of crossed) {
           activityLogger.log({
             verb: 'progressed',
             objectType: 'lecture',
@@ -139,8 +134,8 @@ export const LectureView = () => {
             courseId: parsedCourseId,
             moduleId: modId,
             lectureId: parsedLectureId,
-            progress: depth,
-            actionSubtype: 'lecture.scroll_depth',
+            progress: threshold,
+            actionSubtype: `lecture.scroll_depth.${threshold}`,
           }).catch(() => {});
         }
       }
@@ -411,10 +406,7 @@ export const LectureView = () => {
                   </div>
                 ) : (
                   <button
-                    onClick={() => {
-                      track('marked_complete', { verb: 'completed', objectType: 'lecture', objectId: parseInt(lectureId!), courseId: parseInt(courseId!) });
-                      completeMutation.mutate();
-                    }}
+                    onClick={() => completeMutation.mutate()}
                     disabled={completeMutation.isPending}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-green-50 hover:bg-green-100 text-green-600 dark:bg-green-900/20 dark:hover:bg-green-900/30 dark:text-green-400 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
