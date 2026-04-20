@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams, Link, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Menu, Heart, ArrowLeft, BookOpen, ChevronRight } from 'lucide-react';
+import { Menu, Heart, BookOpen, ChevronRight } from 'lucide-react';
 import { tutorsApi } from '../api/tutors';
 import { coursesApi } from '../api/courses';
 import { enrollmentsApi } from '../api/enrollments';
@@ -350,7 +350,7 @@ export const AITutors = () => {
   const selectorLoading = enrollmentsLoading;
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col relative" style={{ backgroundColor: bgColor }}>
+    <div className="h-[calc(100vh-8rem)] flex flex-col relative" style={{ backgroundColor: bgColor }}>
 
       {/* Course selection overlay — covers only this page content, not navbar/sidebar */}
       {showCourseSelector && (
@@ -412,19 +412,6 @@ export const AITutors = () => {
               </ul>
             )}
           </div>
-        </div>
-      )}
-
-      {/* Course context breadcrumb */}
-      {courseIdFromUrl && (
-        <div className="flex-shrink-0 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <Link
-            to={`/courses/${courseIdFromUrl}`}
-            className="inline-flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            {t('back_to_course_button')}
-          </Link>
         </div>
       )}
 
