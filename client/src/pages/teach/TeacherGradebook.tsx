@@ -320,8 +320,8 @@ export const TeacherGradebook = () => {
 
   if (!course) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold mb-2" style={{ color: colors.textPrimary }}>{t('course_not_found')}</h1>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
+        <h1 className="text-xl sm:text-2xl font-bold mb-2" style={{ color: colors.textPrimary }}>{t('course_not_found')}</h1>
         <Button onClick={() => navigate('/teach')}>{t('back_to_teaching')}</Button>
       </div>
     );
@@ -344,7 +344,7 @@ export const TeacherGradebook = () => {
   const breadcrumbItems = buildTeachingBreadcrumb(courseId, course?.title || 'Course', 'Gradebook');
 
   return (
-    <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ minHeight: '100vh' }}>
+    <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8" style={{ minHeight: '100vh' }}>
       {/* Breadcrumb navigation */}
       <div className="mb-6">
         <Breadcrumb homeHref="/" items={breadcrumbItems} />
@@ -352,7 +352,7 @@ export const TeacherGradebook = () => {
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{t('gradebook')}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold" style={{ color: colors.textPrimary }}>{t('gradebook')}</h1>
           <p style={{ color: colors.textSecondary }}>{course.title}</p>
         </div>
         <Button onClick={exportCSV} variant="secondary" icon={<Download className="w-4 h-4" />}>
@@ -361,7 +361,7 @@ export const TeacherGradebook = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardBody className="flex items-center gap-3">
             <div

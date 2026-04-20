@@ -47,15 +47,15 @@ export const QuizList = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Breadcrumb navigation */}
       <div className="mb-6">
         <Breadcrumb homeHref="/" items={[{ label: t('navigation:quizzes') }]} />
       </div>
 
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6 md:mb-8">
         <div>
-          <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
+          <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>
             {t('quiz_manager')}
           </h1>
           <p className="mt-2" style={{ color: colors.textSecondary }}>
@@ -82,7 +82,7 @@ export const QuizList = () => {
               className="block"
             >
               <Card className="hover:shadow-lg transition-shadow">
-                <CardBody className="flex items-center justify-between">
+                <CardBody className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                   <div className="flex items-center gap-4">
                     <div
                       className="w-12 h-12 rounded-lg flex items-center justify-center"
@@ -110,7 +110,7 @@ export const QuizList = () => {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-6">
+                  <div className="flex flex-wrap items-center gap-4 sm:gap-6">
                     <div className="text-center">
                       <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>
                         {quiz.questionCount}

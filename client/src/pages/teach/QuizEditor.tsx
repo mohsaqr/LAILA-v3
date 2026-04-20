@@ -227,7 +227,7 @@ export const QuizEditor = () => {
   ];
 
   return (
-    <div className="min-h-screen py-8" style={{ backgroundColor: colors.bg }}>
+    <div className="min-h-screen py-6 md:py-8" style={{ backgroundColor: colors.bg }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb navigation */}
         <div className="mb-6">
@@ -235,9 +235,9 @@ export const QuizEditor = () => {
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
+            <h1 className="text-xl sm:text-2xl font-bold" style={{ color: colors.textPrimary }}>
               {quiz.title}
             </h1>
             <p className="text-sm" style={{ color: colors.textSecondary }}>
@@ -246,7 +246,7 @@ export const QuizEditor = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button variant="secondary" onClick={() => {
               setSettingsDescription(quiz.description || '');
               setSettingsInstructions(quiz.instructions || '');
@@ -340,11 +340,11 @@ export const QuizEditor = () => {
         )}
 
         {/* Questions List */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold" style={{ color: colors.textPrimary }}>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4">
+          <h2 className="text-lg sm:text-xl font-semibold" style={{ color: colors.textPrimary }}>
             {t('questions_label')}
           </h2>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button variant="secondary" onClick={() => setIsAIGeneratorOpen(true)}>
               <Sparkles size={18} />
               {t('generate_with_ai')}
@@ -369,7 +369,7 @@ export const QuizEditor = () => {
                       {idx + 1}
                     </div>
                     <div className="flex-1">
-                      <div className="flex items-start justify-between">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
                         <div>
                           <p className="font-medium" style={{ color: colors.textPrimary }}>
                             {question.questionText}
@@ -504,7 +504,7 @@ export const QuizEditor = () => {
               editorClassName="forum-reply-editor px-3 py-2 min-h-[120px] max-h-[300px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
             />
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 {t('time_limit_minutes')}

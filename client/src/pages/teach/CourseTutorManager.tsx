@@ -214,8 +214,8 @@ export const CourseTutorManager = () => {
 
   if (!course) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-12 text-center">
-        <h2 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-center">
+        <h2 className="text-xl sm:text-2xl font-bold" style={{ color: colors.textPrimary }}>
           {t('course_not_found')}
         </h2>
         <Link to={`/courses/${courseId}`} className="text-primary-600 hover:underline mt-2 inline-block">
@@ -243,17 +243,17 @@ export const CourseTutorManager = () => {
   const breadcrumbItems = buildTeachingBreadcrumb(courseId, course?.title || 'Course', t('ai_tutors'));
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ minHeight: '100vh' }}>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8" style={{ minHeight: '100vh' }}>
       {/* Breadcrumb navigation */}
       <div className="mb-6">
         <Breadcrumb homeHref="/" items={breadcrumbItems} />
       </div>
 
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
+      <div className="mb-6 md:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div>
-            <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
+            <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>
               {t('collaborative_module')}
             </h1>
             <p className="mt-1" style={{ color: colors.textSecondary }}>
@@ -268,7 +268,7 @@ export const CourseTutorManager = () => {
 
       {/* Stats */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6 md:mb-8">
           <Card>
             <CardBody className="flex items-center gap-3">
               <div
@@ -350,12 +350,12 @@ export const CourseTutorManager = () => {
       {/* Module Settings */}
       <Card className="mb-6">
         <CardHeader
-          className="cursor-pointer flex items-center justify-between"
+          className="cursor-pointer flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4"
           onClick={() => setSettingsExpanded(!settingsExpanded)}
         >
           <div className="flex items-center gap-2">
             <Settings className="w-5 h-5" style={{ color: colors.textPrimary600 }} />
-            <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
+            <h2 className="text-lg sm:text-xl font-semibold" style={{ color: colors.textPrimary }}>
               {t('module_settings')}
             </h2>
           </div>
@@ -632,7 +632,7 @@ export const CourseTutorManager = () => {
       {/* Tutors List */}
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
+          <h2 className="text-lg sm:text-xl font-semibold" style={{ color: colors.textPrimary }}>
             {t('tutors_in_course')}
           </h2>
         </CardHeader>
@@ -646,7 +646,7 @@ export const CourseTutorManager = () => {
                   onDragStart={() => handleDragStart(tutor.id)}
                   onDragOver={(e) => handleDragOver(e, tutor.id)}
                   onDragEnd={handleDragEnd}
-                  className={`flex items-center gap-4 p-4 rounded-lg border transition-all cursor-grab active:cursor-grabbing ${
+                  className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 rounded-lg border transition-all cursor-grab active:cursor-grabbing ${
                     draggedId === tutor.id ? 'opacity-50' : ''
                   }`}
                   style={{
@@ -706,7 +706,7 @@ export const CourseTutorManager = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Link to={`/ai-tools/builder?duplicate=${tutor.chatbotId}&courseId=${courseId}&addToCourse=true`}>
                       <Button
                         variant="ghost"

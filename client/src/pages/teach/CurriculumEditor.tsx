@@ -976,8 +976,8 @@ export const CurriculumEditor = () => {
 
   if (!course) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('course_not_found')}</h1>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{t('course_not_found')}</h1>
         <Button onClick={() => navigate('/teach')}>{t('back_to_dashboard')}</Button>
       </div>
     );
@@ -994,7 +994,7 @@ export const CurriculumEditor = () => {
     }));
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Breadcrumb */}
       <div className="mb-6">
         <Breadcrumb
@@ -1008,8 +1008,8 @@ export const CurriculumEditor = () => {
 
       {/* Course Header */}
       <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{course.title}</h1>
+        <div className="flex items-center gap-3 mb-2 flex-wrap">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{course.title}</h1>
           <StatusBadge status={course.status} />
         </div>
         {course.description ? (
@@ -1165,9 +1165,9 @@ export const CurriculumEditor = () => {
 
       {/* Curriculum Section */}
       <Card>
-        <CardHeader className="flex items-center justify-between">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('course_curriculum')}</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">{t('course_curriculum')}</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {t('organize_content_description')}
             </p>
@@ -2228,7 +2228,7 @@ export const CurriculumEditor = () => {
               editorClassName="forum-reply-editor px-3 py-2 min-h-[120px] max-h-[300px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
             />
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <Input
               label={t('time_limit_minutes')}
               type="number"

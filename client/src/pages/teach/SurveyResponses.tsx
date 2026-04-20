@@ -81,7 +81,7 @@ export const SurveyResponses = () => {
 
   if (error || !data) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
         <Card>
           <CardBody className="text-center py-12">
             <p className="text-red-600 dark:text-red-400 mb-4">{error || 'No data found'}</p>
@@ -93,7 +93,7 @@ export const SurveyResponses = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       <Breadcrumb
         homeHref="/"
         items={[
@@ -106,15 +106,15 @@ export const SurveyResponses = () => {
         ]}
       />
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6">
         <div>
           <h1
-            className="text-2xl font-bold"
+            className="text-xl sm:text-2xl font-bold"
             style={{ color: isDark ? '#f3f4f6' : '#111827' }}
           >
             {data.survey.title} - {t('responses')}
           </h1>
-          <div className="flex items-center gap-4 mt-2">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-2">
             <span
               className="flex items-center gap-1"
               style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
@@ -129,7 +129,7 @@ export const SurveyResponses = () => {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <div
             className="flex rounded-lg overflow-hidden border"
             style={{ borderColor: isDark ? '#374151' : '#e5e7eb' }}

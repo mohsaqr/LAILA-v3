@@ -107,8 +107,8 @@ export const ChatbotLogs = ({ embedded = false }: ChatbotLogsProps) => {
 
   if (!course) {
     return (
-      <div className="max-w-6xl mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('course_not_found')}</h1>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{t('course_not_found')}</h1>
         <Button onClick={() => navigate('/teach')}>{t('back_to_dashboard')}</Button>
       </div>
     );
@@ -121,7 +121,7 @@ export const ChatbotLogs = ({ embedded = false }: ChatbotLogsProps) => {
 
       {/* Analytics Overview */}
       {analytics && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardBody className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -170,11 +170,11 @@ export const ChatbotLogs = ({ embedded = false }: ChatbotLogsProps) => {
       )}
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Chatbot Sections List */}
         <Card className="lg:col-span-1">
           <CardHeader>
-            <h2 className="text-lg font-semibold text-gray-900">{t('chatbot_sections')}</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">{t('chatbot_sections')}</h2>
           </CardHeader>
           <CardBody className="p-0">
             {sections && sections.length > 0 ? (
@@ -223,7 +223,7 @@ export const ChatbotLogs = ({ embedded = false }: ChatbotLogsProps) => {
         {/* Conversations List */}
         <Card className="lg:col-span-1">
           <CardHeader>
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
               {selectedSectionId ? t('student_conversations') : t('select_section')}
             </h2>
           </CardHeader>
@@ -304,7 +304,7 @@ export const ChatbotLogs = ({ embedded = false }: ChatbotLogsProps) => {
         {/* Conversation Messages */}
         <Card className="lg:col-span-1">
           <CardHeader>
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
               {conversationDetail?.conversation ? (
                 <span>
                   {t('conversation_with', { name: conversationDetail.conversation.user.fullname })}
@@ -387,7 +387,7 @@ export const ChatbotLogs = ({ embedded = false }: ChatbotLogsProps) => {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Clock className="w-5 h-5 text-gray-500" />
-              <h2 className="text-lg font-semibold text-gray-900">{t('recent_activity')}</h2>
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900">{t('recent_activity')}</h2>
             </div>
           </CardHeader>
           <CardBody>
@@ -432,7 +432,7 @@ export const ChatbotLogs = ({ embedded = false }: ChatbotLogsProps) => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Breadcrumb navigation */}
       <div className="mb-6">
         <Breadcrumb homeHref="/" items={breadcrumbItems} />
@@ -440,9 +440,9 @@ export const ChatbotLogs = ({ embedded = false }: ChatbotLogsProps) => {
 
       {/* Course Header */}
       <Card className="mb-6">
-        <CardBody className="flex items-center justify-between">
+        <CardBody className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{course.title}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{course.title}</h1>
             <p className="text-gray-600">{t('chatbot_conversations_analytics')}</p>
           </div>
           <div className="flex items-center gap-2 text-amber-600">

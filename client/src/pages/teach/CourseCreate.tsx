@@ -47,7 +47,7 @@ export const CourseCreate = () => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Header */}
       <div className="mb-6">
         <Button
@@ -62,7 +62,7 @@ export const CourseCreate = () => {
 
       <Card>
         <CardHeader>
-          <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{t('create_new_course')}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold" style={{ color: colors.textPrimary }}>{t('create_new_course')}</h1>
           <p className="mt-1" style={{ color: colors.textSecondary }}>
             {t('no_courses_desc')}
           </p>

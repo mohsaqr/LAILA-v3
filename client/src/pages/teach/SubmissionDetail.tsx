@@ -125,9 +125,9 @@ export const SubmissionDetail = () => {
 
   if (!assignment || !submission) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 text-center">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
         <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">{t('submission_not_found')}</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">{t('submission_not_found')}</h1>
         <Button
           onClick={() =>
             navigate(`/teach/courses/${courseId}/assignments/${assId}/submissions`)
@@ -169,7 +169,7 @@ export const SubmissionDetail = () => {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       <div className="mb-6">
         <Breadcrumb homeHref="/" items={breadcrumbItems} />
       </div>
@@ -193,7 +193,7 @@ export const SubmissionDetail = () => {
         <CardBody>
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
             <div>
-              <h1 className="text-xl font-bold text-gray-900 mb-3">{assignment.title}</h1>
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900 mb-3">{assignment.title}</h1>
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
                   <User className="w-5 h-5 text-gray-500" />

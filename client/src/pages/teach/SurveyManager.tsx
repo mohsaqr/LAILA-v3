@@ -329,7 +329,7 @@ export const SurveyManager = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       <div className="mb-6">
         <Breadcrumb
           homeHref="/"
@@ -345,10 +345,10 @@ export const SurveyManager = () => {
         />
       </div>
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6">
         <div>
           <h1
-            className="text-2xl font-bold"
+            className="text-xl sm:text-2xl font-bold"
             style={{ color: isDark ? '#f3f4f6' : '#111827' }}
           >
             {t('surveys')}
@@ -360,7 +360,7 @@ export const SurveyManager = () => {
             {t('create_manage_surveys')}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button variant="secondary" onClick={() => setShowGenerateModal(true)}>
             <Sparkles className="w-4 h-4 mr-2" />
             {t('generate_with_ai')}
@@ -403,7 +403,7 @@ export const SurveyManager = () => {
           {surveys.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map(survey => (
             <Card key={survey.id}>
               <div
-                className="p-4 flex items-center justify-between cursor-pointer"
+                className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 cursor-pointer"
                 onClick={() => toggleSurveyExpand(survey)}
               >
                 <div className="flex items-center gap-4">
@@ -453,7 +453,7 @@ export const SurveyManager = () => {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {!survey.isPublished && (
                     <Button
                       variant="ghost"
