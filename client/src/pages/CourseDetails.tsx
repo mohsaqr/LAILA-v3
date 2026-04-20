@@ -162,12 +162,12 @@ export const CourseDetails = () => {
       {(showInstructorControls || isActualAdmin) && (
         isEditMode ? (
           <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
               <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
                 <PenSquare className="w-5 h-5" />
                 <span className="font-medium">{t('instructor_view')}</span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <button
                   onClick={() => { track('edit_mode_toggled', { verb: 'interacted', objectType: 'course', objectId: parseInt(id!), courseId: parseInt(id!), payload: { editMode: false } }); setIsEditMode(false); }}
                   className="flex items-center gap-2 px-3 py-1.5 text-sm text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 rounded-lg transition-colors border border-amber-300 dark:border-amber-700"
@@ -209,9 +209,9 @@ export const CourseDetails = () => {
       )}
 
       {/* Hero Section */}
-      <div className="gradient-bg text-white py-8">
+      <div className="gradient-bg text-white py-6 md:py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">{course.title}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">{course.title}</h1>
           {course.categories && course.categories.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-3">
               {course.categories.map(({ category }) => (
@@ -248,8 +248,8 @@ export const CourseDetails = () => {
       </div>
 
       {/* Course Content - Two Column Layout */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+        <div className="flex flex-col lg:flex-row gap-4 md:gap-8">
           {/* Main Content Column */}
           <div className="flex-1 min-w-0">
             {course.modules && course.modules.length > 0 ? (

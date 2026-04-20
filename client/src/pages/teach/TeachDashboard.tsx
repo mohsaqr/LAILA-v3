@@ -118,11 +118,11 @@ export const TeachDashboard = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ minHeight: '100vh' }}>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8" style={{ minHeight: '100vh' }}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6 md:mb-8">
         <div>
-          <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>{t('teach_dashboard')}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>{t('teach_dashboard')}</h1>
           <p className="mt-1" style={{ color: colors.textSecondary }}>{t('manage_assignments_and_grading')}</p>
         </div>
         <Button onClick={() => navigate('/teach/create')} icon={<Plus className="w-4 h-4" />}>
@@ -131,7 +131,7 @@ export const TeachDashboard = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
         <Card>
           <CardBody className="flex items-center gap-4">
             <div
@@ -195,7 +195,7 @@ export const TeachDashboard = () => {
 
       {/* Courses List */}
       <div>
-        <h2 className="text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>{t('your_courses')}</h2>
+        <h2 className="text-lg sm:text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>{t('your_courses')}</h2>
 
         {coursesLoading ? (
           <Loading text={t('loading')} />
@@ -230,7 +230,7 @@ export const TeachDashboard = () => {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Link to={`/teach/courses/${course.id}/curriculum`}>
                       <Button variant="outline" size="sm">
                         {t('curriculum_editor')}

@@ -370,16 +370,16 @@ export const Catalog = () => {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Breadcrumb */}
       <div className="mb-6">
         <Breadcrumb items={[{ label: t('courses') }]} />
       </div>
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6 md:mb-8">
         <div>
-          <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>{t('courses')}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>{t('courses')}</h1>
           <p className="mt-1" style={{ color: colors.textSecondary }}>
             {canCreateCourses
               ? t('manage_discover_courses')
@@ -395,7 +395,7 @@ export const Catalog = () => {
 
       {/* Filter Tabs */}
       {isAuthenticated && (
-        <div className="mb-6 flex gap-2 border-b border-gray-200 dark:border-gray-700">
+        <div className="mb-6 flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700">
           <button
             onClick={() => setSearchParams({})}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
@@ -434,8 +434,8 @@ export const Catalog = () => {
 
       {/* Filtered Courses (Enrolled/Completed) */}
       {filter && isAuthenticated && (
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
+        <div className="mb-6 md:mb-8">
+          <h2 className="text-lg sm:text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
             {filter === 'enrolled' ? (
               <>
                 <PlayCircle className="w-5 h-5 text-primary-500" />
@@ -451,7 +451,7 @@ export const Catalog = () => {
           {enrollmentsLoading ? (
             <Loading text={t('loading_courses')} />
           ) : enrollments && enrollments.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
               {enrollments
                 .filter((enrollment: Enrollment) =>
                   filter === 'completed' ? enrollment.progress === 100 : true
@@ -486,15 +486,15 @@ export const Catalog = () => {
 
       {/* My Courses Section - For instructors and admins */}
       {canCreateCourses && !filter && (
-        <div className="mb-12">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
+        <div className="mb-8 md:mb-12">
+          <h2 className="text-lg sm:text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
             <BookOpen className="w-5 h-5 text-primary-500" />
             {t('my_courses')}
           </h2>
           {myCoursesLoading ? (
             <Loading text={t('loading_courses')} />
           ) : myCourses && myCourses.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
               {myCourses.map((course: Course) => (
                 <InstructorCourseCard key={course.id} course={course} />
               ))}
@@ -519,7 +519,7 @@ export const Catalog = () => {
       {/* Course Catalog Section - Hide when filter is active */}
       {!filter && (
       <div>
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
+        <h2 className="text-lg sm:text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
           <GraduationCap className="w-5 h-5 text-primary-500" />
           {t('course_catalog')}
         </h2>
@@ -540,7 +540,7 @@ export const Catalog = () => {
             />
           </div>
 
-          <div className="w-64">
+          <div className="w-full md:w-64">
             <CategoryMultiSelect
               allCategories={categoriesList || []}
               selectedIds={categoryIds}
@@ -548,7 +548,7 @@ export const Catalog = () => {
             />
           </div>
 
-          <div className="w-48">
+          <div className="w-full md:w-48">
             <SearchableSelect
               options={difficulties}
               value={difficulty}
@@ -563,7 +563,7 @@ export const Catalog = () => {
           <Loading text={t('loading_courses')} />
         ) : data?.courses && data.courses.length > 0 ? (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
               {data.courses.map((course: Course) => (
                 <CourseCard key={course.id} course={course} />
               ))}
@@ -571,7 +571,7 @@ export const Catalog = () => {
 
             {/* Pagination */}
             {data.pagination && data.pagination.totalPages > 1 && (
-              <div className="mt-8 flex justify-center gap-2">
+              <div className="mt-6 md:mt-8 flex flex-wrap justify-center gap-2">
                 {Array.from({ length: data.pagination.totalPages }, (_, i) => i + 1).map((p) => (
                   <button
                     key={p}
@@ -590,7 +590,7 @@ export const Catalog = () => {
           </>
         ) : (
           <Card>
-            <CardBody className="text-center py-12">
+            <CardBody className="text-center py-8 sm:py-12">
               <GraduationCap className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">{t('no_courses')}</h3>
               <p className="text-gray-500 dark:text-gray-400">{t('try_adjusting_search')}</p>

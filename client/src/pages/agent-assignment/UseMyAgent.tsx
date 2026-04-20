@@ -215,7 +215,7 @@ export const UseMyAgent = () => {
   return (
     <div className="bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 w-full flex-shrink-0">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 md:pt-8 w-full flex-shrink-0">
         {/* Breadcrumb */}
         <div className="mb-6">
           <Breadcrumb
@@ -230,7 +230,7 @@ export const UseMyAgent = () => {
 
         {/* Agent Info Card */}
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 mb-3">
-          <div className="flex items-start justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-3">
               {config.avatarImageUrl ? (
                 <img
@@ -266,7 +266,7 @@ export const UseMyAgent = () => {
       </div>
 
       {/* Main Chat Area */}
-      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pb-8">
+      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pb-6 md:pb-8">
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden" style={{ height: 'calc(100vh - 300px)', minHeight: '300px' }}>
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">

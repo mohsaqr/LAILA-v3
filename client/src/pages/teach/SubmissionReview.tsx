@@ -108,8 +108,8 @@ export const SubmissionReview = () => {
 
   if (!assignment) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('assignment_not_found')}</h1>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{t('assignment_not_found')}</h1>
         <Button onClick={() => navigate(`/teach/courses/${courseId}/assignments`)}>
           {t('back_to_assignments')}
         </Button>
@@ -130,7 +130,7 @@ export const SubmissionReview = () => {
   const typeBg = isAgentAssignment ? 'bg-violet-100' : 'bg-blue-100';
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Breadcrumb */}
       <div className="mb-6">
         <Breadcrumb
@@ -158,7 +158,7 @@ export const SubmissionReview = () => {
                   {getTypeLabel()}
                 </span>
               </div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">{assignment.title}</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{assignment.title}</h1>
               {assignment.description && (
                 isHtmlContent(assignment.description)
                   ? <TrackedContent context="assignment" courseId={courseId} objectId={assId} objectTitle={assignment.title}>
@@ -166,7 +166,7 @@ export const SubmissionReview = () => {
                     </TrackedContent>
                   : <p className="text-gray-600 mb-4">{assignment.description}</p>
               )}
-              <div className="flex items-center gap-6 text-sm">
+              <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-sm">
                 <div className="flex items-center gap-2 text-gray-500">
                   <Award className="w-4 h-4" />
                   <span>{t('x_points', { count: assignment.points })}</span>
@@ -204,7 +204,7 @@ export const SubmissionReview = () => {
       {/* Submissions List */}
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
             {t('submissions_count', { count: totalCount })}
           </h2>
         </CardHeader>

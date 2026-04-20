@@ -25,7 +25,8 @@ export type ObjectType =
   | 'forum' | 'certificate' | 'survey' | 'gradebook'
   | 'dashboard' | 'profile' | 'catalog' | 'analytics'
   | 'settings' | 'calendar' | 'enrollment' | 'curriculum'
-  | 'code_lab' | 'ai_tool' | 'prompt_block' | 'user' | 'submission';
+  | 'code_lab' | 'ai_tool' | 'prompt_block' | 'user' | 'submission'
+  | 'page';
 
 export interface LogActivityInput {
   userId: number;

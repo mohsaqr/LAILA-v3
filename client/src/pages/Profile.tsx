@@ -85,20 +85,20 @@ export const Profile = () => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold mb-8" style={{ color: colors.textPrimary }}>{t('profile')}</h1>
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6 md:mb-8" style={{ color: colors.textPrimary }}>{t('profile')}</h1>
 
       <div className="space-y-6">
         {/* Profile Card */}
         <Card>
-          <CardHeader className="flex items-center justify-between">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
             <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>{t('personal_information')}</h2>
             {!isEditing ? (
               <Button variant="outline" size="sm" onClick={() => { track('edit_started', { verb: 'interacted', objectType: 'profile' }); setIsEditing(true); }}>
                 {t('common:edit')}
               </Button>
             ) : (
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button variant="ghost" size="sm" onClick={() => { track('edit_cancelled', { verb: 'interacted', objectType: 'profile' }); setIsEditing(false); }}>
                   {t('common:cancel')}
                 </Button>
@@ -226,7 +226,7 @@ export const Profile = () => {
             <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>{t('security')}</h2>
           </CardHeader>
           <CardBody>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
               <div>
                 <p className="font-medium" style={{ color: colors.textPrimary }}>{t('current_password').replace('Current ', '')}</p>
                 <p className="text-sm" style={{ color: colors.textSecondary }}>{t('last_changed_never')}</p>

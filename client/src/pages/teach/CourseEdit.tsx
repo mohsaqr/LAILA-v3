@@ -63,9 +63,9 @@ export const CourseEdit = () => {
 
   if (!course) {
     return (
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('course_not_found')}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{t('course_not_found')}</h1>
           <p className="text-gray-600 mb-4">{t('no_description')}</p>
           <Button onClick={() => navigate('/teach')}>{t('back_to_dashboard')}</Button>
         </div>
@@ -74,13 +74,13 @@ export const CourseEdit = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       <div className="mb-6">
         <Breadcrumb homeHref="/" items={buildTeachingBreadcrumb(courseId, course?.title || '', t('navigation:settings'))} />
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
+      <div className="flex flex-wrap gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit max-w-full">
         <button
           onClick={() => { setActiveTab('settings'); activityLogger.logTabSwitched('course', 'settings', courseId); }}
           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -109,7 +109,7 @@ export const CourseEdit = () => {
       {activeTab === 'settings' ? (
         <Card>
           <CardHeader>
-            <h1 className="text-2xl font-bold text-gray-900">{t('edit_course')}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{t('edit_course')}</h1>
             <p className="text-gray-600 mt-1">{t('course_settings')}</p>
           </CardHeader>
           <CardBody>

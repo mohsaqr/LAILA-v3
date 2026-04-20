@@ -169,14 +169,14 @@ export const DashboardGradebook = () => {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: colors.bg }}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
         {/* Breadcrumb */}
         <div className="mb-6">
           <Breadcrumb items={[{ label: t('gradebook') }]} />
         </div>
 
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6 md:mb-8">
           <div className="flex items-center gap-3 mb-2">
             <div
               className="w-10 h-10 rounded-lg flex items-center justify-center"
@@ -184,7 +184,7 @@ export const DashboardGradebook = () => {
             >
               <ClipboardList className="w-5 h-5" style={{ color: colors.textIndigo }} />
             </div>
-            <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
+            <h1 className="text-xl sm:text-2xl font-bold" style={{ color: colors.textPrimary }}>
               {isInstructor ? t('my_grades_as_student') : t('my_grades')}
             </h1>
           </div>
@@ -196,7 +196,7 @@ export const DashboardGradebook = () => {
         {courseGrades.length > 0 ? (
           <>
             {/* Overall Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 md:mb-8">
               <Card>
                 <CardBody className="flex items-center gap-3">
                   <div
@@ -349,7 +349,7 @@ export const DashboardGradebook = () => {
           </>
         ) : (
           <Card>
-            <CardBody className="py-12">
+            <CardBody className="py-8 sm:py-12">
               <EmptyState
                 icon={ClipboardList}
                 title={t('no_grades_yet')}

@@ -378,7 +378,7 @@ export const StudentAgentBuilder = () => {
   const courseName = assignment.course?.title || 'Course';
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Breadcrumb */}
       <div className="mb-6">
         <Breadcrumb
@@ -396,7 +396,7 @@ export const StudentAgentBuilder = () => {
         <CardBody>
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">{assignment.title}</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{assignment.title}</h1>
               {assignment.description && (
                 isHtmlContent(assignment.description)
                   ? <TrackedContent context="assignment" courseId={courseId ? parseInt(courseId, 10) : undefined} objectId={assId} objectTitle={assignment.title}>
@@ -443,7 +443,7 @@ export const StudentAgentBuilder = () => {
 
             {/* Action Buttons - Only show during building phase */}
             {!isBuilt && (
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
                 <Button
                   size="sm"
                   variant="secondary"
@@ -558,7 +558,7 @@ export const StudentAgentBuilder = () => {
               </div>
 
               {/* Agent Info */}
-              <h2 className="text-2xl font-bold text-gray-900 mb-1">{config?.agentName}</h2>
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">{config?.agentName}</h2>
               {config?.agentTitle && (
                 <p className="text-violet-600 font-medium mb-4">{config.agentTitle}</p>
               )}

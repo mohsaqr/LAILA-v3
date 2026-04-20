@@ -114,7 +114,7 @@ If no significant bias is detected, return an empty biases array with an appropr
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Header */}
       <div className="mb-6">
         <Link to="/ai-tools">
@@ -129,7 +129,7 @@ If no significant bias is detected, return an empty biases array with an appropr
           <Scale className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t('bias_research_platform')}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{t('bias_research_platform')}</h1>
           <p className="text-gray-600">{t('bias_research_desc')}</p>
         </div>
       </div>

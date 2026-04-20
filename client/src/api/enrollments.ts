@@ -51,8 +51,20 @@ export const enrollmentsApi = {
     const response = await apiClient.post<ApiResponse<LectureProgress>>(
       `/enrollments/course/${courseId}/lectures/${lectureId}/complete`
     );
-    // Log lecture completion activity
-    activityLogger.logLectureCompleted(lectureId, lectureTitle, courseId, moduleId).catch(() => {});
+    // Log lecture completion activity (single source — no longer mirrored
+    // from the button click, which used to produce a duplicate row with a
+    // different actionSubtype and no title).
+    activityLogger.log({
+      verb: 'completed',
+      objectType: 'lecture',
+      objectId: lectureId,
+      objectTitle: lectureTitle,
+      courseId,
+      moduleId,
+      lectureId,
+      success: true,
+      actionSubtype: 'lecture.marked_complete',
+    }).catch(() => {});
     return response.data.data!;
   },
 

@@ -647,7 +647,7 @@ export const SnaExercise = () => {
   /* ── Render ── */
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
 
         {/* Breadcrumb */}
         {courseId && (
@@ -667,10 +667,10 @@ export const SnaExercise = () => {
         {snaAssignment ? (
           <Card className="mb-6">
             <CardBody>
-              <div className="flex items-start justify-between mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-4">
                 <div>
                   <p className="text-sm mb-1" style={{ color: headerColors.textSecondary }}>{course?.title}</p>
-                  <h1 className="text-2xl font-bold" style={{ color: headerColors.textPrimary }}>{snaAssignment.title}</h1>
+                  <h1 className="text-xl sm:text-2xl font-bold" style={{ color: headerColors.textPrimary }}>{snaAssignment.title}</h1>
                 </div>
                 {/* Status Badge */}
                 {isGraded ? (
@@ -731,7 +731,7 @@ export const SnaExercise = () => {
           </Card>
         ) : (
           /* Header without assignment */
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 flex items-center justify-center">
                 <Network className="w-4.5 h-4.5 text-white" />
@@ -872,18 +872,18 @@ export const SnaExercise = () => {
 
             {/* No dataset selected — intro */}
             {!datasetKey && (
-              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8">
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 md:p-8">
                 <div className="max-w-2xl mx-auto text-center">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-r from-violet-500 to-purple-600 flex items-center justify-center mx-auto mb-4">
                     <Network className="w-8 h-8 text-white" />
                   </div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
                     {t('sna.intro_title')}
                   </h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                     {t('sna.intro_text')}
                   </p>
-                  <div className="grid sm:grid-cols-3 gap-4 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                     {SAMPLE_NETWORKS.map(ds => {
                       const DsIcon = DATASET_ICONS[ds.icon] || Users;
                       return (

@@ -76,7 +76,7 @@ export const AdminFrontpage = () => {
       description={t('platform_statistics_desc')}
     >
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 md:mb-8">
         <StatCard
           icon={<Users className="w-6 h-6" style={{ color: colors.textBlue }} />}
           iconBgColor={colors.bgBlue}
@@ -103,7 +103,7 @@ export const AdminFrontpage = () => {
         />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 md:mb-8">
         <StatCard
           icon={<UserPlus className="w-6 h-6" style={{ color: colors.textCyan }} />}
           iconBgColor={colors.bgCyan}
@@ -138,7 +138,7 @@ export const AdminFrontpage = () => {
 
       {/* Recent Activity Section */}
       <h2 className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>{t('recent_activity')}</h2>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Recent Users */}
         <Card>
           <CardHeader className="flex items-center justify-between">

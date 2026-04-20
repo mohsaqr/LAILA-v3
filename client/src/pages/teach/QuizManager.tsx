@@ -135,7 +135,7 @@ export const QuizManager = () => {
   const breadcrumbItems = buildTeachingBreadcrumb(courseId, course?.title || 'Course', 'Quizzes');
 
   return (
-    <div className="min-h-screen py-8" style={{ backgroundColor: colors.bg }}>
+    <div className="min-h-screen py-6 md:py-8" style={{ backgroundColor: colors.bg }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb navigation */}
         <div className="mb-6">
@@ -143,9 +143,9 @@ export const QuizManager = () => {
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
+            <h1 className="text-xl sm:text-2xl font-bold" style={{ color: colors.textPrimary }}>
               {t('quiz_manager')}
             </h1>
             <p className="text-sm" style={{ color: colors.textSecondary }}>
@@ -170,7 +170,7 @@ export const QuizManager = () => {
               >
                 <Card className="hover:shadow-lg transition-shadow cursor-pointer">
                   <CardBody>
-                    <div className="flex items-start justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3 mb-2">
                           <h3 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
@@ -211,7 +211,7 @@ export const QuizManager = () => {
                           />
                         )}
 
-                        <div className="flex items-center gap-6 text-sm" style={{ color: colors.textSecondary }}>
+                        <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-sm" style={{ color: colors.textSecondary }}>
                           <span className="flex items-center gap-1">
                             <CheckCircle size={14} />
                             {t('x_questions', { count: quiz._count?.questions || 0 })}
@@ -233,7 +233,7 @@ export const QuizManager = () => {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                      <div className="flex items-center gap-2 sm:ml-4 flex-shrink-0 flex-wrap">
                         <Button
                           variant="secondary"
                           size="sm"
@@ -316,7 +316,7 @@ export const QuizManager = () => {
               style={{ backgroundColor: colors.bgInput, borderColor: colors.border, borderWidth: 1, color: colors.textPrimary }}
             />
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
                 {t('time_limit_minutes')}

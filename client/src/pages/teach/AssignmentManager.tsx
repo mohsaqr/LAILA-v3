@@ -196,8 +196,8 @@ export const AssignmentManager = () => {
 
   if (!course) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('course_not_found')}</h1>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{t('course_not_found')}</h1>
         <Button onClick={() => navigate('/teach')}>{t('back_to_dashboard')}</Button>
       </div>
     );
@@ -206,7 +206,7 @@ export const AssignmentManager = () => {
   const breadcrumbItems = buildTeachingBreadcrumb(id, course?.title || 'Course', 'Assignments');
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Breadcrumb navigation */}
       <div className="mb-6">
         <Breadcrumb homeHref="/" items={breadcrumbItems} />
@@ -214,9 +214,9 @@ export const AssignmentManager = () => {
 
       {/* Course Header */}
       <Card className="mb-6">
-        <CardBody className="flex items-center justify-between">
+        <CardBody className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{course.title}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{course.title}</h1>
             <p className="text-gray-600">{t('manage_assignments_and_grading')}</p>
           </div>
           <Button onClick={openCreateModal} icon={<Plus className="w-4 h-4" />}>
@@ -228,7 +228,7 @@ export const AssignmentManager = () => {
       {/* Assignments List */}
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold text-gray-900">{t('navigation:assignments')}</h2>
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900">{t('navigation:assignments')}</h2>
         </CardHeader>
         <CardBody>
           {assignments && assignments.length > 0 ? (
@@ -240,7 +240,7 @@ export const AssignmentManager = () => {
                 return (
                 <div
                   key={assignment.id}
-                  className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg"
+                  className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 bg-gray-50 rounded-lg"
                 >
                   <div className={`w-10 h-10 rounded-lg bg-white border border-gray-200 flex items-center justify-center ${isAgentAssignment ? 'border-violet-200' : ''}`}>
                     {isAgentAssignment ? (
@@ -260,7 +260,7 @@ export const AssignmentManager = () => {
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm text-gray-500">
                       <span className="flex items-center gap-1">
                         <Calendar className="w-4 h-4" />
                         {formatDate(assignment.dueDate)}
@@ -276,7 +276,7 @@ export const AssignmentManager = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Link to={reviewUrl}>
                       <Button variant="outline" size="sm" icon={<Eye className="w-4 h-4" />}>
                         {t('review')}

@@ -136,15 +136,15 @@ export const CertificateManager = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Breadcrumb navigation */}
       <div className="mb-6">
         <Breadcrumb homeHref="/" items={[{ label: t('certificate_templates') }]} />
       </div>
 
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6 md:mb-8">
         <div>
-          <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
+          <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>
             {t('certificate_templates')}
           </h1>
           <p className="mt-2" style={{ color: colors.textSecondary }}>
@@ -174,10 +174,10 @@ export const CertificateManager = () => {
           </CardBody>
         </Card>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-4 md:gap-6 md:grid-cols-2">
           {templates.map((template) => (
             <Card key={template.id}>
-              <CardHeader className="flex items-center justify-between">
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                 <div className="flex items-center gap-3">
                   <Award className="w-5 h-5" style={{ color: colors.gold }} />
                   <div>

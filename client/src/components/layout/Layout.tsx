@@ -15,6 +15,10 @@ export const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(min-width: 768px)').matches : true
+  );
 
   // Handler for exiting test mode that preserves the current URL
   const handleExitTestMode = () => {
@@ -54,7 +58,26 @@ export const Layout = () => {
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
-  const sidebarWidth = showSidebar ? (sidebarCollapsed ? 64 : 240) : 0;
+  // Track desktop vs mobile breakpoint so the sidebar collapses into a drawer
+  // on narrow screens and main-content margin drops to zero.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(min-width: 768px)');
+    const handler = (e: MediaQueryListEvent) => {
+      setIsDesktop(e.matches);
+      if (e.matches) setMobileSidebarOpen(false);
+    };
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+
+  // Close the mobile drawer on route change so the new page isn't hidden
+  // behind an open sidebar.
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [location.pathname, location.search]);
+
+  const sidebarWidth = showSidebar && isDesktop ? (sidebarCollapsed ? 64 : 240) : 0;
 
   return (
     <div
@@ -78,8 +101,16 @@ export const Layout = () => {
           </button>
         </div>
       )}
-      <Navbar />
-      {showSidebar && <DashboardSidebar />}
+      <Navbar
+        onMenuClick={showSidebar && !isDesktop ? () => setMobileSidebarOpen(v => !v) : undefined}
+      />
+      {showSidebar && (
+        <DashboardSidebar
+          mobileOpen={mobileSidebarOpen}
+          onMobileClose={() => setMobileSidebarOpen(false)}
+          isDesktop={isDesktop}
+        />
+      )}
       <main
         id="main-content"
         className="flex-1 transition-all duration-300"

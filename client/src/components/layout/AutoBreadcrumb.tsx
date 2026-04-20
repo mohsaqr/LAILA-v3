@@ -98,15 +98,22 @@ export const AutoBreadcrumb = () => {
   if (SKIP_PAGES.some(re => re.test(path))) return null;
   if (PAGES_WITH_OWN_BREADCRUMBS.some(re => re.test(path))) return null;
 
-  // Extract course ID if present for fetching course title
+  // Extract course ID if present for fetching course title. Course-context
+  // pages like /ai-tutors?courseId=N carry the id in the query string, not
+  // the path — pick those up too so the breadcrumb can read Home > Course >
+  // Page instead of just Home > Page.
   const courseMatch = path.match(/\/(?:teach\/)?courses\/(\d+)/);
-  const courseId = courseMatch ? parseInt(courseMatch[1]) : null;
+  const pathCourseId = courseMatch ? parseInt(courseMatch[1]) : null;
+  const queryCourseIdRaw = new URLSearchParams(location.search).get('courseId');
+  const queryCourseId = queryCourseIdRaw && /^\d+$/.test(queryCourseIdRaw) ? parseInt(queryCourseIdRaw) : null;
+  const courseId = pathCourseId ?? queryCourseId;
+  const courseFromQuery = pathCourseId == null && queryCourseId != null;
 
-  return <AutoBreadcrumbInner path={path} courseId={courseId} />;
+  return <AutoBreadcrumbInner path={path} courseId={courseId} courseFromQuery={courseFromQuery} />;
 };
 
 /** Inner component that can use hooks conditionally based on courseId */
-const AutoBreadcrumbInner = ({ path, courseId }: { path: string; courseId: number | null }) => {
+const AutoBreadcrumbInner = ({ path, courseId, courseFromQuery }: { path: string; courseId: number | null; courseFromQuery: boolean }) => {
   const { data: course } = useQuery({
     queryKey: ['course', courseId],
     queryFn: () => coursesApi.getCourseById(courseId!),
@@ -117,6 +124,14 @@ const AutoBreadcrumbInner = ({ path, courseId }: { path: string; courseId: numbe
   const segments = path.split('/').filter(Boolean);
   const items: BreadcrumbItem[] = [];
   let currentPath = '';
+
+  // Query-string courseId → prepend the course as a breadcrumb crumb.
+  if (courseFromQuery && courseId != null) {
+    items.push({
+      label: course?.title || `Course ${courseId}`,
+      href: `/courses/${courseId}`,
+    });
+  }
 
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i];

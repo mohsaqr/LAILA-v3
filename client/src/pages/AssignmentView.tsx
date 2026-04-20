@@ -312,7 +312,7 @@ export const AssignmentView = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Breadcrumb */}
       <div className="mb-6">
         <Breadcrumb
@@ -328,10 +328,10 @@ export const AssignmentView = () => {
       {/* Assignment Header */}
       <Card className="mb-6">
         <CardBody>
-          <div className="flex items-start justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-4">
             <div>
               <p className="text-sm mb-1" style={{ color: colors.textSecondary }}>{course?.title}</p>
-              <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{assignment.title}</h1>
+              <h1 className="text-xl sm:text-2xl font-bold" style={{ color: colors.textPrimary }}>{assignment.title}</h1>
             </div>
             <StatusBadge
               isGraded={isGraded}

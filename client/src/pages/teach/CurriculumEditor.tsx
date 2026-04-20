@@ -976,8 +976,8 @@ export const CurriculumEditor = () => {
 
   if (!course) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('course_not_found')}</h1>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{t('course_not_found')}</h1>
         <Button onClick={() => navigate('/teach')}>{t('back_to_dashboard')}</Button>
       </div>
     );
@@ -994,7 +994,7 @@ export const CurriculumEditor = () => {
     }));
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Breadcrumb */}
       <div className="mb-6">
         <Breadcrumb
@@ -1008,8 +1008,8 @@ export const CurriculumEditor = () => {
 
       {/* Course Header */}
       <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{course.title}</h1>
+        <div className="flex items-center gap-3 mb-2 flex-wrap">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{course.title}</h1>
           <StatusBadge status={course.status} />
         </div>
         {course.description ? (
@@ -1024,20 +1024,20 @@ export const CurriculumEditor = () => {
         className="mb-6 p-4 rounded-xl"
         style={{ backgroundColor: isDark ? '#0f172a' : '#1e293b' }}
       >
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mb-3">
           <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">{t('course_management')}</h3>
           {course.activationCode && (
-            <div className="flex items-center gap-2">
-              <KeyRound className="w-4 h-4 text-amber-400" />
+            <div className="flex items-center gap-2 flex-wrap">
+              <KeyRound className="w-4 h-4 text-amber-400 flex-shrink-0" />
               <span className="text-xs text-slate-400">{t('activation_code')}:</span>
-              <code className="text-sm font-mono font-bold text-amber-300 bg-slate-700/50 px-2 py-0.5 rounded">{course.activationCode}</code>
+              <code className="text-sm font-mono font-bold text-amber-300 bg-slate-700/50 px-2 py-0.5 rounded break-all">{course.activationCode}</code>
               <button
                 type="button"
                 onClick={() => {
                   navigator.clipboard.writeText(course.activationCode!);
                   toast.success(t('code_copied'));
                 }}
-                className="p-1 rounded hover:bg-slate-700 transition-colors text-slate-400 hover:text-white"
+                className="p-1 rounded hover:bg-slate-700 transition-colors text-slate-400 hover:text-white flex-shrink-0"
                 title={t('copy_code')}
               >
                 <Copy className="w-4 h-4" />
@@ -1165,9 +1165,9 @@ export const CurriculumEditor = () => {
 
       {/* Curriculum Section */}
       <Card>
-        <CardHeader className="flex items-center justify-between">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('course_curriculum')}</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">{t('course_curriculum')}</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {t('organize_content_description')}
             </p>
@@ -1291,17 +1291,17 @@ export const CurriculumEditor = () => {
                 backgroundColor: isDark ? 'rgba(139, 92, 246, 0.1)' : 'rgba(139, 92, 246, 0.05)',
               }}
             >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div
                     className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
                     style={{ backgroundColor: isDark ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.15)' }}
                   >
                     <Bot className="w-5 h-5 text-violet-500" />
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                      {(course as any).collaborativeModuleName || 'Collaborative AI Module'}
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-gray-900 dark:text-white flex flex-wrap items-center gap-2">
+                      <span className="break-words">{(course as any).collaborativeModuleName || 'Collaborative AI Module'}</span>
                       <span
                         className="text-xs px-2 py-0.5 rounded-full"
                         style={{
@@ -2228,7 +2228,7 @@ export const CurriculumEditor = () => {
               editorClassName="forum-reply-editor px-3 py-2 min-h-[120px] max-h-[300px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
             />
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <Input
               label={t('time_limit_minutes')}
               type="number"

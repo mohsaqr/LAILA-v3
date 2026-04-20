@@ -508,7 +508,7 @@ export const AIBuilder = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Course Context Breadcrumb */}
       {courseContext && (
         <Link
@@ -522,9 +522,9 @@ export const AIBuilder = () => {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6 md:mb-8">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: colors.textPrimary }}>
+          <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-3" style={{ color: colors.textPrimary }}>
             <Bot className="w-8 h-8 text-primary-600" />
             {t('ai_builder')}
           </h1>
@@ -574,7 +574,7 @@ export const AIBuilder = () => {
       </div>
 
       {/* Component Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {filteredComponents?.map(component => {
           const catInfo = getCategoryInfo(component.category || 'assistant');
           const CatIcon = catInfo.icon;
@@ -729,7 +729,7 @@ export const AIBuilder = () => {
               {activeTab === 'basic' && (
                 <div className="space-y-5">
                   {/* Name & Display Name */}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Unique ID <span className="text-red-500">*</span>
@@ -761,7 +761,7 @@ export const AIBuilder = () => {
                   {/* Category */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {CATEGORIES.map(cat => {
                         const Icon = cat.icon;
                         return (
@@ -914,7 +914,7 @@ export const AIBuilder = () => {
                       <Sparkles className="w-4 h-4 inline mr-1" />
                       Personality Style
                     </label>
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                       {PERSONALITIES.map(p => (
                         <button
                           key={p.value}
@@ -970,7 +970,7 @@ export const AIBuilder = () => {
                       <FileText className="w-4 h-4 inline mr-1" />
                       Response Style
                     </label>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {RESPONSE_STYLES.map(s => (
                         <button
                           key={s.value}

@@ -179,7 +179,7 @@ export const QuizView = () => {
   const breadcrumbItems = buildQuizBreadcrumb(courseId!, course?.title || 'Course', attemptData.quiz.title);
 
   return (
-    <div className="min-h-screen py-8" style={{ backgroundColor: colors.bg }}>
+    <div className="min-h-screen py-6 md:py-8" style={{ backgroundColor: colors.bg }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb navigation */}
         <div className="mb-6">
@@ -191,9 +191,9 @@ export const QuizView = () => {
           className="sticky top-0 z-10 rounded-lg p-4 mb-6 shadow-sm"
           style={{ backgroundColor: colors.bgCard, borderColor: colors.border, borderWidth: 1 }}
         >
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
             <div>
-              <h1 className="text-xl font-bold" style={{ color: colors.textPrimary }}>
+              <h1 className="text-lg sm:text-xl font-bold" style={{ color: colors.textPrimary }}>
                 {attemptData.quiz.title}
               </h1>
               <p className="text-sm" style={{ color: colors.textSecondary }}>
@@ -329,7 +329,7 @@ export const QuizView = () => {
         </Card>
 
         {/* Navigation and question grid */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6">
           <Button
             variant="secondary"
             onClick={() => { track('previous_question', { verb: 'interacted', objectType: 'quiz', objectId: parsedQuizId, courseId: parseInt(courseId!, 10), payload: { fromIndex: currentQuestionIndex, toIndex: currentQuestionIndex - 1 } }); setCurrentQuestionIndex(prev => Math.max(0, prev - 1)); }}

@@ -166,8 +166,8 @@ export const CodeLabEditor = () => {
 
   if (!codeLab) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('code_lab_not_found')}</h1>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{t('code_lab_not_found')}</h1>
         <Button onClick={() => navigate(`/teach/courses/${courseId}/curriculum`)}>
           {t('back_to_curriculum')}
         </Button>
@@ -182,7 +182,7 @@ export const CodeLabEditor = () => {
   const breadcrumbItems = buildTeachingBreadcrumb(id, course?.title || t('course'), t('code_lab'));
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Breadcrumb navigation */}
       <div className="mb-6">
         <Breadcrumb homeHref="/" items={breadcrumbItems} />
@@ -190,7 +190,7 @@ export const CodeLabEditor = () => {
 
       {/* Header */}
       <div className="flex items-center justify-end mb-6">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="secondary"
             size="sm"
@@ -210,7 +210,7 @@ export const CodeLabEditor = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Code Lab Title */}
@@ -218,7 +218,7 @@ export const CodeLabEditor = () => {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <FlaskConical className="w-5 h-5 text-emerald-600" />
-                <h1 className="text-xl font-semibold text-gray-900">{t('edit_code_lab')}</h1>
+                <h1 className="text-lg sm:text-xl font-semibold text-gray-900">{t('edit_code_lab')}</h1>
               </div>
             </CardHeader>
             <CardBody className="space-y-4">
@@ -241,9 +241,9 @@ export const CodeLabEditor = () => {
 
           {/* Code Blocks */}
           <Card>
-            <CardHeader className="flex items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">{t('code_blocks')}</h2>
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900">{t('code_blocks')}</h2>
                 <p className="text-sm text-gray-500">
                   {t('code_blocks_description')}
                 </p>

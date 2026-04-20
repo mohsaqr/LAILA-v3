@@ -96,7 +96,7 @@ export const LogsDashboard = () => {
       )}
 
       {/* Tab Navigation */}
-      <div className="flex gap-2 mb-6 pb-4" style={{ borderBottom: `1px solid ${colors.border}` }}>
+      <div className="flex flex-wrap gap-2 mb-6 pb-4" style={{ borderBottom: `1px solid ${colors.border}` }}>
         {tabs.map((tab) => (
           <button
             key={tab.id}

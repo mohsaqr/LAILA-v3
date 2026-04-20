@@ -119,16 +119,16 @@ export const EnrollmentsManagement = () => {
   const breadcrumbItems = buildAdminBreadcrumb(t('enrollments'));
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Breadcrumb navigation */}
       <div className="mb-6">
         <Breadcrumb items={breadcrumbItems} homeHref="/admin" />
       </div>
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6 md:mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">{t('enrollments_management')}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('enrollments_management')}</h1>
           <p className="text-gray-600 mt-1">{t('manage_enrollments')}</p>
         </div>
         <Button onClick={() => setIsAddModalOpen(true)}>
@@ -139,7 +139,7 @@ export const EnrollmentsManagement = () => {
 
       {/* Stats */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 md:mb-8">
           <Card>
             <CardBody className="text-center py-4">
               <GraduationCap className="w-6 h-6 text-blue-500 mx-auto mb-2" />
@@ -188,7 +188,7 @@ export const EnrollmentsManagement = () => {
               </div>
               <Button type="submit">{t('common:search')}</Button>
             </form>
-            <div className="flex gap-2 items-center">
+            <div className="flex flex-wrap gap-2 items-center">
               <Filter className="w-4 h-4 text-gray-400" />
               <select
                 value={statusFilter}
@@ -235,6 +235,7 @@ export const EnrollmentsManagement = () => {
             <Loading text={t('loading_enrollments')} />
           ) : (
             <>
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
@@ -325,6 +326,7 @@ export const EnrollmentsManagement = () => {
                   ))}
                 </tbody>
               </table>
+              </div>
 
               {/* Pagination */}
               {data && data.pagination.totalPages > 1 && (

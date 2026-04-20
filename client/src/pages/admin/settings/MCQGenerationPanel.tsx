@@ -226,7 +226,7 @@ export const MCQGenerationPanel = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div className="flex items-center gap-3">
           <div
             className="p-2 rounded-lg"
@@ -243,7 +243,7 @@ export const MCQGenerationPanel = () => {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="secondary" onClick={handleResetDefaults}>
             <RotateCcw size={16} />
             {t('reset_defaults')}
@@ -273,7 +273,7 @@ export const MCQGenerationPanel = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Left Column - Prompts */}
         <div className="space-y-6">
           {/* System Prompt */}

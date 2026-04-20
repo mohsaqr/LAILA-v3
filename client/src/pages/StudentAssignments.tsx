@@ -97,7 +97,7 @@ export const StudentAssignments = () => {
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ minHeight: '100vh' }}>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8" style={{ minHeight: '100vh' }}>
       {/* Breadcrumb */}
       <div className="mb-6">
         <Breadcrumb
@@ -109,9 +109,9 @@ export const StudentAssignments = () => {
         />
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6 md:mb-8">
         <div>
-          <h1 className="text-3xl font-bold mb-2" style={{ color: colors.textPrimary }}>{t('assignments')}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2" style={{ color: colors.textPrimary }}>{t('assignments')}</h1>
           <p style={{ color: colors.textSecondary }}>{course?.title}</p>
         </div>
         <Link to={`/courses/${parsedCourseId}/grades`}>
@@ -129,7 +129,7 @@ export const StudentAssignments = () => {
         </div>
       ) : (
         <Card>
-          <CardBody className="text-center py-12">
+          <CardBody className="text-center py-8 sm:py-12">
             <FileText className="w-16 h-16 mx-auto mb-4" style={{ color: colors.textMuted }} />
             <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>{t('no_assignments_yet')}</h3>
             <p style={{ color: colors.textSecondary }}>{t('check_back_later_assignments')}</p>
@@ -225,7 +225,7 @@ const AssignmentCard = ({ assignment, courseId, colors }: AssignmentCardProps) =
   return (
     <Link to={assignmentUrl}>
       <Card hover>
-        <CardBody className="flex items-center gap-4">
+        <CardBody className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div
             className="w-12 h-12 rounded-lg flex items-center justify-center"
             style={{
@@ -245,7 +245,7 @@ const AssignmentCard = ({ assignment, courseId, colors }: AssignmentCardProps) =
           </div>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <h3 className="font-semibold truncate" style={{ color: colors.textPrimary }}>{assignment.title}</h3>
               {isAgentAssignment && (
                 <span
@@ -257,7 +257,7 @@ const AssignmentCard = ({ assignment, courseId, colors }: AssignmentCardProps) =
               )}
               {getStatusBadge()}
             </div>
-            <div className="flex items-center gap-4 text-sm" style={{ color: colors.textSecondary }}>
+            <div className="flex items-center gap-4 text-sm flex-wrap" style={{ color: colors.textSecondary }}>
               <span className="flex items-center gap-1">
                 <Award className="w-4 h-4" />
                 {t('points_format', { points: assignment.points })}

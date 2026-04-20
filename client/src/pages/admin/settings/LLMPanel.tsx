@@ -488,12 +488,12 @@ export const LLMPanel = () => {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('llm_providers')}</h2>
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">{t('llm_providers')}</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('configured_providers', { count: providers?.length || 0 })}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => setShowTestChat(!showTestChat)}>
             <MessageSquare className="w-4 h-4 mr-1" /> {t('test_chat')}
           </Button>
@@ -616,7 +616,7 @@ export const LLMPanel = () => {
               {/* Expanded Details */}
               {expandedProvider === provider.id && (
                 <div className="border-t border-gray-100 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900/50">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                     <div>
                       <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2">{t('connection_settings')}</h4>
                       <dl className="space-y-1">
@@ -685,7 +685,7 @@ export const LLMPanel = () => {
       </div>
 
       {/* AI Module Routing */}
-      <div className="mt-8">
+      <div className="mt-6 md:mt-8">
         <div className="flex items-center gap-2 mb-2">
           <Route className="w-4 h-4 text-gray-500 dark:text-gray-400" />
           <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">{t('ai_module_routing')}</h2>
@@ -696,6 +696,7 @@ export const LLMPanel = () => {
           {isLoadingAssignments ? (
             <div className="p-4 text-sm text-gray-500 dark:text-gray-400">{t('loading_llm_providers')}</div>
           ) : (
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60">
@@ -736,6 +737,7 @@ export const LLMPanel = () => {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">{t('local_llm_note')}</p>
@@ -809,7 +811,7 @@ export const LLMPanel = () => {
 
           {/* Generation Defaults */}
           <Section title={t('generation_defaults')} defaultOpen={true}>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <NumberInput label={t('temperature')} value={formData.defaultTemperature} onChange={(v) => setFormData({ ...formData, defaultTemperature: v })} step="0.1" min="0" max="2" />
               <NumberInput label={t('max_tokens')} value={formData.defaultMaxTokens} onChange={(v) => setFormData({ ...formData, defaultMaxTokens: v })} min="1" />
               <NumberInput label={t('top_p')} value={formData.defaultTopP} onChange={(v) => setFormData({ ...formData, defaultTopP: v })} step="0.05" min="0" max="1" />
@@ -834,7 +836,7 @@ export const LLMPanel = () => {
 
           {/* Rate Limiting */}
           <Section title={t('rate_limiting')}>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <Input label={t('requests_per_minute')} value={formData.rateLimitRpm} onChange={(e) => setFormData({ ...formData, rateLimitRpm: e.target.value })} placeholder="-" />
               <Input label={t('tokens_per_minute')} value={formData.rateLimitTpm} onChange={(e) => setFormData({ ...formData, rateLimitTpm: e.target.value })} placeholder="-" />
               <NumberInput label={t('concurrency_limit')} value={formData.concurrencyLimit} onChange={(v) => setFormData({ ...formData, concurrencyLimit: v })} min="1" />

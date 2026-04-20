@@ -210,19 +210,19 @@ export const TestCorner = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-8">
+      <div className="flex items-center gap-3 mb-6 md:mb-8">
         <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center">
           <Zap className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Test Corner</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Test Corner</h1>
           <p className="text-gray-600">Test all AI Tutor modes and features</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* System Status */}
         <Card>
           <CardHeader>
@@ -341,7 +341,7 @@ export const TestCorner = () => {
             </div>
           </CardHeader>
           <CardBody>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-4">
               {/* Agent Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -542,7 +542,7 @@ export const TestCorner = () => {
             </div>
           </CardHeader>
           <CardBody>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {agents?.map((agent) => (
                 <div
                   key={agent.id}

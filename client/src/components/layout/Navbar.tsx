@@ -23,7 +23,12 @@ import { useLanguageStore } from '../../store/languageStore';
 import { supportedLanguages, SupportedLanguage } from '../../i18n/config';
 import { resolveFileUrl } from '../../api/client';
 
-export const Navbar = () => {
+interface NavbarProps {
+  /** When provided, a hamburger button appears on the left (mobile only) that calls this on click. */
+  onMenuClick?: () => void;
+}
+
+export const Navbar = ({ onMenuClick }: NavbarProps = {}) => {
   const { t } = useTranslation(['navigation', 'common']);
   const { user, isAuthenticated, isAdmin, isActualAdmin, isActualInstructor, viewAsRole, setViewAs, isViewingAs, logout } = useAuth();
   const { isDark } = useTheme();
@@ -104,8 +109,17 @@ export const Navbar = () => {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-20">
-          {/* Logo */}
+          {/* Logo + Sidebar drawer toggle (mobile only, when Layout provides it) */}
           <div className="flex items-center">
+            {onMenuClick && (
+              <button
+                onClick={onMenuClick}
+                className="md:hidden p-2 mr-2 rounded-lg"
+                aria-label={t('common:open_sidebar', { defaultValue: 'Open sidebar' })}
+              >
+                <Menu className="w-6 h-6" style={{ color: colors.textSecondary }} />
+              </button>
+            )}
             <Link to="/" className="flex items-center gap-2">
               <img src="/icons/logo.webp" alt="LAILA" className="h-16 w-auto" />
             </Link>

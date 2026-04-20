@@ -82,14 +82,14 @@ export const CourseCertificates = () => {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Breadcrumb navigation */}
       <div className="mb-6">
         <Breadcrumb items={breadcrumbItems} />
       </div>
 
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>
           {t('course_certificates')}
         </h1>
         {course && (
@@ -100,8 +100,8 @@ export const CourseCertificates = () => {
       </div>
 
       {/* Earned Certificates */}
-      <section className="mb-10">
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
+      <section className="mb-6 md:mb-10">
+        <h2 className="text-lg sm:text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
           <Trophy className="w-5 h-5" style={{ color: colors.gold }} />
           {t('earned_certificates')}
         </h2>
@@ -116,7 +116,7 @@ export const CourseCertificates = () => {
             </CardBody>
           </Card>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2">
             {earnedCertificates.map((cert) => (
               <Card key={cert.id} className="overflow-hidden">
                 <div
@@ -172,7 +172,7 @@ export const CourseCertificates = () => {
       {/* Available to Earn */}
       {availableToEarn.length > 0 && (
         <section>
-          <h2 className="text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>
+          <h2 className="text-lg sm:text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>
             {t('available_to_earn')}
           </h2>
           <div className="space-y-4">

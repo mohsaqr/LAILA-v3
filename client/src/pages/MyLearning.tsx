@@ -39,22 +39,22 @@ export const MyLearning = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ backgroundColor: colors.bg, minHeight: '100vh' }}>
-      <h1 className="text-3xl font-bold mb-8" style={{ color: colors.textPrimary }}>{t('my_learning')}</h1>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8" style={{ backgroundColor: colors.bg, minHeight: '100vh' }}>
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6 md:mb-8" style={{ color: colors.textPrimary }}>{t('my_learning')}</h1>
 
       {/* Active Courses */}
-      <section className="mb-12">
-        <h2 className="text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>{t('in_progress_title')}</h2>
+      <section className="mb-8 md:mb-12">
+        <h2 className="text-lg sm:text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>{t('in_progress_title')}</h2>
 
         {activeEnrollments.length > 0 ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {activeEnrollments.map(enrollment => (
               <EnrollmentCard key={enrollment.id} enrollment={enrollment} />
             ))}
           </div>
         ) : (
           <Card>
-            <CardBody className="text-center py-12">
+            <CardBody className="text-center py-8 sm:py-12">
               <BookOpen className="w-16 h-16 mx-auto mb-4" style={{ color: colors.textMuted }} />
               <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>{t('no_active_courses')}</h3>
               <p className="mb-4" style={{ color: colors.textSecondary }}>{t('start_learning')}</p>
@@ -69,8 +69,8 @@ export const MyLearning = () => {
       {/* Completed Courses */}
       {completedEnrollments.length > 0 && (
         <section>
-          <h2 className="text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>{t('completed')}</h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <h2 className="text-lg sm:text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>{t('completed')}</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {completedEnrollments.map(enrollment => (
               <EnrollmentCard key={enrollment.id} enrollment={enrollment} completed />
             ))}

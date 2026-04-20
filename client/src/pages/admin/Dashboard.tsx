@@ -683,7 +683,7 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
     ? ({ children }: { children: React.ReactNode }) => <AdminLayout title={pageTitle} fullWidth>{children}</AdminLayout>
     : ({ children }: { children: React.ReactNode }) => (
         <div className="p-6 max-w-[1600px] mx-auto">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">{pageTitle}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-4">{pageTitle}</h1>
           {tnaData?.metadata?.courseTitle && (
             <p className="text-sm text-gray-500 dark:text-gray-400 -mt-3 mb-4">{tnaData.metadata.courseTitle}</p>
           )}

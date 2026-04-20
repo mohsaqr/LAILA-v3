@@ -486,7 +486,7 @@ export const Forum = () => {
     );
 
     return (
-      <div className="min-h-screen py-8" style={{ backgroundColor: colors.bg }}>
+      <div className="min-h-screen py-6 md:py-8" style={{ backgroundColor: colors.bg }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Breadcrumb navigation */}
           <div className="mb-6">
@@ -504,11 +504,11 @@ export const Forum = () => {
                   <User size={24} style={{ color: colors.textSecondary }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 mb-1">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {thread.isPinned && <Pin size={14} className="text-yellow-500" />}
                       {thread.isLocked && <Lock size={14} className="text-red-500" />}
-                      <h1 className="text-xl font-bold" style={{ color: colors.textPrimary }}>
+                      <h1 className="text-lg sm:text-xl font-bold" style={{ color: colors.textPrimary }}>
                         {thread.title}
                       </h1>
                     </div>
@@ -737,7 +737,7 @@ export const Forum = () => {
   );
 
   return (
-    <div className="min-h-screen py-8" style={{ backgroundColor: colors.bg }}>
+    <div className="min-h-screen py-6 md:py-8" style={{ backgroundColor: colors.bg }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb navigation */}
         <div className="mb-6">
@@ -745,9 +745,9 @@ export const Forum = () => {
         </div>
 
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 mb-6">
-          <div className="w-4/5 min-w-0">
-            <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-6">
+          <div className="w-full sm:w-4/5 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold" style={{ color: colors.textPrimary }}>
               {forum.title}
             </h1>
             {forum.description && (
@@ -793,7 +793,7 @@ export const Forum = () => {
                         <p className="text-sm line-clamp-2 mb-2" style={{ color: colors.textSecondary }}>
                           {thread.content.replace(/<[^>]*>/g, '')}
                         </p>
-                        <div className="flex items-center gap-4 text-xs" style={{ color: colors.textSecondary }}>
+                        <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: colors.textSecondary }}>
                           <span>{thread.author ? thread.author.fullname : t('anonymous')}</span>
                           <span>{formatDate(thread.createdAt)}</span>
                           <span className="flex items-center gap-1">
@@ -814,7 +814,7 @@ export const Forum = () => {
           </div>
         ) : (
           <Card>
-            <CardBody className="text-center py-12">
+            <CardBody className="text-center py-8 sm:py-12">
               <MessageSquare className="w-12 h-12 mx-auto mb-4" style={{ color: colors.textSecondary }} />
               <p style={{ color: colors.textPrimary }}>{t('no_discussions_yet')}</p>
               <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>

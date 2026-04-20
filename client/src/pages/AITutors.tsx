@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams, Link, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Menu, Heart, ArrowLeft, BookOpen, ChevronRight } from 'lucide-react';
+import { Menu, Heart, BookOpen, ChevronRight } from 'lucide-react';
 import { tutorsApi } from '../api/tutors';
 import { coursesApi } from '../api/courses';
 import { enrollmentsApi } from '../api/enrollments';
@@ -350,7 +350,7 @@ export const AITutors = () => {
   const selectorLoading = enrollmentsLoading;
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col relative" style={{ backgroundColor: bgColor }}>
+    <div className="h-[calc(100vh-8rem)] flex flex-col relative" style={{ backgroundColor: bgColor }}>
 
       {/* Course selection overlay — covers only this page content, not navbar/sidebar */}
       {showCourseSelector && (
@@ -415,24 +415,11 @@ export const AITutors = () => {
         </div>
       )}
 
-      {/* Course context breadcrumb */}
-      {courseIdFromUrl && (
-        <div className="flex-shrink-0 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <Link
-            to={`/courses/${courseIdFromUrl}`}
-            className="inline-flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            {t('back_to_course_button')}
-          </Link>
-        </div>
-      )}
-
       <div className="flex-1 flex relative min-h-0 overflow-hidden">
       {/* Mobile FAB to open sidebar (left) */}
       <button
         onClick={() => { setSidebarOpen(true); track('sidebar_toggled', { verb: 'interacted', objectType: 'tutor_agent', payload: { visible: true } }); }}
-        className="lg:hidden fixed bottom-6 left-6 z-20 w-14 h-14 bg-gradient-to-br from-primary-500 to-secondary-500 text-white rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-shadow"
+        className="lg:hidden fixed bottom-24 left-4 z-20 w-14 h-14 bg-gradient-to-br from-primary-500 to-secondary-500 text-white rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-shadow"
         aria-label="Open tutor list"
       >
         <Menu className="w-6 h-6" />
@@ -442,7 +429,7 @@ export const AITutors = () => {
       {selectedAgent && (
         <button
           onClick={() => setMobileHistoryOpen(true)}
-          className="lg:hidden fixed bottom-6 right-6 z-20 w-14 h-14 bg-gradient-to-br from-pink-500 to-rose-500 text-white rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-shadow"
+          className="lg:hidden fixed bottom-24 right-4 z-20 w-14 h-14 bg-gradient-to-br from-pink-500 to-rose-500 text-white rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-shadow"
           aria-label="Open emotional journey"
         >
           <Heart className="w-6 h-6" />

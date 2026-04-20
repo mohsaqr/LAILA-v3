@@ -248,7 +248,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus, initialUserId }
   return (
     <>
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardBody className="flex items-center gap-4 p-4">
             <div className="w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
@@ -655,7 +655,7 @@ export const InteractionsTab = ({ exportStatus, setExportStatus, initialUserId }
                       {expandedRows.has(log.id) && (
                         <tr className="bg-gray-50 dark:bg-gray-800/50">
                           <td colSpan={8} className="px-4 py-4">
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
                               {/* User Context */}
                               <div className="space-y-2">
                                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
@@ -770,11 +770,11 @@ export const InteractionsTab = ({ exportStatus, setExportStatus, initialUserId }
 
           {/* Pagination */}
           {pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-gray-200 dark:border-gray-700">
               <div className="text-sm text-gray-500 dark:text-gray-400">
                 {t('page_x_of_y', { page: pagination.page, total: pagination.totalPages })}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"

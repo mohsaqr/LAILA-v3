@@ -1,4 +1,5 @@
 import apiClient from '../api/client';
+import activityLogger from './activityLogger';
 
 // ============================================================================
 // TYPES
@@ -414,7 +415,11 @@ class AnalyticsService {
     };
     document.addEventListener('submit', this.submitHandler, { capture: true });
 
-    // Scroll depth tracking (throttled)
+    // Scroll depth tracking (throttled). We fire once per threshold crossed
+    // (25/50/75/100), not just when the rounded depth equals a threshold —
+    // otherwise fast scrolling that jumps e.g. 22 → 38 in a single handler
+    // tick would skip the 25% event entirely.
+    const SCROLL_THRESHOLDS = [25, 50, 75, 100];
     let scrollTimeout: number | null = null;
     let maxScrollDepth = 0;
     this.scrollHandler = () => {
@@ -423,20 +428,52 @@ class AnalyticsService {
         const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
         const scrollDepth = scrollHeight > 0 ? Math.round((window.scrollY / scrollHeight) * 100) : 0;
         if (scrollDepth > maxScrollDepth) {
+          const crossed = SCROLL_THRESHOLDS.filter(t => t > maxScrollDepth && t <= scrollDepth);
           maxScrollDepth = scrollDepth;
-          // Only track at 25%, 50%, 75%, 100% thresholds
-          if ([25, 50, 75, 100].includes(maxScrollDepth)) {
+          for (const threshold of crossed) {
             this.track({
               type: 'scroll',
               page: window.location.pathname,
               pageUrl: window.location.href,
               pageTitle: document.title,
-              action: `scroll_${maxScrollDepth}`,
+              action: `scroll_${threshold}`,
               category: 'engagement',
-              scrollDepth: maxScrollDepth,
+              scrollDepth: threshold,
               viewportWidth: window.innerWidth,
               viewportHeight: window.innerHeight,
             });
+            // Mirror to the activity log so the Activity Logs tab shows
+            // scroll progress on every page — not just lectures (which have
+            // their own richer logger in LectureView). Skip lecture routes
+            // to avoid duplicate rows.
+            const path = window.location.pathname;
+            const isStudentLectureRoute = /^\/courses\/\d+\/lectures\/\d+/.test(path);
+            if (!isStudentLectureRoute) {
+              // Pull course/module/lecture/section IDs out of the path (and
+              // ?courseId=N query for pages like /ai-tutors) so the activity
+              // log's Course Hierarchy column isn't left as dashes.
+              const courseMatch = path.match(/\/(?:teach\/)?courses\/(\d+)/);
+              const lectureMatch = path.match(/\/lectures\/(\d+)/);
+              const moduleMatch = path.match(/\/modules\/(\d+)/);
+              const sectionMatch = path.match(/\/sections\/(\d+)/);
+              const queryCourseIdRaw = new URLSearchParams(window.location.search).get('courseId');
+              const queryCourseId = queryCourseIdRaw && /^\d+$/.test(queryCourseIdRaw) ? parseInt(queryCourseIdRaw) : undefined;
+              const courseId = courseMatch ? parseInt(courseMatch[1]) : queryCourseId;
+              activityLogger.log({
+                verb: 'progressed',
+                objectType: 'page',
+                objectTitle: document.title || path,
+                progress: threshold,
+                // Threshold is baked into the subtype so that a fast scroll
+                // crossing multiple thresholds in the same 500ms dedupe
+                // window doesn't collapse 4 events into 1.
+                actionSubtype: `page.scroll_depth.${threshold}`,
+                courseId,
+                moduleId: moduleMatch ? parseInt(moduleMatch[1]) : undefined,
+                lectureId: lectureMatch ? parseInt(lectureMatch[1]) : undefined,
+                sectionId: sectionMatch ? parseInt(sectionMatch[1]) : undefined,
+              }).catch(() => {});
+            }
           }
         }
         scrollTimeout = null;

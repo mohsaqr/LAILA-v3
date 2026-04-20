@@ -80,7 +80,7 @@ export const AgentDatasets = () => {
   const courseName = assignment.course?.title || 'Course';
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       <div className="mb-6">
         <Breadcrumb
           items={[
@@ -95,7 +95,7 @@ export const AgentDatasets = () => {
 
       {/* Agent header card with Back button */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 mb-4">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-3 min-w-0">
             {config!.avatarImageUrl ? (
               <img

@@ -47,13 +47,13 @@ export const CourseLogs = () => {
   const breadcrumbItems = buildTeachingBreadcrumb(courseId, course?.title, t('navigation:logs'));
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       <div className="mb-6">
         <Breadcrumb homeHref="/" items={breadcrumbItems} />
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-2 mb-6 pb-4" style={{ borderBottom: `1px solid ${colors.border}` }}>
+      <div className="flex flex-wrap gap-2 mb-6 pb-4" style={{ borderBottom: `1px solid ${colors.border}` }}>
         {tabs.map((tab) => (
           <button
             key={tab.id}

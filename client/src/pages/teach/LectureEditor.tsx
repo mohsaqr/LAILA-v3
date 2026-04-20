@@ -188,8 +188,8 @@ export const LectureEditor = () => {
 
   if (!lecture) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('lesson_not_found')}</h1>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{t('lesson_not_found')}</h1>
         <Button onClick={() => navigate(`/teach/courses/${courseId}/curriculum`)}>
           {t('back_to_curriculum')}
         </Button>
@@ -202,7 +202,7 @@ export const LectureEditor = () => {
     : [];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Header with Breadcrumb */}
       <div className="flex items-center justify-between mb-6">
         <Breadcrumb
@@ -215,13 +215,13 @@ export const LectureEditor = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Lesson Title */}
           <Card>
             <CardHeader>
-              <h1 className="text-xl font-semibold text-gray-900">{t('edit_lesson')}</h1>
+              <h1 className="text-lg sm:text-xl font-semibold text-gray-900">{t('edit_lesson')}</h1>
             </CardHeader>
             <CardBody>
               <Input
@@ -236,9 +236,9 @@ export const LectureEditor = () => {
 
           {/* Sections */}
           <Card>
-            <CardHeader className="flex items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">{t('sections')}</h2>
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900">{t('sections')}</h2>
                 <p className="text-sm text-gray-500">
                   {t('add_organize_content')}
                 </p>

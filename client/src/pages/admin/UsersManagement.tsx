@@ -175,23 +175,23 @@ export const UsersManagement = () => {
   const breadcrumbItems = buildAdminBreadcrumb('Users');
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Breadcrumb navigation */}
       <div className="mb-6">
         <Breadcrumb items={breadcrumbItems} homeHref="/admin" />
       </div>
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6 md:mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">{t('users_management')}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('users_management')}</h1>
           <p className="text-gray-600 mt-1">{t('manage_user_accounts')}</p>
         </div>
       </div>
 
       {/* Stats */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6 md:mb-8">
           <Card>
             <CardBody className="text-center py-4">
               <Users className="w-6 h-6 text-blue-500 mx-auto mb-2" />
@@ -303,6 +303,7 @@ export const UsersManagement = () => {
             <Loading text={t('loading_users')} />
           ) : (
             <>
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
@@ -395,6 +396,7 @@ export const UsersManagement = () => {
                   ))}
                 </tbody>
               </table>
+              </div>
 
               {/* Pagination */}
               {data && data.pagination.totalPages > 1 && (
