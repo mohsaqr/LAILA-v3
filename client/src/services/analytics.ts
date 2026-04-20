@@ -1,4 +1,5 @@
 import apiClient from '../api/client';
+import activityLogger from './activityLogger';
 
 // ============================================================================
 // TYPES
@@ -437,6 +438,21 @@ class AnalyticsService {
               viewportWidth: window.innerWidth,
               viewportHeight: window.innerHeight,
             });
+            // Mirror to the activity log so the Activity Logs tab shows
+            // scroll progress on every page — not just lectures (which have
+            // their own richer logger in LectureView). Skip lecture routes
+            // to avoid duplicate rows.
+            const path = window.location.pathname;
+            const isStudentLectureRoute = /^\/courses\/\d+\/lectures\/\d+/.test(path);
+            if (!isStudentLectureRoute) {
+              activityLogger.log({
+                verb: 'progressed',
+                objectType: 'page',
+                objectTitle: document.title || path,
+                progress: maxScrollDepth,
+                actionSubtype: 'page.scroll_depth',
+              }).catch(() => {});
+            }
           }
         }
         scrollTimeout = null;

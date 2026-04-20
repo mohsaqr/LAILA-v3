@@ -22,6 +22,7 @@ const validObjectTypes = [
   'assignment_agent', 'agent_conversation',
   'lab', 'forum', 'certificate', 'survey', 'gradebook',
   'dashboard', 'profile', 'catalog', 'analytics',
+  'page',
 ] as const;
 
 const logActivitySchema = z.object({

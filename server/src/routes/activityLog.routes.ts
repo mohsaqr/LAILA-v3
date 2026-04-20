@@ -25,6 +25,7 @@ const validObjectTypes = [
   'dashboard', 'profile', 'catalog', 'analytics',
   'settings', 'calendar', 'enrollment', 'curriculum',
   'code_lab', 'ai_tool', 'prompt_block', 'user', 'submission',
+  'page',
 ] as const;
 
 // Validation schemas
