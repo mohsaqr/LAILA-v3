@@ -445,12 +445,26 @@ class AnalyticsService {
             const path = window.location.pathname;
             const isStudentLectureRoute = /^\/courses\/\d+\/lectures\/\d+/.test(path);
             if (!isStudentLectureRoute) {
+              // Pull course/module/lecture/section IDs out of the path (and
+              // ?courseId=N query for pages like /ai-tutors) so the activity
+              // log's Course Hierarchy column isn't left as dashes.
+              const courseMatch = path.match(/\/(?:teach\/)?courses\/(\d+)/);
+              const lectureMatch = path.match(/\/lectures\/(\d+)/);
+              const moduleMatch = path.match(/\/modules\/(\d+)/);
+              const sectionMatch = path.match(/\/sections\/(\d+)/);
+              const queryCourseIdRaw = new URLSearchParams(window.location.search).get('courseId');
+              const queryCourseId = queryCourseIdRaw && /^\d+$/.test(queryCourseIdRaw) ? parseInt(queryCourseIdRaw) : undefined;
+              const courseId = courseMatch ? parseInt(courseMatch[1]) : queryCourseId;
               activityLogger.log({
                 verb: 'progressed',
                 objectType: 'page',
                 objectTitle: document.title || path,
                 progress: maxScrollDepth,
                 actionSubtype: 'page.scroll_depth',
+                courseId,
+                moduleId: moduleMatch ? parseInt(moduleMatch[1]) : undefined,
+                lectureId: lectureMatch ? parseInt(lectureMatch[1]) : undefined,
+                sectionId: sectionMatch ? parseInt(sectionMatch[1]) : undefined,
               }).catch(() => {});
             }
           }
