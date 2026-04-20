@@ -217,7 +217,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
   return (
     <>
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardBody className="p-4">
             <div className="flex items-center gap-2">
@@ -747,7 +747,7 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
                           className="bg-gray-50 dark:bg-gray-800/50"
                         >
                           <td colSpan={10} className="px-4 py-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 text-sm">
                               {/* System Prompt */}
                               <div className="space-y-2">
                                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
@@ -1000,11 +1000,11 @@ export const ChatbotRegistryTab = ({ exportStatus, setExportStatus }: ChatbotReg
 
           {/* Pagination */}
           {pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-gray-200 dark:border-gray-700">
               <div className="text-sm text-gray-500 dark:text-gray-400">
                 {t('page_x_of_y', { page: pagination.page, total: pagination.totalPages })}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"

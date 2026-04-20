@@ -149,7 +149,7 @@ export const BatchEnrollment = () => {
         </Button>
       }
     >
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Upload Section */}
         <Card>
           <CardHeader>
@@ -354,7 +354,7 @@ export const BatchEnrollment = () => {
             </div>
 
             {/* Results Table */}
-            <div className="max-h-96 overflow-y-auto">
+            <div className="max-h-96 overflow-y-auto overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>

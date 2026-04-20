@@ -329,7 +329,7 @@ export const MessagesTab = ({ exportStatus, setExportStatus, initialUserId }: Me
         {/* Filters Panel */}
         {showFilters && (
           <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('start_date')}</label>
                 <input
@@ -509,11 +509,11 @@ export const MessagesTab = ({ exportStatus, setExportStatus, initialUserId }: Me
 
               {/* Pagination */}
               {messagesData?.pagination && messagesData.pagination.totalPages > 1 && (
-                <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-2">
                   <div className="text-sm text-gray-500 dark:text-gray-400">
                     {t('showing_messages_range', { start: ((messagesData.pagination.page - 1) * messagesData.pagination.limit) + 1, end: Math.min(messagesData.pagination.page * messagesData.pagination.limit, messagesData.pagination.total), total: messagesData.pagination.total })}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -580,7 +580,7 @@ const MessageDetailModal = ({ message, onClose }: MessageDetailModalProps) => {
 
         {/* Modal Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             {/* Left Column */}
             <div className="space-y-4">
               {/* Timing & Session */}

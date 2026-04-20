@@ -148,6 +148,7 @@ export const CategoriesPanel = () => {
         className="rounded-xl border overflow-hidden"
         style={{ borderColor: colors.border, background: colors.bg }}
       >
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr style={{ background: colors.bgHeader }}>
@@ -205,11 +206,12 @@ export const CategoriesPanel = () => {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mt-4">
           <p className="text-sm" style={{ color: colors.textSecondary }}>
             {t('page_of_pages', { page: safePage, total: totalPages })}
           </p>

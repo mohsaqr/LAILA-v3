@@ -444,7 +444,7 @@ const ChatbotLogDetailModal = ({ log, onClose, t }: ChatbotLogDetailModalProps) 
 
         {/* Modal Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             {/* Left Column */}
             <div className="space-y-4">
               {/* Timing */}
