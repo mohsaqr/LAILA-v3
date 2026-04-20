@@ -78,7 +78,7 @@ export const AgentSubmissionsList = () => {
   ).length;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Header */}
       <div className="mb-6">
         <Button
@@ -94,7 +94,7 @@ export const AgentSubmissionsList = () => {
       {/* Assignment Header */}
       <Card className="mb-6">
         <CardBody>
-          <div className="flex items-start justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <Bot className="w-5 h-5 text-violet-600" />
@@ -102,11 +102,11 @@ export const AgentSubmissionsList = () => {
                   {t('ai_agent_assignment')}
                 </span>
               </div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">{assignment.title}</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{assignment.title}</h1>
               {assignment.description && (
                 <p className="text-gray-600 mb-4">{assignment.description}</p>
               )}
-              <div className="flex items-center gap-6 text-sm">
+              <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-sm">
                 <div className="flex items-center gap-2 text-gray-500">
                   <Award className="w-4 h-4" />
                   <span>{t('x_points', { count: assignment.points })}</span>
@@ -136,7 +136,7 @@ export const AgentSubmissionsList = () => {
       {/* Submissions List */}
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900">
             {t('submissions_count', { count: submissions.length })}
           </h2>
         </CardHeader>
@@ -148,7 +148,7 @@ export const AgentSubmissionsList = () => {
                   key={config.id}
                   className="border border-gray-200 rounded-lg p-4"
                 >
-                  <div className="flex items-start justify-between mb-3">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
                         <User className="w-5 h-5 text-gray-500" />
@@ -171,7 +171,7 @@ export const AgentSubmissionsList = () => {
                   </div>
 
                   {/* Agent Info */}
-                  <div className="flex items-center gap-4 text-sm text-gray-600">
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm text-gray-600">
                     <div className="flex items-center gap-1.5">
                       <Bot className="w-4 h-4 text-violet-500" />
                       <span className="font-medium">{config.agentName}</span>

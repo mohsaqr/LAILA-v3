@@ -90,7 +90,7 @@ export const TestAndReflect = () => {
     : null;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       <div className="mb-6">
         <Breadcrumb
           items={[
@@ -120,7 +120,7 @@ export const TestAndReflect = () => {
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 truncate">
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 truncate">
                 {config!.agentName}
               </h1>
               {config!.agentTitle && (

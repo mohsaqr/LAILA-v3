@@ -154,7 +154,7 @@ export const AgentSubmissionReview = () => {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Breadcrumb */}
       <div className="mb-6">
         <Breadcrumb
@@ -183,7 +183,7 @@ export const AgentSubmissionReview = () => {
         <CardBody>
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
             <div>
-              <h1 className="text-xl font-bold text-gray-900 mb-1">
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900 mb-1">
                 {assignment.title}
               </h1>
               <div className="flex items-center gap-3 mb-4">
@@ -236,7 +236,7 @@ export const AgentSubmissionReview = () => {
 
       {/* Tabs */}
       <div className="border-b border-gray-200 mb-6">
-        <nav className="-mb-px flex gap-6 overflow-x-auto">
+        <nav className="-mb-px flex gap-4 sm:gap-6 overflow-x-auto">
           {tabs.map((tab) => {
             // "Test Agent" is not a local tab — clicking it navigates to a
             // dedicated full-screen instructor chat page so the testing
@@ -289,7 +289,7 @@ export const AgentSubmissionReview = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">{t('generated_datasets')}</h3>
+                <h3 className="text-base sm:text-lg font-semibold">{t('generated_datasets')}</h3>
                 {datasets.map((ds) => (
                   <div key={ds.id} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                     <div className="flex items-center justify-between mb-2">

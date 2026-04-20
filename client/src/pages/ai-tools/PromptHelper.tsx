@@ -117,7 +117,7 @@ export const PromptHelper = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Header */}
       <div className="mb-6">
         <Link to="/ai-tools">
@@ -132,7 +132,7 @@ export const PromptHelper = () => {
           <Wand2 className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t('prompt_engineering_helper')}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{t('prompt_engineering_helper')}</h1>
           <p className="text-gray-600">{t('prompt_helper_desc')}</p>
         </div>
       </div>
@@ -235,7 +235,7 @@ export const PromptHelper = () => {
             <h2 className="font-semibold text-gray-900">{t('pctft_tips')}</h2>
           </CardHeader>
           <CardBody>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 text-sm">
               <div className="p-3 bg-blue-50 rounded-lg">
                 <p className="font-semibold text-blue-700">{t('persona')}</p>
                 <p className="text-blue-600">{t('persona_desc')}</p>
