@@ -9,6 +9,7 @@ import {
   BrainCircuit,
   ChevronLeft,
   ChevronRight,
+  X,
   Activity,
   Network,
   FlaskConical,
@@ -38,7 +39,13 @@ interface NavItem {
   disabled?: boolean;
 }
 
-export const DashboardSidebar = () => {
+interface DashboardSidebarProps {
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+  isDesktop?: boolean;
+}
+
+export const DashboardSidebar = ({ mobileOpen = false, onMobileClose, isDesktop = true }: DashboardSidebarProps) => {
   const { t } = useTranslation(['navigation', 'common']);
   const location = useLocation();
   const { isDark } = useTheme();
@@ -178,85 +185,118 @@ export const DashboardSidebar = () => {
     return location.pathname.startsWith(path);
   };
 
+  // On mobile the sidebar always shows full labels — the desktop "collapsed"
+  // mode (icons only) doesn't make sense in a drawer the user only sees
+  // while it's open. Labels, close button, and wider panel are all gated on
+  // the `md:` breakpoint.
   return (
-    <aside
-      className="fixed left-0 top-20 h-[calc(100vh-5rem)] z-40 transition-all duration-300 border-r"
-      style={{
-        width: isCollapsed ? '64px' : '240px',
-        backgroundColor: colors.bg,
-        borderColor: colors.border,
-      }}
-    >
-      <nav className="flex flex-col h-full py-4">
-        {/* Nav Items */}
-        <div className="flex-1 space-y-1 px-2">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.path);
+    <>
+      {/* Mobile backdrop — click to dismiss. Hidden above md. */}
+      <div
+        className={`fixed inset-0 z-30 bg-black/50 md:hidden transition-opacity duration-200 ${
+          mobileOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={onMobileClose}
+        aria-hidden="true"
+      />
 
-            // Render disabled items as non-clickable divs
-            if (item.disabled) {
+      <aside
+        className={`fixed left-0 top-20 h-[calc(100vh-5rem)] z-40 border-r transition-transform duration-300 md:translate-x-0 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+        style={{
+          // Mobile: full labels in a 280px drawer; desktop: respect the collapsed state.
+          width: isDesktop ? (isCollapsed ? '64px' : '240px') : '280px',
+          backgroundColor: colors.bg,
+          borderColor: colors.border,
+        }}
+      >
+        <nav className="flex flex-col h-full py-4">
+          {/* Mobile close button */}
+          <div className="md:hidden px-2 pb-2 flex justify-end">
+            <button
+              onClick={onMobileClose}
+              className="p-2 rounded-lg"
+              style={{ color: colors.textSecondary }}
+              aria-label={t('common:close', { defaultValue: 'Close' })}
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Nav Items */}
+          <div className="flex-1 space-y-1 px-2 overflow-y-auto">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.path);
+              // Labels are always shown on mobile (isCollapsed only affects desktop).
+              const hideLabel = isDesktop && isCollapsed;
+
+              // Render disabled items as non-clickable divs
+              if (item.disabled) {
+                return (
+                  <div
+                    key={item.label}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-not-allowed opacity-50"
+                    style={{
+                      color: colors.textDisabled,
+                    }}
+                    title={hideLabel ? `${item.label} (${t('common:select_course_first')})` : t('common:select_course_first')}
+                  >
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    {!hideLabel && (
+                      <span className="font-medium text-sm truncate">{item.label}</span>
+                    )}
+                  </div>
+                );
+              }
+
               return (
-                <div
-                  key={item.label}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-not-allowed opacity-50"
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={onMobileClose}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group"
                   style={{
-                    color: colors.textDisabled,
+                    backgroundColor: active ? colors.bgActive : 'transparent',
+                    color: active ? colors.textActive : colors.textSecondary,
                   }}
-                  title={isCollapsed ? `${item.label} (${t('common:select_course_first')})` : t('common:select_course_first')}
+                  title={hideLabel ? item.label : undefined}
                 >
                   <Icon className="w-5 h-5 flex-shrink-0" />
-                  {!isCollapsed && (
+                  {!hideLabel && (
                     <span className="font-medium text-sm truncate">{item.label}</span>
                   )}
-                </div>
+                  {item.badge && !hideLabel && (
+                    <span className="ml-auto bg-primary-500 text-white text-xs px-2 py-0.5 rounded-full">
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
               );
-            }
+            })}
+          </div>
 
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group"
-                style={{
-                  backgroundColor: active ? colors.bgActive : 'transparent',
-                  color: active ? colors.textActive : colors.textSecondary,
-                }}
-                title={isCollapsed ? item.label : undefined}
-              >
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                {!isCollapsed && (
-                  <span className="font-medium text-sm truncate">{item.label}</span>
-                )}
-                {!isCollapsed && item.badge && (
-                  <span className="ml-auto bg-primary-500 text-white text-xs px-2 py-0.5 rounded-full">
-                    {item.badge}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* Collapse Button */}
-        <div className="px-2 pt-2 border-t" style={{ borderColor: colors.border }}>
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="flex items-center justify-center w-full px-3 py-2 rounded-lg transition-colors"
-            style={{ color: colors.textSecondary }}
-          >
-            {isCollapsed ? (
-              <ChevronRight className="w-5 h-5" />
-            ) : (
-              <>
-                <ChevronLeft className="w-5 h-5" />
-                <span className="ml-2 text-sm">{t('common:collapse')}</span>
-              </>
-            )}
-          </button>
-        </div>
-      </nav>
-    </aside>
+          {/* Collapse Button — desktop only, the mobile drawer just uses the close button. */}
+          <div className="hidden md:block px-2 pt-2 border-t" style={{ borderColor: colors.border }}>
+            <button
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="flex items-center justify-center w-full px-3 py-2 rounded-lg transition-colors"
+              style={{ color: colors.textSecondary }}
+            >
+              {isCollapsed ? (
+                <ChevronRight className="w-5 h-5" />
+              ) : (
+                <>
+                  <ChevronLeft className="w-5 h-5" />
+                  <span className="ml-2 text-sm">{t('common:collapse')}</span>
+                </>
+              )}
+            </button>
+          </div>
+        </nav>
+      </aside>
+    </>
   );
 };
 
