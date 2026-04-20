@@ -35,8 +35,9 @@ export const ForumItem = ({
   const threadCount = forum._count?.threads || 0;
 
   return (
-    <div className="flex items-center gap-3 p-3 bg-teal-50 rounded-lg hover:bg-teal-100 transition-colors">
-      <div className="flex items-center justify-center w-8 h-8 rounded bg-white border border-teal-200">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 bg-teal-50 rounded-lg hover:bg-teal-100 transition-colors">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+      <div className="flex items-center justify-center w-8 h-8 rounded bg-white border border-teal-200 flex-shrink-0">
         <MessageSquare className="w-4 h-4 text-teal-600" />
       </div>
 
@@ -45,7 +46,7 @@ export const ForumItem = ({
         <h4 className="text-sm font-medium text-gray-900 truncate">
           {forum.title}
         </h4>
-        <div className="flex items-center gap-2 text-xs text-gray-500">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
           <span className="text-teal-600 font-medium">{t('forum')}</span>
           <span>•</span>
           <span>{t('x_threads', { count: threadCount })}</span>
@@ -63,7 +64,9 @@ export const ForumItem = ({
           )}
         </div>
       </div>
+      </div>
 
+      <div className="flex items-center gap-1 flex-wrap justify-end sm:justify-start">
       {/* View Forum Button */}
       <Link
         to={`/course/${courseId}/forum/${forum.id}`}
@@ -110,6 +113,7 @@ export const ForumItem = ({
         >
           <Trash2 className="w-4 h-4 text-red-500" />
         </button>
+      </div>
       </div>
     </div>
   );

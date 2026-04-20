@@ -95,8 +95,9 @@ export const LectureItem = ({
 
   return (
     <div>
-    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-      <div className="flex items-center justify-center w-8 h-8 rounded bg-white border border-gray-200">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+      <div className="flex items-center justify-center w-8 h-8 rounded bg-white border border-gray-200 flex-shrink-0">
         {getIcon()}
       </div>
 
@@ -127,7 +128,9 @@ export const LectureItem = ({
           )}
         </div>
       </div>
+      </div>
 
+      <div className="flex items-center gap-1 flex-wrap justify-end sm:justify-start">
       {/* Manage Content Button - opens lesson editor */}
       <Link
         to={`/teach/courses/${courseId}/lectures/${lecture.id}`}
@@ -187,6 +190,7 @@ export const LectureItem = ({
         >
           <Trash2 className="w-4 h-4 text-red-500" />
         </button>
+      </div>
       </div>
     </div>
 

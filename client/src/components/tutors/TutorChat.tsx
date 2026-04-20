@@ -179,10 +179,10 @@ export const TutorChat = ({
     <div className="flex-1 flex flex-col min-h-0 min-w-0" style={{ backgroundColor: colors.bg }}>
       {/* Chat Header */}
       <div
-        className="flex items-center justify-between px-4 py-3 border-b"
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 px-4 py-3 border-b"
         style={{ borderColor: colors.borderLight }}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           {/* Show Team Chat avatar/name in collaborative/router mode */}
           {mode === 'collaborative' || mode === 'router' ? (
             <>
@@ -229,10 +229,10 @@ export const TutorChat = ({
             </>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           {/* Mode quick-switch buttons - only if allowed */}
           {allowModeSwitch && (
-            <div className="flex items-center gap-1 mr-2">
+            <div className="flex items-center gap-1 sm:mr-2">
               <button
                 onClick={() => onModeChange?.('manual')}
                 disabled={isLoading}

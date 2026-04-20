@@ -1024,20 +1024,20 @@ export const CurriculumEditor = () => {
         className="mb-6 p-4 rounded-xl"
         style={{ backgroundColor: isDark ? '#0f172a' : '#1e293b' }}
       >
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mb-3">
           <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">{t('course_management')}</h3>
           {course.activationCode && (
-            <div className="flex items-center gap-2">
-              <KeyRound className="w-4 h-4 text-amber-400" />
+            <div className="flex items-center gap-2 flex-wrap">
+              <KeyRound className="w-4 h-4 text-amber-400 flex-shrink-0" />
               <span className="text-xs text-slate-400">{t('activation_code')}:</span>
-              <code className="text-sm font-mono font-bold text-amber-300 bg-slate-700/50 px-2 py-0.5 rounded">{course.activationCode}</code>
+              <code className="text-sm font-mono font-bold text-amber-300 bg-slate-700/50 px-2 py-0.5 rounded break-all">{course.activationCode}</code>
               <button
                 type="button"
                 onClick={() => {
                   navigator.clipboard.writeText(course.activationCode!);
                   toast.success(t('code_copied'));
                 }}
-                className="p-1 rounded hover:bg-slate-700 transition-colors text-slate-400 hover:text-white"
+                className="p-1 rounded hover:bg-slate-700 transition-colors text-slate-400 hover:text-white flex-shrink-0"
                 title={t('copy_code')}
               >
                 <Copy className="w-4 h-4" />
@@ -1291,17 +1291,17 @@ export const CurriculumEditor = () => {
                 backgroundColor: isDark ? 'rgba(139, 92, 246, 0.1)' : 'rgba(139, 92, 246, 0.05)',
               }}
             >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div
                     className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
                     style={{ backgroundColor: isDark ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.15)' }}
                   >
                     <Bot className="w-5 h-5 text-violet-500" />
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                      {(course as any).collaborativeModuleName || 'Collaborative AI Module'}
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-gray-900 dark:text-white flex flex-wrap items-center gap-2">
+                      <span className="break-words">{(course as any).collaborativeModuleName || 'Collaborative AI Module'}</span>
                       <span
                         className="text-xs px-2 py-0.5 rounded-full"
                         style={{

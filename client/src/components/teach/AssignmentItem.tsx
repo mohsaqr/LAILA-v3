@@ -40,12 +40,13 @@ export const AssignmentItem = ({
   const isPastDue = dueDate && dueDate < new Date();
 
   return (
-    <div className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+    <div className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 rounded-lg transition-colors ${
       isAiAgent
         ? 'bg-purple-50 hover:bg-purple-100'
         : 'bg-amber-50 hover:bg-amber-100'
     }`}>
-      <div className={`flex items-center justify-center w-8 h-8 rounded bg-white border ${
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+      <div className={`flex items-center justify-center w-8 h-8 rounded bg-white border flex-shrink-0 ${
         isAiAgent ? 'border-purple-200' : 'border-amber-200'
       }`}>
         {isAiAgent ? (
@@ -60,7 +61,7 @@ export const AssignmentItem = ({
         <h4 className="text-sm font-medium text-gray-900 truncate">
           {assignment.title}
         </h4>
-        <div className="flex items-center gap-2 text-xs text-gray-500">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
           <span className={`font-medium ${isAiAgent ? 'text-purple-600' : 'text-amber-600'}`}>
             {isAiAgent ? t('ai_agent') : t('assignment')}
           </span>
@@ -91,7 +92,9 @@ export const AssignmentItem = ({
           )}
         </div>
       </div>
+      </div>
 
+      <div className="flex items-center gap-1 flex-wrap justify-end sm:justify-start">
       {/* View Submissions Button */}
       <Link
         to={`/teach/courses/${courseId}/assignments/${assignment.id}/submissions`}
@@ -148,6 +151,7 @@ export const AssignmentItem = ({
         >
           <Trash2 className="w-4 h-4 text-red-500" />
         </button>
+      </div>
       </div>
     </div>
   );

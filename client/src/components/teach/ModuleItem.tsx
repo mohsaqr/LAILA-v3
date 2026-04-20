@@ -336,10 +336,11 @@ export const ModuleItem = ({
   return (
     <div className="border border-gray-200 rounded-lg bg-white">
       {/* Module Header */}
-      <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-t-lg">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-gray-50 rounded-t-lg">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="p-1 rounded hover:bg-gray-200 transition-colors"
+          className="p-1 rounded hover:bg-gray-200 transition-colors flex-shrink-0"
         >
           {isExpanded ? (
             <ChevronDown className="w-5 h-5 text-gray-500" />
@@ -348,7 +349,7 @@ export const ModuleItem = ({
           )}
         </button>
 
-        <GripVertical className="w-5 h-5 text-gray-400" />
+        <GripVertical className="w-5 h-5 text-gray-400 hidden sm:block flex-shrink-0" />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
@@ -377,7 +378,9 @@ export const ModuleItem = ({
             {interactiveLabKeys.length > 0 && ` • ${t('x_interactive_labs', { count: interactiveLabKeys.length })}`}
           </span>
         </div>
+        </div>
 
+        <div className="flex items-center gap-1 flex-wrap justify-end sm:justify-start">
         {/* Reorder buttons */}
         <div className="flex items-center gap-1">
           <button
@@ -427,6 +430,7 @@ export const ModuleItem = ({
           >
             <Trash2 className="w-4 h-4 text-red-500" />
           </button>
+        </div>
         </div>
       </div>
 
@@ -534,8 +538,9 @@ export const ModuleItem = ({
               {labAssignments.map(labAssignment => (
                 <div
                   key={labAssignment.id}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800"
+                  className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 rounded-lg bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800"
                 >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
                   <Beaker className="w-5 h-5 text-teal-600 dark:text-teal-400 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -555,7 +560,8 @@ export const ModuleItem = ({
                       {t('x_templates', { count: labAssignment.lab?._count?.templates || labAssignment.lab?.templates?.length || 0 })}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1">
+                  </div>
+                  <div className="flex items-center gap-1 flex-wrap justify-end sm:justify-start">
                     <Link
                       to={`/labs/${labAssignment.labId}?courseId=${courseId}`}
                       className="p-1.5 rounded hover:bg-teal-100 dark:hover:bg-teal-800 transition-colors"
@@ -622,7 +628,7 @@ export const ModuleItem = ({
 
           {/* Quizzes */}
           {quizzes.length > 0 && (
-            <div className="pt-2 border-t border-gray-100 mt-2 grid grid-cols-2 gap-1.5">
+            <div className="pt-2 border-t border-gray-100 mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
               {quizzes.map(quiz => (
                 <div
                   key={quiz.id}
@@ -669,16 +675,18 @@ export const ModuleItem = ({
               {interactiveLabKeys.map(labKey => (
                 <div
                   key={labKey}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800"
+                  className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 rounded-lg bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800"
                 >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
                   <Network className="w-5 h-5 text-violet-600 dark:text-violet-400 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2">
                     <span className="font-medium text-gray-900 dark:text-white truncate">
                       {labKey === 'tna' ? t('interactive_lab_tna') : labKey === 'sna' ? t('interactive_lab_sna') : labKey}
                     </span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-800 text-violet-700 dark:text-violet-300 ml-2">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-800 text-violet-700 dark:text-violet-300">
                       {t('interactive')}
                     </span>
+                  </div>
                   </div>
                   {onRemoveInteractiveLab && (
                     <button
@@ -696,7 +704,7 @@ export const ModuleItem = ({
 
           {/* Surveys */}
           {moduleSurveys.length > 0 && (
-            <div className="pt-2 border-t border-gray-100 mt-2 grid grid-cols-2 gap-1.5">
+            <div className="pt-2 border-t border-gray-100 mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
               {moduleSurveys.map((ms: any) => (
                 <div
                   key={ms.id}

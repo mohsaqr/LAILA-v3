@@ -432,7 +432,7 @@ export const AITutors = () => {
       {/* Mobile FAB to open sidebar (left) */}
       <button
         onClick={() => { setSidebarOpen(true); track('sidebar_toggled', { verb: 'interacted', objectType: 'tutor_agent', payload: { visible: true } }); }}
-        className="lg:hidden fixed bottom-6 left-6 z-20 w-14 h-14 bg-gradient-to-br from-primary-500 to-secondary-500 text-white rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-shadow"
+        className="lg:hidden fixed bottom-24 left-4 z-20 w-14 h-14 bg-gradient-to-br from-primary-500 to-secondary-500 text-white rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-shadow"
         aria-label="Open tutor list"
       >
         <Menu className="w-6 h-6" />
@@ -442,7 +442,7 @@ export const AITutors = () => {
       {selectedAgent && (
         <button
           onClick={() => setMobileHistoryOpen(true)}
-          className="lg:hidden fixed bottom-6 right-6 z-20 w-14 h-14 bg-gradient-to-br from-pink-500 to-rose-500 text-white rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-shadow"
+          className="lg:hidden fixed bottom-24 right-4 z-20 w-14 h-14 bg-gradient-to-br from-pink-500 to-rose-500 text-white rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-shadow"
           aria-label="Open emotional journey"
         >
           <Heart className="w-6 h-6" />
