@@ -109,32 +109,32 @@ export const AITools = () => {
 
   return (
     <div className="min-h-screen gradient-bg">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         {/* Header */}
-        <div className="text-center text-white mb-12">
+        <div className="text-center text-white mb-8 md:mb-12">
           <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <BrainCircuit className="w-10 h-10" />
           </div>
-          <h1 className="text-4xl font-bold mb-4">{t('ai_research_tools')}</h1>
-          <p className="text-xl text-white/90 max-w-2xl mx-auto">
+          <h1 className="text-3xl sm:text-4xl font-bold mb-4">{t('ai_research_tools')}</h1>
+          <p className="text-lg sm:text-xl text-white/90 max-w-2xl mx-auto">
             {t('ai_tools_description')}
           </p>
         </div>
 
         {/* Tools Grid */}
-        <div className="grid md:grid-cols-2 gap-6 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-10 md:mb-16">
           {tools.map(tool => {
             const Icon = tool.icon;
             return (
               <Link key={tool.id} to={tool.path}>
                 <Card hover className="h-full relative overflow-hidden">
                   <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${tool.gradient}`} />
-                  <CardBody className="p-8">
+                  <CardBody className="p-6 md:p-8">
                     <div className={`w-16 h-16 rounded-2xl bg-gradient-to-r ${tool.gradient} flex items-center justify-center mb-6`}>
                       <Icon className="w-8 h-8 text-white" />
                     </div>
 
-                    <h2 className="text-xl font-bold mb-3" style={{ color: colors.textPrimary }}>{tool.name}</h2>
+                    <h2 className="text-lg sm:text-xl font-bold mb-3" style={{ color: colors.textPrimary }}>{tool.name}</h2>
                     <p className="mb-6" style={{ color: colors.textSecondary }}>{tool.description}</p>
 
                     <ul className="space-y-2 mb-6">
@@ -162,15 +162,15 @@ export const AITools = () => {
         </div>
 
         {/* How It Works Section */}
-        <div className="text-center text-white mb-8">
+        <div className="text-center text-white mb-6 md:mb-8">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Lightbulb className="w-6 h-6" />
-            <h2 className="text-2xl font-bold">{t('how_it_works')}</h2>
+            <h2 className="text-xl sm:text-2xl font-bold">{t('how_it_works')}</h2>
           </div>
           <p className="text-white/80">{t('ai_tools_description')}</p>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {infoCards.map((card, idx) => {
             const Icon = card.icon;
             return (

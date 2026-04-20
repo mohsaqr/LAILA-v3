@@ -417,7 +417,7 @@ export const TnaExercise = () => {
   /* ── Render ── */
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
 
         {/* Breadcrumb */}
         {courseId && (
@@ -437,10 +437,10 @@ export const TnaExercise = () => {
         {tnaAssignment ? (
           <Card className="mb-6">
             <CardBody>
-              <div className="flex items-start justify-between mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-4">
                 <div>
                   <p className="text-sm mb-1 text-gray-500 dark:text-gray-400">{course?.title}</p>
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{tnaAssignment.title}</h1>
+                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{tnaAssignment.title}</h1>
                 </div>
                 {isGraded ? (
                   <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400">
@@ -502,7 +502,7 @@ export const TnaExercise = () => {
             </CardBody>
           </Card>
         ) : (
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center">
                 <Network className="w-4.5 h-4.5 text-white" />

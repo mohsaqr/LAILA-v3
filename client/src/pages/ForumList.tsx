@@ -51,14 +51,14 @@ export const ForumList = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Breadcrumb navigation */}
       <div className="mb-6">
         <Breadcrumb items={[{ label: t('forums') }]} />
       </div>
 
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>
           {t('discussion_forums')}
         </h1>
         <p className="mt-2" style={{ color: colors.textSecondary }}>
@@ -68,7 +68,7 @@ export const ForumList = () => {
 
       {!forums || forums.length === 0 ? (
         <Card>
-          <CardBody className="text-center py-12">
+          <CardBody className="text-center py-8 sm:py-12">
             <MessageSquare className="w-12 h-12 mx-auto mb-4" style={{ color: colors.textSecondary }} />
             <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>
               {t('no_forums_available')}
@@ -87,7 +87,7 @@ export const ForumList = () => {
               className="block"
             >
               <Card className="hover:shadow-lg transition-shadow">
-                <CardBody className="flex items-center gap-4">
+                <CardBody className="flex flex-col sm:flex-row sm:items-center gap-4">
                   {/* Icon */}
                   <div
                     className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -97,7 +97,7 @@ export const ForumList = () => {
                   </div>
 
                   {/* Description — 3/5 */}
-                  <div className="w-3/5 min-w-0">
+                  <div className="w-full sm:w-3/5 min-w-0">
                     <h3 className="font-semibold" style={{ color: colors.textPrimary }}>
                       {forum.title}
                     </h3>
@@ -112,7 +112,7 @@ export const ForumList = () => {
                   </div>
 
                   {/* Stats — 2/5 */}
-                  <div className="w-2/5 flex items-center justify-end gap-6">
+                  <div className="w-full sm:w-2/5 flex items-center justify-start sm:justify-end gap-4 sm:gap-6 flex-wrap">
                     <div className="flex items-center gap-1.5" style={{ color: colors.textSecondary }}>
                       <Users className="w-4 h-4 flex-shrink-0" />
                       <span className="text-sm whitespace-nowrap">{t('n_threads', { count: forum.threadCount })}</span>

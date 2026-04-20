@@ -196,7 +196,7 @@ export const LectureView = () => {
             {section.title && (
               <div className="flex items-center gap-2 mb-4">
                 {section.type === 'ai-generated' && <Sparkles className="w-5 h-5" style={{ color: colors.textTeal }} />}
-                <h2 className="text-xl font-semibold" style={{ color: colors.textPrimary }}>
+                <h2 className="text-lg sm:text-xl font-semibold" style={{ color: colors.textPrimary }}>
                   {section.title}
                 </h2>
               </div>
@@ -248,7 +248,7 @@ export const LectureView = () => {
         return (
           <div key={section.id} className="mb-8">
             {section.title && (
-              <h2 className="text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>
+              <h2 className="text-lg sm:text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>
                 {section.title}
               </h2>
             )}
@@ -286,7 +286,7 @@ export const LectureView = () => {
         return (
           <div key={section.id} className="mb-8">
             {section.title && (
-              <h2 className="text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>
+              <h2 className="text-lg sm:text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>
                 {section.title}
               </h2>
             )}
@@ -313,7 +313,7 @@ export const LectureView = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Breadcrumb */}
       <div className="mb-6">
         <Breadcrumb
@@ -330,8 +330,8 @@ export const LectureView = () => {
       <div>
         <Card>
           {/* Lecture Header */}
-          <div className="px-6 py-4" style={{ borderBottom: `1px solid ${colors.borderLight}`, backgroundColor: colors.bgHeader }}>
-            <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{lecture.title}</h1>
+          <div className="px-4 sm:px-6 py-4" style={{ borderBottom: `1px solid ${colors.borderLight}`, backgroundColor: colors.bgHeader }}>
+            <h1 className="text-xl sm:text-2xl font-bold" style={{ color: colors.textPrimary }}>{lecture.title}</h1>
             {lecture.duration && (
               <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
                 {t('n_minutes', { count: lecture.duration })}
@@ -339,7 +339,7 @@ export const LectureView = () => {
             )}
           </div>
 
-          <CardBody className="py-6 px-6">
+          <CardBody className="py-6 px-4 sm:px-6">
             {/* Video content */}
             {lecture.videoUrl && (
               <div className="mb-8 aspect-video bg-black rounded-lg overflow-hidden">
@@ -441,7 +441,7 @@ export const LectureView = () => {
         </div>
 
         {/* Navigation buttons */}
-        <div className="mt-6 flex items-center justify-between">
+        <div className="mt-6 flex items-center justify-between gap-3 flex-wrap">
           {prevLecture ? (
             <Link
               to={`/courses/${courseId}/lectures/${prevLecture.id}`}

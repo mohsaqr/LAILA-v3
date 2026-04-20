@@ -247,7 +247,7 @@ export const StudentGradebook = () => {
   const sortedAssignments = sortAssignments(publishedAssignments);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ minHeight: '100vh' }}>
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8" style={{ minHeight: '100vh' }}>
       {/* Breadcrumb */}
       <div className="mb-6">
         <Breadcrumb
@@ -259,14 +259,14 @@ export const StudentGradebook = () => {
         />
       </div>
 
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2" style={{ color: colors.textPrimary }}>{t('my_grades')}</h1>
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2" style={{ color: colors.textPrimary }}>{t('my_grades')}</h1>
         <p style={{ color: colors.textSecondary }}>{course?.title}</p>
       </div>
 
       {/* Overall Grade Summary */}
       <Card
-        className="mb-8"
+        className="mb-6 md:mb-8"
         style={{
           backgroundColor: colors.bgSummary,
           borderColor: colors.borderSummary,
@@ -306,7 +306,7 @@ export const StudentGradebook = () => {
       {/* My Learning Analytics Link */}
       <Link
         to={`/courses/${courseId}/analytics`}
-        className="mb-8 flex items-center gap-3 p-4 rounded-xl transition-all hover:shadow-md"
+        className="mb-6 md:mb-8 flex items-center gap-3 p-4 rounded-xl transition-all hover:shadow-md"
         style={{
           backgroundColor: colors.bgPurple,
           border: `1px solid ${isDark ? 'rgba(139, 92, 246, 0.3)' : '#ddd6fe'}`,
@@ -353,7 +353,7 @@ export const StudentGradebook = () => {
           <h2 className="text-lg font-semibold mb-3" style={{ color: colors.textPrimary }}>
             {t('assignments')}
           </h2>
-          <div className="space-y-4 mb-8">
+          <div className="space-y-4 mb-6 md:mb-8">
             {sortedAssignments.map(assignment => (
               <AssignmentGradeCard
                 key={assignment.id}
@@ -373,7 +373,7 @@ export const StudentGradebook = () => {
           <h2 className="text-lg font-semibold mb-3" style={{ color: colors.textPrimary }}>
             {t('quizzes')}
           </h2>
-          <div className="space-y-4 mb-8">
+          <div className="space-y-4 mb-6 md:mb-8">
             {courseQuizzes.map(quiz => (
               <QuizGradeCard
                 key={quiz.id}
@@ -388,7 +388,7 @@ export const StudentGradebook = () => {
 
       {sortedAssignments.length === 0 && courseQuizzes.length === 0 && (
         <Card>
-          <CardBody className="text-center py-12">
+          <CardBody className="text-center py-8 sm:py-12">
             <FileText className="w-16 h-16 mx-auto mb-4" style={{ color: colors.textMuted }} />
             <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>{t('no_assignments_yet')}</h3>
             <p style={{ color: colors.textSecondary }}>{t('check_back_later_assignments')}</p>

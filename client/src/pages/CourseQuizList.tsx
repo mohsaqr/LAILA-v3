@@ -96,14 +96,14 @@ export const CourseQuizList = () => {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Breadcrumb navigation */}
       <div className="mb-6">
         <Breadcrumb items={breadcrumbItems} />
       </div>
 
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>
           {t('course_quizzes')}
         </h1>
         {course && (
@@ -115,7 +115,7 @@ export const CourseQuizList = () => {
 
       {!quizzes || quizzes.length === 0 ? (
         <Card>
-          <CardBody className="text-center py-12">
+          <CardBody className="text-center py-8 sm:py-12">
             <FileQuestion className="w-12 h-12 mx-auto mb-4" style={{ color: colors.textSecondary }} />
             <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>
               {t('no_quizzes_available')}
@@ -139,7 +139,7 @@ export const CourseQuizList = () => {
                 className="block"
               >
                 <Card className="hover:shadow-lg transition-shadow">
-                  <CardBody className="flex items-center justify-between">
+                  <CardBody className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                     <div className="flex items-center gap-4">
                       <div
                         className="w-12 h-12 rounded-lg flex items-center justify-center"
@@ -158,7 +158,7 @@ export const CourseQuizList = () => {
                             dangerouslySetInnerHTML={{ __html: sanitizeHtml(quiz.description) }}
                           />
                         )}
-                        <div className="flex items-center gap-4 mt-2">
+                        <div className="flex items-center gap-4 mt-2 flex-wrap">
                           <span className="text-sm" style={{ color: colors.textSecondary }}>
                             {t('x_questions', { count: quiz._count?.questions || 0 })}
                           </span>
@@ -174,7 +174,7 @@ export const CourseQuizList = () => {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 flex-wrap">
                       <div className="flex items-center gap-2">
                         {quizStatus.status === 'passed' ? (
                           <CheckCircle className="w-5 h-5" style={{ color: quizStatus.color }} />

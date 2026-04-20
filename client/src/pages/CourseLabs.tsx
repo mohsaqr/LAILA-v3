@@ -52,7 +52,7 @@ export const CourseLabs = () => {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: isDark ? '#111827' : '#f3f4f6' }}>
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
 
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
@@ -66,7 +66,7 @@ export const CourseLabs = () => {
             <FlaskConical className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
               {t('course_interactive_labs')}
             </h1>
             {course && (
@@ -80,7 +80,7 @@ export const CourseLabs = () => {
         </p>
 
         {/* Lab Cards */}
-        <div className="grid sm:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
           {labs.map(lab => {
             const Icon = lab.icon;
             return (

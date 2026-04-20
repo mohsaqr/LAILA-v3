@@ -66,19 +66,19 @@ export const Dashboard = () => {
     <div className="min-h-screen" style={{ backgroundColor: colors.bg }}>
       {/* Hero Banner */}
       <div className="bg-gradient-to-br from-primary-600 via-primary-700 to-secondary-600 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-6 lg:gap-8">
             <div className="flex-1">
-              <h1 className="text-3xl lg:text-4xl font-bold mb-3">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3">
                 {t('welcome_back', { name: user?.fullname?.split(' ')[0] })}
               </h1>
-              <p className="text-white/80 text-lg mb-6">
+              <p className="text-white/80 text-base sm:text-lg mb-6">
                 {t('explore_description')}
               </p>
               <div className="flex flex-wrap gap-3">
                 <Link
                   to="/catalog"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-primary-700 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+                  className="inline-flex items-center gap-2 px-4 sm:px-5 py-2.5 bg-white text-primary-700 rounded-lg font-medium hover:bg-gray-100 transition-colors text-sm sm:text-base"
                 >
                   <Sparkles className="w-5 h-5" />
                   {t('explore_courses')}
@@ -86,7 +86,7 @@ export const Dashboard = () => {
                 {isInstructor && (
                   <Link
                     to="/ai-tools"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/20 text-white rounded-lg font-medium hover:bg-white/30 transition-colors"
+                    className="inline-flex items-center gap-2 px-4 sm:px-5 py-2.5 bg-white/20 text-white rounded-lg font-medium hover:bg-white/30 transition-colors text-sm sm:text-base"
                   >
                     <BrainCircuit className="w-5 h-5" />
                     {t('ai_tools')}
@@ -110,11 +110,11 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
         {/* Quick Actions Grid */}
-        <div className="mb-10">
-          <h2 className="text-xl font-bold mb-4" style={{ color: colors.textPrimary }}>{t('quick_actions')}</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="mb-6 md:mb-10">
+          <h2 className="text-lg sm:text-xl font-bold mb-3 md:mb-4" style={{ color: colors.textPrimary }}>{t('quick_actions')}</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             <Link to="/catalog">
               <Card hover className="h-full">
                 <CardBody className="text-center py-6">
@@ -202,9 +202,9 @@ export const Dashboard = () => {
 
         {/* Instructor Teaching Overview */}
         {isInstructor && instructorStats && (
-          <div className="mb-10">
-            <h2 className="text-xl font-bold mb-4" style={{ color: colors.textPrimary }}>{t('teaching_overview')}</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="mb-6 md:mb-10">
+            <h2 className="text-lg sm:text-xl font-bold mb-3 md:mb-4" style={{ color: colors.textPrimary }}>{t('teaching_overview')}</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
               <Link to="/teach">
                 <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 hover:shadow-md transition-shadow cursor-pointer">
                   <CardBody className="flex items-center gap-4 py-5">
@@ -260,8 +260,8 @@ export const Dashboard = () => {
 
         {/* Stats Section - Bottom */}
         <div>
-          <h2 className="text-xl font-bold mb-4" style={{ color: colors.textPrimary }}>{t('your_progress')}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <h2 className="text-lg sm:text-xl font-bold mb-3 md:mb-4" style={{ color: colors.textPrimary }}>{t('your_progress')}</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
             <Link to="/courses?filter=enrolled">
               <Card hover>
                 <CardBody className="text-center py-5">

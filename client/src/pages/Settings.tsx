@@ -196,8 +196,8 @@ export const Settings = () => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold mb-8" style={{ color: colors.textPrimary }}>{t('settings')}</h1>
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6 md:mb-8" style={{ color: colors.textPrimary }}>{t('settings')}</h1>
 
       <div className="space-y-6">
         {/* In-App Notifications */}
@@ -329,7 +329,7 @@ export const Settings = () => {
             </h2>
           </CardHeader>
           <CardBody>
-            <div className="flex items-center justify-between py-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 py-3">
               <div>
                 <p className="font-medium" style={{ color: colors.textPrimary }}>{t('language')}</p>
                 <p className="text-sm" style={{ color: colors.textSecondary }}>{t('language_description')}</p>
@@ -379,7 +379,7 @@ export const Settings = () => {
             <h2 className="text-lg font-semibold text-red-600">{t('danger_zone')}</h2>
           </CardHeader>
           <CardBody>
-            <div className="flex items-center justify-between py-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 py-3">
               <div>
                 <p className="font-medium" style={{ color: colors.textPrimary }}>{t('delete_account')}</p>
                 <p className="text-sm" style={{ color: colors.textSecondary }}>
@@ -391,7 +391,7 @@ export const Settings = () => {
               </Button>
             </div>
             <div
-              className="flex items-center justify-between py-3 border-t"
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 py-3 border-t"
               style={{ borderColor: colors.border }}
             >
               <div>

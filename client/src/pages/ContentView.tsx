@@ -139,7 +139,7 @@ export const ContentView = () => {
     <div className="min-h-screen" style={{ backgroundColor: colors.bg }}>
       {/* Header with Breadcrumb */}
       <div className="sticky top-0 z-10" style={{ backgroundColor: colors.bgCard, borderBottom: `1px solid ${colors.border}` }}>
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-4">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-4">
           <button
             onClick={handleBack}
             className="p-2 rounded-lg transition-colors flex-shrink-0"
@@ -153,17 +153,17 @@ export const ContentView = () => {
       </div>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
         <Card>
           {title && (
-            <div className="px-6 py-4" style={{ borderBottom: `1px solid ${colors.borderLight}`, backgroundColor: colors.bgHeader }}>
+            <div className="px-4 sm:px-6 py-4" style={{ borderBottom: `1px solid ${colors.borderLight}`, backgroundColor: colors.bgHeader }}>
               <div className="flex items-center gap-2">
                 {contentType === 'ai-generated' && <Sparkles className="w-5 h-5 text-purple-500" />}
-                <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{title}</h1>
+                <h1 className="text-xl sm:text-2xl font-bold" style={{ color: colors.textPrimary }}>{title}</h1>
               </div>
             </div>
           )}
-          <CardBody className="py-6">
+          <CardBody className="py-6 px-4 sm:px-6">
             <TrackedContent context="content" objectId={id ? parseInt(id, 10) : undefined} objectTitle={title} courseId={passedCourseId}>
               <div
                 className="prose max-w-none"

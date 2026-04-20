@@ -99,7 +99,7 @@ export const QuizResults = () => {
   };
 
   return (
-    <div className="min-h-screen py-8" style={{ backgroundColor: colors.bg }}>
+    <div className="min-h-screen py-6 md:py-8" style={{ backgroundColor: colors.bg }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb navigation */}
         <div className="mb-6">
@@ -107,7 +107,7 @@ export const QuizResults = () => {
         </div>
 
         {/* Summary Card */}
-        <Card className="mb-8">
+        <Card className="mb-6 md:mb-8">
           <CardBody>
             <div className="text-center">
               <div
@@ -122,7 +122,7 @@ export const QuizResults = () => {
                 )}
               </div>
 
-              <h1 className="text-2xl font-bold mb-2" style={{ color: colors.textPrimary }}>
+              <h1 className="text-xl sm:text-2xl font-bold mb-2" style={{ color: colors.textPrimary }}>
                 {quiz.title}
               </h1>
 
@@ -181,7 +181,7 @@ export const QuizResults = () => {
         </Card>
 
         {/* Question Results */}
-        <h2 className="text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>
+        <h2 className="text-lg sm:text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>
           {t('question_review')}
         </h2>
 
@@ -257,7 +257,7 @@ export const QuizResults = () => {
         </div>
 
         {/* Actions */}
-        <div className="mt-8 flex justify-center gap-4">
+        <div className="mt-6 md:mt-8 flex justify-center gap-4 flex-wrap">
           <Button variant="secondary" onClick={() => navigate(`/courses/${courseId}`)}>
             {t('return_to_course')}
           </Button>

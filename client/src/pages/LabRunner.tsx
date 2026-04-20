@@ -255,13 +255,13 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 flex items-center justify-center">
               <FlaskConical className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold" style={{ color: colors.textPrimary }}>
+              <h1 className="text-lg sm:text-xl font-bold" style={{ color: colors.textPrimary }}>
                 {lab.name}
               </h1>
               {lab.description && (
@@ -272,7 +272,7 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2 text-sm">
               <span
                 className={`w-2 h-2 rounded-full ${
@@ -368,7 +368,7 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
         )}
 
         {/* Main Content */}
-        <div className="grid lg:grid-cols-4 gap-6" ref={labContentRef}>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6" ref={labContentRef}>
           <div className="lg:col-span-1">
             <LabTemplates
               templates={lab.templates || []}

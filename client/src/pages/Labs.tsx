@@ -85,16 +85,16 @@ export const Labs = () => {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: isDark ? '#111827' : '#f3f4f6' }}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
         {/* Breadcrumb */}
         <div className="mb-6">
           <Breadcrumb items={[{ label: t('labs_title') }]} />
         </div>
 
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6 md:mb-8">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3" style={{ color: colors.textPrimary }}>
+            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3" style={{ color: colors.textPrimary }}>
               <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 flex items-center justify-center">
                 <FlaskConical className="w-6 h-6 text-white" />
               </div>
@@ -116,8 +116,8 @@ export const Labs = () => {
         </div>
 
         {/* ── Interactive Labs ── */}
-        <div className="mb-10">
-          <h2 className="text-xl font-bold mb-1 flex items-center gap-2" style={{ color: colors.textPrimary }}>
+        <div className="mb-6 md:mb-10">
+          <h2 className="text-lg sm:text-xl font-bold mb-1 flex items-center gap-2" style={{ color: colors.textPrimary }}>
             <Network className="w-5 h-5 text-blue-500" />
             {t('interactive_labs')}
           </h2>
@@ -125,7 +125,7 @@ export const Labs = () => {
             {t('interactive_labs_desc')}
           </p>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             <Card hover className="cursor-pointer relative overflow-hidden" onClick={() => navigate('/labs/tna-exercise')}>
               <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-indigo-600" />
               <CardBody className="p-6">
@@ -187,8 +187,8 @@ export const Labs = () => {
         </div>
 
         {/* ── R Labs ── */}
-        <div className="mb-10">
-          <h2 className="text-xl font-bold mb-1 flex items-center gap-2" style={{ color: colors.textPrimary }}>
+        <div className="mb-6 md:mb-10">
+          <h2 className="text-lg sm:text-xl font-bold mb-1 flex items-center gap-2" style={{ color: colors.textPrimary }}>
             <Code className="w-5 h-5 text-emerald-500" />
             {t('r_labs')}
           </h2>
@@ -247,7 +247,7 @@ export const Labs = () => {
           {labsLoading ? (
             <Loading text={t('loading_labs')} />
           ) : labs && labs.length > 0 ? (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
               {labs.map((lab: CustomLab) => {
                 const config = getLabConfig(lab.labType);
                 const Icon = config.icon;
@@ -298,7 +298,7 @@ export const Labs = () => {
                         </p>
                       )}
 
-                      <div className="flex items-center gap-4 text-sm mb-4" style={{ color: colors.textSecondary }}>
+                      <div className="flex items-center gap-4 text-sm mb-4 flex-wrap" style={{ color: colors.textSecondary }}>
                         <span className="flex items-center gap-1">
                           <Code className="w-4 h-4" />
                           {t('n_templates', { count: lab._count?.templates || 0 })}

@@ -57,7 +57,7 @@ export const SurveyStandalone = () => {
       className="min-h-screen"
       style={{ backgroundColor: isDark ? '#111827' : '#f9fafb' }}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
         {(courseId || survey) && (
           <div className="mb-6">
             <Breadcrumb

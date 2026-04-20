@@ -52,14 +52,14 @@ export const CertificateList = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Breadcrumb navigation */}
       <div className="mb-6">
         <Breadcrumb items={[{ label: t('certificates') }]} />
       </div>
 
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>
           {t('my_certificates')}
         </h1>
         <p className="mt-2" style={{ color: colors.textSecondary }}>
@@ -69,7 +69,7 @@ export const CertificateList = () => {
 
       {!certificates || certificates.length === 0 ? (
         <Card>
-          <CardBody className="text-center py-12">
+          <CardBody className="text-center py-8 sm:py-12">
             <Award className="w-12 h-12 mx-auto mb-4" style={{ color: colors.gold }} />
             <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>
               {t('no_certificates_yet')}
@@ -83,7 +83,7 @@ export const CertificateList = () => {
           </CardBody>
         </Card>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2">
           {certificates.map((cert) => (
             <Card key={cert.id} className="overflow-hidden">
               <div
