@@ -162,6 +162,7 @@ export class AgentAssignmentService {
         instructions: assignment.instructions,
         agentRequirements: assignment.agentRequirements,
         dueDate: assignment.dueDate,
+        gracePeriodDeadline: assignment.gracePeriodDeadline,
         points: assignment.points,
         course: assignment.course,
       },
