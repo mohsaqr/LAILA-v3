@@ -58,6 +58,7 @@ const PAGES_WITH_OWN_BREADCRUMBS = [
   /^\/teach\/courses\/\d+\/code-labs/,
   /^\/teach\/courses\/\d+\/logs/,
   /^\/teach\/courses\/\d+\/analytics/,
+  /^\/teach\/courses\/\d+\/students/,
   /^\/courses\/\d+$/,
   /^\/courses\/\d+\/lectures\//,
   /^\/courses\/\d+\/assignments$/,

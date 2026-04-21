@@ -90,7 +90,11 @@ router.get('/courses/:courseId/enrollments', requireInstructor, asyncHandler(asy
   }
 
   const result = await enrollmentManagementService.getCourseEnrollments(courseId, page, limit, search);
-  res.json({ success: true, ...result });
+  // Wrap under `data` so the client's `ApiResponse<{course, enrollments, pagination}>`
+  // unwrap (`response.data.data`) finds the result. The spread form returned
+  // {success, course, enrollments, pagination} at top level, leaving
+  // response.data.data undefined → enrollments defaulted to [].
+  res.json({ success: true, data: result });
 }));
 
 // Add user to course by email

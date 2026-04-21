@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -6,9 +6,10 @@ import { toast } from 'react-hot-toast';
 import {
   Activity as ActivityIcon,
   BarChart3,
+  ChevronLeft,
+  ChevronRight,
   Search,
   Trash2,
-  UserPlus,
   Users,
 } from 'lucide-react';
 import { coursesApi } from '../../api/courses';
@@ -20,12 +21,9 @@ import { Card, CardBody } from '../../components/common/Card';
 import { EmptyState } from '../../components/common/EmptyState';
 import { Loading } from '../../components/common/Loading';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
-import { AddToTeamModal } from '../../components/teach/AddToTeamModal';
 import type { ManagedEnrollment } from '../../types';
 
 const PAGE_SIZE = 20;
-
-type StatusFilter = 'all' | 'active' | 'completed' | 'dropped';
 
 const formatDate = (iso: string | null | undefined) =>
   iso
@@ -35,6 +33,25 @@ const formatDate = (iso: string | null | undefined) =>
         day: 'numeric',
       })
     : '-';
+
+/**
+ * Return the set of page numbers to show in the pagination bar. For short
+ * lists we show every page; for longer lists we collapse the middle with
+ * ellipses so the footer never grows wider than the card.
+ */
+const getPageNumbers = (current: number, total: number): (number | 'dots')[] => {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const pages: (number | 'dots')[] = [1];
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  if (start > 2) pages.push('dots');
+  for (let i = start; i <= end; i++) pages.push(i);
+  if (end < total - 1) pages.push('dots');
+  pages.push(total);
+  return pages;
+};
 
 export const CourseStudents = () => {
   const { courseId: courseIdParam } = useParams();
@@ -46,9 +63,7 @@ export const CourseStudents = () => {
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [unenrollTarget, setUnenrollTarget] = useState<ManagedEnrollment | null>(null);
-  const [teamTarget, setTeamTarget] = useState<ManagedEnrollment | null>(null);
 
   // Debounce search input
   useEffect(() => {
@@ -72,14 +87,8 @@ export const CourseStudents = () => {
     enabled: !!courseId,
   });
 
-  const rawEnrollments = data?.enrollments ?? [];
+  const enrollments = data?.enrollments ?? [];
   const pagination = data?.pagination;
-
-  // Client-side status filter (server does not yet filter by status)
-  const enrollments = useMemo(() => {
-    if (statusFilter === 'all') return rawEnrollments;
-    return rawEnrollments.filter((e) => e.status === statusFilter);
-  }, [rawEnrollments, statusFilter]);
 
   const unenrollMutation = useMutation({
     mutationFn: (userId: number) => enrollmentManagementApi.removeUserFromCourse(courseId, userId),
@@ -103,6 +112,10 @@ export const CourseStudents = () => {
   );
 
   const totalPages = pagination?.totalPages ?? 1;
+  const total = pagination?.total ?? 0;
+  const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(page * PAGE_SIZE, total);
+  const pageNumbers = getPageNumbers(page, totalPages);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
@@ -129,9 +142,9 @@ export const CourseStudents = () => {
 
       <Card>
         <CardBody>
-          {/* Toolbar: search + status filter */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-            <div className="relative flex-1">
+          {/* Toolbar: search */}
+          <div className="mb-4">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
@@ -143,20 +156,6 @@ export const CourseStudents = () => {
                 className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="all">
-                {t('teaching:all_statuses', { defaultValue: 'All statuses' })}
-              </option>
-              <option value="active">{t('teaching:active', { defaultValue: 'Active' })}</option>
-              <option value="completed">
-                {t('teaching:completed', { defaultValue: 'Completed' })}
-              </option>
-              <option value="dropped">{t('teaching:dropped', { defaultValue: 'Dropped' })}</option>
-            </select>
           </div>
 
           {isLoading ? (
@@ -166,7 +165,7 @@ export const CourseStudents = () => {
               icon={Users}
               title={t('teaching:no_students', { defaultValue: 'No students enrolled' })}
               description={
-                search || statusFilter !== 'all'
+                search
                   ? t('teaching:no_students_match', {
                       defaultValue: 'No students match your filters.',
                     })
@@ -190,9 +189,6 @@ export const CourseStudents = () => {
                       {t('teaching:enrolled', { defaultValue: 'Enrolled' })}
                     </th>
                     <th className="py-2 px-3 font-medium">
-                      {t('teaching:last_access', { defaultValue: 'Last access' })}
-                    </th>
-                    <th className="py-2 px-3 font-medium">
                       {t('teaching:progress', { defaultValue: 'Progress' })}
                     </th>
                     <th className="py-2 px-3 font-medium">
@@ -207,6 +203,11 @@ export const CourseStudents = () => {
                   {enrollments.map((e) => {
                     const user = e.user;
                     if (!user) return null;
+                    // Enrollment.progress is stored as a percentage (0–100).
+                    // Clamp before applying as width so a stray >100 value
+                    // doesn't render a "17% = full bar" glitch like we hit
+                    // previously (the old code was (p * 100) / 1 = 1700%).
+                    const pct = Math.max(0, Math.min(100, Math.round(e.progress ?? 0)));
                     return (
                       <tr
                         key={e.id}
@@ -219,19 +220,16 @@ export const CourseStudents = () => {
                         <td className="py-3 px-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
                           {formatDate(e.enrolledAt)}
                         </td>
-                        <td className="py-3 px-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                          {formatDate(e.lastAccessAt)}
-                        </td>
                         <td className="py-3 px-3 whitespace-nowrap">
                           <div className="flex items-center gap-2">
-                            <div className="w-16 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                            <div className="w-20 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                               <div
-                                className="h-full bg-primary-500"
-                                style={{ width: `${Math.round((e.progress ?? 0) * 100) / 1}%` }}
+                                className="h-full bg-primary-500 transition-[width] duration-300"
+                                style={{ width: `${pct}%` }}
                               />
                             </div>
-                            <span className="text-xs text-gray-500 dark:text-gray-400 w-8 text-right">
-                              {Math.round(e.progress ?? 0)}%
+                            <span className="text-xs text-gray-500 dark:text-gray-400 w-9 text-right tabular-nums">
+                              {pct}%
                             </span>
                           </div>
                         </td>
@@ -276,14 +274,6 @@ export const CourseStudents = () => {
                             </Button>
                             <Button
                               size="sm"
-                              variant="secondary"
-                              icon={<UserPlus className="w-4 h-4" />}
-                              onClick={() => setTeamTarget(e)}
-                            >
-                              {t('teaching:add_to_team', { defaultValue: 'Add to team' })}
-                            </Button>
-                            <Button
-                              size="sm"
                               variant="danger"
                               icon={<Trash2 className="w-4 h-4" />}
                               onClick={() => setUnenrollTarget(e)}
@@ -302,31 +292,58 @@ export const CourseStudents = () => {
 
           {/* Pagination */}
           {pagination && totalPages > 1 && (
-            <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                {t('teaching:page_n_of_m', {
-                  defaultValue: 'Page {{page}} of {{total}}',
-                  page: pagination.page,
-                  total: totalPages,
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {t('teaching:showing_range', {
+                  defaultValue: 'Showing {{from}}–{{to}} of {{total}}',
+                  from: rangeStart,
+                  to: rangeEnd,
+                  total,
                 })}
-              </span>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  aria-label={t('common:previous', { defaultValue: 'Previous' })}
                   disabled={page <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {t('common:previous', { defaultValue: 'Previous' })}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                {pageNumbers.map((p, idx) =>
+                  p === 'dots' ? (
+                    <span
+                      key={`dots-${idx}`}
+                      className="px-2 text-xs text-gray-400 dark:text-gray-500 select-none"
+                    >
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPage(p)}
+                      aria-current={p === page ? 'page' : undefined}
+                      className={`min-w-[2rem] px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                        p === page
+                          ? 'bg-primary-600 border-primary-600 text-white'
+                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+                <button
+                  type="button"
+                  aria-label={t('common:next', { defaultValue: 'Next' })}
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {t('common:next', { defaultValue: 'Next' })}
-                </Button>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
             </div>
           )}
@@ -356,16 +373,6 @@ export const CourseStudents = () => {
         variant="danger"
         loading={unenrollMutation.isPending}
       />
-
-      {/* Add to team modal */}
-      {teamTarget?.user && (
-        <AddToTeamModal
-          isOpen={!!teamTarget}
-          onClose={() => setTeamTarget(null)}
-          courseId={courseId}
-          user={teamTarget.user}
-        />
-      )}
     </div>
   );
 };
