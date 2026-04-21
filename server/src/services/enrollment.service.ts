@@ -25,6 +25,17 @@ export class EnrollmentService {
       select: { isAdmin: true, isInstructor: true },
     });
 
+    // Admins and instructors are auto-granted virtual enrollments so they
+    // can access course content they own/manage. But they can also self-enroll
+    // in a course to track progress as a learner — in that case we must
+    // surface the REAL enrollment row (with real progress / enrolledAt /
+    // lastAccessAt) instead of the virtual placeholder. Load their real
+    // enrollments once and merge per course.
+    const realEnrollments = (user?.isAdmin || user?.isInstructor)
+      ? (await prisma.enrollment.findMany({ where: { userId } })) ?? []
+      : [];
+    const realByCourseId = new Map(realEnrollments.map(e => [e.courseId, e]));
+
     if (user?.isAdmin) {
       // Admins see all published courses as virtual enrollments
       const courses = await prisma.course.findMany({
@@ -40,18 +51,24 @@ export class EnrollmentService {
         orderBy: { updatedAt: 'desc' },
       });
 
-      return courses.map(course => ({
-        id: -course.id, // Negative ID indicates virtual enrollment
-        userId,
-        courseId: course.id,
-        status: 'active' as const,
-        progress: 0,
-        enrolledAt: course.createdAt,
-        completedAt: null,
-        lastAccessAt: new Date(),
-        isVirtualEnrollment: true, // Flag to indicate admin access
-        course,
-      }));
+      return courses.map(course => {
+        const real = realByCourseId.get(course.id);
+        if (real) {
+          return { ...real, isVirtualEnrollment: false as const, course };
+        }
+        return {
+          id: -course.id, // Negative ID indicates virtual enrollment
+          userId,
+          courseId: course.id,
+          status: 'active' as const,
+          progress: 0,
+          enrolledAt: course.createdAt,
+          completedAt: null,
+          lastAccessAt: new Date(),
+          isVirtualEnrollment: true, // Flag to indicate admin access
+          course,
+        };
+      });
     }
 
     if (user?.isInstructor) {
@@ -77,18 +94,42 @@ export class EnrollmentService {
         orderBy: { updatedAt: 'desc' },
       });
 
-      return courses.map(course => ({
-        id: -course.id, // Negative ID indicates virtual enrollment
-        userId,
-        courseId: course.id,
-        status: 'active' as const,
-        progress: 0,
-        enrolledAt: course.createdAt,
-        completedAt: null,
-        lastAccessAt: new Date(),
-        isVirtualEnrollment: true, // Flag to indicate instructor access
-        course,
-      }));
+      const managedCourseIds = new Set(courses.map(c => c.id));
+
+      // If the instructor has self-enrolled in a course that isn't one they
+      // own or manage, include it too — otherwise the dashboard quietly
+      // drops their own learning progress.
+      const extraEnrolledCourses = realEnrollments.filter(e => !managedCourseIds.has(e.courseId));
+      let extraCourses: typeof courses = [];
+      if (extraEnrolledCourses.length > 0) {
+        extraCourses = await prisma.course.findMany({
+          where: { id: { in: extraEnrolledCourses.map(e => e.courseId) } },
+          include: {
+            instructor: { select: { id: true, fullname: true } },
+            _count: { select: { modules: true } },
+          },
+          orderBy: { updatedAt: 'desc' },
+        });
+      }
+
+      return [...courses, ...extraCourses].map(course => {
+        const real = realByCourseId.get(course.id);
+        if (real) {
+          return { ...real, isVirtualEnrollment: false as const, course };
+        }
+        return {
+          id: -course.id, // Negative ID indicates virtual enrollment
+          userId,
+          courseId: course.id,
+          status: 'active' as const,
+          progress: 0,
+          enrolledAt: course.createdAt,
+          completedAt: null,
+          lastAccessAt: new Date(),
+          isVirtualEnrollment: true, // Flag to indicate instructor access
+          course,
+        };
+      });
     }
 
     // Regular users get their actual enrollments
