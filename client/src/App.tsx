@@ -94,6 +94,8 @@ import {
 } from './pages/teach';
 import { CourseAnalytics } from './pages/teach/CourseAnalytics';
 import { CourseLogs } from './pages/teach/CourseLogs';
+import { CourseStudents } from './pages/teach/CourseStudents';
+import { StudentCourseActivity } from './pages/teach/StudentCourseActivity';
 import { StudentAnalytics } from './pages/StudentAnalytics';
 import { Reports } from './pages/Reports';
 import { TnaExercise } from './pages/TnaExercise';
@@ -184,14 +186,38 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/verify/:verificationCode" element={<Certificate />} />
+      <Route
+        path="/verify/:verificationCode"
+        element={
+          <ProtectedRoute>
+            <Certificate />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Main layout routes */}
       <Route element={<Layout />}>
-        {/* Public routes */}
+        {/* Landing + legacy redirects are pure <Navigate>, so they don't leak
+            content. Catalog and CourseDetails render content, so they must be
+            wrapped in ProtectedRoute to prevent a flash-of-content before the
+            401 axios interceptor redirects to /login. */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/courses" element={<Catalog />} />
-        <Route path="/courses/:id" element={<CourseDetails />} />
+        <Route
+          path="/courses"
+          element={
+            <ProtectedRoute>
+              <Catalog />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/courses/:id"
+          element={
+            <ProtectedRoute>
+              <CourseDetails />
+            </ProtectedRoute>
+          }
+        />
         {/* Legacy catalog routes - redirect to /courses */}
         <Route path="/catalog" element={<Navigate to="/courses" replace />} />
         <Route path="/catalog/:id" element={<LegacyCatalogRedirect />} />
@@ -489,7 +515,14 @@ function App() {
         <Route path="/course/:courseId/certificates" element={<LegacyCourseRedirect suffix="certificates" />} />
 
         {/* Standalone Survey route */}
-        <Route path="/surveys/:id" element={<SurveyStandalone />} />
+        <Route
+          path="/surveys/:id"
+          element={
+            <ProtectedRoute>
+              <SurveyStandalone />
+            </ProtectedRoute>
+          }
+        />
 
         {/* AI Tools - Protected to prevent unauthenticated API credit usage */}
         <Route
@@ -838,6 +871,24 @@ function App() {
           element={
             <ProtectedRoute requireInstructor>
               <SurveyResponses />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Instructor Students roster + per-student activity view */}
+        <Route
+          path="/teach/courses/:courseId/students"
+          element={
+            <ProtectedRoute requireInstructor>
+              <CourseStudents />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teach/courses/:courseId/students/:userId/activity"
+          element={
+            <ProtectedRoute requireInstructor>
+              <StudentCourseActivity />
             </ProtectedRoute>
           }
         />

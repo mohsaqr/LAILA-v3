@@ -1,3 +1,8 @@
+### 2026-04-21 — Auth-guard closure + instructor student roster
+
+- **Flash-of-content bug closed**: `/courses/:id`, `/courses`, `/verify/:code`, `/surveys/:id` were rendering protected content for logged-out users until the axios 401 interceptor redirected to `/login`. Wrapped each in `ProtectedRoute` (which redirects synchronously in the render path), so unauth users see `/login` immediately. Landing (`/`) stays as a pure `<Navigate>` — no content leak. Auth routes (`/login`, `/register`, `/forgot-password`) remain public.
+- **Instructor students roster**: new page `/teach/courses/:courseId/students` lists enrolled students (`ManagedEnrollment`) with search, status filter, and pagination against the existing `GET /enrollment-management/courses/:courseId/enrollments` endpoint. Per-row actions: **Log** → deep-link to `/teach/courses/:courseId/logs?userId=N` (CourseLogs now reads the query param and passes it to `ActivityLogsTab` as `initialUserId`); **Activity** → new `/teach/courses/:courseId/students/:userId/activity` instructor view with Activity-Log and Analytics tabs scoped to that student; **Add to team** → `AddToTeamModal` opens with a role picker (`ta` / `co_instructor` / `course_admin`) and hits `courseRolesApi.assignRole`; **Unenroll** → confirmation dialog then `enrollmentManagementApi.removeUserFromCourse`. Sidebar "Students" entry (instructor nav) now points at the new page instead of `/edit`. i18n keys added to `teaching.json` in all 4 locales.
+
 ### 2026-04-10 — Agent chat with markdown, CSV detection & inline network visualization
 
 - **Markdown chat rendering**: Agent test chat and UseMyAgent page render assistant messages as markdown via `react-markdown` with styled code blocks, tables, lists, headings.

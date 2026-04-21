@@ -1,4 +1,15 @@
-# Session Handoff — 2026-04-10
+# Session Handoff — 2026-04-21
+
+## Completed (2026-04-21, uncommitted)
+- **Auth-guard leak fix**: wrapped `/courses`, `/courses/:id`, `/verify/:code`, `/surveys/:id` in `ProtectedRoute`. Only `/login`, `/register`, `/forgot-password` remain public content pages (landing is a pure `<Navigate>` redirect).
+- **Instructor student roster**:
+  - `client/src/pages/teach/CourseStudents.tsx` — table at `/teach/courses/:courseId/students` with search, status filter, pagination, and 4-action rows.
+  - `client/src/pages/teach/StudentCourseActivity.tsx` — instructor drill-down at `/teach/courses/:courseId/students/:userId/activity` with Activity-Log and Analytics tabs, scoped to that course+student.
+  - `client/src/components/teach/AddToTeamModal.tsx` — role picker (`ta` / `co_instructor` / `course_admin`) calling `courseRolesApi.assignRole`.
+  - `client/src/pages/teach/CourseLogs.tsx` — now reads `?userId` from URL, passes as `initialUserId` to `ActivityLogsTab`.
+  - `client/src/components/layout/DashboardSidebar.tsx` — "Students" instructor sidebar entry retargeted at the new page.
+  - i18n strings added to `teaching.json` in en/fi/es/ar.
+- **Known follow-up**: activity-log endpoints (`/api/activity-log/*`) accept arbitrary `userId` without checking the caller's relationship to that user — pre-existing permissiveness. The new instructor drill-down relies on this. Worth tightening (instructor-of-course OR self, admin bypass) as a security hardening in a future pass.
 
 ## Completed (2026-04-10)
 - **Markdown chat + CSV detection**: Agent chat renders markdown. CSV in code blocks auto-detected, saved to `user_datasets`, shows download + SNA/TNA visualization buttons inline.
