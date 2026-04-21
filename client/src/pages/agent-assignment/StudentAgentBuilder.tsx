@@ -423,7 +423,9 @@ export const StudentAgentBuilder = () => {
                     ) : isInGracePeriod ? (
                       <>
                         <AlertCircle className="w-4 h-4" />
-                        <span className="font-medium">{t('courses:grace_period_status', { defaultValue: 'Grace Period' })}</span>
+                        <span className="font-medium">
+                          {t('courses:grace_period_deadline', { defaultValue: 'Grace Period Deadline' })}: {formatDate(assignment.gracePeriodDeadline!)}
+                        </span>
                       </>
                     ) : isFullyPastDue ? (
                       <>
