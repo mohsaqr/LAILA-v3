@@ -1,20 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Activity as ActivityIcon, ArrowLeft, BarChart3, Mail, User } from 'lucide-react';
+import { ArrowLeft, Mail, User } from 'lucide-react';
 import { coursesApi } from '../../api/courses';
-import { usersApi } from '../../api/users';
 import { enrollmentManagementApi } from '../../api/enrollmentManagement';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { Card, CardBody } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
-import { ActivityLogsTab } from '../admin/logs/ActivityLogsTab';
 import { Dashboard } from '../admin/Dashboard';
 import activityLogger from '../../services/activityLogger';
-
-type TabId = 'log' | 'analytics';
 
 const formatDate = (iso: string | null | undefined) =>
   iso
@@ -31,10 +27,6 @@ export const StudentCourseActivity = () => {
   const userId = Number(userIdParam);
   const { t } = useTranslation(['teaching', 'common', 'navigation']);
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<TabId>('log');
-  const [exportStatus, setExportStatus] = useState<
-    'idle' | 'loading' | 'success' | 'error'
-  >('idle');
 
   const { data: course } = useQuery({
     queryKey: ['course', courseId],
@@ -42,21 +34,18 @@ export const StudentCourseActivity = () => {
     enabled: !!courseId,
   });
 
-  const { data: user } = useQuery({
-    queryKey: ['user', userId],
-    queryFn: () => usersApi.getUserById(userId),
-    enabled: !!userId,
-  });
-
-  // Find this student's enrollment record for the course to surface
-  // enrollment date and last-access time in the header.
-  const { data: enrollments } = useQuery({
+  // Source the student's name/email/enrollment metadata from the roster
+  // payload, which already includes `user: { id, fullname, email }` and is
+  // accessible to instructors. The /users/:id endpoint refuses non-admins
+  // for any user other than self, so it can't fulfil this need.
+  const { data: enrollmentData } = useQuery({
     queryKey: ['courseEnrollments', courseId, 1, ''],
     queryFn: () => enrollmentManagementApi.getCourseEnrollments(courseId, 1, 1000, undefined),
     enabled: !!courseId,
     staleTime: 30_000,
   });
-  const enrollment = enrollments?.enrollments.find((e) => e.user?.id === userId);
+  const enrollment = enrollmentData?.enrollments.find((e) => e.user?.id === userId);
+  const student = enrollment?.user;
 
   useEffect(() => {
     if (courseId && userId) {
@@ -77,23 +66,9 @@ export const StudentCourseActivity = () => {
     course?.title,
     t('teaching:students', { defaultValue: 'Students' })
   );
-  // Extend with the student's name
   breadcrumbItems.push({
-    label: user?.fullname || `User ${userId}`,
+    label: student?.fullname || `User ${userId}`,
   });
-
-  const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
-    {
-      id: 'log',
-      label: t('teaching:activity_log', { defaultValue: 'Activity Log' }),
-      icon: <ActivityIcon className="w-4 h-4" />,
-    },
-    {
-      id: 'analytics',
-      label: t('teaching:analytics', { defaultValue: 'Analytics' }),
-      icon: <BarChart3 className="w-4 h-4" />,
-    },
-  ];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
@@ -112,8 +87,8 @@ export const StudentCourseActivity = () => {
         </Button>
       </div>
 
-      {/* Student header card — instructor-oriented, distinct from the
-          student's own self-view of analytics. */}
+      {/* Student header card — instructor-oriented identity + enrollment
+          metadata, distinct from the student's own self-view of analytics. */}
       <Card className="mb-6">
         <CardBody>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -123,11 +98,11 @@ export const StudentCourseActivity = () => {
               </div>
               <div className="min-w-0">
                 <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white truncate">
-                  {user?.fullname ?? `User ${userId}`}
+                  {student?.fullname ?? `User ${userId}`}
                 </h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 truncate">
                   <Mail className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span className="truncate">{user?.email ?? ''}</span>
+                  <span className="truncate">{student?.email ?? ''}</span>
                 </p>
               </div>
             </div>
@@ -161,39 +136,12 @@ export const StudentCourseActivity = () => {
         </CardBody>
       </Card>
 
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-2 mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-              activeTab === tab.id
-                ? 'bg-primary-600 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab content — same DATA scope as the student's self-view
-          (fixedCourseId + student's userId), but reached through the
-          instructor-owned /teach/* route tree. */}
-      {activeTab === 'log' && (
-        <ActivityLogsTab
-          exportStatus={exportStatus}
-          setExportStatus={setExportStatus}
-          fixedCourseId={courseId}
-          initialUserId={userId}
-        />
-      )}
-
-      {activeTab === 'analytics' && (
-        <Dashboard mode="instructor" fixedCourseId={courseId} fixedUserId={userId} />
-      )}
+      {/* Learning analytics for this student in this course. The activity-log
+          view is reachable from the roster's "Log" button — keeping it as a
+          tab here would just duplicate that path. Dashboard hides its own
+          course/student selectors when fixedCourseId/fixedUserId are passed,
+          locking the view to this single (course, student) pair. */}
+      <Dashboard mode="instructor" fixedCourseId={courseId} fixedUserId={userId} />
     </div>
   );
 };

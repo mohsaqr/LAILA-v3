@@ -204,7 +204,9 @@ export class EnrollmentManagementService {
     courseId: number,
     page = 1,
     limit = 20,
-    search?: string
+    search?: string,
+    enrolledAfter?: Date,
+    enrolledBefore?: Date
   ) {
     const course = await prisma.course.findUnique({
       where: { id: courseId },
@@ -223,6 +225,17 @@ export class EnrollmentManagementService {
           { email: { contains: search } },
         ],
       };
+    }
+
+    if (enrolledAfter || enrolledBefore) {
+      where.enrolledAt = {};
+      if (enrolledAfter) where.enrolledAt.gte = enrolledAfter;
+      if (enrolledBefore) {
+        // Treat the date picker's "to" value as inclusive of that whole day.
+        const end = new Date(enrolledBefore);
+        end.setHours(23, 59, 59, 999);
+        where.enrolledAt.lte = end;
+      }
     }
 
     const [enrollments, total] = await Promise.all([

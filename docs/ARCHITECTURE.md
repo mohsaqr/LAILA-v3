@@ -680,6 +680,9 @@ The `CollaborativeModule` component on `CourseDetails` page receives tutors as a
 | POST | /api/enrollments/:courseId | Enroll in course |
 | GET | /api/enrollments | Get user enrollments |
 | POST | /api/enrollments/:courseId/progress | Update progress |
+| GET | /api/enrollment-management/courses/:courseId/enrollments | Instructor/admin roster. Query: `page`, `limit`, `search` (name/email), `enrolledAfter` (ISO date), `enrolledBefore` (ISO date, inclusive of full day). |
+
+**Invariant:** `Enrollment.status='completed' ⇒ progress=100 AND completedAt IS NOT NULL`. The single real-flow writer is `enrollment.service.ts:updateEnrollmentProgress` (lines 487–538), which only flips status to `completed` when `completedLectures === totalLectures`. Any other writer (seeds, migrations, ad-hoc fixes) MUST honor this invariant, otherwise the instructor roster (`CourseStudents.tsx:236-248`) will display a "completed" badge alongside a partial progress bar. The seed at `prisma/seed.ts` derives `status` and `progress` from a single `isCompleted` decision and runs an `updateMany` cleanup pass for legacy rows.
 
 ### AI/Chatbots
 | Method | Endpoint | Description |

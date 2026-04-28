@@ -1,4 +1,25 @@
-# Session Handoff — 2026-04-21
+# Session Handoff — 2026-04-28
+
+## Completed (2026-04-28, uncommitted)
+- **Students roster — enrollment-date filter + redesigned filter toolbar** (`client/src/pages/teach/CourseStudents.tsx`). Adds two new query params (`enrolledAfter`, `enrolledBefore`) end-to-end (route → service → client API). `enrolledBefore` is treated as inclusive of the full day. Filter toolbar is a single horizontal row of labelled inputs (Search + From + To + Clear). Pagination resets on filter change.
+- **Per-student analytics drill-down fixes** (`client/src/pages/teach/StudentCourseActivity.tsx`):
+  - **Name/email no longer blank for instructors** — `usersApi.getUserById` 403s for non-admins/non-self; switched to the enrollment payload, which already carries `user: { id, fullname, email }`.
+  - **Page is now analytics-only** — removed the duplicated Activity-Log tab. Log is reachable via the roster's "Log" button (`/teach/courses/:id/logs?userId=N`), so a tab here was redundant.
+- **Dashboard locks the student/course when caller pins them** (`client/src/pages/admin/Dashboard.tsx`): the student selector hides when `fixedUserId` is set, the course selector hides when `fixedCourseId` is set. Without this, the instructor's per-student drill-down was rendering an interactive picker that silently overrode the URL-pinned student.
+- **`ActivityLogsTab.initialUserId` is still interactive** (not converted to a fixedUserId variant). Currently fine because the new analytics page no longer renders ActivityLogsTab. If we ever surface ActivityLogsTab on a "scoped to one student" route again, add a `fixedUserId` prop following the same hide-when-set pattern.
+- **i18n**: `search`, `enrolled_from`, `enrolled_to`, `clear_filters` added to en/fi/es/ar.
+- **Filter design caveat**: applied a sensible horizontal-toolbar redesign (Search + Enrolled-from + Enrolled-to + Clear, stacks on mobile) — was working from a screenshot reference that wasn't accessible from the temp path. If the design needs to match a specific mock, the relevant block is `CourseStudents.tsx` lines ~160-225 (the `<div className="mb-4 flex flex-col lg:flex-row …">` toolbar).
+
+## Completed (2026-04-28, uncommitted, earlier)
+- **Fixed seed-data inconsistency** in `server/prisma/seed.ts`: fake-student enrollments were independently randomizing `status` and `progress`, producing ~21% of rows with `status='completed' AND progress<100`. The instructor roster (`CourseStudents.tsx`) faithfully rendered these, showing "completed" badges next to partial progress bars (e.g., Sofia Roberts at 23%).
+  - Replaced the independent randomizers with a single `isCompleted` decision; `progress` is `100` for completed, `0–98` for active; `completedAt` is set/cleared accordingly (mirrors `enrollment.service.ts:529-532`).
+  - Added a one-time idempotent cleanup at the top of the fake-students block: `prisma.enrollment.updateMany({ where: { status: 'completed', progress: { lt: 100 } }, data: { status: 'active', completedAt: null } })`. So `npm run db:seed` (no reset required) repairs existing dev DBs.
+  - Documented the `completed ⇒ progress=100 AND completedAt IS NOT NULL` invariant under "API Endpoints → Enrollments" in `docs/ARCHITECTURE.md`.
+- **To verify**: `npm run db:seed` against the current dev DB, then load `/teach/courses/:id/students` as `instructor@laila.edu` — every "completed" row should show a 100% bar.
+- **Known follow-up** (not in this session): `enrollment.service.ts:updateEnrollmentProgress` only ever sets `status='completed'` when progress hits 100 — it never reverts to `active` if new lectures are published after a student completes. Latent asymmetry; not triggered by seed data, not visible in the bug report. Worth a small defensive add when next touching the file.
+
+## Operational note (2026-04-28)
+- A launchd user agent at `~/Library/LaunchAgents/com.laila.server.plist` (`com.laila.server`) keeps `server/dist/index.js` alive on port 5001 with `KeepAlive.SuccessfulExit=false`. It auto-starts on login (`RunAtLoad=true`) and respawns within ~5s of being killed (`ThrottleInterval=5`). To run the dev server, first `launchctl unload ~/Library/LaunchAgents/com.laila.server.plist`. Re-enable with `launchctl load …` (or it'll come back on next login). Don't `kill <pid>` — launchd just respawns it.
 
 ## Completed (2026-04-21, uncommitted)
 - **Auth-guard leak fix**: wrapped `/courses`, `/courses/:id`, `/verify/:code`, `/surveys/:id` in `ProtectedRoute`. Only `/login`, `/register`, `/forgot-password` remain public content pages (landing is a pure `<Navigate>` redirect).

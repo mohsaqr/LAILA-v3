@@ -6,11 +6,13 @@ import { toast } from 'react-hot-toast';
 import {
   Activity as ActivityIcon,
   BarChart3,
+  Calendar,
   ChevronLeft,
   ChevronRight,
   Search,
   Trash2,
   Users,
+  X,
 } from 'lucide-react';
 import { coursesApi } from '../../api/courses';
 import { enrollmentManagementApi } from '../../api/enrollmentManagement';
@@ -62,6 +64,11 @@ export const CourseStudents = () => {
 
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  // Enrollment-date range. Empty string ⇢ filter not applied. The native
+  // <input type="date"> emits `YYYY-MM-DD`, which the server parses with `new
+  // Date(...)` and treats as inclusive of the whole day for the "to" bound.
+  const [enrolledFrom, setEnrolledFrom] = useState('');
+  const [enrolledTo, setEnrolledTo] = useState('');
   const [page, setPage] = useState(1);
   const [unenrollTarget, setUnenrollTarget] = useState<ManagedEnrollment | null>(null);
 
@@ -74,6 +81,22 @@ export const CourseStudents = () => {
     return () => clearTimeout(handle);
   }, [searchInput]);
 
+  // Date-range changes don't need debouncing (picker fires once per commit).
+  // Reset to page 1 whenever a date bound changes so the new result set
+  // doesn't land on a now-empty page.
+  useEffect(() => {
+    setPage(1);
+  }, [enrolledFrom, enrolledTo]);
+
+  const hasFilters = !!(search || enrolledFrom || enrolledTo);
+  const clearFilters = () => {
+    setSearchInput('');
+    setSearch('');
+    setEnrolledFrom('');
+    setEnrolledTo('');
+    setPage(1);
+  };
+
   const { data: course } = useQuery({
     queryKey: ['course', courseId],
     queryFn: () => coursesApi.getCourseById(courseId),
@@ -81,9 +104,16 @@ export const CourseStudents = () => {
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ['courseEnrollments', courseId, page, search],
+    queryKey: ['courseEnrollments', courseId, page, search, enrolledFrom, enrolledTo],
     queryFn: () =>
-      enrollmentManagementApi.getCourseEnrollments(courseId, page, PAGE_SIZE, search || undefined),
+      enrollmentManagementApi.getCourseEnrollments(
+        courseId,
+        page,
+        PAGE_SIZE,
+        search || undefined,
+        enrolledFrom || undefined,
+        enrolledTo || undefined
+      ),
     enabled: !!courseId,
   });
 
@@ -142,19 +172,70 @@ export const CourseStudents = () => {
 
       <Card>
         <CardBody>
-          {/* Toolbar: search */}
-          <div className="mb-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder={t('teaching:search_students', {
-                  defaultValue: 'Search by name or email…',
-                })}
-                className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
+          {/* Filter toolbar: search + enrollment-date range + clear.
+              On wide screens the controls sit on one row; on narrow screens
+              they stack. The "Clear" button only appears when at least one
+              filter is active so it doesn't draw the eye when there's nothing
+              to clear. */}
+          <div className="mb-4 flex flex-col lg:flex-row lg:items-end gap-3">
+            <div className="flex-1 min-w-0">
+              <label className="block text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+                {t('teaching:search', { defaultValue: 'Search' })}
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder={t('teaching:search_students', {
+                    defaultValue: 'Search by name or email…',
+                  })}
+                  className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 lg:items-end">
+              <div>
+                <label className="block text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+                  {t('teaching:enrolled_from', { defaultValue: 'Enrolled from' })}
+                </label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <input
+                    type="date"
+                    value={enrolledFrom}
+                    max={enrolledTo || undefined}
+                    onChange={(e) => setEnrolledFrom(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+                  {t('teaching:enrolled_to', { defaultValue: 'Enrolled to' })}
+                </label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <input
+                    type="date"
+                    value={enrolledTo}
+                    min={enrolledFrom || undefined}
+                    onChange={(e) => setEnrolledTo(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+              </div>
+              {hasFilters && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="inline-flex items-center justify-center gap-1 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  <X className="w-4 h-4" />
+                  {t('teaching:clear_filters', { defaultValue: 'Clear' })}
+                </button>
+              )}
             </div>
           </div>
 
@@ -165,7 +246,7 @@ export const CourseStudents = () => {
               icon={Users}
               title={t('teaching:no_students', { defaultValue: 'No students enrolled' })}
               description={
-                search
+                hasFilters
                   ? t('teaching:no_students_match', {
                       defaultValue: 'No students match your filters.',
                     })
