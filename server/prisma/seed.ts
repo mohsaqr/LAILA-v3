@@ -3737,6 +3737,13 @@ for i, comm in enumerate(communities):
 
   const defaultStudentPassword = await bcrypt.hash(rawStudentPassword, 10);
 
+  // Repair enrollments seeded by older versions of this script with
+  // status='completed' but progress<100. Idempotent: a no-op once clean.
+  await prisma.enrollment.updateMany({
+    where: { status: 'completed', progress: { lt: 100 } },
+    data: { status: 'active', completedAt: null },
+  });
+
   for (const studentData of fakeStudents) {
     const newStudent = await prisma.user.upsert({
       where: { email: studentData.email },
@@ -3755,6 +3762,8 @@ for i, comm in enumerate(communities):
     // Enroll students in random courses
     for (const c of allCourses) {
       if (Math.random() > 0.4) {
+        const isCompleted = Math.random() < 0.3;
+        const progress = isCompleted ? 100 : Math.floor(Math.random() * 99);
         await prisma.enrollment.upsert({
           where: {
             userId_courseId: { userId: newStudent.id, courseId: c.id },
@@ -3763,8 +3772,9 @@ for i, comm in enumerate(communities):
           create: {
             userId: newStudent.id,
             courseId: c.id,
-            status: Math.random() > 0.3 ? 'active' : 'completed',
-            progress: Math.floor(Math.random() * 100),
+            status: isCompleted ? 'completed' : 'active',
+            progress,
+            completedAt: isCompleted ? new Date() : null,
           },
         });
       }

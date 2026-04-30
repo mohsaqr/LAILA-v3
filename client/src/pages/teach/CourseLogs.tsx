@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Activity, Bot } from 'lucide-react';
@@ -15,9 +15,15 @@ type TabId = 'activity' | 'chatbot';
 
 export const CourseLogs = () => {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const { t } = useTranslation(['admin', 'navigation', 'teaching']);
   const { isDark } = useTheme();
   const courseId = Number(id);
+  // When deep-linked from the students roster (/teach/courses/:id/students),
+  // the row's "Log" button appends ?userId=N so this tab pre-filters to
+  // that student.
+  const initialUserIdRaw = searchParams.get('userId');
+  const initialUserId = initialUserIdRaw && /^\d+$/.test(initialUserIdRaw) ? Number(initialUserIdRaw) : undefined;
   const [activeTab, setActiveTab] = useState<TabId>('activity');
   const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
@@ -81,6 +87,7 @@ export const CourseLogs = () => {
           exportStatus={exportStatus}
           setExportStatus={setExportStatus}
           fixedCourseId={courseId}
+          initialUserId={initialUserId}
         />
       )}
 

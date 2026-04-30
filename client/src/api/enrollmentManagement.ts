@@ -65,12 +65,16 @@ export const enrollmentManagementApi = {
     courseId: number,
     page = 1,
     limit = 20,
-    search?: string
+    search?: string,
+    enrolledAfter?: string,
+    enrolledBefore?: string
   ) => {
     const params = new URLSearchParams();
     params.append('page', page.toString());
     params.append('limit', limit.toString());
     if (search) params.append('search', search);
+    if (enrolledAfter) params.append('enrolledAfter', enrolledAfter);
+    if (enrolledBefore) params.append('enrolledBefore', enrolledBefore);
 
     const response = await apiClient.get<
       ApiResponse<{

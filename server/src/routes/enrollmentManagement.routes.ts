@@ -80,6 +80,16 @@ router.get('/courses/:courseId/enrollments', requireInstructor, asyncHandler(asy
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 20;
   const search = req.query.search as string | undefined;
+  // Optional ISO date strings (YYYY-MM-DD or full ISO) used to filter on
+  // Enrollment.enrolledAt. Invalid values are dropped silently — no need to
+  // 400 the request for a bad picker value.
+  const parseDate = (v: unknown): Date | undefined => {
+    if (typeof v !== 'string' || !v) return undefined;
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? undefined : d;
+  };
+  const enrolledAfter = parseDate(req.query.enrolledAfter);
+  const enrolledBefore = parseDate(req.query.enrolledBefore);
 
   // Check if user is admin or has access to this course
   if (!req.user!.isAdmin) {
@@ -89,8 +99,19 @@ router.get('/courses/:courseId/enrollments', requireInstructor, asyncHandler(asy
     }
   }
 
-  const result = await enrollmentManagementService.getCourseEnrollments(courseId, page, limit, search);
-  res.json({ success: true, ...result });
+  const result = await enrollmentManagementService.getCourseEnrollments(
+    courseId,
+    page,
+    limit,
+    search,
+    enrolledAfter,
+    enrolledBefore
+  );
+  // Wrap under `data` so the client's `ApiResponse<{course, enrollments, pagination}>`
+  // unwrap (`response.data.data`) finds the result. The spread form returned
+  // {success, course, enrollments, pagination} at top level, leaving
+  // response.data.data undefined → enrollments defaulted to [].
+  res.json({ success: true, data: result });
 }));
 
 // Add user to course by email

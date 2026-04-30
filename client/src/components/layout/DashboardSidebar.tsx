@@ -106,7 +106,7 @@ export const DashboardSidebar = ({ mobileOpen = false, onMobileClose, isDesktop 
     { label: t('surveys'), icon: ClipboardCheck, path: `/teach/courses/${activeCourseId}/surveys` },
     { label: t('tutors'), icon: BookMarked, path: `/teach/courses/${activeCourseId}/tutors` },
     { label: t('certificates'), icon: Award, path: `/teach/courses/${activeCourseId}/certificates` },
-    { label: t('students'), icon: Users, path: `/teach/courses/${activeCourseId}/edit` },
+    { label: t('students'), icon: Users, path: `/teach/courses/${activeCourseId}/students` },
     { label: t('logs'), icon: Activity, path: `/teach/courses/${activeCourseId}/logs` },
     { label: t('analytics'), icon: Network, path: `/teach/courses/${activeCourseId}/analytics` },
   ] : [];

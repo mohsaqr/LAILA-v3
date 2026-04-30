@@ -57,6 +57,11 @@ Technical knowledge accumulated while working on the LAILA codebase. Read this b
 - [file URL resolution]: Client function `resolveFileUrl()` converts relative paths like `/uploads/abc.pdf` to absolute server URLs. Must use this for all uploaded file references.
 - [LectureEditor save semantics]: Sections auto-save via `updateSectionMutation` on each change. The "Save Settings" button only saves lesson-level metadata (title, contentType, videoUrl, duration, isFree). Button lives inside the sidebar "Lesson Settings" card, not in the page header.
 
+### 2026-04-21
+- [flash-of-content bug]: A page rendered before any auth gate runs will be visible to logged-out users until the axios 401 interceptor kicks in on the first failed API call (hundreds of ms, often ~1s). The real fix is wrapping the route in `<ProtectedRoute>`, which redirects synchronously in the render path — the 401 interceptor is a fallback, not a primary defense. When introducing a new page, wrap it in `<ProtectedRoute>` unless it is deliberately public (only `/login`, `/register`, `/forgot-password` qualify).
+- [activity-log endpoints accept arbitrary userId]: `/api/activity-log/*` endpoints (`/`, `/summary`, `/hourly-counts`, `/top-resources`, `/daily-counts`, `/tna-sequences`) take `userId` from the query string without checking the caller's relationship to that user. That is how the instructor students-roster drill-down reads a student's data for a course. If you ever tighten these endpoints, keep the instructor-of-course-OR-self-OR-admin bypass in mind so the drill-down still works.
+- [dedicated instructor view pattern]: When you need "instructor sees what the student sees, but on an instructor-owned route", the cheap solution is to mount the existing student-facing component (e.g. `Dashboard`) on a new `/teach/*` route with an instructor header and pass `fixedUserId={studentId}` + `fixedCourseId={courseId}`. See `client/src/pages/teach/StudentCourseActivity.tsx` for the template. Don't build duplicate analytics visualizations — the shape is the same, only the chrome differs.
+
 ---
 
 ## LLM Infrastructure

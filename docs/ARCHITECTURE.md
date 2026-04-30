@@ -275,6 +275,10 @@ model LearningActivityLog {
 
 ## Application Architecture
 
+### Route Protection
+
+Only three routes are reachable without authentication: `/login`, `/register`, `/forgot-password`. Every other route — including the landing page (which is a `<Navigate>` redirect to `/dashboard`), the catalog (`/courses`), course detail pages (`/courses/:id`), certificate verification (`/verify/:code`), and standalone surveys (`/surveys/:id`) — is wrapped in `<ProtectedRoute>` (`client/src/components/layout/ProtectedRoute.tsx`), which redirects synchronously in the render path. The axios response interceptor in `client/src/api/client.ts` still redirects to `/login` on any 401 as a fallback for tokens that expire mid-session.
+
 ### Frontend Architecture
 
 ```
@@ -399,6 +403,7 @@ model LearningActivityLog {
 - Lecture editor (`LectureEditor.tsx`): sections auto-save; the "Save Settings" button in the sidebar settings card only saves lesson metadata (content type, video URL, duration, free preview)
 - Curriculum editor (`CurriculumEditor.tsx`): section add buttons (Text, File, AI, Chatbot, Assignment) only appear for empty lectures; lectures with sections show "Manage Content" link instead. File sections display inline with download and rename.
 - View student progress and chatbot interaction logs
+- **Students roster** (`client/src/pages/teach/CourseStudents.tsx`, route `/teach/courses/:courseId/students`): table of enrolled students pulled via `enrollmentManagementApi.getCourseEnrollments`. Each row has four actions — Log (deep-links to `/teach/courses/:courseId/logs?userId=N`, which is honored by `CourseLogs.tsx` and forwarded to `ActivityLogsTab` as `initialUserId`), Activity (dedicated instructor view at `/teach/courses/:courseId/students/:userId/activity` with Activity-Log and Analytics tabs scoped to the student), Add to team (opens `AddToTeamModal` backed by `courseRolesApi.assignRole`), and Unenroll (confirmation dialog → `enrollmentManagementApi.removeUserFromCourse`).
 
 **For Students:**
 - Browse course catalog
@@ -675,6 +680,9 @@ The `CollaborativeModule` component on `CourseDetails` page receives tutors as a
 | POST | /api/enrollments/:courseId | Enroll in course |
 | GET | /api/enrollments | Get user enrollments |
 | POST | /api/enrollments/:courseId/progress | Update progress |
+| GET | /api/enrollment-management/courses/:courseId/enrollments | Instructor/admin roster. Query: `page`, `limit`, `search` (name/email), `enrolledAfter` (ISO date), `enrolledBefore` (ISO date, inclusive of full day). |
+
+**Invariant:** `Enrollment.status='completed' ⇒ progress=100 AND completedAt IS NOT NULL`. The single real-flow writer is `enrollment.service.ts:updateEnrollmentProgress` (lines 487–538), which only flips status to `completed` when `completedLectures === totalLectures`. Any other writer (seeds, migrations, ad-hoc fixes) MUST honor this invariant, otherwise the instructor roster (`CourseStudents.tsx:236-248`) will display a "completed" badge alongside a partial progress bar. The seed at `prisma/seed.ts` derives `status` and `progress` from a single `isCompleted` decision and runs an `updateMany` cleanup pass for legacy rows.
 
 ### AI/Chatbots
 | Method | Endpoint | Description |

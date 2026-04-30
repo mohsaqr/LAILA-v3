@@ -1,3 +1,31 @@
+### 2026-04-28 — Students roster filters + per-student analytics drill-down fixes
+
+- **Enrollment-date filter** added to the instructor roster (`/teach/courses/:id/students`):
+  - Server: `GET /enrollment-management/courses/:courseId/enrollments` now accepts optional `enrolledAfter` and `enrolledBefore` ISO dates. The `enrolledBefore` bound is treated as inclusive of the whole day (23:59:59.999), matching how a date picker is naturally read.
+  - Files: `server/src/routes/enrollmentManagement.routes.ts`, `server/src/services/enrollmentManagement.service.ts`, `client/src/api/enrollmentManagement.ts`.
+- **Filter toolbar redesign** (`client/src/pages/teach/CourseStudents.tsx`): single horizontal toolbar with labelled Search input + "Enrolled from" / "Enrolled to" date pickers + Clear button (only visible when ≥1 filter is active). Pagination resets to page 1 on any filter change. Empty-state copy now triggers off "any filter applied", not just `search`.
+- **Per-student analytics page** (`/teach/courses/:id/students/:userId/activity`):
+  - Removed the `usersApi.getUserById(userId)` call — that endpoint refuses non-admin/non-self requests, so instructors saw blank name/email. Switched to the enrollment payload, which already includes `user: { id, fullname, email }`.
+  - Removed the duplicated Activity-Log tab; the roster's "Log" button reaches the same content via `/teach/courses/:id/logs?userId=N`. The page now shows the analytics dashboard directly, scoped to (course, student).
+- **Dashboard student/course locks** (`client/src/pages/admin/Dashboard.tsx`): the student selector and the course selector are now hidden (not just preselected) when `fixedUserId` / `fixedCourseId` are passed by the caller. Without this, the instructor drill-down rendered an interactive student picker that overrode the URL-pinned student.
+- **i18n**: added `search`, `enrolled_from`, `enrolled_to`, `clear_filters` to `teaching.json` in en/fi/es/ar.
+- **Verified**: client and server `tsc --noEmit` pass with zero errors.
+
+### 2026-04-28 — Fix seed-data inconsistency causing "completed" badge with partial progress
+
+- **Bug**: Instructor students roster (`/teach/courses/:id/students`) showed rows where the **Status** badge said `completed` while the **Progress** column was clearly under 100% (e.g. Sofia Roberts: 23% / completed). Inconsistent only in dev/demo data — production-flow code paths cannot produce this state.
+- **Root cause** in `server/prisma/seed.ts` (fake-students block): `status: Math.random() > 0.3 ? 'active' : 'completed'` and `progress: Math.floor(Math.random() * 100)` were independently randomized, producing ~21% of seeded enrollments with `status='completed' AND progress<100`. Re-running `npm run db:seed` did not repair them because the upsert uses `update: {}`.
+- **Fix**:
+  1. Derived `status`/`progress`/`completedAt` from a single `isCompleted` decision (~30% completed, 100%+now; otherwise active, 0–98%, null `completedAt`) — mirrors the real flow at `enrollment.service.ts:529-532`.
+  2. Added an idempotent `prisma.enrollment.updateMany({ where: { status: 'completed', progress: { lt: 100 } }, data: { status: 'active', completedAt: null } })` cleanup pass at the top of the fake-students section. A plain `npm run db:seed` (no reset) now repairs existing bad rows.
+- **Docs**: Documented the `completed ⇒ progress=100 AND completedAt IS NOT NULL` invariant under "API Endpoints → Enrollments" in `docs/ARCHITECTURE.md`. Added a `LEARNING.md` entry on the seed-consistency pattern (gitignored).
+- **Out of scope** (logged for later): UI is correct as-is — `CourseStudents.tsx` should keep displaying the persisted status verbatim, not derive from progress. There is also a latent asymmetry in `updateEnrollmentProgress`: a previously-completed enrollment is never reverted to `active` if new lectures are published after completion. Not fixed here; not triggered by seed data.
+
+### 2026-04-21 — Auth-guard closure + instructor student roster
+
+- **Flash-of-content bug closed**: `/courses/:id`, `/courses`, `/verify/:code`, `/surveys/:id` were rendering protected content for logged-out users until the axios 401 interceptor redirected to `/login`. Wrapped each in `ProtectedRoute` (which redirects synchronously in the render path), so unauth users see `/login` immediately. Landing (`/`) stays as a pure `<Navigate>` — no content leak. Auth routes (`/login`, `/register`, `/forgot-password`) remain public.
+- **Instructor students roster**: new page `/teach/courses/:courseId/students` lists enrolled students (`ManagedEnrollment`) with search, status filter, and pagination against the existing `GET /enrollment-management/courses/:courseId/enrollments` endpoint. Per-row actions: **Log** → deep-link to `/teach/courses/:courseId/logs?userId=N` (CourseLogs now reads the query param and passes it to `ActivityLogsTab` as `initialUserId`); **Activity** → new `/teach/courses/:courseId/students/:userId/activity` instructor view with Activity-Log and Analytics tabs scoped to that student; **Add to team** → `AddToTeamModal` opens with a role picker (`ta` / `co_instructor` / `course_admin`) and hits `courseRolesApi.assignRole`; **Unenroll** → confirmation dialog then `enrollmentManagementApi.removeUserFromCourse`. Sidebar "Students" entry (instructor nav) now points at the new page instead of `/edit`. i18n keys added to `teaching.json` in all 4 locales.
+
 ### 2026-04-10 — Agent chat with markdown, CSV detection & inline network visualization
 
 - **Markdown chat rendering**: Agent test chat and UseMyAgent page render assistant messages as markdown via `react-markdown` with styled code blocks, tables, lists, headings.

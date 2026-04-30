@@ -716,8 +716,8 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
             })}
           </div>
 
-          {/* Course filter */}
-          {!isStudent && (
+          {/* Course filter — hidden when caller pins a course */}
+          {!isStudent && fixedCourseId == null && (
             <SearchableFilterSelect
               label={t('course')}
               value={courseId ? String(courseId) : ''}
@@ -726,8 +726,11 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
               placeholder={t('all_courses')}
             />
           )}
-          {/* Student filter */}
-          {!isStudent && (
+          {/* Student filter — hidden when caller pins a user (e.g. instructor's
+              per-student drill-down). Without this gate the picker appears
+              interactive but its value is overridden by `effectiveUserId`,
+              which is misleading. */}
+          {!isStudent && fixedUserId == null && (
             <SearchableFilterSelect
               label={t('select_student')}
               value={selectedUserId ? String(selectedUserId) : ''}

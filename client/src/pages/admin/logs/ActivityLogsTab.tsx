@@ -94,10 +94,11 @@ export const ActivityLogsTab = ({ exportStatus, setExportStatus, fixedCourseId, 
   const [searchInput, setSearchInput] = useState('');
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
 
-  // Fetch filter options
+  // Fetch filter options. When scoped to a single course (instructor logs page),
+  // pass the courseId so the user list is restricted to that course's enrollments.
   const { data: filterOptions } = useQuery({
-    queryKey: ['activityLogFilterOptions'],
-    queryFn: () => activityLogApi.getFilterOptions(),
+    queryKey: ['activityLogFilterOptions', fixedCourseId ?? null],
+    queryFn: () => activityLogApi.getFilterOptions(fixedCourseId),
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
