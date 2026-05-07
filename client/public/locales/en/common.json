@@ -182,5 +182,6 @@
   "course_events": "Course events",
   "this_month_events": "events this month · {{label}}",
   "this_month": "This month",
-  "last_month": "Last month"
+  "last_month": "Last month",
+  "students_activity_log": "Students Activity Log"
 }

@@ -137,54 +137,43 @@ export const InstructorDashboard = () => {
         {/* Engagement chart + Activity donut */}
         <div id="engagement" className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5 mb-8 md:mb-10 scroll-mt-24">
           <Card className="lg:col-span-2">
-            <CardBody>
+            <CardBody className="flex flex-col h-full">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                <div>
-                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>
-                    {t('common:course_events', { defaultValue: 'Course events' })}
-                  </span>
-                  {overview && (
-                    <p className="text-2xl font-bold mt-0.5" style={{ color: colors.text }}>
-                      {overview.engagement.thisMonth.counts.reduce((s, v) => s + v, 0)}
-                      <span className="ml-2 text-xs font-medium" style={{ color: colors.muted }}>
-                        {t('common:this_month_events', {
-                          defaultValue: 'events this month · {{label}}',
-                          label: overview.engagement.thisMonth.label,
-                        })}
-                      </span>
-                    </p>
-                  )}
-                </div>
+                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>
+                  {t('common:students_activity_log', { defaultValue: 'Students Activity Log' })}
+                </span>
                 {overview && (
                   <div className="flex items-center gap-3 text-xs">
                     <span className="inline-flex items-center gap-1.5" style={{ color: colors.muted }}>
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#0d9488' }} />
-                      {t('common:this_month', { defaultValue: 'This month' })}
+                      {overview.engagement.thisMonth.label}
                     </span>
                     <span className="inline-flex items-center gap-1.5" style={{ color: colors.muted }}>
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#f59e0b' }} />
-                      {t('common:last_month', { defaultValue: 'Last month' })}
+                      {overview.engagement.lastMonth.label}
                     </span>
                   </div>
                 )}
               </div>
               {ovLoading ? (
-                <Skeleton className="h-60 w-full" />
+                <Skeleton className="flex-1 min-h-[200px] w-full" />
               ) : !overview ||
                 (overview.engagement.thisMonth.counts.length === 0 &&
                   overview.engagement.lastMonth.counts.length === 0) ? (
-                <p className="py-12 text-center text-sm" style={{ color: colors.muted }}>
+                <p className="flex-1 flex items-center justify-center text-sm" style={{ color: colors.muted }}>
                   {t('common:no_activity_yet', { defaultValue: 'No activity yet' })}
                 </p>
               ) : (
-                <MonthlyEngagementChart
-                  thisMonth={overview.engagement.thisMonth.counts}
-                  lastMonth={overview.engagement.lastMonth.counts}
-                  thisMonthLabel={overview.engagement.thisMonth.label}
-                  lastMonthLabel={overview.engagement.lastMonth.label}
-                  thisMonthYear={overview.engagement.thisMonth.year}
-                  thisMonthMonth={overview.engagement.thisMonth.month}
-                />
+                <div className="flex-1 min-h-[200px]">
+                  <MonthlyEngagementChart
+                    thisMonth={overview.engagement.thisMonth.counts}
+                    lastMonth={overview.engagement.lastMonth.counts}
+                    thisMonthLabel={overview.engagement.thisMonth.label}
+                    lastMonthLabel={overview.engagement.lastMonth.label}
+                    thisMonthYear={overview.engagement.thisMonth.year}
+                    thisMonthMonth={overview.engagement.thisMonth.month}
+                  />
+                </div>
               )}
             </CardBody>
           </Card>

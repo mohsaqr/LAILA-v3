@@ -11,8 +11,8 @@ interface MonthlyEngagementChartProps {
   /** Year + 1-based month for the current series — used to format tooltip dates. */
   thisMonthYear: number;
   thisMonthMonth: number;
-  /** Visible chart height in pixels. */
-  height?: number;
+  /** Lower bound for the chart height (still grows to fill its container). */
+  minHeight?: number;
   className?: string;
 }
 
@@ -31,11 +31,13 @@ export const MonthlyEngagementChart = ({
   lastMonthLabel,
   thisMonthYear,
   thisMonthMonth,
-  height = 240,
+  minHeight = 200,
   className = '',
 }: MonthlyEngagementChartProps) => {
   const { isDark } = useTheme();
-  const [width, setWidth] = useState(720);
+  const [size, setSize] = useState({ width: 720, height: minHeight });
+  const height = size.height;
+  const width = size.width;
   const [hoverDay, setHoverDay] = useState<number | null>(null);
 
   const colors = useMemo(
@@ -51,15 +53,26 @@ export const MonthlyEngagementChart = ({
     [isDark]
   );
 
-  // ResizeObserver to keep the chart responsive without depending on a hook.
-  const setWrapRef = useCallback((node: HTMLDivElement | null) => {
-    if (!node) return;
-    const ro = new ResizeObserver(entries => {
-      for (const e of entries) setWidth(Math.floor(e.contentRect.width));
-    });
-    ro.observe(node);
-    setWidth(Math.floor(node.getBoundingClientRect().width));
-  }, []);
+  // ResizeObserver tracks both width and height so the SVG fills the
+  // entire parent (e.g. when the card stretches to match a sibling).
+  const setWrapRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (!node) return;
+      const apply = (cw: number, ch: number) => {
+        setSize({
+          width: Math.max(40, Math.floor(cw)),
+          height: Math.max(minHeight, Math.floor(ch)),
+        });
+      };
+      const ro = new ResizeObserver(entries => {
+        for (const e of entries) apply(e.contentRect.width, e.contentRect.height);
+      });
+      ro.observe(node);
+      const r = node.getBoundingClientRect();
+      apply(r.width, r.height);
+    },
+    [minHeight]
+  );
 
   const totalDays = Math.max(thisMonth.length, lastMonth.length, 1);
   const innerW = Math.max(40, width - MARGIN.left - MARGIN.right);
@@ -140,7 +153,7 @@ export const MonthlyEngagementChart = ({
   }, [hoverDay, thisMonth, lastMonth, thisMonthYear, thisMonthMonth, stepX]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div ref={setWrapRef} className={`relative w-full ${className}`}>
+    <div ref={setWrapRef} className={`relative w-full h-full ${className}`}>
       <svg
         width={width}
         height={height}
