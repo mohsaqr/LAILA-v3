@@ -59,9 +59,12 @@ export const ActivityDonut = ({ data, formatLabel = defaultFormat, className = '
   const { isDark } = useTheme();
 
   const slices = useMemo(() => {
+    // Only the 5 most-frequent activities make it into the chart; the
+    // long tail is intentionally dropped to keep the donut readable.
     const entries = Object.entries(data)
       .filter(([, v]) => v > 0)
-      .sort(([, a], [, b]) => b - a);
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5);
     const total = entries.reduce((s, [, v]) => s + v, 0);
     if (total === 0) return [];
 
@@ -201,7 +204,7 @@ export const ActivityDonut = ({ data, formatLabel = defaultFormat, className = '
               fontWeight={500}
               fill={textColor}
             >
-              {s.value} <tspan opacity={0.65}>({s.pct}%)</tspan>
+              {s.value}
             </text>
           </g>
         ))}
