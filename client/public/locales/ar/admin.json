@@ -770,5 +770,16 @@
   "module_tutor_desc": "مدرس ذكاء اصطناعي لأسئلة المقرر وأجوبتها",
   "default_provider": "الافتراضي (المنصة)",
   "local_llm_note": "يجب أن تعمل المزودون المحليون على مضيف الخادم.",
-  "module_assignment_saved": "تم حفظ توجيه الوحدة"
+  "module_assignment_saved": "تم حفظ توجيه الوحدة",
+  "activity_timeline": "الجدول الزمني للنشاط",
+  "full_analytics": "التحليلات الكاملة ←",
+  "growth_last_7_days": "النمو — آخر 7 أيام",
+  "signups": "التسجيلات",
+  "course_distribution": "توزيع الكورسات",
+  "llm_providers": "نماذج LLM",
+  "analytics": "التحليلات",
+  "total_users": "إجمالي المستخدمين",
+  "active_users": "المستخدمون النشطون",
+  "published_courses": "الكورسات المنشورة",
+  "total_enrollments": "الاشتراكات"
 }

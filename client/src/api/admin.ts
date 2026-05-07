@@ -2,10 +2,22 @@ import apiClient from './client';
 import { AdminStats, ApiResponse, PaginatedResponse } from '../types';
 import { getAuthToken } from '../utils/auth';
 
+export interface AdminStatsTrends {
+  days: string[];
+  signups: number[];
+  enrollments: number[];
+  activity: number[];
+  signupsDelta: number;
+  enrollmentsDelta: number;
+  activityDelta: number;
+}
+
 export const adminApi = {
   getStats: async () => {
     const response = await apiClient.get<ApiResponse<{
       stats: AdminStats;
+      trends: AdminStatsTrends;
+      courseDistribution: Record<string, number>;
       recentUsers: any[];
       recentEnrollments: any[];
     }>>('/admin/stats');
