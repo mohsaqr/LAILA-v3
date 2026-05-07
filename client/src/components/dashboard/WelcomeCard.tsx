@@ -48,8 +48,8 @@ export const WelcomeCard = ({ name, message, className = '' }: WelcomeCardProps)
         aria-hidden="true"
       />
 
-      <div className="relative grid grid-cols-1 sm:grid-cols-5 gap-4 sm:gap-2 p-5 sm:p-7 items-center">
-        <div className="sm:col-span-2 flex justify-center sm:justify-start">
+      <div className="relative grid grid-cols-1 sm:grid-cols-5 gap-4 sm:gap-3 p-5 sm:p-6 items-center">
+        <div className="sm:col-span-2 flex justify-center sm:justify-start sm:-ml-2 lg:-ml-4">
           <WelcomeIllustration />
         </div>
         <div className="sm:col-span-3 sm:pl-2 text-center sm:text-left">
@@ -81,7 +81,7 @@ const WelcomeIllustration = () => (
     src="/illustrations/welcome-instructor.png"
     alt=""
     aria-hidden="true"
-    className="w-full max-w-[220px] sm:max-w-[200px] h-auto select-none pointer-events-none drop-shadow-xl"
+    className="w-full max-w-[300px] sm:max-w-[340px] lg:max-w-[380px] h-auto select-none pointer-events-none drop-shadow-xl"
     draggable={false}
   />
 );
