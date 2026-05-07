@@ -99,7 +99,7 @@ export const InstructorDashboard = () => {
         {/* Welcome card + KPI tile grid */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-5 mb-8 md:mb-10">
           <div className="lg:col-span-3">
-            <WelcomeCard name={user?.fullname} message={welcomeMessage} ctaHref="#pending-grading" />
+            <WelcomeCard name={user?.fullname} message={welcomeMessage} />
           </div>
           <div className="lg:col-span-2 grid grid-cols-2 gap-3 md:gap-4">
             <StatTile
