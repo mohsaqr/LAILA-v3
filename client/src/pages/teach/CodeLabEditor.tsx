@@ -166,7 +166,7 @@ export const CodeLabEditor = () => {
 
   if (!codeLab) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{t('code_lab_not_found')}</h1>
         <Button onClick={() => navigate(`/teach/courses/${courseId}/curriculum`)}>
           {t('back_to_curriculum')}
@@ -182,7 +182,7 @@ export const CodeLabEditor = () => {
   const breadcrumbItems = buildTeachingBreadcrumb(id, course?.title || t('course'), t('code_lab'));
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Breadcrumb navigation */}
       <div className="mb-6">
         <Breadcrumb homeHref="/" items={breadcrumbItems} />

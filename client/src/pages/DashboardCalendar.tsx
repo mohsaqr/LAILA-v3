@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  Calendar,
   Clock,
   FileText,
   AlertCircle,
@@ -143,23 +142,6 @@ export const DashboardCalendar = () => {
           <Breadcrumb items={[{ label: t('calendar') }]} />
         </div>
 
-        {/* Header */}
-        <div className="mb-6 md:mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div
-              className="w-10 h-10 rounded-lg flex items-center justify-center"
-              style={{ backgroundColor: colors.bgToday }}
-            >
-              <Calendar className="w-5 h-5" style={{ color: colors.textToday }} />
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold" style={{ color: colors.textPrimary }}>
-              {t('calendar')}
-            </h1>
-          </div>
-          <p style={{ color: colors.textSecondary }}>
-            {t('calendar_description')}
-          </p>
-        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           {/* Calendar */}

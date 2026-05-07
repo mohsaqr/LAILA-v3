@@ -153,22 +153,6 @@ export const CourseStudents = () => {
         <Breadcrumb homeHref="/" items={breadcrumbItems} />
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <Users className="w-6 h-6" />
-            {t('teaching:students', { defaultValue: 'Students' })}
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {pagination?.total != null
-              ? t('teaching:x_enrolled', {
-                  defaultValue: '{{count}} enrolled',
-                  count: pagination.total,
-                })
-              : ''}
-          </p>
-        </div>
-      </div>
 
       <Card>
         <CardBody>

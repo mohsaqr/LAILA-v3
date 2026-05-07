@@ -108,7 +108,7 @@ export const SubmissionReview = () => {
 
   if (!assignment) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{t('assignment_not_found')}</h1>
         <Button onClick={() => navigate(`/teach/courses/${courseId}/assignments`)}>
           {t('back_to_assignments')}

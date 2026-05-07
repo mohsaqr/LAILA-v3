@@ -345,31 +345,15 @@ export const SurveyManager = () => {
         />
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6">
-        <div>
-          <h1
-            className="text-xl sm:text-2xl font-bold"
-            style={{ color: isDark ? '#f3f4f6' : '#111827' }}
-          >
-            {t('surveys')}
-          </h1>
-          <p
-            className="mt-1"
-            style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
-          >
-            {t('create_manage_surveys')}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="secondary" onClick={() => setShowGenerateModal(true)}>
-            <Sparkles className="w-4 h-4 mr-2" />
-            {t('generate_with_ai')}
-          </Button>
-          <Button onClick={() => setShowCreateModal(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            {t('create_survey')}
-          </Button>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
+        <Button variant="secondary" onClick={() => setShowGenerateModal(true)}>
+          <Sparkles className="w-4 h-4 mr-2" />
+          {t('generate_with_ai')}
+        </Button>
+        <Button onClick={() => setShowCreateModal(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          {t('create_survey')}
+        </Button>
       </div>
 
       {error && (

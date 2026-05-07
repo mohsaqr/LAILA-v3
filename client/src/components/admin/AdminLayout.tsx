@@ -8,33 +8,22 @@ interface AdminLayoutProps {
   children: ReactNode;
   headerActions?: ReactNode;
   breadcrumbs?: BreadcrumbItem[];
-  /**
-   * Retained for compatibility with existing call sites — admin pages
-   * now always use the main app shell's centred max-w-7xl container, so
-   * this flag no longer toggles anything. Kept as an accepted prop to
-   * avoid touching every admin page that passes it.
-   */
   fullWidth?: boolean;
 }
 
 /**
  * Content wrapper for admin pages.
  *
- * Previously this component drew its own full-page shell (navbar,
- * sidebar, backdrop), which swapped out the main Layout's UI entirely
- * on /admin. Now it renders **inside** the main `Layout` so the
- * navbar, `DashboardSidebar`, container width, and page chrome stay
- * identical to /dashboard and /courses. `DashboardSidebar` itself
- * swaps its menu items to the admin set when it detects /admin/* in
- * the URL — so admins see the same sidebar position with admin links.
- *
- * This component is now just breadcrumb + title + header actions +
- * children inside the standard `max-w-7xl` container that all other
- * pages use.
+ * Renders the canonical breadcrumb + an optional header-actions row +
+ * children, inside the standard `max-w-7xl` container that all other
+ * pages use. The page title and description are no longer rendered
+ * here — the breadcrumb's final segment already conveys the page
+ * label. The `title`/`description` props are retained as no-ops for
+ * backwards compatibility with existing call sites; `title` still
+ * feeds the default breadcrumb when `breadcrumbs` isn't supplied.
  */
 export const AdminLayout = ({
   title,
-  description,
   children,
   headerActions,
   breadcrumbs,
@@ -43,26 +32,16 @@ export const AdminLayout = ({
   const breadcrumbItems = breadcrumbs || defaultBreadcrumbs;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Breadcrumb */}
-      <div className="mb-4">
+      <div className="mb-6">
         <Breadcrumb items={breadcrumbItems} homeHref="/admin" />
       </div>
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8 gap-4">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 truncate">
-            {title}
-          </h1>
-          {description && (
-            <p className="text-gray-600 dark:text-gray-400 mt-1">{description}</p>
-          )}
-        </div>
-        {headerActions && (
-          <div className="flex items-center gap-2 flex-shrink-0">{headerActions}</div>
-        )}
-      </div>
+      {/* Header actions (if any) */}
+      {headerActions && (
+        <div className="flex items-center justify-end gap-2 mb-6">{headerActions}</div>
+      )}
 
       {/* Page content */}
       <div>{children}</div>

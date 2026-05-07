@@ -376,22 +376,14 @@ export const Catalog = () => {
         <Breadcrumb items={[{ label: t('courses') }]} />
       </div>
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6 md:mb-8">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>{t('courses')}</h1>
-          <p className="mt-1" style={{ color: colors.textSecondary }}>
-            {canCreateCourses
-              ? t('manage_discover_courses')
-              : t('discover_ai_courses')}
-          </p>
-        </div>
-        {canCreateCourses && (
+      {/* Header actions */}
+      {canCreateCourses && (
+        <div className="flex justify-end mb-6 md:mb-8">
           <Link to="/teach/create">
             <Button icon={<Plus className="w-4 h-4" />}>{t('create_course')}</Button>
           </Link>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Filter Tabs */}
       {isAuthenticated && (

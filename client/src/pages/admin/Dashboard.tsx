@@ -26,6 +26,7 @@ import { ActivityHeatmap } from '../../components/tna/ActivityHeatmap';
 import { createColorMap, PALETTE_NAMES } from '../../components/tna/colorFix';
 import type { PaletteName } from '../../components/tna/colorFix';
 import activityLogger from '../../services/activityLogger';
+import { Breadcrumb } from '../../components/common/Breadcrumb';
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -682,11 +683,13 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
   const Wrapper = isAdmin
     ? ({ children }: { children: React.ReactNode }) => <AdminLayout title={pageTitle} fullWidth>{children}</AdminLayout>
     : ({ children }: { children: React.ReactNode }) => (
-        <div className="p-6 max-w-[1600px] mx-auto">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-4">{pageTitle}</h1>
-          {tnaData?.metadata?.courseTitle && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 -mt-3 mb-4">{tnaData.metadata.courseTitle}</p>
-          )}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+          <div className="mb-6">
+            <Breadcrumb
+              homeHref="/"
+              items={[{ label: pageTitle }]}
+            />
+          </div>
           {children}
         </div>
       );

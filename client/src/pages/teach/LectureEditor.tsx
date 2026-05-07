@@ -188,7 +188,7 @@ export const LectureEditor = () => {
 
   if (!lecture) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{t('lesson_not_found')}</h1>
         <Button onClick={() => navigate(`/teach/courses/${courseId}/curriculum`)}>
           {t('back_to_curriculum')}
@@ -202,7 +202,7 @@ export const LectureEditor = () => {
     : [];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Header with Breadcrumb */}
       <div className="flex items-center justify-between mb-6">
         <Breadcrumb

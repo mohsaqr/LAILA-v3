@@ -94,17 +94,19 @@ export const SurveyResponses = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-      <Breadcrumb
-        homeHref="/"
-        items={[
-          { label: t('navigation:courses'), href: '/teach' },
-          ...(courseId && course
-            ? [{ label: course.title, href: `/teach/courses/${courseId}/curriculum` }]
-            : []),
-          { label: data.survey.title },
-          ...(moduleName ? [{ label: moduleName }] : []),
-        ]}
-      />
+      <div className="mb-6">
+        <Breadcrumb
+          homeHref="/"
+          items={[
+            { label: t('navigation:courses'), href: '/teach' },
+            ...(courseId && course
+              ? [{ label: course.title, href: `/teach/courses/${courseId}/curriculum` }]
+              : []),
+            { label: data.survey.title },
+            ...(moduleName ? [{ label: moduleName }] : []),
+          ]}
+        />
+      </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6">
         <div>

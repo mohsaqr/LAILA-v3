@@ -109,11 +109,7 @@ export const StudentAssignments = () => {
         />
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6 md:mb-8">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2" style={{ color: colors.textPrimary }}>{t('assignments')}</h1>
-          <p style={{ color: colors.textSecondary }}>{course?.title}</p>
-        </div>
+      <div className="flex justify-end mb-6 md:mb-8">
         <Link to={`/courses/${parsedCourseId}/grades`}>
           <Button variant="secondary" icon={<TrendingUp className="w-4 h-4" />}>
             {t('my_grades')}

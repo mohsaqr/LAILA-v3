@@ -77,16 +77,6 @@ export const CourseForumList = () => {
         <Breadcrumb items={breadcrumbItems} />
       </div>
 
-      <div className="mb-6 md:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>
-          {t('course_forums_title')}
-        </h1>
-        {course && (
-          <p className="mt-2" style={{ color: colors.textSecondary }}>
-            {t('discussion_forums_for', { title: course.title })}
-          </p>
-        )}
-      </div>
 
       {!forums || forums.length === 0 ? (
         <Card>

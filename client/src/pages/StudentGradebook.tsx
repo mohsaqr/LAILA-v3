@@ -163,8 +163,6 @@ export const StudentGradebook = () => {
     );
   }
 
-  const course = enrollment.enrollment?.course;
-
   // Calculate overall grade (assignments + quizzes)
   const calculateOverallGrade = () => {
     let totalEarned = 0;
@@ -247,7 +245,7 @@ export const StudentGradebook = () => {
   const sortedAssignments = sortAssignments(publishedAssignments);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8" style={{ minHeight: '100vh' }}>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8" style={{ minHeight: '100vh' }}>
       {/* Breadcrumb */}
       <div className="mb-6">
         <Breadcrumb
@@ -259,10 +257,6 @@ export const StudentGradebook = () => {
         />
       </div>
 
-      <div className="mb-6 md:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-2" style={{ color: colors.textPrimary }}>{t('my_grades')}</h1>
-        <p style={{ color: colors.textSecondary }}>{course?.title}</p>
-      </div>
 
       {/* Overall Grade Summary */}
       <Card

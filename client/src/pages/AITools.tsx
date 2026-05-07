@@ -110,17 +110,6 @@ export const AITools = () => {
   return (
     <div className="min-h-screen gradient-bg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        {/* Header */}
-        <div className="text-center text-white mb-8 md:mb-12">
-          <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <BrainCircuit className="w-10 h-10" />
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-bold mb-4">{t('ai_research_tools')}</h1>
-          <p className="text-lg sm:text-xl text-white/90 max-w-2xl mx-auto">
-            {t('ai_tools_description')}
-          </p>
-        </div>
-
         {/* Tools Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-10 md:mb-16">
           {tools.map(tool => {
