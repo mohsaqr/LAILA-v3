@@ -804,5 +804,16 @@
   "module_tutor_desc": "AI tutor for course Q&A",
   "default_provider": "Default (platform)",
   "local_llm_note": "Local providers must be running on the server host.",
-  "module_assignment_saved": "Module routing saved"
+  "module_assignment_saved": "Module routing saved",
+  "activity_timeline": "Activity timeline",
+  "full_analytics": "Full analytics →",
+  "growth_last_7_days": "Growth — last 7 days",
+  "signups": "Signups",
+  "course_distribution": "Course distribution",
+  "llm_providers": "LLM",
+  "analytics": "Analytics",
+  "total_users": "Total users",
+  "active_users": "Active users",
+  "published_courses": "Published courses",
+  "total_enrollments": "Enrollments"
 }

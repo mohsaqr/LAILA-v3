@@ -42,7 +42,7 @@ import { Register } from './pages/auth/Register';
 import { ForgotPassword } from './pages/auth/ForgotPassword';
 
 // Main pages
-import { Dashboard } from './pages/Dashboard';
+import { DashboardRouter } from './pages/dashboards';
 import { Catalog } from './pages/Catalog';
 import { CourseDetails } from './pages/CourseDetails';
 import { ContentView } from './pages/ContentView';
@@ -227,7 +227,7 @@ function App() {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <DashboardRouter />
             </ProtectedRoute>
           }
         />
@@ -657,7 +657,14 @@ function App() {
         />
 
         {/* Teaching routes (instructor) */}
-        <Route path="/teach" element={<Navigate to="/courses" replace />} />
+        <Route
+          path="/teach"
+          element={
+            <ProtectedRoute requireInstructor>
+              <DashboardRouter />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/teach/create"
           element={

@@ -14,6 +14,25 @@ router.use(authenticateToken, requireAdmin);
 
 // Dashboard stats
 router.get('/stats', asyncHandler(async (req: AuthRequest, res: Response) => {
+  // Build the past-7-days window (UTC, day-aligned). Index 0 is the
+  // oldest day (D-6); index 6 is today. We aggregate in JS to stay
+  // portable across SQLite (millis) and PostgreSQL (timestamps).
+  const DAYS = 7;
+  const now = new Date();
+  const startOfTodayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const windowStart = startOfTodayUtc - (DAYS - 1) * 86_400_000;
+  const dayKeys = Array.from({ length: DAYS }, (_, i) => {
+    const d = new Date(windowStart + i * 86_400_000);
+    return d.toISOString().slice(0, 10); // YYYY-MM-DD
+  });
+  const dayIndex = (d: Date | string | null) => {
+    if (!d) return -1;
+    const t = typeof d === 'string' ? new Date(d).getTime() : d.getTime();
+    if (Number.isNaN(t)) return -1;
+    const idx = Math.floor((t - windowStart) / 86_400_000);
+    return idx >= 0 && idx < DAYS ? idx : -1;
+  };
+
   const [
     totalUsers,
     activeUsers,
@@ -22,6 +41,10 @@ router.get('/stats', asyncHandler(async (req: AuthRequest, res: Response) => {
     totalEnrollments,
     totalAssignments,
     totalChatLogs,
+    courseStatusGroups,
+    signupRows,
+    enrollmentRows,
+    activityRows,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { isActive: true } }),
@@ -30,7 +53,51 @@ router.get('/stats', asyncHandler(async (req: AuthRequest, res: Response) => {
     prisma.enrollment.count(),
     prisma.assignment.count(),
     prisma.chatLog.count(),
+    prisma.course.groupBy({ by: ['status'], _count: { _all: true } }),
+    prisma.user.findMany({
+      where: { createdAt: { gte: new Date(windowStart) } },
+      select: { createdAt: true },
+    }),
+    prisma.enrollment.findMany({
+      where: { enrolledAt: { gte: new Date(windowStart) } },
+      select: { enrolledAt: true },
+    }),
+    prisma.learningActivityLog.findMany({
+      where: { timestamp: { gte: new Date(windowStart) } },
+      select: { timestamp: true },
+    }),
   ]);
+
+  const signupTrend = new Array(DAYS).fill(0);
+  for (const r of signupRows) {
+    const i = dayIndex(r.createdAt);
+    if (i >= 0) signupTrend[i] += 1;
+  }
+  const enrollmentTrend = new Array(DAYS).fill(0);
+  for (const r of enrollmentRows) {
+    const i = dayIndex(r.enrolledAt);
+    if (i >= 0) enrollmentTrend[i] += 1;
+  }
+  const activityTrend = new Array(DAYS).fill(0);
+  for (const r of activityRows) {
+    const i = dayIndex(r.timestamp);
+    if (i >= 0) activityTrend[i] += 1;
+  }
+
+  // Distribution by course status (published / draft / archived).
+  const courseDistribution: Record<string, number> = {};
+  for (const g of courseStatusGroups) {
+    courseDistribution[g.status || 'unknown'] = g._count._all;
+  }
+
+  // Δ% vs previous half-window for sparkline deltas.
+  const halfDelta = (arr: number[]) => {
+    const half = Math.floor(arr.length / 2);
+    const prev = arr.slice(0, half).reduce((a, b) => a + b, 0);
+    const curr = arr.slice(half).reduce((a, b) => a + b, 0);
+    if (prev === 0) return curr === 0 ? 0 : 100;
+    return Math.round(((curr - prev) / prev) * 100);
+  };
 
   // Recent activity
   const recentUsers = await prisma.user.findMany({
@@ -60,6 +127,16 @@ router.get('/stats', asyncHandler(async (req: AuthRequest, res: Response) => {
         totalAssignments,
         totalChatLogs,
       },
+      trends: {
+        days: dayKeys,
+        signups: signupTrend,
+        enrollments: enrollmentTrend,
+        activity: activityTrend,
+        signupsDelta: halfDelta(signupTrend),
+        enrollmentsDelta: halfDelta(enrollmentTrend),
+        activityDelta: halfDelta(activityTrend),
+      },
+      courseDistribution,
       recentUsers,
       recentEnrollments,
     },

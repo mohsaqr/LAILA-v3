@@ -770,5 +770,16 @@
   "module_tutor_desc": "Tutor IA para preguntas y respuestas del curso",
   "default_provider": "Predeterminado (plataforma)",
   "local_llm_note": "Los proveedores locales deben estar ejecutándose en el host del servidor.",
-  "module_assignment_saved": "Enrutamiento de módulo guardado"
+  "module_assignment_saved": "Enrutamiento de módulo guardado",
+  "activity_timeline": "Línea de tiempo de actividad",
+  "full_analytics": "Analítica completa →",
+  "growth_last_7_days": "Crecimiento — últimos 7 días",
+  "signups": "Registros",
+  "course_distribution": "Distribución de cursos",
+  "llm_providers": "LLM",
+  "analytics": "Analítica",
+  "total_users": "Total de usuarios",
+  "active_users": "Usuarios activos",
+  "published_courses": "Cursos publicados",
+  "total_enrollments": "Inscripciones"
 }

@@ -770,5 +770,16 @@
   "module_tutor_desc": "Tekoälytutori kurssin kysymyksiin ja vastauksiin",
   "default_provider": "Oletus (alusta)",
   "local_llm_note": "Paikallisten tarjoajien on oltava käynnissä palvelimen isännässä.",
-  "module_assignment_saved": "Moduulireititys tallennettu"
+  "module_assignment_saved": "Moduulireititys tallennettu",
+  "activity_timeline": "Toiminnan aikajana",
+  "full_analytics": "Koko analytiikka →",
+  "growth_last_7_days": "Kasvu — viimeiset 7 päivää",
+  "signups": "Rekisteröitymiset",
+  "course_distribution": "Kurssien jakauma",
+  "llm_providers": "LLM",
+  "analytics": "Analytiikka",
+  "total_users": "Käyttäjät yhteensä",
+  "active_users": "Aktiiviset käyttäjät",
+  "published_courses": "Julkaistut kurssit",
+  "total_enrollments": "Ilmoittautumiset"
 }
