@@ -331,17 +331,8 @@ export const LabManager = () => {
           <Breadcrumb homeHref="/" items={[{ label: t('navigation:labs') }]} />
         </div>
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6 md:mb-8">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold" style={{ color: colors.textPrimary }}>
-              {t('lab_manager')}
-            </h1>
-            <p className="text-sm" style={{ color: colors.textSecondary }}>
-              {t('lab_manager_description')}
-            </p>
-          </div>
-
+        {/* Header actions */}
+        <div className="flex justify-end mb-6 md:mb-8">
           <Button onClick={() => setShowCreateModal(true)} icon={<Plus className="w-4 h-4" />}>
             {t('create_lab')}
           </Button>

@@ -13,6 +13,7 @@ import { resolveFileUrl } from '../api/client';
 import { Card, CardBody, CardHeader } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
+import { Breadcrumb } from '../components/common/Breadcrumb';
 
 export const Profile = () => {
   const { t } = useTranslation(['settings', 'common']);
@@ -85,10 +86,12 @@ export const Profile = () => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-      <h1 className="text-2xl sm:text-3xl font-bold mb-6 md:mb-8" style={{ color: colors.textPrimary }}>{t('profile')}</h1>
-
-      <div className="space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+      <div className="max-w-3xl mx-auto">
+        <div className="mb-6">
+          <Breadcrumb items={[{ label: t('profile') }]} />
+        </div>
+        <div className="space-y-6">
         {/* Profile Card */}
         <Card>
           <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
@@ -237,6 +240,7 @@ export const Profile = () => {
             </div>
           </CardBody>
         </Card>
+        </div>
       </div>
     </div>
   );

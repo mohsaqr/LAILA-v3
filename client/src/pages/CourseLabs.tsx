@@ -3,12 +3,14 @@
  * Accessible at /courses/:courseId/labs
  */
 
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { Network, Users, ArrowRight, ArrowLeft, FlaskConical } from 'lucide-react';
+import { Network, Users, ArrowRight } from 'lucide-react';
 import { coursesApi } from '../api/courses';
 import { useTheme } from '../hooks/useTheme';
+import { Breadcrumb } from '../components/common/Breadcrumb';
+import { buildCourseBreadcrumb } from '../utils/breadcrumbs';
 
 export const CourseLabs = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -52,28 +54,17 @@ export const CourseLabs = () => {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: isDark ? '#111827' : '#f3f4f6' }}>
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <Link
-            to={`/courses/${courseId}`}
-            className="p-2 -ml-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 flex items-center justify-center">
-            <FlaskConical className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
-              {t('course_interactive_labs')}
-            </h1>
-            {course && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">{course.title}</p>
-            )}
-          </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+        {/* Breadcrumb */}
+        <div className="mb-6">
+          <Breadcrumb
+            items={[
+              ...buildCourseBreadcrumb(courseId!, course?.title || t('course')),
+              { label: t('course_interactive_labs') },
+            ]}
+          />
         </div>
+
 
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
           {t('course_interactive_labs_desc')}

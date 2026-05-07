@@ -139,7 +139,7 @@ export const ContentView = () => {
     <div className="min-h-screen" style={{ backgroundColor: colors.bg }}>
       {/* Header with Breadcrumb */}
       <div className="sticky top-0 z-10" style={{ backgroundColor: colors.bgCard, borderBottom: `1px solid ${colors.border}` }}>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-4">
           <button
             onClick={handleBack}
             className="p-2 rounded-lg transition-colors flex-shrink-0"
@@ -153,7 +153,7 @@ export const ContentView = () => {
       </div>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
         <Card>
           {title && (
             <div className="px-4 sm:px-6 py-4" style={{ borderBottom: `1px solid ${colors.borderLight}`, backgroundColor: colors.bgHeader }}>

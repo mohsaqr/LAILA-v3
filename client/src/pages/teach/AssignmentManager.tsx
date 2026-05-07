@@ -212,18 +212,12 @@ export const AssignmentManager = () => {
         <Breadcrumb homeHref="/" items={breadcrumbItems} />
       </div>
 
-      {/* Course Header */}
-      <Card className="mb-6">
-        <CardBody className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{course.title}</h1>
-            <p className="text-gray-600">{t('manage_assignments_and_grading')}</p>
-          </div>
-          <Button onClick={openCreateModal} icon={<Plus className="w-4 h-4" />}>
-            {t('create_assignment')}
-          </Button>
-        </CardBody>
-      </Card>
+      {/* Header actions */}
+      <div className="flex justify-end mb-6">
+        <Button onClick={openCreateModal} icon={<Plus className="w-4 h-4" />}>
+          {t('create_assignment')}
+        </Button>
+      </div>
 
       {/* Assignments List */}
       <Card>

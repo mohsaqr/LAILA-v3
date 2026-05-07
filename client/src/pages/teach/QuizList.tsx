@@ -53,16 +53,6 @@ export const QuizList = () => {
         <Breadcrumb homeHref="/" items={[{ label: t('navigation:quizzes') }]} />
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6 md:mb-8">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>
-            {t('quiz_manager')}
-          </h1>
-          <p className="mt-2" style={{ color: colors.textSecondary }}>
-            {t('manage_quizzes_all')}
-          </p>
-        </div>
-      </div>
 
       {!quizzes || quizzes.length === 0 ? (
         <Card>

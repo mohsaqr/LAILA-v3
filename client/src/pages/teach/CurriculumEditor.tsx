@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect } from 'react';
-import { sanitizeHtml } from '../../utils/sanitize';
 import activityLogger from '../../services/activityLogger';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, Link } from 'react-router-dom';
@@ -20,7 +19,6 @@ import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { Modal } from '../../components/common/Modal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { EmptyState } from '../../components/common/EmptyState';
-import { StatusBadge } from '../../components/common/StatusBadge';
 import { Input, TextArea, Select } from '../../components/common/Input';
 import { RichTextEditor } from '../../components/forum/RichTextEditor';
 import { ModuleItem } from '../../components/teach/ModuleItem';
@@ -1006,18 +1004,6 @@ export const CurriculumEditor = () => {
         />
       </div>
 
-      {/* Course Header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2 flex-wrap">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{course.title}</h1>
-          <StatusBadge status={course.status} />
-        </div>
-        {course.description ? (
-          <div className="text-gray-600 dark:text-gray-400 prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(course.description) }} />
-        ) : (
-          <p className="text-gray-600 dark:text-gray-400">{t('no_description')}</p>
-        )}
-      </div>
 
       {/* Course Management Card - Dark theme */}
       <div

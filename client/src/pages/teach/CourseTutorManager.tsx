@@ -249,21 +249,11 @@ export const CourseTutorManager = () => {
         <Breadcrumb homeHref="/" items={breadcrumbItems} />
       </div>
 
-      {/* Header */}
-      <div className="mb-6 md:mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>
-              {t('collaborative_module')}
-            </h1>
-            <p className="mt-1" style={{ color: colors.textSecondary }}>
-              {t('manage_ai_tutors_for', { course: course.title })}
-            </p>
-          </div>
-          <Button onClick={() => setShowAddModal(true)} icon={<Plus className="w-4 h-4" />}>
-            {t('add_tutor')}
-          </Button>
-        </div>
+      {/* Header actions */}
+      <div className="flex justify-end mb-6 md:mb-8">
+        <Button onClick={() => setShowAddModal(true)} icon={<Plus className="w-4 h-4" />}>
+          {t('add_tutor')}
+        </Button>
       </div>
 
       {/* Stats */}

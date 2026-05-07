@@ -21,6 +21,7 @@ import { tutorsApi } from '../api/tutors';
 import { apiClient } from '../api/client';
 import { Button } from '../components/common/Button';
 import { Card, CardBody, CardHeader } from '../components/common/Card';
+import { Breadcrumb } from '../components/common/Breadcrumb';
 import type { TutorMode, TutorAgent, TutorMessageResponse } from '../types/tutor';
 
 interface TestResult {
@@ -211,17 +212,9 @@ export const TestCorner = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6 md:mb-8">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center">
-          <Zap className="w-6 h-6 text-white" />
-        </div>
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Test Corner</h1>
-          <p className="text-gray-600">Test all AI Tutor modes and features</p>
-        </div>
+      <div className="mb-6">
+        <Breadcrumb items={[{ label: 'Test Corner' }]} />
       </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* System Status */}
         <Card>

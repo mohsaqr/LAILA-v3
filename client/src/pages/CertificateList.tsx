@@ -58,14 +58,6 @@ export const CertificateList = () => {
         <Breadcrumb items={[{ label: t('certificates') }]} />
       </div>
 
-      <div className="mb-6 md:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>
-          {t('my_certificates')}
-        </h1>
-        <p className="mt-2" style={{ color: colors.textSecondary }}>
-          {t('no_certificates_description').replace('Complete courses to earn certificates that you can share and download.', 'View and download your earned certificates')}
-        </p>
-      </div>
 
       {!certificates || certificates.length === 0 ? (
         <Card>

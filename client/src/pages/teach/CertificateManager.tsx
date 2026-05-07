@@ -142,15 +142,7 @@ export const CertificateManager = () => {
         <Breadcrumb homeHref="/" items={[{ label: t('certificate_templates') }]} />
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6 md:mb-8">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>
-            {t('certificate_templates')}
-          </h1>
-          <p className="mt-2" style={{ color: colors.textSecondary }}>
-            {t('manage_certificate_templates_desc')}
-          </p>
-        </div>
+      <div className="flex justify-end mb-6 md:mb-8">
         <Button onClick={() => setShowCreateModal(true)}>
           <Plus className="w-4 h-4 mr-2" />
           {t('new_template')}

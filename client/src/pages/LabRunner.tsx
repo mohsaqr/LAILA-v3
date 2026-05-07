@@ -3,7 +3,6 @@ import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import {
-  FlaskConical,
   RefreshCw,
   HelpCircle,
   Loader2,
@@ -236,9 +235,9 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: colors.bg }}>
-      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
         {/* Breadcrumb */}
-        <div className="mb-4">
+        <div className="mb-6">
           <Breadcrumb
             items={
               courseId
@@ -254,24 +253,8 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
           />
         </div>
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 flex items-center justify-center">
-              <FlaskConical className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-lg sm:text-xl font-bold" style={{ color: colors.textPrimary }}>
-                {lab.name}
-              </h1>
-              {lab.description && (
-                <p className="text-sm" style={{ color: colors.textSecondary }}>
-                  {lab.description}
-                </p>
-              )}
-            </div>
-          </div>
-
+        {/* Header actions */}
+        <div className="flex justify-end mb-6">
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2 text-sm">
               <span

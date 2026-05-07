@@ -57,14 +57,6 @@ export const ForumList = () => {
         <Breadcrumb items={[{ label: t('forums') }]} />
       </div>
 
-      <div className="mb-6 md:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>
-          {t('discussion_forums')}
-        </h1>
-        <p className="mt-2" style={{ color: colors.textSecondary }}>
-          {t('participate_in_discussions')}
-        </p>
-      </div>
 
       {!forums || forums.length === 0 ? (
         <Card>
