@@ -44,9 +44,89 @@ const R_OUT = 102;
 const R_IN = 58;
 const RADIAL_OFFSET = 5; // exploded look — each slice nudged outward along its mid-angle
 const ANGLE_GAP = 0.045; // ~2.5° gap between slices
+const CORNER_RADIUS = 6; // softness of slice corners — D3-arc-style rounded corners
 const LEADER_OUT = 18; // length of the diagonal leader from arc edge
 const LABEL_GAP = 14; // horizontal spacing between elbow and the value text
 const MIN_LABEL_DY = 16; // vertical breathing room between adjacent labels on the same side
+
+/**
+ * Build an annulus segment path with rounded corners (a la d3.arc).
+ *
+ * Each of the four corners is replaced with a small arc of radius `cr`
+ * tangent to both the radial edge and the outer/inner circular arc.
+ * Geometry: a corner arc tangent to the outer arc has its centre at
+ * distance (R - cr) from the origin and offset cr perpendicular to the
+ * radial line. So the angular trim on the outer arc is
+ * `atan(cr / sqrt((R-cr)^2 - cr^2))`. Inner corners are symmetric with
+ * (R + cr) instead.
+ */
+function roundedAnnulusPath(
+  cx: number,
+  cy: number,
+  rIn: number,
+  rOut: number,
+  a1: number,
+  a2: number,
+  cornerRadius: number
+): string {
+  const angleSpan = a2 - a1;
+  // Cap the corner radius so it can't overlap itself on narrow slices.
+  const halfThickness = (rOut - rIn) / 2;
+  const arcChordHalf = Math.sin(angleSpan / 2) * ((rOut + rIn) / 2);
+  const cr = Math.max(0, Math.min(cornerRadius, halfThickness - 1, arcChordHalf - 1));
+
+  if (cr < 1) {
+    const x1 = cx + Math.cos(a1) * rOut;
+    const y1 = cy + Math.sin(a1) * rOut;
+    const x2 = cx + Math.cos(a2) * rOut;
+    const y2 = cy + Math.sin(a2) * rOut;
+    const x3 = cx + Math.cos(a2) * rIn;
+    const y3 = cy + Math.sin(a2) * rIn;
+    const x4 = cx + Math.cos(a1) * rIn;
+    const y4 = cy + Math.sin(a1) * rIn;
+    const largeArc = angleSpan > Math.PI ? 1 : 0;
+    return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${rOut} ${rOut} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} L ${x3.toFixed(2)} ${y3.toFixed(2)} A ${rIn} ${rIn} 0 ${largeArc} 0 ${x4.toFixed(2)} ${y4.toFixed(2)} Z`;
+  }
+
+  const outerD = Math.sqrt((rOut - cr) ** 2 - cr ** 2);
+  const outerOffset = Math.atan(cr / outerD);
+  const innerD = rIn > 0 ? Math.sqrt((rIn + cr) ** 2 - cr ** 2) : 0;
+  const innerOffset = rIn > 0 ? Math.atan(cr / innerD) : 0;
+
+  const maxOff = angleSpan / 2 - 0.005;
+  const oOff = Math.min(outerOffset, maxOff);
+  const iOff = Math.min(innerOffset, maxOff);
+
+  const oa1 = a1 + oOff;
+  const oa2 = a2 - oOff;
+  const ia1 = a1 + iOff;
+  const ia2 = a2 - iOff;
+
+  const oArcStart = { x: cx + Math.cos(oa1) * rOut, y: cy + Math.sin(oa1) * rOut };
+  const oArcEnd = { x: cx + Math.cos(oa2) * rOut, y: cy + Math.sin(oa2) * rOut };
+  const iArcEnd = { x: cx + Math.cos(ia2) * rIn, y: cy + Math.sin(ia2) * rIn };
+  const iArcStart = { x: cx + Math.cos(ia1) * rIn, y: cy + Math.sin(ia1) * rIn };
+  const oRadialStart = { x: cx + Math.cos(a1) * outerD, y: cy + Math.sin(a1) * outerD };
+  const oRadialEnd = { x: cx + Math.cos(a2) * outerD, y: cy + Math.sin(a2) * outerD };
+  const iRadialStart = { x: cx + Math.cos(a1) * innerD, y: cy + Math.sin(a1) * innerD };
+  const iRadialEnd = { x: cx + Math.cos(a2) * innerD, y: cy + Math.sin(a2) * innerD };
+
+  const largeOuter = oa2 - oa1 > Math.PI ? 1 : 0;
+  const largeInner = ia2 - ia1 > Math.PI ? 1 : 0;
+  const f = (n: number) => n.toFixed(2);
+
+  return [
+    `M ${f(oRadialStart.x)} ${f(oRadialStart.y)}`,
+    `A ${f(cr)} ${f(cr)} 0 0 1 ${f(oArcStart.x)} ${f(oArcStart.y)}`,
+    `A ${rOut} ${rOut} 0 ${largeOuter} 1 ${f(oArcEnd.x)} ${f(oArcEnd.y)}`,
+    `A ${f(cr)} ${f(cr)} 0 0 1 ${f(oRadialEnd.x)} ${f(oRadialEnd.y)}`,
+    `L ${f(iRadialEnd.x)} ${f(iRadialEnd.y)}`,
+    `A ${f(cr)} ${f(cr)} 0 0 1 ${f(iArcEnd.x)} ${f(iArcEnd.y)}`,
+    `A ${rIn} ${rIn} 0 ${largeInner} 0 ${f(iArcStart.x)} ${f(iArcStart.y)}`,
+    `A ${f(cr)} ${f(cr)} 0 0 1 ${f(iRadialStart.x)} ${f(iRadialStart.y)}`,
+    'Z',
+  ].join(' ');
+}
 
 /**
  * Modern donut with separated slices, exploded radial offset, leader-line
@@ -59,12 +139,10 @@ export const ActivityDonut = ({ data, formatLabel = defaultFormat, className = '
   const { isDark } = useTheme();
 
   const slices = useMemo(() => {
-    // Only the 5 most-frequent activities make it into the chart; the
-    // long tail is intentionally dropped to keep the donut readable.
+    // All non-zero verbs, sorted by frequency descending.
     const entries = Object.entries(data)
       .filter(([, v]) => v > 0)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5);
+      .sort(([, a], [, b]) => b - a);
     const total = entries.reduce((s, [, v]) => s + v, 0);
     if (total === 0) return [];
 
@@ -96,16 +174,7 @@ export const ActivityDonut = ({ data, formatLabel = defaultFormat, className = '
 
       const color = PALETTE[i % PALETTE.length];
 
-      const x1 = CX + Math.cos(startAngle) * R_OUT;
-      const y1 = CY + Math.sin(startAngle) * R_OUT;
-      const x2 = CX + Math.cos(endAngle) * R_OUT;
-      const y2 = CY + Math.sin(endAngle) * R_OUT;
-      const x3 = CX + Math.cos(endAngle) * R_IN;
-      const y3 = CY + Math.sin(endAngle) * R_IN;
-      const x4 = CX + Math.cos(startAngle) * R_IN;
-      const y4 = CY + Math.sin(startAngle) * R_IN;
-      const largeArc = angleSpan > Math.PI ? 1 : 0;
-      const path = `M ${x1.toFixed(1)} ${y1.toFixed(1)} A ${R_OUT} ${R_OUT} 0 ${largeArc} 1 ${x2.toFixed(1)} ${y2.toFixed(1)} L ${x3.toFixed(1)} ${y3.toFixed(1)} A ${R_IN} ${R_IN} 0 ${largeArc} 0 ${x4.toFixed(1)} ${y4.toFixed(1)} Z`;
+      const path = roundedAnnulusPath(CX, CY, R_IN, R_OUT, startAngle, endAngle, CORNER_RADIUS);
 
       const offsetX = Math.cos(midAngle) * RADIAL_OFFSET;
       const offsetY = Math.sin(midAngle) * RADIAL_OFFSET;
