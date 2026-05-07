@@ -175,36 +175,26 @@ export const InstructorDashboard = () => {
 
         {/* Course completion bars + Activity breakdown donut */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mb-8 md:mb-10">
-          <Card id="course-completion" className="scroll-mt-24 h-full">
-            <CardBody className="flex flex-col h-full p-0">
-              <div
-                className="px-5 py-3 border-b flex items-center justify-between"
-                style={{ borderColor: colors.border }}
-              >
-                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>
-                  {t('common:course_completion', { defaultValue: 'Course completion' })}
-                </span>
-                {overview && overview.courseCompletion.length > 0 && (
-                  <span className="text-xs" style={{ color: colors.muted }}>
-                    {overview.courseCompletion.length}
-                  </span>
-                )}
-              </div>
-              <div className="flex-1 overflow-y-auto p-3 sm:p-4 min-h-[260px] max-h-[420px]">
-                {ovLoading ? (
-                  <div className="space-y-3">
-                    {[0, 1, 2].map(i => (
-                      <Skeleton key={i} className="h-16" rounded="lg" />
-                    ))}
-                  </div>
-                ) : !overview || overview.courseCompletion.length === 0 ? (
-                  <p className="h-full flex items-center justify-center text-sm" style={{ color: colors.muted }}>
-                    {t('common:nothing_here', { defaultValue: 'Nothing here yet.' })}
-                  </p>
-                ) : (
+          <Card id="course-completion" className="scroll-mt-24">
+            <CardBody className="flex flex-col h-full">
+              <span className="text-xs font-semibold uppercase tracking-wider mb-4 block" style={{ color: colors.muted }}>
+                {t('common:course_completion', { defaultValue: 'Course completion' })}
+              </span>
+              {ovLoading ? (
+                <div className="flex-1 min-h-[260px] space-y-2">
+                  {[0, 1, 2].map(i => (
+                    <Skeleton key={i} className="h-14" rounded="lg" />
+                  ))}
+                </div>
+              ) : !overview || overview.courseCompletion.length === 0 ? (
+                <p className="flex-1 flex items-center justify-center py-8 text-sm" style={{ color: colors.muted }}>
+                  {t('common:nothing_here', { defaultValue: 'Nothing here yet.' })}
+                </p>
+              ) : (
+                <div className="flex-1 overflow-y-auto min-h-[260px] max-h-[420px] -mr-2 pr-2">
                   <CourseCompletionList items={overview.courseCompletion} />
-                )}
-              </div>
+                </div>
+              )}
             </CardBody>
           </Card>
 
