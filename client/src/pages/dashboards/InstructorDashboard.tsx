@@ -1,27 +1,21 @@
 import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BookOpen, Briefcase, FileText, Sparkles, Users } from 'lucide-react';
+import { Briefcase, FileText, Sparkles, Users } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
 import { activityLogger } from '../../services/activityLogger';
 import { Card, CardBody } from '../../components/common/Card';
-import { Button } from '../../components/common/Button';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import {
   ActivityDonut,
   CourseCompletionList,
-  DashboardSection,
-  EmptyDashboard,
   MonthlyEngagementChart,
   Skeleton,
   StatTile,
   WelcomeCard,
 } from '../../components/dashboard';
-import { coursesApi } from '../../api/courses';
 import { meApi } from '../../api/me';
-import { resolveFileUrl } from '../../api/client';
 
 /**
  * Instructor dashboard. Teaching insights at a glance: KPI row with
@@ -41,12 +35,6 @@ export const InstructorDashboard = () => {
   const { data: overview, isLoading: ovLoading } = useQuery({
     queryKey: ['me', 'teachingOverview'],
     queryFn: () => meApi.getTeachingOverview(),
-    enabled: !!user,
-  });
-
-  const { data: courses, isLoading: coursesLoading } = useQuery({
-    queryKey: ['teachingCourses'],
-    queryFn: () => coursesApi.getMyCourses(),
     enabled: !!user,
   });
 
@@ -98,7 +86,7 @@ export const InstructorDashboard = () => {
               label={t('your_courses')}
               value={overview?.kpis.totalCourses ?? '—'}
               color="violet"
-              href="#my-courses"
+              href="#course-completion"
             />
             <StatTile
               icon={Users}
@@ -178,7 +166,7 @@ export const InstructorDashboard = () => {
           <Card id="course-completion" className="scroll-mt-24">
             <CardBody className="flex flex-col h-full">
               <span className="text-xs font-semibold uppercase tracking-wider mb-4 block" style={{ color: colors.muted }}>
-                {t('common:course_completion', { defaultValue: 'Course completion' })}
+                {t('common:course_overview', { defaultValue: 'Course Overview' })}
               </span>
               {ovLoading ? (
                 <div className="flex-1 min-h-[260px] space-y-2">
@@ -225,70 +213,6 @@ export const InstructorDashboard = () => {
           </Card>
         </div>
 
-        {/* My Courses */}
-        <DashboardSection
-          id="my-courses"
-          title={t('your_courses')}
-          action={
-            <Link to="/teach" className="text-sm font-medium" style={{ color: '#0d9488' }}>
-              {t('common:view_all', { defaultValue: 'View all' })}
-            </Link>
-          }
-        >
-          {coursesLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[0, 1, 2].map(i => (
-                <Skeleton key={i} className="h-36" rounded="lg" />
-              ))}
-            </div>
-          ) : !courses || courses.length === 0 ? (
-            <Card>
-              <CardBody>
-                <EmptyDashboard
-                  icon={Briefcase}
-                  title={t('teaching:no_courses_yet', { defaultValue: 'No courses yet' })}
-                  description={t('teaching:create_your_first', { defaultValue: 'Create your first course to start teaching.' })}
-                  action={
-                    <Link to="/teach/create">
-                      <Button size="sm" icon={<Sparkles className="w-4 h-4" />}>
-                        {t('teaching:create_course')}
-                      </Button>
-                    </Link>
-                  }
-                />
-              </CardBody>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {courses.slice(0, 6).map(c => {
-                const thumb = c.thumbnail ? resolveFileUrl(c.thumbnail) : null;
-                return (
-                  <Link key={c.id} to={`/teach/courses/${c.id}/curriculum`}>
-                    <Card hover className="h-full">
-                      <CardBody className="p-4 flex flex-col gap-3 h-full">
-                        <div
-                          className="w-full h-24 rounded-lg bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center"
-                          style={thumb ? { backgroundImage: `url(${thumb})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
-                        >
-                          {!thumb && <BookOpen className="w-8 h-8 text-white/70" />}
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-sm line-clamp-2" style={{ color: colors.text }}>
-                            {c.title}
-                          </p>
-                          <p className="mt-1 text-xs flex items-center gap-2" style={{ color: colors.muted }}>
-                            <Users className="w-3 h-3" />
-                            {(c as any)._count?.enrollments ?? 0}
-                          </p>
-                        </div>
-                      </CardBody>
-                    </Card>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </DashboardSection>
       </div>
     </div>
   );
