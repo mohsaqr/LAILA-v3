@@ -178,5 +178,9 @@
   "to_do_list": "Lista de tareas",
   "there": "ahí",
   "welcome_message_pending_grading": "Tienes {{count}} entrega(s) esperando ser calificada(s). Vamos a resolverlas para mantener a tus estudiantes en marcha.",
-  "welcome_message_default": "Veamos qué están haciendo tus estudiantes hoy. Echa un vistazo a la actividad reciente y al progreso de los cursos."
+  "welcome_message_default": "Veamos qué están haciendo tus estudiantes hoy. Echa un vistazo a la actividad reciente y al progreso de los cursos.",
+  "course_events": "Eventos del curso",
+  "this_month_events": "eventos este mes · {{label}}",
+  "this_month": "Este mes",
+  "last_month": "Mes pasado"
 }

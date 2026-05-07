@@ -11,4 +11,5 @@ export { MiniBarChart } from './MiniBarChart';
 export { WelcomeCard } from './WelcomeCard';
 export { StatTile } from './StatTile';
 export type { StatTileColor } from './StatTile';
+export { MonthlyEngagementChart } from './MonthlyEngagementChart';
 export { relativeTime } from './relativeTime';

@@ -178,5 +178,9 @@
   "to_do_list": "To-Do List",
   "there": "there",
   "welcome_message_pending_grading": "You have {{count}} submission{{plural}} waiting to be graded. Let's tackle them and keep your students moving.",
-  "welcome_message_default": "Let's check what your students are up to today. Take a peek at recent activity and course progress."
+  "welcome_message_default": "Let's check what your students are up to today. Take a peek at recent activity and course progress.",
+  "course_events": "Course events",
+  "this_month_events": "events this month · {{label}}",
+  "this_month": "This month",
+  "last_month": "Last month"
 }

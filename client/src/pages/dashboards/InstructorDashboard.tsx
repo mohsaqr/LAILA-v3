@@ -13,6 +13,7 @@ import {
   DashboardSection,
   EmptyDashboard,
   MiniBarChart,
+  MonthlyEngagementChart,
   Skeleton,
   StatTile,
   WelcomeCard,
@@ -137,25 +138,53 @@ export const InstructorDashboard = () => {
         <div id="engagement" className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5 mb-8 md:mb-10 scroll-mt-24">
           <Card className="lg:col-span-2">
             <CardBody>
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>
-                  {t('common:student_engagement_30d', { defaultValue: 'Student engagement — last 30 days' })}
-                </span>
-                {overview && overview.engagement.counts.length > 0 && (
-                  <span className="text-xs" style={{ color: colors.muted }}>
-                    {overview.engagement.counts.reduce((s, v) => s + v, 0)}{' '}
-                    {t('common:events', { defaultValue: 'events' })}
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>
+                    {t('common:course_events', { defaultValue: 'Course events' })}
                   </span>
+                  {overview && (
+                    <p className="text-2xl font-bold mt-0.5" style={{ color: colors.text }}>
+                      {overview.engagement.thisMonth.counts.reduce((s, v) => s + v, 0)}
+                      <span className="ml-2 text-xs font-medium" style={{ color: colors.muted }}>
+                        {t('common:this_month_events', {
+                          defaultValue: 'events this month · {{label}}',
+                          label: overview.engagement.thisMonth.label,
+                        })}
+                      </span>
+                    </p>
+                  )}
+                </div>
+                {overview && (
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className="inline-flex items-center gap-1.5" style={{ color: colors.muted }}>
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#0d9488' }} />
+                      {t('common:this_month', { defaultValue: 'This month' })}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5" style={{ color: colors.muted }}>
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#f59e0b' }} />
+                      {t('common:last_month', { defaultValue: 'Last month' })}
+                    </span>
+                  </div>
                 )}
               </div>
               {ovLoading ? (
-                <Skeleton className="h-44 w-full" />
-              ) : !overview || overview.engagement.counts.length === 0 ? (
+                <Skeleton className="h-60 w-full" />
+              ) : !overview ||
+                (overview.engagement.thisMonth.counts.length === 0 &&
+                  overview.engagement.lastMonth.counts.length === 0) ? (
                 <p className="py-12 text-center text-sm" style={{ color: colors.muted }}>
                   {t('common:no_activity_yet', { defaultValue: 'No activity yet' })}
                 </p>
               ) : (
-                <EngagementLineChart days={overview.engagement.days} counts={overview.engagement.counts} />
+                <MonthlyEngagementChart
+                  thisMonth={overview.engagement.thisMonth.counts}
+                  lastMonth={overview.engagement.lastMonth.counts}
+                  thisMonthLabel={overview.engagement.thisMonth.label}
+                  lastMonthLabel={overview.engagement.lastMonth.label}
+                  thisMonthYear={overview.engagement.thisMonth.year}
+                  thisMonthMonth={overview.engagement.thisMonth.month}
+                />
               )}
             </CardBody>
           </Card>
@@ -331,53 +360,3 @@ export const InstructorDashboard = () => {
   );
 };
 
-/**
- * Single-line engagement chart with filled area. Pure SVG. Renders the
- * 30-day series passed in. Y axis is auto-scaled; X tick labels show
- * day-of-month every 5 days to keep the axis legible.
- */
-function EngagementLineChart({ days, counts }: { days: string[]; counts: number[] }) {
-  const { isDark } = useTheme();
-  const w = 700;
-  const h = 180;
-  const padX = 32;
-  const padY = 24;
-  const innerW = w - padX * 2;
-  const innerH = h - padY * 2;
-  const max = Math.max(1, ...counts);
-  const stepX = counts.length > 1 ? innerW / (counts.length - 1) : 0;
-  const points = counts.map((v, i) => {
-    const x = padX + i * stepX;
-    const y = padY + innerH - (v / max) * innerH;
-    return { x, y, v };
-  });
-  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-  const areaPath = `${linePath} L ${(padX + innerW).toFixed(1)},${(padY + innerH).toFixed(1)} L ${padX.toFixed(1)},${(padY + innerH).toFixed(1)} Z`;
-  const grid = isDark ? '#1f2937' : '#f3f4f6';
-  const tickColor = isDark ? '#6b7280' : '#9ca3af';
-
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" preserveAspectRatio="none" style={{ height: 200 }}>
-      {[0, 0.25, 0.5, 0.75, 1].map(t => {
-        const y = padY + innerH * (1 - t);
-        return <line key={t} x1={padX} y1={y} x2={padX + innerW} y2={y} stroke={grid} strokeWidth={1} />;
-      })}
-      <path d={areaPath} fill="#0d9488" fillOpacity={0.12} />
-      <path d={linePath} fill="none" stroke="#0d9488" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-      {points
-        .filter((_, i) => i % 5 === 0 || i === counts.length - 1)
-        .map((p, idx) => (
-          <text
-            key={idx}
-            x={p.x}
-            y={h - 6}
-            textAnchor="middle"
-            fontSize="10"
-            fill={tickColor}
-          >
-            {new Date(days[idx * 5] ?? days[counts.length - 1]).getUTCDate()}
-          </text>
-        ))}
-    </svg>
-  );
-}
