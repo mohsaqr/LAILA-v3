@@ -264,8 +264,16 @@ export class MeService {
     const courseCompletion = ownedCourses.map(c => {
       const agg = byCourse.get(c.id);
       const pct = agg && agg.count > 0 ? agg.sum / agg.count : 0;
+      // Prioritise students who have an uploaded profile picture so the
+      // dashboard avatar stack reads as faces first; fall back to the
+      // most-recently-enrolled for the remainder.
       const participants = (agg?.sample ?? [])
-        .sort((a, b) => b.enrolledAt.getTime() - a.enrolledAt.getTime())
+        .sort((a, b) => {
+          const aHas = a.user.avatarUrl ? 1 : 0;
+          const bHas = b.user.avatarUrl ? 1 : 0;
+          if (aHas !== bHas) return bHas - aHas;
+          return b.enrolledAt.getTime() - a.enrolledAt.getTime();
+        })
         .slice(0, 5)
         .map(s => s.user);
       return {
