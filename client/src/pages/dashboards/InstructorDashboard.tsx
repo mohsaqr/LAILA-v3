@@ -10,6 +10,7 @@ import { Card, CardBody } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import {
+  ActivityDonut,
   DashboardSection,
   EmptyDashboard,
   MiniBarChart,
@@ -17,9 +18,7 @@ import {
   Skeleton,
   StatTile,
   WelcomeCard,
-  relativeTime,
 } from '../../components/dashboard';
-import { ActivityDonutChart } from '../../components/tna/ActivityDonutChart';
 import { coursesApi } from '../../api/courses';
 import { meApi } from '../../api/me';
 import { resolveFileUrl } from '../../api/client';
@@ -129,14 +128,18 @@ export const InstructorDashboard = () => {
               label={t('pending_grading')}
               value={overview?.kpis.pendingGrading ?? '—'}
               color="rose"
-              href="#pending-grading"
+              href={
+                gradingQueue && gradingQueue.length > 0
+                  ? `/teach/courses/${gradingQueue[0].courseId}/assignments/${gradingQueue[0].assignmentId}/submissions`
+                  : '#engagement'
+              }
             />
           </div>
         </div>
 
-        {/* Engagement chart + Activity donut */}
-        <div id="engagement" className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5 mb-8 md:mb-10 scroll-mt-24">
-          <Card className="lg:col-span-2">
+        {/* Engagement chart (full width) */}
+        <div id="engagement" className="mb-8 md:mb-10 scroll-mt-24">
+          <Card>
             <CardBody className="flex flex-col h-full">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                 <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>
@@ -156,15 +159,15 @@ export const InstructorDashboard = () => {
                 )}
               </div>
               {ovLoading ? (
-                <Skeleton className="flex-1 min-h-[200px] w-full" />
+                <Skeleton className="flex-1 min-h-[240px] w-full" />
               ) : !overview ||
                 (overview.engagement.thisMonth.counts.length === 0 &&
                   overview.engagement.lastMonth.counts.length === 0) ? (
-                <p className="flex-1 flex items-center justify-center text-sm" style={{ color: colors.muted }}>
+                <p className="flex-1 flex items-center justify-center py-12 text-sm" style={{ color: colors.muted }}>
                   {t('common:no_activity_yet', { defaultValue: 'No activity yet' })}
                 </p>
               ) : (
-                <div className="flex-1 min-h-[200px]">
+                <div className="flex-1 min-h-[260px]">
                   <MonthlyEngagementChart
                     thisMonth={overview.engagement.thisMonth.counts}
                     lastMonth={overview.engagement.lastMonth.counts}
@@ -177,26 +180,9 @@ export const InstructorDashboard = () => {
               )}
             </CardBody>
           </Card>
-
-          <Card>
-            <CardBody>
-              <span className="text-xs font-semibold uppercase tracking-wider mb-4 block" style={{ color: colors.muted }}>
-                {t('common:activity_breakdown', { defaultValue: 'Activity breakdown' })}
-              </span>
-              {ovLoading ? (
-                <Skeleton className="h-40 w-full" />
-              ) : !overview || Object.keys(overview.activityByVerb).length === 0 ? (
-                <p className="py-8 text-center text-sm" style={{ color: colors.muted }}>
-                  {t('common:nothing_here', { defaultValue: 'Nothing here yet.' })}
-                </p>
-              ) : (
-                <ActivityDonutChart data={overview.activityByVerb} title="" />
-              )}
-            </CardBody>
-          </Card>
         </div>
 
-        {/* Course completion bars + Pending grading */}
+        {/* Course completion bars + Activity breakdown donut */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mb-8 md:mb-10">
           <Card id="course-completion" className="scroll-mt-24">
             <CardBody>
@@ -219,62 +205,28 @@ export const InstructorDashboard = () => {
             </CardBody>
           </Card>
 
-          <Card id="pending-grading" className="scroll-mt-24">
-            <CardBody className="p-0">
-              <div className="px-5 py-3 flex items-center justify-between border-b" style={{ borderColor: colors.border }}>
-                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>
-                  {t('common:pending_grading', { defaultValue: 'Pending grading' })}
-                </span>
-                {gradingQueue && gradingQueue.length > 0 && (
-                  <Link to="/teach" className="text-xs font-medium" style={{ color: '#0d9488' }}>
-                    {t('common:view_all', { defaultValue: 'View all' })}
-                  </Link>
-                )}
-              </div>
-              {!gradingQueue ? (
-                <div className="p-5 space-y-3">
-                  {[0, 1, 2].map(i => (
-                    <Skeleton key={i} className="h-10" />
-                  ))}
-                </div>
-              ) : gradingQueue.length === 0 ? (
-                <p className="px-5 py-8 text-sm text-center" style={{ color: colors.muted }}>
-                  {t('common:all_caught_up_teaching', { defaultValue: 'All caught up — nothing waiting on you right now.' })}
+          <Card>
+            <CardBody className="flex flex-col h-full">
+              <span className="text-xs font-semibold uppercase tracking-wider mb-4 block" style={{ color: colors.muted }}>
+                {t('common:activity_breakdown', { defaultValue: 'Activity breakdown' })}
+              </span>
+              {ovLoading ? (
+                <Skeleton className="flex-1 min-h-[260px] w-full" />
+              ) : !overview || Object.keys(overview.activityByVerb).length === 0 ? (
+                <p className="flex-1 flex items-center justify-center py-8 text-sm" style={{ color: colors.muted }}>
+                  {t('common:nothing_here', { defaultValue: 'Nothing here yet.' })}
                 </p>
               ) : (
-                <ul className="divide-y" style={{ borderColor: colors.border }}>
-                  {gradingQueue.slice(0, 5).map(q => (
-                    <li key={q.assignmentId}>
-                      <Link
-                        to={`/teach/courses/${q.courseId}/assignments/${q.assignmentId}/submissions`}
-                        className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition-colors"
-                      >
-                        <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: 'rgba(245,158,11,0.15)' }}
-                        >
-                          <FileText className="w-4 h-4 text-amber-600" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate" style={{ color: colors.text }}>
-                            {q.assignmentTitle}
-                          </p>
-                          <p className="text-xs truncate" style={{ color: colors.muted }}>
-                            {q.courseTitle}
-                            {q.oldestSubmittedAt &&
-                              ` · oldest ${relativeTime(q.oldestSubmittedAt)}`}
-                          </p>
-                        </div>
-                        <span
-                          className="text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
-                          style={{ backgroundColor: 'rgba(245,158,11,0.15)', color: '#92400e' }}
-                        >
-                          {q.pendingCount} {t('common:waiting', { defaultValue: 'waiting' })}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+                <div className="flex-1 flex items-center justify-center min-h-[260px]">
+                  <ActivityDonut
+                    data={overview.activityByVerb}
+                    formatLabel={(k) =>
+                      t(`common:verb_${k}`, {
+                        defaultValue: k.charAt(0).toUpperCase() + k.slice(1).replace(/_/g, ' '),
+                      })
+                    }
+                  />
+                </div>
               )}
             </CardBody>
           </Card>

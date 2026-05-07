@@ -12,4 +12,5 @@ export { WelcomeCard } from './WelcomeCard';
 export { StatTile } from './StatTile';
 export type { StatTileColor } from './StatTile';
 export { MonthlyEngagementChart } from './MonthlyEngagementChart';
+export { ActivityDonut } from './ActivityDonut';
 export { relativeTime } from './relativeTime';
