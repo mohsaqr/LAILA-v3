@@ -50,6 +50,11 @@ export interface TeachingOverview {
     courseTitle: string;
     completionPct: number;
     studentCount: number;
+    participants: Array<{
+      id: number;
+      fullname: string | null;
+      avatarUrl: string | null;
+    }>;
   }>;
   activityByVerb: Record<string, number>;
 }

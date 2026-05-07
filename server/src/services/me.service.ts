@@ -194,7 +194,13 @@ export class MeService {
     const [enrollments, assignmentTotals, pendingByCourse, thisMonthRows, lastMonthRows] = await Promise.all([
       prisma.enrollment.findMany({
         where: { courseId: { in: courseIds } },
-        select: { courseId: true, progress: true, status: true },
+        select: {
+          courseId: true,
+          progress: true,
+          status: true,
+          enrolledAt: true,
+          user: { select: { id: true, fullname: true, avatarUrl: true } },
+        },
       }),
       prisma.assignment.count({ where: { courseId: { in: courseIds } } }),
       prisma.assignmentSubmission.count({
@@ -240,25 +246,34 @@ export class MeService {
     const monthLabel = (d: Date) =>
       d.toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 
-    // Per-course completion + student counts.
-    const byCourse = new Map<number, { sum: number; count: number; students: number }>();
+    // Per-course completion + student counts + a small sample of
+    // participants (most-recently-enrolled, capped at 5) so the
+    // dashboard can render an avatar stack without N extra queries.
+    type Participant = { id: number; fullname: string | null; avatarUrl: string | null };
+    const byCourse = new Map<number, { sum: number; count: number; students: number; sample: Array<{ enrolledAt: Date; user: Participant }> }>();
     for (const e of enrollments) {
-      const cur = byCourse.get(e.courseId) ?? { sum: 0, count: 0, students: 0 };
+      const cur = byCourse.get(e.courseId) ?? { sum: 0, count: 0, students: 0, sample: [] };
       cur.students += 1;
       if (e.status !== 'dropped') {
         cur.sum += e.progress ?? 0;
         cur.count += 1;
       }
+      cur.sample.push({ enrolledAt: e.enrolledAt, user: e.user });
       byCourse.set(e.courseId, cur);
     }
     const courseCompletion = ownedCourses.map(c => {
       const agg = byCourse.get(c.id);
       const pct = agg && agg.count > 0 ? agg.sum / agg.count : 0;
+      const participants = (agg?.sample ?? [])
+        .sort((a, b) => b.enrolledAt.getTime() - a.enrolledAt.getTime())
+        .slice(0, 5)
+        .map(s => s.user);
       return {
         courseId: c.id,
         courseTitle: c.title,
         completionPct: Math.round(pct),
         studentCount: agg?.students ?? 0,
+        participants,
       };
     });
     courseCompletion.sort((a, b) => b.studentCount - a.studentCount || b.completionPct - a.completionPct);
