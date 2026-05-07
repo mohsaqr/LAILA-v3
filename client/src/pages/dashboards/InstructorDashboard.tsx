@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Briefcase, FileText, Sparkles, Users } from 'lucide-react';
+import { ClipboardCheck, FileText, GraduationCap, Users } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
 import { activityLogger } from '../../services/activityLogger';
@@ -82,7 +82,7 @@ export const InstructorDashboard = () => {
           </div>
           <div className="lg:col-span-2 grid grid-cols-2 gap-3 md:gap-4">
             <StatTile
-              icon={Briefcase}
+              icon={GraduationCap}
               label={t('your_courses')}
               value={overview?.kpis.totalCourses ?? '—'}
               color="violet"
@@ -103,7 +103,7 @@ export const InstructorDashboard = () => {
               href="#course-completion"
             />
             <StatTile
-              icon={Sparkles}
+              icon={ClipboardCheck}
               label={t('pending_grading')}
               value={overview?.kpis.pendingGrading ?? '—'}
               color="rose"
