@@ -49,7 +49,7 @@ export const CourseCompletionList = ({ items, getHref, className = '' }: CourseC
   };
 
   return (
-    <ul className={`space-y-3 ${className}`}>
+    <ul className={`space-y-2 ${className}`}>
       {items.map((c, i) => {
         const stripe = STRIPE_COLORS[i % STRIPE_COLORS.length];
         const href = getHref ? getHref(c) : `/teach/courses/${c.courseId}/curriculum`;
@@ -58,7 +58,7 @@ export const CourseCompletionList = ({ items, getHref, className = '' }: CourseC
           <li key={c.courseId}>
             <Link
               to={href}
-              className="group flex items-stretch gap-0 rounded-xl border overflow-hidden transition-colors"
+              className="group flex items-stretch gap-0 rounded-lg border overflow-hidden transition-colors"
               style={{
                 backgroundColor: colors.rowBg,
                 borderColor: colors.border,
@@ -71,25 +71,23 @@ export const CourseCompletionList = ({ items, getHref, className = '' }: CourseC
               }}
             >
               {/* Left coloured stripe */}
-              <div className="w-1.5 flex-shrink-0" style={{ backgroundColor: stripe }} />
+              <div className="w-1 flex-shrink-0" style={{ backgroundColor: stripe }} />
 
-              <div className="flex-1 min-w-0 p-3 sm:p-4 flex items-start gap-3">
+              <div className="flex-1 min-w-0 px-3 py-2.5 flex items-center gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="font-semibold text-sm sm:text-base truncate" style={{ color: colors.title }}>
-                      {c.courseTitle}
-                    </p>
-                  </div>
-                  <p className="mt-0.5 text-xs" style={{ color: colors.sub }}>
+                  <p className="font-medium text-sm truncate" style={{ color: colors.title }}>
+                    {c.courseTitle}
+                  </p>
+                  <p className="text-xs truncate" style={{ color: colors.sub }}>
                     {c.studentCount === 1
                       ? '1 student enrolled'
                       : `${c.studentCount} students enrolled`}
                   </p>
 
                   {/* Progress + completion */}
-                  <div className="mt-2.5 flex items-center gap-2">
+                  <div className="mt-1.5 flex items-center gap-2">
                     <div
-                      className="flex-1 h-1.5 rounded-full overflow-hidden"
+                      className="flex-1 h-1 rounded-full overflow-hidden"
                       style={{ backgroundColor: colors.track }}
                     >
                       <div
@@ -101,7 +99,7 @@ export const CourseCompletionList = ({ items, getHref, className = '' }: CourseC
                       />
                     </div>
                     <span
-                      className="text-xs font-semibold tabular-nums whitespace-nowrap"
+                      className="text-xs font-medium tabular-nums whitespace-nowrap"
                       style={{ color: colors.title }}
                     >
                       {c.completionPct}%
@@ -110,7 +108,7 @@ export const CourseCompletionList = ({ items, getHref, className = '' }: CourseC
                 </div>
 
                 {/* Avatars + chevron */}
-                <div className="flex items-center gap-2 flex-shrink-0 self-center">
+                <div className="flex items-center gap-1.5 flex-shrink-0">
                   {c.participants.length > 0 && (
                     <AvatarStack
                       participants={c.participants}
@@ -148,28 +146,28 @@ function AvatarStack({
   overflowFg: string;
 }) {
   return (
-    <div className="flex -space-x-2">
+    <div className="flex -space-x-1.5">
       {participants.slice(0, 5).map(p => (
         <span
           key={p.id}
           className="rounded-full"
-          style={{ boxShadow: `0 0 0 2px ${ringColor}` }}
+          style={{ boxShadow: `0 0 0 1.5px ${ringColor}` }}
           title={p.fullname ?? undefined}
         >
           <Avatar
             src={p.avatarUrl ? resolveFileUrl(p.avatarUrl) : null}
             name={p.fullname || '?'}
-            size="sm"
+            size="xs"
           />
         </span>
       ))}
       {overflow > 0 && (
         <span
-          className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-semibold"
+          className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-semibold"
           style={{
             backgroundColor: overflowBg,
             color: overflowFg,
-            boxShadow: `0 0 0 2px ${ringColor}`,
+            boxShadow: `0 0 0 1.5px ${ringColor}`,
           }}
         >
           +{overflow}
