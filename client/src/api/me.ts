@@ -23,6 +23,17 @@ export interface GradingQueueItem {
   oldestSubmittedAt: string | null;
 }
 
+export interface MonthlyEngagementSeries {
+  /** Daily event counts indexed 0 = day-of-month 1, length = `daysShown`. */
+  counts: number[];
+  /** Human label, e.g. "May 2026". */
+  label: string;
+  year: number;
+  /** 1-based month (1 = January). */
+  month: number;
+  daysShown: number;
+}
+
 export interface TeachingOverview {
   kpis: {
     totalCourses: number;
@@ -30,7 +41,10 @@ export interface TeachingOverview {
     totalAssignments: number;
     pendingGrading: number;
   };
-  engagement: { days: string[]; counts: number[] };
+  engagement: {
+    thisMonth: MonthlyEngagementSeries;
+    lastMonth: MonthlyEngagementSeries;
+  };
   courseCompletion: Array<{
     courseId: number;
     courseTitle: string;

@@ -178,5 +178,9 @@
   "to_do_list": "Tehtävälista",
   "there": "siellä",
   "welcome_message_pending_grading": "Sinulla on {{count}} palautusta odottamassa arviointia. Hoidetaan ne ja pidetään opiskelijat liikkeessä.",
-  "welcome_message_default": "Katsotaan mitä opiskelijasi ovat tehneet tänään. Vilkaistaan viimeaikaista toimintaa ja kurssien edistymistä."
+  "welcome_message_default": "Katsotaan mitä opiskelijasi ovat tehneet tänään. Vilkaistaan viimeaikaista toimintaa ja kurssien edistymistä.",
+  "course_events": "Kurssitapahtumat",
+  "this_month_events": "tapahtumaa tässä kuussa · {{label}}",
+  "this_month": "Tässä kuussa",
+  "last_month": "Viime kuussa"
 }

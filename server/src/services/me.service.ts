@@ -158,13 +158,13 @@ export class MeService {
   }
 
   /**
-   * Per-instructor teaching dashboard data: 30-day daily activity
-   * counts across the instructor's courses + per-course completion %
-   * (based on enrollment progress) + KPI totals + per-course student
-   * counts. Single round trip so the instructor dashboard renders
-   * without fan-out from the client.
+   * Per-instructor teaching dashboard data: month-aligned engagement
+   * (this month + last month, day-of-month aligned for chart overlay)
+   * + per-course completion % + KPI totals + activity verb breakdown
+   * across both months. Single round trip so the instructor dashboard
+   * renders without fan-out from the client.
    */
-  async getTeachingOverview(userId: number, daysWindow = 30) {
+  async getTeachingOverview(userId: number) {
     const ownedCourses = await prisma.course.findMany({
       where: { instructorId: userId },
       select: { id: true, title: true, status: true, thumbnail: true },
@@ -174,28 +174,24 @@ export class MeService {
     if (courseIds.length === 0) {
       return {
         kpis: { totalCourses: 0, totalStudents: 0, totalAssignments: 0, pendingGrading: 0 },
-        engagement: { days: [] as string[], counts: [] as number[] },
+        engagement: emptyEngagement(),
         courseCompletion: [] as { courseId: number; courseTitle: string; completionPct: number; studentCount: number }[],
         activityByVerb: {} as Record<string, number>,
       };
     }
 
     const now = new Date();
-    const startOfTodayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-    const windowStart = startOfTodayUtc - (daysWindow - 1) * 86_400_000;
-    const dayKeys = Array.from({ length: daysWindow }, (_, i) => {
-      const d = new Date(windowStart + i * 86_400_000);
-      return d.toISOString().slice(0, 10);
-    });
-    const dayIndex = (d: Date | string | null) => {
-      if (!d) return -1;
-      const t = typeof d === 'string' ? new Date(d).getTime() : d.getTime();
-      if (Number.isNaN(t)) return -1;
-      const idx = Math.floor((t - windowStart) / 86_400_000);
-      return idx >= 0 && idx < daysWindow ? idx : -1;
-    };
+    const thisMonth = now.getUTCMonth();
+    const thisYear = now.getUTCFullYear();
+    const today = now.getUTCDate();
+    // Use UTC to stay portable; consistent with how everything else is bucketed.
+    const startOfThisMonth = new Date(Date.UTC(thisYear, thisMonth, 1));
+    const startOfNextMonth = new Date(Date.UTC(thisYear, thisMonth + 1, 1));
+    const startOfLastMonth = new Date(Date.UTC(thisYear, thisMonth - 1, 1));
 
-    const [enrollments, assignmentTotals, pendingByCourse, activityRows] = await Promise.all([
+    const daysInLastMonth = new Date(Date.UTC(thisYear, thisMonth, 0)).getUTCDate();
+
+    const [enrollments, assignmentTotals, pendingByCourse, thisMonthRows, lastMonthRows] = await Promise.all([
       prisma.enrollment.findMany({
         where: { courseId: { in: courseIds } },
         select: { courseId: true, progress: true, status: true },
@@ -211,20 +207,40 @@ export class MeService {
       prisma.learningActivityLog.findMany({
         where: {
           courseId: { in: courseIds },
-          timestamp: { gte: new Date(windowStart) },
+          timestamp: { gte: startOfThisMonth, lt: startOfNextMonth },
+        },
+        select: { timestamp: true, verb: true },
+      }),
+      prisma.learningActivityLog.findMany({
+        where: {
+          courseId: { in: courseIds },
+          timestamp: { gte: startOfLastMonth, lt: startOfThisMonth },
         },
         select: { timestamp: true, verb: true },
       }),
     ]);
 
-    const counts = new Array(daysWindow).fill(0);
+    // Bucket each month by day-of-month (1..N). `null` for days outside
+    // the recorded range so the client can decide whether to draw a point.
+    const thisMonthCounts: number[] = new Array(today).fill(0);
+    const lastMonthCounts: number[] = new Array(daysInLastMonth).fill(0);
     const activityByVerb: Record<string, number> = {};
-    for (const r of activityRows) {
-      const i = dayIndex(r.timestamp);
-      if (i >= 0) counts[i] += 1;
+
+    for (const r of thisMonthRows) {
+      const d = new Date(r.timestamp).getUTCDate();
+      if (d >= 1 && d <= today) thisMonthCounts[d - 1] += 1;
+      if (r.verb) activityByVerb[r.verb] = (activityByVerb[r.verb] ?? 0) + 1;
+    }
+    for (const r of lastMonthRows) {
+      const d = new Date(r.timestamp).getUTCDate();
+      if (d >= 1 && d <= daysInLastMonth) lastMonthCounts[d - 1] += 1;
       if (r.verb) activityByVerb[r.verb] = (activityByVerb[r.verb] ?? 0) + 1;
     }
 
+    const monthLabel = (d: Date) =>
+      d.toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+
+    // Per-course completion + student counts.
     const byCourse = new Map<number, { sum: number; count: number; students: number }>();
     for (const e of enrollments) {
       const cur = byCourse.get(e.courseId) ?? { sum: 0, count: 0, students: 0 };
@@ -256,11 +272,31 @@ export class MeService {
         totalAssignments: assignmentTotals,
         pendingGrading: pendingByCourse,
       },
-      engagement: { days: dayKeys, counts },
+      engagement: {
+        thisMonth: {
+          counts: thisMonthCounts,
+          label: monthLabel(startOfThisMonth),
+          year: thisYear,
+          month: thisMonth + 1,
+          daysShown: today,
+        },
+        lastMonth: {
+          counts: lastMonthCounts,
+          label: monthLabel(startOfLastMonth),
+          year: startOfLastMonth.getUTCFullYear(),
+          month: startOfLastMonth.getUTCMonth() + 1,
+          daysShown: daysInLastMonth,
+        },
+      },
       courseCompletion,
       activityByVerb,
     };
   }
 }
+
+const emptyEngagement = () => ({
+  thisMonth: { counts: [] as number[], label: '', year: 0, month: 0, daysShown: 0 },
+  lastMonth: { counts: [] as number[], label: '', year: 0, month: 0, daysShown: 0 },
+});
 
 export const meService = new MeService();
