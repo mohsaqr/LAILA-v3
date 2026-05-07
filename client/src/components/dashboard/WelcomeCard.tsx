@@ -1,29 +1,19 @@
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight } from 'lucide-react';
 
 interface WelcomeCardProps {
   name?: string | null;
   message?: string;
-  ctaLabel?: string;
-  ctaHref?: string;
   className?: string;
 }
 
 /**
  * Hero greeting tile for role dashboards. Pairs an inline SVG
- * character + calendar with a friendly welcome line and a single
- * call-to-action. Designed to sit alongside a 2×2 stat-tile grid.
+ * character + calendar with the user's full name and a friendly
+ * one-liner. Designed to sit alongside a 2×2 stat-tile grid.
  */
-export const WelcomeCard = ({
-  name,
-  message,
-  ctaLabel,
-  ctaHref = '#pending-grading',
-  className = '',
-}: WelcomeCardProps) => {
+export const WelcomeCard = ({ name, message, className = '' }: WelcomeCardProps) => {
   const { t } = useTranslation(['common']);
-  const firstName = name?.trim().split(/\s+/)[0] ?? '';
+  const fullName = name?.trim() ?? '';
   return (
     <div
       className={`relative overflow-hidden rounded-2xl text-white shadow-md ${className}`}
@@ -66,23 +56,16 @@ export const WelcomeCard = ({
           <p className="text-white/80 text-sm font-medium tracking-wide mb-1">
             {t('common:welcome_back_short', { defaultValue: 'Welcome back' })}
           </p>
-          <h2 className="text-2xl sm:text-3xl font-bold mb-2 truncate">
-            {firstName || t('common:there', { defaultValue: 'there' })}
+          <h2 className="text-2xl sm:text-3xl font-bold mb-2 break-words">
+            {fullName || t('common:there', { defaultValue: 'there' })}
           </h2>
-          <p className="text-white/85 text-sm mb-4 max-w-md leading-relaxed mx-auto sm:mx-0">
+          <p className="text-white/85 text-sm max-w-md leading-relaxed mx-auto sm:mx-0">
             {message ??
               t('common:lets_start_message', {
                 defaultValue:
                   "Let's check what needs your attention today. Take a look at pending grading and recent student activity.",
               })}
           </p>
-          <Link
-            to={ctaHref}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-sm font-medium border border-white/30"
-          >
-            {ctaLabel ?? t('common:to_do_list', { defaultValue: 'To-Do List' })}
-            <ArrowRight className="w-4 h-4" />
-          </Link>
         </div>
       </div>
     </div>
