@@ -6,6 +6,7 @@ interface DashboardSectionProps {
   action?: ReactNode;
   children: ReactNode;
   className?: string;
+  id?: string;
 }
 
 /**
@@ -15,10 +16,10 @@ interface DashboardSectionProps {
  * with consistent vertical spacing so dashboards scan top-to-bottom
  * without a manual `mb-*` on every child.
  */
-export const DashboardSection = ({ title, action, children, className = '' }: DashboardSectionProps) => {
+export const DashboardSection = ({ title, action, children, className = '', id }: DashboardSectionProps) => {
   const { isDark } = useTheme();
   return (
-    <section className={`mb-8 md:mb-10 ${className}`}>
+    <section id={id} className={`mb-8 md:mb-10 scroll-mt-24 ${className}`}>
       {(title || action) && (
         <div className="flex items-end justify-between gap-3 mb-3">
           {title && (

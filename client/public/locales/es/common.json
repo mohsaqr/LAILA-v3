@@ -172,5 +172,11 @@
   "student_engagement_30d": "Participación de estudiantes — últimos 30 días",
   "events": "eventos",
   "activity_breakdown": "Distribución de actividad",
-  "course_completion": "Progreso de cursos"
+  "course_completion": "Progreso de cursos",
+  "welcome_back_short": "Bienvenido de nuevo",
+  "lets_start_message": "Veamos qué necesita tu atención hoy. Echa un vistazo a las calificaciones pendientes y a la actividad reciente de los estudiantes.",
+  "to_do_list": "Lista de tareas",
+  "there": "ahí",
+  "welcome_message_pending_grading": "Tienes {{count}} entrega(s) esperando ser calificada(s). Vamos a resolverlas para mantener a tus estudiantes en marcha.",
+  "welcome_message_default": "Veamos qué están haciendo tus estudiantes hoy. Echa un vistazo a la actividad reciente y al progreso de los cursos."
 }

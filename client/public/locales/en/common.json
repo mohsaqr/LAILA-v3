@@ -172,5 +172,11 @@
   "student_engagement_30d": "Student engagement — last 30 days",
   "events": "events",
   "activity_breakdown": "Activity breakdown",
-  "course_completion": "Course completion"
+  "course_completion": "Course completion",
+  "welcome_back_short": "Welcome back",
+  "lets_start_message": "Let's check what needs your attention today. Take a look at pending grading and recent student activity.",
+  "to_do_list": "To-Do List",
+  "there": "there",
+  "welcome_message_pending_grading": "You have {{count}} submission{{plural}} waiting to be graded. Let's tackle them and keep your students moving.",
+  "welcome_message_default": "Let's check what your students are up to today. Take a peek at recent activity and course progress."
 }

@@ -172,5 +172,11 @@
   "student_engagement_30d": "Opiskelijoiden aktiivisuus — viimeiset 30 päivää",
   "events": "tapahtumaa",
   "activity_breakdown": "Toiminnan jakauma",
-  "course_completion": "Kurssien suoritus"
+  "course_completion": "Kurssien suoritus",
+  "welcome_back_short": "Tervetuloa takaisin",
+  "lets_start_message": "Katsotaan mitä huomiota tarvitaan tänään. Tarkista odottavat arvioinnit ja viimeaikainen opiskelijaaktiviteetti.",
+  "to_do_list": "Tehtävälista",
+  "there": "siellä",
+  "welcome_message_pending_grading": "Sinulla on {{count}} palautusta odottamassa arviointia. Hoidetaan ne ja pidetään opiskelijat liikkeessä.",
+  "welcome_message_default": "Katsotaan mitä opiskelijasi ovat tehneet tänään. Vilkaistaan viimeaikaista toimintaa ja kurssien edistymistä."
 }

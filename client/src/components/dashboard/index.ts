@@ -8,4 +8,7 @@ export { DashboardGreeting } from './DashboardGreeting';
 export { TrendChip } from './TrendChip';
 export { EmptyDashboard } from './EmptyDashboard';
 export { MiniBarChart } from './MiniBarChart';
+export { WelcomeCard } from './WelcomeCard';
+export { StatTile } from './StatTile';
+export type { StatTileColor } from './StatTile';
 export { relativeTime } from './relativeTime';
