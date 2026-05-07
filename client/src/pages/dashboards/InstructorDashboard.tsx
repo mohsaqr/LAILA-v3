@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BookOpen, BrainCircuit, Briefcase, FileText, Plus, Sparkles, TrendingUp, Users } from 'lucide-react';
+import { BookOpen, Briefcase, FileText, Sparkles, Users } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
 import { activityLogger } from '../../services/activityLogger';
@@ -10,12 +10,12 @@ import { Card, CardBody } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import {
-  DashboardGreeting,
   DashboardSection,
   EmptyDashboard,
   MiniBarChart,
   Skeleton,
-  TrendChip,
+  StatTile,
+  WelcomeCard,
   relativeTime,
 } from '../../components/dashboard';
 import { ActivityDonutChart } from '../../components/tna/ActivityDonutChart';
@@ -56,16 +56,20 @@ export const InstructorDashboard = () => {
     enabled: !!user,
   });
 
-  const greetingLine = useMemo(() => {
+  const welcomeMessage = useMemo(() => {
     const pending = (gradingQueue ?? []).reduce((sum, q) => sum + q.pendingCount, 0);
     if (pending > 0) {
-      return t('common:submissions_need_grading', {
-        defaultValue: '{{count}} submission{{plural}} need grading.',
+      return t('common:welcome_message_pending_grading', {
+        defaultValue:
+          "You have {{count}} submission{{plural}} waiting to be graded. Let's tackle them and keep your students moving.",
         count: pending,
         plural: pending === 1 ? '' : 's',
       });
     }
-    return t('common:all_caught_up_teaching', { defaultValue: 'All caught up — nothing waiting on you right now.' });
+    return t('common:welcome_message_default', {
+      defaultValue:
+        "Let's check what your students are up to today. Take a peek at recent activity and course progress.",
+    });
   }, [t, gradingQueue]);
 
   const colors = {
@@ -74,12 +78,6 @@ export const InstructorDashboard = () => {
     muted: isDark ? '#9ca3af' : '#6b7280',
     border: isDark ? '#374151' : '#e5e7eb',
   };
-
-  // Last-7-days slice from the engagement series for KPI sparklines
-  const last7 = useMemo(() => {
-    const counts = overview?.engagement.counts ?? [];
-    return counts.slice(-7);
-  }, [overview]);
 
   const completionBars = useMemo(() => {
     const items = overview?.courseCompletion ?? [];
@@ -98,60 +96,45 @@ export const InstructorDashboard = () => {
           <Breadcrumb items={[{ label: t('common:dashboard', { defaultValue: 'Dashboard' }) }]} />
         </div>
 
-        <DashboardGreeting
-          name={user?.fullname}
-          line={greetingLine}
-          actions={
-            <>
-              <Link to="/teach/create">
-                <Button size="sm" icon={<Plus className="w-4 h-4" />}>
-                  {t('teaching:create_course')}
-                </Button>
-              </Link>
-              <Link to="/ai-tools">
-                <Button size="sm" variant="secondary" icon={<BrainCircuit className="w-4 h-4" />}>
-                  {t('ai_tools')}
-                </Button>
-              </Link>
-            </>
-          }
-        />
-
-        {/* KPI row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8 md:mb-10">
-          <TrendChip
-            label={t('your_courses')}
-            value={overview?.kpis.totalCourses ?? '—'}
-            color="#0ea5e9"
-            accent
-            icon={<Briefcase className="w-4 h-4" />}
-          />
-          <TrendChip
-            label={t('total_students')}
-            value={overview?.kpis.totalStudents ?? '—'}
-            color="#14b8a6"
-            accent
-            icon={<Users className="w-4 h-4" />}
-          />
-          <TrendChip
-            label={t('assignments')}
-            value={overview?.kpis.totalAssignments ?? '—'}
-            color="#a855f7"
-            accent
-            icon={<FileText className="w-4 h-4" />}
-          />
-          <TrendChip
-            label={t('pending_grading')}
-            value={overview?.kpis.pendingGrading ?? '—'}
-            trend={last7}
-            color="#f59e0b"
-            accent
-            icon={<TrendingUp className="w-4 h-4" />}
-          />
+        {/* Welcome card + KPI tile grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-5 mb-8 md:mb-10">
+          <div className="lg:col-span-3">
+            <WelcomeCard name={user?.fullname} message={welcomeMessage} ctaHref="#pending-grading" />
+          </div>
+          <div className="lg:col-span-2 grid grid-cols-2 gap-3 md:gap-4">
+            <StatTile
+              icon={Briefcase}
+              label={t('your_courses')}
+              value={overview?.kpis.totalCourses ?? '—'}
+              color="violet"
+              href="#my-courses"
+            />
+            <StatTile
+              icon={Users}
+              label={t('total_students')}
+              value={overview?.kpis.totalStudents ?? '—'}
+              color="emerald"
+              href="#course-completion"
+            />
+            <StatTile
+              icon={FileText}
+              label={t('assignments')}
+              value={overview?.kpis.totalAssignments ?? '—'}
+              color="amber"
+              href="#course-completion"
+            />
+            <StatTile
+              icon={Sparkles}
+              label={t('pending_grading')}
+              value={overview?.kpis.pendingGrading ?? '—'}
+              color="rose"
+              href="#pending-grading"
+            />
+          </div>
         </div>
 
         {/* Engagement chart + Activity donut */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5 mb-8 md:mb-10">
+        <div id="engagement" className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5 mb-8 md:mb-10 scroll-mt-24">
           <Card className="lg:col-span-2">
             <CardBody>
               <div className="flex items-center justify-between mb-4">
@@ -197,7 +180,7 @@ export const InstructorDashboard = () => {
 
         {/* Course completion bars + Pending grading */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mb-8 md:mb-10">
-          <Card>
+          <Card id="course-completion" className="scroll-mt-24">
             <CardBody>
               <span className="text-xs font-semibold uppercase tracking-wider mb-4 block" style={{ color: colors.muted }}>
                 {t('common:course_completion', { defaultValue: 'Course completion' })}
@@ -218,7 +201,7 @@ export const InstructorDashboard = () => {
             </CardBody>
           </Card>
 
-          <Card>
+          <Card id="pending-grading" className="scroll-mt-24">
             <CardBody className="p-0">
               <div className="px-5 py-3 flex items-center justify-between border-b" style={{ borderColor: colors.border }}>
                 <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>
@@ -281,6 +264,7 @@ export const InstructorDashboard = () => {
 
         {/* My Courses */}
         <DashboardSection
+          id="my-courses"
           title={t('your_courses')}
           action={
             <Link to="/teach" className="text-sm font-medium" style={{ color: '#0d9488' }}>

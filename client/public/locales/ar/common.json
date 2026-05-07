@@ -172,5 +172,11 @@
   "student_engagement_30d": "تفاعل الطلاب — آخر 30 يومًا",
   "events": "أحداث",
   "activity_breakdown": "توزيع النشاط",
-  "course_completion": "إنجاز الكورسات"
+  "course_completion": "إنجاز الكورسات",
+  "welcome_back_short": "أهلاً بعودتك",
+  "lets_start_message": "لنرَ ما يحتاج إلى انتباهك اليوم. ألقِ نظرة على التقييمات المعلقة ونشاط الطلاب الأخير.",
+  "to_do_list": "قائمة المهام",
+  "there": "هناك",
+  "welcome_message_pending_grading": "لديك {{count}} تسليم(ات) بانتظار التقييم. لنبدأ بها ونحافظ على تقدّم طلابك.",
+  "welcome_message_default": "لنرَ ما يفعله طلابك اليوم. ألقِ نظرة على النشاط الأخير وتقدّم الكورسات."
 }
