@@ -183,5 +183,6 @@
   "this_month_events": "tapahtumaa tässä kuussa · {{label}}",
   "this_month": "Tässä kuussa",
   "last_month": "Viime kuussa",
-  "students_activity_log": "Opiskelijoiden toimintaloki"
+  "students_activity_log": "Opiskelijoiden toimintaloki",
+  "course_overview": "Kurssien yleiskatsaus"
 }

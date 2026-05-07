@@ -183,5 +183,6 @@
   "this_month_events": "حدث هذا الشهر · {{label}}",
   "this_month": "هذا الشهر",
   "last_month": "الشهر الماضي",
-  "students_activity_log": "سجل نشاط الطلاب"
+  "students_activity_log": "سجل نشاط الطلاب",
+  "course_overview": "نظرة عامة على الكورسات"
 }
