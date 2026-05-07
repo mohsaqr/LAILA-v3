@@ -16,7 +16,7 @@ export const WelcomeCard = ({ name, message, className = '' }: WelcomeCardProps)
   const fullName = name?.trim() ?? '';
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl text-white shadow-md ${className}`}
+      className={`relative h-full overflow-hidden rounded-2xl text-white shadow-md ${className}`}
       style={{
         background:
           'linear-gradient(135deg, #0e7490 0%, #0d9488 35%, #6366f1 100%)',
