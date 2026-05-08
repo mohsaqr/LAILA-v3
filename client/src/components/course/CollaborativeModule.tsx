@@ -19,14 +19,6 @@ interface CollaborativeModuleProps {
   isInstructor?: boolean;
 }
 
-/** Build a natural English-style join: A, B & C. */
-const joinNames = (names: string[]): string => {
-  if (names.length === 0) return '';
-  if (names.length === 1) return names[0];
-  if (names.length === 2) return `${names[0]} & ${names[1]}`;
-  return `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`;
-};
-
 /**
  * Compact "join the AI tutors" card for the course page sidebar.
  * Mirrors the reference design (overlapping circular avatars with
@@ -34,7 +26,7 @@ const joinNames = (names: string[]): string => {
  * joined naturally below). Sits on the standard card surface used
  * everywhere else on the dashboard — no deep-blue gradient.
  */
-export const CollaborativeModule = ({ courseId, tutors, isInstructor }: CollaborativeModuleProps) => {
+export const CollaborativeModule = ({ courseId, tutors, moduleName, isInstructor }: CollaborativeModuleProps) => {
   const { t } = useTranslation(['courses']);
   const { isDark } = useTheme();
 
@@ -62,8 +54,7 @@ export const CollaborativeModule = ({ courseId, tutors, isInstructor }: Collabor
 
   const displayed = tutors.slice(0, 3);
   const extra = Math.max(0, tutors.length - displayed.length);
-  const allNames = tutors.map(t => t.displayName);
-  const heading = joinNames(allNames);
+  const heading = (moduleName?.trim() || t('collaborative_module')) as string;
 
   return (
     <div className="space-y-2">
@@ -85,15 +76,16 @@ export const CollaborativeModule = ({ courseId, tutors, isInstructor }: Collabor
         className="block rounded-2xl border transition-all hover:-translate-y-0.5 hover:shadow-md"
         style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}
       >
-        <div className="px-5 py-6 flex flex-col items-center">
-          {/* Overlapping ringed avatars */}
+        <div className="px-5 py-5 flex flex-col items-center">
+          {/* Overlapping ringed avatars + green pulse overlapping the
+              trailing avatar's bottom-right. */}
           <div className="relative inline-flex items-center">
             {displayed.map((tutor, i) => (
               <div
                 key={tutor.courseTutorId || tutor.id || i}
-                className="relative w-14 h-14 rounded-full p-0.5"
+                className="relative w-10 h-10 rounded-full p-0.5"
                 style={{
-                  marginLeft: i === 0 ? 0 : -14,
+                  marginLeft: i === 0 ? 0 : -10,
                   zIndex: displayed.length - i,
                   backgroundColor: colors.ring,
                 }}
@@ -113,18 +105,18 @@ export const CollaborativeModule = ({ courseId, tutors, isInstructor }: Collabor
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <Bot className="w-6 h-6" />
+                    <Bot className="w-4 h-4" />
                   )}
                 </div>
               </div>
             ))}
             {extra > 0 && (
               <div
-                className="relative w-14 h-14 rounded-full p-0.5"
-                style={{ marginLeft: -14, zIndex: 0, backgroundColor: colors.ring }}
+                className="relative w-10 h-10 rounded-full p-0.5"
+                style={{ marginLeft: -10, zIndex: 0, backgroundColor: colors.ring }}
               >
                 <div
-                  className="w-full h-full rounded-full flex items-center justify-center text-xs font-semibold"
+                  className="w-full h-full rounded-full flex items-center justify-center text-[10px] font-semibold"
                   style={{
                     backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
                     color: colors.muted,
@@ -136,12 +128,17 @@ export const CollaborativeModule = ({ courseId, tutors, isInstructor }: Collabor
               </div>
             )}
 
-            {/* Pulsing audio chip on the trailing avatar */}
+            {/* Pulsing audio chip — overlaps the trailing avatar. */}
             <span
-              className="absolute -bottom-1 right-0 inline-flex items-center justify-center w-6 h-6 rounded-full shadow-md"
-              style={{ backgroundColor: '#22c55e' }}
+              className="absolute inline-flex items-center justify-center w-5 h-5 rounded-full shadow-md"
+              style={{
+                backgroundColor: '#22c55e',
+                right: '-6px',
+                bottom: '-2px',
+                zIndex: displayed.length + 1,
+              }}
             >
-              <AudioLines className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
+              <AudioLines className="w-3 h-3 text-white" strokeWidth={2.5} />
               <span
                 className="absolute inset-0 rounded-full animate-ping"
                 style={{ backgroundColor: '#22c55e', opacity: 0.5 }}
@@ -150,9 +147,10 @@ export const CollaborativeModule = ({ courseId, tutors, isInstructor }: Collabor
             </span>
           </div>
 
-          {/* Joined names */}
+          {/* Module name (instructor-configured, falls back to the
+              default "Collaborative Module" copy). */}
           <p
-            className="mt-4 text-base font-semibold text-center"
+            className="mt-3 text-sm font-semibold text-center"
             style={{ color: colors.titleColor }}
           >
             {heading}
