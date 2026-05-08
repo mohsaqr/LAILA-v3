@@ -68,7 +68,7 @@ export const CourseCardV2 = ({
 
       {canManage && (
         <Link
-          to={`/teach/courses/${course.id}/edit`}
+          to={`/teach/courses/${course.id}/curriculum`}
           className="absolute top-3 right-3 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium shadow-sm transition-colors backdrop-blur"
           style={{
             backgroundColor: isDark ? 'rgba(31,41,55,0.9)' : 'rgba(255,255,255,0.92)',
