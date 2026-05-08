@@ -184,5 +184,8 @@
   "this_month": "هذا الشهر",
   "last_month": "الشهر الماضي",
   "students_activity_log": "سجل نشاط الطلاب",
-  "course_overview": "نظرة عامة على الكورسات"
+  "course_overview": "نظرة عامة على الكورسات",
+  "user_activity_log": "سجل نشاط المستخدمين",
+  "tile_reserved": "محجوز",
+  "welcome_message_admin": "لنرَ نبض المنصة — من سجّل اليوم وماذا يفعل المستخدمون."
 }

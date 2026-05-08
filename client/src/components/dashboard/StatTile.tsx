@@ -110,3 +110,59 @@ export const StatTile = ({ icon: Icon, label, value, color, href, hint }: StatTi
     </Link>
   );
 };
+
+interface StatTilePlaceholderProps {
+  /** Faded label, e.g. "Reserved". */
+  label?: string;
+  className?: string;
+}
+
+/**
+ * Visual sibling of `StatTile` that fills a slot in the 2×2 KPI grid
+ * without pretending there's data. Slate gradient, no icon, em-dash
+ * value. Renders as a non-interactive `div` (no hover lift, no link).
+ */
+export const StatTilePlaceholder = ({ label = 'Reserved', className = '' }: StatTilePlaceholderProps) => (
+  <div
+    aria-hidden="true"
+    className={`relative block overflow-hidden rounded-2xl p-4 sm:p-5 ${className}`}
+    style={{
+      background: 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)',
+    }}
+  >
+    {/* Same dot texture as StatTile, dimmed. */}
+    <svg
+      className="absolute -top-2 -right-2 w-20 h-20 opacity-25 pointer-events-none"
+      viewBox="0 0 60 60"
+      aria-hidden="true"
+    >
+      {[0, 1, 2, 3].flatMap(r =>
+        [0, 1, 2, 3].map(col => (
+          <circle
+            key={`p-${r}-${col}`}
+            cx={6 + col * 16}
+            cy={6 + r * 16}
+            r={1.4}
+            fill="#94a3b8"
+          />
+        ))
+      )}
+    </svg>
+
+    {/* Empty icon slot — keeps the vertical rhythm matching StatTile. */}
+    <div className="relative w-10 h-10 sm:w-11 sm:h-11 mb-6" aria-hidden="true" />
+
+    <p
+      className="relative text-2xl sm:text-3xl font-bold leading-none mb-1"
+      style={{ color: '#94a3b8' }}
+    >
+      —
+    </p>
+    <p
+      className="relative text-sm font-medium"
+      style={{ color: '#94a3b8' }}
+    >
+      {label}
+    </p>
+  </div>
+);

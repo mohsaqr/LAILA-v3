@@ -2,29 +2,33 @@ import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Activity, BookOpen, Database, Server, Settings as SettingsIcon, UserPlus, Users } from 'lucide-react';
+import { GraduationCap, Users } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
 import { activityLogger } from '../../services/activityLogger';
 import { Card, CardBody } from '../../components/common/Card';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import {
+  ActivityDonut,
   Avatar,
-  DashboardGreeting,
-  DashboardSection,
+  CourseCompletionList,
+  MonthlyEngagementChart,
   Skeleton,
-  TrendChip,
+  StatTile,
+  StatTilePlaceholder,
+  WelcomeCard,
   relativeTime,
 } from '../../components/dashboard';
 import { ActivityTimelineChart } from '../../components/tna/ActivityTimelineChart';
-import { ActivityDonutChart } from '../../components/tna/ActivityDonutChart';
-import { adminApi } from '../../api/admin';
-import { activityLogApi } from '../../api/admin';
+import { adminApi, activityLogApi } from '../../api/admin';
 
 /**
- * Admin dashboard. Data-heavy SaaS layout: KPI row with sparkline
- * trends, activity timeline, growth chart, course distribution donut,
- * LLM provider health cards, and recent signups/enrollments lists.
+ * Admin dashboard. Same visual chrome as the instructor dashboard,
+ * scoped platform-wide: every user, every course. Two of the four KPI
+ * tiles are intentional placeholders. The verb-stacked Activity
+ * Timeline (existing TNA chart) and the recent signups / enrollments
+ * lists are kept; the older quick-link tiles, growth dual-line chart,
+ * and course-distribution donut are gone.
  */
 export const AdminDashboard = () => {
   const { t } = useTranslation(['admin', 'common', 'navigation']);
@@ -35,9 +39,9 @@ export const AdminDashboard = () => {
     activityLogger.logDashboardViewed();
   }, []);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['adminStats'],
-    queryFn: () => adminApi.getStats(),
+  const { data: overview, isLoading } = useQuery({
+    queryKey: ['adminDashboardOverview'],
+    queryFn: () => adminApi.getDashboardOverview(),
     enabled: !!user,
   });
 
@@ -54,12 +58,6 @@ export const AdminDashboard = () => {
     enabled: !!user,
   });
 
-  const stats = data?.stats;
-  const trends = data?.trends;
-  const courseDistribution = data?.courseDistribution ?? {};
-  const recentUsers = data?.recentUsers ?? [];
-  const recentEnrollments = data?.recentEnrollments ?? [];
-
   const colors = {
     bg: isDark ? '#0b1220' : '#f8fafc',
     text: isDark ? '#f3f4f6' : '#111827',
@@ -67,23 +65,12 @@ export const AdminDashboard = () => {
     border: isDark ? '#374151' : '#e5e7eb',
   };
 
-  const activityTotal = useMemo(
-    () => trends?.activity.reduce((s, v) => s + v, 0) ?? 0,
-    [trends]
-  );
-
-  const greetingLine = useMemo(() => {
-    if (!stats) return t('common:platform_overview', { defaultValue: 'Platform overview at a glance.' });
-    const newSignups = trends?.signups.reduce((s, v) => s + v, 0) ?? 0;
-    if (newSignups > 0) {
-      return t('common:platform_active_summary', {
-        defaultValue: '{{users}} new signups and {{activity}} activity events in the last 7 days.',
-        users: newSignups,
-        activity: activityTotal,
-      });
-    }
-    return t('common:platform_overview', { defaultValue: 'Platform overview at a glance.' });
-  }, [t, stats, trends, activityTotal]);
+  const welcomeMessage = useMemo(() => {
+    return t('common:welcome_message_admin', {
+      defaultValue:
+        "Let's check the platform's pulse — see who's signing up and what users are doing today.",
+    });
+  }, [t]);
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: colors.bg }}>
@@ -92,57 +79,135 @@ export const AdminDashboard = () => {
           <Breadcrumb items={[{ label: t('common:dashboard', { defaultValue: 'Dashboard' }) }]} />
         </div>
 
-        <DashboardGreeting name={user?.fullname} line={greetingLine} />
-
-        {/* KPI row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8 md:mb-10">
-          <TrendChip
-            label={t('admin:total_users', { defaultValue: 'Total users' })}
-            value={stats?.totalUsers ?? '—'}
-            trend={trends?.signups}
-            delta={trends?.signupsDelta}
-            color="#0ea5e9"
-            accent
-            icon={<Users className="w-4 h-4" />}
-          />
-          <TrendChip
-            label={t('admin:active_users', { defaultValue: 'Active users' })}
-            value={stats?.activeUsers ?? '—'}
-            trend={trends?.activity}
-            delta={trends?.activityDelta}
-            color="#14b8a6"
-            accent
-            icon={<Activity className="w-4 h-4" />}
-          />
-          <TrendChip
-            label={t('admin:published_courses', { defaultValue: 'Published courses' })}
-            value={stats?.publishedCourses ?? '—'}
-            color="#a855f7"
-            accent
-            icon={<BookOpen className="w-4 h-4" />}
-          />
-          <TrendChip
-            label={t('admin:total_enrollments', { defaultValue: 'Enrollments' })}
-            value={stats?.totalEnrollments ?? '—'}
-            trend={trends?.enrollments}
-            delta={trends?.enrollmentsDelta}
-            color="#f59e0b"
-            accent
-            icon={<UserPlus className="w-4 h-4" />}
-          />
+        {/* Welcome card + KPI tile grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-5 mb-8 md:mb-10">
+          <div className="lg:col-span-3">
+            <WelcomeCard name={user?.fullname} message={welcomeMessage} />
+          </div>
+          <div className="lg:col-span-2 grid grid-cols-2 gap-3 md:gap-4">
+            <StatTile
+              icon={Users}
+              label={t('admin:total_users', { defaultValue: 'Total Users' })}
+              value={overview?.kpis.totalUsers ?? '—'}
+              color="sky"
+              href="#user-activity-log"
+            />
+            <StatTile
+              icon={GraduationCap}
+              label={t('admin:total_courses', { defaultValue: 'Total Courses' })}
+              value={overview?.kpis.totalCourses ?? '—'}
+              color="violet"
+              href="#course-overview"
+            />
+            <StatTilePlaceholder label={t('common:tile_reserved', { defaultValue: 'Reserved' })} />
+            <StatTilePlaceholder label={t('common:tile_reserved', { defaultValue: 'Reserved' })} />
+          </div>
         </div>
 
-        {/* Activity timeline (full-width) */}
-        <DashboardSection
-          title={t('admin:activity_timeline', { defaultValue: 'Activity timeline' })}
-          action={
-            <Link to="/admin/dashboard" className="text-sm font-medium" style={{ color: '#0d9488' }}>
-              {t('admin:full_analytics', { defaultValue: 'Full analytics →' })}
-            </Link>
-          }
-        >
+        {/* User Activity Log (full width) */}
+        <div id="user-activity-log" className="mb-8 md:mb-10 scroll-mt-24">
+          <Card>
+            <CardBody className="flex flex-col h-full">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>
+                  {t('common:user_activity_log', { defaultValue: 'User Activity Log' })}
+                </span>
+                {overview && (
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className="inline-flex items-center gap-1.5" style={{ color: colors.muted }}>
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#0d9488' }} />
+                      {overview.engagement.thisMonth.label}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5" style={{ color: colors.muted }}>
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#f59e0b' }} />
+                      {overview.engagement.lastMonth.label}
+                    </span>
+                  </div>
+                )}
+              </div>
+              {isLoading ? (
+                <Skeleton className="flex-1 min-h-[260px] w-full" />
+              ) : !overview ||
+                (overview.engagement.thisMonth.counts.length === 0 &&
+                  overview.engagement.lastMonth.counts.length === 0) ? (
+                <p className="flex-1 flex items-center justify-center py-12 text-sm" style={{ color: colors.muted }}>
+                  {t('common:no_activity_yet', { defaultValue: 'No activity yet' })}
+                </p>
+              ) : (
+                <div className="flex-1 min-h-[260px]">
+                  <MonthlyEngagementChart
+                    thisMonth={overview.engagement.thisMonth.counts}
+                    lastMonth={overview.engagement.lastMonth.counts}
+                    thisMonthLabel={overview.engagement.thisMonth.label}
+                    lastMonthLabel={overview.engagement.lastMonth.label}
+                    thisMonthYear={overview.engagement.thisMonth.year}
+                    thisMonthMonth={overview.engagement.thisMonth.month}
+                  />
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        </div>
+
+        {/* Course Overview + Activity Breakdown */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mb-8 md:mb-10">
+          <Card id="course-overview" className="scroll-mt-24">
+            <CardBody className="flex flex-col h-full">
+              <span className="text-xs font-semibold uppercase tracking-wider mb-4 block" style={{ color: colors.muted }}>
+                {t('common:course_overview', { defaultValue: 'Course Overview' })}
+              </span>
+              {isLoading ? (
+                <div className="flex-1 min-h-[260px] space-y-2">
+                  {[0, 1, 2].map(i => (
+                    <Skeleton key={i} className="h-14" rounded="lg" />
+                  ))}
+                </div>
+              ) : !overview || overview.courseCompletion.length === 0 ? (
+                <p className="flex-1 flex items-center justify-center py-8 text-sm" style={{ color: colors.muted }}>
+                  {t('common:nothing_here', { defaultValue: 'Nothing here yet.' })}
+                </p>
+              ) : (
+                <div className="flex-1 overflow-y-auto min-h-[260px] max-h-[420px] -mr-2 pr-2">
+                  <CourseCompletionList items={overview.courseCompletion} />
+                </div>
+              )}
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardBody className="flex flex-col h-full">
+              <span className="text-xs font-semibold uppercase tracking-wider mb-4 block" style={{ color: colors.muted }}>
+                {t('common:activity_breakdown', { defaultValue: 'Activity breakdown' })}
+              </span>
+              {isLoading ? (
+                <Skeleton className="flex-1 min-h-[260px] w-full" />
+              ) : !overview || Object.keys(overview.activityByVerb).length === 0 ? (
+                <p className="flex-1 flex items-center justify-center py-8 text-sm" style={{ color: colors.muted }}>
+                  {t('common:nothing_here', { defaultValue: 'Nothing here yet.' })}
+                </p>
+              ) : (
+                <div className="flex-1 flex items-center justify-center min-h-[260px]">
+                  <ActivityDonut
+                    data={overview.activityByVerb}
+                    formatLabel={(k) =>
+                      t(`common:verb_${k}`, {
+                        defaultValue: k.charAt(0).toUpperCase() + k.slice(1).replace(/_/g, ' '),
+                      })
+                    }
+                  />
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        </div>
+
+        {/* Activity Timeline (full-width verb-stacked chart) */}
+        <div className="mb-8 md:mb-10">
           <Card>
             <CardBody>
+              <span className="text-xs font-semibold uppercase tracking-wider mb-4 block" style={{ color: colors.muted }}>
+                {t('admin:activity_timeline', { defaultValue: 'Activity timeline' })}
+              </span>
               {!dailyCounts ? (
                 <Skeleton className="h-64 w-full" />
               ) : dailyCounts.days.length === 0 ? (
@@ -150,69 +215,17 @@ export const AdminDashboard = () => {
                   {t('common:no_activity_yet', { defaultValue: 'No activity yet' })}
                 </p>
               ) : (
-                <ActivityTimelineChart days={dailyCounts.days} verbs={dailyCounts.verbs} series={dailyCounts.series} />
-              )}
-            </CardBody>
-          </Card>
-        </DashboardSection>
-
-        {/* Growth + Course Distribution */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5 mb-8 md:mb-10">
-          {/* Growth */}
-          <Card className="lg:col-span-2">
-            <CardBody>
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>
-                  {t('admin:growth_last_7_days', { defaultValue: 'Growth — last 7 days' })}
-                </span>
-                <div className="flex items-center gap-3 text-xs">
-                  <LegendDot color="#0ea5e9" label={t('admin:signups', { defaultValue: 'Signups' })} />
-                  <LegendDot color="#f59e0b" label={t('common:enrollments', { defaultValue: 'Enrollments' })} />
-                </div>
-              </div>
-              {!trends ? (
-                <Skeleton className="h-40 w-full" />
-              ) : (
-                <GrowthDualLine
-                  days={trends.days}
-                  signups={trends.signups}
-                  enrollments={trends.enrollments}
+                <ActivityTimelineChart
+                  days={dailyCounts.days}
+                  verbs={dailyCounts.verbs}
+                  series={dailyCounts.series}
                 />
-              )}
-            </CardBody>
-          </Card>
-
-          {/* Course distribution */}
-          <Card>
-            <CardBody>
-              <span className="text-xs font-semibold uppercase tracking-wider mb-4 block" style={{ color: colors.muted }}>
-                {t('admin:course_distribution', { defaultValue: 'Course distribution' })}
-              </span>
-              {isLoading ? (
-                <Skeleton className="h-40 w-full" />
-              ) : Object.keys(courseDistribution).length === 0 ? (
-                <p className="py-8 text-center text-sm" style={{ color: colors.muted }}>
-                  {t('common:nothing_here', { defaultValue: 'Nothing here yet.' })}
-                </p>
-              ) : (
-                <ActivityDonutChart data={courseDistribution} title="" />
               )}
             </CardBody>
           </Card>
         </div>
 
-        {/* Quick links */}
-        <DashboardSection title={t('common:quick_links', { defaultValue: 'Quick links' })}>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            <AdminLink to="/admin/users" icon={Users} label={t('navigation:user_management', { defaultValue: 'Users' })} />
-            <AdminLink to="/admin/enrollments" icon={BookOpen} label={t('navigation:enrollments', { defaultValue: 'Enrollments' })} />
-            <AdminLink to="/admin/logs" icon={Activity} label={t('navigation:logs', { defaultValue: 'Logs' })} />
-            <AdminLink to="/admin/llm" icon={Server} label={t('admin:llm_providers', { defaultValue: 'LLM' })} />
-            <AdminLink to="/admin/dashboard" icon={Database} label={t('admin:analytics', { defaultValue: 'Analytics' })} />
-          </div>
-        </DashboardSection>
-
-        {/* Recent signups + enrollments */}
+        {/* Recent signups + Recent enrollments */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
           <Card>
             <CardBody className="p-0">
@@ -230,15 +243,18 @@ export const AdminDashboard = () => {
                     <Skeleton key={i} className="h-10" />
                   ))}
                 </div>
-              ) : recentUsers.length === 0 ? (
+              ) : !overview || overview.recentUsers.length === 0 ? (
                 <p className="px-5 py-6 text-sm text-center" style={{ color: colors.muted }}>
                   {t('common:nothing_here', { defaultValue: 'Nothing here yet.' })}
                 </p>
               ) : (
                 <ul className="divide-y" style={{ borderColor: colors.border }}>
-                  {recentUsers.slice(0, 5).map(u => (
-                    <li key={u.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition-colors">
-                      <Avatar name={u.fullname || u.email} size="sm" />
+                  {overview.recentUsers.slice(0, 5).map(u => (
+                    <li
+                      key={u.id}
+                      className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition-colors"
+                    >
+                      <Avatar name={u.fullname || u.email || '?'} size="sm" />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate" style={{ color: colors.text }}>
                           {u.fullname || u.email}
@@ -273,14 +289,17 @@ export const AdminDashboard = () => {
                     <Skeleton key={i} className="h-10" />
                   ))}
                 </div>
-              ) : recentEnrollments.length === 0 ? (
+              ) : !overview || overview.recentEnrollments.length === 0 ? (
                 <p className="px-5 py-6 text-sm text-center" style={{ color: colors.muted }}>
                   {t('common:nothing_here', { defaultValue: 'Nothing here yet.' })}
                 </p>
               ) : (
                 <ul className="divide-y" style={{ borderColor: colors.border }}>
-                  {recentEnrollments.slice(0, 5).map(e => (
-                    <li key={e.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition-colors">
+                  {overview.recentEnrollments.slice(0, 5).map(e => (
+                    <li
+                      key={e.id}
+                      className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition-colors"
+                    >
                       <Avatar name={e.user?.fullname || e.user?.email || '?'} size="sm" />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate" style={{ color: colors.text }}>
@@ -304,116 +323,3 @@ export const AdminDashboard = () => {
     </div>
   );
 };
-
-function AdminLink({ to, icon: Icon, label }: { to: string; icon: typeof SettingsIcon; label: string }) {
-  return (
-    <Link to={to}>
-      <Card hover className="h-full">
-        <CardBody className="p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-gradient-to-br from-cyan-500 to-teal-600">
-            <Icon className="w-4 h-4 text-white" />
-          </div>
-          <span className="text-sm font-medium">{label}</span>
-        </CardBody>
-      </Card>
-    </Link>
-  );
-}
-
-function LegendDot({ color, label }: { color: string; label: string }) {
-  const { isDark } = useTheme();
-  return (
-    <span className="inline-flex items-center gap-1.5" style={{ color: isDark ? '#9ca3af' : '#6b7280' }}>
-      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-      {label}
-    </span>
-  );
-}
-
-/**
- * Two-line growth chart — signups + enrollments over the same 7-day
- * window. Pure SVG, no chart lib. Renders as filled areas with bold
- * stroke and labelled ticks.
- */
-function GrowthDualLine({ days, signups, enrollments }: { days: string[]; signups: number[]; enrollments: number[] }) {
-  const { isDark } = useTheme();
-  const w = 600;
-  const h = 160;
-  const padX = 32;
-  const padY = 24;
-  const innerW = w - padX * 2;
-  const innerH = h - padY * 2;
-  const max = Math.max(1, ...signups, ...enrollments);
-
-  const path = (values: number[]) => {
-    if (values.length === 0) return '';
-    const stepX = values.length > 1 ? innerW / (values.length - 1) : 0;
-    return values
-      .map((v, i) => {
-        const x = padX + i * stepX;
-        const y = padY + innerH - (v / max) * innerH;
-        return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)},${y.toFixed(1)}`;
-      })
-      .join(' ');
-  };
-
-  const areaPath = (values: number[]) => {
-    if (values.length === 0) return '';
-    const stepX = values.length > 1 ? innerW / (values.length - 1) : 0;
-    const lineCmd = values
-      .map((v, i) => {
-        const x = padX + i * stepX;
-        const y = padY + innerH - (v / max) * innerH;
-        return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)},${y.toFixed(1)}`;
-      })
-      .join(' ');
-    return `${lineCmd} L ${(padX + innerW).toFixed(1)},${(padY + innerH).toFixed(1)} L ${padX.toFixed(1)},${(padY + innerH).toFixed(1)} Z`;
-  };
-
-  const grid = isDark ? '#1f2937' : '#f3f4f6';
-  const tickColor = isDark ? '#6b7280' : '#9ca3af';
-
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" preserveAspectRatio="none" style={{ height: 180 }}>
-      {/* Grid lines */}
-      {[0, 0.25, 0.5, 0.75, 1].map(t => {
-        const y = padY + innerH * (1 - t);
-        return (
-          <line
-            key={t}
-            x1={padX}
-            y1={y}
-            x2={padX + innerW}
-            y2={y}
-            stroke={grid}
-            strokeWidth={1}
-          />
-        );
-      })}
-      {/* Areas */}
-      <path d={areaPath(signups)} fill="#0ea5e9" fillOpacity={0.10} />
-      <path d={areaPath(enrollments)} fill="#f59e0b" fillOpacity={0.10} />
-      {/* Lines */}
-      <path d={path(signups)} fill="none" stroke="#0ea5e9" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-      <path d={path(enrollments)} fill="none" stroke="#f59e0b" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-      {/* X axis labels */}
-      {days.map((d, i) => {
-        const stepX = days.length > 1 ? innerW / (days.length - 1) : 0;
-        const x = padX + i * stepX;
-        const day = new Date(d).getUTCDate();
-        return (
-          <text
-            key={d}
-            x={x}
-            y={h - 6}
-            textAnchor="middle"
-            fontSize="10"
-            fill={tickColor}
-          >
-            {day}
-          </text>
-        );
-      })}
-    </svg>
-  );
-}

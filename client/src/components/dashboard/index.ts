@@ -9,7 +9,7 @@ export { TrendChip } from './TrendChip';
 export { EmptyDashboard } from './EmptyDashboard';
 export { MiniBarChart } from './MiniBarChart';
 export { WelcomeCard } from './WelcomeCard';
-export { StatTile } from './StatTile';
+export { StatTile, StatTilePlaceholder } from './StatTile';
 export type { StatTileColor } from './StatTile';
 export { MonthlyEngagementChart } from './MonthlyEngagementChart';
 export { ActivityDonut } from './ActivityDonut';

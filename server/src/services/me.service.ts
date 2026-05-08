@@ -1,4 +1,9 @@
 import prisma from '../utils/prisma.js';
+import {
+  computeMonthlyEngagement,
+  computeCourseCompletion,
+  emptyEngagement,
+} from '../utils/dashboardAggregations.js';
 
 /**
  * Per-user dashboard aggregations. Each method takes the user id from
@@ -167,7 +172,7 @@ export class MeService {
   async getTeachingOverview(userId: number) {
     const ownedCourses = await prisma.course.findMany({
       where: { instructorId: userId },
-      select: { id: true, title: true, status: true, thumbnail: true },
+      select: { id: true },
     });
     const courseIds = ownedCourses.map(c => c.id);
 
@@ -175,116 +180,24 @@ export class MeService {
       return {
         kpis: { totalCourses: 0, totalStudents: 0, totalAssignments: 0, pendingGrading: 0 },
         engagement: emptyEngagement(),
-        courseCompletion: [] as { courseId: number; courseTitle: string; completionPct: number; studentCount: number }[],
+        courseCompletion: [] as Awaited<ReturnType<typeof computeCourseCompletion>>,
         activityByVerb: {} as Record<string, number>,
       };
     }
 
-    const now = new Date();
-    const thisMonth = now.getUTCMonth();
-    const thisYear = now.getUTCFullYear();
-    const today = now.getUTCDate();
-    // Use UTC to stay portable; consistent with how everything else is bucketed.
-    const startOfThisMonth = new Date(Date.UTC(thisYear, thisMonth, 1));
-    const startOfNextMonth = new Date(Date.UTC(thisYear, thisMonth + 1, 1));
-    const startOfLastMonth = new Date(Date.UTC(thisYear, thisMonth - 1, 1));
-
-    const daysInLastMonth = new Date(Date.UTC(thisYear, thisMonth, 0)).getUTCDate();
-
-    const [enrollments, assignmentTotals, pendingByCourse, thisMonthRows, lastMonthRows] = await Promise.all([
-      prisma.enrollment.findMany({
-        where: { courseId: { in: courseIds } },
-        select: {
-          courseId: true,
-          progress: true,
-          status: true,
-          enrolledAt: true,
-          user: { select: { id: true, fullname: true, avatarUrl: true } },
-        },
-      }),
-      prisma.assignment.count({ where: { courseId: { in: courseIds } } }),
-      prisma.assignmentSubmission.count({
-        where: {
-          status: 'submitted',
-          gradedAt: null,
-          assignment: { courseId: { in: courseIds } },
-        },
-      }),
-      prisma.learningActivityLog.findMany({
-        where: {
-          courseId: { in: courseIds },
-          timestamp: { gte: startOfThisMonth, lt: startOfNextMonth },
-        },
-        select: { timestamp: true, verb: true },
-      }),
-      prisma.learningActivityLog.findMany({
-        where: {
-          courseId: { in: courseIds },
-          timestamp: { gte: startOfLastMonth, lt: startOfThisMonth },
-        },
-        select: { timestamp: true, verb: true },
-      }),
-    ]);
-
-    // Bucket each month by day-of-month (1..N). `null` for days outside
-    // the recorded range so the client can decide whether to draw a point.
-    const thisMonthCounts: number[] = new Array(today).fill(0);
-    const lastMonthCounts: number[] = new Array(daysInLastMonth).fill(0);
-    const activityByVerb: Record<string, number> = {};
-
-    for (const r of thisMonthRows) {
-      const d = new Date(r.timestamp).getUTCDate();
-      if (d >= 1 && d <= today) thisMonthCounts[d - 1] += 1;
-      if (r.verb) activityByVerb[r.verb] = (activityByVerb[r.verb] ?? 0) + 1;
-    }
-    for (const r of lastMonthRows) {
-      const d = new Date(r.timestamp).getUTCDate();
-      if (d >= 1 && d <= daysInLastMonth) lastMonthCounts[d - 1] += 1;
-      if (r.verb) activityByVerb[r.verb] = (activityByVerb[r.verb] ?? 0) + 1;
-    }
-
-    const monthLabel = (d: Date) =>
-      d.toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-
-    // Per-course completion + student counts + a small sample of
-    // participants (most-recently-enrolled, capped at 5) so the
-    // dashboard can render an avatar stack without N extra queries.
-    type Participant = { id: number; fullname: string | null; avatarUrl: string | null };
-    const byCourse = new Map<number, { sum: number; count: number; students: number; sample: Array<{ enrolledAt: Date; user: Participant }> }>();
-    for (const e of enrollments) {
-      const cur = byCourse.get(e.courseId) ?? { sum: 0, count: 0, students: 0, sample: [] };
-      cur.students += 1;
-      if (e.status !== 'dropped') {
-        cur.sum += e.progress ?? 0;
-        cur.count += 1;
-      }
-      cur.sample.push({ enrolledAt: e.enrolledAt, user: e.user });
-      byCourse.set(e.courseId, cur);
-    }
-    const courseCompletion = ownedCourses.map(c => {
-      const agg = byCourse.get(c.id);
-      const pct = agg && agg.count > 0 ? agg.sum / agg.count : 0;
-      // Prioritise students who have an uploaded profile picture so the
-      // dashboard avatar stack reads as faces first; fall back to the
-      // most-recently-enrolled for the remainder.
-      const participants = (agg?.sample ?? [])
-        .sort((a, b) => {
-          const aHas = a.user.avatarUrl ? 1 : 0;
-          const bHas = b.user.avatarUrl ? 1 : 0;
-          if (aHas !== bHas) return bHas - aHas;
-          return b.enrolledAt.getTime() - a.enrolledAt.getTime();
-        })
-        .slice(0, 5)
-        .map(s => s.user);
-      return {
-        courseId: c.id,
-        courseTitle: c.title,
-        completionPct: Math.round(pct),
-        studentCount: agg?.students ?? 0,
-        participants,
-      };
-    });
-    courseCompletion.sort((a, b) => b.studentCount - a.studentCount || b.completionPct - a.completionPct);
+    const [{ engagement, activityByVerb }, courseCompletion, assignmentTotals, pendingByCourse] =
+      await Promise.all([
+        computeMonthlyEngagement(courseIds),
+        computeCourseCompletion({ instructorId: userId }),
+        prisma.assignment.count({ where: { courseId: { in: courseIds } } }),
+        prisma.assignmentSubmission.count({
+          where: {
+            status: 'submitted',
+            gradedAt: null,
+            assignment: { courseId: { in: courseIds } },
+          },
+        }),
+      ]);
 
     const totalStudents = courseCompletion.reduce((s, c) => s + c.studentCount, 0);
 
@@ -295,31 +208,11 @@ export class MeService {
         totalAssignments: assignmentTotals,
         pendingGrading: pendingByCourse,
       },
-      engagement: {
-        thisMonth: {
-          counts: thisMonthCounts,
-          label: monthLabel(startOfThisMonth),
-          year: thisYear,
-          month: thisMonth + 1,
-          daysShown: today,
-        },
-        lastMonth: {
-          counts: lastMonthCounts,
-          label: monthLabel(startOfLastMonth),
-          year: startOfLastMonth.getUTCFullYear(),
-          month: startOfLastMonth.getUTCMonth() + 1,
-          daysShown: daysInLastMonth,
-        },
-      },
+      engagement,
       courseCompletion,
       activityByVerb,
     };
   }
 }
-
-const emptyEngagement = () => ({
-  thisMonth: { counts: [] as number[], label: '', year: 0, month: 0, daysShown: 0 },
-  lastMonth: { counts: [] as number[], label: '', year: 0, month: 0, daysShown: 0 },
-});
 
 export const meService = new MeService();

@@ -184,5 +184,8 @@
   "this_month": "Este mes",
   "last_month": "Mes pasado",
   "students_activity_log": "Registro de actividad de estudiantes",
-  "course_overview": "Resumen de cursos"
+  "course_overview": "Resumen de cursos",
+  "user_activity_log": "Registro de actividad de usuarios",
+  "tile_reserved": "Reservado",
+  "welcome_message_admin": "Veamos el pulso de la plataforma: quién se ha registrado y qué están haciendo los usuarios hoy."
 }
