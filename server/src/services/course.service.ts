@@ -53,7 +53,7 @@ export class CourseService {
         where,
         include: {
           instructor: {
-            select: { id: true, fullname: true },
+            select: { id: true, fullname: true, avatarUrl: true },
           },
           categories: { include: { category: true } },
           _count: {
@@ -88,7 +88,7 @@ export class CourseService {
       where,
       include: {
         instructor: {
-          select: { id: true, fullname: true, email: true },
+          select: { id: true, fullname: true, email: true, avatarUrl: true },
         },
         categories: { include: { category: true } },
         modules: {
@@ -244,7 +244,7 @@ export class CourseService {
     const result = await prisma.course.findUnique({
       where: { id },
       include: {
-        instructor: { select: { id: true, fullname: true, email: true } },
+        instructor: { select: { id: true, fullname: true, email: true, avatarUrl: true } },
         categories: { include: { category: true } },
         _count: { select: { enrollments: true } },
 
@@ -372,7 +372,7 @@ export class CourseService {
       where: { slug, status: 'published' },
       include: {
         instructor: {
-          select: { id: true, fullname: true },
+          select: { id: true, fullname: true, avatarUrl: true },
         },
         categories: { include: { category: true } },
         modules: {
@@ -446,7 +446,7 @@ export class CourseService {
         where: { slug },
         include: {
           instructor: {
-            select: { id: true, fullname: true },
+            select: { id: true, fullname: true, avatarUrl: true },
           },
           categories: { include: { category: true } },
           modules: {

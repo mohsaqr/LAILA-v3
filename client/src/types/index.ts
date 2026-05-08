@@ -57,6 +57,7 @@ export interface Course {
     id: number;
     fullname: string;
     email?: string;
+    avatarUrl?: string | null;
   };
   modules?: CourseModule[];
   _count?: {

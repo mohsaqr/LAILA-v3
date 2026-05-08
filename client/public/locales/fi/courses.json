@@ -998,5 +998,9 @@
   "lab_ai_compare": "Vertaile solmuja",
   "lab_ai_thinking": "Ajattelee...",
   "lab_ai_collapse": "Pienennä",
-  "my_datasets": "Omat tietoaineistot"
+  "my_datasets": "Omat tietoaineistot",
+  "total_courses": "Kurssit yhteensä",
+  "total_students": "Opiskelijat yhteensä",
+  "continue_learning": "Jatka oppimista",
+  "manage": "Hallitse"
 }

@@ -998,5 +998,9 @@
   "lab_ai_compare": "Comparar nodos",
   "lab_ai_thinking": "Pensando...",
   "lab_ai_collapse": "Contraer",
-  "my_datasets": "Mis conjuntos de datos"
+  "my_datasets": "Mis conjuntos de datos",
+  "total_courses": "Cursos totales",
+  "total_students": "Estudiantes totales",
+  "continue_learning": "Continuar aprendiendo",
+  "manage": "Gestionar"
 }
