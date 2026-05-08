@@ -75,7 +75,7 @@ export interface PublishCheck {
 export const validatePublish = (
   ctx: WizardCtx,
   teamMembersCount: number,
-  isPublic: boolean,
+  _isPublic: boolean,
 ): PublishCheck => {
   const blockers: string[] = [];
   const warnings: string[] = [];
@@ -88,8 +88,8 @@ export const validatePublish = (
   if (teamMembersCount === 0) {
     warnings.push('publish_warning_no_team');
   }
-  if (!isPublic) {
-    warnings.push('publish_warning_private');
-  }
+  // The "private course" warning is gone — every course is public; the
+  // activation code is the gate. Argument kept for backward compatibility
+  // with existing callers.
   return { blockers, warnings };
 };

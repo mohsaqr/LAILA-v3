@@ -640,18 +640,9 @@ export const CourseForm = ({
         />
       </div>
 
-      <div className="flex items-center gap-3">
-        <input
-          type="checkbox"
-          id="isPublic"
-          checked={formData.isPublic}
-          onChange={e => handleChange('isPublic', e.target.checked)}
-          className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-        />
-        <label htmlFor="isPublic" className="text-sm text-gray-700">
-          {t('make_public')}
-        </label>
-      </div>
+      {/* Public / private toggle removed — every course is public; the
+          activation code controls enrolment. The form still ships
+          `isPublic: true` by default. */}
 
       {showSubmit && (
         <div className="flex justify-end gap-3 pt-4 border-t">
