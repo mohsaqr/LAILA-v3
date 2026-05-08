@@ -1,5 +1,6 @@
 import { useMemo, useState, MouseEvent, useCallback } from 'react';
 import { useTheme } from '../../hooks/useTheme';
+import { smoothPath, niceCeil } from './smoothPath';
 
 interface MonthlyEngagementChartProps {
   /** Daily counts for the current month, indexed 0 = day 1. Length = days elapsed so far. */
@@ -87,25 +88,9 @@ export const MonthlyEngagementChart = ({
   const xForDay = (d: number) => MARGIN.left + (d - 1) * stepX;
   const yForVal = (v: number) => MARGIN.top + innerH - (v / yMax) * innerH;
 
-  // Build smooth path through points (Catmull-Rom → cubic Bezier).
-  const linePath = (counts: number[]) => {
-    if (counts.length === 0) return '';
-    const pts = counts.map((v, i) => ({ x: xForDay(i + 1), y: yForVal(v) }));
-    if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
-    let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p0 = pts[i - 1] ?? pts[i];
-      const p1 = pts[i];
-      const p2 = pts[i + 1];
-      const p3 = pts[i + 2] ?? p2;
-      const cp1x = p1.x + (p2.x - p0.x) / 6;
-      const cp1y = p1.y + (p2.y - p0.y) / 6;
-      const cp2x = p2.x - (p3.x - p1.x) / 6;
-      const cp2y = p2.y - (p3.y - p1.y) / 6;
-      d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
-    }
-    return d;
-  };
+  // Build smooth path through points using the shared Catmull-Rom helper.
+  const linePath = (counts: number[]) =>
+    smoothPath(counts.map((v, i) => ({ x: xForDay(i + 1), y: yForVal(v) })));
 
   const areaPath = (counts: number[]) => {
     const line = linePath(counts);
@@ -298,22 +283,6 @@ export const MonthlyEngagementChart = ({
     </div>
   );
 };
-
-/**
- * Round up to a "nice" axis max so 47 → 50, 121 → 150, 6 → 8, etc.
- * Keeps tick labels readable.
- */
-function niceCeil(v: number): number {
-  if (v <= 1) return 1;
-  if (v <= 5) return Math.ceil(v);
-  const exp = Math.pow(10, Math.floor(Math.log10(v)));
-  const m = v / exp;
-  if (m <= 1) return 1 * exp;
-  if (m <= 2) return 2 * exp;
-  if (m <= 2.5) return 2.5 * exp;
-  if (m <= 5) return 5 * exp;
-  return 10 * exp;
-}
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
