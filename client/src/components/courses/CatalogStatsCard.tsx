@@ -68,48 +68,48 @@ export const CatalogStatsCard = ({
         aria-hidden="true"
       />
 
-      <div className="relative grid grid-cols-1 sm:grid-cols-5 gap-4 sm:gap-4 p-5 sm:p-6 items-center min-h-[220px]">
-        <div className="sm:col-span-2 flex items-center justify-center sm:justify-start sm:-ml-2 lg:-ml-4">
+      <div className="relative grid grid-cols-1 sm:grid-cols-5 gap-3 p-4 sm:p-5 items-center min-h-[170px]">
+        <div className="sm:col-span-2 flex items-center justify-center sm:justify-start sm:-ml-2 lg:-ml-3">
           <img
             src="/illustrations/course-teach.png"
             alt=""
             aria-hidden="true"
             draggable={false}
-            className="w-full max-w-[260px] sm:max-w-[300px] lg:max-w-[360px] h-auto select-none pointer-events-none drop-shadow-xl"
+            className="w-full max-w-[200px] sm:max-w-[240px] lg:max-w-[280px] h-auto select-none pointer-events-none drop-shadow-xl"
           />
         </div>
 
-        <div className="sm:col-span-3 sm:pl-2 flex flex-col gap-4">
+        <div className="sm:col-span-3 sm:pl-1 flex flex-col gap-3">
           <div>
-            <h2 className="text-xl sm:text-2xl font-bold leading-tight mb-1.5">{title}</h2>
-            <p className="text-white/80 text-sm leading-relaxed max-w-md">{subtitle}</p>
+            <h2 className="text-lg sm:text-xl font-bold leading-tight mb-1">{title}</h2>
+            <p className="text-white/80 text-xs sm:text-sm leading-snug max-w-md">{subtitle}</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {tiles.map(({ icon: Icon, value, label }) => (
               <div
                 key={label}
-                className="flex items-center gap-3 rounded-xl px-3.5 py-3 backdrop-blur-sm"
+                className="flex items-center gap-2.5 rounded-xl px-3 py-2 backdrop-blur-sm"
                 style={{ backgroundColor: 'rgba(255,255,255,0.14)' }}
               >
                 <div
-                  className="flex items-center justify-center w-11 h-11 rounded-xl shrink-0 shadow-sm"
+                  className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0 shadow-sm"
                   style={{ backgroundColor: '#ffffff', color: '#0d9488' }}
                 >
-                  <Icon className="w-5 h-5" strokeWidth={2.25} />
+                  <Icon className="w-4 h-4" strokeWidth={2.25} />
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 leading-tight">
                   {loading ? (
                     <>
-                      <Skeleton className="h-6 w-16 mb-1" />
-                      <Skeleton className="h-3 w-24" />
+                      <Skeleton className="h-5 w-12 mb-1" />
+                      <Skeleton className="h-3 w-20" />
                     </>
                   ) : (
                     <>
-                      <div className="text-xl sm:text-2xl font-bold leading-tight tabular-nums">
+                      <div className="text-lg sm:text-xl font-bold leading-tight tabular-nums">
                         {formatCount(value)}
                       </div>
-                      <div className="text-[11px] sm:text-xs font-medium text-white/80 truncate">
+                      <div className="text-[10px] sm:text-[11px] font-medium text-white/80 truncate">
                         {label}
                       </div>
                     </>
@@ -117,20 +117,18 @@ export const CatalogStatsCard = ({
                 </div>
               </div>
             ))}
-          </div>
 
-          {createLabel && (
-            <div>
+            {createLabel && (
               <Link
                 to="/teach/create"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
                 style={{ backgroundColor: '#ffffff', color: '#0e7490' }}
               >
                 <Plus className="w-4 h-4" strokeWidth={2.5} />
                 {createLabel}
               </Link>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>
