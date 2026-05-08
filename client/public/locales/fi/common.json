@@ -187,5 +187,9 @@
   "course_overview": "Kurssien yleiskatsaus",
   "user_activity_log": "Käyttäjien toimintaloki",
   "tile_reserved": "Varattu",
-  "welcome_message_admin": "Katsotaan alustan tilannetta — kuka rekisteröityi ja mitä käyttäjät puuhaavat tänään."
+  "welcome_message_admin": "Katsotaan alustan tilannetta — kuka rekisteröityi ja mitä käyttäjät puuhaavat tänään.",
+  "welcome_message_student": "Jatka siitä mihin jäit ja pidä huolta tämän viikon palautuksista.",
+  "upcoming": "Tulossa",
+  "courses_in_progress": "Käynnissä olevat kurssit",
+  "view_full_calendar": "Näytä koko kalenteri"
 }

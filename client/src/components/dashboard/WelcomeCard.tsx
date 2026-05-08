@@ -4,6 +4,9 @@ interface WelcomeCardProps {
   name?: string | null;
   message?: string;
   className?: string;
+  /** Path to the role-specific illustration. Defaults to the
+      instructor PNG so existing call-sites keep working. */
+  illustration?: string;
 }
 
 /**
@@ -11,7 +14,12 @@ interface WelcomeCardProps {
  * character + calendar with the user's full name and a friendly
  * one-liner. Designed to sit alongside a 2×2 stat-tile grid.
  */
-export const WelcomeCard = ({ name, message, className = '' }: WelcomeCardProps) => {
+export const WelcomeCard = ({
+  name,
+  message,
+  className = '',
+  illustration = '/illustrations/welcome-instructor.png',
+}: WelcomeCardProps) => {
   const { t } = useTranslation(['common']);
   const fullName = name?.trim() ?? '';
   return (
@@ -50,7 +58,7 @@ export const WelcomeCard = ({ name, message, className = '' }: WelcomeCardProps)
 
       <div className="relative h-full grid grid-cols-1 sm:grid-cols-5 gap-4 sm:gap-3 p-5 sm:p-6 items-stretch min-h-[220px]">
         <div className="sm:col-span-2 flex items-center justify-center sm:justify-start sm:-ml-2 lg:-ml-4">
-          <WelcomeIllustration />
+          <WelcomeIllustration src={illustration} />
         </div>
         <div className="sm:col-span-3 sm:pl-2 flex flex-col justify-center text-center sm:text-left">
           <p className="text-white/80 text-sm font-medium tracking-wide mb-1">
@@ -76,9 +84,9 @@ export const WelcomeCard = ({ name, message, className = '' }: WelcomeCardProps)
  * 3D illustration shipped from `client/public/illustrations/`. PNG with
  * transparent background so it sits cleanly on the card's gradient.
  */
-const WelcomeIllustration = () => (
+const WelcomeIllustration = ({ src }: { src: string }) => (
   <img
-    src="/illustrations/welcome-instructor.png"
+    src={src}
     alt=""
     aria-hidden="true"
     className="w-full max-w-[340px] sm:max-w-[380px] lg:max-w-[440px] h-auto select-none pointer-events-none drop-shadow-xl"
