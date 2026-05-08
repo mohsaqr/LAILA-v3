@@ -470,7 +470,7 @@ export const ModuleItem = ({
               <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1.5">
                 {t('whats_included', { defaultValue: "What's included" })}
               </h4>
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-gray-600 dark:text-gray-300">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-gray-600 dark:text-gray-300">
                 {(() => {
                   // No icons. Always singular noun regardless of count.
                   const items: Array<{ count: number; label: string }> = [];
