@@ -389,7 +389,7 @@ export const CourseTutorManager = ({
                 {t('no_tutors_desc', { defaultValue: 'No tutors available yet.' })}
               </p>
             ) : (
-              <div className="space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {(availableTutors ?? []).map((avail) => {
                   const courseTutor = tutors?.find(t => t.chatbotId === avail.id);
                   const isAdded = !!courseTutor;
