@@ -10,7 +10,6 @@ import {
   Trash2,
   Plus,
   ChevronUp,
-  GripVertical,
   Eye,
   EyeOff,
   FlaskConical,
@@ -349,8 +348,6 @@ export const ModuleItem = ({
           )}
         </button>
 
-        <GripVertical className="w-5 h-5 text-gray-400 hidden sm:block flex-shrink-0" />
-
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h3 className="font-medium text-gray-900 truncate">{module.title}</h3>
@@ -365,18 +362,6 @@ export const ModuleItem = ({
               </span>
             )}
           </div>
-          {module.description && (
-            <p className="text-sm text-gray-500 truncate">{module.description}</p>
-          )}
-          <span className="text-xs text-gray-400">
-            {t('x_lessons', { count: lectures.length })}
-            {codeLabs.length > 0 && ` • ${t('x_code_labs', { count: codeLabs.length })}`}
-            {labAssignments.length > 0 && ` • ${t('x_lab_templates', { count: labAssignments.length })}`}
-            {assignments.length > 0 && ` • ${t('x_assignments', { count: assignments.length })}`}
-            {forums.length > 0 && ` • ${t('x_forums', { count: forums.length })}`}
-            {quizzes.length > 0 && ` • ${t('x_quizzes', { count: quizzes.length })}`}
-            {interactiveLabKeys.length > 0 && ` • ${t('x_interactive_labs', { count: interactiveLabKeys.length })}`}
-          </span>
         </div>
         </div>
 
@@ -436,7 +421,45 @@ export const ModuleItem = ({
 
       {/* Lectures and Code Labs */}
       {isExpanded && (
-        <div className="px-4 py-3 space-y-2">
+        <div className="px-4 py-3 space-y-3">
+          {module.description && (
+            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+              {module.description}
+            </p>
+          )}
+
+          {(lectures.length > 0 ||
+            codeLabs.length > 0 ||
+            assignments.length > 0 ||
+            forums.length > 0 ||
+            quizzes.length > 0) && (
+            <div>
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1.5">
+                {t('whats_included', { defaultValue: "What's included" })}
+              </h4>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-gray-600 dark:text-gray-300">
+                {(() => {
+                  const videoCount = lectures.filter(l => l.contentType === 'video' || l.contentType === 'mixed').length;
+                  const readingCount = lectures.filter(l => l.contentType === 'text').length;
+                  const items: Array<{ icon: typeof FileVideo; count: number; label: string }> = [];
+                  if (videoCount > 0) items.push({ icon: FileVideo, count: videoCount, label: t('videos', { defaultValue: 'videos' }) });
+                  if (readingCount > 0) items.push({ icon: FileText, count: readingCount, label: t('readings', { defaultValue: 'readings' }) });
+                  if (assignments.length > 0) items.push({ icon: ClipboardList, count: assignments.length, label: t('assignments', { defaultValue: 'assignments' }) });
+                  if (quizzes.length > 0) items.push({ icon: FileQuestion, count: quizzes.length, label: t('quizzes', { defaultValue: 'quizzes' }) });
+                  if (forums.length > 0) items.push({ icon: MessageSquare, count: forums.length, label: t('forums', { defaultValue: 'forums' }) });
+                  if (codeLabs.length > 0) items.push({ icon: Beaker, count: codeLabs.length, label: t('labs', { defaultValue: 'labs' }) });
+                  return items.map(({ icon: Icon, count, label }, i) => (
+                    <span key={i} className="inline-flex items-center gap-1.5">
+                      <Icon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                      <span className="tabular-nums">{count}</span>
+                      <span>{label}</span>
+                    </span>
+                  ));
+                })()}
+              </div>
+            </div>
+          )}
+
           {/* Lectures with inline add options */}
           {lectures.length > 0 ? (
             lectures
