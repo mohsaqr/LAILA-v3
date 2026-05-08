@@ -1305,6 +1305,23 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
             />
           )}
 
+          {/* Always-visible "+ Add module" button when embedded — the
+              top-right "Add Content" dropdown is hidden in the wizard,
+              so without this the user has no way to append a second
+              module after the first. */}
+          {embedded && sortedModules.length > 0 && (
+            <div className="mt-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={openAddModuleModal}
+                icon={<Plus className="w-4 h-4" />}
+              >
+                {t('add_module')}
+              </Button>
+            </div>
+          )}
+
           {/* Collaborative Module Section */}
           {courseTutors && courseTutors.length > 0 && (
             <div
