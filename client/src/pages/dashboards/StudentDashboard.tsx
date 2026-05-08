@@ -2,14 +2,14 @@ import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronRight, Compass, FileText } from 'lucide-react';
+import { BookOpen, ChevronRight, Compass, FileText, Trophy } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
 import { activityLogger } from '../../services/activityLogger';
 import { Card, CardBody } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
-import { EmptyDashboard, Skeleton } from '../../components/dashboard';
+import { EmptyDashboard, Skeleton, StatTile } from '../../components/dashboard';
 import { WelcomeCard } from '../../components/dashboard/WelcomeCard';
 import { MiniCalendar } from '../../components/dashboard/MiniCalendar';
 import { ContinueLearningRail } from '../../components/courses/ContinueLearningRail';
@@ -122,6 +122,15 @@ export const StudentDashboard = () => {
     [continueLearning],
   );
 
+  // KPI counts. `continueLearning` returns every active+completed
+  // enrollment, so its length is the enrolled total and the slice
+  // with progress ≥ 100 is the completed total.
+  const enrolledCount = continueLearning?.length ?? 0;
+  const completedCount = useMemo(
+    () => (continueLearning ?? []).filter(c => c.progress >= 100).length,
+    [continueLearning],
+  );
+
   const colors = {
     bg: isDark ? '#111827' : '#f9fafb',
     cardBg: isDark ? '#1f2937' : '#ffffff',
@@ -139,7 +148,7 @@ export const StudentDashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-5 items-start">
-          {/* Left column: welcome + courses-in-progress rail */}
+          {/* Left column: welcome + KPI tiles + courses-in-progress rail */}
           <div className="lg:col-span-3 space-y-6">
             <WelcomeCard
               name={user?.fullname}
@@ -149,6 +158,23 @@ export const StudentDashboard = () => {
                   "Pick up where you left off and stay on top of what's due this week.",
               })}
             />
+
+            <div className="grid grid-cols-2 gap-3 md:gap-4">
+              <StatTile
+                icon={BookOpen}
+                label={t('common:enrolled_courses', { defaultValue: 'Enrolled Courses' })}
+                value={enrolledCount}
+                color="violet"
+                href="/courses"
+              />
+              <StatTile
+                icon={Trophy}
+                label={t('common:completed', { defaultValue: 'Completed' })}
+                value={completedCount}
+                color="emerald"
+                href="/courses"
+              />
+            </div>
 
             <section>
               <h2 className="text-base font-semibold mb-3" style={{ color: colors.text }}>
