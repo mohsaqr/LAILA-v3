@@ -8,8 +8,6 @@ import {
   Users as UsersIcon,
   Bot,
   Send,
-  ArrowLeft,
-  ArrowRight,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../../api/courses';
@@ -177,6 +175,20 @@ export const CourseCreateWizard = () => {
     },
   });
 
+  const publishMutation = useMutation({
+    mutationFn: () => coursesApi.publishCourse(courseId!),
+    onSuccess: () => {
+      toast.success(t('teaching:course_published', { defaultValue: 'Course published' }));
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+      navigate(`/courses/${courseId}`);
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.error ?? err?.message ?? t('teaching:failed_to_save_course');
+      toast.error(msg);
+    },
+  });
+
   const handleSettingContinue = useCallback(async () => {
     if (!formSnapshot) {
       // Form hasn't loaded a snapshot yet — nothing to save.
@@ -304,56 +316,79 @@ export const CourseCreateWizard = () => {
           {activeStep === 'publish' && course && (
             <PublishStep
               course={course}
-              modulesCount={ctx.modulesCount}
-              publishedLecturesCount={ctx.publishedLecturesCount}
+              modules={modules}
               teamMembersCount={roles.length}
               check={validatePublish(ctx, roles.length, course.isPublic)}
             />
           )}
         </div>
 
-        {activeStep !== 'publish' && (
-          <div
-            className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-5 border-t"
-            style={{ borderColor: isDark ? '#374151' : '#e5e7eb' }}
+        {/* Unified footer: Back + (optional Skip) + primary action.
+            All buttons same size, no icons, consistent across steps. */}
+        <div
+          className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-5 border-t"
+          style={{ borderColor: isDark ? '#374151' : '#e5e7eb' }}
+        >
+          <button
+            type="button"
+            onClick={handleBack}
+            disabled={STEP_ORDER.indexOf(activeStep) === 0}
+            className="inline-flex items-center justify-center px-5 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
+              color: isDark ? '#cbd5e1' : '#374151',
+            }}
           >
-            <button
-              type="button"
-              onClick={handleBack}
-              disabled={STEP_ORDER.indexOf(activeStep) === 0}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
-                color: isDark ? '#cbd5e1' : '#374151',
-              }}
-            >
-              <ArrowLeft className="w-4 h-4" />
-              {t('teaching:wizard_back', { defaultValue: 'Back' })}
-            </button>
+            {t('teaching:wizard_back', { defaultValue: 'Back' })}
+          </button>
 
-            <div className="flex items-center gap-2">
-              {(activeStep === 'team' || activeStep === 'tutors') && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const i = STEP_ORDER.indexOf(activeStep);
-                    const next = STEP_ORDER[i + 1];
-                    if (next) goToStep(next);
-                  }}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-                  style={{
-                    backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
-                    color: isDark ? '#cbd5e1' : '#374151',
-                  }}
-                >
-                  {t('teaching:wizard_skip', { defaultValue: 'Skip for now' })}
-                </button>
-              )}
+          <div className="flex items-center gap-2">
+            {(activeStep === 'team' || activeStep === 'tutors') && (
+              <button
+                type="button"
+                onClick={() => {
+                  const i = STEP_ORDER.indexOf(activeStep);
+                  const next = STEP_ORDER[i + 1];
+                  if (next) goToStep(next);
+                }}
+                className="inline-flex items-center justify-center px-5 py-2 rounded-lg text-sm font-medium transition-all"
+                style={{
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
+                  color: isDark ? '#cbd5e1' : '#374151',
+                }}
+              >
+                {t('teaching:wizard_skip', { defaultValue: 'Skip for now' })}
+              </button>
+            )}
+            {activeStep === 'publish' ? (
+              (() => {
+                const check = course
+                  ? validatePublish(ctx, roles.length, course.isPublic)
+                  : { blockers: ['no_course'], warnings: [] };
+                const blocked = check.blockers.length > 0;
+                return (
+                  <button
+                    type="button"
+                    onClick={() => publishMutation.mutate()}
+                    disabled={blocked || publishMutation.isPending}
+                    className="inline-flex items-center justify-center px-5 py-2 rounded-lg text-sm font-medium shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-sm"
+                    style={{
+                      backgroundImage: 'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)',
+                      color: '#ffffff',
+                    }}
+                  >
+                    {publishMutation.isPending
+                      ? t('common:loading')
+                      : t('teaching:publish', { defaultValue: 'Publish' })}
+                  </button>
+                );
+              })()
+            ) : (
               <button
                 type="button"
                 onClick={handleForward}
                 disabled={createMutation.isPending || updateMutation.isPending}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                className="inline-flex items-center justify-center px-5 py-2 rounded-lg text-sm font-medium shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
                 style={{
                   backgroundImage: 'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)',
                   color: '#ffffff',
@@ -362,28 +397,10 @@ export const CourseCreateWizard = () => {
                 {activeStep === 'setting'
                   ? t('teaching:wizard_continue', { defaultValue: 'Save & Continue' })
                   : t('common:next')}
-                <ArrowRight className="w-4 h-4" />
               </button>
-            </div>
+            )}
           </div>
-        )}
-
-        {activeStep === 'publish' && course && (
-          <div className="flex justify-start pt-5">
-            <button
-              type="button"
-              onClick={handleBack}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-              style={{
-                backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
-                color: isDark ? '#cbd5e1' : '#374151',
-              }}
-            >
-              <ArrowLeft className="w-4 h-4" />
-              {t('teaching:wizard_back', { defaultValue: 'Back' })}
-            </button>
-          </div>
-        )}
+        </div>
 
         {!user && (
           <div className="text-sm" style={{ color: colors.muted }}>
