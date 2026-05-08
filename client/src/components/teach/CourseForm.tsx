@@ -18,6 +18,8 @@ export interface CourseFormData {
   thumbnail: string;
   isPublic: boolean;
   curriculumViewMode: CurriculumViewMode;
+  /** Optional — server auto-generates if empty. */
+  activationCode: string;
 }
 
 interface CourseFormProps {
@@ -411,6 +413,7 @@ export const CourseForm = ({
     thumbnail: '',
     isPublic: true,
     curriculumViewMode: 'mini-cards',
+    activationCode: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [thumbnailPreview, setThumbnailPreview] = useState<string>('');
@@ -427,6 +430,7 @@ export const CourseForm = ({
         thumbnail: initialData.thumbnail || '',
         isPublic: initialData.isPublic ?? true,
         curriculumViewMode: initialData.curriculumViewMode || 'mini-cards',
+        activationCode: initialData.activationCode || '',
       });
       if (initialData.thumbnail) {
         setThumbnailPreview(resolveFileUrl(initialData.thumbnail));
@@ -608,6 +612,32 @@ export const CourseForm = ({
         {errors.thumbnail && (
           <p className="mt-1.5 text-sm text-red-500">{errors.thumbnail}</p>
         )}
+      </div>
+
+      <div>
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            {t('activation_code', { defaultValue: 'Activation Code' })}
+          </label>
+          <InfoPopup
+            text={t('activation_code_help', {
+              defaultValue:
+                'Optional. 6–16 uppercase letters or digits. Leave blank to auto-generate one.',
+            })}
+          />
+        </div>
+        <Input
+          type="text"
+          value={formData.activationCode}
+          onChange={e =>
+            handleChange('activationCode', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))
+          }
+          placeholder={t('activation_code_placeholder', {
+            defaultValue: 'Auto-generate (or enter your own, e.g. SUMMER2026)',
+          })}
+          maxLength={16}
+          error={mergedErrors.activationCode}
+        />
       </div>
 
       <div className="flex items-center gap-3">

@@ -1172,7 +1172,18 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
             </div>
           )}
 
-          {/* Add Content Dropdown */}
+          {/* Add Content Dropdown — when embedded in the wizard the AI
+              Tutors flow lives in its own step, so we just show a plain
+              Add Module button. Outside the wizard, keep the dropdown. */}
+          {embedded ? (
+            <Button
+              onClick={openAddModuleModal}
+              size="sm"
+              icon={<Plus className="w-4 h-4" />}
+            >
+              {t('add_module')}
+            </Button>
+          ) : (
           <div className="relative">
             <Button
               onClick={() => setAddContentOpen(!addContentOpen)}
@@ -1226,6 +1237,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
               </>
             )}
           </div>
+          )}
         </CardHeader>
         <CardBody>
           {sortedModules.length > 0 ? (

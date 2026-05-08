@@ -73,6 +73,12 @@ export const createCourseSchema = z.object({
   thumbnail: z.string().optional().or(z.literal('')),
   curriculumViewMode: z.enum(['mini-cards', 'icons', 'list', 'accordion']).optional(),
   enabledLabs: z.string().optional().nullable(),
+  // Optional. If absent or blank the service generates a random 8-char code.
+  activationCode: z
+    .string()
+    .regex(/^[A-Z0-9]{6,16}$/, 'Activation code must be 6–16 uppercase letters or digits')
+    .optional()
+    .or(z.literal('')),
 });
 
 export const updateCourseSchema = createCourseSchema.partial();
