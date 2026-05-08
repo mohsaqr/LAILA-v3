@@ -184,5 +184,8 @@
   "this_month": "Tässä kuussa",
   "last_month": "Viime kuussa",
   "students_activity_log": "Opiskelijoiden toimintaloki",
-  "course_overview": "Kurssien yleiskatsaus"
+  "course_overview": "Kurssien yleiskatsaus",
+  "user_activity_log": "Käyttäjien toimintaloki",
+  "tile_reserved": "Varattu",
+  "welcome_message_admin": "Katsotaan alustan tilannetta — kuka rekisteröityi ja mitä käyttäjät puuhaavat tänään."
 }

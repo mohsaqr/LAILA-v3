@@ -6,11 +6,62 @@ import { asyncHandler } from '../middleware/error.middleware.js';
 import { AuthRequest } from '../types/index.js';
 import { chatbotRegistryService, ChatbotRegistryFilters } from '../services/chatbotRegistry.service.js';
 import { parsePaginationLimit } from '../utils/validation.js';
+import {
+  computeMonthlyEngagement,
+  computeCourseCompletion,
+} from '../utils/dashboardAggregations.js';
 
 const router = Router();
 
 // All routes require admin
 router.use(authenticateToken, requireAdmin);
+
+/**
+ * Admin dashboard data: KPI totals + month-aligned platform-wide
+ * engagement + verb breakdown + top-N courses with sample participants
+ * + recent signups + recent enrollments. One round trip for the
+ * redesigned admin landing page.
+ */
+router.get('/dashboard-overview', asyncHandler(async (_req: AuthRequest, res: Response) => {
+  const [
+    totalUsers,
+    totalCourses,
+    monthly,
+    courseCompletion,
+    recentUsers,
+    recentEnrollments,
+  ] = await Promise.all([
+    prisma.user.count(),
+    prisma.course.count(),
+    computeMonthlyEngagement(null), // platform-wide (no course filter)
+    computeCourseCompletion({ instructorId: null, limit: 10 }),
+    prisma.user.findMany({
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, fullname: true, email: true, createdAt: true },
+    }),
+    prisma.enrollment.findMany({
+      take: 5,
+      orderBy: { enrolledAt: 'desc' },
+      include: {
+        user: { select: { fullname: true } },
+        course: { select: { title: true } },
+      },
+    }),
+  ]);
+
+  res.json({
+    success: true,
+    data: {
+      kpis: { totalUsers, totalCourses },
+      engagement: monthly.engagement,
+      activityByVerb: monthly.activityByVerb,
+      courseCompletion,
+      recentUsers,
+      recentEnrollments,
+    },
+  });
+}));
 
 // Dashboard stats
 router.get('/stats', asyncHandler(async (req: AuthRequest, res: Response) => {

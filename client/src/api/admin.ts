@@ -12,6 +12,43 @@ export interface AdminStatsTrends {
   activityDelta: number;
 }
 
+export interface AdminMonthlySeries {
+  counts: number[];
+  label: string;
+  year: number;
+  month: number;
+  daysShown: number;
+}
+
+export interface AdminDashboardOverview {
+  kpis: { totalUsers: number; totalCourses: number };
+  engagement: { thisMonth: AdminMonthlySeries; lastMonth: AdminMonthlySeries };
+  activityByVerb: Record<string, number>;
+  courseCompletion: Array<{
+    courseId: number;
+    courseTitle: string;
+    completionPct: number;
+    studentCount: number;
+    participants: Array<{
+      id: number;
+      fullname: string | null;
+      avatarUrl: string | null;
+    }>;
+  }>;
+  recentUsers: Array<{
+    id: number;
+    fullname: string | null;
+    email: string | null;
+    createdAt: string;
+  }>;
+  recentEnrollments: Array<{
+    id: number;
+    enrolledAt: string;
+    user?: { fullname?: string | null; email?: string | null };
+    course?: { title?: string | null };
+  }>;
+}
+
 export const adminApi = {
   getStats: async () => {
     const response = await apiClient.get<ApiResponse<{
@@ -21,6 +58,13 @@ export const adminApi = {
       recentUsers: any[];
       recentEnrollments: any[];
     }>>('/admin/stats');
+    return response.data.data!;
+  },
+
+  getDashboardOverview: async (): Promise<AdminDashboardOverview> => {
+    const response = await apiClient.get<ApiResponse<AdminDashboardOverview>>(
+      '/admin/dashboard-overview'
+    );
     return response.data.data!;
   },
 
