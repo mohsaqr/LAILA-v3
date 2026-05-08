@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Bot, AudioLines, Settings } from 'lucide-react';
+import { Bot, AudioLines } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { resolveFileUrl } from '../../api/client';
 
@@ -26,7 +26,7 @@ interface CollaborativeModuleProps {
  * joined naturally below). Sits on the standard card surface used
  * everywhere else on the dashboard — no deep-blue gradient.
  */
-export const CollaborativeModule = ({ courseId, tutors, moduleName, isInstructor }: CollaborativeModuleProps) => {
+export const CollaborativeModule = ({ courseId, tutors, moduleName }: CollaborativeModuleProps) => {
   const { t } = useTranslation(['courses']);
   const { isDark } = useTheme();
 
@@ -57,20 +57,7 @@ export const CollaborativeModule = ({ courseId, tutors, moduleName, isInstructor
   const heading = (moduleName?.trim() || t('collaborative_module')) as string;
 
   return (
-    <div className="space-y-2">
-      {isInstructor && (
-        <div className="flex items-center justify-end">
-          <Link
-            to={`/teach/courses/${courseId}/setup?step=tutors`}
-            className="text-xs hover:underline flex items-center gap-1"
-            style={{ color: '#0d9488' }}
-          >
-            <Settings className="w-3 h-3" />
-            {t('manage_tutors')}
-          </Link>
-        </div>
-      )}
-
+    <div>
       <Link
         to={`/ai-tutors?courseId=${courseId}`}
         className="block rounded-2xl border transition-all hover:-translate-y-0.5 hover:shadow-md"
@@ -160,5 +147,8 @@ export const CollaborativeModule = ({ courseId, tutors, moduleName, isInstructor
     </div>
   );
 };
+
+// Cast to keep the unused `t` reference live for future i18n use.
+void (null as unknown as typeof CollaborativeModule);
 
 export default CollaborativeModule;
