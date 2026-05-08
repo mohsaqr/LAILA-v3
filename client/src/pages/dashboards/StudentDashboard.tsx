@@ -2,14 +2,14 @@ import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Calendar, Compass } from 'lucide-react';
+import { ChevronRight, Compass, FileText } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
 import { activityLogger } from '../../services/activityLogger';
 import { Card, CardBody } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
-import { DueDateBadge, EmptyDashboard, Skeleton } from '../../components/dashboard';
+import { EmptyDashboard, Skeleton } from '../../components/dashboard';
 import { WelcomeCard } from '../../components/dashboard/WelcomeCard';
 import { MiniCalendar } from '../../components/dashboard/MiniCalendar';
 import { ContinueLearningRail } from '../../components/courses/ContinueLearningRail';
@@ -24,11 +24,20 @@ interface UpcomingItem {
   dueDate: string;
 }
 
+/** Fixed palette for the upcoming-list icon chips. Cycles by index. */
+const UPCOMING_TINTS = [
+  { bg: '#fee2e2', fg: '#dc2626' }, // rose
+  { bg: '#fef3c7', fg: '#d97706' }, // amber
+  { bg: '#e0f2fe', fg: '#0284c7' }, // sky
+  { bg: '#ede9fe', fg: '#7c3aed' }, // violet
+  { bg: '#dcfce7', fg: '#16a34a' }, // emerald
+];
+
 /**
- * Student dashboard. Three blocks stacked top-to-bottom:
- *   1. Welcome card + month-grid mini calendar (5-col split).
- *   2. Upcoming tasks and assignments — next 7 days, due-asc.
- *   3. Courses-in-progress rail (`progress < 100 %`).
+ * Student dashboard. Two blocks:
+ *   1. WelcomeCard (3 cols, intrinsic height) + a right column (2 cols)
+ *      stacking the MiniCalendar and an Upcoming list under it.
+ *   2. Courses-in-progress rail (`progress < 100 %`).
  */
 export const StudentDashboard = () => {
   const { t } = useTranslation(['courses', 'common', 'navigation']);
@@ -46,16 +55,12 @@ export const StudentDashboard = () => {
     enabled: !!user,
   });
 
-  // Same query the standalone calendar page runs — courses + their
-  // assignments with due dates.
-  const { data: gradebook, isLoading: gbLoading } = useQuery({
+  const { data: gradebook } = useQuery({
     queryKey: ['myGradebook'],
     queryFn: assignmentsApi.getMyGradebook,
     enabled: !!user,
   });
 
-  // Flatten gradebook → assignments with a due date, course context
-  // attached so we can render `course · assignment` rows.
   const allAssignments = useMemo<UpcomingItem[]>(() => {
     return (gradebook ?? []).flatMap((c: any) =>
       (c.assignments ?? [])
@@ -70,7 +75,6 @@ export const StudentDashboard = () => {
     );
   }, [gradebook]);
 
-  // Mini-calendar markers: ISO date → due-item count.
   const itemsByDate = useMemo(() => {
     const m = new Map<string, number>();
     for (const a of allAssignments) {
@@ -80,22 +84,37 @@ export const StudentDashboard = () => {
     return m;
   }, [allAssignments]);
 
-  // Upcoming = next 7 days (and a 1-day backstop for today's items),
-  // due-date ascending, capped at 6 rows.
+  // Upcoming = next 7 days (with a 1-day backstop for items whose
+  // local-time conversion lands just before `now`), sorted earliest
+  // first, capped at 6 rows so the sidebar stays compact.
   const upcoming = useMemo(() => {
     const now = Date.now();
     const cutoff = now + 7 * 86_400_000;
     return allAssignments
       .filter(a => {
-        const t = new Date(a.dueDate).getTime();
-        return t >= now - 86_400_000 && t <= cutoff;
+        const ts = new Date(a.dueDate).getTime();
+        return ts >= now - 86_400_000 && ts <= cutoff;
       })
       .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
       .slice(0, 6);
   }, [allAssignments]);
 
-  // Rail = enrollments still in progress. Completed courses (100 %)
-  // surface on cards / catalog but not in the "in progress" rail.
+  // Group upcoming items into "Today" (today's due-date) vs "This
+  // week" (next 7 days but not today).
+  const groupedUpcoming = useMemo(() => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const startOfTomorrow = new Date(startOfToday.getTime() + 86_400_000);
+    const today: UpcomingItem[] = [];
+    const week: UpcomingItem[] = [];
+    for (const it of upcoming) {
+      const due = new Date(it.dueDate);
+      if (due >= startOfToday && due < startOfTomorrow) today.push(it);
+      else if (due >= startOfTomorrow) week.push(it);
+    }
+    return { today, week };
+  }, [upcoming]);
+
   const railItems = useMemo(
     () => (continueLearning ?? []).filter(c => c.progress < 100),
     [continueLearning],
@@ -107,6 +126,7 @@ export const StudentDashboard = () => {
     cardBorder: isDark ? '#374151' : '#e5e7eb',
     text: isDark ? '#f3f4f6' : '#111827',
     muted: isDark ? '#9ca3af' : '#6b7280',
+    subtle: isDark ? '#6b7280' : '#9ca3af',
   };
 
   return (
@@ -116,8 +136,11 @@ export const StudentDashboard = () => {
           <Breadcrumb items={[{ label: t('common:dashboard', { defaultValue: 'Dashboard' }) }]} />
         </div>
 
-        {/* Welcome + calendar */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-5 mb-8">
+        {/* Welcome (left, fixed height) + calendar / upcoming stacked
+            (right). `items-start` so the welcome card keeps its
+            intrinsic ~220px height while the right column extends
+            further down with the upcoming list. */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-5 mb-8 items-start">
           <div className="lg:col-span-3">
             <WelcomeCard
               name={user?.fullname}
@@ -128,68 +151,57 @@ export const StudentDashboard = () => {
               })}
             />
           </div>
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-4">
             <MiniCalendar
               itemsByDate={itemsByDate}
               onDateClick={() => navigate('/dashboard/calendar')}
               fullCalendarHref="/dashboard/calendar"
             />
+
+            {upcoming.length > 0 && (
+              <div
+                className="rounded-2xl border"
+                style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}
+              >
+                <div className="flex items-center justify-between px-4 pt-4 pb-2">
+                  <h3 className="text-sm font-semibold" style={{ color: colors.text }}>
+                    {t('common:upcoming', { defaultValue: 'Upcoming' })}
+                  </h3>
+                  <Link
+                    to="/dashboard/calendar"
+                    className="text-xs font-medium hover:underline"
+                    style={{ color: '#0d9488' }}
+                  >
+                    {t('common:view_all', { defaultValue: 'View all' })}
+                  </Link>
+                </div>
+
+                <div className="px-2 pb-3 space-y-2">
+                  {groupedUpcoming.today.length > 0 && (
+                    <UpcomingGroup
+                      label={t('common:today', { defaultValue: 'Today' })}
+                      items={groupedUpcoming.today}
+                      indexOffset={0}
+                      muted={colors.subtle}
+                      titleColor={colors.text}
+                      subtitleColor={colors.muted}
+                    />
+                  )}
+                  {groupedUpcoming.week.length > 0 && (
+                    <UpcomingGroup
+                      label={t('common:this_week', { defaultValue: 'This week' })}
+                      items={groupedUpcoming.week}
+                      indexOffset={groupedUpcoming.today.length}
+                      muted={colors.subtle}
+                      titleColor={colors.text}
+                      subtitleColor={colors.muted}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Upcoming */}
-        <section className="mb-8">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold" style={{ color: colors.text }}>
-              {t('common:upcoming', { defaultValue: 'Upcoming' })}
-            </h2>
-            <Link
-              to="/dashboard/calendar"
-              className="text-xs font-medium hover:underline"
-              style={{ color: '#0d9488' }}
-            >
-              {t('common:view_full_calendar', { defaultValue: 'View full calendar' })}
-            </Link>
-          </div>
-          <Card>
-            <CardBody className="p-0">
-              {gbLoading ? (
-                <div className="p-5 space-y-3">
-                  {[0, 1, 2].map(i => (
-                    <Skeleton key={i} className="h-10" />
-                  ))}
-                </div>
-              ) : upcoming.length === 0 ? (
-                <EmptyDashboard
-                  icon={Calendar}
-                  title={t('common:all_caught_up', { defaultValue: "You're all caught up" })}
-                  description={t('common:no_upcoming_deadlines', { defaultValue: 'No upcoming deadlines.' })}
-                />
-              ) : (
-                <ul className="divide-y" style={{ borderColor: colors.cardBorder }}>
-                  {upcoming.map(u => (
-                    <li key={u.assignmentId}>
-                      <Link
-                        to={`/courses/${u.courseId}/assignments/${u.assignmentId}`}
-                        className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate" style={{ color: colors.text }}>
-                            {u.title}
-                          </p>
-                          <p className="text-xs truncate" style={{ color: colors.muted }}>
-                            {u.courseTitle}
-                          </p>
-                        </div>
-                        <DueDateBadge date={u.dueDate} />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardBody>
-          </Card>
-        </section>
 
         {/* Courses in progress */}
         <section>
@@ -242,3 +254,68 @@ export const StudentDashboard = () => {
     </div>
   );
 };
+
+/* ---------- Inline upcoming list ---------- */
+
+interface UpcomingGroupProps {
+  label: string;
+  items: UpcomingItem[];
+  /** Offset so the icon-tint cycle continues across groups. */
+  indexOffset: number;
+  muted: string;
+  titleColor: string;
+  subtitleColor: string;
+}
+
+const UpcomingGroup = ({
+  label,
+  items,
+  indexOffset,
+  muted,
+  titleColor,
+  subtitleColor,
+}: UpcomingGroupProps) => (
+  <div>
+    <p
+      className="text-[10px] font-semibold uppercase tracking-wider px-2 mb-1"
+      style={{ color: muted }}
+    >
+      {label}
+    </p>
+    <ul className="space-y-1">
+      {items.map((u, i) => {
+        const tint = UPCOMING_TINTS[(indexOffset + i) % UPCOMING_TINTS.length];
+        return (
+          <li key={u.assignmentId}>
+            <Link
+              to={`/courses/${u.courseId}/assignments/${u.assignmentId}`}
+              className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+            >
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: tint.bg, color: tint.fg }}
+              >
+                <FileText className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p
+                  className="text-sm font-medium truncate"
+                  style={{ color: titleColor }}
+                >
+                  {u.title}
+                </p>
+                <p
+                  className="text-xs truncate"
+                  style={{ color: subtitleColor }}
+                >
+                  {u.courseTitle}
+                </p>
+              </div>
+              <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: muted }} />
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  </div>
+);
