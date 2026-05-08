@@ -62,30 +62,30 @@ export const CatalogStatsCard = ({
         aria-hidden="true"
       />
 
-      <div className="relative grid grid-cols-1 sm:grid-cols-5 gap-3 p-4 sm:p-5 items-center min-h-[170px]">
+      <div className="relative grid grid-cols-1 sm:grid-cols-5 gap-3 p-3 sm:p-4 items-center min-h-[130px]">
         <div className="sm:col-span-2 flex items-center justify-center sm:justify-start sm:-ml-2 lg:-ml-3">
           <img
             src="/illustrations/course-teach.png"
             alt=""
             aria-hidden="true"
             draggable={false}
-            className="w-full max-w-[200px] sm:max-w-[240px] lg:max-w-[280px] h-auto select-none pointer-events-none drop-shadow-xl"
+            className="w-full max-w-[170px] sm:max-w-[200px] lg:max-w-[230px] h-auto select-none pointer-events-none drop-shadow-xl"
           />
         </div>
 
-        <div className="sm:col-span-3 sm:pl-1 flex flex-col gap-3">
+        <div className="sm:col-span-3 sm:pl-1 flex flex-col gap-2">
           <div className="flex flex-wrap items-stretch gap-2 sm:gap-3">
             {tiles.map(({ icon: Icon, value, label }) => (
               <div
                 key={label}
-                className="inline-flex items-center gap-2.5 h-[60px] rounded-xl px-3 backdrop-blur-sm"
+                className="inline-flex items-center gap-2.5 h-[48px] rounded-xl px-3 backdrop-blur-sm"
                 style={{ backgroundColor: 'rgba(255,255,255,0.14)' }}
               >
                 <div
-                  className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0 shadow-sm"
+                  className="flex items-center justify-center w-7 h-7 rounded-lg shrink-0 shadow-sm"
                   style={{ backgroundColor: '#ffffff', color: '#0d9488' }}
                 >
-                  <Icon className="w-4 h-4" strokeWidth={2.25} />
+                  <Icon className="w-3.5 h-3.5" strokeWidth={2.25} />
                 </div>
                 <div className="min-w-0 leading-tight">
                   {loading ? (

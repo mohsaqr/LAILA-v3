@@ -31,6 +31,12 @@ const LegacyCatalogRedirect = () => {
   return <Navigate to={`/courses/${id}`} replace />;
 };
 
+// /teach/courses/:id/curriculum is retired — fold into the wizard.
+const CurriculumRedirect = () => {
+  const { id } = useParams();
+  return <Navigate to={`/teach/courses/${id}/setup?step=setting`} replace />;
+};
+
 // Layout
 import { Layout } from './components/layout/Layout';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
@@ -75,7 +81,6 @@ import {
   CourseCreate,
   CourseCreateWizard,
   CourseEdit,
-  CurriculumEditor,
   LectureEditor,
   CodeLabEditor,
   AssignmentManager,
@@ -690,11 +695,18 @@ function App() {
             </ProtectedRoute>
           }
         />
+        {/*
+          The standalone /curriculum page is retired in favour of the
+          unified /setup wizard. Redirect any incoming hit (and the
+          legacy "Manage / Curriculum" links scattered across the app)
+          to the wizard's Setting step. The CurriculumEditor component
+          itself is kept; the wizard's Content step still embeds it.
+        */}
         <Route
           path="/teach/courses/:id/curriculum"
           element={
             <ProtectedRoute requireInstructor>
-              <CurriculumEditor />
+              <CurriculumRedirect />
             </ProtectedRoute>
           }
         />
