@@ -41,6 +41,8 @@
   "readings": "lecturas",
   "labs": "laboratorios",
   "videos": "videos",
+  "quiz_singular": "Cuestionario",
+  "survey_singular": "Encuesta",
   "add_quiz": "Agregar cuestionario",
   "add_assignment": "Agregar tarea",
   "add_forum": "Agregar foro",

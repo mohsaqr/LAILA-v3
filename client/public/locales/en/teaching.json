@@ -41,6 +41,8 @@
   "readings": "readings",
   "labs": "labs",
   "videos": "videos",
+  "quiz_singular": "Quiz",
+  "survey_singular": "Survey",
   "add_quiz": "Add Quiz",
   "add_assignment": "Add Assignment",
   "add_forum": "Add Forum",

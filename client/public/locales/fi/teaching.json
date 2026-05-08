@@ -41,6 +41,8 @@
   "readings": "lukemista",
   "labs": "harjoitukset",
   "videos": "videot",
+  "quiz_singular": "Tietokilpailu",
+  "survey_singular": "Kysely",
   "add_quiz": "Lisää tentti",
   "add_assignment": "Lisää tehtävä",
   "add_forum": "Lisää keskustelu",
