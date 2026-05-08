@@ -23,7 +23,7 @@ export const ContinueLearningRail = ({ items, percentLabel }: ContinueLearningRa
           return (
             <Link
               key={item.courseId}
-              to={`/courses/${item.courseSlug}`}
+              to={`/courses/${item.courseId}`}
               className="snap-start shrink-0 w-64 sm:w-72 rounded-2xl border overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-md"
               style={{
                 backgroundColor: isDark ? '#1f2937' : '#ffffff',

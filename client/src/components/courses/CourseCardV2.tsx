@@ -47,7 +47,7 @@ export const CourseCardV2 = ({
         borderColor: isDark ? '#374151' : '#f3f4f6',
       }}
     >
-      <Link to={`/courses/${course.slug || course.id}`} className="block">
+      <Link to={`/courses/${course.id}`} className="block">
         <div
           className="aspect-[16/9] flex items-center justify-center relative"
           style={{
@@ -80,7 +80,7 @@ export const CourseCardV2 = ({
         </Link>
       )}
 
-      <Link to={`/courses/${course.slug || course.id}`} className="block p-5">
+      <Link to={`/courses/${course.id}`} className="block p-5">
         {course.categories && course.categories.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-3">
             {course.categories.slice(0, 3).map(cc => (
