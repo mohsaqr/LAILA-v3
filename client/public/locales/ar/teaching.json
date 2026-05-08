@@ -41,6 +41,8 @@
   "readings": "قراءات",
   "labs": "مختبرات",
   "videos": "فيديوهات",
+  "quiz_singular": "اختبار",
+  "survey_singular": "استبيان",
   "add_quiz": "إضافة اختبار",
   "add_assignment": "إضافة واجب",
   "add_forum": "إضافة منتدى",

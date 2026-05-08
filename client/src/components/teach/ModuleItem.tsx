@@ -12,7 +12,6 @@ import {
   ChevronUp,
   Eye,
   EyeOff,
-  FlaskConical,
   ClipboardList,
   FileText,
   FileImage,
@@ -761,37 +760,37 @@ export const ModuleItem = ({
               size="sm"
               onClick={() => onAddLecture(module)}
               icon={<Plus className="w-4 h-4" />}
-              className="flex-1 min-w-[120px]"
+              className="flex-1 min-w-[100px]"
             >
-              {t('add_lesson')}
+              {t('lesson', { defaultValue: 'Lesson' })}
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onAddCodeLab(module)}
-              icon={<FlaskConical className="w-4 h-4" />}
-              className="flex-1 min-w-[120px] text-emerald-600 hover:bg-emerald-50"
+              icon={<Plus className="w-4 h-4" />}
+              className="flex-1 min-w-[100px] text-emerald-600 hover:bg-emerald-50"
             >
-              {t('add_code_lab')}
+              {t('code_lab', { defaultValue: 'Code Lab' })}
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onAddAssignment(module)}
-              icon={<ClipboardList className="w-4 h-4" />}
-              className="flex-1 min-w-[120px] text-amber-600 hover:bg-amber-50"
+              icon={<Plus className="w-4 h-4" />}
+              className="flex-1 min-w-[100px] text-amber-600 hover:bg-amber-50"
             >
-              {t('add_assignment')}
+              {t('assignment', { defaultValue: 'Assignment' })}
             </Button>
             {onAddForum && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => onAddForum(module)}
-                icon={<MessageSquare className="w-4 h-4" />}
-                className="flex-1 min-w-[120px] text-teal-600 hover:bg-teal-50"
+                icon={<Plus className="w-4 h-4" />}
+                className="flex-1 min-w-[100px] text-teal-600 hover:bg-teal-50"
               >
-                {t('add_forum')}
+                {t('forum', { defaultValue: 'Forum' })}
               </Button>
             )}
             {onAddQuiz && (
@@ -799,20 +798,20 @@ export const ModuleItem = ({
                 variant="ghost"
                 size="sm"
                 onClick={() => onAddQuiz(module)}
-                icon={<FileQuestion className="w-4 h-4" />}
-                className="flex-1 min-w-[120px] text-cyan-600 hover:bg-cyan-50"
+                icon={<Plus className="w-4 h-4" />}
+                className="flex-1 min-w-[100px] text-cyan-600 hover:bg-cyan-50"
               >
-                {t('add_quiz')}
+                {t('quiz_singular', { defaultValue: 'Quiz' })}
               </Button>
             )}
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setSurveyModalOpen(true)}
-              icon={<ListChecks className="w-4 h-4" />}
-              className="flex-1 min-w-[120px] text-indigo-600 hover:bg-indigo-50"
+              icon={<Plus className="w-4 h-4" />}
+              className="flex-1 min-w-[100px] text-indigo-600 hover:bg-indigo-50"
             >
-              {t('add_survey')}
+              {t('survey_singular', { defaultValue: 'Survey' })}
             </Button>
           </div>
         </div>
