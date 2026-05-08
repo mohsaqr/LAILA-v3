@@ -89,8 +89,8 @@ export const SettingStep = ({ initialData, onChange, externalErrors }: SettingSt
   }, [snapshot, initialData, categories, user, t]);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-      <div className="lg:col-span-5 order-2 lg:order-1">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+      <div className="lg:col-span-1 order-2 lg:order-1">
         <div className="lg:sticky lg:top-6 space-y-3">
           <span
             className="text-xs font-semibold uppercase tracking-wider"
@@ -111,7 +111,7 @@ export const SettingStep = ({ initialData, onChange, externalErrors }: SettingSt
         </div>
       </div>
 
-      <div className="lg:col-span-7 order-1 lg:order-2">
+      <div className="lg:col-span-2 order-1 lg:order-2">
         <CourseForm
           initialData={initialData}
           onSubmit={async () => { /* wizard owns submit */ }}
