@@ -392,7 +392,6 @@ export const Catalog = () => {
             totalCoursesLabel={t('total_courses')}
             totalStudentsLabel={t('total_students')}
             title={t('catalog_hero_title')}
-            subtitle={t('catalog_hero_subtitle')}
             createLabel={t('create_course')}
             loading={statsLoading}
           />

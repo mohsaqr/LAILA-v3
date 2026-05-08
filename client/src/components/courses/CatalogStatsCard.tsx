@@ -9,8 +9,6 @@ interface CatalogStatsCardProps {
   totalStudentsLabel: string;
   /** Header title above the stats. */
   title: string;
-  /** Subtitle / description under the title. */
-  subtitle: string;
   /** When non-null, render the Create Course button with this label. */
   createLabel?: string | null;
   loading?: boolean;
@@ -28,7 +26,6 @@ export const CatalogStatsCard = ({
   totalCoursesLabel,
   totalStudentsLabel,
   title,
-  subtitle,
   createLabel,
   loading = false,
 }: CatalogStatsCardProps) => {
@@ -80,16 +77,24 @@ export const CatalogStatsCard = ({
         </div>
 
         <div className="sm:col-span-3 sm:pl-1 flex flex-col gap-3">
-          <div>
-            <h2 className="text-lg sm:text-xl font-bold leading-tight mb-1">{title}</h2>
-            <p className="text-white/80 text-xs sm:text-sm leading-snug max-w-md">{subtitle}</p>
-          </div>
+          <h2 className="text-lg sm:text-xl font-bold leading-tight">{title}</h2>
 
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="flex flex-wrap items-stretch gap-2 sm:gap-3">
+            {createLabel && (
+              <Link
+                to="/teach/create"
+                className="inline-flex items-center gap-2 h-[60px] px-4 rounded-xl text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                style={{ backgroundColor: '#ffffff', color: '#0e7490' }}
+              >
+                <Plus className="w-4 h-4" strokeWidth={2.5} />
+                {createLabel}
+              </Link>
+            )}
+
             {tiles.map(({ icon: Icon, value, label }) => (
               <div
                 key={label}
-                className="flex items-center gap-2.5 rounded-xl px-3 py-2 backdrop-blur-sm"
+                className="flex items-center gap-2.5 h-[60px] rounded-xl px-3 backdrop-blur-sm"
                 style={{ backgroundColor: 'rgba(255,255,255,0.14)' }}
               >
                 <div
@@ -117,17 +122,6 @@ export const CatalogStatsCard = ({
                 </div>
               </div>
             ))}
-
-            {createLabel && (
-              <Link
-                to="/teach/create"
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-                style={{ backgroundColor: '#ffffff', color: '#0e7490' }}
-              >
-                <Plus className="w-4 h-4" strokeWidth={2.5} />
-                {createLabel}
-              </Link>
-            )}
           </div>
         </div>
       </div>
