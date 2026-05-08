@@ -215,10 +215,11 @@ export const TeamStep = ({ courseId, instructorId }: TeamStepProps) => {
 
   return (
     <div className="space-y-4">
-      {/* Searchable picker */}
-      <div ref={wrapperRef} className="relative">
+      {/* Compact searchable picker — opens to the full instructor list
+          on focus, filters as the user types. */}
+      <div ref={wrapperRef} className="relative max-w-sm">
         <Search
-          className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
+          className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5"
           style={{ color: muted }}
         />
         <input
@@ -227,14 +228,14 @@ export const TeamStep = ({ courseId, instructorId }: TeamStepProps) => {
           onFocus={() => setOpen(true)}
           onChange={e => { setQuery(e.target.value); setOpen(true); }}
           placeholder={t('admin:search_to_add_member', {
-            defaultValue: 'Search instructors by name or email…',
+            defaultValue: 'Search instructors…',
           })}
-          className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-primary-300"
+          className="w-full pl-8 pr-3 py-1.5 text-xs rounded-md border focus:outline-none focus:ring-2 focus:ring-primary-300"
           style={{ backgroundColor: cardBg, borderColor: cardBorder, color: subtle }}
         />
         {open && (
           <div
-            className="absolute left-0 right-0 mt-1 rounded-lg border shadow-lg z-20 max-h-72 overflow-y-auto"
+            className="absolute left-0 right-0 mt-1 rounded-md border shadow-lg z-20 max-h-64 overflow-y-auto"
             style={{ backgroundColor: cardBg, borderColor: cardBorder }}
           >
             {candidates.length === 0 ? (
@@ -271,16 +272,12 @@ export const TeamStep = ({ courseId, instructorId }: TeamStepProps) => {
         )}
       </div>
 
-      {/* Members table */}
-      <div
-        className="rounded-lg border overflow-hidden"
-        style={{ backgroundColor: cardBg, borderColor: cardBorder }}
-      >
-        {members.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm" style={{ color: muted }}>
-            {t('admin:no_team_members', { defaultValue: 'No team members yet — search above to add one.' })}
-          </div>
-        ) : (
+      {/* Members table — only rendered when at least one member exists. */}
+      {members.length > 0 && (
+        <div
+          className="rounded-lg border overflow-hidden"
+          style={{ backgroundColor: cardBg, borderColor: cardBorder }}
+        >
           <table className="w-full text-sm">
             <thead>
               <tr style={{ borderBottom: `1px solid ${dividerColor}` }}>
@@ -352,8 +349,8 @@ export const TeamStep = ({ courseId, instructorId }: TeamStepProps) => {
               ))}
             </tbody>
           </table>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Reference unused import to satisfy strict-mode lint without
           dropping availability for future callers. */}
