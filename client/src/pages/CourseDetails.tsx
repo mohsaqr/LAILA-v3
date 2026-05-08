@@ -147,9 +147,10 @@ export const CourseDetails = () => {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: colors.bg }}>
-      {/* Breadcrumb */}
-      <div style={{ backgroundColor: colors.bgHeader, borderBottom: `1px solid ${colors.border}` }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+      {/* Breadcrumb — matches the dashboard / catalog pattern (inline,
+          no full-width bar, just sitting in the max-w container). */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 md:pt-8">
+        <div className="mb-4">
           <Breadcrumb
             items={[
               { label: t('courses'), href: '/courses' },
@@ -160,7 +161,7 @@ export const CourseDetails = () => {
       </div>
 
       {/* Hero — info on the left, thumbnail card on the right. */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div
           className="rounded-2xl border p-4 sm:p-5"
           style={{
