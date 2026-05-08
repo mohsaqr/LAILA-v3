@@ -8,6 +8,7 @@ import type {
   CreateSectionData,
   UpdateSectionData,
 } from '../../../types';
+type PendingUpdate = UpdateSectionData;
 import { TextBlock } from './TextBlock';
 import { FileBlock } from './FileBlock';
 import { ChatbotBlock } from './ChatbotBlock';
@@ -41,21 +42,32 @@ export const BlockStream = ({ lectureId, initialSections }: BlockStreamProps) =>
   const [draggedId, setDraggedId] = useState<number | null>(null);
   const [dropTargetId, setDropTargetId] = useState<number | 'top' | null>(null);
   const autoCreateRef = useRef(false);
+  // Keep ids of sections the user just deleted so the courseDetails refetch
+  // (which is stale for a moment after deleteMutation) doesn't resurrect them.
+  const deletedIdsRef = useRef<Set<number>>(new Set());
+  // Updates / deletes that arrived while a create mutation was still in
+  // flight. Keyed by tempId; flushed in createMutation.onSuccess.
+  const pendingUpdatesRef = useRef<Map<number, PendingUpdate>>(new Map());
+  const pendingDeletesRef = useRef<Set<number>>(new Set());
 
   // Sync external server-side updates back into local state.
   useEffect(() => {
     setSections(prev => {
-      const fresh = [...initialSections].sort(sortByOrder);
-      // If we're holding a server-sent list of equal length and same ids in
-      // the same order, prefer ours so in-flight optimistic updates don't
-      // get clobbered.
-      if (
-        prev.length === fresh.length &&
-        prev.every((p, i) => p.id === fresh[i].id)
-      ) {
-        return prev.map((p, i) => ({ ...fresh[i], ...p, content: p.content }));
-      }
-      return fresh;
+      const fresh = [...initialSections]
+        .filter(s => !deletedIdsRef.current.has(s.id))
+        .sort(sortByOrder);
+      // Preserve any pending optimistic stub (negative id) AND keep local
+      // content for any section already known so the user's in-flight edits
+      // aren't clobbered by a stale refetch.
+      const localById = new Map(prev.map(s => [s.id, s]));
+      const merged = fresh.map(f => {
+        const local = localById.get(f.id);
+        if (!local) return f;
+        return { ...f, ...local, content: local.content };
+      });
+      // Append local-only stubs (still being created) at their tail position.
+      const stubs = prev.filter(p => p.id < 0);
+      return [...merged, ...stubs].sort(sortByOrder);
     });
   }, [initialSections]);
 
@@ -63,9 +75,27 @@ export const BlockStream = ({ lectureId, initialSections }: BlockStreamProps) =>
     mutationFn: ({ data }: { data: CreateSectionData; tempId: number }) =>
       coursesApi.createSection(lectureId, data),
     onSuccess: (created, vars) => {
-      // Replace the temp id with the real one.
-      setSections(prev => prev.map(s => (s.id === vars.tempId ? created : s)));
-      queryClient.invalidateQueries({ queryKey: ['lecture', lectureId] });
+      // If the user deleted the still-being-created section, delete it now.
+      if (pendingDeletesRef.current.has(vars.tempId)) {
+        pendingDeletesRef.current.delete(vars.tempId);
+        deletedIdsRef.current.add(created.id);
+        deleteMutation.mutate(created.id);
+        setSections(prev => prev.filter(s => s.id !== vars.tempId));
+        return;
+      }
+      // Otherwise replace the temp id with the real one — but preserve any
+      // local content the user typed while the create was in flight.
+      setSections(prev => prev.map(s => {
+        if (s.id !== vars.tempId) return s;
+        return { ...created, content: s.content ?? created.content };
+      }));
+      // Flush any pending updates queued while the create was in flight.
+      const pending = pendingUpdatesRef.current.get(vars.tempId);
+      if (pending) {
+        pendingUpdatesRef.current.delete(vars.tempId);
+        updateMutation.mutate({ id: created.id, data: pending });
+      }
+      queryClient.invalidateQueries({ queryKey: ['courseDetails'] });
     },
     onError: () => {
       toast.error(t('teaching:failed_to_save_lesson', { defaultValue: 'Failed to save section.' }));
@@ -76,7 +106,7 @@ export const BlockStream = ({ lectureId, initialSections }: BlockStreamProps) =>
     mutationFn: ({ id, data }: { id: number; data: UpdateSectionData }) =>
       coursesApi.updateSection(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lecture', lectureId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails'] });
     },
     onError: () => {
       toast.error(t('teaching:failed_to_save_lesson', { defaultValue: 'Failed to save section.' }));
@@ -86,7 +116,7 @@ export const BlockStream = ({ lectureId, initialSections }: BlockStreamProps) =>
   const deleteMutation = useMutation({
     mutationFn: (id: number) => coursesApi.deleteSection(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lecture', lectureId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails'] });
     },
     onError: () => {
       toast.error(t('teaching:failed_to_save_lesson', { defaultValue: 'Failed to delete section.' }));
@@ -96,7 +126,7 @@ export const BlockStream = ({ lectureId, initialSections }: BlockStreamProps) =>
   const reorderMutation = useMutation({
     mutationFn: (ids: number[]) => coursesApi.reorderSections(lectureId, ids),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lecture', lectureId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails'] });
     },
     onError: () => {
       toast.error(t('teaching:failed_to_save_lesson', { defaultValue: 'Failed to reorder.' }));
@@ -136,13 +166,24 @@ export const BlockStream = ({ lectureId, initialSections }: BlockStreamProps) =>
 
   const handleUpdate = (id: number, patch: UpdateSectionData) => {
     setSections(prev => prev.map(s => (s.id === id ? { ...s, ...patch } : s)));
-    if (id < 0) return; // optimistic stub; the real id is still in flight
+    if (id < 0) {
+      // Queue the update so it fires once the create resolves.
+      const merged = { ...(pendingUpdatesRef.current.get(id) ?? {}), ...patch };
+      pendingUpdatesRef.current.set(id, merged);
+      return;
+    }
     updateMutation.mutate({ id, data: patch });
   };
 
   const handleDelete = (id: number) => {
     setSections(prev => prev.filter(s => s.id !== id));
-    if (id < 0) return;
+    if (id < 0) {
+      // Defer the delete until the create returns the real id.
+      pendingDeletesRef.current.add(id);
+      pendingUpdatesRef.current.delete(id);
+      return;
+    }
+    deletedIdsRef.current.add(id);
     deleteMutation.mutate(id);
   };
 

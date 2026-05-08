@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Upload,
@@ -8,7 +8,10 @@ import {
   Film,
   Music,
   Archive,
-  ExternalLink,
+  Pencil,
+  Check,
+  X,
+  Download,
   Loader2,
 } from 'lucide-react';
 import { useTheme } from '../../../hooks/useTheme';
@@ -34,28 +37,29 @@ const iconFor = (fileType: string | null) => {
   return FILE_ICONS[fileType.toLowerCase().replace(/^\./, '')] || FileIcon;
 };
 
-const formatSize = (bytes: number | null) => {
-  if (!bytes) return '';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-};
-
 /**
- * File block — minimal card showing filename + size + Replace + Open.
- * Empty state is a tight drop zone (no big "File section" header).
- * Reuses the existing POST /api/uploads/file endpoint.
+ * File block — minimal thin row. When a file is attached: icon +
+ * filename (click pencil to rename, Enter saves) + download. No
+ * Replace, no Open. When empty: a single click target that opens the
+ * file picker (also accepts drag-and-drop).
  */
 export const FileBlock = ({ section, onChange }: FileBlockProps) => {
   const { t } = useTranslation('teaching');
   const { isDark } = useTheme();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [renameDraft, setRenameDraft] = useState('');
 
   const hasFile = !!(section.fileUrl && section.fileName);
   const Icon = iconFor(section.fileType);
   const url = section.fileUrl ? resolveFileUrl(section.fileUrl) : null;
+
+  useEffect(() => {
+    if (renaming) renameInputRef.current?.select();
+  }, [renaming]);
 
   const upload = async (file: File) => {
     setUploading(true);
@@ -97,61 +101,100 @@ export const FileBlock = ({ section, onChange }: FileBlockProps) => {
     if (f) upload(f);
   };
 
-  const cardBg = isDark ? '#1f2937' : '#ffffff';
-  const cardBorder = isDark ? '#374151' : '#e5e7eb';
+  const startRename = () => {
+    setRenameDraft(section.fileName ?? '');
+    setRenaming(true);
+  };
+
+  const commitRename = () => {
+    const trimmed = renameDraft.trim();
+    setRenaming(false);
+    if (trimmed && trimmed !== section.fileName) {
+      onChange({ fileName: trimmed });
+    }
+  };
+
+  const cancelRename = () => {
+    setRenaming(false);
+    setRenameDraft('');
+  };
+
   const subtle = isDark ? '#cbd5e1' : '#374151';
   const muted = isDark ? '#9ca3af' : '#6b7280';
+  const accent = isDark ? '#5eead4' : '#0d9488';
 
   if (hasFile) {
     return (
       <div
-        className="flex items-center gap-3 rounded-xl border px-4 py-3"
-        style={{ backgroundColor: cardBg, borderColor: cardBorder }}
+        className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm"
+        style={{
+          backgroundColor: isDark ? 'rgba(20,184,166,0.10)' : '#f0fdfa',
+          border: `1px solid ${isDark ? 'rgba(20,184,166,0.25)' : '#a7f3d0'}`,
+        }}
       >
-        <div
-          className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-          style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6' }}
-        >
-          <Icon className="w-5 h-5" style={{ color: muted }} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-medium truncate" style={{ color: subtle }}>{section.fileName}</p>
-          <p className="text-xs" style={{ color: muted }}>
-            {section.fileType?.toUpperCase()}{section.fileSize ? ` · ${formatSize(section.fileSize)}` : ''}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          className="text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
-          style={{ color: subtle, backgroundColor: 'transparent' }}
-          onMouseEnter={e => { e.currentTarget.style.backgroundColor = isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6'; }}
-          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-        >
-          {uploading
-            ? <Loader2 className="w-4 h-4 animate-spin inline" />
-            : t('replace_file', { defaultValue: 'Replace' })}
-        </button>
-        {url && (
-          <a
-            href={url}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg"
-            style={{ color: '#0d9488' }}
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-            {t('open_file', { defaultValue: 'Open' })}
-          </a>
+        <Icon className="w-4 h-4 shrink-0" style={{ color: accent }} />
+        {renaming ? (
+          <>
+            <input
+              ref={renameInputRef}
+              type="text"
+              value={renameDraft}
+              onChange={e => setRenameDraft(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') commitRename();
+                if (e.key === 'Escape') cancelRename();
+              }}
+              className="flex-1 min-w-0 bg-transparent outline-none"
+              style={{ color: subtle }}
+            />
+            <button
+              type="button"
+              onClick={commitRename}
+              className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-black/5 dark:hover:bg-white/5"
+              style={{ color: accent }}
+              aria-label={t('common:save', { defaultValue: 'Save' })}
+            >
+              <Check className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={cancelRename}
+              className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-black/5 dark:hover:bg-white/5"
+              style={{ color: muted }}
+              aria-label={t('common:cancel', { defaultValue: 'Cancel' })}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </>
+        ) : (
+          <>
+            <span className="flex-1 min-w-0 truncate" style={{ color: subtle }}>
+              {section.fileName}
+            </span>
+            <button
+              type="button"
+              onClick={startRename}
+              className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-black/5 dark:hover:bg-white/5"
+              style={{ color: muted }}
+              aria-label={t('edit_file_name', { defaultValue: 'Rename' })}
+              title={t('edit_file_name', { defaultValue: 'Rename' })}
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            {url && (
+              <a
+                href={url}
+                download={section.fileName ?? undefined}
+                className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-black/5 dark:hover:bg-white/5"
+                style={{ color: muted }}
+                aria-label={t('download', { defaultValue: 'Download' })}
+                title={t('download', { defaultValue: 'Download' })}
+              >
+                <Download className="w-3.5 h-3.5" />
+              </a>
+            )}
+          </>
         )}
-        <input
-          ref={fileInputRef}
-          type="file"
-          onChange={onSelect}
-          className="hidden"
-          accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.mp4,.mov,.mp3,.wav,.zip"
-        />
       </div>
     );
   }
@@ -161,23 +204,26 @@ export const FileBlock = ({ section, onChange }: FileBlockProps) => {
       onDragOver={e => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={() => setDragOver(false)}
       onDrop={onDrop}
-      className="rounded-xl border-2 border-dashed px-6 py-6 text-center transition-colors cursor-pointer"
-      style={{
-        borderColor: dragOver ? '#14b8a6' : (isDark ? '#374151' : '#d1d5db'),
-        backgroundColor: dragOver ? (isDark ? 'rgba(20,184,166,0.08)' : '#f0fdfa') : 'transparent',
-      }}
       onClick={() => fileInputRef.current?.click()}
+      className="flex items-center justify-center gap-2 rounded-md px-3 py-2.5 text-sm cursor-pointer transition-colors"
+      style={{
+        border: `1px dashed ${dragOver ? '#14b8a6' : (isDark ? '#374151' : '#d1d5db')}`,
+        backgroundColor: dragOver
+          ? (isDark ? 'rgba(20,184,166,0.08)' : '#f0fdfa')
+          : 'transparent',
+        color: muted,
+      }}
     >
       {uploading ? (
-        <div className="flex items-center justify-center gap-2 text-sm" style={{ color: muted }}>
+        <>
           <Loader2 className="w-4 h-4 animate-spin" />
           {t('uploading_file', { defaultValue: 'Uploading…' })}
-        </div>
+        </>
       ) : (
-        <div className="flex items-center justify-center gap-2 text-sm" style={{ color: muted }}>
+        <>
           <Upload className="w-4 h-4" />
           {t('drag_drop_file', { defaultValue: 'Drag & drop or click to upload' })}
-        </div>
+        </>
       )}
       <input
         ref={fileInputRef}
