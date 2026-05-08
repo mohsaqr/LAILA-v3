@@ -23,9 +23,12 @@ export class MeService {
    * — newest first, capped at `limit`.
    */
   async getContinueLearning(userId: number, limit = 50) {
-    // Every active enrollment for the user, with course shell.
+    // Every enrollment the user still owns — `active` and `completed`
+    // both come back so a finished course still surfaces its 100 %
+    // progress on the catalog card and in the rail. Only outright
+    // unenrolled / dropped rows are skipped.
     const enrollments = await prisma.enrollment.findMany({
-      where: { userId, status: 'active' },
+      where: { userId, status: { in: ['active', 'completed'] } },
       orderBy: { enrolledAt: 'desc' },
       select: {
         courseId: true,
