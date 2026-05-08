@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GripVertical, MoreHorizontal, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { MoreHorizontal, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import { useTheme } from '../../../hooks/useTheme';
 
 interface BlockShellProps {
@@ -64,26 +64,15 @@ export const BlockShell = ({
         }}
       />
 
-      <div className="relative pl-8 pr-2">
-        {/* Drag handle gutter */}
-        <button
-          type="button"
-          draggable
-          onDragStart={onDragStart}
-          onDragEnd={onDragEnd}
-          aria-label={t('common:reorder', { defaultValue: 'Reorder' })}
-          className="absolute left-0 top-1.5 inline-flex items-center justify-center w-6 h-6 rounded transition-opacity cursor-grab active:cursor-grabbing"
-          style={{
-            color: muted,
-            opacity: hover ? 1 : 0,
-          }}
-        >
-          <GripVertical className="w-4 h-4" />
-        </button>
-
+      <div
+        className="relative pr-8"
+        draggable
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      >
         {children}
 
-        {/* Right-side menu */}
+        {/* Right-side menu — also acts as the drag affordance */}
         <div
           className="absolute right-0 top-1.5 transition-opacity"
           style={{ opacity: hover || menuOpen ? 1 : 0 }}

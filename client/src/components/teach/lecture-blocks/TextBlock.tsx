@@ -51,7 +51,8 @@ export const TextBlock = ({ section, onChange, autoFocus = false }: TextBlockPro
         value={draft}
         onChange={setDraft}
         placeholder={t('lesson_empty_placeholder', { defaultValue: 'Start writing your lesson…' })}
-        editorClassName="min-h-[80px] !border-0 !shadow-none !px-0"
+        bordered={false}
+        editorClassName="min-h-[80px] px-0 py-2 prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
       />
     </div>
   );
