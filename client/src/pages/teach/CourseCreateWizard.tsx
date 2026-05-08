@@ -245,11 +245,11 @@ export const CourseCreateWizard = () => {
   return (
     <div style={{ backgroundColor: colors.bg, minHeight: '100vh' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-        <div className="mb-4">
+        <div className="mb-6 md:mb-8">
           <Breadcrumb items={breadcrumb} />
         </div>
 
-        <div className="mb-6">
+        <div className="mb-6 md:mb-8">
           <Stepper
             steps={steps}
             activeStep={activeStep}
