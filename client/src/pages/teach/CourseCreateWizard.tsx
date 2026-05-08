@@ -317,7 +317,7 @@ export const CourseCreateWizard = () => {
             <PublishStep
               course={course}
               modules={modules}
-              teamMembersCount={roles.length}
+              roles={roles}
               check={validatePublish(ctx, roles.length, course.isPublic)}
             />
           )}

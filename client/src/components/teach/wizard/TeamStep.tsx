@@ -272,10 +272,12 @@ export const TeamStep = ({ courseId, instructorId }: TeamStepProps) => {
         )}
       </div>
 
-      {/* Members table — only rendered when at least one member exists. */}
+      {/* Members table — only rendered when at least one member exists.
+          No overflow-hidden so the role-select popover can escape the
+          rounded border without being clipped. */}
       {members.length > 0 && (
         <div
-          className="rounded-lg border overflow-hidden"
+          className="rounded-lg border"
           style={{ backgroundColor: cardBg, borderColor: cardBorder }}
         >
           <table className="w-full text-sm">
