@@ -48,7 +48,7 @@ export const WelcomeCard = ({ name, message, className = '' }: WelcomeCardProps)
         aria-hidden="true"
       />
 
-      <div className="relative grid grid-cols-1 sm:grid-cols-5 gap-4 sm:gap-3 p-5 sm:p-6 items-stretch min-h-[220px]">
+      <div className="relative h-full grid grid-cols-1 sm:grid-cols-5 gap-4 sm:gap-3 p-5 sm:p-6 items-stretch min-h-[220px]">
         <div className="sm:col-span-2 flex items-center justify-center sm:justify-start sm:-ml-2 lg:-ml-4">
           <WelcomeIllustration />
         </div>
