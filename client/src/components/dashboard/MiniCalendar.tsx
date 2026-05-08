@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 
@@ -8,8 +7,6 @@ interface MiniCalendarProps {
   itemsByDate: Map<string, number>;
   /** Click a day → caller decides navigation. Receives the ISO date. */
   onDateClick?: (iso: string) => void;
-  /** Optional "view full" link rendered in the header / footer. */
-  fullCalendarHref?: string;
 }
 
 /**
@@ -24,9 +21,7 @@ interface MiniCalendarProps {
 export const MiniCalendar = ({
   itemsByDate,
   onDateClick,
-  fullCalendarHref,
 }: MiniCalendarProps) => {
-  const { t } = useTranslation('common');
   const { isDark } = useTheme();
   const [cursor, setCursor] = useState(() => {
     const d = new Date();
@@ -185,17 +180,6 @@ export const MiniCalendar = ({
         })}
       </div>
 
-      {fullCalendarHref && (
-        <div className="mt-2 text-right">
-          <a
-            href={fullCalendarHref}
-            className="text-xs font-medium hover:underline"
-            style={{ color: accent }}
-          >
-            {t('view_full_calendar', { defaultValue: 'View full calendar' })}
-          </a>
-        </div>
-      )}
     </div>
   );
 };

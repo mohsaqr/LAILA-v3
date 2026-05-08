@@ -9,9 +9,14 @@ interface ContinueLearningRailProps {
   items: ContinueLearningItem[];
   /** "X% Complete" template — caller provides via i18n. */
   percentLabel: (percent: number) => string;
+  /** Bleed the rail to the page padding (catalog default). When the
+      rail sits inside a column-constrained container, set this to
+      false so the negative margins don't push the chevrons outside
+      the column. */
+  bleed?: boolean;
 }
 
-export const ContinueLearningRail = ({ items, percentLabel }: ContinueLearningRailProps) => {
+export const ContinueLearningRail = ({ items, percentLabel, bleed = true }: ContinueLearningRailProps) => {
   const { isDark } = useTheme();
   const trackRef = useRef<HTMLDivElement>(null);
   const [canPrev, setCanPrev] = useState(false);
@@ -54,14 +59,20 @@ export const ContinueLearningRail = ({ items, percentLabel }: ContinueLearningRa
     'absolute top-1/2 -translate-y-1/2 z-10 inline-flex items-center justify-center w-9 h-9 rounded-full shadow-md transition-all disabled:opacity-0 disabled:pointer-events-none';
 
   return (
-    <div className="relative -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8">
+    <div
+      className={
+        bleed
+          ? 'relative -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8'
+          : 'relative'
+      }
+    >
       {/* Prev */}
       <button
         type="button"
         onClick={() => scrollByTile(-1)}
         disabled={!canPrev}
         aria-label="Scroll left"
-        className={`${navBtnBase} left-1 sm:left-3`}
+        className={`${navBtnBase} ${bleed ? 'left-1 sm:left-3' : 'left-1'}`}
         style={{
           backgroundColor: isDark ? '#1f2937' : '#ffffff',
           color: isDark ? '#cbd5e1' : '#374151',
@@ -77,7 +88,7 @@ export const ContinueLearningRail = ({ items, percentLabel }: ContinueLearningRa
         onClick={() => scrollByTile(1)}
         disabled={!canNext}
         aria-label="Scroll right"
-        className={`${navBtnBase} right-1 sm:right-3`}
+        className={`${navBtnBase} ${bleed ? 'right-1 sm:right-3' : 'right-1'}`}
         style={{
           backgroundColor: isDark ? '#1f2937' : '#ffffff',
           color: isDark ? '#cbd5e1' : '#374151',

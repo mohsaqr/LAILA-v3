@@ -34,10 +34,12 @@ const UPCOMING_TINTS = [
 ];
 
 /**
- * Student dashboard. Two blocks:
- *   1. WelcomeCard (3 cols, intrinsic height) + a right column (2 cols)
- *      stacking the MiniCalendar and an Upcoming list under it.
- *   2. Courses-in-progress rail (`progress < 100 %`).
+ * Student dashboard. Two parallel columns that don't influence each
+ * other's vertical flow:
+ *   - Left (3 cols):  WelcomeCard, then the courses-in-progress rail.
+ *   - Right (2 cols): MiniCalendar, then a compact Upcoming list.
+ * `items-start` on the grid keeps each column content-sized so a tall
+ * Upcoming list never pushes the rail down on the left.
  */
 export const StudentDashboard = () => {
   const { t } = useTranslation(['courses', 'common', 'navigation']);
@@ -136,12 +138,9 @@ export const StudentDashboard = () => {
           <Breadcrumb items={[{ label: t('common:dashboard', { defaultValue: 'Dashboard' }) }]} />
         </div>
 
-        {/* Welcome (left, fixed height) + calendar / upcoming stacked
-            (right). `items-start` so the welcome card keeps its
-            intrinsic ~220px height while the right column extends
-            further down with the upcoming list. */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-5 mb-8 items-start">
-          <div className="lg:col-span-3">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-5 items-start">
+          {/* Left column: welcome + courses-in-progress rail */}
+          <div className="lg:col-span-3 space-y-6">
             <WelcomeCard
               name={user?.fullname}
               illustration="/illustrations/welcome-student.png"
@@ -150,12 +149,52 @@ export const StudentDashboard = () => {
                   "Pick up where you left off and stay on top of what's due this week.",
               })}
             />
+
+            <section>
+              <h2 className="text-base font-semibold mb-3" style={{ color: colors.text }}>
+                {t('common:courses_in_progress', { defaultValue: 'Courses in progress' })}
+              </h2>
+              {clLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[0, 1].map(i => (
+                    <Skeleton key={i} className="h-44" rounded="lg" />
+                  ))}
+                </div>
+              ) : railItems.length === 0 ? (
+                <Card>
+                  <CardBody>
+                    <EmptyDashboard
+                      icon={Compass}
+                      title={t('common:nothing_in_progress', { defaultValue: 'Nothing in progress yet' })}
+                      description={t('common:browse_to_get_started', { defaultValue: 'Browse the catalog to start learning.' })}
+                      action={
+                        <Link to="/courses">
+                          <Button size="sm">{t('explore_courses')}</Button>
+                        </Link>
+                      }
+                    />
+                  </CardBody>
+                </Card>
+              ) : (
+                <ContinueLearningRail
+                  items={railItems}
+                  bleed={false}
+                  percentLabel={pct =>
+                    t('courses:percent_complete', {
+                      defaultValue: '{{percent}}% Complete',
+                      percent: pct,
+                    })
+                  }
+                />
+              )}
+            </section>
           </div>
+
+          {/* Right column: calendar + upcoming */}
           <div className="lg:col-span-2 space-y-4">
             <MiniCalendar
               itemsByDate={itemsByDate}
               onDateClick={() => navigate('/dashboard/calendar')}
-              fullCalendarHref="/dashboard/calendar"
             />
 
             {upcoming.length > 0 && (
@@ -167,13 +206,6 @@ export const StudentDashboard = () => {
                   <h3 className="text-sm font-semibold" style={{ color: colors.text }}>
                     {t('common:upcoming', { defaultValue: 'Upcoming' })}
                   </h3>
-                  <Link
-                    to="/dashboard/calendar"
-                    className="text-xs font-medium hover:underline"
-                    style={{ color: '#0d9488' }}
-                  >
-                    {t('common:view_all', { defaultValue: 'View all' })}
-                  </Link>
                 </div>
 
                 <div className="px-2 pb-3 space-y-2">
@@ -202,54 +234,6 @@ export const StudentDashboard = () => {
             )}
           </div>
         </div>
-
-        {/* Courses in progress */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold" style={{ color: colors.text }}>
-              {t('common:courses_in_progress', { defaultValue: 'Courses in progress' })}
-            </h2>
-            <Link
-              to="/courses"
-              className="text-xs font-medium hover:underline"
-              style={{ color: '#0d9488' }}
-            >
-              {t('common:view_all', { defaultValue: 'View all' })}
-            </Link>
-          </div>
-          {clLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {[0, 1, 2, 3].map(i => (
-                <Skeleton key={i} className="h-44" rounded="lg" />
-              ))}
-            </div>
-          ) : railItems.length === 0 ? (
-            <Card>
-              <CardBody>
-                <EmptyDashboard
-                  icon={Compass}
-                  title={t('common:nothing_in_progress', { defaultValue: 'Nothing in progress yet' })}
-                  description={t('common:browse_to_get_started', { defaultValue: 'Browse the catalog to start learning.' })}
-                  action={
-                    <Link to="/courses">
-                      <Button size="sm">{t('explore_courses')}</Button>
-                    </Link>
-                  }
-                />
-              </CardBody>
-            </Card>
-          ) : (
-            <ContinueLearningRail
-              items={railItems}
-              percentLabel={pct =>
-                t('courses:percent_complete', {
-                  defaultValue: '{{percent}}% Complete',
-                  percent: pct,
-                })
-              }
-            />
-          )}
-        </section>
       </div>
     </div>
   );
