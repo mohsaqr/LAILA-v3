@@ -261,12 +261,27 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('lesson_created'));
       closeLectureModal();
-      // Drop the user straight into the lecture editor so they can add
-      // Text / File / AI sections right away — no extra clicks needed.
-      navigate(`/teach/courses/${courseId}/lectures/${newLecture.id}`);
+      // Stay on the curriculum page — the user can click "Manage content"
+      // on the new lecture to open the lecture editor when they're ready.
     },
     onError: () => toast.error(t('failed_to_create_lesson')),
   });
+
+  /**
+   * Inline "+ Lesson" form handler. Creates the lecture with sensible
+   * defaults (text article, 0 min, not free) so the user only has to
+   * type a title.
+   */
+  const handleInlineLectureSubmit = (moduleId: number, title: string) =>
+    createLectureMutation.mutateAsync({
+      moduleId,
+      data: {
+        title,
+        contentType: 'text',
+        duration: 0,
+        isFree: false,
+      },
+    });
 
   const updateLectureMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: LectureFormData }) =>
@@ -1250,6 +1265,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
                   onTogglePublish={(m) => toggleModulePublishMutation.mutate({ id: m.id, isPublished: !m.isPublished })}
                   onMoveUp={handleMoveModuleUp}
                   onMoveDown={handleMoveModuleDown}
+                  onSubmitInlineLecture={handleInlineLectureSubmit}
                   onAddLecture={openAddLectureModal}
                   onEditLecture={openEditLectureModal}
                   onDeleteLecture={setDeleteLectureConfirm}
