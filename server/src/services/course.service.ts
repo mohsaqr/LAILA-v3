@@ -477,9 +477,13 @@ export class CourseService {
 
   async createCourse(instructorId: number, data: CreateCourseInput, context?: SystemEventContext) {
     const slug = this.generateSlug(data.title);
-    const { categoryIds, ...courseData } = data;
+    const { categoryIds, activationCode: providedCode, ...courseData } = data;
 
-    const activationCode = this.generateActivationCode();
+    // Use the user-supplied code (uppercased) if non-empty, otherwise auto-generate.
+    const activationCode =
+      providedCode && providedCode.trim().length > 0
+        ? providedCode.trim().toUpperCase()
+        : this.generateActivationCode();
 
     const course = await prisma.course.create({
       data: {
@@ -547,11 +551,19 @@ export class CourseService {
       isPublic: course.isPublic,
     };
 
-    const { categoryIds, ...courseData } = data;
+    const { categoryIds, activationCode, ...courseData } = data;
+
+    // Only touch activationCode when the caller actually sent something
+    // non-empty; an empty string means "leave it as is" so we don't wipe
+    // the existing code.
+    const updateData: typeof courseData & { activationCode?: string } = { ...courseData };
+    if (typeof activationCode === 'string' && activationCode.trim().length > 0) {
+      updateData.activationCode = activationCode.trim().toUpperCase();
+    }
 
     const updated = await prisma.course.update({
       where: { id: courseId },
-      data: courseData,
+      data: updateData,
       include: {
         instructor: {
           select: { id: true, fullname: true },

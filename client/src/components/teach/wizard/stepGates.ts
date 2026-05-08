@@ -58,6 +58,12 @@ export const validateSetting = (data: CourseFormData): ValidationResult => {
   if (!data.difficulty) {
     errors.difficulty = 'difficulty_required';
   }
+  // Activation code is optional. When empty, the server auto-generates one.
+  // When the user typed something, it must be 6–16 uppercase letters / digits.
+  const code = data.activationCode.trim();
+  if (code.length > 0 && !/^[A-Z0-9]{6,16}$/.test(code)) {
+    errors.activationCode = 'activation_code_format';
+  }
   return { valid: Object.keys(errors).length === 0, errors };
 };
 
