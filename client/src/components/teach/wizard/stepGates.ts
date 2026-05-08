@@ -1,8 +1,8 @@
 import type { CourseFormData } from '../CourseForm';
 
-export type StepId = 'setting' | 'structure' | 'team' | 'content' | 'publish';
+export type StepId = 'setting' | 'content' | 'tutors' | 'team' | 'publish';
 
-export const STEP_ORDER: StepId[] = ['setting', 'structure', 'team', 'content', 'publish'];
+export const STEP_ORDER: StepId[] = ['setting', 'content', 'tutors', 'team', 'publish'];
 
 export interface WizardCtx {
   /** Course id once the draft is saved; null on the create page. */
@@ -18,13 +18,15 @@ export interface WizardCtx {
  * preconditions are satisfied.
  */
 export const computeUnlockedSteps = (ctx: WizardCtx): Set<StepId> => {
+  // Setting is always reachable. Once the draft has been saved (courseId
+  // exists), every other step is freely navigable — the instructor can
+  // skip ahead, come back, and revisit in any order. The Publish step
+  // shows its own blockers if the course isn't ready yet.
   const unlocked = new Set<StepId>(['setting']);
   if (ctx.courseId != null) {
-    unlocked.add('structure');
-  }
-  if (ctx.courseId != null && ctx.modulesCount >= 1 && ctx.publishedLecturesCount >= 1) {
-    unlocked.add('team');
     unlocked.add('content');
+    unlocked.add('tutors');
+    unlocked.add('team');
     unlocked.add('publish');
   }
   return unlocked;

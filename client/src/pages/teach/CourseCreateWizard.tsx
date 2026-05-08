@@ -6,7 +6,7 @@ import {
   Settings as SettingsIcon,
   Layers,
   Users as UsersIcon,
-  Eye,
+  Bot,
   Send,
   ArrowLeft,
   ArrowRight,
@@ -16,14 +16,15 @@ import { coursesApi } from '../../api/courses';
 import { courseRolesApi } from '../../api/courseRoles';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { Loading } from '../../components/common/Loading';
+import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
 import activityLogger from '../../services/activityLogger';
 import { Stepper, type StepperItem } from '../../components/teach/wizard/Stepper';
 import { SettingStep } from '../../components/teach/wizard/SettingStep';
-import { StructureStep } from '../../components/teach/wizard/StructureStep';
-import { TeamStep } from '../../components/teach/wizard/TeamStep';
 import { ContentStep } from '../../components/teach/wizard/ContentStep';
+import { TutorsStep } from '../../components/teach/wizard/TutorsStep';
+import { TeamStep } from '../../components/teach/wizard/TeamStep';
 import { PublishStep } from '../../components/teach/wizard/PublishStep';
 import {
   STEP_ORDER,
@@ -74,6 +75,7 @@ export const CourseCreateWizard = () => {
   // and the "Save & Continue" mutation.
   const [formSnapshot, setFormSnapshot] = useState<CourseFormData | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   // Modules are needed both to gate Structure→next and to render ContentStep.
   const { data: modules = [] } = useQuery({
@@ -111,11 +113,11 @@ export const CourseCreateWizard = () => {
   const unlocked = useMemo(() => computeUnlockedSteps(ctx), [ctx]);
 
   const steps: StepperItem[] = [
-    { id: 'setting',   label: t('teaching:wizard_step_setting',   { defaultValue: 'Setting' }),       icon: SettingsIcon },
-    { id: 'structure', label: t('teaching:wizard_step_structure', { defaultValue: 'Structure' }),     icon: Layers },
-    { id: 'team',      label: t('teaching:wizard_step_team',      { defaultValue: 'Team Members' }),  icon: UsersIcon },
-    { id: 'content',   label: t('teaching:wizard_step_content',   { defaultValue: 'Content' }),       icon: Eye },
-    { id: 'publish',   label: t('teaching:wizard_step_publish',   { defaultValue: 'Publish' }),       icon: Send },
+    { id: 'setting', label: t('teaching:wizard_step_setting', { defaultValue: 'Setting' }),     icon: SettingsIcon },
+    { id: 'content', label: t('teaching:wizard_step_content', { defaultValue: 'Content' }),     icon: Layers },
+    { id: 'tutors',  label: t('teaching:wizard_step_tutors',  { defaultValue: 'AI Tutors' }),   icon: Bot },
+    { id: 'team',    label: t('teaching:wizard_step_team',    { defaultValue: 'Team Members' }),icon: UsersIcon },
+    { id: 'publish', label: t('teaching:wizard_step_publish', { defaultValue: 'Publish' }),     icon: Send },
   ];
 
   const goToStep = useCallback(
@@ -135,12 +137,25 @@ export const CourseCreateWizard = () => {
       activityLogger.logCourseCreated(created.id, created.title);
       toast.success(t('teaching:course_created', { defaultValue: 'Course created' }));
       queryClient.invalidateQueries({ queryKey: ['courses'] });
-      navigate(`/teach/courses/${created.id}/setup?step=structure`, { replace: true });
+      navigate(`/teach/courses/${created.id}/setup?step=content`, { replace: true });
     },
     onError: (err: any) => {
       const msg = err?.response?.data?.error ?? err?.message ?? t('teaching:failed_to_create_course');
       toast.error(msg);
       setErrors({ form: msg });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => coursesApi.deleteCourse(courseId!),
+    onSuccess: () => {
+      toast.success(t('teaching:course_deleted', { defaultValue: 'Course deleted' }));
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+      navigate('/courses', { replace: true });
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.error ?? err?.message ?? t('common:error');
+      toast.error(msg);
     },
   });
 
@@ -178,7 +193,7 @@ export const CourseCreateWizard = () => {
       // navigate handled in onSuccess
     } else {
       await updateMutation.mutateAsync(formSnapshot);
-      goToStep('structure');
+      goToStep('content');
     }
   }, [formSnapshot, courseId, createMutation, updateMutation, goToStep, t]);
 
@@ -270,19 +285,20 @@ export const CourseCreateWizard = () => {
                 if (Object.keys(errors).length > 0) setErrors({});
               }}
               externalErrors={errors}
+              onDelete={courseId != null ? () => setDeleteConfirmOpen(true) : undefined}
             />
           )}
 
-          {activeStep === 'structure' && courseId != null && (
-            <StructureStep courseId={courseId} />
+          {activeStep === 'content' && courseId != null && (
+            <ContentStep courseId={courseId} />
+          )}
+
+          {activeStep === 'tutors' && courseId != null && (
+            <TutorsStep courseId={courseId} />
           )}
 
           {activeStep === 'team' && courseId != null && course && (
             <TeamStep courseId={courseId} instructorId={course.instructorId} />
-          )}
-
-          {activeStep === 'content' && course && (
-            <ContentStep course={course} modules={modules} />
           )}
 
           {activeStep === 'publish' && course && (
@@ -316,10 +332,14 @@ export const CourseCreateWizard = () => {
             </button>
 
             <div className="flex items-center gap-2">
-              {activeStep === 'team' && (
+              {(activeStep === 'team' || activeStep === 'tutors') && (
                 <button
                   type="button"
-                  onClick={() => goToStep('content')}
+                  onClick={() => {
+                    const i = STEP_ORDER.indexOf(activeStep);
+                    const next = STEP_ORDER[i + 1];
+                    if (next) goToStep(next);
+                  }}
                   className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
                   style={{
                     backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
@@ -373,6 +393,23 @@ export const CourseCreateWizard = () => {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={() => {
+          deleteMutation.mutate();
+          setDeleteConfirmOpen(false);
+        }}
+        title={t('teaching:delete_course', { defaultValue: 'Delete course' })}
+        message={t('teaching:delete_course_confirm', {
+          title: course?.title ?? '',
+          defaultValue:
+            'Delete "{{title}}"? This will permanently remove the course and all its content.',
+        })}
+        confirmText={t('common:delete')}
+        loading={deleteMutation.isPending}
+      />
     </div>
   );
 };

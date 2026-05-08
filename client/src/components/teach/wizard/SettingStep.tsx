@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { Trash2 } from 'lucide-react';
 import { CourseForm, type CourseFormData } from '../CourseForm';
 import { CourseCardV2 } from '../../courses/CourseCardV2';
 import { categoriesApi } from '../../../api/categories';
@@ -14,9 +15,11 @@ interface SettingStepProps {
   onChange: (data: CourseFormData) => void;
   /** Per-field validation errors (i18n keys) the wizard set after a failed save. */
   externalErrors?: Record<string, string>;
+  /** When set, render a delete button next to the Preview label that triggers this. */
+  onDelete?: () => void;
 }
 
-export const SettingStep = ({ initialData, onChange, externalErrors }: SettingStepProps) => {
+export const SettingStep = ({ initialData, onChange, externalErrors, onDelete }: SettingStepProps) => {
   const { t } = useTranslation(['teaching', 'courses']);
   const { user } = useAuth();
   const { isDark } = useTheme();
@@ -92,12 +95,37 @@ export const SettingStep = ({ initialData, onChange, externalErrors }: SettingSt
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
       <div className="lg:col-span-1 order-2 lg:order-1">
         <div className="lg:sticky lg:top-6 space-y-3">
-          <span
-            className="text-xs font-semibold uppercase tracking-wider"
-            style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
-          >
-            {t('teaching:wizard_preview', { defaultValue: 'Preview' })}
-          </span>
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className="text-xs font-semibold uppercase tracking-wider"
+              style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
+            >
+              {t('teaching:wizard_preview', { defaultValue: 'Preview' })}
+            </span>
+            {onDelete && (
+              <button
+                type="button"
+                onClick={onDelete}
+                className="inline-flex items-center justify-center w-8 h-8 rounded-lg transition-colors"
+                style={{
+                  color: isDark ? '#fca5a5' : '#dc2626',
+                  backgroundColor: 'transparent',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.backgroundColor = isDark
+                    ? 'rgba(220,38,38,0.15)'
+                    : '#fef2f2';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+                title={t('teaching:delete_course', { defaultValue: 'Delete course' })}
+                aria-label={t('teaching:delete_course', { defaultValue: 'Delete course' })}
+              >
+                <Trash2 className="w-4 h-4" strokeWidth={2.25} />
+              </button>
+            )}
+          </div>
           <div>
             <CourseCardV2
               course={previewCourse}
