@@ -5,13 +5,10 @@ import { useTranslation } from 'react-i18next';
 import {
   Users,
   BookOpen,
-  PlayCircle,
-  Edit,
   Settings,
   MessageSquare,
-  PenSquare,
-  Eye,
   Network,
+  GraduationCap,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../api/courses';
@@ -26,6 +23,8 @@ import { CollaborativeModule } from '../components/course/CollaborativeModule';
 import { ModuleSection } from '../components/course/ModuleSection';
 import { Modal } from '../components/common/Modal';
 import { Input } from '../components/common/Input';
+import { Avatar } from '../components/dashboard/Avatar';
+import { resolveFileUrl } from '../api/client';
 import { useEffect, useRef, useState } from 'react';
 import { CurriculumViewMode } from '../types';
 import activityLogger from '../services/activityLogger';
@@ -40,9 +39,6 @@ export const CourseDetails = () => {
   const { t } = useTranslation(['courses', 'common']);
   const track = useTracker('course');
   const moduleRefs = useRef<Record<number, HTMLElement | null>>({});
-
-  // Edit mode state — admins/instructors default to view mode; edit is a deliberate act
-  const [isEditMode, setIsEditMode] = useState(false);
 
   // Activation code modal state
   const [showCodeModal, setShowCodeModal] = useState(false);
@@ -139,7 +135,12 @@ export const CourseDetails = () => {
   const isCourseInstructor = user?.id === course.instructorId;
   const showInstructorControls = isCourseInstructor || isTeamMember;
   const hasAccess = isEnrolled || isActualAdmin || isCourseInstructor || isTeamMember;
-  const totalLectures = course.modules?.reduce((sum, m) => sum + (m.lectures?.length || 0), 0) || 0;
+  const canManage = showInstructorControls || isActualAdmin;
+  const thumbnail = course.thumbnail
+    ? resolveFileUrl(course.thumbnail) || course.thumbnail
+    : null;
+  const studentCount = course._count?.enrollments ?? 0;
+  const moduleCount = course.modules?.length ?? 0;
 
   // Get the view mode from course settings, default to 'mini-cards'
   const viewMode: CurriculumViewMode = (course as any).curriculumViewMode || 'mini-cards';
@@ -158,90 +159,173 @@ export const CourseDetails = () => {
         </div>
       </div>
 
-      {/* Instructor Toolbar — only shown when edit mode is active */}
-      {(showInstructorControls || isActualAdmin) && (
-        isEditMode ? (
-          <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-              <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
-                <PenSquare className="w-5 h-5" />
-                <span className="font-medium">{t('instructor_view')}</span>
-              </div>
-              <div className="flex items-center gap-3 flex-wrap">
-                <button
-                  onClick={() => { track('edit_mode_toggled', { verb: 'interacted', objectType: 'course', objectId: parseInt(id!), courseId: parseInt(id!), payload: { editMode: false } }); setIsEditMode(false); }}
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 rounded-lg transition-colors border border-amber-300 dark:border-amber-700"
-                >
-                  <Eye className="w-4 h-4" />
-                  {t('exit_edit_mode')}
-                </button>
-                <Link
-                  to={`/teach/courses/${course.id}/curriculum`}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
-                >
-                  <Edit className="w-4 h-4" />
-                  {t('edit_course')}
-                </Link>
-                <Link
-                  to={`/teach/courses/${course.id}/edit`}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
-                >
-                  <Settings className="w-4 h-4" />
-                  {t('common:settings')}
-                </Link>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="border-b" style={{ borderColor: isDark ? '#374151' : '#e5e7eb' }}>
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex justify-end">
-              <button
-                onClick={() => { track('edit_mode_toggled', { verb: 'interacted', objectType: 'course', objectId: parseInt(id!), courseId: parseInt(id!), payload: { editMode: true } }); setIsEditMode(true); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
-                style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
+      {/* Hero — info on the left, thumbnail card on the right. */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 md:pt-8">
+        <div
+          className="rounded-2xl border p-5 sm:p-6"
+          style={{
+            backgroundColor: isDark ? '#1f2937' : '#ffffff',
+            borderColor: isDark ? '#374151' : '#e5e7eb',
+          }}
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left — info */}
+            <div className="lg:col-span-2 flex flex-col gap-4">
+              {(course.categories?.length ?? 0) > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {course.categories!.map(({ category }) => (
+                    <span
+                      key={category.id}
+                      className="text-[11px] font-medium px-2.5 py-1 rounded-full"
+                      style={{
+                        backgroundColor: isDark ? 'rgba(8,143,143,0.18)' : '#ccfbfb',
+                        color: isDark ? '#22d3d3' : '#065c5c',
+                      }}
+                    >
+                      {category.title}
+                    </span>
+                  ))}
+                  {course.difficulty && (
+                    <span
+                      className="text-[11px] font-medium px-2.5 py-1 rounded-full"
+                      style={{
+                        backgroundColor: isDark ? 'rgba(245,158,11,0.18)' : '#fef3c7',
+                        color: isDark ? '#fcd34d' : '#92400e',
+                      }}
+                    >
+                      {course.difficulty}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <h1
+                className="text-3xl lg:text-4xl font-bold leading-tight"
+                style={{ color: colors.textPrimary }}
               >
-                <PenSquare className="w-3.5 h-3.5" />
-                {t('edit_mode')}
-              </button>
+                {course.title}
+              </h1>
+
+              {course.description && (
+                <TrackedContent
+                  context="course"
+                  courseId={parseInt(id!)}
+                  objectId={parseInt(id!)}
+                  objectTitle={course.title}
+                >
+                  <div
+                    className="prose prose-sm dark:prose-invert max-w-none"
+                    style={{ color: colors.textSecondary }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(course.description) }}
+                  />
+                </TrackedContent>
+              )}
+
+              {course.instructor && (
+                <div className="flex items-center gap-2.5">
+                  <Avatar
+                    src={course.instructor.avatarUrl
+                      ? resolveFileUrl(course.instructor.avatarUrl)
+                      : null}
+                    name={course.instructor.fullname || '?'}
+                    size="sm"
+                  />
+                  <span
+                    className="text-sm font-medium"
+                    style={{ color: colors.textPrimary }}
+                  >
+                    {course.instructor.fullname}
+                  </span>
+                </div>
+              )}
+
+              <div className="pt-1">
+                {!isEnrolled && isAuthenticated && (
+                  <button
+                    type="button"
+                    onClick={handleEnrollClick}
+                    disabled={enrollMutation.isPending}
+                    className="inline-flex items-center justify-center px-5 py-2 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                    style={{
+                      backgroundImage: 'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)',
+                      color: '#ffffff',
+                    }}
+                  >
+                    {enrollMutation.isPending
+                      ? t('common:loading', { defaultValue: 'Loading…' })
+                      : t('enroll_now')}
+                  </button>
+                )}
+                {!isAuthenticated && (
+                  <Link
+                    to="/login"
+                    className="inline-flex items-center justify-center px-5 py-2 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                    style={{
+                      backgroundImage: 'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)',
+                      color: '#ffffff',
+                    }}
+                  >
+                    {t('sign_in_to_enroll')}
+                  </Link>
+                )}
+              </div>
+            </div>
+
+            {/* Right — thumbnail card */}
+            <div className="lg:col-span-1">
+              <div
+                className="aspect-video w-full rounded-2xl overflow-hidden flex items-center justify-center"
+                style={{
+                  backgroundImage: 'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)',
+                }}
+              >
+                {thumbnail ? (
+                  <img
+                    src={thumbnail}
+                    alt={course.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <GraduationCap className="w-12 h-12 text-white/80" />
+                )}
+              </div>
             </div>
           </div>
-        )
-      )}
 
-      {/* Hero Section */}
-      <div className="gradient-bg text-white py-6 md:py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2">{course.title}</h1>
-          {course.categories && course.categories.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-3">
-              {course.categories.map(({ category }) => (
-                <span key={category.id} className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-white/20 text-white">
-                  {category.title}
-                </span>
-              ))}
-            </div>
-          )}
-          {course.description && (
-            <TrackedContent context="course" courseId={parseInt(id!)} objectId={parseInt(id!)} objectTitle={course.title}>
-              <div className="text-white mb-4 prose prose-sm max-w-none [&_*]:text-white/95 [&_a]:text-white [&_a]:underline" dangerouslySetInnerHTML={{ __html: sanitizeHtml(course.description) }} />
-            </TrackedContent>
-          )}
-          <div className="flex flex-wrap items-center gap-4 text-sm">
-            <span className="flex items-center gap-1"><Users className="w-4 h-4" /> {t('n_students', { count: course._count?.enrollments || 0 })}</span>
-            <span className="flex items-center gap-1"><BookOpen className="w-4 h-4" /> {t('n_modules', { count: course.modules?.length || 0 })}</span>
-            <span className="flex items-center gap-1"><PlayCircle className="w-4 h-4" /> {t('n_lessons', { count: totalLectures })}</span>
-            <span>{t('by_instructor', { name: course.instructor?.fullname })}</span>
-          </div>
-
-          {/* Action buttons for non-enrolled users */}
-          <div className="mt-4 flex flex-wrap gap-3">
-            {!isEnrolled && isAuthenticated && (
-              <Button onClick={handleEnrollClick} loading={enrollMutation.isPending} className="bg-white text-primary-600 hover:bg-gray-100">
-                {t('enroll_now')}
-              </Button>
-            )}
-            {!isAuthenticated && (
-              <Link to="/login" className="btn bg-white text-primary-600 hover:bg-gray-100">{t('sign_in_to_enroll')}</Link>
+          {/* Stats strip + Manage pill */}
+          <div
+            className="flex flex-wrap items-center gap-4 text-sm mt-5 pt-4 border-t"
+            style={{
+              borderColor: isDark ? '#374151' : '#f3f4f6',
+              color: colors.textSecondary,
+            }}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <Users className="w-4 h-4" style={{ color: colors.textMuted }} />
+              <span className="tabular-nums" style={{ color: colors.textPrimary }}>
+                {studentCount}
+              </span>
+              <span>{t('student', { defaultValue: 'Student' })}</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <BookOpen className="w-4 h-4" style={{ color: colors.textMuted }} />
+              <span className="tabular-nums" style={{ color: colors.textPrimary }}>
+                {moduleCount}
+              </span>
+              <span>{t('module', { defaultValue: 'Module' })}</span>
+            </span>
+            {canManage && (
+              <Link
+                to={`/teach/courses/${course.id}/setup?step=setting`}
+                className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+                style={{
+                  backgroundColor: isDark ? 'rgba(8,143,143,0.18)' : '#ccfbfb',
+                  color: isDark ? '#22d3d3' : '#065c5c',
+                }}
+              >
+                <Settings className="w-3.5 h-3.5" />
+                {t('manage', { defaultValue: 'Manage' })}
+              </Link>
             )}
           </div>
         </div>
