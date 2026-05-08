@@ -316,7 +316,11 @@ export const CourseCreateWizard = () => {
           {activeStep === 'publish' && course && (
             <PublishStep
               course={course}
-              modules={modules}
+              // courseDetails ships modules with full lecture sections
+              // (content, fileUrl, chatbot fields). The lighter `modules`
+              // query from getModules omits sections, so the inline
+              // lecture preview in Publish would render "No content yet".
+              modules={(course.modules as typeof modules) ?? modules}
               roles={roles}
               check={validatePublish(ctx, roles.length, course.isPublic)}
             />
