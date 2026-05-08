@@ -473,11 +473,8 @@ export const ModuleItem = ({
               </h4>
               <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-gray-600 dark:text-gray-300">
                 {(() => {
-                  const videoCount = lectures.filter(l => l.contentType === 'video' || l.contentType === 'mixed').length;
-                  const readingCount = lectures.filter(l => l.contentType === 'text').length;
-                  const items: Array<{ icon: typeof FileVideo; count: number; label: string }> = [];
-                  if (videoCount > 0) items.push({ icon: FileVideo, count: videoCount, label: t('videos', { defaultValue: 'videos' }) });
-                  if (readingCount > 0) items.push({ icon: FileText, count: readingCount, label: t('readings', { defaultValue: 'readings' }) });
+                  const items: Array<{ icon: typeof FileText; count: number; label: string }> = [];
+                  if (lectures.length > 0) items.push({ icon: FileText, count: lectures.length, label: t('lectures', { count: lectures.length, defaultValue: 'lessons' }) });
                   if (assignments.length > 0) items.push({ icon: ClipboardList, count: assignments.length, label: t('assignments', { defaultValue: 'assignments' }) });
                   if (quizzes.length > 0) items.push({ icon: FileQuestion, count: quizzes.length, label: t('quizzes', { defaultValue: 'quizzes' }) });
                   if (forums.length > 0) items.push({ icon: MessageSquare, count: forums.length, label: t('forums', { defaultValue: 'forums' }) });

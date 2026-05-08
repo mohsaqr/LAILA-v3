@@ -43,6 +43,13 @@ export const RichTextEditor = ({ value, onChange, placeholder = '', disabled = f
       Link.configure({ openOnClick: false, HTMLAttributes: { class: 'text-cyan-600 underline' } }),
       Placeholder.configure({ placeholder }),
     ],
+    // Strip the browser's default contenteditable focus outline. Tailwind
+    // class lands directly on the .ProseMirror element so :focus is killed.
+    editorProps: {
+      attributes: {
+        class: 'focus:outline-none',
+      },
+    },
     content: value || '',
     editable: !disabled,
     onUpdate: ({ editor: ed }) => {

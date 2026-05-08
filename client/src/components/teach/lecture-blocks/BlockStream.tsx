@@ -246,23 +246,28 @@ export const BlockStream = ({ lectureId, initialSections }: BlockStreamProps) =>
       </div>
 
       {blocks.map((section, i) => (
-        <div key={section.id}>
-          <BlockShell
-            isFirst={i === 0}
-            isLast={i === blocks.length - 1}
-            isDragging={draggedId === section.id}
-            isDropTarget={dropTargetId === section.id}
-            onDragStart={onDragStart(section.id)}
-            onDragEnd={onDragEnd}
-            onDragOverGap={onDragOverGap(section.id)}
-            onDropGap={onDropGap(section.id)}
-            onMoveUp={() => move(i, -1)}
-            onMoveDown={() => move(i, 1)}
-            onDelete={() => handleDelete(section.id)}
-          >
-            {renderBlock(section)}
-          </BlockShell>
-          <InlineInserter onInsert={(type) => insertAt(i + 1, type)} />
+        <div key={section.id} className="mb-3 last:mb-0">
+          <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 pt-2 pb-3 shadow-sm">
+            <BlockShell
+              isFirst={i === 0}
+              isLast={i === blocks.length - 1}
+              isDragging={draggedId === section.id}
+              isDropTarget={dropTargetId === section.id}
+              onDragStart={onDragStart(section.id)}
+              onDragEnd={onDragEnd}
+              onDragOverGap={onDragOverGap(section.id)}
+              onDropGap={onDropGap(section.id)}
+              onMoveUp={() => move(i, -1)}
+              onMoveDown={() => move(i, 1)}
+              onDelete={() => handleDelete(section.id)}
+            >
+              {renderBlock(section)}
+            </BlockShell>
+          </div>
+          <InlineInserter
+            onInsert={(type) => insertAt(i + 1, type)}
+            omitText={section.type === 'text'}
+          />
         </div>
       ))}
     </div>

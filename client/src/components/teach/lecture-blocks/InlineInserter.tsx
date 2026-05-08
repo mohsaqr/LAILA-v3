@@ -7,19 +7,22 @@ type InsertableType = Extract<LectureSection['type'], 'text' | 'file' | 'chatbot
 
 interface InlineInserterProps {
   onInsert: (type: InsertableType) => void;
+  /** Hide the Text pill — the section above is already a text block, so
+      the user can keep typing instead of opening a second one. */
+  omitText?: boolean;
 }
 
 /**
  * Always-visible "+ Text · + File · + Chatbot" pill row between blocks.
  * Click any pill to insert that block type at this position.
  */
-export const InlineInserter = ({ onInsert }: InlineInserterProps) => {
+export const InlineInserter = ({ onInsert, omitText = false }: InlineInserterProps) => {
   const { t } = useTranslation('teaching');
   const { isDark } = useTheme();
 
   const muted = isDark ? '#9ca3af' : '#6b7280';
 
-  const items: Array<{ type: InsertableType; icon: typeof Type; label: string; color: string; bg: string }> = [
+  const allItems: Array<{ type: InsertableType; icon: typeof Type; label: string; color: string; bg: string }> = [
     {
       type: 'text',
       icon: Type,
@@ -42,6 +45,7 @@ export const InlineInserter = ({ onInsert }: InlineInserterProps) => {
       bg: isDark ? 'rgba(167,139,250,0.10)' : '#faf5ff',
     },
   ];
+  const items = omitText ? allItems.filter(i => i.type !== 'text') : allItems;
 
   return (
     <div className="flex items-center gap-2 my-2">
