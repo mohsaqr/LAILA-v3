@@ -15,4 +15,5 @@ export { MonthlyEngagementChart } from './MonthlyEngagementChart';
 export { ActivityDonut } from './ActivityDonut';
 export { CourseCompletionList } from './CourseCompletionList';
 export type { CourseCompletionListItem } from './CourseCompletionList';
+export { WeeklyActivityChart } from './WeeklyActivityChart';
 export { relativeTime } from './relativeTime';

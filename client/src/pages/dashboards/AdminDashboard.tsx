@@ -16,10 +16,10 @@ import {
   Skeleton,
   StatTile,
   StatTilePlaceholder,
+  WeeklyActivityChart,
   WelcomeCard,
   relativeTime,
 } from '../../components/dashboard';
-import { ActivityTimelineChart } from '../../components/tna/ActivityTimelineChart';
 import { adminApi, activityLogApi } from '../../api/admin';
 
 /**
@@ -46,10 +46,10 @@ export const AdminDashboard = () => {
   });
 
   const { data: dailyCounts } = useQuery({
-    queryKey: ['activity', 'dailyCounts', 'last30'],
+    queryKey: ['activity', 'dailyCounts', 'last7'],
     queryFn: () => {
       const end = new Date();
-      const start = new Date(end.getTime() - 29 * 86_400_000);
+      const start = new Date(end.getTime() - 6 * 86_400_000);
       return activityLogApi.getDailyCounts({
         startDate: start.toISOString().slice(0, 10),
         endDate: end.toISOString().slice(0, 10),
@@ -215,7 +215,7 @@ export const AdminDashboard = () => {
                   {t('common:no_activity_yet', { defaultValue: 'No activity yet' })}
                 </p>
               ) : (
-                <ActivityTimelineChart
+                <WeeklyActivityChart
                   days={dailyCounts.days}
                   verbs={dailyCounts.verbs}
                   series={dailyCounts.series}
