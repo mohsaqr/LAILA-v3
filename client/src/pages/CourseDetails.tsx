@@ -160,17 +160,17 @@ export const CourseDetails = () => {
       </div>
 
       {/* Hero — info on the left, thumbnail card on the right. */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 md:pt-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-6">
         <div
-          className="rounded-2xl border p-5 sm:p-6"
+          className="rounded-2xl border p-4 sm:p-5"
           style={{
             backgroundColor: isDark ? '#1f2937' : '#ffffff',
             borderColor: isDark ? '#374151' : '#e5e7eb',
           }}
         >
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             {/* Left — info */}
-            <div className="lg:col-span-2 flex flex-col gap-4">
+            <div className="lg:col-span-2 flex flex-col gap-2.5">
               {(course.categories?.length ?? 0) > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {course.categories!.map(({ category }) => (
@@ -200,7 +200,7 @@ export const CourseDetails = () => {
               )}
 
               <h1
-                className="text-3xl lg:text-4xl font-bold leading-tight"
+                className="text-2xl sm:text-3xl font-bold leading-tight"
                 style={{ color: colors.textPrimary }}
               >
                 {course.title}
@@ -221,31 +221,49 @@ export const CourseDetails = () => {
                 </TrackedContent>
               )}
 
-              {course.instructor && (
-                <div className="flex items-center gap-2.5">
-                  <Avatar
-                    src={course.instructor.avatarUrl
-                      ? resolveFileUrl(course.instructor.avatarUrl)
-                      : null}
-                    name={course.instructor.fullname || '?'}
-                    size="sm"
-                  />
-                  <span
-                    className="text-sm font-medium"
-                    style={{ color: colors.textPrimary }}
-                  >
-                    {course.instructor.fullname}
-                  </span>
-                </div>
-              )}
+              {/* Stats strip — small and inline, right after the description. */}
+              <div
+                className="flex flex-wrap items-center gap-3 text-xs"
+                style={{ color: colors.textMuted }}
+              >
+                <span className="inline-flex items-center gap-1">
+                  <Users className="w-3.5 h-3.5" />
+                  <span className="tabular-nums">{studentCount}</span>
+                  <span>{t('student', { defaultValue: 'Student' })}</span>
+                </span>
+                <span style={{ color: colors.textMuted }}>·</span>
+                <span className="inline-flex items-center gap-1">
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span className="tabular-nums">{moduleCount}</span>
+                  <span>{t('module', { defaultValue: 'Module' })}</span>
+                </span>
+              </div>
 
-              <div className="pt-1">
+              {/* Instructor + Enroll on one line. */}
+              <div className="flex flex-wrap items-center gap-3 mt-1">
+                {course.instructor && (
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Avatar
+                      src={course.instructor.avatarUrl
+                        ? resolveFileUrl(course.instructor.avatarUrl)
+                        : null}
+                      name={course.instructor.fullname || '?'}
+                      size="xs"
+                    />
+                    <span
+                      className="text-xs font-medium truncate"
+                      style={{ color: colors.textSecondary }}
+                    >
+                      {course.instructor.fullname}
+                    </span>
+                  </div>
+                )}
                 {!isEnrolled && isAuthenticated && (
                   <button
                     type="button"
                     onClick={handleEnrollClick}
                     disabled={enrollMutation.isPending}
-                    className="inline-flex items-center justify-center px-5 py-2 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="ml-auto inline-flex items-center justify-center px-4 py-1.5 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
                     style={{
                       backgroundImage: 'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)',
                       color: '#ffffff',
@@ -259,13 +277,26 @@ export const CourseDetails = () => {
                 {!isAuthenticated && (
                   <Link
                     to="/login"
-                    className="inline-flex items-center justify-center px-5 py-2 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                    className="ml-auto inline-flex items-center justify-center px-4 py-1.5 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
                     style={{
                       backgroundImage: 'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)',
                       color: '#ffffff',
                     }}
                   >
                     {t('sign_in_to_enroll')}
+                  </Link>
+                )}
+                {canManage && (
+                  <Link
+                    to={`/teach/courses/${course.id}/setup?step=setting`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                    style={{
+                      backgroundColor: isDark ? 'rgba(8,143,143,0.18)' : '#ccfbfb',
+                      color: isDark ? '#22d3d3' : '#065c5c',
+                    }}
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                    {t('manage', { defaultValue: 'Manage' })}
                   </Link>
                 )}
               </div>
@@ -290,43 +321,6 @@ export const CourseDetails = () => {
                 )}
               </div>
             </div>
-          </div>
-
-          {/* Stats strip + Manage pill */}
-          <div
-            className="flex flex-wrap items-center gap-4 text-sm mt-5 pt-4 border-t"
-            style={{
-              borderColor: isDark ? '#374151' : '#f3f4f6',
-              color: colors.textSecondary,
-            }}
-          >
-            <span className="inline-flex items-center gap-1.5">
-              <Users className="w-4 h-4" style={{ color: colors.textMuted }} />
-              <span className="tabular-nums" style={{ color: colors.textPrimary }}>
-                {studentCount}
-              </span>
-              <span>{t('student', { defaultValue: 'Student' })}</span>
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <BookOpen className="w-4 h-4" style={{ color: colors.textMuted }} />
-              <span className="tabular-nums" style={{ color: colors.textPrimary }}>
-                {moduleCount}
-              </span>
-              <span>{t('module', { defaultValue: 'Module' })}</span>
-            </span>
-            {canManage && (
-              <Link
-                to={`/teach/courses/${course.id}/setup?step=setting`}
-                className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
-                style={{
-                  backgroundColor: isDark ? 'rgba(8,143,143,0.18)' : '#ccfbfb',
-                  color: isDark ? '#22d3d3' : '#065c5c',
-                }}
-              >
-                <Settings className="w-3.5 h-3.5" />
-                {t('manage', { defaultValue: 'Manage' })}
-              </Link>
-            )}
           </div>
         </div>
       </div>
