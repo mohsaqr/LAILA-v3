@@ -58,6 +58,32 @@ export const AdminDashboard = () => {
     enabled: !!user,
   });
 
+  // The server returns only days that have activity. The chart needs
+  // every day in the 7-day window — empty days included — so the
+  // weekday axis reads naturally. Backfill missing days with 0s here.
+  const weeklyChart = useMemo(() => {
+    const end = new Date();
+    const start = new Date(end.getTime() - 6 * 86_400_000);
+    const fullDays: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start.getTime() + i * 86_400_000);
+      fullDays.push(d.toISOString().slice(0, 10));
+    }
+    if (!dailyCounts) {
+      return { days: fullDays, verbs: [] as string[], series: {} as Record<string, number[]> };
+    }
+    const indexByDay = new Map(dailyCounts.days.map((d, i) => [d, i]));
+    const series: Record<string, number[]> = {};
+    for (const verb of dailyCounts.verbs) {
+      const src = dailyCounts.series[verb] ?? [];
+      series[verb] = fullDays.map(day => {
+        const i = indexByDay.get(day);
+        return i === undefined ? 0 : src[i] ?? 0;
+      });
+    }
+    return { days: fullDays, verbs: dailyCounts.verbs, series };
+  }, [dailyCounts]);
+
   const colors = {
     bg: isDark ? '#0b1220' : '#f8fafc',
     text: isDark ? '#f3f4f6' : '#111827',
@@ -210,15 +236,15 @@ export const AdminDashboard = () => {
               </span>
               {!dailyCounts ? (
                 <Skeleton className="h-64 w-full" />
-              ) : dailyCounts.days.length === 0 ? (
+              ) : weeklyChart.verbs.length === 0 ? (
                 <p className="py-12 text-center text-sm" style={{ color: colors.muted }}>
                   {t('common:no_activity_yet', { defaultValue: 'No activity yet' })}
                 </p>
               ) : (
                 <WeeklyActivityChart
-                  days={dailyCounts.days}
-                  verbs={dailyCounts.verbs}
-                  series={dailyCounts.series}
+                  days={weeklyChart.days}
+                  verbs={weeklyChart.verbs}
+                  series={weeklyChart.series}
                 />
               )}
             </CardBody>
