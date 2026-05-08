@@ -1162,21 +1162,20 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
 
       {/* Curriculum Section */}
       <Card>
+        {/* CardHeader is only rendered outside the wizard. When embedded,
+            its border-b creates an empty divider line above the body, and
+            it has nothing to host (title and Add button are both hidden). */}
+        {!embedded && (
         <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-          {!embedded && (
-            <div>
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">{t('course_curriculum')}</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {t('organize_content_description')}
-              </p>
-            </div>
-          )}
+          <div>
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">{t('course_curriculum')}</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {t('organize_content_description')}
+            </p>
+          </div>
 
-          {/* Add Content Dropdown. Hidden entirely when embedded in the
-              wizard — the empty state inside the curriculum body has its
-              own Add Module button, and ModuleItem provides the
-              affordance for adding more once the first module exists. */}
-          {!embedded && (
+          {/* Add Content Dropdown */}
+          {(
           <div className="relative">
             <Button
               onClick={() => setAddContentOpen(!addContentOpen)}
@@ -1232,6 +1231,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
           </div>
           )}
         </CardHeader>
+        )}
         <CardBody>
           {sortedModules.length > 0 ? (
             <div className="space-y-4">
