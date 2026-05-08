@@ -336,7 +336,7 @@ export const ModuleItem = ({
   return (
     <div className="border border-gray-200 rounded-lg bg-white">
       {/* Module Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-gray-50 rounded-t-lg">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 bg-gray-50 rounded-t-lg">
         <div className="flex items-center gap-3 flex-1 min-w-0">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
@@ -436,7 +436,7 @@ export const ModuleItem = ({
 
       {/* Lectures and Code Labs */}
       {isExpanded && (
-        <div className="p-4 space-y-2">
+        <div className="px-4 py-3 space-y-2">
           {/* Lectures with inline add options */}
           {lectures.length > 0 ? (
             lectures
