@@ -17,13 +17,11 @@ import {
   Beaker,
   Bot,
   Heart,
-  X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTheme } from '../../../hooks/useTheme';
 import { resolveFileUrl } from '../../../api/client';
 import { sanitizeHtml } from '../../../utils/sanitize';
-import { Modal } from '../../common/Modal';
 import { Avatar } from '../../dashboard/Avatar';
 import { LessonViewer } from '../lesson-editor';
 import { courseTutorApi } from '../../../api/courseTutor';
@@ -61,7 +59,7 @@ export const PublishStep = ({ course, modules, roles, check }: PublishStepProps)
   const { t } = useTranslation(['teaching', 'common', 'admin']);
   const { isDark } = useTheme();
   const [openModule, setOpenModule] = useState<number | null>(modules[0]?.id ?? null);
-  const [previewLecture, setPreviewLecture] = useState<Lecture | null>(null);
+  const [openLectureId, setOpenLectureId] = useState<number | null>(null);
 
   const { data: tutors = [] } = useQuery({
     queryKey: ['courseTutors', String(course.id)],
@@ -98,10 +96,10 @@ export const PublishStep = ({ course, modules, roles, check }: PublishStepProps)
         className="rounded-2xl border p-5 sm:p-6"
         style={{ backgroundColor: cardBg, borderColor: cardBorder }}
       >
-        <div className="flex flex-col sm:flex-row gap-5">
-          <div className="sm:w-56 sm:shrink-0">
+        <div className="flex flex-col sm:flex-row gap-5 items-stretch">
+          <div className="sm:w-72 sm:shrink-0 sm:self-stretch">
             <div
-              className="w-full aspect-video rounded-xl overflow-hidden flex items-center justify-center"
+              className="w-full h-48 sm:h-full min-h-[12rem] rounded-xl overflow-hidden flex items-center justify-center"
               style={{ backgroundImage: 'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)' }}
             >
               {thumbnail ? (
@@ -258,6 +256,9 @@ export const PublishStep = ({ course, modules, roles, check }: PublishStepProps)
                     <ul className="border-t" style={{ borderColor: cardBorder }}>
                       {(m.lectures ?? []).map(l => {
                         const Icon = lectureIcon(l);
+                        const isLectureOpen = openLectureId === l.id;
+                        const sec = l.sections?.find(s => s.type === 'text');
+                        const lectureHtml = sec?.content ?? '';
                         return (
                           <li
                             key={l.id}
@@ -266,14 +267,39 @@ export const PublishStep = ({ course, modules, roles, check }: PublishStepProps)
                           >
                             <button
                               type="button"
-                              onClick={() => setPreviewLecture(l)}
+                              onClick={() =>
+                                setOpenLectureId(isLectureOpen ? null : l.id)
+                              }
                               className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5"
                               style={{ color: subtle }}
+                              aria-expanded={isLectureOpen}
                             >
                               <Icon className="w-4 h-4 shrink-0" style={{ color: accent }} />
                               <span className="flex-1 min-w-0 truncate">{l.title}</span>
-                              <ChevronRight className="w-3.5 h-3.5" style={{ color: muted }} />
+                              {isLectureOpen
+                                ? <ChevronDown className="w-3.5 h-3.5" style={{ color: muted }} />
+                                : <ChevronRight className="w-3.5 h-3.5" style={{ color: muted }} />}
                             </button>
+                            {isLectureOpen && (
+                              <div
+                                className="px-4 pb-4 pt-1"
+                                style={{
+                                  backgroundColor: isDark
+                                    ? 'rgba(255,255,255,0.02)'
+                                    : '#fafafa',
+                                }}
+                              >
+                                {lectureHtml.trim() ? (
+                                  <LessonViewer html={lectureHtml} />
+                                ) : (
+                                  <p className="text-sm pl-7" style={{ color: muted }}>
+                                    {t('teaching:no_content_yet', {
+                                      defaultValue: 'This lesson has no content yet.',
+                                    })}
+                                  </p>
+                                )}
+                              </div>
+                            )}
                           </li>
                         );
                       })}
@@ -416,15 +442,9 @@ export const PublishStep = ({ course, modules, roles, check }: PublishStepProps)
         </div>
       </Section>
 
-      {/* ─── Team members table ─────────────────────────────────────── */}
-      <Section title={t('teaching:wizard_step_team', { defaultValue: 'Team Members' })}>
-        {roles.length === 0 ? (
-          <p className="text-sm" style={{ color: muted }}>
-            {t('teaching:wizard_publish_warning_no_team', {
-              defaultValue: 'No team members assigned.',
-            })}
-          </p>
-        ) : (
+      {/* ─── Team members table — hidden when no members ────────────── */}
+      {roles.length > 0 && (
+        <Section title={t('teaching:wizard_step_team', { defaultValue: 'Team Members' })}>
           <div
             className="rounded-lg border overflow-hidden"
             style={{ borderColor: cardBorder }}
@@ -495,8 +515,8 @@ export const PublishStep = ({ course, modules, roles, check }: PublishStepProps)
               </tbody>
             </table>
           </div>
-        )}
-      </Section>
+        </Section>
+      )}
 
       {/* ─── Blockers / warnings ──────────────────────────────────────── */}
       {check.blockers.length > 0 && (
@@ -551,50 +571,6 @@ export const PublishStep = ({ course, modules, roles, check }: PublishStepProps)
         </div>
       )}
 
-      {/* ─── Lecture preview modal ─────────────────────────────────────── */}
-      <Modal
-        isOpen={!!previewLecture}
-        onClose={() => setPreviewLecture(null)}
-        title={previewLecture?.title ?? ''}
-        size="3xl"
-      >
-        {previewLecture && (
-          <div className="space-y-4">
-            {(() => {
-              const sec = previewLecture.sections?.find(s => s.type === 'text');
-              const html = sec?.content ?? '';
-              if (!html.trim()) {
-                return (
-                  <p className="text-sm" style={{ color: muted }}>
-                    {t('teaching:no_content_yet', {
-                      defaultValue: 'This lesson has no content yet.',
-                    })}
-                  </p>
-                );
-              }
-              return <LessonViewer html={html} />;
-            })()}
-            <div className="flex justify-end pt-2">
-              <button
-                type="button"
-                onClick={() => setPreviewLecture(null)}
-                className="inline-flex items-center justify-center px-5 py-2 rounded-lg text-sm font-medium"
-                style={{
-                  backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
-                  color: isDark ? '#cbd5e1' : '#374151',
-                }}
-              >
-                {t('common:close', { defaultValue: 'Close' })}
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* Reference unused imports to keep them available for future use. */}
-      <span aria-hidden className="hidden">
-        <X className="w-0 h-0" />
-      </span>
     </div>
   );
 };
