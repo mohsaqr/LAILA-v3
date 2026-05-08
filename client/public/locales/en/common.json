@@ -192,6 +192,9 @@
   "enrolled_courses": "Enrolled Courses",
   "today": "Today",
   "upcoming": "Upcoming",
+  "upcoming_assignments": "Upcoming assignments",
+  "due_on": "Due",
+  "grace_until": "Grace until",
   "courses_in_progress": "Courses in progress",
   "view_full_calendar": "View full calendar"
 }

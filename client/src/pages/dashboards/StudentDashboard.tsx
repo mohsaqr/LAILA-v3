@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BookOpen, ChevronRight, Compass, FileText, Trophy } from 'lucide-react';
+import { BookOpen, ChevronRight, Compass, Trophy } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
 import { activityLogger } from '../../services/activityLogger';
@@ -16,22 +16,36 @@ import { ContinueLearningRail } from '../../components/courses/ContinueLearningR
 import { meApi } from '../../api/me';
 import { assignmentsApi } from '../../api/assignments';
 
+type Tone = 'green' | 'blue' | 'yellow';
+
 interface UpcomingItem {
   assignmentId: number;
   title: string;
   courseId: number;
   courseTitle: string;
   dueDate: string;
+  gracePeriodDeadline?: string | null;
+  tone: Tone;
+  /** Effective deadline for the displayed date string — grace
+      deadline if we're past due-date but still in grace, else
+      due-date. */
+  effectiveDate: string;
 }
 
-/** Fixed palette for the upcoming-list icon chips. Cycles by index. */
-const UPCOMING_TINTS = [
-  { bg: '#fee2e2', fg: '#dc2626' }, // rose
-  { bg: '#fef3c7', fg: '#d97706' }, // amber
-  { bg: '#e0f2fe', fg: '#0284c7' }, // sky
-  { bg: '#ede9fe', fg: '#7c3aed' }, // violet
-  { bg: '#dcfce7', fg: '#16a34a' }, // emerald
-];
+const TONE_LIGHT: Record<Tone, { bg: string; border: string; text: string; sub: string; chev: string }> = {
+  green: { bg: '#dcfce7', border: '#bbf7d0', text: '#14532d', sub: '#15803d', chev: '#16a34a' },
+  blue:  { bg: '#dbeafe', border: '#bfdbfe', text: '#1e3a8a', sub: '#1d4ed8', chev: '#2563eb' },
+  yellow:{ bg: '#fef3c7', border: '#fde68a', text: '#78350f', sub: '#a16207', chev: '#d97706' },
+};
+const TONE_DARK: Record<Tone, { bg: string; border: string; text: string; sub: string; chev: string }> = {
+  green: { bg: 'rgba(34,197,94,0.12)',  border: 'rgba(34,197,94,0.25)',  text: '#bbf7d0', sub: '#86efac', chev: '#86efac' },
+  blue:  { bg: 'rgba(59,130,246,0.14)', border: 'rgba(59,130,246,0.30)', text: '#bfdbfe', sub: '#93c5fd', chev: '#93c5fd' },
+  yellow:{ bg: 'rgba(245,158,11,0.14)', border: 'rgba(245,158,11,0.30)', text: '#fde68a', sub: '#fcd34d', chev: '#fcd34d' },
+};
+
+const ONE_DAY = 86_400_000;
+const ONE_WEEK = 7 * ONE_DAY;
+const ONE_MONTH = 30 * ONE_DAY;
 
 /**
  * Student dashboard. Two parallel columns that don't influence each
@@ -63,16 +77,19 @@ export const StudentDashboard = () => {
     enabled: !!user,
   });
 
-  const allAssignments = useMemo<UpcomingItem[]>(() => {
+  // Flatten gradebook into a raw list of due-dated assignments. The
+  // calendar uses every item; the upcoming list filters further.
+  const allAssignments = useMemo(() => {
     return (gradebook ?? []).flatMap((c: any) =>
       (c.assignments ?? [])
         .filter((a: any) => !!a.dueDate)
         .map((a: any) => ({
-          assignmentId: a.id,
-          title: a.title,
-          courseId: a.courseId ?? c.courseId,
-          courseTitle: c.courseTitle,
+          assignmentId: a.id as number,
+          title: a.title as string,
+          courseId: (a.courseId ?? c.courseId) as number,
+          courseTitle: c.courseTitle as string,
           dueDate: a.dueDate as string,
+          gracePeriodDeadline: (a.gracePeriodDeadline ?? null) as string | null,
         })),
     );
   }, [gradebook]);
@@ -86,36 +103,40 @@ export const StudentDashboard = () => {
     return m;
   }, [allAssignments]);
 
-  // Upcoming = next 7 days (with a 1-day backstop for items whose
-  // local-time conversion lands just before `now`), sorted earliest
-  // first, capped at 6 rows so the sidebar stays compact.
-  const upcoming = useMemo(() => {
+  // Upcoming = items the student should pay attention to right now.
+  // Tone is driven by the time-to-deadline (or grace state):
+  //   - yellow → past due but still inside the grace period
+  //   - blue   → 0 to ≤ 1 week to due-date
+  //   - green  → > 1 week and ≤ ~1 month to due-date
+  // Anything further out (or beyond grace) is hidden so the list
+  // stays compact and actionable.
+  const upcoming = useMemo<UpcomingItem[]>(() => {
     const now = Date.now();
-    const cutoff = now + 7 * 86_400_000;
-    return allAssignments
-      .filter(a => {
-        const ts = new Date(a.dueDate).getTime();
-        return ts >= now - 86_400_000 && ts <= cutoff;
-      })
-      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
-      .slice(0, 6);
-  }, [allAssignments]);
+    const out: UpcomingItem[] = [];
+    for (const a of allAssignments) {
+      const due = new Date(a.dueDate).getTime();
+      const grace = a.gracePeriodDeadline ? new Date(a.gracePeriodDeadline).getTime() : null;
 
-  // Group upcoming items into "Today" (today's due-date) vs "This
-  // week" (next 7 days but not today).
-  const groupedUpcoming = useMemo(() => {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    const startOfTomorrow = new Date(startOfToday.getTime() + 86_400_000);
-    const today: UpcomingItem[] = [];
-    const week: UpcomingItem[] = [];
-    for (const it of upcoming) {
-      const due = new Date(it.dueDate);
-      if (due >= startOfToday && due < startOfTomorrow) today.push(it);
-      else if (due >= startOfTomorrow) week.push(it);
+      let tone: Tone | null = null;
+      let effectiveDate = a.dueDate;
+      if (due >= now) {
+        const delta = due - now;
+        if (delta <= ONE_WEEK) tone = 'blue';
+        else if (delta <= ONE_MONTH) tone = 'green';
+      } else if (grace != null && grace >= now) {
+        // Past due but still within the instructor-configured grace
+        // window — surface as yellow with the grace deadline as the
+        // displayed date so the student knows their actual cutoff.
+        tone = 'yellow';
+        effectiveDate = a.gracePeriodDeadline as string;
+      }
+
+      if (!tone) continue;
+      out.push({ ...a, tone, effectiveDate });
     }
-    return { today, week };
-  }, [upcoming]);
+    out.sort((a, b) => new Date(a.effectiveDate).getTime() - new Date(b.effectiveDate).getTime());
+    return out.slice(0, 6);
+  }, [allAssignments]);
 
   const railItems = useMemo(
     () => (continueLearning ?? []).filter(c => c.progress < 100),
@@ -228,34 +249,23 @@ export const StudentDashboard = () => {
                 className="rounded-2xl border"
                 style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}
               >
-                <div className="flex items-center justify-between px-4 pt-4 pb-2">
+                <div className="px-4 pt-4 pb-2">
                   <h3 className="text-sm font-semibold" style={{ color: colors.text }}>
-                    {t('common:upcoming', { defaultValue: 'Upcoming' })}
+                    {t('common:upcoming_assignments', { defaultValue: 'Upcoming assignments' })}
                   </h3>
                 </div>
 
-                <div className="px-2 pb-3 space-y-2">
-                  {groupedUpcoming.today.length > 0 && (
-                    <UpcomingGroup
-                      label={t('common:today', { defaultValue: 'Today' })}
-                      items={groupedUpcoming.today}
-                      indexOffset={0}
-                      muted={colors.subtle}
-                      titleColor={colors.text}
-                      subtitleColor={colors.muted}
+                <ul className="px-3 pb-3 space-y-2">
+                  {upcoming.map(item => (
+                    <UpcomingRow
+                      key={item.assignmentId}
+                      item={item}
+                      isDark={isDark}
+                      duePrefix={t('common:due_on', { defaultValue: 'Due' })}
+                      gracePrefix={t('common:grace_until', { defaultValue: 'Grace until' })}
                     />
-                  )}
-                  {groupedUpcoming.week.length > 0 && (
-                    <UpcomingGroup
-                      label={t('common:this_week', { defaultValue: 'This week' })}
-                      items={groupedUpcoming.week}
-                      indexOffset={groupedUpcoming.today.length}
-                      muted={colors.subtle}
-                      titleColor={colors.text}
-                      subtitleColor={colors.muted}
-                    />
-                  )}
-                </div>
+                  ))}
+                </ul>
               </div>
             )}
           </div>
@@ -267,65 +277,42 @@ export const StudentDashboard = () => {
 
 /* ---------- Inline upcoming list ---------- */
 
-interface UpcomingGroupProps {
-  label: string;
-  items: UpcomingItem[];
-  /** Offset so the icon-tint cycle continues across groups. */
-  indexOffset: number;
-  muted: string;
-  titleColor: string;
-  subtitleColor: string;
+interface UpcomingRowProps {
+  item: UpcomingItem;
+  isDark: boolean;
+  duePrefix: string;
+  gracePrefix: string;
 }
 
-const UpcomingGroup = ({
-  label,
-  items,
-  indexOffset,
-  muted,
-  titleColor,
-  subtitleColor,
-}: UpcomingGroupProps) => (
-  <div>
-    <p
-      className="text-[10px] font-semibold uppercase tracking-wider px-2 mb-1"
-      style={{ color: muted }}
-    >
-      {label}
-    </p>
-    <ul className="space-y-1">
-      {items.map((u, i) => {
-        const tint = UPCOMING_TINTS[(indexOffset + i) % UPCOMING_TINTS.length];
-        return (
-          <li key={u.assignmentId}>
-            <Link
-              to={`/courses/${u.courseId}/assignments/${u.assignmentId}`}
-              className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-            >
-              <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: tint.bg, color: tint.fg }}
-              >
-                <FileText className="w-4 h-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p
-                  className="text-sm font-medium truncate"
-                  style={{ color: titleColor }}
-                >
-                  {u.title}
-                </p>
-                <p
-                  className="text-xs truncate"
-                  style={{ color: subtitleColor }}
-                >
-                  {u.courseTitle}
-                </p>
-              </div>
-              <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: muted }} />
-            </Link>
-          </li>
-        );
-      })}
-    </ul>
-  </div>
-);
+const formatDeadline = (iso: string) =>
+  new Date(iso).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  });
+
+const UpcomingRow = ({ item, isDark, duePrefix, gracePrefix }: UpcomingRowProps) => {
+  const tone = (isDark ? TONE_DARK : TONE_LIGHT)[item.tone];
+  const prefix = item.tone === 'yellow' ? gracePrefix : duePrefix;
+  return (
+    <li>
+      <Link
+        to={`/courses/${item.courseId}/assignments/${item.assignmentId}`}
+        className="flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-colors hover:brightness-95 dark:hover:brightness-110"
+        style={{ backgroundColor: tone.bg, borderColor: tone.border }}
+      >
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold truncate" style={{ color: tone.text }}>
+            {item.title}
+          </p>
+          <p className="text-xs truncate" style={{ color: tone.sub }}>
+            {item.courseTitle}
+          </p>
+          <p className="mt-0.5 text-[11px] font-medium" style={{ color: tone.sub }}>
+            {prefix} {formatDeadline(item.effectiveDate)}
+          </p>
+        </div>
+        <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: tone.chev }} />
+      </Link>
+    </li>
+  );
+};
