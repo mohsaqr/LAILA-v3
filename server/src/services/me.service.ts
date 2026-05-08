@@ -12,22 +12,42 @@ import {
  */
 export class MeService {
   /**
-   * Surfaces the lecture the student should resume in each of their
-   * active courses. We read the most recent `viewed:lecture` events
-   * from `LearningActivityLog` (which already carries denormalised
-   * lecture/module/course titles), dedupe by course, and join
-   * progress from the active enrollment row.
+   * Surfaces the courses a student should resume. Returns every
+   * active enrollment (so newly-enrolled courses appear immediately,
+   * even before the student opens a lecture). When the student has
+   * opened a lecture in the course we layer the view info on top of
+   * the enrollment row so the rail can deep-link them straight back
+   * to where they were. Sort order:
+   *   1. Most recent lecture view (if any)
+   *   2. Most recent enrollment timestamp (fallback)
+   * — newest first, capped at `limit`.
    */
-  async getContinueLearning(userId: number, limit = 6) {
-    // Pull the most recent lecture-view events for this user. We over-
-    // fetch and dedupe in memory because Prisma doesn't expose a
-    // groupBy-with-first across SQLite + PostgreSQL portably.
+  async getContinueLearning(userId: number, limit = 50) {
+    // Every active enrollment for the user, with course shell.
+    const enrollments = await prisma.enrollment.findMany({
+      where: { userId, status: 'active' },
+      orderBy: { enrolledAt: 'desc' },
+      select: {
+        courseId: true,
+        progress: true,
+        enrolledAt: true,
+        course: {
+          select: { id: true, title: true, slug: true, thumbnail: true },
+        },
+      },
+    });
+    if (enrollments.length === 0) return [];
+
+    const enrolledIds = enrollments.map(e => e.courseId);
+
+    // Most recent lecture view per enrolled course, if any. Over-fetch
+    // and dedupe in memory to stay portable across SQLite / Postgres.
     const recentViews = await prisma.learningActivityLog.findMany({
       where: {
         userId,
         objectType: 'lecture',
         verb: 'viewed',
-        courseId: { not: null },
+        courseId: { in: enrolledIds },
         lectureId: { not: null },
       },
       orderBy: { timestamp: 'desc' },
@@ -35,57 +55,41 @@ export class MeService {
       select: {
         timestamp: true,
         courseId: true,
-        courseTitle: true,
         moduleId: true,
         moduleTitle: true,
         lectureId: true,
         lectureTitle: true,
       },
     });
-
-    // Dedup by courseId, keeping the most recent view per course.
-    const byCourse = new Map<number, typeof recentViews[number]>();
+    const viewByCourse = new Map<number, typeof recentViews[number]>();
     for (const v of recentViews) {
-      if (v.courseId != null && !byCourse.has(v.courseId)) byCourse.set(v.courseId, v);
-      if (byCourse.size >= limit) break;
+      if (v.courseId != null && !viewByCourse.has(v.courseId)) {
+        viewByCourse.set(v.courseId, v);
+      }
     }
 
-    const courseIds = Array.from(byCourse.keys());
-    if (courseIds.length === 0) return [];
-
-    // Pair with active enrollment so we can show progress + thumbnail
-    // and skip rows where the user has since unenrolled.
-    const enrollments = await prisma.enrollment.findMany({
-      where: { userId, courseId: { in: courseIds }, status: 'active' },
-      select: {
-        courseId: true,
-        progress: true,
-        course: {
-          select: { id: true, title: true, slug: true, thumbnail: true },
-        },
-      },
+    const rows = enrollments.map(e => {
+      const view = viewByCourse.get(e.courseId);
+      return {
+        courseId: e.courseId,
+        courseTitle: e.course.title,
+        courseSlug: e.course.slug,
+        courseThumbnail: e.course.thumbnail,
+        moduleId: view?.moduleId ?? null,
+        moduleTitle: view?.moduleTitle ?? null,
+        lectureId: view?.lectureId ?? null,
+        lectureTitle: view?.lectureTitle ?? null,
+        progress: e.progress,
+        // Use the view timestamp if we have one, otherwise the
+        // enrollment timestamp so freshly-enrolled courses still
+        // sort to the top.
+        lastViewedAt: (view?.timestamp ?? e.enrolledAt).toISOString(),
+      };
     });
-    const enrolledById = new Map(enrollments.map(e => [e.courseId, e]));
 
-    return courseIds
-      .map(cid => {
-        const view = byCourse.get(cid)!;
-        const enrollment = enrolledById.get(cid);
-        if (!enrollment) return null;
-        return {
-          courseId: cid,
-          courseTitle: enrollment.course.title,
-          courseSlug: enrollment.course.slug,
-          courseThumbnail: enrollment.course.thumbnail,
-          moduleId: view.moduleId,
-          moduleTitle: view.moduleTitle,
-          lectureId: view.lectureId,
-          lectureTitle: view.lectureTitle,
-          progress: enrollment.progress,
-          lastViewedAt: view.timestamp,
-        };
-      })
-      .filter((x): x is NonNullable<typeof x> => x !== null);
+    // Newest first, then cap.
+    rows.sort((a, b) => b.lastViewedAt.localeCompare(a.lastViewedAt));
+    return rows.slice(0, limit);
   }
 
   /**
