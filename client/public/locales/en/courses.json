@@ -1001,5 +1001,9 @@
   "lab_ai_compare": "Compare nodes",
   "lab_ai_thinking": "Thinking...",
   "lab_ai_collapse": "Collapse",
-  "my_datasets": "My Datasets"
+  "my_datasets": "My Datasets",
+  "total_courses": "Total Courses",
+  "total_students": "Total Students",
+  "continue_learning": "Continue Learning",
+  "manage": "Manage"
 }
