@@ -76,8 +76,14 @@ export const ChatbotNode = Node.create({
     return {
       insertLectureChatbot:
         attrs =>
-        ({ chain }) =>
-          chain().focus().insertContent({ type: this.name, attrs }).run(),
+        ({ chain, editor }) =>
+          chain()
+            .focus()
+            .insertContentAt(editor.state.selection.$to.pos, [
+              { type: this.name, attrs },
+              { type: 'paragraph' },
+            ])
+            .run(),
     };
   },
 });
