@@ -1,5 +1,5 @@
 export { TeachDashboard } from './TeachDashboard';
-export { CourseCreate } from './CourseCreate';
+export { CourseCreateWizard as CourseCreate, CourseCreateWizard } from './CourseCreateWizard';
 export { CourseEdit } from './CourseEdit';
 export { CurriculumEditor } from './CurriculumEditor';
 export { LectureEditor } from './LectureEditor';
