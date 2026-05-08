@@ -21,9 +21,11 @@ import {
   AlignRight,
   Link as LinkIcon,
   ImagePlus,
+  Video,
   FileUp,
   Bot,
   Loader2,
+  Check,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTheme } from '../../../hooks/useTheme';
@@ -82,7 +84,12 @@ export const LessonEditor = ({ lectureId, initialSections }: LessonEditorProps) 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastSavedRef = useRef<string>('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const creatingRef = useRef(false);
+  const queuedRef = useRef<string | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const savedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Find the canonical "single" section: the first text section, or none.
   const canonical = initialSections.find(s => s.type === 'text');
@@ -95,13 +102,23 @@ export const LessonEditor = ({ lectureId, initialSections }: LessonEditorProps) 
     toolbarBg: isDark ? '#2d3748' : '#f9fafb',
   };
 
+  const flashSaved = () => {
+    setSaveState('saved');
+    if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current);
+    savedTimeoutRef.current = setTimeout(() => setSaveState('idle'), 1400);
+  };
+
   const updateSectionMutation = useMutation({
     mutationFn: ({ id, content }: { id: number; content: string }) =>
       coursesApi.updateSection(id, { content }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails'] });
+      flashSaved();
     },
-    onError: () => toast.error(t('failed_to_save_lesson', { defaultValue: 'Failed to save.' })),
+    onError: () => {
+      setSaveState('idle');
+      toast.error(t('failed_to_save_lesson', { defaultValue: 'Failed to save.' }));
+    },
   });
 
   const createSectionMutation = useMutation({
@@ -109,8 +126,12 @@ export const LessonEditor = ({ lectureId, initialSections }: LessonEditorProps) 
       coursesApi.createSection(lectureId, { type: 'text', content }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails'] });
+      flashSaved();
     },
-    onError: () => toast.error(t('failed_to_save_lesson', { defaultValue: 'Failed to save.' })),
+    onError: () => {
+      setSaveState('idle');
+      toast.error(t('failed_to_save_lesson', { defaultValue: 'Failed to save.' }));
+    },
   });
 
   const deleteSectionMutation = useMutation({
@@ -148,20 +169,41 @@ export const LessonEditor = ({ lectureId, initialSections }: LessonEditorProps) 
 
   const persist = (html: string) => {
     if (html === lastSavedRef.current) return;
+    setSaveState('saving');
+
+    // If a create is in flight, queue this html and apply once we have the id.
+    if (creatingRef.current && canonicalIdRef.current == null) {
+      queuedRef.current = html;
+      return;
+    }
+
     lastSavedRef.current = html;
 
     if (canonicalIdRef.current != null) {
       updateSectionMutation.mutate({ id: canonicalIdRef.current, content: html });
-    } else {
-      createSectionMutation.mutate(
-        { content: html },
-        {
-          onSuccess: created => {
-            canonicalIdRef.current = created.id;
-          },
-        },
-      );
+      return;
     }
+
+    creatingRef.current = true;
+    createSectionMutation.mutate(
+      { content: html },
+      {
+        onSuccess: created => {
+          canonicalIdRef.current = created.id;
+          creatingRef.current = false;
+          // Flush any updates that arrived while the create was in flight.
+          const queued = queuedRef.current;
+          queuedRef.current = null;
+          if (queued != null && queued !== lastSavedRef.current) {
+            lastSavedRef.current = queued;
+            updateSectionMutation.mutate({ id: created.id, content: queued });
+          }
+        },
+        onError: () => {
+          creatingRef.current = false;
+        },
+      },
+    );
   };
 
   const editor = useEditor({
@@ -202,7 +244,9 @@ export const LessonEditor = ({ lectureId, initialSections }: LessonEditorProps) 
 
   if (!editor) return null;
 
-  // ─── Actions: insert File / insert Chatbot / image / link ────────────────
+  // ─── Actions: insert File / insert Chatbot / image / video / link ──────
+
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   const onPickImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -222,6 +266,41 @@ export const LessonEditor = ({ lectureId, initialSections }: LessonEditorProps) 
       if (url) editor.chain().focus().setImage({ src: url }).run();
     } catch (err) {
       console.error('image upload failed', err);
+      toast.error(t('failed_to_save_lesson', { defaultValue: 'Failed to upload image.' }));
+    }
+  };
+
+  const onPickVideo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploadingVideo(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const token = getAuthToken();
+      const res = await fetch('/api/uploads/file', {
+        method: 'POST',
+        body: formData,
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const json = await res.json();
+      const fileData = json.data || json;
+      const url = fileData.url || fileData.path;
+      if (url) {
+        // Insert a native HTML5 video element. Tiptap will round-trip it
+        // through StarterKit's allowed-tags (we don't need a custom node;
+        // a simple `<video controls src=…>` survives parseHTML/renderHTML
+        // and is sanitized cleanly by the student-side renderer).
+        editor.chain().focus().insertContent(
+          `<video controls preload="metadata" src="${url}" style="max-width:100%;border-radius:8px;"></video>`,
+        ).run();
+      }
+    } catch (err) {
+      console.error('video upload failed', err);
+      toast.error(t('failed_to_save_lesson', { defaultValue: 'Failed to upload video.' }));
+    } finally {
+      setUploadingVideo(false);
     }
   };
 
@@ -317,6 +396,12 @@ export const LessonEditor = ({ lectureId, initialSections }: LessonEditorProps) 
         <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1" />
         <Btn onClick={addLink} isActive={editor.isActive('link')} title="Add Link"><LinkIcon size={16} /></Btn>
         <Btn onClick={() => imageInputRef.current?.click()} title="Add Image"><ImagePlus size={16} /></Btn>
+        <Btn
+          onClick={() => videoInputRef.current?.click()}
+          title={t('insert_video', { defaultValue: 'Insert Video' })}
+        >
+          {uploadingVideo ? <Loader2 size={16} className="animate-spin" /> : <Video size={16} />}
+        </Btn>
         <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1" />
         <Btn
           onClick={() => fileInputRef.current?.click()}
@@ -330,6 +415,20 @@ export const LessonEditor = ({ lectureId, initialSections }: LessonEditorProps) 
         >
           <Bot size={16} />
         </Btn>
+        <div className="ml-auto flex items-center pr-2 text-xs" style={{ color: isDark ? '#9ca3af' : '#6b7280' }}>
+          {saveState === 'saving' && (
+            <span className="inline-flex items-center gap-1">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              {t('saving', { defaultValue: 'Saving…' })}
+            </span>
+          )}
+          {saveState === 'saved' && (
+            <span className="inline-flex items-center gap-1" style={{ color: isDark ? '#5eead4' : '#0d9488' }}>
+              <Check className="w-3.5 h-3.5" />
+              {t('saved', { defaultValue: 'Saved' })}
+            </span>
+          )}
+        </div>
       </div>
       <EditorContent
         editor={editor}
@@ -337,6 +436,7 @@ export const LessonEditor = ({ lectureId, initialSections }: LessonEditorProps) 
         style={{ color: colors.textPrimary }}
       />
       <input ref={imageInputRef} type="file" accept="image/*" onChange={onPickImage} className="hidden" />
+      <input ref={videoInputRef} type="file" accept="video/*" onChange={onPickVideo} className="hidden" />
       <input
         ref={fileInputRef}
         type="file"

@@ -155,53 +155,46 @@ export const ChatbotNodeView = ({ node, updateAttributes, deleteNode, editor }: 
   return (
     <NodeViewWrapper as="div" className="my-2" data-drag-handle>
       <div
-        className="flex items-center gap-3 rounded-xl border px-4 py-3"
+        className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm"
         style={{
-          backgroundColor: isDark ? 'rgba(167,139,250,0.06)' : '#faf5ff',
-          borderColor: isDark ? 'rgba(167,139,250,0.25)' : '#e9d5ff',
+          backgroundColor: isDark ? 'rgba(167,139,250,0.10)' : '#faf5ff',
+          border: `1px solid ${isDark ? 'rgba(167,139,250,0.25)' : '#e9d5ff'}`,
         }}
         contentEditable={false}
       >
-        <div
-          className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-          style={{
-            backgroundColor: isDark ? 'rgba(167,139,250,0.18)' : '#ede9fe',
-            color: accent,
-          }}
-        >
-          <Bot className="w-5 h-5" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-medium truncate" style={{ color: subtle }}>
-            {title}
-          </p>
-          {intro && (
-            <p className="text-xs truncate" style={{ color: muted }}>
-              {intro}
-            </p>
-          )}
-        </div>
-        {editable && (
-          <>
-            <button
-              type="button"
-              onClick={() => setPickerOpen(true)}
-              className="text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
-              style={{ color: accent }}
-            >
-              {t('change_chatbot', { defaultValue: 'Change' })}
-            </button>
-            <button
-              type="button"
-              onClick={() => deleteNode()}
-              className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-black/5 dark:hover:bg-white/5"
-              style={{ color: '#ef4444' }}
-              aria-label={t('common:delete', { defaultValue: 'Delete' })}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          </>
+        <Bot className="w-4 h-4 shrink-0" style={{ color: accent }} />
+        <span className="font-medium truncate" style={{ color: subtle }}>
+          {title}
+        </span>
+        {intro && (
+          <span className="hidden sm:inline truncate text-xs" style={{ color: muted }}>
+            · {intro}
+          </span>
         )}
+        <span className="ml-auto inline-flex items-center gap-1">
+          {editable && (
+            <>
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                className="text-xs font-medium px-2 py-1 rounded hover:bg-black/5 dark:hover:bg-white/5"
+                style={{ color: accent }}
+              >
+                {t('change_chatbot', { defaultValue: 'Change' })}
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteNode()}
+                className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-red-50 dark:hover:bg-red-900/20"
+                style={{ color: '#ef4444' }}
+                aria-label={t('common:delete', { defaultValue: 'Delete' })}
+                title={t('common:delete', { defaultValue: 'Delete' })}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </>
+          )}
+        </span>
       </div>
     </NodeViewWrapper>
   );
