@@ -96,9 +96,9 @@ export const SettingStep = ({ initialData, onChange, externalErrors }: SettingSt
             className="text-xs font-semibold uppercase tracking-wider"
             style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
           >
-            {t('teaching:wizard_preview', { defaultValue: 'Live preview' })}
+            {t('teaching:wizard_preview', { defaultValue: 'Preview' })}
           </span>
-          <div className="max-w-sm">
+          <div>
             <CourseCardV2
               course={previewCourse}
               progress={null}
