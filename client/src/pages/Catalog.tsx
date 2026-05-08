@@ -376,7 +376,12 @@ export const Catalog = () => {
     : teachStats?.kpis.totalStudents ?? 0;
   const statsLoading = isAdmin ? adminStatsLoading : teachStatsLoading;
 
-  const showRail = isAuthenticated && (continueRail ?? []).length > 0;
+  // Rail shows only in-progress courses. The progress map (passed to
+  // CourseCardV2) keeps every enrolled course so a finished one still
+  // shows its 100 % bar on its catalog card — it just doesn't compete
+  // for space in the "continue learning" rail.
+  const railItems = (continueRail ?? []).filter(item => item.progress < 100);
+  const showRail = isAuthenticated && railItems.length > 0;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
@@ -406,7 +411,7 @@ export const Catalog = () => {
             {t('continue_learning')}
           </h2>
           <ContinueLearningRail
-            items={continueRail!}
+            items={railItems}
             percentLabel={(percent) => t('percent_complete', { percent })}
           />
         </div>
