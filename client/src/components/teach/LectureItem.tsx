@@ -47,8 +47,22 @@ export const LectureItem = ({
 
   return (
     <div>
-    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-      <div className="flex items-center gap-3 flex-1 min-w-0">
+    <div
+      className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 bg-gray-50 hover:bg-gray-100 transition-colors ${
+        isExpanded ? 'rounded-t-lg' : 'rounded-lg'
+      }`}
+    >
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        {/* Chevron toggle for the inline editor */}
+        <button
+          type="button"
+          onClick={() => setIsExpanded(o => !o)}
+          aria-expanded={isExpanded}
+          aria-label={t(isExpanded ? 'collapse' : 'expand', { defaultValue: isExpanded ? 'Collapse' : 'Expand' })}
+          className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-white/60 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 shrink-0"
+        >
+          {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        </button>
         {/* Lecture title only — meta info (contentType / duration / draft) is intentionally hidden. */}
         <h4 className="flex-1 min-w-0 text-sm font-medium text-gray-900 truncate">
           {lecture.title}
@@ -56,18 +70,6 @@ export const LectureItem = ({
       </div>
 
       <div className="flex items-center gap-1 flex-wrap justify-end sm:justify-start">
-      {/* Manage Content — toggles inline block editor below */}
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); setIsExpanded(o => !o); }}
-        className="px-3 py-1.5 text-xs font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors flex items-center gap-1.5"
-        title={t('manage_lesson_sections')}
-        aria-expanded={isExpanded}
-      >
-        {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-        {t('manage_content')}
-      </button>
-
       {/* Reorder buttons */}
       <div className="flex items-center gap-0.5">
         <button
@@ -121,10 +123,11 @@ export const LectureItem = ({
       </div>
     </div>
 
-    {/* Inline block editor — replaces the dedicated /lectures/:id page.
-        No wrapping card or border so the blocks sit flush in the parent. */}
+    {/* Inline block editor — flush against the lecture header so the
+        whole lesson reads as a single unit. No top margin, same
+        background as the row, with a bottom rounded corner. */}
     {isExpanded && (
-      <div className="mt-2">
+      <div className="px-3 pt-2 pb-4 bg-gray-50 rounded-b-lg">
         <BlockStream lectureId={lecture.id} initialSections={lecture.sections ?? []} />
       </div>
     )}
