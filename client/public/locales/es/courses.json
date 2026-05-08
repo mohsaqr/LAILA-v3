@@ -1002,5 +1002,7 @@
   "total_courses": "Cursos totales",
   "total_students": "Estudiantes totales",
   "continue_learning": "Continuar aprendiendo",
-  "manage": "Gestionar"
+  "manage": "Gestionar",
+  "catalog_hero_title": "Tu enseñanza de un vistazo",
+  "catalog_hero_subtitle": "Mira cómo van tus cursos y estudiantes, y crea algo nuevo cuando estés listo."
 }
