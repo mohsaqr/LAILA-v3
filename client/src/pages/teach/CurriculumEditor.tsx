@@ -139,7 +139,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
   const [moduleForm, setModuleForm] = useState<ModuleFormData>({ title: '', description: '', label: '' });
   const [lectureForm, setLectureForm] = useState<LectureFormData>({
     title: '',
-    contentType: 'text',
+    contentType: 'mixed',
     duration: 0,
     isFree: false,
   });
@@ -261,6 +261,9 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('lesson_created'));
       closeLectureModal();
+      // Drop the user straight into the lecture editor so they can add
+      // Text / File / AI sections right away — no extra clicks needed.
+      navigate(`/teach/courses/${courseId}/lectures/${newLecture.id}`);
     },
     onError: () => toast.error(t('failed_to_create_lesson')),
   });
@@ -532,7 +535,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
   };
 
   const openAddLectureModal = (module: CourseModule) => {
-    setLectureForm({ title: '', contentType: 'text', duration: 0, isFree: false });
+    setLectureForm({ title: '', contentType: 'mixed', duration: 0, isFree: false });
     setLectureModal({ isOpen: true, moduleId: module.id });
   };
 
@@ -548,7 +551,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
 
   const closeLectureModal = () => {
     setLectureModal({ isOpen: false });
-    setLectureForm({ title: '', contentType: 'text', duration: 0, isFree: false });
+    setLectureForm({ title: '', contentType: 'mixed', duration: 0, isFree: false });
   };
 
   const openAddCodeLabModal = (module: CourseModule) => {
@@ -1413,7 +1416,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
         isOpen={lectureModal.isOpen}
         onClose={closeLectureModal}
         title={lectureModal.lecture ? t('edit_lesson') : t('add_lesson')}
-        size="3xl"
+        size="md"
       >
         <form onSubmit={handleLectureSubmit} className="space-y-4">
           <Input
@@ -1422,21 +1425,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
             onChange={e => setLectureForm(f => ({ ...f, title: e.target.value }))}
             placeholder={t('lesson_title_placeholder')}
             required
-          />
-          <Select
-            label={t('content_type_label')}
-            value={lectureForm.contentType}
-            onChange={e =>
-              setLectureForm(f => ({
-                ...f,
-                contentType: e.target.value as 'text' | 'video' | 'mixed',
-              }))
-            }
-            options={[
-              { value: 'text', label: t('text_article') },
-              { value: 'video', label: t('video') },
-              { value: 'mixed', label: t('mixed_content') },
-            ]}
+            autoFocus
           />
           <Input
             label={t('duration_minutes')}
@@ -1445,36 +1434,8 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
             onChange={e => setLectureForm(f => ({ ...f, duration: parseInt(e.target.value) || 0 }))}
             min={0}
           />
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="isFree"
-              checked={lectureForm.isFree}
-              onChange={e => setLectureForm(f => ({ ...f, isFree: e.target.checked }))}
-              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            <label htmlFor="isFree" className="text-sm text-gray-700">
-              {t('allow_free_preview')}
-            </label>
-          </div>
 
-          {/* Edit Content Button - only for existing lessons */}
-          {lectureModal.lecture && (
-            <div className="border-t border-gray-200 pt-4 mt-4">
-              <p className="text-sm text-gray-600 mb-3">
-                {t('add_lesson_content_description')}
-              </p>
-              <Link
-                to={`/teach/courses/${courseId}/lectures/${lectureModal.lecture.id}`}
-                className="btn btn-secondary w-full flex items-center justify-center gap-2"
-              >
-                <FileEdit className="w-4 h-4" />
-                {t('edit_lesson_content')}
-              </Link>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3 pt-4">
+          <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="secondary" onClick={closeLectureModal}>
               {t('common:cancel')}
             </Button>
