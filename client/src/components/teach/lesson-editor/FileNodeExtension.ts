@@ -76,8 +76,17 @@ export const FileNode = Node.create({
     return {
       insertLectureFile:
         attrs =>
-        ({ chain }) =>
-          chain().focus().insertContent({ type: this.name, attrs }).run(),
+        ({ chain, editor }) =>
+          chain()
+            .focus()
+            // Insert at the END of the current selection so the new node is
+            // appended after any previously-selected atom (file/chatbot)
+            // instead of replacing it.
+            .insertContentAt(editor.state.selection.$to.pos, [
+              { type: this.name, attrs },
+              { type: 'paragraph' },
+            ])
+            .run(),
     };
   },
 });

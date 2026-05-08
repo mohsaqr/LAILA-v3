@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -35,6 +36,15 @@ export const LessonViewer = ({ html }: LessonViewerProps) => {
     ],
     content: html,
   });
+
+  // useEditor's `content` prop is only consumed on first mount. Push
+  // updates through setContent so navigating between lectures (or a
+  // refetch) actually swaps the rendered document.
+  useEffect(() => {
+    if (!editor) return;
+    if (editor.getHTML() === html) return;
+    editor.commands.setContent(html, { emitUpdate: false });
+  }, [html, editor]);
 
   if (!editor) return null;
 

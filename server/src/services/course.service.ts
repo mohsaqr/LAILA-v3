@@ -259,7 +259,11 @@ export class CourseService {
                 sections: {
                   orderBy: { order: 'asc' },
                   select: {
-                    id: true, type: true, fileName: true, fileUrl: true, fileType: true, order: true,
+                    id: true, type: true, order: true, title: true, content: true,
+                    fileName: true, fileUrl: true, fileType: true, fileSize: true,
+                    chatbotTitle: true, chatbotIntro: true, chatbotImageUrl: true,
+                    chatbotSystemPrompt: true, chatbotWelcome: true,
+                    assignmentId: true, showDeadline: true, showPoints: true,
                   },
                 },
               },

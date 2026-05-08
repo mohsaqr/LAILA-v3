@@ -240,6 +240,27 @@ export const LessonEditor = ({ lectureId, initialSections }: LessonEditorProps) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
 
+  // If the parent's `initialSections` (and thus initialHTML) changes
+  // *after* the editor has mounted — typically because the courseDetails
+  // query refetched and now ships the full section payload — push the
+  // new content into Tiptap. We only do this when the editor isn't
+  // currently focused so we don't yank text out from under a typing user,
+  // and we pass `false` for emitUpdate so the autosave doesn't re-fire.
+  useEffect(() => {
+    if (!editor) return;
+    if (initialHTML === lastSavedRef.current) return;
+    if (editor.isFocused) return;
+    const current = editor.getHTML();
+    if (current === initialHTML) {
+      lastSavedRef.current = initialHTML;
+      return;
+    }
+    if (!initialHTML) return; // don't blank the doc on a first-load empty
+    editor.commands.setContent(initialHTML, { emitUpdate: false });
+    lastSavedRef.current = initialHTML;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialHTML, editor]);
+
   useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
 
   if (!editor) return null;
@@ -254,7 +275,7 @@ export const LessonEditor = ({ lectureId, initialSections }: LessonEditorProps) 
     if (!file) return;
     try {
       const formData = new FormData();
-      formData.append('image', file);
+      formData.append('file', file);
       const token = getAuthToken();
       const res = await fetch('/api/uploads/image', {
         method: 'POST',
