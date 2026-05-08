@@ -772,6 +772,7 @@
   "local_llm_note": "Los proveedores locales deben estar ejecutándose en el host del servidor.",
   "module_assignment_saved": "Enrutamiento de módulo guardado",
   "activity_timeline": "Línea de tiempo de actividad",
+  "weekly_activity_timeline": "Línea de tiempo de actividad semanal",
   "full_analytics": "Analítica completa →",
   "growth_last_7_days": "Crecimiento — últimos 7 días",
   "signups": "Registros",
