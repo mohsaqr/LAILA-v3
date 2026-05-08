@@ -1002,5 +1002,7 @@
   "total_courses": "Kurssit yhteensä",
   "total_students": "Opiskelijat yhteensä",
   "continue_learning": "Jatka oppimista",
-  "manage": "Hallitse"
+  "manage": "Hallitse",
+  "catalog_hero_title": "Opetuksesi yhdellä silmäyksellä",
+  "catalog_hero_subtitle": "Katso, miten kurssit ja opiskelijat voivat — ja luo seuraava yhdellä klikkauksella."
 }

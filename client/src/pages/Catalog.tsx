@@ -1,11 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Search,
   GraduationCap,
-  Plus,
   ChevronDown,
   X,
 } from 'lucide-react';
@@ -15,7 +13,6 @@ import { meApi } from '../api/me';
 import { adminApi } from '../api/admin';
 import { Card, CardBody } from '../components/common/Card';
 import { Input } from '../components/common/Input';
-import { Button } from '../components/common/Button';
 import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import {
@@ -383,13 +380,8 @@ export const Catalog = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4">
         <Breadcrumb items={[{ label: t('courses') }]} />
-        {canCreateCourses && (
-          <Link to="/teach/create">
-            <Button icon={<Plus className="w-4 h-4" />}>{t('create_course')}</Button>
-          </Link>
-        )}
       </div>
 
       {canCreateCourses && (
@@ -399,6 +391,9 @@ export const Catalog = () => {
             totalStudents={totalStudents}
             totalCoursesLabel={t('total_courses')}
             totalStudentsLabel={t('total_students')}
+            title={t('catalog_hero_title')}
+            subtitle={t('catalog_hero_subtitle')}
+            createLabel={t('create_course')}
             loading={statsLoading}
           />
         </div>
