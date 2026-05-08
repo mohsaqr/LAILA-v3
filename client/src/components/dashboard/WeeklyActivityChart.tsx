@@ -13,8 +13,8 @@ interface WeeklyActivityChartProps {
   series: Record<string, number[]>;
   /** Colour palette name (passed through to `createColorMap`). */
   palette?: PaletteName;
-  /** Lower bound for the chart height — defaults to 240 px. */
-  minHeight?: number;
+  /** Fixed SVG height in pixels. Defaults to 260. */
+  height?: number;
   className?: string;
 }
 
@@ -44,39 +44,32 @@ export const WeeklyActivityChart = ({
   verbs,
   series,
   palette = 'default',
-  minHeight = 240,
+  height = 260,
   className = '',
 }: WeeklyActivityChartProps) => {
   const { isDark } = useTheme();
-  const [size, setSize] = useState({ width: 720, height: minHeight });
+  // Only track width via ResizeObserver. Height is a fixed prop —
+  // observing the wrapper's height creates a feedback loop because
+  // the SVG (sized from state) is part of what the wrapper measures,
+  // and the wrapper grows on every render.
+  const [width, setWidth] = useState(720);
   const [mode, setMode] = useState<Mode>('stacked');
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
   const [hoverDay, setHoverDay] = useState<number | null>(null);
 
-  const setWrapRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      if (!node) return;
-      const apply = (cw: number, ch: number) => {
-        setSize({
-          width: Math.max(40, Math.floor(cw)),
-          height: Math.max(minHeight, Math.floor(ch)),
-        });
-      };
-      const ro = new ResizeObserver(entries => {
-        for (const e of entries) apply(e.contentRect.width, e.contentRect.height);
-      });
-      ro.observe(node);
-      const r = node.getBoundingClientRect();
-      apply(r.width, r.height);
-    },
-    [minHeight]
-  );
+  const setWrapRef = useCallback((node: HTMLDivElement | null) => {
+    if (!node) return;
+    const ro = new ResizeObserver(entries => {
+      for (const e of entries) setWidth(Math.max(40, Math.floor(e.contentRect.width)));
+    });
+    ro.observe(node);
+    setWidth(Math.max(40, Math.floor(node.getBoundingClientRect().width)));
+  }, []);
 
   const colorMap = useMemo(() => createColorMap(verbs, palette), [verbs, palette]);
 
   const visibleVerbs = useMemo(() => verbs.filter(v => !hidden.has(v)), [verbs, hidden]);
 
-  const { width, height } = size;
   const innerW = Math.max(40, width - MARGIN.left - MARGIN.right);
   const innerH = Math.max(40, height - MARGIN.top - MARGIN.bottom);
   const baseY = MARGIN.top + innerH;
@@ -168,7 +161,7 @@ export const WeeklyActivityChart = ({
   }, []);
 
   return (
-    <div ref={setWrapRef} className={`relative w-full h-full ${className}`}>
+    <div ref={setWrapRef} className={`relative w-full ${className}`}>
       {/* Mode toggle */}
       <div className="absolute top-0 right-0 flex items-center gap-1 z-10">
         <ModeButton active={mode === 'stacked'} onClick={() => setMode('stacked')} ariaLabel="Stacked bars">
