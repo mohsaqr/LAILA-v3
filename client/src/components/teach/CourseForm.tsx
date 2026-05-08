@@ -25,6 +25,10 @@ interface CourseFormProps {
   onSubmit: (data: CourseFormData) => Promise<void>;
   submitLabel: string;
   loading?: boolean;
+  /** Fires on every form change. Used by the wizard to render a live preview. */
+  onChange?: (data: CourseFormData) => void;
+  /** When false, the submit button is hidden — the wizard owns navigation. */
+  showSubmit?: boolean;
 }
 
 // ─── Info popup ───────────────────────────────────────────────────────────────
@@ -359,7 +363,14 @@ const SearchableSelect = ({
 
 // ─── Main form ────────────────────────────────────────────────────────────────
 
-export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: CourseFormProps) => {
+export const CourseForm = ({
+  initialData,
+  onSubmit,
+  submitLabel,
+  loading,
+  onChange,
+  showSubmit = true,
+}: CourseFormProps) => {
   const { t } = useTranslation(['teaching']);
 
   const { data: categories = [] } = useQuery({
@@ -410,6 +421,10 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
       }
     }
   }, [initialData]);
+
+  useEffect(() => {
+    onChange?.(formData);
+  }, [formData, onChange]);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -580,11 +595,13 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
         </label>
       </div>
 
-      <div className="flex justify-end gap-3 pt-4 border-t">
-        <Button type="submit" loading={loading}>
-          {submitLabel}
-        </Button>
-      </div>
+      {showSubmit && (
+        <div className="flex justify-end gap-3 pt-4 border-t">
+          <Button type="submit" loading={loading}>
+            {submitLabel}
+          </Button>
+        </div>
+      )}
     </form>
   );
 };

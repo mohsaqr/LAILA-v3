@@ -73,6 +73,7 @@ import { LectureView } from './pages/LectureView';
 // Teaching pages
 import {
   CourseCreate,
+  CourseCreateWizard,
   CourseEdit,
   CurriculumEditor,
   LectureEditor,
@@ -670,6 +671,14 @@ function App() {
           element={
             <ProtectedRoute requireInstructor>
               <CourseCreate />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teach/courses/:id/setup"
+          element={
+            <ProtectedRoute requireInstructor>
+              <CourseCreateWizard />
             </ProtectedRoute>
           }
         />

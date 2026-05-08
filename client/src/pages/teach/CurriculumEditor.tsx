@@ -72,10 +72,17 @@ interface QuizFormData {
   isPublished: boolean;
 }
 
-export const CurriculumEditor = () => {
+interface CurriculumEditorProps {
+  /** When provided (e.g. from the wizard), skip useParams and use this id. */
+  courseId?: number;
+  /** When true, hide the page-level breadcrumb + outer max-w container so the editor can be embedded inside another page (the wizard). */
+  embedded?: boolean;
+}
+
+export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: CurriculumEditorProps = {}) => {
   const { t } = useTranslation('teaching');
   const { id } = useParams<{ id: string }>();
-  const courseId = parseInt(id!, 10);
+  const courseId = courseIdProp ?? parseInt(id!, 10);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isDark } = useTheme();
@@ -992,17 +999,18 @@ export const CurriculumEditor = () => {
     }));
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-      {/* Breadcrumb */}
-      <div className="mb-6">
-        <Breadcrumb
-          items={[
-            { label: t('navigation:courses'), href: '/teach' },
-            { label: course.title, href: `/courses/${courseId}` },
-            { label: t('curriculum_editor') },
-          ]}
-        />
-      </div>
+    <div className={embedded ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8'}>
+      {!embedded && (
+        <div className="mb-6">
+          <Breadcrumb
+            items={[
+              { label: t('navigation:courses'), href: '/teach' },
+              { label: course.title, href: `/courses/${courseId}` },
+              { label: t('curriculum_editor') },
+            ]}
+          />
+        </div>
+      )}
 
 
       {/* Course Management Card - Dark theme */}
