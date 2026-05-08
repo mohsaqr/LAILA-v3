@@ -192,6 +192,9 @@
   "enrolled_courses": "Ilmoittautuneet kurssit",
   "today": "Tänään",
   "upcoming": "Tulossa",
+  "upcoming_assignments": "Tulevat tehtävät",
+  "due_on": "Eräpäivä",
+  "grace_until": "Lisäaika",
   "courses_in_progress": "Käynnissä olevat kurssit",
   "view_full_calendar": "Näytä koko kalenteri"
 }

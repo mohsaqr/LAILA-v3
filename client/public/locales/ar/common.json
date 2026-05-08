@@ -192,6 +192,9 @@
   "enrolled_courses": "الكورسات المسجّلة",
   "today": "اليوم",
   "upcoming": "قادم",
+  "upcoming_assignments": "الواجبات القادمة",
+  "due_on": "الاستحقاق",
+  "grace_until": "السماح حتى",
   "courses_in_progress": "الكورسات قيد التقدم",
   "view_full_calendar": "عرض التقويم الكامل"
 }

@@ -766,6 +766,7 @@ export class AssignmentService {
         title: true,
         points: true,
         dueDate: true,
+        gracePeriodDeadline: true,
         isPublished: true,
         aiAssisted: true,
         submissionType: true,
