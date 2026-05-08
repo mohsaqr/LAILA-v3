@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Search, Trash2, X } from 'lucide-react';
+import { ChevronDown, Search, Trash2, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTheme } from '../../../hooks/useTheme';
 import { Avatar } from '../../dashboard/Avatar';
@@ -319,20 +319,10 @@ export const TeamStep = ({ courseId, instructorId }: TeamStepProps) => {
                     {user.email || '—'}
                   </td>
                   <td className="px-4 py-2.5">
-                    <select
+                    <RoleSelect
                       value={role}
-                      onChange={e => changeRole(user.id, e.target.value as CourseRoleType)}
-                      className="text-xs px-2 py-1 rounded border focus:outline-none focus:ring-2 focus:ring-primary-300"
-                      style={{
-                        backgroundColor: cardBg,
-                        borderColor: cardBorder,
-                        color: subtle,
-                      }}
-                    >
-                      <option value="ta">{ROLE_LABELS.ta}</option>
-                      <option value="co_instructor">{ROLE_LABELS.co_instructor}</option>
-                      <option value="course_admin">{ROLE_LABELS.course_admin}</option>
-                    </select>
+                      onChange={(next) => changeRole(user.id, next)}
+                    />
                   </td>
                   <td className="px-2 py-2.5 text-right">
                     <button
@@ -357,6 +347,35 @@ export const TeamStep = ({ courseId, instructorId }: TeamStepProps) => {
       <span aria-hidden className="hidden">
         <X className="w-0 h-0" />
       </span>
+    </div>
+  );
+};
+
+/**
+ * Styled role select matching the rest of the wizard's form chrome
+ * (rounded-lg, focus-ring teal, chevron icon). Behaves like the
+ * difficulty / curriculum-view-mode selects in the course settings
+ * step — same look and same keyboard behaviour as a native select.
+ */
+const RoleSelect = ({
+  value,
+  onChange,
+}: {
+  value: CourseRoleType;
+  onChange: (v: CourseRoleType) => void;
+}) => {
+  return (
+    <div className="relative inline-flex items-center">
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value as CourseRoleType)}
+        className="appearance-none pl-3 pr-8 py-1.5 text-sm rounded-lg border bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+      >
+        <option value="ta">{ROLE_LABELS.ta}</option>
+        <option value="co_instructor">{ROLE_LABELS.co_instructor}</option>
+        <option value="course_admin">{ROLE_LABELS.course_admin}</option>
+      </select>
+      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
     </div>
   );
 };
