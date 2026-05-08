@@ -1322,8 +1322,9 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
             </div>
           )}
 
-          {/* Collaborative Module Section */}
-          {courseTutors && courseTutors.length > 0 && (
+          {/* Collaborative Module Section — hidden in the wizard's
+              Content step. AI tutors live in their own wizard step. */}
+          {!embedded && courseTutors && courseTutors.length > 0 && (
             <div
               className="mt-6 p-4 rounded-lg border-2 border-dashed"
               style={{
