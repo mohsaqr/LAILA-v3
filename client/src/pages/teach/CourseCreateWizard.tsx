@@ -170,7 +170,6 @@ export const CourseCreateWizard = () => {
     const result = validateSetting(formSnapshot);
     if (!result.valid) {
       setErrors(result.errors);
-      toast.error(t('teaching:please_fix_errors', { defaultValue: 'Please fix the highlighted errors.' }));
       return;
     }
     setErrors({});

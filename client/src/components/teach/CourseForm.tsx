@@ -29,6 +29,8 @@ interface CourseFormProps {
   onChange?: (data: CourseFormData) => void;
   /** When false, the submit button is hidden — the wizard owns navigation. */
   showSubmit?: boolean;
+  /** External per-field error messages (already translated). Wizard-driven validation. */
+  externalErrors?: Record<string, string>;
 }
 
 // ─── Info popup ───────────────────────────────────────────────────────────────
@@ -77,9 +79,10 @@ interface MultiSelectProps {
   allCategories: Category[];
   selectedIds: number[];
   onChange: (ids: number[]) => void;
+  error?: string;
 }
 
-const CategoryMultiSelect = ({ label, allCategories, selectedIds, onChange }: MultiSelectProps) => {
+const CategoryMultiSelect = ({ label, allCategories, selectedIds, onChange, error }: MultiSelectProps) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -126,7 +129,9 @@ const CategoryMultiSelect = ({ label, allCategories, selectedIds, onChange }: Mu
         className={`min-h-[42px] w-full px-3 py-2 flex flex-wrap items-center gap-1.5 rounded-lg border cursor-pointer transition-colors ${
           open
             ? 'border-primary-500 ring-2 ring-primary-500/20'
-            : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+            : error
+              ? 'border-red-400 dark:border-red-500'
+              : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
         } bg-white dark:bg-gray-800`}
       >
         {selected.length === 0 ? (
@@ -230,6 +235,7 @@ const CategoryMultiSelect = ({ label, allCategories, selectedIds, onChange }: Mu
           )}
         </div>
       )}
+      {error && <p className="mt-1.5 text-xs text-red-500">{error}</p>}
     </div>
   );
 };
@@ -243,6 +249,7 @@ const SearchableSelect = ({
   onChange,
   placeholder = 'Select…',
   infoPopup,
+  error,
 }: {
   label?: string;
   options: { value: string; label: string }[];
@@ -250,6 +257,7 @@ const SearchableSelect = ({
   onChange: (value: string) => void;
   placeholder?: string;
   infoPopup?: string;
+  error?: string;
 }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -293,7 +301,9 @@ const SearchableSelect = ({
         className={`min-h-[42px] w-full px-3 py-2 flex items-center gap-1.5 rounded-lg border cursor-pointer transition-colors bg-white dark:bg-gray-800 ${
           open
             ? 'border-primary-500 ring-2 ring-primary-500/20'
-            : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+            : error
+              ? 'border-red-400 dark:border-red-500'
+              : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
         }`}
       >
         {selectedOption ? (
@@ -357,6 +367,7 @@ const SearchableSelect = ({
           </ul>
         </div>
       )}
+      {error && <p className="mt-1.5 text-xs text-red-500">{error}</p>}
     </div>
   );
 };
@@ -370,6 +381,7 @@ export const CourseForm = ({
   loading,
   onChange,
   showSubmit = true,
+  externalErrors,
 }: CourseFormProps) => {
   const { t } = useTranslation(['teaching']);
 
@@ -482,6 +494,10 @@ export const CourseForm = ({
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  // Merge wizard-driven external errors with the form's own internal errors.
+  // External wins so a parent's validation message never gets shadowed.
+  const mergedErrors: Record<string, string> = { ...errors, ...(externalErrors ?? {}) };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <Input
@@ -489,7 +505,7 @@ export const CourseForm = ({
         value={formData.title}
         onChange={e => handleChange('title', e.target.value)}
         placeholder={t('course_title_placeholder')}
-        error={errors.title}
+        error={mergedErrors.title}
         required
       />
 
@@ -509,6 +525,7 @@ export const CourseForm = ({
         allCategories={categories}
         selectedIds={formData.categoryIds}
         onChange={ids => setFormData(prev => ({ ...prev, categoryIds: ids }))}
+        error={mergedErrors.categoryIds}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -518,6 +535,7 @@ export const CourseForm = ({
           value={formData.difficulty}
           onChange={val => handleChange('difficulty', val)}
           placeholder="Select difficulty…"
+          error={mergedErrors.difficulty}
         />
 
         <SearchableSelect
