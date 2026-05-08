@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { Assignment, Lecture } from '../../types';
 import { AssignmentItem } from './AssignmentItem';
-import { BlockStream } from './lecture-blocks';
+import { LessonEditor } from './lesson-editor';
 
 interface LectureItemProps {
   lecture: Lecture;
@@ -123,12 +123,12 @@ export const LectureItem = ({
       </div>
     </div>
 
-    {/* Inline block editor — flush against the lecture header so the
-        whole lesson reads as a single unit. No top margin, same
-        background as the row, with a bottom rounded corner. */}
+    {/* Inline lesson editor — one Tiptap canvas per lesson with File
+        and Chatbot insertable as inline nodes. Sits flush against
+        the lecture header for a single-unit feel. */}
     {isExpanded && (
       <div className="px-3 pt-2 pb-4 bg-gray-50 rounded-b-lg">
-        <BlockStream lectureId={lecture.id} initialSections={lecture.sections ?? []} />
+        <LessonEditor lectureId={lecture.id} initialSections={lecture.sections ?? []} />
       </div>
     )}
 
