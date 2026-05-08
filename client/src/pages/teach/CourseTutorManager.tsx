@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -198,12 +198,16 @@ export const CourseTutorManager = ({
   });
 
   // Sync settings state with course data
+  const courseLoadedRef = useRef(false);
   useEffect(() => {
     if (course) {
       setModuleName((course as any).collaborativeModuleName || '');
       setRoutingMode((course as any).tutorRoutingMode || 'free');
       setDefaultTutorId((course as any).defaultTutorId || null);
       setEmotionalPulseEnabled((course as any).emotionalPulseEnabled !== false);
+      // Wait until the next render so the controlled inputs settle before
+      // we let the auto-save effect see them as "user changes".
+      requestAnimationFrame(() => { courseLoadedRef.current = true; });
     }
   }, [course]);
 
@@ -215,6 +219,20 @@ export const CourseTutorManager = ({
       defaultTutorId: routingMode === 'single' ? defaultTutorId : null,
     });
   };
+
+  // In embedded mode (the wizard's Tutors step), settings auto-save on
+  // change with a small debounce — no separate Save button. Skips the
+  // initial hydration pass via courseLoadedRef so we don't write back the
+  // values we just read from the server.
+  useEffect(() => {
+    if (!embedded) return;
+    if (!courseLoadedRef.current) return;
+    const handle = setTimeout(() => {
+      handleSaveSettings();
+    }, 600);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [embedded, moduleName, routingMode, defaultTutorId, emotionalPulseEnabled]);
 
   const { draggedId, handleDragStart, handleDragOver, handleDragEnd } = useDragAndDrop(
     tutors || [],
@@ -486,13 +504,24 @@ export const CourseTutorManager = ({
                 ? undefined
                 : { borderColor: colors.border, backgroundColor: colors.bgHover }}
             >
-              <div className="flex items-center gap-2 mb-3">
-                <svg className="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                </svg>
-                <h3 className="font-semibold" style={{ color: colors.textPrimary }}>
-                  {t('tutor_routing')}
-                </h3>
+              <div className="mb-3">
+                {embedded ? (
+                  <label
+                    className="block text-sm font-medium"
+                    style={{ color: colors.textPrimary }}
+                  >
+                    {t('tutor_routing')}
+                  </label>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                    <h3 className="font-semibold" style={{ color: colors.textPrimary }}>
+                      {t('tutor_routing')}
+                    </h3>
+                  </div>
+                )}
               </div>
 
               {!embedded && (
@@ -707,18 +736,18 @@ export const CourseTutorManager = ({
               </label>
             </div>
 
-            {/* Save Button */}
-            <div className="pt-2">
-              <Button
-                onClick={handleSaveSettings}
-                loading={updateSettingsMutation.isPending}
-                icon={<Save className="w-4 h-4" />}
-              >
-                {embedded
-                  ? t('common:save', { defaultValue: 'Save' })
-                  : t('save_settings')}
-              </Button>
-            </div>
+            {/* Save Button — embedded mode auto-saves so this is hidden. */}
+            {!embedded && (
+              <div className="pt-2">
+                <Button
+                  onClick={handleSaveSettings}
+                  loading={updateSettingsMutation.isPending}
+                  icon={<Save className="w-4 h-4" />}
+                >
+                  {t('save_settings')}
+                </Button>
+              </div>
+            )}
           </CardBody>
         )}
       </Card>
