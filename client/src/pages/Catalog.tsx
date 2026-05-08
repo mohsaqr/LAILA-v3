@@ -389,8 +389,8 @@ export const Catalog = () => {
           <CatalogStatsCard
             totalCourses={totalCourses}
             totalStudents={totalStudents}
-            totalCoursesLabel={t('total_courses')}
-            totalStudentsLabel={t('total_students')}
+            totalCoursesLabel={t('courses')}
+            totalStudentsLabel={t('students')}
             createLabel={t('create_course')}
             loading={statsLoading}
           />
