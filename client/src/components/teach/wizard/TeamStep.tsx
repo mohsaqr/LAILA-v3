@@ -352,10 +352,10 @@ export const TeamStep = ({ courseId, instructorId }: TeamStepProps) => {
 };
 
 /**
- * Styled role select matching the rest of the wizard's form chrome
- * (rounded-lg, focus-ring teal, chevron icon). Behaves like the
- * difficulty / curriculum-view-mode selects in the course settings
- * step — same look and same keyboard behaviour as a native select.
+ * Role select that matches the Difficulty Level dropdown on the
+ * Setting step: rounded border, the selected value renders as a
+ * teal chip, and the dropdown lists each option with a radio-style
+ * indicator. No search field — three options doesn't need one.
  */
 const RoleSelect = ({
   value,
@@ -364,18 +364,74 @@ const RoleSelect = ({
   value: CourseRoleType;
   onChange: (v: CourseRoleType) => void;
 }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  const options: Array<{ value: CourseRoleType; label: string }> = [
+    { value: 'ta', label: ROLE_LABELS.ta },
+    { value: 'co_instructor', label: ROLE_LABELS.co_instructor },
+    { value: 'course_admin', label: ROLE_LABELS.course_admin },
+  ];
+  const selected = options.find(o => o.value === value);
+
   return (
-    <div className="relative inline-flex items-center">
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value as CourseRoleType)}
-        className="appearance-none pl-3 pr-8 py-1.5 text-sm rounded-lg border bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+    <div ref={ref} className="relative w-44">
+      <div
+        onClick={() => setOpen(o => !o)}
+        className={`min-h-[36px] w-full px-2.5 py-1.5 flex items-center gap-1.5 rounded-lg border cursor-pointer transition-colors bg-white dark:bg-gray-800 ${
+          open
+            ? 'border-primary-500 ring-2 ring-primary-500/20'
+            : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
+        }`}
       >
-        <option value="ta">{ROLE_LABELS.ta}</option>
-        <option value="co_instructor">{ROLE_LABELS.co_instructor}</option>
-        <option value="course_admin">{ROLE_LABELS.course_admin}</option>
-      </select>
-      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        {selected && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300">
+            {selected.label}
+          </span>
+        )}
+        <ChevronDown
+          className={`w-4 h-4 text-gray-400 ml-auto shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+        />
+      </div>
+
+      {open && (
+        <div className="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
+          <ul className="py-1">
+            {options.map(opt => {
+              const checked = opt.value === value;
+              return (
+                <li
+                  key={opt.value}
+                  onClick={() => { onChange(opt.value); setOpen(false); }}
+                  className={`flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer transition-colors ${
+                    checked
+                      ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/40'
+                  }`}
+                >
+                  <span
+                    className={`w-4 h-4 shrink-0 rounded-full border flex items-center justify-center transition-colors ${
+                      checked ? 'bg-primary-500 border-primary-500' : 'border-gray-300 dark:border-gray-600'
+                    }`}
+                  >
+                    {checked && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                  </span>
+                  {opt.label}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   );
 };

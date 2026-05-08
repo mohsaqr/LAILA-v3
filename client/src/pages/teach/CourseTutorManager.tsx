@@ -309,7 +309,7 @@ export const CourseTutorManager = ({
                 <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
                   {stats.totalTutors}
                 </p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>
+                <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                   {t('total_tutors')}
                 </p>
               </div>
@@ -328,7 +328,7 @@ export const CourseTutorManager = ({
                 <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
                   {stats.activeTutors}
                 </p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>
+                <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                   {t('active')}
                 </p>
               </div>
@@ -347,7 +347,7 @@ export const CourseTutorManager = ({
                 <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
                   {stats.totalConversations}
                 </p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>
+                <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                   {t('conversations')}
                 </p>
               </div>
@@ -366,7 +366,7 @@ export const CourseTutorManager = ({
                 <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
                   {stats.totalMessages}
                 </p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>
+                <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                   {t('total_messages')}
                 </p>
               </div>
@@ -385,7 +385,7 @@ export const CourseTutorManager = ({
               {t('tutors_in_course')}
             </h2>
             {(availableTutors ?? []).length === 0 ? (
-              <p className="text-sm" style={{ color: colors.textSecondary }}>
+              <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                 {t('no_tutors_desc', { defaultValue: 'No tutors available yet.' })}
               </p>
             ) : (
@@ -547,13 +547,13 @@ export const CourseTutorManager = ({
                     className="mt-1"
                   />
                   <div>
-                    <p className="font-medium" style={{ color: colors.textPrimary }}>
+                    <p className={embedded ? 'text-sm font-medium' : 'font-medium'} style={{ color: colors.textPrimary }}>
                       {t('free_choice')}
                       <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
                         {t('recommended')}
                       </span>
                     </p>
-                    <p className="text-sm" style={{ color: colors.textSecondary }}>
+                    <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                       {t('free_choice_desc')}
                     </p>
                   </div>
@@ -575,8 +575,8 @@ export const CourseTutorManager = ({
                     className="mt-1"
                   />
                   <div>
-                    <p className="font-medium" style={{ color: colors.textPrimary }}>{t('all_tutors_guided')}</p>
-                    <p className="text-sm" style={{ color: colors.textSecondary }}>
+                    <p className={embedded ? 'text-sm font-medium' : 'font-medium'} style={{ color: colors.textPrimary }}>{t('all_tutors_guided')}</p>
+                    <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                       {t('all_tutors_guided_desc')}
                     </p>
                   </div>
@@ -598,8 +598,8 @@ export const CourseTutorManager = ({
                     className="mt-1"
                   />
                   <div className="flex-1">
-                    <p className="font-medium" style={{ color: colors.textPrimary }}>{t('single_tutor_mode')}</p>
-                    <p className="text-sm" style={{ color: colors.textSecondary }}>
+                    <p className={embedded ? 'text-sm font-medium' : 'font-medium'} style={{ color: colors.textPrimary }}>{t('single_tutor_mode')}</p>
+                    <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                       {t('single_tutor_desc')}
                     </p>
                   </div>
@@ -644,13 +644,13 @@ export const CourseTutorManager = ({
                     className="mt-1"
                   />
                   <div>
-                    <p className="font-medium" style={{ color: colors.textPrimary }}>
+                    <p className={embedded ? 'text-sm font-medium' : 'font-medium'} style={{ color: colors.textPrimary }}>
                       {t('smart_routing_mode')}
                       <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                         {t('beta')}
                       </span>
                     </p>
-                    <p className="text-sm" style={{ color: colors.textSecondary }}>
+                    <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                       {t('smart_routing_desc')}
                     </p>
                   </div>
@@ -672,13 +672,13 @@ export const CourseTutorManager = ({
                     className="mt-1"
                   />
                   <div>
-                    <p className="font-medium" style={{ color: colors.textPrimary }}>
+                    <p className={embedded ? 'text-sm font-medium' : 'font-medium'} style={{ color: colors.textPrimary }}>
                       {t('team_mode')}
                       <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">
                         {t('new_label')}
                       </span>
                     </p>
-                    <p className="text-sm" style={{ color: colors.textSecondary }}>
+                    <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                       {t('team_mode_desc')}
                     </p>
                   </div>
@@ -700,10 +700,10 @@ export const CourseTutorManager = ({
                     className="mt-1"
                   />
                   <div>
-                    <p className="font-medium" style={{ color: colors.textPrimary }}>
+                    <p className={embedded ? 'text-sm font-medium' : 'font-medium'} style={{ color: colors.textPrimary }}>
                       {t('random_mode_label')}
                     </p>
-                    <p className="text-sm" style={{ color: colors.textSecondary }}>
+                    <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                       {t('random_mode_desc')}
                     </p>
                   </div>
@@ -718,10 +718,10 @@ export const CourseTutorManager = ({
             >
               <Heart className="w-5 h-5" style={{ color: '#ec4899' }} />
               <div className="flex-1">
-                <p className="font-medium" style={{ color: colors.textPrimary }}>
+                <p className={embedded ? 'text-sm font-medium' : 'font-medium'} style={{ color: colors.textPrimary }}>
                   {t('emotional_pulse')}
                 </p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>
+                <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                   {t('emotional_pulse_desc')}
                 </p>
               </div>
