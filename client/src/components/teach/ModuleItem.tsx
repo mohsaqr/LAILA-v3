@@ -23,7 +23,6 @@ import {
   MessageCircle,
   Beaker,
   ExternalLink,
-  MessageSquare,
   Network,
   Loader2,
   Pencil,
@@ -473,15 +472,15 @@ export const ModuleItem = ({
               </h4>
               <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-gray-600 dark:text-gray-300">
                 {(() => {
-                  const items: Array<{ icon: typeof FileText; count: number; label: string }> = [];
-                  if (lectures.length > 0) items.push({ icon: FileText, count: lectures.length, label: t('lectures', { count: lectures.length, defaultValue: 'lessons' }) });
-                  if (assignments.length > 0) items.push({ icon: ClipboardList, count: assignments.length, label: t('assignments', { defaultValue: 'assignments' }) });
-                  if (quizzes.length > 0) items.push({ icon: FileQuestion, count: quizzes.length, label: t('quizzes', { defaultValue: 'quizzes' }) });
-                  if (forums.length > 0) items.push({ icon: MessageSquare, count: forums.length, label: t('forums', { defaultValue: 'forums' }) });
-                  if (codeLabs.length > 0) items.push({ icon: Beaker, count: codeLabs.length, label: t('labs', { defaultValue: 'labs' }) });
-                  return items.map(({ icon: Icon, count, label }, i) => (
+                  // No icons. Always singular noun regardless of count.
+                  const items: Array<{ count: number; label: string }> = [];
+                  if (lectures.length > 0) items.push({ count: lectures.length, label: t('lesson', { defaultValue: 'Lesson' }) });
+                  if (assignments.length > 0) items.push({ count: assignments.length, label: t('assignment', { defaultValue: 'Assignment' }) });
+                  if (quizzes.length > 0) items.push({ count: quizzes.length, label: t('quiz_singular', { defaultValue: 'Quiz' }) });
+                  if (forums.length > 0) items.push({ count: forums.length, label: t('forum', { defaultValue: 'Forum' }) });
+                  if (codeLabs.length > 0) items.push({ count: codeLabs.length, label: t('code_lab', { defaultValue: 'Code Lab' }) });
+                  return items.map(({ count, label }, i) => (
                     <span key={i} className="inline-flex items-center gap-1.5">
-                      <Icon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                       <span className="tabular-nums">{count}</span>
                       <span>{label}</span>
                     </span>
