@@ -7,8 +7,6 @@ interface CatalogStatsCardProps {
   totalStudents: number;
   totalCoursesLabel: string;
   totalStudentsLabel: string;
-  /** Header title above the stats. */
-  title: string;
   /** When non-null, render the Create Course button with this label. */
   createLabel?: string | null;
   loading?: boolean;
@@ -25,7 +23,6 @@ export const CatalogStatsCard = ({
   totalStudents,
   totalCoursesLabel,
   totalStudentsLabel,
-  title,
   createLabel,
   loading = false,
 }: CatalogStatsCardProps) => {
@@ -77,20 +74,7 @@ export const CatalogStatsCard = ({
         </div>
 
         <div className="sm:col-span-3 sm:pl-1 flex flex-col gap-3">
-          <h2 className="text-lg sm:text-xl font-bold leading-tight">{title}</h2>
-
-          <div className="flex flex-wrap items-stretch gap-2 sm:gap-3">
-            {createLabel && (
-              <Link
-                to="/teach/create"
-                className="inline-flex items-center gap-2 h-[60px] px-4 rounded-xl text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-                style={{ backgroundColor: '#ffffff', color: '#0e7490' }}
-              >
-                <Plus className="w-4 h-4" strokeWidth={2.5} />
-                {createLabel}
-              </Link>
-            )}
-
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             {tiles.map(({ icon: Icon, value, label }) => (
               <div
                 key={label}
@@ -123,6 +107,19 @@ export const CatalogStatsCard = ({
               </div>
             ))}
           </div>
+
+          {createLabel && (
+            <div>
+              <Link
+                to="/teach/create"
+                className="inline-flex items-center gap-2 h-10 px-3.5 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                style={{ backgroundColor: '#ffffff', color: '#0e7490' }}
+              >
+                <Plus className="w-4 h-4" strokeWidth={2.5} />
+                {createLabel}
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </div>
