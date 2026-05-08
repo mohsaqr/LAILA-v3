@@ -806,6 +806,7 @@
   "local_llm_note": "Local providers must be running on the server host.",
   "module_assignment_saved": "Module routing saved",
   "activity_timeline": "Activity timeline",
+  "weekly_activity_timeline": "Weekly Activity Timeline",
   "full_analytics": "Full analytics →",
   "growth_last_7_days": "Growth — last 7 days",
   "signups": "Signups",

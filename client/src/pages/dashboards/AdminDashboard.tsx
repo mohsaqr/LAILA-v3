@@ -232,7 +232,7 @@ export const AdminDashboard = () => {
           <Card>
             <CardBody>
               <span className="text-xs font-semibold uppercase tracking-wider mb-4 block" style={{ color: colors.muted }}>
-                {t('admin:activity_timeline', { defaultValue: 'Activity timeline' })}
+                {t('admin:weekly_activity_timeline', { defaultValue: 'Weekly Activity Timeline' })}
               </span>
               {!dailyCounts ? (
                 <Skeleton className="h-64 w-full" />

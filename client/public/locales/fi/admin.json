@@ -772,6 +772,7 @@
   "local_llm_note": "Paikallisten tarjoajien on oltava käynnissä palvelimen isännässä.",
   "module_assignment_saved": "Moduulireititys tallennettu",
   "activity_timeline": "Toiminnan aikajana",
+  "weekly_activity_timeline": "Viikon toiminnan aikajana",
   "full_analytics": "Koko analytiikka →",
   "growth_last_7_days": "Kasvu — viimeiset 7 päivää",
   "signups": "Rekisteröitymiset",
