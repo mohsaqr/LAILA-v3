@@ -22,6 +22,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { Input, TextArea, Select } from '../../components/common/Input';
 import { RichTextEditor } from '../../components/forum/RichTextEditor';
 import { ModuleItem } from '../../components/teach/ModuleItem';
+import { MinimalModuleAccordion } from '../../components/teach/MinimalModuleAccordion';
 import { CourseModule, Lecture, CodeLab, Assignment, CustomLab, LabTemplate, LabAssignment, ModuleQuiz } from '../../types';
 
 interface ModuleFormData {
@@ -1236,6 +1237,18 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
           {sortedModules.length > 0 ? (
             <div className="space-y-4">
               {sortedModules.map((module, index) => (
+                embedded ? (
+                  <MinimalModuleAccordion
+                    key={module.id}
+                    module={module}
+                    index={index}
+                    onEditModule={openEditModuleModal}
+                    onDeleteModule={setDeleteModuleConfirm}
+                    onAddLecture={openAddLectureModal}
+                    onEditLecture={openEditLectureModal}
+                    onDeleteLecture={setDeleteLectureConfirm}
+                  />
+                ) : (
                 <ModuleItem
                   key={module.id}
                   module={module}
@@ -1275,6 +1288,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
                   onDeleteQuiz={setDeleteQuizConfirm}
                   allSurveys={allSurveys}
                 />
+                )
               ))}
             </div>
           ) : (
@@ -1386,13 +1400,6 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
             onChange={e => setModuleForm(f => ({ ...f, title: e.target.value }))}
             placeholder={t('module_title_placeholder')}
             required
-          />
-          <Input
-            label={t('label_optional')}
-            value={moduleForm.label}
-            onChange={e => setModuleForm(f => ({ ...f, label: e.target.value }))}
-            placeholder={t('label_placeholder')}
-            helpText={t('label_help_text')}
           />
           <TextArea
             label={t('description_optional')}
