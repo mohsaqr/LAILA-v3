@@ -12,7 +12,7 @@ interface SettingStepProps {
   initialData?: Partial<Course>;
   /** Fires whenever the form contents change — wizard tracks this for its Continue handler. */
   onChange: (data: CourseFormData) => void;
-  /** Validation errors keyed by field. Wizard sets these after a failed save. */
+  /** Per-field validation errors (i18n keys) the wizard set after a failed save. */
   externalErrors?: Record<string, string>;
 }
 
@@ -34,6 +34,18 @@ export const SettingStep = ({ initialData, onChange, externalErrors }: SettingSt
     },
     [onChange],
   );
+
+  // Translate the i18n error keys before handing them to CourseForm so it
+  // can render the actual message in red under the field.
+  const translatedErrors = useMemo<Record<string, string>>(() => {
+    if (!externalErrors) return {};
+    const out: Record<string, string> = {};
+    for (const [field, key] of Object.entries(externalErrors)) {
+      if (!key) continue;
+      out[field] = t(`teaching:${key}`, { defaultValue: key });
+    }
+    return out;
+  }, [externalErrors, t]);
 
   const previewCourse = useMemo<Course>(() => {
     const data = snapshot ?? {
@@ -86,41 +98,27 @@ export const SettingStep = ({ initialData, onChange, externalErrors }: SettingSt
           >
             {t('teaching:wizard_preview', { defaultValue: 'Live preview' })}
           </span>
-          <CourseCardV2
-            course={previewCourse}
-            progress={null}
-            canManage={false}
-            studentsLabel={(count) => t('courses:n_students', { count })}
-            progressLabel={t('courses:progress')}
-            manageLabel={t('courses:manage')}
-          />
+          <div className="max-w-sm">
+            <CourseCardV2
+              course={previewCourse}
+              progress={null}
+              canManage={false}
+              studentsLabel={(count) => t('courses:n_students', { count })}
+              progressLabel={t('courses:progress')}
+              manageLabel={t('courses:manage')}
+            />
+          </div>
         </div>
       </div>
 
       <div className="lg:col-span-7 order-1 lg:order-2">
-        {externalErrors && Object.values(externalErrors).filter(Boolean).length > 0 && (
-          <div
-            className="mb-4 rounded-lg border px-4 py-3 text-sm"
-            style={{
-              backgroundColor: isDark ? 'rgba(220,38,38,0.10)' : '#fef2f2',
-              borderColor: isDark ? 'rgba(220,38,38,0.30)' : '#fecaca',
-              color: isDark ? '#fca5a5' : '#991b1b',
-            }}
-          >
-            {Object.entries(externalErrors)
-              .filter(([, msg]) => Boolean(msg))
-              .map(([field, msg]) => (
-                <div key={field}>{t(`teaching:${msg}`, { defaultValue: msg })}</div>
-              ))}
-          </div>
-        )}
-
         <CourseForm
           initialData={initialData}
           onSubmit={async () => { /* wizard owns submit */ }}
           submitLabel=""
           onChange={handleChange}
           showSubmit={false}
+          externalErrors={translatedErrors}
         />
       </div>
     </div>
