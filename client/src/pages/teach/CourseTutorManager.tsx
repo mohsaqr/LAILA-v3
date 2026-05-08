@@ -64,9 +64,20 @@ const useDragAndDrop = (items: CourseTutor[], onReorder: (ids: number[]) => void
   return { draggedId, handleDragStart, handleDragOver, handleDragEnd };
 };
 
-export const CourseTutorManager = () => {
+interface CourseTutorManagerProps {
+  /** When set (e.g. from the wizard), use this id and skip useParams. */
+  courseId?: number;
+  /** Hide breadcrumb + outer max-w container so the page can be embedded. */
+  embedded?: boolean;
+}
+
+export const CourseTutorManager = ({
+  courseId: courseIdProp,
+  embedded = false,
+}: CourseTutorManagerProps = {}) => {
   const { t } = useTranslation(['teaching', 'common']);
-  const { id: courseId } = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>();
+  const courseId = courseIdProp != null ? String(courseIdProp) : params.id;
   const queryClient = useQueryClient();
   const { isDark } = useTheme();
   const [showAddModal, setShowAddModal] = useState(false);
@@ -243,11 +254,15 @@ export const CourseTutorManager = () => {
   const breadcrumbItems = buildTeachingBreadcrumb(courseId, course?.title || 'Course', t('ai_tutors'));
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8" style={{ minHeight: '100vh' }}>
-      {/* Breadcrumb navigation */}
-      <div className="mb-6">
-        <Breadcrumb homeHref="/" items={breadcrumbItems} />
-      </div>
+    <div
+      className={embedded ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8'}
+      style={embedded ? undefined : { minHeight: '100vh' }}
+    >
+      {!embedded && (
+        <div className="mb-6">
+          <Breadcrumb homeHref="/" items={breadcrumbItems} />
+        </div>
+      )}
 
       {/* Header actions */}
       <div className="flex justify-end mb-6 md:mb-8">

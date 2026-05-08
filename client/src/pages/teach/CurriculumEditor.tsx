@@ -1013,7 +1013,9 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
       )}
 
 
-      {/* Course Management Card - Dark theme */}
+      {/* Course Management Card - Dark theme. Hidden when embedded (the wizard
+          owns these affordances and the activation code lives elsewhere). */}
+      {!embedded && (
       <div
         className="mb-6 p-4 rounded-xl"
         style={{ backgroundColor: isDark ? '#0f172a' : '#1e293b' }}
@@ -1156,16 +1158,19 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
           </button>
         </div>
       </div>
+      )}
 
       {/* Curriculum Section */}
       <Card>
         <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-          <div>
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">{t('course_curriculum')}</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {t('organize_content_description')}
-            </p>
-          </div>
+          {!embedded && (
+            <div>
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">{t('course_curriculum')}</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {t('organize_content_description')}
+              </p>
+            </div>
+          )}
 
           {/* Add Content Dropdown */}
           <div className="relative">
@@ -1271,7 +1276,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
             <EmptyState
               icon={Layers}
               title={t('no_modules_yet')}
-              description={t('start_building_course')}
+              description={embedded ? '' : t('start_building_course')}
               action={{ label: t('add_module'), onClick: openAddModuleModal }}
             />
           )}
