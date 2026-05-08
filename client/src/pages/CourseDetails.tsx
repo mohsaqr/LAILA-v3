@@ -109,13 +109,7 @@ export const CourseDetails = () => {
     }
   }, [course?.id, isAuthenticated]);
 
-  // Scroll to module
-  const scrollToModule = (moduleId: number) => {
-    const element = moduleRefs.current[moduleId];
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
+  // (Module scroll-to helper removed — sidebar Modules card was retired.)
 
   if (isLoading) {
     return <Loading fullScreen text={t('loading_course')} />;
@@ -371,39 +365,6 @@ export const CourseDetails = () => {
           {hasAccess && (
             <div className="lg:w-96 flex-shrink-0">
               <div className="lg:sticky lg:top-4 space-y-4">
-                {/* Module Navigation */}
-                {course.modules && course.modules.length > 0 && (
-                  <Card>
-                    <CardBody className="p-4">
-                      <h3 className="font-semibold mb-3" style={{ color: colors.textPrimary }}>
-                        {t('modules')}
-                      </h3>
-                      <nav className="space-y-1">
-                        {course.modules.map((module, idx) => (
-                          <button
-                            key={module.id}
-                            onClick={() => { track('module_navigated', { verb: 'interacted', objectType: 'module', objectId: module.id, courseId: parseInt(id!) }); scrollToModule(module.id); }}
-                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-3"
-                          >
-                            <span
-                              className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
-                              style={{ backgroundColor: colors.bgPrimary, color: colors.textPrimary600 }}
-                            >
-                              {idx + 1}
-                            </span>
-                            <span
-                              className="text-sm truncate"
-                              style={{ color: colors.textPrimary }}
-                            >
-                              {module.title}
-                            </span>
-                          </button>
-                        ))}
-                      </nav>
-                    </CardBody>
-                  </Card>
-                )}
-
                 {/* Collaborative Module */}
                 <CollaborativeModule
                   courseId={parseInt(id!)}
