@@ -1,25 +1,19 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   FileText,
   Video,
   Trash2,
   ChevronUp,
   ChevronDown,
+  ChevronRight,
   Edit2,
-  FileEdit,
   Eye,
   EyeOff,
-  Download,
-  Pencil,
-  Check,
-  X,
 } from 'lucide-react';
 import { Assignment, Lecture } from '../../types';
 import { AssignmentItem } from './AssignmentItem';
-import { coursesApi } from '../../api/courses';
+import { BlockStream } from './lecture-blocks';
 
 interface LectureItemProps {
   lecture: Lecture;
@@ -51,36 +45,7 @@ export const LectureItem = ({
   onDeleteAssignment,
 }: LectureItemProps) => {
   const { t } = useTranslation(['teaching']);
-  const queryClient = useQueryClient();
-
-  // File rename state
-  const fileSections = lecture.sections?.filter(s => s.type === 'file' && s.fileUrl) || [];
-  const [editingFileSectionId, setEditingFileSectionId] = useState<number | null>(null);
-  const [editFileName, setEditFileName] = useState('');
-
-  const renameMutation = useMutation({
-    mutationFn: ({ sectionId, fileName }: { sectionId: number; fileName: string }) =>
-      coursesApi.updateSection(sectionId, { fileName }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
-      setEditingFileSectionId(null);
-    },
-  });
-
-  const handleFileDownload = async (url: string, name: string) => {
-    try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = name;
-      a.click();
-      URL.revokeObjectURL(objectUrl);
-    } catch {
-      window.open(url, '_blank');
-    }
-  };
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const getIcon = () => {
     switch (lecture.contentType) {
@@ -131,15 +96,17 @@ export const LectureItem = ({
       </div>
 
       <div className="flex items-center gap-1 flex-wrap justify-end sm:justify-start">
-      {/* Manage Content Button - opens lesson editor */}
-      <Link
-        to={`/teach/courses/${courseId}/lectures/${lecture.id}`}
+      {/* Manage Content — toggles inline block editor below */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setIsExpanded(o => !o); }}
         className="px-3 py-1.5 text-xs font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors flex items-center gap-1.5"
         title={t('manage_lesson_sections')}
+        aria-expanded={isExpanded}
       >
-        <FileEdit className="w-3.5 h-3.5" />
+        {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
         {t('manage_content')}
-      </Link>
+      </button>
 
       {/* Reorder buttons */}
       <div className="flex items-center gap-0.5">
@@ -194,78 +161,10 @@ export const LectureItem = ({
       </div>
     </div>
 
-    {/* File section display */}
-    {fileSections.length > 0 && (
-      <div className="ml-6 mt-1 grid grid-cols-2 gap-1.5">
-        {fileSections.map(fs => (
-          <div key={fs.id} className="flex items-center gap-2 p-2 rounded-md bg-green-50 border border-green-200">
-            <FileText className="w-4 h-4 text-green-600 flex-shrink-0" />
-            {editingFileSectionId === fs.id ? (
-              <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                <input
-                  type="text"
-                  value={editFileName}
-                  onChange={(e) => setEditFileName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && editFileName.trim()) {
-                      renameMutation.mutate({ sectionId: fs.id, fileName: editFileName.trim() });
-                      setEditingFileSectionId(null);
-                    }
-                    if (e.key === 'Escape') {
-                      setEditingFileSectionId(null);
-                    }
-                  }}
-                  className="flex-1 min-w-0 text-xs px-2 py-1 border border-green-300 rounded focus:outline-none focus:ring-1 focus:ring-green-500"
-                  autoFocus
-                />
-                <button
-                  onClick={() => {
-                    if (editFileName.trim()) {
-                      renameMutation.mutate({ sectionId: fs.id, fileName: editFileName.trim() });
-                      setEditingFileSectionId(null);
-                    }
-                  }}
-                  className="p-1 rounded hover:bg-green-100 transition-colors"
-                >
-                  <Check className="w-3.5 h-3.5 text-green-600" />
-                </button>
-                <button
-                  onClick={() => setEditingFileSectionId(null)}
-                  className="p-1 rounded hover:bg-gray-200 transition-colors"
-                >
-                  <X className="w-3.5 h-3.5 text-gray-500" />
-                </button>
-              </div>
-            ) : (
-              <>
-                <span className="text-xs text-green-800 truncate flex-1 min-w-0">
-                  {fs.fileName || t('file')}
-                </span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditFileName(fs.fileName || '');
-                    setEditingFileSectionId(fs.id);
-                  }}
-                  className="p-1 rounded hover:bg-green-100 transition-colors"
-                  title={t('edit_file_name')}
-                >
-                  <Pencil className="w-3 h-3 text-green-600" />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleFileDownload(fs.fileUrl!, fs.fileName || 'file');
-                  }}
-                  className="p-1 rounded hover:bg-green-100 transition-colors"
-                  title={t('download')}
-                >
-                  <Download className="w-3 h-3 text-green-600" />
-                </button>
-              </>
-            )}
-          </div>
-        ))}
+    {/* Inline block editor — replaces the dedicated /lectures/:id page */}
+    {isExpanded && (
+      <div className="mt-2 ml-2 mr-1 px-3 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+        <BlockStream lectureId={lecture.id} initialSections={lecture.sections ?? []} />
       </div>
     )}
 
