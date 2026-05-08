@@ -434,9 +434,19 @@ export const CourseForm = ({
     }
   }, [initialData]);
 
+  // Capture `onChange` in a ref so the effect below only re-fires when
+  // `formData` actually changes. If we depended on `onChange` directly,
+  // every parent re-render (which creates a fresh inline callback) would
+  // re-run the effect — and any side-effect baked into the parent's
+  // callback (e.g. clearing wizard validation errors) would fire on
+  // every render instead of only when the user typed.
+  const onChangeRef = useRef(onChange);
   useEffect(() => {
-    onChange?.(formData);
-  }, [formData, onChange]);
+    onChangeRef.current = onChange;
+  }, [onChange]);
+  useEffect(() => {
+    onChangeRef.current?.(formData);
+  }, [formData]);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
