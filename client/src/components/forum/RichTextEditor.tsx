@@ -19,9 +19,11 @@ interface RichTextEditorProps {
   disabled?: boolean;
   maxImageSizeKB?: number;
   editorClassName?: string;
+  /** When false, the outer rounded border is omitted. Default true. */
+  bordered?: boolean;
 }
 
-export const RichTextEditor = ({ value, onChange, placeholder = '', disabled = false, maxImageSizeKB = 500, editorClassName }: RichTextEditorProps) => {
+export const RichTextEditor = ({ value, onChange, placeholder = '', disabled = false, maxImageSizeKB = 500, editorClassName, bordered = true }: RichTextEditorProps) => {
   const { isDark } = useTheme();
   const imageInputRef = useRef<HTMLInputElement>(null);
 
@@ -112,7 +114,13 @@ export const RichTextEditor = ({ value, onChange, placeholder = '', disabled = f
   );
 
   return (
-    <div className="rounded-lg border overflow-hidden" style={{ borderColor: colors.border, backgroundColor: colors.bgInput }}>
+    <div
+      className={bordered ? 'rounded-lg border overflow-hidden' : 'overflow-hidden'}
+      style={{
+        borderColor: bordered ? colors.border : 'transparent',
+        backgroundColor: bordered ? colors.bgInput : 'transparent',
+      }}
+    >
       <div className="flex items-center gap-0.5 px-2 py-1.5 border-b flex-wrap" style={{ borderColor: colors.border, backgroundColor: colors.toolbarBg }}>
         <Btn onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive('bold')} title="Bold"><Bold size={16} /></Btn>
         <Btn onClick={() => editor.chain().focus().toggleItalic().run()} isActive={editor.isActive('italic')} title="Italic"><Italic size={16} /></Btn>

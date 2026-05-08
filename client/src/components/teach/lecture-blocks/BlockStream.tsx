@@ -228,7 +228,7 @@ export const BlockStream = ({ lectureId, initialSections }: BlockStreamProps) =>
   const blocks = useMemo(() => sections, [sections]);
 
   return (
-    <div className="-ml-2">
+    <div>
       {/* Top inserter (so you can prepend before the first block) */}
       <div
         onDragOver={onDragOverGap('top')}
@@ -237,7 +237,7 @@ export const BlockStream = ({ lectureId, initialSections }: BlockStreamProps) =>
       >
         <div
           aria-hidden="true"
-          className="h-0.5 mx-8 rounded-full transition-opacity"
+          className="h-0.5 rounded-full transition-opacity"
           style={{
             backgroundColor: '#0d9488',
             opacity: dropTargetId === 'top' ? 1 : 0,
@@ -262,9 +262,7 @@ export const BlockStream = ({ lectureId, initialSections }: BlockStreamProps) =>
           >
             {renderBlock(section)}
           </BlockShell>
-          <div className="pl-8 pr-2">
-            <InlineInserter onInsert={(type) => insertAt(i + 1, type)} />
-          </div>
+          <InlineInserter onInsert={(type) => insertAt(i + 1, type)} />
         </div>
       ))}
     </div>

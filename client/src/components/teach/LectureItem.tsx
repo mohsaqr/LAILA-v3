@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  FileText,
-  Video,
   Trash2,
   ChevronUp,
   ChevronDown,
@@ -47,52 +45,14 @@ export const LectureItem = ({
   const { t } = useTranslation(['teaching']);
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const getIcon = () => {
-    switch (lecture.contentType) {
-      case 'video':
-        return <Video className="w-4 h-4 text-red-500" />;
-      case 'mixed':
-        return <FileText className="w-4 h-4 text-purple-500" />;
-      default:
-        return <FileText className="w-4 h-4 text-blue-500" />;
-    }
-  };
-
   return (
     <div>
     <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
       <div className="flex items-center gap-3 flex-1 min-w-0">
-      <div className="flex items-center justify-center w-8 h-8 rounded bg-white border border-gray-200 flex-shrink-0">
-        {getIcon()}
-      </div>
-
-      {/* Lecture info */}
-      <div className="flex-1 min-w-0">
-        <h4 className="text-sm font-medium text-gray-900 truncate">
+        {/* Lecture title only — meta info (contentType / duration / draft) is intentionally hidden. */}
+        <h4 className="flex-1 min-w-0 text-sm font-medium text-gray-900 truncate">
           {lecture.title}
         </h4>
-        <div className="flex items-center gap-2 text-xs text-gray-500">
-          <span className="capitalize">{lecture.contentType}</span>
-          {lecture.duration && (
-            <>
-              <span>•</span>
-              <span>{lecture.duration} {t('min')}</span>
-            </>
-          )}
-          {lecture.isFree && (
-            <>
-              <span>•</span>
-              <span className="text-green-600">{t('free_preview')}</span>
-            </>
-          )}
-          {!lecture.isPublished && (
-            <>
-              <span>•</span>
-              <span className="text-amber-600">{t('draft')}</span>
-            </>
-          )}
-        </div>
-      </div>
       </div>
 
       <div className="flex items-center gap-1 flex-wrap justify-end sm:justify-start">
@@ -161,9 +121,10 @@ export const LectureItem = ({
       </div>
     </div>
 
-    {/* Inline block editor — replaces the dedicated /lectures/:id page */}
+    {/* Inline block editor — replaces the dedicated /lectures/:id page.
+        No wrapping card or border so the blocks sit flush in the parent. */}
     {isExpanded && (
-      <div className="mt-2 ml-2 mr-1 px-3 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+      <div className="mt-2">
         <BlockStream lectureId={lecture.id} initialSections={lecture.sections ?? []} />
       </div>
     )}
