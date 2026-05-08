@@ -129,11 +129,13 @@ export const CourseTutorManager = ({
     enabled: !!courseId,
   });
 
-  // Fetch available tutors
+  // Fetch available tutors. The standalone page only needs this when
+  // the Add modal opens; embedded mode (the wizard step) needs it on
+  // mount because the inline picker IS the entry point.
   const { data: availableTutors } = useQuery({
     queryKey: ['availableTutors', courseId],
     queryFn: () => courseTutorApi.getAvailableTutors(parseInt(courseId!)),
-    enabled: !!courseId && showAddModal,
+    enabled: !!courseId && (showAddModal || embedded),
   });
 
   // Fetch stats
