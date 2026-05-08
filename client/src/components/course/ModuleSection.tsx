@@ -197,9 +197,6 @@ export const ModuleSection = ({
       : []),
   ];
 
-  // Calculate content counts for module header
-  const contentCount = contentItems.length;
-
   // Get card size based on view mode
   const getCardSize = (): ContentCardSize => {
     switch (viewMode) {
@@ -337,12 +334,6 @@ export const ModuleSection = ({
           >
             {module.title}
           </span>
-          <span
-            className="text-sm"
-            style={{ color: colors.textSecondary }}
-          >
-            {t('x_items', { count: contentCount })}
-          </span>
         </button>
 
         {isExpanded && hasContent && (
@@ -405,12 +396,6 @@ export const ModuleSection = ({
                 {module.description}
               </p>
             )}
-            <p
-              className="text-xs sm:text-sm mt-1"
-              style={{ color: colors.textSecondary }}
-            >
-              {t('x_items', { count: contentCount })}
-            </p>
           </div>
         </div>
       </div>
