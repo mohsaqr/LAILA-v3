@@ -361,7 +361,7 @@
   "failed_to_delete_code_lab": "Error al eliminar laboratorio de código",
   "code_lab_title_required": "El título del laboratorio de código es obligatorio",
   "assignment_title": "Título de la tarea",
-  "assignment_title_placeholder": "ej., Tarea semana 1",
+  "assignment_title_placeholder": "Ingresa el título de la tarea",
   "assignment_description": "Descripción (opcional)",
   "assignment_description_placeholder": "Breve descripción de la tarea",
   "text_submission": "Entrega de texto",

@@ -361,7 +361,7 @@
   "failed_to_delete_code_lab": "فشل في حذف مختبر الكود",
   "code_lab_title_required": "عنوان مختبر الكود مطلوب",
   "assignment_title": "عنوان الواجب",
-  "assignment_title_placeholder": "مثال: واجب الأسبوع 1",
+  "assignment_title_placeholder": "أدخل عنوان الواجب",
   "assignment_description": "الوصف (اختياري)",
   "assignment_description_placeholder": "وصف موجز للواجب",
   "text_submission": "تسليم نصي",

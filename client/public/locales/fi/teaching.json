@@ -361,7 +361,7 @@
   "failed_to_delete_code_lab": "Koodilaborin poisto epäonnistui",
   "code_lab_title_required": "Koodilaborin otsikko vaaditaan",
   "assignment_title": "Tehtävän otsikko",
-  "assignment_title_placeholder": "esim., Viikko 1 tehtävä",
+  "assignment_title_placeholder": "Anna tehtävän otsikko",
   "assignment_description": "Kuvaus (valinnainen)",
   "assignment_description_placeholder": "Lyhyt kuvaus tehtävästä",
   "text_submission": "Tekstipalautus",
