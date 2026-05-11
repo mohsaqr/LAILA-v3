@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { GraduationCap, Users } from 'lucide-react';
+import { Activity, GraduationCap, Users } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
 import { activityLogger } from '../../services/activityLogger';
@@ -15,7 +15,6 @@ import {
   MonthlyEngagementChart,
   Skeleton,
   StatTile,
-  StatTilePlaceholder,
   WeeklyActivityChart,
   WelcomeCard,
   relativeTime,
@@ -23,12 +22,10 @@ import {
 import { adminApi, activityLogApi } from '../../api/admin';
 
 /**
- * Admin dashboard. Same visual chrome as the instructor dashboard,
- * scoped platform-wide: every user, every course. Two of the four KPI
- * tiles are intentional placeholders. The verb-stacked Activity
- * Timeline (existing TNA chart) and the recent signups / enrollments
- * lists are kept; the older quick-link tiles, growth dual-line chart,
- * and course-distribution donut are gone.
+ * Admin dashboard. Platform-wide overview — every user, every course.
+ * Four KPI tiles (users, courses, enrollments, activity logs) above a
+ * neutral quick-action button row that deep-links into admin
+ * sub-pages. Reserved button slots leave room for future shortcuts.
  */
 export const AdminDashboard = () => {
   const { t } = useTranslation(['admin', 'common', 'navigation']);
@@ -125,8 +122,20 @@ export const AdminDashboard = () => {
               color="violet"
               href="#course-overview"
             />
-            <StatTilePlaceholder label={t('common:tile_reserved', { defaultValue: 'Reserved' })} />
-            <StatTilePlaceholder label={t('common:tile_reserved', { defaultValue: 'Reserved' })} />
+            <StatTile
+              icon={GraduationCap}
+              label={t('admin:total_enrollments', { defaultValue: 'Total Enrollments' })}
+              value={overview?.kpis.totalEnrollments ?? '—'}
+              color="emerald"
+              href="/admin/settings?tab=enrollments"
+            />
+            <StatTile
+              icon={Activity}
+              label={t('admin:total_activity_logs', { defaultValue: 'Total Activity Logs' })}
+              value={overview?.kpis.totalActivityLogs ?? '—'}
+              color="amber"
+              href="/admin/logs"
+            />
           </div>
         </div>
 

@@ -609,6 +609,7 @@ model Assignment {
   reflectionRequirement String?                @map("reflection_requirement")
   postSurveyId          Int?                   @map("post_survey_id")
   postSurveyRequired    Boolean                @default(false) @map("post_survey_required")
+  orderIndex            Int                    @default(0) @map("order_index")
   designEvents          AgentDesignEventLog[]
   submissions           AssignmentSubmission[]
   postSurvey            Survey?                @relation("PostAssignmentSurvey", fields: [postSurveyId], references: [id])
@@ -1523,14 +1524,15 @@ model Survey {
 }
 
 model ModuleSurvey {
-  id       Int          @id @default(autoincrement())
-  courseId  Int          @map("course_id")
-  moduleId Int          @map("module_id")
-  surveyId Int          @map("survey_id")
-  addedAt  DateTime     @default(now()) @map("added_at")
-  course   Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  module   CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  survey   Survey       @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  id         Int          @id @default(autoincrement())
+  courseId   Int          @map("course_id")
+  moduleId   Int          @map("module_id")
+  surveyId   Int          @map("survey_id")
+  orderIndex Int          @default(0) @map("order_index")
+  addedAt    DateTime     @default(now()) @map("added_at")
+  course     Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  module     CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  survey     Survey       @relation(fields: [surveyId], references: [id], onDelete: Cascade)
 
   @@unique([moduleId, surveyId])
   @@index([courseId])
@@ -1722,6 +1724,7 @@ model Quiz {
   isPublished      Boolean        @default(false) @map("is_published")
   dueDate          DateTime?      @map("due_date")
   availableFrom    DateTime?      @map("available_from")
+  orderIndex       Int            @default(0) @map("order_index")
   createdAt        DateTime       @default(now()) @map("created_at")
   updatedAt        DateTime       @updatedAt @map("updated_at")
   attempts         QuizAttempt[]

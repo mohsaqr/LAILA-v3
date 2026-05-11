@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Settings,
-  Shield,
   Menu,
   X,
   LogOut,
@@ -12,7 +11,6 @@ import {
   Eye,
   EyeOff,
   Globe,
-  LayoutDashboard,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
@@ -30,7 +28,7 @@ interface NavbarProps {
 
 export const Navbar = ({ onMenuClick }: NavbarProps = {}) => {
   const { t } = useTranslation(['navigation', 'common']);
-  const { user, isAuthenticated, isAdmin, isActualAdmin, isActualInstructor, viewAsRole, setViewAs, isViewingAs, logout } = useAuth();
+  const { user, isAuthenticated, isActualAdmin, isActualInstructor, viewAsRole, setViewAs, isViewingAs, logout } = useAuth();
   const { isDark } = useTheme();
   const { language: currentLanguage, setLanguage } = useLanguageStore();
   const location = useLocation();
@@ -83,12 +81,7 @@ export const Navbar = ({ onMenuClick }: NavbarProps = {}) => {
         { role: 'student', label: t('navigation:view_as_student'), description: t('navigation:test_student_view') },
       ];
 
-  const navItems = isAdmin
-    ? [
-        { path: '/admin', label: t('admin'), icon: Shield, exact: true },
-        { path: '/dashboard', label: t('dashboard'), icon: LayoutDashboard },
-      ]
-    : [];
+  const navItems: { path: string; label: string; icon: React.ComponentType<{ className?: string }>; exact?: boolean }[] = [];
 
   const handleLanguageChange = (lang: SupportedLanguage) => {
     setLanguage(lang);

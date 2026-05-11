@@ -24,6 +24,7 @@ import { ContentStep } from '../../components/teach/wizard/ContentStep';
 import { TutorsStep } from '../../components/teach/wizard/TutorsStep';
 import { TeamStep } from '../../components/teach/wizard/TeamStep';
 import { PublishStep } from '../../components/teach/wizard/PublishStep';
+import { CourseResourcesBar } from '../../components/teach/wizard/CourseResourcesBar';
 import {
   STEP_ORDER,
   computeUnlockedSteps,
@@ -85,6 +86,13 @@ export const CourseCreateWizard = () => {
   const { data: roles = [] } = useQuery({
     queryKey: ['courseRoles', courseId],
     queryFn: () => courseRolesApi.getCourseRoles(courseId!),
+    enabled: courseId != null,
+  });
+
+  // Drives both the in-Content sub-tabs and the persistent Resources bar.
+  const { data: resourceCounts } = useQuery({
+    queryKey: ['courseResourceCounts', courseId],
+    queryFn: () => coursesApi.getResourceCounts(courseId!),
     enabled: courseId != null,
   });
 
@@ -276,6 +284,10 @@ export const CourseCreateWizard = () => {
           <Breadcrumb items={breadcrumb} />
         </div>
 
+        {courseId != null && (
+          <CourseResourcesBar courseId={courseId} counts={resourceCounts} />
+        )}
+
         <div className="mb-6 md:mb-8">
           <Stepper
             steps={steps}
@@ -302,7 +314,7 @@ export const CourseCreateWizard = () => {
           )}
 
           {activeStep === 'content' && courseId != null && (
-            <ContentStep courseId={courseId} />
+            <ContentStep courseId={courseId} resourceCounts={resourceCounts} />
           )}
 
           {activeStep === 'tutors' && courseId != null && (

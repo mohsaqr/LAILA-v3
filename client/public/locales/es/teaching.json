@@ -317,7 +317,7 @@
   "add_lesson": "Añadir lección",
   "edit_lesson": "Editar lección",
   "lesson_title": "Título de la lección",
-  "lesson_title_placeholder": "ej., Primeros pasos",
+  "lesson_title_placeholder": "Ingresa el título de la lección",
   "content_type_label": "Tipo de contenido",
   "text_article": "Texto / Artículo",
   "mixed_content": "Contenido mixto",
@@ -1216,7 +1216,9 @@
   "difficulty_required": "Elige un nivel de dificultad.",
   "please_fix_errors": "Corrige los errores resaltados.",
   "setup": "Configuración",
+  "course_resources": "Recursos del curso",
   "modules": "Módulos",
+  "module": "Módulo",
   "lectures_one": "lección",
   "lectures_other": "lecciones"
 }

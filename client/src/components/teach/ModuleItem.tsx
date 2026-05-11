@@ -5,22 +5,18 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
   ChevronDown,
-  ChevronRight,
   Edit,
   Trash2,
   Plus,
   ChevronUp,
   Eye,
   EyeOff,
-  ClipboardList,
   FileText,
   FileImage,
   FileVideo,
   FileAudio,
   FileArchive,
   Upload,
-  Sparkles,
-  MessageCircle,
   Beaker,
   ExternalLink,
   Network,
@@ -28,7 +24,7 @@ import {
   Pencil,
   X,
   Search,
-  ListChecks,
+  ClipboardCheck,
   FileQuestion,
   CheckCircle2,
 } from 'lucide-react';
@@ -113,24 +109,24 @@ export const ModuleItem = ({
   onEditLecture,
   onDeleteLecture,
   onToggleLecturePublish,
-  onMoveLectureUp,
-  onMoveLectureDown,
+  onMoveLectureUp: _onMoveLectureUp,
+  onMoveLectureDown: _onMoveLectureDown,
   onAddCodeLab,
   onEditCodeLab,
   onDeleteCodeLab,
-  onMoveCodeLabUp,
-  onMoveCodeLabDown,
+  onMoveCodeLabUp: _onMoveCodeLabUp,
+  onMoveCodeLabDown: _onMoveCodeLabDown,
   onAddAssignment,
   onEditAssignment,
   onDeleteAssignment,
-  onMoveAssignmentUp,
-  onMoveAssignmentDown,
+  onMoveAssignmentUp: _onMoveAssignmentUp,
+  onMoveAssignmentDown: _onMoveAssignmentDown,
   onRemoveLabAssignment,
   onAddForum,
   onEditForum,
   onDeleteForum,
-  onMoveForumUp,
-  onMoveForumDown,
+  onMoveForumUp: _onMoveForumUp,
+  onMoveForumDown: _onMoveForumDown,
   onRemoveInteractiveLab,
   onAddQuiz,
   onDeleteQuiz,
@@ -339,6 +335,46 @@ export const ModuleItem = ({
     ? module.interactiveLabs.split(',').map(s => s.trim()).filter(Boolean)
     : [];
 
+  // Unified flat ordering for the 6 reorderable item types. Each entry
+  // carries its type tag, its DB id (for the reorder endpoint), its
+  // current orderIndex, and the underlying data. Sorted globally by
+  // orderIndex with id as a stable tiebreaker.
+  type FlatItem =
+    | { type: 'lecture'; id: number; orderIndex: number; data: Lecture }
+    | { type: 'codelab'; id: number; orderIndex: number; data: CodeLab }
+    | { type: 'assignment'; id: number; orderIndex: number; data: Assignment }
+    | { type: 'forum'; id: number; orderIndex: number; data: Forum }
+    | { type: 'quiz'; id: number; orderIndex: number; data: ModuleQuiz }
+    | { type: 'survey'; id: number; orderIndex: number; data: ModuleSurvey };
+  const flatItems: FlatItem[] = useMemo(() => {
+    const items: FlatItem[] = [
+      ...lectures.map(l => ({ type: 'lecture' as const, id: l.id, orderIndex: l.orderIndex ?? 0, data: l })),
+      ...codeLabs.map(c => ({ type: 'codelab' as const, id: c.id, orderIndex: c.orderIndex ?? 0, data: c })),
+      ...assignments.map(a => ({ type: 'assignment' as const, id: a.id, orderIndex: (a as any).orderIndex ?? 0, data: a })),
+      ...forums.map(f => ({ type: 'forum' as const, id: f.id, orderIndex: f.orderIndex ?? 0, data: f })),
+      ...quizzes.map(q => ({ type: 'quiz' as const, id: q.id, orderIndex: (q as any).orderIndex ?? 0, data: q })),
+      ...moduleSurveys.map((ms: any) => ({ type: 'survey' as const, id: ms.id, orderIndex: ms.orderIndex ?? 0, data: ms })),
+    ];
+    return items.sort((a, b) => (a.orderIndex - b.orderIndex) || (a.id - b.id));
+  }, [lectures, codeLabs, assignments, forums, quizzes, moduleSurveys]);
+
+  const reorderItemsMutation = useMutation({
+    mutationFn: (items: { type: 'lecture' | 'codelab' | 'assignment' | 'forum' | 'quiz' | 'survey'; id: number }[]) =>
+      coursesApi.reorderModuleItems(module.id, items),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+    },
+    onError: () => toast.error(t('failed_to_reorder_modules', { defaultValue: 'Failed to reorder items' })),
+  });
+
+  const moveFlatItem = (currentIndex: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= flatItems.length) return;
+    const reordered = [...flatItems];
+    [reordered[currentIndex], reordered[targetIndex]] = [reordered[targetIndex], reordered[currentIndex]];
+    reorderItemsMutation.mutate(reordered.map(i => ({ type: i.type, id: i.id })));
+  };
+
   // Uploaded file card derived values (only meaningful when uploadedFile != null)
   const fileExt = uploadedFile
     ? (uploadedFile.type || uploadedFile.name.split('.').pop() || '').toLowerCase()
@@ -366,65 +402,73 @@ export const ModuleItem = ({
   };
 
   return (
-    <div className="border border-gray-200 rounded-lg bg-white">
-      {/* Module Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 bg-gray-50 rounded-t-lg">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
+    <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm border border-teal-100 dark:border-teal-900/40 overflow-hidden">
+      {/* Module Header — card hero. Distinct shape, gradient, and "Module"
+          chip make this read as a container rather than a lesson row. */}
+      <div className="relative flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-teal-50 to-cyan-50 dark:from-teal-900/20 dark:to-cyan-900/20 border-b border-teal-100 dark:border-teal-900/40">
+        {/* Decorative dot texture, like dashboard StatTile cards. */}
+        <svg
+          className="absolute -top-2 -right-2 w-20 h-20 opacity-25 pointer-events-none"
+          viewBox="0 0 60 60"
+          aria-hidden="true"
+        >
+          {[0, 1, 2, 3].flatMap(r =>
+            [0, 1, 2, 3].map(col => (
+              <circle key={`m-${r}-${col}`} cx={6 + col * 16} cy={6 + r * 16} r={1.4} fill="#088F8F" />
+            ))
+          )}
+        </svg>
+
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="p-1 rounded hover:bg-gray-200 transition-colors flex-shrink-0"
+          className="relative w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-105 flex-shrink-0 font-bold text-lg"
+          style={{ backgroundColor: 'rgba(8, 143, 143, 0.18)', color: '#066d6d' }}
+          title={isExpanded ? t('collapse', { defaultValue: 'Collapse' }) : t('expand', { defaultValue: 'Expand' })}
+          aria-expanded={isExpanded}
         >
-          {isExpanded ? (
-            <ChevronDown className="w-5 h-5 text-gray-500" />
-          ) : (
-            <ChevronRight className="w-5 h-5 text-gray-500" />
-          )}
+          {(module.orderIndex ?? 0) + 1}
         </button>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h3 className="font-medium text-gray-900 truncate">{module.title}</h3>
-            {module.label && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-100 text-primary-700">
-                {module.label}
-              </span>
-            )}
+        <div className="relative flex-1 min-w-0">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-300 mb-0.5">
+            {t('module', { defaultValue: 'Module' })}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-base font-bold text-gray-900 dark:text-white truncate">
+              {module.title}
+            </h3>
             {!module.isPublished && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-800/50 dark:text-amber-200">
                 {t('draft')}
               </span>
             )}
           </div>
         </div>
-        </div>
 
-        <div className="flex items-center gap-1 flex-wrap justify-end sm:justify-start">
-        {/* Reorder buttons */}
-        <div className="flex items-center gap-1">
+        <div className="relative flex items-center gap-1 flex-shrink-0">
+          {/* Reorder buttons */}
           <button
             onClick={() => onMoveUp(module)}
             disabled={isFirst}
-            className="p-1.5 rounded hover:bg-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-1.5 rounded-lg hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             title={t('move_up')}
           >
-            <ChevronUp className="w-4 h-4 text-gray-500" />
+            <ChevronUp className="w-4 h-4 text-teal-700 dark:text-teal-300" />
           </button>
           <button
             onClick={() => onMoveDown(module)}
             disabled={isLast}
-            className="p-1.5 rounded hover:bg-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-1.5 rounded-lg hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             title={t('move_down')}
           >
-            <ChevronDown className="w-4 h-4 text-gray-500" />
+            <ChevronDown className="w-4 h-4 text-teal-700 dark:text-teal-300" />
           </button>
-        </div>
 
-        {/* Action buttons */}
-        <div className="flex items-center gap-1">
+          {/* Action buttons */}
           {onTogglePublish && (
             <button
               onClick={() => onTogglePublish(module)}
-              className={`p-1.5 rounded transition-colors ${module.isPublished ? 'hover:bg-amber-100' : 'hover:bg-green-100'}`}
+              className={`p-1.5 rounded-lg transition-colors ${module.isPublished ? 'hover:bg-amber-100 dark:hover:bg-amber-900/30' : 'hover:bg-green-100 dark:hover:bg-green-900/30'}`}
               title={module.isPublished ? t('unpublish_module') : t('publish_module')}
             >
               {module.isPublished ? (
@@ -436,19 +480,18 @@ export const ModuleItem = ({
           )}
           <button
             onClick={() => onEdit(module)}
-            className="p-1.5 rounded hover:bg-gray-200 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-colors"
             title={t('edit_module')}
           >
-            <Edit className="w-4 h-4 text-gray-500" />
+            <Edit className="w-4 h-4 text-teal-700 dark:text-teal-300" />
           </button>
           <button
             onClick={() => onDelete(module)}
-            className="p-1.5 rounded hover:bg-red-100 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
             title={t('delete_module')}
           >
             <Trash2 className="w-4 h-4 text-red-500" />
           </button>
-        </div>
         </div>
       </div>
 
@@ -490,131 +533,226 @@ export const ModuleItem = ({
             </div>
           )}
 
-          {/* Lectures with inline add options */}
-          {lectures.length > 0 ? (
-            lectures
-              .sort((a, b) => a.orderIndex - b.orderIndex)
-              .map((lecture, index) => (
-                <div key={lecture.id}>
-                  <LectureItem
-                    lecture={lecture}
-                    courseId={courseId}
-                    isFirst={index === 0}
-                    isLast={index === lectures.length - 1}
-                    onEdit={onEditLecture}
-                    onDelete={onDeleteLecture}
-                    onTogglePublish={onToggleLecturePublish}
-                    onMoveUp={() => onMoveLectureUp(lecture, module)}
-                    onMoveDown={() => onMoveLectureDown(lecture, module)}
-                    assignments={lectureAssignments[lecture.id] || []}
-                    onEditAssignment={onEditAssignment}
-                    onDeleteAssignment={onDeleteAssignment}
-                  />
-                  {/* Inline add options — only for empty lectures (no sections) */}
-                  {(!lecture.sections || lecture.sections.length === 0) && (
-                    <div className="flex items-center gap-1.5 py-2 px-3 ml-6 border-l-2 border-dashed border-gray-200 flex-wrap">
-                      <span className="text-xs text-gray-400 mr-1">{t('add')}:</span>
-                      <Link
-                        to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=text`}
-                        className="text-xs px-2 py-1 rounded-md border border-blue-200 hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1"
-                        title={t('add_text_section')}
-                      >
-                        <FileText className="w-3 h-3" />
-                        {t('section_type_text')}
-                      </Link>
-                      <button
-                        onClick={() => setFileUploadLectureId(lecture.id)}
-                        className="text-xs px-2 py-1 rounded-md border border-green-200 hover:bg-green-50 text-green-600 hover:text-green-700 transition-colors flex items-center gap-1"
-                        title={t('add_file_section')}
-                      >
-                        <Upload className="w-3 h-3" />
-                        {t('section_type_file')}
-                      </button>
-                      <Link
-                        to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=ai-generated`}
-                        className="text-xs px-2 py-1 rounded-md border border-purple-200 hover:bg-purple-50 text-purple-600 hover:text-purple-700 transition-colors flex items-center gap-1"
-                        title={t('add_ai_section')}
-                      >
-                        <Sparkles className="w-3 h-3" />
-                        {t('section_type_ai')}
-                      </Link>
-                      <Link
-                        to={`/teach/courses/${courseId}/lectures/${lecture.id}?addSection=chatbot`}
-                        className="text-xs px-2 py-1 rounded-md border border-orange-200 hover:bg-orange-50 text-orange-600 hover:text-orange-700 transition-colors flex items-center gap-1"
-                        title={t('add_chatbot_section')}
-                      >
-                        <MessageCircle className="w-3 h-3" />
-                        {t('section_type_chatbot')}
-                      </Link>
-                      <button
-                        onClick={() => setAssignmentLectureId(lecture.id)}
-                        className="text-xs px-2 py-1 rounded-md border border-rose-200 hover:bg-rose-50 text-rose-600 hover:text-rose-700 transition-colors flex items-center gap-1"
-                        title={t('add_assignment')}
-                      >
-                        <ClipboardList className="w-3 h-3" />
-                        {t('assignment')}
-                      </button>
+          {/* Unified flat list — lessons interleaved with assignments,
+              forums, quizzes, etc. Up/down buttons swap any two adjacent
+              items regardless of type and persist the new orderIndex
+              across all six types via /reorder-items. */}
+          {flatItems.length > 0 ? (
+            <div className="space-y-2">
+              {flatItems.map((item, index) => {
+                const isFirstInFlat = index === 0;
+                const isLastInFlat = index === flatItems.length - 1;
+                const handleMoveUp = () => moveFlatItem(index, 'up');
+                const handleMoveDown = () => moveFlatItem(index, 'down');
+
+                if (item.type === 'lecture') {
+                  const lecture = item.data;
+                  return (
+                    <LectureItem
+                      key={`lecture-${lecture.id}`}
+                      lecture={lecture}
+                      courseId={courseId}
+                      isFirst={isFirstInFlat}
+                      isLast={isLastInFlat}
+                      onEdit={onEditLecture}
+                      onDelete={onDeleteLecture}
+                      onTogglePublish={onToggleLecturePublish}
+                      onMoveUp={handleMoveUp}
+                      onMoveDown={handleMoveDown}
+                      assignments={lectureAssignments[lecture.id] || []}
+                      onEditAssignment={onEditAssignment}
+                      onDeleteAssignment={onDeleteAssignment}
+                    />
+                  );
+                }
+                if (item.type === 'codelab') {
+                  const codeLab = item.data;
+                  return (
+                    <CodeLabItem
+                      key={`codelab-${codeLab.id}`}
+                      codeLab={codeLab}
+                      courseId={courseId}
+                      isFirst={isFirstInFlat}
+                      isLast={isLastInFlat}
+                      onEdit={onEditCodeLab}
+                      onDelete={onDeleteCodeLab}
+                      onMoveUp={handleMoveUp}
+                      onMoveDown={handleMoveDown}
+                    />
+                  );
+                }
+                if (item.type === 'assignment') {
+                  const assignment = item.data;
+                  return (
+                    <AssignmentItem
+                      key={`assign-${assignment.id}`}
+                      assignment={assignment}
+                      courseId={courseId}
+                      isFirst={isFirstInFlat}
+                      isLast={isLastInFlat}
+                      onEdit={onEditAssignment}
+                      onDelete={onDeleteAssignment}
+                      onMoveUp={handleMoveUp}
+                      onMoveDown={handleMoveDown}
+                    />
+                  );
+                }
+                if (item.type === 'forum' && onEditForum && onDeleteForum) {
+                  const forum = item.data;
+                  return (
+                    <ForumItem
+                      key={`forum-${forum.id}`}
+                      forum={forum}
+                      courseId={courseId}
+                      isFirst={isFirstInFlat}
+                      isLast={isLastInFlat}
+                      onEdit={onEditForum}
+                      onDelete={onDeleteForum}
+                      onMoveUp={handleMoveUp}
+                      onMoveDown={handleMoveDown}
+                    />
+                  );
+                }
+                if (item.type === 'quiz') {
+                  const quiz = item.data;
+                  return (
+                    <div
+                      key={`quiz-${quiz.id}`}
+                      className="flex items-center gap-3 p-3 min-h-[64px] bg-cyan-50 dark:bg-cyan-900/20 rounded-lg hover:bg-cyan-100 dark:hover:bg-cyan-900/30 transition-colors"
+                    >
+                      <div className="flex items-center justify-center w-8 h-8 rounded bg-white border border-cyan-200 flex-shrink-0">
+                        <FileQuestion className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <Link
+                          to={`/teach/courses/${courseId}/quizzes/${quiz.id}`}
+                          className="block text-sm font-medium text-gray-900 dark:text-white truncate hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
+                        >
+                          {quiz.title}
+                        </Link>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500">
+                          <span className="text-cyan-600 font-medium">{t('quiz_singular', { defaultValue: 'Quiz' })}</span>
+                          <span>•</span>
+                          <span>{quiz._count?.questions || 0} {t('questions')}</span>
+                          {!quiz.isPublished && (
+                            <>
+                              <span>•</span>
+                              <span className="text-amber-600">{t('draft')}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          onClick={handleMoveUp}
+                          disabled={isFirstInFlat}
+                          className="p-1 rounded hover:bg-cyan-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={t('move_up')}
+                        >
+                          <ChevronUp className="w-4 h-4 text-gray-500" />
+                        </button>
+                        <button
+                          onClick={handleMoveDown}
+                          disabled={isLastInFlat}
+                          className="p-1 rounded hover:bg-cyan-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={t('move_down')}
+                        >
+                          <ChevronDown className="w-4 h-4 text-gray-500" />
+                        </button>
+                        {onDeleteQuiz && (
+                          <button
+                            onClick={() => onDeleteQuiz(quiz)}
+                            className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                            title={t('delete_quiz')}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-              ))
+                  );
+                }
+                if (item.type === 'survey') {
+                  const ms: any = item.data;
+                  return (
+                    <div
+                      key={`survey-${ms.id}`}
+                      className="flex items-center gap-3 p-3 min-h-[64px] rounded-lg bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors"
+                    >
+                      <div className="flex items-center justify-center w-8 h-8 rounded bg-white border border-indigo-200 flex-shrink-0">
+                        <ClipboardCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                          {ms.survey.title}
+                        </h4>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500">
+                          <span className="text-indigo-600 font-medium">{t('survey_singular', { defaultValue: 'Survey' })}</span>
+                          <span>•</span>
+                          <span>{ms.survey._count?.questions || 0} {t('questions')}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          onClick={handleMoveUp}
+                          disabled={isFirstInFlat}
+                          className="p-1 rounded hover:bg-indigo-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={t('move_up')}
+                        >
+                          <ChevronUp className="w-4 h-4 text-gray-500" />
+                        </button>
+                        <button
+                          onClick={handleMoveDown}
+                          disabled={isLastInFlat}
+                          className="p-1 rounded hover:bg-indigo-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={t('move_down')}
+                        >
+                          <ChevronDown className="w-4 h-4 text-gray-500" />
+                        </button>
+                        <button
+                          onClick={() => removeSurveyMutation.mutate(ms.survey.id)}
+                          className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                          title={t('remove_from_module')}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })}
+            </div>
           ) : (
             <p className="text-sm text-gray-400 text-center py-4">
               {t('no_lessons_yet')}
             </p>
           )}
 
-          {/* Code Labs */}
-          {codeLabs.length > 0 && (
-            <div className="pt-2 border-t border-gray-100 mt-2 space-y-2">
-              {codeLabs
-                .sort((a, b) => a.orderIndex - b.orderIndex)
-                .map((codeLab, index) => (
-                  <CodeLabItem
-                    key={codeLab.id}
-                    codeLab={codeLab}
-                    courseId={courseId}
-                    isFirst={index === 0}
-                    isLast={index === codeLabs.length - 1}
-                    onEdit={onEditCodeLab}
-                    onDelete={onDeleteCodeLab}
-                    onMoveUp={() => onMoveCodeLabUp(codeLab, module)}
-                    onMoveDown={() => onMoveCodeLabDown(codeLab, module)}
-                  />
-                ))}
-            </div>
-          )}
-
-          {/* Lab Templates (Custom Labs) */}
-          {labAssignments.length > 0 && (
+          {/* Lab templates and interactive labs render as a separate
+              auxiliary section — they don't carry a reorderable
+              orderIndex, so they live below the unified list. */}
+          {(labAssignments.length + interactiveLabKeys.length) > 0 && (
             <div className="pt-2 border-t border-gray-100 mt-2 space-y-2">
               {labAssignments.map(labAssignment => (
                 <div
-                  key={labAssignment.id}
-                  className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 rounded-lg bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800"
+                  key={`labassign-${labAssignment.id}`}
+                  className="flex items-center gap-3 p-3 min-h-[64px] rounded-lg bg-teal-50 dark:bg-teal-900/20 hover:bg-teal-100 dark:hover:bg-teal-900/30 transition-colors"
                 >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <Beaker className="w-5 h-5 text-teal-600 dark:text-teal-400 flex-shrink-0" />
+                  <div className="flex items-center justify-center w-8 h-8 rounded bg-white border border-teal-200 flex-shrink-0">
+                    <Beaker className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900 dark:text-white truncate">
-                        {labAssignment.lab?.name || t('lab_template')}
-                      </span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-800 text-teal-700 dark:text-teal-300">
-                        {labAssignment.lab?.labType}
-                      </span>
+                    <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      {labAssignment.lab?.name || t('lab_template')}
+                    </h4>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500">
+                      <span className="text-teal-600 font-medium">{labAssignment.lab?.labType || t('lab_template')}</span>
+                      <span>•</span>
+                      <span>{t('x_templates', { count: labAssignment.lab?._count?.templates || labAssignment.lab?.templates?.length || 0 })}</span>
                     </div>
-                    {labAssignment.lab?.description && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                        {labAssignment.lab.description}
-                      </p>
-                    )}
-                    <span className="text-xs text-gray-400">
-                      {t('x_templates', { count: labAssignment.lab?._count?.templates || labAssignment.lab?.templates?.length || 0 })}
-                    </span>
                   </div>
-                  </div>
-                  <div className="flex items-center gap-1 flex-wrap justify-end sm:justify-start">
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     <Link
                       to={`/labs/${labAssignment.labId}?courseId=${courseId}`}
                       className="p-1.5 rounded hover:bg-teal-100 dark:hover:bg-teal-800 transition-colors"
@@ -634,151 +772,34 @@ export const ModuleItem = ({
                   </div>
                 </div>
               ))}
-            </div>
-          )}
 
-          {/* Assignments */}
-          {assignments.length > 0 && (
-            <div className="pt-2 border-t border-gray-100 mt-2 space-y-2">
-              {assignments
-                .sort((a, b) => (a.id || 0) - (b.id || 0))
-                .map((assignment, index) => (
-                  <AssignmentItem
-                    key={assignment.id}
-                    assignment={assignment}
-                    courseId={courseId}
-                    isFirst={index === 0}
-                    isLast={index === assignments.length - 1}
-                    onEdit={onEditAssignment}
-                    onDelete={onDeleteAssignment}
-                    onMoveUp={() => onMoveAssignmentUp(assignment, module)}
-                    onMoveDown={() => onMoveAssignmentDown(assignment, module)}
-                  />
-                ))}
-            </div>
-          )}
-
-          {/* Forums */}
-          {forums.length > 0 && onEditForum && onDeleteForum && (
-            <div className="pt-2 border-t border-gray-100 mt-2 space-y-2">
-              {forums
-                .sort((a, b) => a.orderIndex - b.orderIndex)
-                .map((forum, index) => (
-                  <ForumItem
-                    key={forum.id}
-                    forum={forum}
-                    courseId={courseId}
-                    isFirst={index === 0}
-                    isLast={index === forums.length - 1}
-                    onEdit={onEditForum}
-                    onDelete={onDeleteForum}
-                    onMoveUp={() => onMoveForumUp?.(forum, module)}
-                    onMoveDown={() => onMoveForumDown?.(forum, module)}
-                  />
-                ))}
-            </div>
-          )}
-
-          {/* Quizzes */}
-          {quizzes.length > 0 && (
-            <div className="pt-2 border-t border-gray-100 mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-              {quizzes.map(quiz => (
-                <div
-                  key={quiz.id}
-                  className="flex items-center gap-3 p-3 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg hover:bg-cyan-100 dark:hover:bg-cyan-900/30 transition-colors"
-                >
-                  <FileQuestion className="w-4 h-4 text-cyan-600 dark:text-cyan-400 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <Link
-                        to={`/teach/courses/${courseId}/quizzes/${quiz.id}`}
-                        className="text-sm font-medium text-gray-900 dark:text-white truncate hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
-                      >
-                        {quiz.title}
-                      </Link>
-                      <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                        quiz.isPublished
-                          ? 'bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300'
-                          : 'bg-amber-100 dark:bg-amber-800 text-amber-700 dark:text-amber-300'
-                      }`}>
-                        {quiz.isPublished ? t('published') : t('draft')}
-                      </span>
-                    </div>
-                  </div>
-                  <span className="text-xs text-gray-400 flex-shrink-0">
-                    {quiz._count?.questions || 0} {t('questions')}
-                  </span>
-                  {onDeleteQuiz && (
-                    <button
-                      onClick={() => onDeleteQuiz(quiz)}
-                      className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                      title={t('delete_quiz')}
-                    >
-                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Interactive Labs */}
-          {interactiveLabKeys.length > 0 && (
-            <div className="pt-2 border-t border-gray-100 mt-2 space-y-2">
               {interactiveLabKeys.map(labKey => (
                 <div
-                  key={labKey}
-                  className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 rounded-lg bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800"
+                  key={`ilab-${labKey}`}
+                  className="flex items-center gap-3 p-3 min-h-[64px] rounded-lg bg-violet-50 dark:bg-violet-900/20 hover:bg-violet-100 dark:hover:bg-violet-900/30 transition-colors"
                 >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <Network className="w-5 h-5 text-violet-600 dark:text-violet-400 flex-shrink-0" />
-                  <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-gray-900 dark:text-white truncate">
-                      {labKey === 'tna' ? t('interactive_lab_tna') : labKey === 'sna' ? t('interactive_lab_sna') : labKey}
-                    </span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-800 text-violet-700 dark:text-violet-300">
-                      {t('interactive')}
-                    </span>
+                  <div className="flex items-center justify-center w-8 h-8 rounded bg-white border border-violet-200 flex-shrink-0">
+                    <Network className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      {labKey === 'tna' ? t('interactive_lab_tna') : labKey === 'sna' ? t('interactive_lab_sna') : labKey}
+                    </h4>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500">
+                      <span className="text-violet-600 font-medium">{t('interactive')}</span>
+                    </div>
                   </div>
                   {onRemoveInteractiveLab && (
-                    <button
-                      onClick={() => onRemoveInteractiveLab(module, labKey)}
-                      className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                      title={t('remove_from_module')}
-                    >
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </button>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => onRemoveInteractiveLab(module, labKey)}
+                        className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                        title={t('remove_from_module')}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </button>
+                    </div>
                   )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Surveys */}
-          {moduleSurveys.length > 0 && (
-            <div className="pt-2 border-t border-gray-100 mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-              {moduleSurveys.map((ms: any) => (
-                <div
-                  key={ms.id}
-                  className="flex items-center gap-2 p-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800"
-                >
-                  <ListChecks className="w-4 h-4 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white truncate block">
-                      {ms.survey.title}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {ms.survey._count?.questions || 0} {t('questions')}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => removeSurveyMutation.mutate(ms.survey.id)}
-                    className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                    title={t('remove_from_module')}
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-red-500" />
-                  </button>
                 </div>
               ))}
             </div>
@@ -1107,7 +1128,7 @@ export const ModuleItem = ({
                   disabled={addSurveyMutation.isPending}
                   className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left transition-colors text-gray-700 hover:bg-indigo-50"
                 >
-                  <ListChecks className="w-4 h-4 text-indigo-500 shrink-0" />
+                  <ClipboardCheck className="w-4 h-4 text-indigo-500 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <span className="font-medium truncate block">{survey.title}</span>
                     <span className="text-xs text-gray-400">{survey._count?.questions || 0} {t('questions')}</span>

@@ -26,6 +26,8 @@ router.get('/dashboard-overview', asyncHandler(async (_req: AuthRequest, res: Re
   const [
     totalUsers,
     totalCourses,
+    totalEnrollments,
+    totalActivityLogs,
     monthly,
     courseCompletion,
     recentUsers,
@@ -33,6 +35,8 @@ router.get('/dashboard-overview', asyncHandler(async (_req: AuthRequest, res: Re
   ] = await Promise.all([
     prisma.user.count(),
     prisma.course.count(),
+    prisma.enrollment.count(),
+    prisma.learningActivityLog.count(),
     computeMonthlyEngagement(null), // platform-wide (no course filter)
     computeCourseCompletion({ instructorId: null, limit: 10 }),
     prisma.user.findMany({
@@ -53,7 +57,7 @@ router.get('/dashboard-overview', asyncHandler(async (_req: AuthRequest, res: Re
   res.json({
     success: true,
     data: {
-      kpis: { totalUsers, totalCourses },
+      kpis: { totalUsers, totalCourses, totalEnrollments, totalActivityLogs },
       engagement: monthly.engagement,
       activityByVerb: monthly.activityByVerb,
       courseCompletion,

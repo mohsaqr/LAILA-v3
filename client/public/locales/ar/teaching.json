@@ -317,7 +317,7 @@
   "add_lesson": "إضافة درس",
   "edit_lesson": "تعديل الدرس",
   "lesson_title": "عنوان الدرس",
-  "lesson_title_placeholder": "مثال: البداية",
+  "lesson_title_placeholder": "أدخل عنوان الدرس",
   "content_type_label": "نوع المحتوى",
   "text_article": "نص / مقال",
   "mixed_content": "محتوى مختلط",
@@ -1216,7 +1216,9 @@
   "difficulty_required": "اختر مستوى الصعوبة.",
   "please_fix_errors": "صحِّح الأخطاء المُمَيَّزة.",
   "setup": "الإعداد",
+  "course_resources": "موارد الدورة",
   "modules": "الوحدات",
+  "module": "الوحدة",
   "lectures_one": "محاضرة",
   "lectures_other": "محاضرات"
 }

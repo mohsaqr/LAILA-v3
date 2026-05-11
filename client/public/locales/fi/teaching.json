@@ -317,7 +317,7 @@
   "add_lesson": "Lisää oppitunti",
   "edit_lesson": "Muokkaa oppituntia",
   "lesson_title": "Oppitunnin otsikko",
-  "lesson_title_placeholder": "esim., Aloitus",
+  "lesson_title_placeholder": "Anna oppitunnin otsikko",
   "content_type_label": "Sisältötyyppi",
   "text_article": "Teksti / Artikkeli",
   "mixed_content": "Yhdistetty sisältö",
@@ -1221,7 +1221,9 @@
   "difficulty_required": "Valitse vaikeustaso.",
   "please_fix_errors": "Korjaa korostetut virheet.",
   "setup": "Asennus",
+  "course_resources": "Kurssin resurssit",
   "modules": "Moduulit",
+  "module": "Moduuli",
   "lectures_one": "luento",
   "lectures_other": "luentoa"
 }

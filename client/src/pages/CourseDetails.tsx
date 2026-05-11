@@ -6,8 +6,6 @@ import {
   Users,
   BookOpen,
   Settings,
-  MessageSquare,
-  Network,
   GraduationCap,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -341,7 +339,7 @@ export const CourseDetails = () => {
                       quizzes={module.quizzes}
                       assignments={module.assignments}
                       forums={module.forums}
-                      surveys={module.moduleSurveys?.map(ms => ms.survey)}
+                      surveys={module.moduleSurveys as any}
                       labAssignments={(module as any).labAssignments}
                       hasAccess={hasAccess}
                       viewMode={viewMode}
@@ -364,7 +362,7 @@ export const CourseDetails = () => {
           {/* Sidebar */}
           {hasAccess && (
             <div className="lg:w-96 flex-shrink-0">
-              <div className="lg:sticky lg:top-4 space-y-4">
+              <div className="lg:sticky lg:top-4 space-y-8">
                 {/* Collaborative Module */}
                 <CollaborativeModule
                   courseId={parseInt(id!)}
@@ -373,49 +371,42 @@ export const CourseDetails = () => {
                   isInstructor={showInstructorControls || isActualAdmin}
                 />
 
-                {/* Discussion Forums Card */}
-                <Link to={`/courses/${id}/forums`} onClick={() => track('forums_link_clicked', { verb: 'interacted', objectType: 'forum', courseId: parseInt(id!) })}>
-                  <Card hover className="transition-shadow">
-                    <CardBody className="flex items-center gap-4 p-4">
-                      <div
-                        className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: colors.bgTeal }}
-                      >
-                        <MessageSquare className="w-6 h-6" style={{ color: colors.textTeal }} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium" style={{ color: colors.textPrimary }}>
-                          {t('discussion_forums')}
-                        </h3>
-                        <p className="text-sm" style={{ color: colors.textSecondary }}>
-                          {t('join_course_discussions')}
-                        </p>
-                      </div>
-                    </CardBody>
-                  </Card>
-                </Link>
-
-                {/* My Learning Analytics Card — visible to enrolled students */}
+                {/* Learning Analytics — small gradient card matching
+                    the dashboard WelcomeCard's teal→indigo background. */}
                 {isEnrolled && (
-                  <Link to={`/courses/${id}/analytics`} onClick={() => track('analytics_link_clicked', { verb: 'interacted', objectType: 'analytics', courseId: parseInt(id!) })}>
-                    <Card hover className="transition-shadow">
-                      <CardBody className="flex items-center gap-4 p-4">
-                        <div
-                          className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: colors.bgPurple }}
-                        >
-                          <Network className="w-6 h-6" style={{ color: colors.textPurple }} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium" style={{ color: colors.textPrimary }}>
-                            {t('my_learning_analytics')}
-                          </h3>
-                          <p className="text-sm" style={{ color: colors.textSecondary }}>
-                            {t('view_your_learning_network')}
-                          </p>
-                        </div>
-                      </CardBody>
-                    </Card>
+                  <Link
+                    to={`/courses/${id}/analytics`}
+                    onClick={() => track('analytics_link_clicked', { verb: 'interacted', objectType: 'analytics', courseId: parseInt(id!) })}
+                    className="block relative overflow-hidden rounded-lg shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
+                    style={{
+                      background:
+                        'linear-gradient(135deg, #0e7490 0%, #0d9488 35%, #6366f1 100%)',
+                    }}
+                  >
+                    {/* Subtle dot pattern — matches WelcomeCard texture */}
+                    <svg
+                      className="absolute inset-0 w-full h-full opacity-15 pointer-events-none"
+                      preserveAspectRatio="none"
+                      aria-hidden="true"
+                    >
+                      <defs>
+                        <pattern id="analytics-dots" x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse">
+                          <circle cx="2" cy="2" r="1.4" fill="white" />
+                        </pattern>
+                      </defs>
+                      <rect width="100%" height="100%" fill="url(#analytics-dots)" />
+                    </svg>
+
+                    <div className="relative flex items-center gap-4 p-4">
+                      <img
+                        src="/illustrations/analytics.png"
+                        alt=""
+                        className="w-20 h-20 object-contain flex-shrink-0 drop-shadow-lg"
+                      />
+                      <h3 className="text-base font-semibold text-white">
+                        {t('learning_analytics', { defaultValue: 'Learning Analytics' })}
+                      </h3>
+                    </div>
                   </Link>
                 )}
 

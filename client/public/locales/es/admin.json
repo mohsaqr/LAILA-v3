@@ -89,6 +89,8 @@
   "manage_enrollments": "Administrar inscripciones de cursos",
   "add_enrollment": "Agregar inscripción",
   "total_enrollments": "Inscripciones totales",
+  "total_activity_logs": "Registros de actividad totales",
+  "admin_section": "Administración",
   "active_enrollments": "Inscripciones activas",
   "completed_enrollments": "Inscripciones completadas",
   "last_7_days": "Últimos 7 días",

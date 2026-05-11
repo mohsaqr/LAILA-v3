@@ -317,7 +317,7 @@
   "add_lesson": "Add Lesson",
   "edit_lesson": "Edit Lesson",
   "lesson_title": "Lesson Title",
-  "lesson_title_placeholder": "e.g., Getting Started",
+  "lesson_title_placeholder": "Enter the title of the lesson",
   "content_type_label": "Content Type",
   "text_article": "Text / Article",
   "mixed_content": "Mixed Content",
@@ -1221,7 +1221,9 @@
   "difficulty_required": "Choose a difficulty level.",
   "please_fix_errors": "Please fix the highlighted errors.",
   "setup": "Setup",
+  "course_resources": "Course resources",
   "modules": "Modules",
+  "module": "Module",
   "lectures_one": "lecture",
   "lectures_other": "lectures"
 }
