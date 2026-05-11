@@ -19,8 +19,9 @@ import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { Modal } from '../../components/common/Modal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { EmptyState } from '../../components/common/EmptyState';
-import { Input, TextArea, Select } from '../../components/common/Input';
+import { Input, TextArea } from '../../components/common/Input';
 import { RichTextEditor } from '../../components/forum/RichTextEditor';
+import { AssignmentWizardModal } from '../../components/teach/AssignmentWizardModal';
 import { ModuleItem } from '../../components/teach/ModuleItem';
 import { CourseModule, Lecture, CodeLab, Assignment, CustomLab, LabTemplate, LabAssignment, ModuleQuiz } from '../../types';
 
@@ -1981,131 +1982,17 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
         loading={deleteCodeLabMutation.isPending}
       />
 
-      {/* Assignment Modal */}
-      <Modal
+      {/* Assignment Modal — three-step wizard */}
+      <AssignmentWizardModal
         isOpen={assignmentModal.isOpen}
+        isEdit={!!assignmentModal.assignment}
+        courseTitle={course?.title ?? ''}
+        form={assignmentForm}
+        setForm={setAssignmentForm}
+        isSubmitting={createAssignmentMutation.isPending || updateAssignmentMutation.isPending}
         onClose={closeAssignmentModal}
-        title={assignmentModal.assignment ? t('edit_assignment') : t('add_assignment')}
-        size="3xl"
-      >
-        <form onSubmit={handleAssignmentSubmit} className="space-y-4">
-          <Input
-            label={t('assignment_title')}
-            value={assignmentForm.title}
-            onChange={e => setAssignmentForm(f => ({ ...f, title: e.target.value }))}
-            placeholder={t('assignment_title_placeholder')}
-            required
-          />
-          <Select
-            label={t('submission_type')}
-            value={assignmentForm.submissionType}
-            onChange={e =>
-              setAssignmentForm(f => ({
-                ...f,
-                submissionType: e.target.value as 'text' | 'file' | 'mixed' | 'ai_agent',
-              }))
-            }
-            options={[
-              { value: 'text', label: t('text_submission') },
-              { value: 'file', label: t('file_upload_submission') },
-              { value: 'mixed', label: t('text_file_submission') },
-              { value: 'ai_agent', label: t('ai_agent_submission') },
-            ]}
-          />
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              {t('assignment_description')}
-            </label>
-            <RichTextEditor
-              value={assignmentForm.description}
-              onChange={val => setAssignmentForm(f => ({ ...f, description: val }))}
-              editorClassName="forum-reply-editor px-3 py-2 min-h-[200px] max-h-[400px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
-            />
-          </div>
-          {assignmentForm.submissionType === 'ai_agent' && (
-            <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700">
-              {t('ai_agent_info')}
-            </div>
-          )}
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label={t('points_label')}
-              type="number"
-              value={assignmentForm.points}
-              onChange={e => setAssignmentForm(f => ({ ...f, points: parseInt(e.target.value) || 0 }))}
-              min={0}
-            />
-            <Input
-              label={t('weight_label', { defaultValue: 'Weight' })}
-              type="number"
-              value={assignmentForm.weight}
-              onChange={e => setAssignmentForm(f => ({ ...f, weight: parseFloat(e.target.value) || 0 }))}
-              min={0}
-              max={10}
-              step={0.1}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label={t('due_date_optional')}
-              type="datetime-local"
-              value={assignmentForm.dueDate}
-              onChange={e => {
-                setAssignmentForm(f => ({ ...f, dueDate: e.target.value }));
-                if (!e.target.value) setAssignmentForm(f => ({ ...f, gracePeriodDeadline: '' }));
-              }}
-            />
-            <Input
-              label={t('courses:grace_period_deadline', { defaultValue: 'Grace Period Deadline' })}
-              type="datetime-local"
-              value={assignmentForm.gracePeriodDeadline}
-              onChange={e => setAssignmentForm(f => ({ ...f, gracePeriodDeadline: e.target.value }))}
-              disabled={!assignmentForm.dueDate}
-              min={assignmentForm.dueDate || undefined}
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="isPublished"
-              checked={assignmentForm.isPublished}
-              onChange={e => setAssignmentForm(f => ({ ...f, isPublished: e.target.checked }))}
-              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            <label htmlFor="isPublished" className="text-sm text-gray-700">
-              {t('publish_assignment')}
-            </label>
-          </div>
-
-          {/* View Submissions Button - only for existing assignments */}
-          {assignmentModal.assignment && (
-            <div className="border-t border-gray-200 pt-4 mt-4">
-              <p className="text-sm text-gray-600 mb-3">
-                {t('view_submissions_description')}
-              </p>
-              <Link
-                to={`/teach/courses/${courseId}/assignments/${assignmentModal.assignment.id}/submissions`}
-                className="btn btn-secondary w-full flex items-center justify-center gap-2"
-              >
-                <FileEdit className="w-4 h-4" />
-                {t('view_submissions')}
-              </Link>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="secondary" onClick={closeAssignmentModal}>
-              {t('common:cancel')}
-            </Button>
-            <Button
-              type="submit"
-              loading={createAssignmentMutation.isPending || updateAssignmentMutation.isPending}
-            >
-              {assignmentModal.assignment ? t('common:update') : t('common:create')}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+        onSubmit={() => handleAssignmentSubmit({ preventDefault: () => {} } as React.FormEvent)}
+      />
 
       {/* Delete Assignment Confirmation */}
       <ConfirmDialog

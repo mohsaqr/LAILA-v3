@@ -361,7 +361,7 @@
   "failed_to_delete_code_lab": "Failed to delete Code Lab",
   "code_lab_title_required": "Code Lab title is required",
   "assignment_title": "Assignment Title",
-  "assignment_title_placeholder": "e.g., Week 1 Assignment",
+  "assignment_title_placeholder": "Enter the assignment title",
   "assignment_description": "Description (optional)",
   "assignment_description_placeholder": "Brief description of the assignment",
   "text_submission": "Text Submission",
