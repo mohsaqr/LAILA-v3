@@ -91,6 +91,8 @@
   "manage_enrollments": "Manage course enrollments",
   "add_enrollment": "Add Enrollment",
   "total_enrollments": "Total Enrollments",
+  "total_activity_logs": "Total Activity Logs",
+  "admin_section": "Admin",
   "active_enrollments": "Active Enrollments",
   "completed_enrollments": "Completed Enrollments",
   "last_7_days": "Last 7 Days",

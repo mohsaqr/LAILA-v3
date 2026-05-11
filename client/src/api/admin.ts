@@ -21,7 +21,12 @@ export interface AdminMonthlySeries {
 }
 
 export interface AdminDashboardOverview {
-  kpis: { totalUsers: number; totalCourses: number };
+  kpis: {
+    totalUsers: number;
+    totalCourses: number;
+    totalEnrollments: number;
+    totalActivityLogs: number;
+  };
   engagement: { thisMonth: AdminMonthlySeries; lastMonth: AdminMonthlySeries };
   activityByVerb: Record<string, number>;
   courseCompletion: Array<{

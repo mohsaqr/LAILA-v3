@@ -269,11 +269,12 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
 
   /**
    * Inline "+ Lesson" form handler. Creates the lecture with sensible
-   * defaults (text article, 0 min, not free) so the user only has to
-   * type a title.
+   * defaults (text article, 0 min, not free), then immediately seeds an
+   * empty text section so the lesson opens straight into the editor
+   * instead of asking the instructor to pick a section type first.
    */
-  const handleInlineLectureSubmit = (moduleId: number, title: string) =>
-    createLectureMutation.mutateAsync({
+  const handleInlineLectureSubmit = async (moduleId: number, title: string) => {
+    const newLecture = await createLectureMutation.mutateAsync({
       moduleId,
       data: {
         title,
@@ -282,6 +283,14 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
         isFree: false,
       },
     });
+    try {
+      await coursesApi.createSection(newLecture.id, { type: 'text', content: '' });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+    } catch {
+      // Non-fatal: lecture exists; lesson editor will handle empty state on open.
+    }
+    return newLecture;
+  };
 
   const updateLectureMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: LectureFormData }) =>

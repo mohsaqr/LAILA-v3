@@ -125,7 +125,6 @@ import {
 
 // Admin pages
 import {
-  AdminFrontpage,
   AdminSettings,
   LogsDashboard,
   UsersManagement,
@@ -941,15 +940,8 @@ function App() {
           }
         />
 
-        {/* Admin routes */}
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute requireAdmin>
-              <AdminFrontpage />
-            </ProtectedRoute>
-          }
-        />
+        {/* Admin routes — /admin frontpage now lives at /dashboard for admins */}
+        <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
         <Route
           path="/admin/settings"
           element={
@@ -1032,11 +1024,7 @@ function App() {
         />
         <Route
           path="/admin/*"
-          element={
-            <ProtectedRoute requireAdmin>
-              <AdminFrontpage />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/dashboard" replace />}
         />
 
         {/* Settings & Profile */}

@@ -41,7 +41,7 @@ export const CollaborativeModule = ({ courseId, tutors, moduleName }: Collaborat
   if (!tutors || tutors.length === 0) {
     return (
       <div
-        className="rounded-2xl border p-6 text-center"
+        className="rounded-lg border p-6 text-center"
         style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}
       >
         <Bot className="w-10 h-10 mx-auto mb-2" style={{ color: colors.muted }} />
@@ -60,7 +60,7 @@ export const CollaborativeModule = ({ courseId, tutors, moduleName }: Collaborat
     <div>
       <Link
         to={`/ai-tutors?courseId=${courseId}`}
-        className="block rounded-2xl border transition-all hover:-translate-y-0.5 hover:shadow-md"
+        className="block rounded-lg border transition-all hover:-translate-y-0.5 hover:shadow-md"
         style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}
       >
         <div className="px-5 py-5 flex flex-col items-center">

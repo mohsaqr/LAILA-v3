@@ -40,7 +40,7 @@ export const AssignmentItem = ({
   const isPastDue = dueDate && dueDate < new Date();
 
   return (
-    <div className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 rounded-lg transition-colors ${
+    <div className={`flex items-center gap-3 p-3 min-h-[64px] rounded-lg transition-colors ${
       isAiAgent
         ? 'bg-purple-50 hover:bg-purple-100'
         : 'bg-amber-50 hover:bg-amber-100'
@@ -72,7 +72,7 @@ export const AssignmentItem = ({
               <span>•</span>
               <span className={`flex items-center gap-1 ${isPastDue ? 'text-red-500' : ''}`}>
                 <Calendar className="w-3 h-3" />
-                {dueDate.toLocaleDateString(undefined, { timeZone: 'UTC' })}
+                {dueDate.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
               </span>
             </>
           )}
@@ -80,7 +80,7 @@ export const AssignmentItem = ({
             <>
               <span>•</span>
               <span className="flex items-center gap-1 text-amber-600">
-                {t('courses:grace_period_deadline', { defaultValue: 'Grace Period Deadline' })}: {gracePeriodDate.toLocaleDateString(undefined, { timeZone: 'UTC' })}
+                {t('courses:grace_period_deadline', { defaultValue: 'Grace Period Deadline' })}: {gracePeriodDate.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
               </span>
             </>
           )}
@@ -94,7 +94,7 @@ export const AssignmentItem = ({
       </div>
       </div>
 
-      <div className="flex items-center gap-1 flex-wrap justify-end sm:justify-start">
+      <div className="flex items-center gap-1 flex-shrink-0">
       {/* View Submissions Button */}
       <Link
         to={`/teach/courses/${courseId}/assignments/${assignment.id}/submissions`}

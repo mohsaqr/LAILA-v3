@@ -48,7 +48,7 @@ export const LectureItem = ({
   return (
     <div>
     <div
-      className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 bg-gray-50 hover:bg-gray-100 transition-colors ${
+      className={`flex items-center gap-3 p-3 min-h-[64px] bg-gray-50 hover:bg-gray-100 transition-colors ${
         isExpanded ? 'rounded-t-lg' : 'rounded-lg'
       }`}
     >
@@ -69,7 +69,7 @@ export const LectureItem = ({
         </h4>
       </div>
 
-      <div className="flex items-center gap-1 flex-wrap justify-end sm:justify-start">
+      <div className="flex items-center gap-1 flex-shrink-0">
       {/* Reorder buttons */}
       <div className="flex items-center gap-0.5">
         <button

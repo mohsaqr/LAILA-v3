@@ -89,6 +89,8 @@
   "manage_enrollments": "إدارة تسجيلات الدورات",
   "add_enrollment": "إضافة تسجيل",
   "total_enrollments": "إجمالي التسجيلات",
+  "total_activity_logs": "إجمالي سجلات النشاط",
+  "admin_section": "الإدارة",
   "active_enrollments": "التسجيلات النشطة",
   "completed_enrollments": "التسجيلات المكتملة",
   "last_7_days": "آخر 7 أيام",

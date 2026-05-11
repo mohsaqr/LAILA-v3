@@ -89,6 +89,8 @@
   "manage_enrollments": "Hallitse kurssien ilmoittautumisia",
   "add_enrollment": "Lisää ilmoittautuminen",
   "total_enrollments": "Ilmoittautumisia yhteensä",
+  "total_activity_logs": "Toimintalokeja yhteensä",
+  "admin_section": "Ylläpito",
   "active_enrollments": "Aktiivisia ilmoittautumisia",
   "completed_enrollments": "Suoritettuja ilmoittautumisia",
   "last_7_days": "Viimeiset 7 päivää",
