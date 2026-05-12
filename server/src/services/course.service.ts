@@ -744,17 +744,23 @@ export class CourseService {
     return updated;
   }
 
-  async getInstructorCourses(instructorId: number, _isAdmin = false) {
-    // Also include courses where the user has a team role (TA, co_instructor, course_admin)
-    const teamRoles = await prisma.courseRole.findMany({
-      where: { userId: instructorId },
-      select: { courseId: true },
-    });
-    const teamCourseIds = teamRoles.map(r => r.courseId);
-
-    const where = teamCourseIds.length > 0
-      ? { OR: [{ instructorId }, { id: { in: teamCourseIds } }] }
-      : { instructorId };
+  async getInstructorCourses(instructorId: number, isAdmin = false) {
+    // Admins see every course regardless of ownership. Instructors see
+    // courses they own plus any where they have a team role (TA,
+    // co_instructor, course_admin).
+    let where: any;
+    if (isAdmin) {
+      where = {};
+    } else {
+      const teamRoles = await prisma.courseRole.findMany({
+        where: { userId: instructorId },
+        select: { courseId: true },
+      });
+      const teamCourseIds = teamRoles.map(r => r.courseId);
+      where = teamCourseIds.length > 0
+        ? { OR: [{ instructorId }, { id: { in: teamCourseIds } }] }
+        : { instructorId };
+    }
 
     const courses = await prisma.course.findMany({
       where,
