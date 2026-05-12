@@ -87,6 +87,7 @@ interface ModuleItemProps {
   onRemoveInteractiveLab?: (module: CourseModule, labKey: string) => void;
   // Quiz handlers
   onAddQuiz?: (module: CourseModule) => void;
+  onEditQuiz?: (quiz: ModuleQuiz) => void;
   onDeleteQuiz?: (quiz: ModuleQuiz) => void;
   // Lecture-level assignments keyed by lectureId
   lectureAssignments?: Record<number, Assignment[]>;
@@ -129,6 +130,7 @@ export const ModuleItem = ({
   onMoveForumDown: _onMoveForumDown,
   onRemoveInteractiveLab,
   onAddQuiz,
+  onEditQuiz,
   onDeleteQuiz,
   lectureAssignments = {},
   allSurveys: allSurveysProp = [],
@@ -659,6 +661,15 @@ export const ModuleItem = ({
                         >
                           <ChevronDown className="w-4 h-4 text-gray-500" />
                         </button>
+                        {onEditQuiz && (
+                          <button
+                            onClick={() => onEditQuiz(quiz)}
+                            className="p-1.5 rounded hover:bg-cyan-200 dark:hover:bg-cyan-900/40 transition-colors"
+                            title={t('edit_quiz', { defaultValue: 'Edit quiz' })}
+                          >
+                            <Pencil className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                          </button>
+                        )}
                         {onDeleteQuiz && (
                           <button
                             onClick={() => onDeleteQuiz(quiz)}

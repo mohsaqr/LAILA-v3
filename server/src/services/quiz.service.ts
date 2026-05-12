@@ -770,20 +770,64 @@ export class QuizService {
     };
   }
 
-  private checkAnswer(question: any, userAnswer: string): boolean {
-    const correct = question.correctAnswer.toLowerCase().trim();
-    const answer = userAnswer.toLowerCase().trim();
+  /**
+   * Multiple-choice answers — both stored correct and submitted — may be a
+   * JSON array of option strings (new multi-correct format) or a plain
+   * string (legacy single-correct). Normalize to a list either way.
+   * Mirror of utils/quizAnswer.ts on the client.
+   */
+  private decodeMcAnswers(raw: string | null | undefined): string[] {
+    if (raw == null) return [];
+    const trimmed = String(raw).trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .filter((s: unknown): s is string => typeof s === 'string')
+            .map(s => s.trim())
+            .filter(Boolean);
+        }
+      } catch {
+        /* fall through */
+      }
+    }
+    return [trimmed];
+  }
 
+  private checkAnswer(question: any, userAnswer: string): boolean {
     switch (question.questionType) {
-      case 'multiple_choice':
-      case 'true_false':
+      case 'multiple_choice': {
+        // Strict set-equality: student must pick exactly the marked
+        // correct options — no partial credit, no extras.
+        const correctSet = new Set(
+          this.decodeMcAnswers(question.correctAnswer).map(s => s.toLowerCase()),
+        );
+        const answerSet = new Set(
+          this.decodeMcAnswers(userAnswer).map(s => s.toLowerCase()),
+        );
+        if (correctSet.size === 0 || correctSet.size !== answerSet.size) return false;
+        for (const c of correctSet) if (!answerSet.has(c)) return false;
+        return true;
+      }
+      case 'true_false': {
+        const correct = String(question.correctAnswer).toLowerCase().trim();
+        const answer = userAnswer.toLowerCase().trim();
         return answer === correct;
+      }
       case 'short_answer':
-      case 'fill_in_blank':
+      case 'fill_in_blank': {
+        const correct = String(question.correctAnswer).toLowerCase().trim();
+        const answer = userAnswer.toLowerCase().trim();
         // Allow some flexibility for text answers
         return answer === correct || correct.includes(answer);
-      default:
+      }
+      default: {
+        const correct = String(question.correctAnswer).toLowerCase().trim();
+        const answer = userAnswer.toLowerCase().trim();
         return answer === correct;
+      }
     }
   }
 

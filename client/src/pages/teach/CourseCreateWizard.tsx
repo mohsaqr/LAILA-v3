@@ -333,6 +333,12 @@ export const CourseCreateWizard = () => {
               // query from getModules omits sections, so the inline
               // lecture preview in Publish would render "No content yet".
               modules={(course.modules as typeof modules) ?? modules}
+              // getCourseDetails returns assignments/forums/labs at the
+              // course level (not nested per module). PublishStep groups
+              // them by moduleId so ModuleSection sees them.
+              assignments={courseDetails?.assignments}
+              forums={courseDetails?.forums}
+              labAssignments={courseDetails?.labs}
               roles={roles}
               check={validatePublish(ctx, roles.length, course.isPublic)}
             />

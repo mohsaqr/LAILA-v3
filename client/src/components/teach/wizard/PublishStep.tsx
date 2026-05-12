@@ -14,15 +14,28 @@ import { useTheme } from '../../../hooks/useTheme';
 import { resolveFileUrl } from '../../../api/client';
 import { sanitizeHtml } from '../../../utils/sanitize';
 import { Avatar } from '../../dashboard/Avatar';
-import { CurriculumPreview } from './CurriculumPreview';
+import { ModuleSection } from '../../course/ModuleSection';
 import { courseTutorApi } from '../../../api/courseTutor';
 import { ROLE_LABELS, type CourseRoleType } from '../../../api/courseRoles';
-import type { Course, CourseModule, CourseRole } from '../../../types';
+import type { Assignment, Course, CourseModule, CourseRole, CurriculumViewMode } from '../../../types';
+import type { Forum } from '../../../api/forums';
 import type { PublishCheck } from './stepGates';
+
+interface LabAssignmentItem {
+  id: number;
+  moduleId: number | null;
+  lab: { id: number; name: string; labType: string; description: string | null };
+}
 
 interface PublishStepProps {
   course: Course;
   modules: CourseModule[];
+  /** Course-level assignments (from getCourseDetails). Grouped per module here. */
+  assignments?: Assignment[];
+  /** Course-level forums (from getCourseDetails). Grouped per module here. */
+  forums?: Forum[];
+  /** Course-level lab assignments (from getCourseDetails). Grouped per module here. */
+  labAssignments?: LabAssignmentItem[];
   roles: CourseRole[];
   check: PublishCheck;
 }
@@ -41,7 +54,15 @@ const ROUTING_LABELS: Record<string, string> = {
  * The Publish action lives in the wizard footer; this view focuses
  * on showing exactly what the student will see.
  */
-export const PublishStep = ({ course, modules, roles, check }: PublishStepProps) => {
+export const PublishStep = ({
+  course,
+  modules,
+  assignments = [],
+  forums = [],
+  labAssignments = [],
+  roles,
+  check,
+}: PublishStepProps) => {
   const { t } = useTranslation(['teaching', 'common', 'admin']);
   const { isDark } = useTheme();
 
@@ -65,6 +86,8 @@ export const PublishStep = ({ course, modules, roles, check }: PublishStepProps)
 
   const routingMode = (course as any).tutorRoutingMode as string | undefined;
   const emotionalPulseOn = (course as any).emotionalPulseEnabled !== false;
+  const viewMode: CurriculumViewMode =
+    ((course as any).curriculumViewMode as CurriculumViewMode | undefined) || 'mini-cards';
 
   const copyCode = () => {
     if (!course.activationCode) return;
@@ -182,12 +205,51 @@ export const PublishStep = ({ course, modules, roles, check }: PublishStepProps)
         </div>
       </div>
 
-      {/* Curriculum — read-only mirror of the Content step. Same module
-          cards, same unified-order item list. Lesson chevron toggle
-          reveals the lesson text inline so the instructor can verify
-          what students will see. No edit / add / delete buttons. */}
+      {/* Curriculum — renders the same ModuleSection used on the
+          student-facing course page, honoring course.curriculumViewMode.
+          getCourseDetails ships assignments/forums/labAssignments at
+          the course level (not nested per module), so we group them
+          by moduleId here before handing to ModuleSection. */}
       <Section title={t('teaching:curriculum_editor', { defaultValue: 'Curriculum' })}>
-        <CurriculumPreview modules={modules} />
+        {modules.length === 0 ? (
+          <p className="text-sm" style={{ color: muted }}>
+            {t('teaching:wizard_no_modules', { defaultValue: 'No modules yet.' })}
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {modules.map((module, mIndex) => {
+              const moduleAssignments =
+                module.assignments?.length
+                  ? module.assignments
+                  : assignments.filter(a => (a as any).moduleId === module.id);
+              const moduleForums =
+                module.forums?.length
+                  ? module.forums
+                  : forums.filter(f => (f as any).moduleId === module.id);
+              const moduleLabAssignments =
+                (module as any).labAssignments?.length
+                  ? (module as any).labAssignments
+                  : labAssignments.filter(la => la.moduleId === module.id);
+              return (
+                <ModuleSection
+                  key={module.id}
+                  module={module}
+                  moduleIndex={mIndex}
+                  courseId={course.id}
+                  lectures={module.lectures}
+                  codeLabs={module.codeLabs}
+                  quizzes={module.quizzes}
+                  assignments={moduleAssignments}
+                  forums={moduleForums}
+                  surveys={module.moduleSurveys as any}
+                  labAssignments={moduleLabAssignments}
+                  hasAccess
+                  viewMode={viewMode}
+                />
+              );
+            })}
+          </div>
+        )}
       </Section>
 
       {/* ─── AI Tutors ─────────────────────────────────────────────────── */}
