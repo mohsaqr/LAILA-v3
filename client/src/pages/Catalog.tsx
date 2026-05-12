@@ -405,7 +405,7 @@ export const Catalog = () => {
       {showRail && (
         <div className="mb-8 md:mb-10">
           <h2
-            className="text-lg sm:text-xl font-semibold mb-4"
+            className="text-sm sm:text-base font-semibold mb-3"
             style={{ color: colors.textPrimary }}
           >
             {t('continue_learning')}

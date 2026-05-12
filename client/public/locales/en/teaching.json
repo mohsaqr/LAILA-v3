@@ -1243,5 +1243,21 @@
   "options_click_correct_multi": "Options — click the circle to mark each correct one (you can pick more than one)",
   "mark_as_correct": "Mark as correct",
   "true": "True",
-  "false": "False"
+  "false": "False",
+  "quiz_column_course": "Course",
+  "quiz_column_quiz": "Quiz",
+  "quiz_column_time": "Time",
+  "quiz_column_max_attempts": "Max attempts",
+  "quiz_column_participants": "Participants",
+  "quiz_column_status": "Status",
+  "quiz_column_passing_score": "Passing score",
+  "quiz_column_questions": "Questions",
+  "new_quiz": "New Quiz",
+  "pick_a_course": "Pick a course",
+  "pick_a_course_hint": "Quizzes belong to a course. Choose one and the create wizard will open in that course.",
+  "confirm_delete_quiz_title": "Delete quiz?",
+  "confirm_delete_quiz_body": "This deletes the quiz and all its questions and attempts.",
+  "n_minutes_one": "{{count}} min",
+  "n_minutes_other": "{{count}} min",
+  "search_quizzes_placeholder": "Search by quiz or course…"
 }

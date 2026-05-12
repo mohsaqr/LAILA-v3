@@ -136,7 +136,7 @@ export const SubmissionReview = () => {
         <Breadcrumb
           homeHref="/"
           items={[
-            { label: t('navigation:courses'), href: '/teach' },
+            { label: t('navigation:courses'), href: '/courses' },
             ...(course
               ? [{ label: course.title, href: `/teach/courses/${courseId}/curriculum` }]
               : []),

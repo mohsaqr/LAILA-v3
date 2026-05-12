@@ -1238,5 +1238,21 @@
   "options_click_correct_multi": "Opciones — haz clic en el círculo para marcar cada una correcta (puedes elegir varias)",
   "mark_as_correct": "Marcar como correcta",
   "true": "Verdadero",
-  "false": "Falso"
+  "false": "Falso",
+  "quiz_column_course": "Curso",
+  "quiz_column_quiz": "Cuestionario",
+  "quiz_column_time": "Tiempo",
+  "quiz_column_max_attempts": "Intentos máx.",
+  "quiz_column_participants": "Participantes",
+  "quiz_column_status": "Estado",
+  "quiz_column_passing_score": "Nota mínima",
+  "quiz_column_questions": "Preguntas",
+  "new_quiz": "Nuevo cuestionario",
+  "pick_a_course": "Elige un curso",
+  "pick_a_course_hint": "Los cuestionarios pertenecen a un curso. Elige uno y se abrirá el asistente en ese curso.",
+  "confirm_delete_quiz_title": "¿Eliminar cuestionario?",
+  "confirm_delete_quiz_body": "Esto elimina el cuestionario y todas sus preguntas e intentos.",
+  "n_minutes_one": "{{count}} min",
+  "n_minutes_other": "{{count}} min",
+  "search_quizzes_placeholder": "Buscar por cuestionario o curso…"
 }

@@ -18,6 +18,7 @@ import { coursesApi } from '../../api/courses';
 import { enrollmentManagementApi } from '../../api/enrollmentManagement';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
+import { getPageNumbers } from '../../utils/pagination';
 import { Button } from '../../components/common/Button';
 import { Card, CardBody } from '../../components/common/Card';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -35,25 +36,6 @@ const formatDate = (iso: string | null | undefined) =>
         day: 'numeric',
       })
     : '-';
-
-/**
- * Return the set of page numbers to show in the pagination bar. For short
- * lists we show every page; for longer lists we collapse the middle with
- * ellipses so the footer never grows wider than the card.
- */
-const getPageNumbers = (current: number, total: number): (number | 'dots')[] => {
-  if (total <= 7) {
-    return Array.from({ length: total }, (_, i) => i + 1);
-  }
-  const pages: (number | 'dots')[] = [1];
-  const start = Math.max(2, current - 1);
-  const end = Math.min(total - 1, current + 1);
-  if (start > 2) pages.push('dots');
-  for (let i = start; i <= end; i++) pages.push(i);
-  if (end < total - 1) pages.push('dots');
-  pages.push(total);
-  return pages;
-};
 
 export const CourseStudents = () => {
   const { courseId: courseIdParam } = useParams();

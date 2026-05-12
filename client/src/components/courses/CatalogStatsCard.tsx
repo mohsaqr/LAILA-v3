@@ -33,94 +33,88 @@ export const CatalogStatsCard = ({
 
   return (
     <div
-      className="relative overflow-hidden rounded-2xl text-white shadow-md"
+      className="relative overflow-hidden rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700"
       style={{
-        background: 'linear-gradient(135deg, #0e7490 0%, #0d9488 35%, #6366f1 100%)',
+        background:
+          'linear-gradient(135deg, #fdfdfb 0%, #f0fdfa 55%, #fff7ed 100%)',
       }}
     >
+      {/* Same dot + blob ambient as the dashboard WelcomeCard. */}
       <svg
-        className="absolute inset-0 w-full h-full opacity-15 pointer-events-none"
+        className="absolute inset-0 w-full h-full opacity-25 pointer-events-none"
         preserveAspectRatio="none"
         aria-hidden="true"
       >
         <defs>
           <pattern id="catalog-stats-dots" x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse">
-            <circle cx="2" cy="2" r="1.4" fill="white" />
+            <circle cx="2" cy="2" r="1.2" fill="#94a3b8" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#catalog-stats-dots)" />
       </svg>
-
       <div
-        className="absolute -top-12 -right-16 w-56 h-56 rounded-full opacity-25"
-        style={{ background: 'radial-gradient(circle at center, #ffffff 0%, transparent 65%)' }}
+        className="absolute -top-10 -right-12 w-44 h-44 rounded-full opacity-40"
+        style={{ background: 'radial-gradient(circle at center, #ccfbf1 0%, transparent 65%)' }}
         aria-hidden="true"
       />
       <div
-        className="absolute -bottom-20 -left-16 w-48 h-48 rounded-full opacity-20"
-        style={{ background: 'radial-gradient(circle at center, #fde68a 0%, transparent 65%)' }}
+        className="absolute -bottom-12 -left-12 w-36 h-36 rounded-full opacity-40"
+        style={{ background: 'radial-gradient(circle at center, #fef3c7 0%, transparent 65%)' }}
         aria-hidden="true"
       />
 
-      <div className="relative grid grid-cols-1 sm:grid-cols-5 gap-3 p-3 sm:p-4 items-center min-h-[130px]">
-        <div className="sm:col-span-2 flex items-center justify-center sm:justify-start sm:-ml-2 lg:-ml-3">
-          <img
-            src="/illustrations/course-teach.png"
-            alt=""
-            aria-hidden="true"
-            draggable={false}
-            className="w-full max-w-[170px] sm:max-w-[200px] lg:max-w-[230px] h-auto select-none pointer-events-none drop-shadow-xl"
-          />
-        </div>
-
-        <div className="sm:col-span-3 sm:pl-1 flex flex-col gap-2">
-          <div className="flex flex-wrap items-stretch gap-2 sm:gap-3">
-            {tiles.map(({ icon: Icon, value, label }) => (
+      <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 min-h-[72px]">
+        {/* Left: Courses + Students */}
+        <div className="flex flex-wrap items-stretch gap-2">
+          {tiles.map(({ icon: Icon, value, label }) => (
+            <div
+              key={label}
+              className="inline-flex items-center gap-2.5 h-[44px] rounded-xl px-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+            >
               <div
-                key={label}
-                className="inline-flex items-center gap-2.5 h-[48px] rounded-xl px-3 backdrop-blur-sm"
-                style={{ backgroundColor: 'rgba(255,255,255,0.14)' }}
+                className="flex items-center justify-center w-7 h-7 rounded-lg shrink-0"
+                style={{ backgroundColor: 'rgba(8,143,143,0.14)', color: '#088F8F' }}
               >
-                <div
-                  className="flex items-center justify-center w-7 h-7 rounded-lg shrink-0 shadow-sm"
-                  style={{ backgroundColor: '#ffffff', color: '#0d9488' }}
-                >
-                  <Icon className="w-3.5 h-3.5" strokeWidth={2.25} />
-                </div>
-                <div className="min-w-0 leading-tight">
-                  {loading ? (
-                    <>
-                      <Skeleton className="h-5 w-12 mb-1" />
-                      <Skeleton className="h-3 w-20" />
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-lg sm:text-xl font-bold leading-tight tabular-nums">
-                        {formatCount(value)}
-                      </div>
-                      <div className="text-[10px] sm:text-[11px] font-medium text-white/80 truncate">
-                        {label}
-                      </div>
-                    </>
-                  )}
-                </div>
+                <Icon className="w-3.5 h-3.5" strokeWidth={2.25} />
               </div>
-            ))}
-          </div>
-
-          {createLabel && (
-            <div>
-              <Link
-                to="/teach/create"
-                className="inline-flex items-center gap-2 h-10 px-3.5 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-                style={{ backgroundColor: '#ffffff', color: '#0e7490' }}
-              >
-                <Plus className="w-4 h-4" strokeWidth={2.5} />
-                {createLabel}
-              </Link>
+              <div className="min-w-0 leading-tight">
+                {loading ? (
+                  <>
+                    <Skeleton className="h-5 w-12 mb-1" />
+                    <Skeleton className="h-3 w-20" />
+                  </>
+                ) : (
+                  <>
+                    <div
+                      className="text-lg font-bold leading-tight tabular-nums"
+                      style={{ color: '#0f172a' }}
+                    >
+                      {formatCount(value)}
+                    </div>
+                    <div
+                      className="text-[11px] font-medium truncate"
+                      style={{ color: '#64748b' }}
+                    >
+                      {label}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
-          )}
+          ))}
         </div>
+
+        {/* Right: Create Course */}
+        {createLabel && (
+          <Link
+            to="/teach/create"
+            className="inline-flex items-center gap-2 h-10 px-4 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md self-start sm:self-auto"
+            style={{ backgroundColor: '#088F8F', color: '#ffffff' }}
+          >
+            <Plus className="w-4 h-4" strokeWidth={2.5} />
+            {createLabel}
+          </Link>
+        )}
       </div>
     </div>
   );

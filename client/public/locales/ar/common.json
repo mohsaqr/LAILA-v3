@@ -196,5 +196,8 @@
   "due_on": "الاستحقاق",
   "grace_until": "السماح حتى",
   "courses_in_progress": "الكورسات قيد التقدم",
-  "view_full_calendar": "عرض التقويم الكامل"
+  "view_full_calendar": "عرض التقويم الكامل",
+  "continue": "متابعة",
+  "clear_all": "مسح الكل",
+  "showing_range": "عرض {{from}}–{{to}} من {{total}}"
 }

@@ -196,5 +196,8 @@
   "due_on": "Vence",
   "grace_until": "Prórroga hasta",
   "courses_in_progress": "Cursos en curso",
-  "view_full_calendar": "Ver calendario completo"
+  "view_full_calendar": "Ver calendario completo",
+  "continue": "Continuar",
+  "clear_all": "Borrar todo",
+  "showing_range": "Mostrando {{from}}–{{to}} de {{total}}"
 }

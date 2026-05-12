@@ -4,76 +4,82 @@ interface WelcomeCardProps {
   name?: string | null;
   message?: string;
   className?: string;
-  /** Path to the role-specific illustration. Defaults to the
-      instructor PNG so existing call-sites keep working. */
+  /** Hero artwork. Defaults to the LAILA word-mark logo. */
   illustration?: string;
 }
 
 /**
- * Hero greeting tile for role dashboards. Pairs an inline SVG
- * character + calendar with the user's full name and a friendly
- * one-liner. Designed to sit alongside a 2×2 stat-tile grid.
+ * Hero greeting tile for role dashboards. Light cream background with a
+ * faint teal-tinted gradient and dotted texture so the black LAILA
+ * word-mark logo (PNG with transparent background) reads cleanly. Body
+ * copy stays in dark slate for readability.
  */
 export const WelcomeCard = ({
   name,
   message,
   className = '',
-  illustration = '/illustrations/welcome-instructor.png',
+  illustration = '/welcome-logo.png',
 }: WelcomeCardProps) => {
   const { t } = useTranslation(['common']);
   const fullName = name?.trim() ?? '';
   return (
     <div
-      className={`relative h-full overflow-hidden rounded-2xl text-white shadow-md ${className}`}
+      className={`relative h-full overflow-hidden rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 ${className}`}
       style={{
         background:
-          'linear-gradient(135deg, #0e7490 0%, #0d9488 35%, #6366f1 100%)',
+          'linear-gradient(135deg, #fdfdfb 0%, #f0fdfa 55%, #fff7ed 100%)',
       }}
     >
-      {/* Subtle dot pattern */}
+      {/* Subtle dot pattern in slate so the texture stays readable on light bg */}
       <svg
-        className="absolute inset-0 w-full h-full opacity-15 pointer-events-none"
+        className="absolute inset-0 w-full h-full opacity-25 pointer-events-none"
         preserveAspectRatio="none"
         aria-hidden="true"
       >
         <defs>
           <pattern id="welcome-dots" x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse">
-            <circle cx="2" cy="2" r="1.4" fill="white" />
+            <circle cx="2" cy="2" r="1.2" fill="#94a3b8" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#welcome-dots)" />
       </svg>
 
-      {/* Soft background blobs */}
+      {/* Soft accent blobs — brand teal + warm amber, both at low alpha */}
       <div
-        className="absolute -top-12 -right-12 w-48 h-48 rounded-full opacity-25"
-        style={{ background: 'radial-gradient(circle at center, #ffffff 0%, transparent 65%)' }}
+        className="absolute -top-12 -right-12 w-48 h-48 rounded-full opacity-40"
+        style={{ background: 'radial-gradient(circle at center, #ccfbf1 0%, transparent 65%)' }}
         aria-hidden="true"
       />
       <div
-        className="absolute -bottom-16 -left-12 w-40 h-40 rounded-full opacity-20"
-        style={{ background: 'radial-gradient(circle at center, #fde68a 0%, transparent 65%)' }}
+        className="absolute -bottom-16 -left-12 w-40 h-40 rounded-full opacity-40"
+        style={{ background: 'radial-gradient(circle at center, #fef3c7 0%, transparent 65%)' }}
         aria-hidden="true"
       />
 
-      <div className="relative h-full grid grid-cols-1 sm:grid-cols-5 gap-4 sm:gap-3 p-5 sm:p-6 items-stretch min-h-[220px]">
-        <div className="sm:col-span-2 flex items-center justify-center sm:justify-start sm:-ml-2 lg:-ml-4">
+      <div className="relative h-full flex items-center justify-center p-5 sm:p-6 min-h-[220px]">
+        <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-5 max-w-2xl">
           <WelcomeIllustration src={illustration} />
-        </div>
-        <div className="sm:col-span-3 sm:pl-2 flex flex-col justify-center text-center sm:text-left">
-          <p className="text-white/80 text-sm font-medium tracking-wide mb-1">
-            {t('common:welcome_back_short', { defaultValue: 'Welcome back' })}
-          </p>
-          <h2 className="text-2xl sm:text-3xl font-bold mb-2 break-words">
-            {fullName || t('common:there', { defaultValue: 'there' })}
-          </h2>
-          <p className="text-white/85 text-sm max-w-md leading-relaxed mx-auto sm:mx-0">
-            {message ??
-              t('common:lets_start_message', {
-                defaultValue:
-                  "Let's check what needs your attention today. Take a look at pending grading and recent student activity.",
-              })}
-          </p>
+          <div className="flex flex-col text-center sm:text-left">
+            <p className="text-sm font-medium tracking-wide mb-1" style={{ color: '#64748b' }}>
+              {t('common:welcome_back_short', { defaultValue: 'Welcome back' })}
+            </p>
+            <h2
+              className="text-2xl sm:text-3xl font-bold mb-2 break-words"
+              style={{ color: '#0f172a' }}
+            >
+              {fullName || t('common:there', { defaultValue: 'there' })}
+            </h2>
+            <p
+              className="text-sm max-w-md leading-relaxed"
+              style={{ color: '#334155' }}
+            >
+              {message ??
+                t('common:lets_start_message', {
+                  defaultValue:
+                    "Let's check what needs your attention today. Take a look at pending grading and recent student activity.",
+                })}
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -81,15 +87,16 @@ export const WelcomeCard = ({
 };
 
 /**
- * 3D illustration shipped from `client/public/illustrations/`. PNG with
- * transparent background so it sits cleanly on the card's gradient.
+ * Hero artwork shipped from `client/public/`. Defaults to the LAILA
+ * word-mark logo (black ink on transparent background); the card is
+ * intentionally light so it reads without an extra drop-shadow.
  */
 const WelcomeIllustration = ({ src }: { src: string }) => (
   <img
     src={src}
     alt=""
     aria-hidden="true"
-    className="w-full max-w-[340px] sm:max-w-[380px] lg:max-w-[440px] h-auto select-none pointer-events-none drop-shadow-xl"
+    className="w-full max-w-[140px] sm:max-w-[155px] lg:max-w-[180px] h-auto select-none pointer-events-none"
     draggable={false}
   />
 );

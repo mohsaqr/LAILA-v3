@@ -149,6 +149,23 @@ export interface PracticeQuizInput {
   difficulty?: 'easy' | 'medium' | 'hard';
 }
 
+/** Row shape returned by `/quizzes/instructor` (cross-course list). */
+export interface InstructorQuiz {
+  id: number;
+  title: string;
+  courseId: number;
+  courseName: string;
+  courseThumbnail: string | null;
+  moduleId: number | null;
+  timeLimit: number | null;
+  maxAttempts: number;
+  passingScore: number;
+  isPublished: boolean;
+  questionCount: number;
+  attemptCount: number;
+  participantCount: number;
+}
+
 export const quizzesApi = {
   // Quiz CRUD
   getQuizzes: async (courseId: number): Promise<Quiz[]> => {
@@ -158,6 +175,11 @@ export const quizzesApi = {
 
   getQuiz: async (quizId: number): Promise<Quiz & { questions: QuizQuestion[] }> => {
     const response = await apiClient.get<ApiResponse<Quiz & { questions: QuizQuestion[] }>>(`/quizzes/${quizId}`);
+    return response.data.data!;
+  },
+
+  getInstructorQuizzes: async (): Promise<InstructorQuiz[]> => {
+    const response = await apiClient.get<ApiResponse<InstructorQuiz[]>>('/quizzes/instructor');
     return response.data.data!;
   },
 
