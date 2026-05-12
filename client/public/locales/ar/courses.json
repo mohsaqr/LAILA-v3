@@ -1000,5 +1000,8 @@
   "manage": "إدارة",
   "catalog_hero_title": "تدريسك في لمحة",
   "catalog_hero_subtitle": "اطّلع على حال دوراتك وطلابك، ثم أنشئ ما هو جديد بضغطة واحدة.",
-  "learning_analytics": "تحليلات التعلم"
+  "learning_analytics": "تحليلات التعلم",
+  "upcoming_assignments": "الواجبات القادمة",
+  "days_left_label": "الأيام المتبقية",
+  "grace_short": "السماح"
 }

@@ -1000,5 +1000,8 @@
   "manage": "Gestionar",
   "catalog_hero_title": "Tu enseñanza de un vistazo",
   "catalog_hero_subtitle": "Mira cómo van tus cursos y estudiantes, y crea algo nuevo cuando estés listo.",
-  "learning_analytics": "Análisis de aprendizaje"
+  "learning_analytics": "Análisis de aprendizaje",
+  "upcoming_assignments": "Próximas tareas",
+  "days_left_label": "Días restantes",
+  "grace_short": "Prórroga"
 }

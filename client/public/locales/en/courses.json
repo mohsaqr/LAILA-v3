@@ -1003,5 +1003,8 @@
   "manage": "Manage",
   "catalog_hero_title": "Your teaching at a glance",
   "catalog_hero_subtitle": "See how your courses and students are doing, then jump in and create something new.",
-  "learning_analytics": "Learning Analytics"
+  "learning_analytics": "Learning Analytics",
+  "upcoming_assignments": "Upcoming assignments",
+  "days_left_label": "Days left",
+  "grace_short": "Grace"
 }
