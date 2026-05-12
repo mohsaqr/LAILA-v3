@@ -11,6 +11,7 @@ import { assignmentsApi } from '../../api/assignments';
 import { customLabsApi } from '../../api/customLabs';
 import { forumsApi, Forum, CreateForumInput } from '../../api/forums';
 import { quizzesApi, CreateQuizInput } from '../../api/quizzes';
+import { decodeCorrectAnswers, encodeCorrectAnswers } from '../../utils/quizAnswer';
 import { useTheme } from '../../hooks/useTheme';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
@@ -20,8 +21,8 @@ import { Modal } from '../../components/common/Modal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { EmptyState } from '../../components/common/EmptyState';
 import { Input, TextArea } from '../../components/common/Input';
-import { RichTextEditor } from '../../components/forum/RichTextEditor';
 import { AssignmentWizardModal } from '../../components/teach/AssignmentWizardModal';
+import { QuizWizardModal, blankQuestion, type QuizWizardFormData, type QuizQuestionFormData } from '../../components/teach/QuizWizardModal';
 import { ModuleItem } from '../../components/teach/ModuleItem';
 import { CourseModule, Lecture, CodeLab, Assignment, CustomLab, LabTemplate, LabAssignment, ModuleQuiz } from '../../types';
 
@@ -63,15 +64,7 @@ interface ForumFormData {
   allowAnonymous: boolean;
 }
 
-interface QuizFormData {
-  title: string;
-  description: string;
-  instructions: string;
-  timeLimit: string;
-  maxAttempts: string;
-  passingScore: string;
-  isPublished: boolean;
-}
+type QuizFormData = QuizWizardFormData;
 
 interface CurriculumEditorProps {
   /** When provided (e.g. from the wizard), skip useParams and use this id. */
@@ -133,6 +126,10 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
   const [quizModal, setQuizModal] = useState<{
     isOpen: boolean;
     moduleId?: number;
+    /** Set when editing an existing quiz. */
+    quizId?: number;
+    /** Question IDs present when the edit modal was opened — used to compute deletions. */
+    originalQuestionIds?: number[];
   }>({ isOpen: false });
   const [deleteCourseConfirm, setDeleteCourseConfirm] = useState(false);
 
@@ -161,7 +158,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
     isPublished: true,
     allowAnonymous: false,
   });
-  const [quizForm, setQuizForm] = useState<QuizFormData>({
+  const blankQuizForm = (): QuizFormData => ({
     title: '',
     description: '',
     instructions: '',
@@ -169,7 +166,9 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
     maxAttempts: '1',
     passingScore: '60',
     isPublished: false,
+    questions: [blankQuestion()],
   });
+  const [quizForm, setQuizForm] = useState<QuizFormData>(blankQuizForm);
 
   useEffect(() => {
     if (courseId) {
@@ -520,15 +519,105 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
     onError: () => toast.error(t('failed_to_delete_forum')),
   });
 
-  // Quiz mutation
+  /**
+   * Build the per-question API payload from a wizard form question.
+   * Trims options/correct answer to drop the empty MC slots before send.
+   */
+  const buildQuestionPayload = (q: QuizQuestionFormData, orderIndex: number) => {
+    if (q.questionType === 'multiple_choice') {
+      // Encode the set of correct options as a JSON array string so the
+      // server can grade against multiple correct answers. See
+      // utils/quizAnswer.ts — legacy plain-string rows still parse.
+      const trimmed = q.options.map(o => o.trim());
+      const filtered = trimmed.filter(Boolean);
+      const correctTexts = q.correctIndexes
+        .map(i => trimmed[i] ?? '')
+        .filter(Boolean);
+      return {
+        questionType: q.questionType,
+        questionText: q.questionText.trim(),
+        options: filtered,
+        correctAnswer: encodeCorrectAnswers(correctTexts),
+        explanation: q.explanation.trim() || undefined,
+        points: q.points,
+        orderIndex,
+      };
+    }
+    return {
+      questionType: q.questionType,
+      questionText: q.questionText.trim(),
+      correctAnswer: q.correctAnswer.trim(),
+      explanation: q.explanation.trim() || undefined,
+      points: q.points,
+      orderIndex,
+    };
+  };
+
+  /**
+   * Create-quiz orchestration: createQuiz → optional updateQuiz to flip
+   * isPublished (CreateQuizInput doesn't accept it) → addQuestionsBulk.
+   * Each phase failure is logged but does not roll back the previous,
+   * so the instructor can recover from the QuizEditor page if needed.
+   */
   const createQuizMutation = useMutation({
-    mutationFn: (data: CreateQuizInput) => quizzesApi.createQuiz(courseId, data),
+    mutationFn: async (input: {
+      data: CreateQuizInput;
+      isPublished: boolean;
+      questions: QuizQuestionFormData[];
+    }) => {
+      const created = await quizzesApi.createQuiz(courseId, input.data);
+      if (input.isPublished) {
+        await quizzesApi.updateQuiz(created.id, { isPublished: true });
+      }
+      if (input.questions.length > 0) {
+        await quizzesApi.addQuestionsBulk(
+          created.id,
+          input.questions.map((q, i) => buildQuestionPayload(q, i)),
+        );
+      }
+      return created;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('quiz_created'));
       closeQuizModal();
     },
     onError: () => toast.error(t('failed_to_create_quiz')),
+  });
+
+  /**
+   * Edit-quiz orchestration: updateQuiz, then per-question reconcile
+   * — add new, update existing, delete those removed from the form.
+   */
+  const updateQuizMutation = useMutation({
+    mutationFn: async (input: {
+      quizId: number;
+      data: Partial<CreateQuizInput> & { isPublished?: boolean };
+      questions: QuizQuestionFormData[];
+      originalQuestionIds: number[];
+    }) => {
+      await quizzesApi.updateQuiz(input.quizId, input.data);
+      const currentIds = input.questions
+        .map(q => q.id)
+        .filter((id): id is number => id != null);
+      const removed = input.originalQuestionIds.filter(id => !currentIds.includes(id));
+      await Promise.all(removed.map(id => quizzesApi.deleteQuestion(id)));
+      for (let i = 0; i < input.questions.length; i += 1) {
+        const q = input.questions[i];
+        const payload = buildQuestionPayload(q, i);
+        if (q.id != null) {
+          await quizzesApi.updateQuestion(q.id, payload);
+        } else {
+          await quizzesApi.addQuestion(input.quizId, payload);
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+      toast.success(t('quiz_updated', { defaultValue: 'Quiz updated' }));
+      closeQuizModal();
+    },
+    onError: () => toast.error(t('failed_to_update_quiz', { defaultValue: 'Failed to update quiz' })),
   });
 
   const [deleteQuizConfirm, setDeleteQuizConfirm] = useState<ModuleQuiz | null>(null);
@@ -661,29 +750,62 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
   };
 
   const openAddQuizModal = (module: CourseModule) => {
-    setQuizForm({
-      title: '',
-      description: '',
-      instructions: '',
-      timeLimit: '',
-      maxAttempts: '1',
-      passingScore: '60',
-      isPublished: false,
-    });
+    setQuizForm(blankQuizForm());
     setQuizModal({ isOpen: true, moduleId: module.id });
+  };
+
+  const openEditQuizModal = async (quiz: ModuleQuiz) => {
+    try {
+      const full = await quizzesApi.getQuiz(quiz.id);
+      const questions: QuizQuestionFormData[] = (full.questions ?? []).map(q => {
+        const isMc = q.questionType === 'multiple_choice';
+        const opts = isMc
+          ? [...(q.options ?? []), '', '', '', ''].slice(0, Math.max(4, q.options?.length ?? 0))
+          : [];
+        // Decode the stored correctAnswer (JSON array for new rows, plain
+        // string for legacy single-correct rows) and resolve to indexes
+        // by matching against the option list.
+        const correctTexts = isMc ? decodeCorrectAnswers(q.correctAnswer) : [];
+        const correctIndexes: number[] = isMc
+          ? correctTexts
+              .map(text => (q.options ?? []).findIndex(o => o === text))
+              .filter(i => i >= 0)
+          : [];
+        return {
+          id: q.id,
+          questionType: q.questionType,
+          questionText: q.questionText,
+          options: opts,
+          correctIndexes,
+          correctAnswer: isMc ? '' : (q.correctAnswer ?? ''),
+          explanation: q.explanation ?? '',
+          points: q.points ?? 1,
+        };
+      });
+      setQuizForm({
+        title: full.title,
+        description: full.description ?? '',
+        instructions: full.instructions ?? '',
+        timeLimit: full.timeLimit != null ? String(full.timeLimit) : '',
+        maxAttempts: String(full.maxAttempts ?? 1),
+        passingScore: String(full.passingScore ?? 60),
+        isPublished: full.isPublished,
+        questions: questions.length > 0 ? questions : [blankQuestion()],
+      });
+      setQuizModal({
+        isOpen: true,
+        moduleId: (full.moduleId ?? (quiz as any).moduleId) || undefined,
+        quizId: full.id,
+        originalQuestionIds: questions.filter(q => q.id != null).map(q => q.id as number),
+      });
+    } catch {
+      toast.error(t('failed_to_load_quiz', { defaultValue: 'Failed to load quiz' }));
+    }
   };
 
   const closeQuizModal = () => {
     setQuizModal({ isOpen: false });
-    setQuizForm({
-      title: '',
-      description: '',
-      instructions: '',
-      timeLimit: '',
-      maxAttempts: '1',
-      passingScore: '60',
-      isPublished: false,
-    });
+    setQuizForm(blankQuizForm());
   };
 
   // Interactive lab handlers
@@ -819,24 +941,37 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
     }
   };
 
-  const handleQuizSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleQuizSubmit = () => {
     if (!quizForm.title.trim()) {
       toast.error(t('quiz_title_required'));
       return;
     }
 
+    const quizCore: Partial<CreateQuizInput> = {
+      title: quizForm.title,
+      description: quizForm.description || undefined,
+      instructions: quizForm.instructions || undefined,
+      timeLimit: quizForm.timeLimit ? parseInt(quizForm.timeLimit) : undefined,
+      maxAttempts: quizForm.maxAttempts ? parseInt(quizForm.maxAttempts) : undefined,
+      passingScore: quizForm.passingScore ? parseInt(quizForm.passingScore) : undefined,
+    };
+
+    if (quizModal.quizId != null) {
+      updateQuizMutation.mutate({
+        quizId: quizModal.quizId,
+        data: { ...quizCore, isPublished: quizForm.isPublished },
+        questions: quizForm.questions,
+        originalQuestionIds: quizModal.originalQuestionIds ?? [],
+      });
+      return;
+    }
+
     if (quizModal.moduleId) {
-      const data: CreateQuizInput = {
-        title: quizForm.title,
-        description: quizForm.description || undefined,
-        instructions: quizForm.instructions || undefined,
-        timeLimit: quizForm.timeLimit ? parseInt(quizForm.timeLimit) : undefined,
-        maxAttempts: quizForm.maxAttempts ? parseInt(quizForm.maxAttempts) : undefined,
-        passingScore: quizForm.passingScore ? parseInt(quizForm.passingScore) : undefined,
-        moduleId: quizModal.moduleId,
-      };
-      createQuizMutation.mutate(data);
+      createQuizMutation.mutate({
+        data: { ...(quizCore as CreateQuizInput), moduleId: quizModal.moduleId },
+        isPublished: quizForm.isPublished,
+        questions: quizForm.questions,
+      });
     }
   };
 
@@ -1301,6 +1436,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
                   onMoveForumDown={handleMoveForumDown}
                   onRemoveInteractiveLab={handleRemoveInteractiveLab}
                   onAddQuiz={openAddQuizModal}
+                  onEditQuiz={openEditQuizModal}
                   onDeleteQuiz={setDeleteQuizConfirm}
                   allSurveys={allSurveys}
                 />
@@ -2081,91 +2217,17 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
         loading={deleteForumMutation.isPending}
       />
 
-      {/* Quiz Modal */}
-      <Modal
+      {/* Quiz Wizard Modal */}
+      <QuizWizardModal
         isOpen={quizModal.isOpen}
+        isEdit={quizModal.quizId != null}
+        courseTitle={course?.title ?? ''}
+        form={quizForm}
+        setForm={setQuizForm}
+        isSubmitting={createQuizMutation.isPending || updateQuizMutation.isPending}
         onClose={closeQuizModal}
-        title={t('create_quiz')}
-        size="3xl"
-      >
-        <form onSubmit={handleQuizSubmit} className="space-y-4">
-          <Input
-            label={t('quiz_title')}
-            value={quizForm.title}
-            onChange={e => setQuizForm(f => ({ ...f, title: e.target.value }))}
-            placeholder={t('quiz_title_placeholder')}
-            required
-          />
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              {t('quiz_description')}
-            </label>
-            <RichTextEditor
-              value={quizForm.description}
-              onChange={val => setQuizForm(f => ({ ...f, description: val }))}
-              editorClassName="forum-reply-editor px-3 py-2 min-h-[200px] max-h-[400px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              {t('quiz_instructions')}
-            </label>
-            <RichTextEditor
-              value={quizForm.instructions}
-              onChange={val => setQuizForm(f => ({ ...f, instructions: val }))}
-              editorClassName="forum-reply-editor px-3 py-2 min-h-[120px] max-h-[300px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
-            />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Input
-              label={t('time_limit_minutes')}
-              type="number"
-              value={quizForm.timeLimit}
-              onChange={e => setQuizForm(f => ({ ...f, timeLimit: e.target.value }))}
-              min={0}
-              placeholder={t('no_limit')}
-            />
-            <Input
-              label={t('max_attempts')}
-              type="number"
-              value={quizForm.maxAttempts}
-              onChange={e => setQuizForm(f => ({ ...f, maxAttempts: e.target.value }))}
-              min={0}
-            />
-            <Input
-              label={t('passing_score')}
-              type="number"
-              value={quizForm.passingScore}
-              onChange={e => setQuizForm(f => ({ ...f, passingScore: e.target.value }))}
-              min={0}
-              max={100}
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="quizIsPublished"
-              checked={quizForm.isPublished}
-              onChange={e => setQuizForm(f => ({ ...f, isPublished: e.target.checked }))}
-              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            <label htmlFor="quizIsPublished" className="text-sm text-gray-700 dark:text-gray-300">
-              {t('publish_immediately')}
-            </label>
-          </div>
-          <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="secondary" onClick={closeQuizModal}>
-              {t('common:cancel')}
-            </Button>
-            <Button
-              type="submit"
-              loading={createQuizMutation.isPending}
-            >
-              {t('common:create')}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+        onSubmit={handleQuizSubmit}
+      />
 
       {/* Delete Quiz Confirmation */}
       <ConfirmDialog
