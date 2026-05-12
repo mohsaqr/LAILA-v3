@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Users,
   BookOpen,
+  LineChart,
   Settings,
   GraduationCap,
 } from 'lucide-react';
@@ -269,47 +270,78 @@ export const CourseDetails = () => {
                     </span>
                   </div>
                 )}
-                {!isEnrolled && isAuthenticated && (
-                  <button
-                    type="button"
-                    onClick={handleEnrollClick}
-                    disabled={enrollMutation.isPending}
-                    className="ml-auto inline-flex items-center justify-center px-4 py-1.5 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
-                    style={{
-                      backgroundImage: 'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)',
-                      color: '#ffffff',
-                    }}
-                  >
-                    {enrollMutation.isPending
-                      ? t('common:loading', { defaultValue: 'Loading…' })
-                      : t('enroll_now')}
-                  </button>
-                )}
-                {!isAuthenticated && (
-                  <Link
-                    to="/login"
-                    className="ml-auto inline-flex items-center justify-center px-4 py-1.5 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-                    style={{
-                      backgroundImage: 'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)',
-                      color: '#ffffff',
-                    }}
-                  >
-                    {t('sign_in_to_enroll')}
-                  </Link>
-                )}
-                {canManage && (
-                  <Link
-                    to={`/teach/courses/${course.id}/setup?step=setting`}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                    style={{
-                      backgroundColor: isDark ? 'rgba(8,143,143,0.18)' : '#ccfbfb',
-                      color: isDark ? '#22d3d3' : '#065c5c',
-                    }}
-                  >
-                    <Settings className="w-3.5 h-3.5" />
-                    {t('manage', { defaultValue: 'Manage' })}
-                  </Link>
-                )}
+                {/* Action cluster — all buttons share size, padding,
+                    icon treatment and radius. Primary actions use the
+                    brand gradient fill; Manage uses the soft secondary
+                    tint to signal its different role. */}
+                <div className="ml-auto flex items-center gap-2 flex-wrap">
+                  {!isEnrolled && isAuthenticated && (
+                    <button
+                      type="button"
+                      onClick={handleEnrollClick}
+                      disabled={enrollMutation.isPending}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                      style={{
+                        backgroundImage:
+                          'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)',
+                        color: '#ffffff',
+                      }}
+                    >
+                      <GraduationCap className="w-4 h-4" strokeWidth={2.25} />
+                      {enrollMutation.isPending
+                        ? t('common:loading', { defaultValue: 'Loading…' })
+                        : t('enroll_now')}
+                    </button>
+                  )}
+                  {isEnrolled && (
+                    <Link
+                      to={`/courses/${id}/analytics`}
+                      onClick={() =>
+                        track('analytics_link_clicked', {
+                          verb: 'interacted',
+                          objectType: 'analytics',
+                          courseId: parseInt(id!),
+                        })
+                      }
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                      style={{
+                        backgroundImage:
+                          'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)',
+                        color: '#ffffff',
+                      }}
+                    >
+                      <LineChart className="w-4 h-4" strokeWidth={2.25} />
+                      {t('learning_analytics', { defaultValue: 'Learning Analytics' })}
+                    </Link>
+                  )}
+                  {!isAuthenticated && (
+                    <Link
+                      to="/login"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                      style={{
+                        backgroundImage:
+                          'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)',
+                        color: '#ffffff',
+                      }}
+                    >
+                      <GraduationCap className="w-4 h-4" strokeWidth={2.25} />
+                      {t('sign_in_to_enroll')}
+                    </Link>
+                  )}
+                  {canManage && (
+                    <Link
+                      to={`/teach/courses/${course.id}/setup?step=setting`}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all hover:-translate-y-0.5"
+                      style={{
+                        backgroundColor: isDark ? 'rgba(8,143,143,0.18)' : '#ccfbfb',
+                        color: isDark ? '#22d3d3' : '#065c5c',
+                      }}
+                    >
+                      <Settings className="w-4 h-4" strokeWidth={2.25} />
+                      {t('manage', { defaultValue: 'Manage' })}
+                    </Link>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -381,17 +413,17 @@ export const CourseDetails = () => {
           {hasAccess && (
             <div className="lg:w-96 flex-shrink-0">
               <div className="lg:sticky lg:top-4 space-y-8">
-                {/* Upcoming assignments for this course (sidebar). */}
-                <CourseUpcomingAssignments
-                  courseId={parseInt(id!)}
-                  assignments={courseAssignments}
-                />
-
                 {/* Compact month calendar marked with this course's
                     assignment deadlines. */}
                 {assignmentsByDate.size > 0 && (
                   <MiniCalendar itemsByDate={assignmentsByDate} />
                 )}
+
+                {/* Upcoming assignments for this course (sidebar). */}
+                <CourseUpcomingAssignments
+                  courseId={parseInt(id!)}
+                  assignments={courseAssignments}
+                />
 
                 {/* Collaborative Module */}
                 <CollaborativeModule
@@ -400,46 +432,6 @@ export const CourseDetails = () => {
                   moduleName={(course as any).collaborativeModuleName}
                   isInstructor={showInstructorControls || isActualAdmin}
                 />
-
-                {/* Learning Analytics — small gradient card matching
-                    the dashboard WelcomeCard's teal→indigo background. */}
-                {isEnrolled && (
-                  <Link
-                    to={`/courses/${id}/analytics`}
-                    onClick={() => track('analytics_link_clicked', { verb: 'interacted', objectType: 'analytics', courseId: parseInt(id!) })}
-                    className="block relative overflow-hidden rounded-lg shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
-                    style={{
-                      background:
-                        'linear-gradient(135deg, #0e7490 0%, #0d9488 35%, #6366f1 100%)',
-                    }}
-                  >
-                    {/* Subtle dot pattern — matches WelcomeCard texture */}
-                    <svg
-                      className="absolute inset-0 w-full h-full opacity-15 pointer-events-none"
-                      preserveAspectRatio="none"
-                      aria-hidden="true"
-                    >
-                      <defs>
-                        <pattern id="analytics-dots" x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse">
-                          <circle cx="2" cy="2" r="1.4" fill="white" />
-                        </pattern>
-                      </defs>
-                      <rect width="100%" height="100%" fill="url(#analytics-dots)" />
-                    </svg>
-
-                    <div className="relative flex items-center gap-4 p-4">
-                      <img
-                        src="/illustrations/analytics.png"
-                        alt=""
-                        className="w-20 h-20 object-contain flex-shrink-0 drop-shadow-lg"
-                      />
-                      <h3 className="text-base font-semibold text-white">
-                        {t('learning_analytics', { defaultValue: 'Learning Analytics' })}
-                      </h3>
-                    </div>
-                  </Link>
-                )}
-
               </div>
             </div>
           )}
