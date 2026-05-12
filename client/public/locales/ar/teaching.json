@@ -1238,5 +1238,21 @@
   "options_click_correct_multi": "الخيارات — انقر على الدائرة لتحديد كل إجابة صحيحة (يمكنك اختيار أكثر من واحدة)",
   "mark_as_correct": "تحديد كإجابة صحيحة",
   "true": "صحيح",
-  "false": "خاطئ"
+  "false": "خاطئ",
+  "quiz_column_course": "الدورة",
+  "quiz_column_quiz": "الاختبار",
+  "quiz_column_time": "المدة",
+  "quiz_column_max_attempts": "أقصى عدد محاولات",
+  "quiz_column_participants": "المشاركون",
+  "quiz_column_status": "الحالة",
+  "quiz_column_passing_score": "درجة النجاح",
+  "quiz_column_questions": "الأسئلة",
+  "new_quiz": "اختبار جديد",
+  "pick_a_course": "اختر دورة",
+  "pick_a_course_hint": "تنتمي الاختبارات إلى دورة. اختر دورة ليفتح المعالج عليها.",
+  "confirm_delete_quiz_title": "حذف الاختبار؟",
+  "confirm_delete_quiz_body": "سيؤدي هذا إلى حذف الاختبار وجميع أسئلته ومحاولاته.",
+  "n_minutes_one": "{{count}} دقيقة",
+  "n_minutes_other": "{{count}} دقيقة",
+  "search_quizzes_placeholder": "ابحث باسم الاختبار أو الدورة…"
 }

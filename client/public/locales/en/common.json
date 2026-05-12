@@ -196,5 +196,8 @@
   "due_on": "Due",
   "grace_until": "Grace until",
   "courses_in_progress": "Courses in progress",
-  "view_full_calendar": "View full calendar"
+  "view_full_calendar": "View full calendar",
+  "continue": "Continue",
+  "clear_all": "Clear all",
+  "showing_range": "Showing {{from}}–{{to}} of {{total}}"
 }

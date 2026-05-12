@@ -98,7 +98,7 @@ export const SurveyResponses = () => {
         <Breadcrumb
           homeHref="/"
           items={[
-            { label: t('navigation:courses'), href: '/teach' },
+            { label: t('navigation:courses'), href: '/courses' },
             ...(courseId && course
               ? [{ label: course.title, href: `/teach/courses/${courseId}/curriculum` }]
               : []),

@@ -1167,7 +1167,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
         <div className="mb-6">
           <Breadcrumb
             items={[
-              { label: t('navigation:courses'), href: '/teach' },
+              { label: t('navigation:courses'), href: '/courses' },
               { label: course.title, href: `/courses/${courseId}` },
               { label: t('curriculum_editor') },
             ]}

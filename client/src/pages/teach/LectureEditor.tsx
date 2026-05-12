@@ -119,7 +119,7 @@ export const LectureEditor = () => {
         <div className="mb-6">
           <Breadcrumb
             items={[
-              { label: t('navigation:courses'), href: '/teach' },
+              { label: t('navigation:courses'), href: '/courses' },
               { label: course?.title ?? '…', href: `/teach/courses/${courseId}/curriculum` },
               { label: lecture.title ?? t('teaching:lesson', { defaultValue: 'Lesson' }) },
             ]}

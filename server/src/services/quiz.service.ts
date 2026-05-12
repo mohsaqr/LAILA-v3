@@ -235,22 +235,42 @@ export class QuizService {
       where,
       orderBy: { createdAt: 'desc' },
       include: {
-        course: { select: { id: true, title: true } },
+        course: { select: { id: true, title: true, thumbnail: true } },
         module: { select: { id: true, title: true } },
         _count: { select: { questions: true, attempts: true } },
       },
     });
+
+    // Distinct participant count per quiz — one query for all in-scope
+    // quizzes, then bucket by quizId. attempts._count above is the total
+    // attempts including retakes; participantCount is unique students.
+    const quizIds = quizzes.map(q => q.id);
+    const participantsPerQuiz = new Map<number, number>();
+    if (quizIds.length > 0) {
+      const pairs = await prisma.quizAttempt.findMany({
+        where: { quizId: { in: quizIds } },
+        distinct: ['quizId', 'userId'],
+        select: { quizId: true },
+      });
+      for (const p of pairs) {
+        participantsPerQuiz.set(p.quizId, (participantsPerQuiz.get(p.quizId) ?? 0) + 1);
+      }
+    }
 
     return quizzes.map(quiz => ({
       id: quiz.id,
       title: quiz.title,
       courseId: quiz.courseId,
       courseName: quiz.course.title,
+      courseThumbnail: quiz.course.thumbnail,
       moduleId: quiz.moduleId,
       timeLimit: quiz.timeLimit,
+      maxAttempts: quiz.maxAttempts,
+      passingScore: quiz.passingScore,
       isPublished: quiz.isPublished,
       questionCount: quiz._count.questions,
       attemptCount: quiz._count.attempts,
+      participantCount: participantsPerQuiz.get(quiz.id) ?? 0,
     }));
   }
 

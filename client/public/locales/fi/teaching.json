@@ -1243,5 +1243,21 @@
   "options_click_correct_multi": "Vaihtoehdot — napsauta ympyrää merkitäksesi jokaisen oikean (voit valita useita)",
   "mark_as_correct": "Merkitse oikeaksi",
   "true": "Tosi",
-  "false": "Epätosi"
+  "false": "Epätosi",
+  "quiz_column_course": "Kurssi",
+  "quiz_column_quiz": "Tietokilpailu",
+  "quiz_column_time": "Aika",
+  "quiz_column_max_attempts": "Yrityksiä enint.",
+  "quiz_column_participants": "Osallistujat",
+  "quiz_column_status": "Tila",
+  "quiz_column_passing_score": "Hyväksytyn raja",
+  "quiz_column_questions": "Kysymykset",
+  "new_quiz": "Uusi tietokilpailu",
+  "pick_a_course": "Valitse kurssi",
+  "pick_a_course_hint": "Tietokilpailut kuuluvat kurssille. Valitse yksi, jolloin luontivelho avautuu kyseiselle kurssille.",
+  "confirm_delete_quiz_title": "Poistetaanko tietokilpailu?",
+  "confirm_delete_quiz_body": "Tämä poistaa tietokilpailun sekä kaikki sen kysymykset ja yritykset.",
+  "n_minutes_one": "{{count}} min",
+  "n_minutes_other": "{{count}} min",
+  "search_quizzes_placeholder": "Hae tietokilpailun tai kurssin nimellä…"
 }

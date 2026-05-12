@@ -268,12 +268,12 @@ export const CourseCreateWizard = () => {
 
   const breadcrumb = course
     ? [
-        { label: t('navigation:courses'), href: '/teach' },
+        { label: t('navigation:courses'), href: '/courses' },
         { label: course.title, href: `/courses/${course.id}` },
         { label: t('teaching:setup', { defaultValue: 'Setup' }) },
       ]
     : [
-        { label: t('navigation:courses'), href: '/teach' },
+        { label: t('navigation:courses'), href: '/courses' },
         { label: t('teaching:create_course') },
       ];
 

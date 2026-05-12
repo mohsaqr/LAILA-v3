@@ -173,7 +173,6 @@ export const StudentDashboard = () => {
           <div className="lg:col-span-3 space-y-6">
             <WelcomeCard
               name={user?.fullname}
-              illustration="/illustrations/welcome-student.png"
               message={t('common:welcome_message_student', {
                 defaultValue:
                   "Pick up where you left off and stay on top of what's due this week.",
