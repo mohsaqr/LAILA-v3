@@ -18,6 +18,8 @@ import { Button } from '../components/common/Button';
 import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { CollaborativeModule } from '../components/course/CollaborativeModule';
+import { CourseUpcomingAssignments } from '../components/course/CourseUpcomingAssignments';
+import { MiniCalendar } from '../components/dashboard/MiniCalendar';
 import { ModuleSection } from '../components/course/ModuleSection';
 import { Modal } from '../components/common/Modal';
 import { Input } from '../components/common/Input';
@@ -136,6 +138,22 @@ export const CourseDetails = () => {
 
   // Get the view mode from course settings, default to 'mini-cards'
   const viewMode: CurriculumViewMode = (course as any).curriculumViewMode || 'mini-cards';
+
+  // Flatten this course's published assignments and build the calendar
+  // bucket so the sidebar can show upcoming items + a small month view.
+  const courseAssignments = (course.modules ?? []).flatMap(
+    m => m.assignments ?? [],
+  );
+  const assignmentsByDate = (() => {
+    const map = new Map<string, number>();
+    for (const a of courseAssignments) {
+      if (!a.isPublished || !a.dueDate) continue;
+      const d = new Date(a.dueDate);
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      map.set(iso, (map.get(iso) ?? 0) + 1);
+    }
+    return map;
+  })();
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: colors.bg }}>
@@ -363,6 +381,18 @@ export const CourseDetails = () => {
           {hasAccess && (
             <div className="lg:w-96 flex-shrink-0">
               <div className="lg:sticky lg:top-4 space-y-8">
+                {/* Upcoming assignments for this course (sidebar). */}
+                <CourseUpcomingAssignments
+                  courseId={parseInt(id!)}
+                  assignments={courseAssignments}
+                />
+
+                {/* Compact month calendar marked with this course's
+                    assignment deadlines. */}
+                {assignmentsByDate.size > 0 && (
+                  <MiniCalendar itemsByDate={assignmentsByDate} />
+                )}
+
                 {/* Collaborative Module */}
                 <CollaborativeModule
                   courseId={parseInt(id!)}

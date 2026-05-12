@@ -1000,5 +1000,8 @@
   "manage": "Hallitse",
   "catalog_hero_title": "Opetuksesi yhdellä silmäyksellä",
   "catalog_hero_subtitle": "Katso, miten kurssit ja opiskelijat voivat — ja luo seuraava yhdellä klikkauksella.",
-  "learning_analytics": "Oppimisanalytiikka"
+  "learning_analytics": "Oppimisanalytiikka",
+  "upcoming_assignments": "Tulevat tehtävät",
+  "days_left_label": "Päiviä jäljellä",
+  "grace_short": "Lisäaika"
 }
