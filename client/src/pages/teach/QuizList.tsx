@@ -15,7 +15,8 @@ import toast from 'react-hot-toast';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { DataTable, type ColumnDef } from '../../components/common/DataTable';
-import { EmptyState } from '../../components/common/EmptyState';
+import { coursesApi } from '../../api/courses';
+import { resolveFileUrl } from '../../api/client';
 import { quizzesApi, type InstructorQuiz } from '../../api/quizzes';
 
 export const QuizList = () => {
@@ -28,6 +29,13 @@ export const QuizList = () => {
   const { data: quizzes = [], isLoading } = useQuery({
     queryKey: ['quizzes', 'instructor'],
     queryFn: () => quizzesApi.getInstructorQuizzes(),
+  });
+
+  // Owned courses feed the "Filter by course" select. Cached query —
+  // also used by TeachDashboard, so this is usually a hit.
+  const { data: myCourses = [] } = useQuery({
+    queryKey: ['my-courses'],
+    queryFn: () => coursesApi.getMyCourses(),
   });
 
   const togglePublishMutation = useMutation({
@@ -59,27 +67,62 @@ export const QuizList = () => {
 
   const columns: ColumnDef<InstructorQuiz>[] = [
     {
-      id: 'course',
-      header: t('teaching:quiz_column_course', { defaultValue: 'Course' }),
-      sortAccessor: q => q.courseName.toLowerCase(),
-      cell: q => (
-        <span className="text-gray-600 dark:text-gray-300 truncate">
-          {q.courseName}
-        </span>
-      ),
-    },
-    {
       id: 'title',
       header: t('teaching:quiz_column_quiz', { defaultValue: 'Quiz' }),
       sortAccessor: q => q.title.toLowerCase(),
+      width: '32%',
       cell: q => (
         <Link
           to={`/teach/courses/${q.courseId}/quizzes/${q.id}`}
-          className="font-normal text-gray-700 dark:text-gray-200 hover:text-teal-600 dark:hover:text-teal-400"
+          className="block truncate font-normal text-gray-700 dark:text-gray-200 hover:text-teal-600 dark:hover:text-teal-400"
+          title={q.title}
         >
           {q.title}
         </Link>
       ),
+    },
+    {
+      id: 'course',
+      header: t('teaching:quiz_column_course', { defaultValue: 'Course' }),
+      sortAccessor: q => q.courseName.toLowerCase(),
+      width: '30%',
+      filter: {
+        kind: 'select',
+        options: myCourses.map(c => ({
+          value: String(c.id),
+          label: c.title,
+        })),
+        predicate: (q, v) => String(q.courseId) === v,
+      },
+      cell: q => {
+        const thumb = q.courseThumbnail
+          ? resolveFileUrl(q.courseThumbnail) || q.courseThumbnail
+          : null;
+        return (
+          <div className="flex items-center gap-2 min-w-0">
+            {thumb ? (
+              <img
+                src={thumb}
+                alt=""
+                aria-hidden="true"
+                className="w-6 h-6 rounded object-cover flex-shrink-0"
+              />
+            ) : (
+              <div
+                className="w-6 h-6 rounded flex-shrink-0"
+                style={{ backgroundColor: 'rgba(8,143,143,0.18)' }}
+                aria-hidden="true"
+              />
+            )}
+            <span
+              className="truncate text-gray-600 dark:text-gray-300"
+              title={q.courseName}
+            >
+              {q.courseName}
+            </span>
+          </div>
+        );
+      },
     },
     {
       id: 'time',
@@ -158,10 +201,10 @@ export const QuizList = () => {
           },
         }}
         empty={
-          <EmptyState
-            icon={FileQuestion}
-            title={t('teaching:quizzes_appear_here')}
-          />
+          <div className="flex items-center justify-center gap-2 py-6 text-sm text-gray-500 dark:text-gray-400">
+            <FileQuestion className="w-4 h-4" />
+            <span>{t('teaching:quizzes_appear_here')}</span>
+          </div>
         }
         rowActions={q => (
           <RowMenu

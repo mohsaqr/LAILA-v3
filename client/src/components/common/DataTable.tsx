@@ -7,6 +7,7 @@ import {
   ChevronUp,
   ChevronsUpDown,
   FileQuestion,
+  Filter as FilterIcon,
   Plus,
   Search,
   X,
@@ -94,6 +95,7 @@ export function DataTable<T>({
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
   const [page, setPage] = useState(1);
+  const [filterOpen, setFilterOpen] = useState(false);
 
   // Debounce global search.
   useEffect(() => {
@@ -181,8 +183,8 @@ export function DataTable<T>({
   return (
     <Card>
       <CardBody>
-        {/* Toolbar: global search (left) + create CTA (right). */}
-        {(globalSearch || createCta) && (
+        {/* Toolbar: global search (left) + Filter / Create CTA (right). */}
+        {(globalSearch || createCta || filterableColumns.length > 0) && (
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
             {globalSearch ? (
               <div className="relative flex-1 max-w-sm">
@@ -201,85 +203,131 @@ export function DataTable<T>({
             ) : (
               <div />
             )}
-            {createCta && (
-              <Button
-                onClick={createCta.onClick}
-                icon={createCta.icon ?? <Plus className="w-4 h-4" />}
-              >
-                {createCta.label}
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {filterableColumns.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setFilterOpen(o => !o)}
+                  aria-expanded={filterOpen}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <FilterIcon className="w-3.5 h-3.5" />
+                  {t('common:filter', { defaultValue: 'Filter' })}
+                  {anyFiltersActive && (
+                    <span
+                      className="ml-0.5 inline-block w-1.5 h-1.5 rounded-full"
+                      style={{ backgroundColor: '#088F8F' }}
+                    />
+                  )}
+                </button>
+              )}
+              {createCta && (
+                <Button
+                  onClick={createCta.onClick}
+                  icon={createCta.icon ?? <Plus className="w-4 h-4" />}
+                >
+                  {createCta.label}
+                </Button>
+              )}
+            </div>
           </div>
         )}
 
-        {/* Column filter toolbar: one control per filterable column,
-            wrapping freely. Active filter values are kept in sync with
-            the same internal state used by the predicate pipeline. */}
-        {filterableColumns.length > 0 && (
+        {/* Inline filter card. Stacks the configured column filters
+            between the toolbar and the table — toggled by the Filter
+            button above. Same surface (white / dark gray) as the host
+            card so it reads as one continuous block. */}
+        {filterOpen && filterableColumns.length > 0 && (
           <div
-            className="flex flex-wrap items-end gap-3 mb-4 pb-3 border-b"
-            style={{ borderColor: subtleBorderColor }}
+            className="mb-4 rounded-xl border p-3 sm:p-4 bg-white dark:bg-gray-800"
+            style={{ borderColor }}
           >
-            {filterableColumns.map(col => {
-              const value = columnFilters[col.id] ?? '';
-              const setValue = (v: string) =>
-                setColumnFilters(prev => {
-                  const next = { ...prev };
-                  if (v) next[col.id] = v;
-                  else delete next[col.id];
-                  return next;
-                });
-              if (col.filter!.kind === 'text') {
+            <div className="flex items-center justify-between mb-3">
+              <span
+                className="text-sm font-semibold"
+                style={{ color: isDark ? '#f3f4f6' : '#111827' }}
+              >
+                {t('common:filter', { defaultValue: 'Filter' })}
+              </span>
+              <div className="flex items-center gap-3">
+                {anyFiltersActive && (
+                  <button
+                    type="button"
+                    onClick={() => setColumnFilters({})}
+                    className="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    {t('common:clear_all', { defaultValue: 'Clear all' })}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setFilterOpen(false)}
+                  aria-label={t('common:close', { defaultValue: 'Close' })}
+                  className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {filterableColumns.map(col => {
+                const value = columnFilters[col.id] ?? '';
+                const setValue = (v: string) =>
+                  setColumnFilters(prev => {
+                    const next = { ...prev };
+                    if (v) next[col.id] = v;
+                    else delete next[col.id];
+                    return next;
+                  });
+                if (col.filter!.kind === 'text') {
+                  return (
+                    <div key={col.id}>
+                      <label
+                        className="block text-sm font-medium mb-1.5"
+                        style={{ color: isDark ? '#cbd5e1' : '#374151' }}
+                      >
+                        {col.header}
+                      </label>
+                      <input
+                        type="text"
+                        value={value}
+                        onChange={e => {
+                          setValue(e.target.value);
+                          setPage(1);
+                        }}
+                        placeholder={col.filter!.placeholder ?? col.header}
+                        className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-1"
+                      />
+                    </div>
+                  );
+                }
+                const selectFilter = col.filter!;
+                const options = [
+                  { value: '', label: t('common:all', { defaultValue: 'All' }) },
+                  ...selectFilter.options,
+                ];
                 return (
-                  <div key={col.id} className="min-w-[10rem]">
+                  <div key={col.id}>
                     <label
-                      className="block text-[11px] font-medium uppercase tracking-wider mb-1"
-                      style={{ color: headerColor }}
+                      className="block text-sm font-medium mb-1.5"
+                      style={{ color: isDark ? '#cbd5e1' : '#374151' }}
                     >
                       {col.header}
                     </label>
-                    <input
-                      type="text"
+                    <SearchableSelect
                       value={value}
-                      onChange={e => {
-                        setValue(e.target.value);
+                      onChange={v => {
+                        setValue(v);
                         setPage(1);
                       }}
-                      placeholder={col.filter!.placeholder ?? col.header}
-                      className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-1"
+                      options={options}
                     />
                   </div>
                 );
-              }
-              const selectFilter = col.filter!;
-              const options = [
-                { value: '', label: t('common:all', { defaultValue: 'All' }) },
-                ...selectFilter.options,
-              ];
-              return (
-                <div key={col.id} className="min-w-[8rem]">
-                  <SearchableSelect
-                    label={col.header}
-                    value={value}
-                    onChange={v => {
-                      setValue(v);
-                      setPage(1);
-                    }}
-                    options={options}
-                  />
-                </div>
-              );
-            })}
-            {anyFiltersActive && (
-              <button
-                type="button"
-                onClick={() => setColumnFilters({})}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-              >
-                <X className="w-3.5 h-3.5" />
-                {t('common:clear_all', { defaultValue: 'Clear all' })}
-              </button>
-            )}
+              })}
+            </div>
           </div>
         )}
 
@@ -303,10 +351,10 @@ export function DataTable<T>({
           )
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+            <table className="w-full text-sm table-fixed">
               <thead>
                 <tr
-                  className="border-b text-left text-xs uppercase tracking-wider"
+                  className="border-b text-left text-xs font-semibold"
                   style={{ borderColor, color: headerColor }}
                 >
                   {columns.map(col => (
@@ -318,8 +366,13 @@ export function DataTable<T>({
                     />
                   ))}
                   {rowActions && (
-                    <th className="py-2 px-3 font-medium text-right">
-                      {t('common:actions', { defaultValue: 'Actions' })}
+                    <th
+                      className="py-2 px-2 text-right"
+                      style={{ width: '3rem' }}
+                    >
+                      <span className="sr-only">
+                        {t('common:actions', { defaultValue: 'Actions' })}
+                      </span>
                     </th>
                   )}
                 </tr>
@@ -353,10 +406,11 @@ export function DataTable<T>({
                     ))}
                     {rowActions && (
                       <td
-                        className="py-3 px-3 text-right"
+                        className="py-3 px-2 text-right"
+                        style={{ width: '3rem' }}
                         onClick={e => e.stopPropagation()}
                       >
-                        <div className="flex items-center justify-end gap-1 flex-wrap">
+                        <div className="flex items-center justify-end gap-1">
                           {rowActions(row)}
                         </div>
                       </td>
@@ -463,7 +517,7 @@ function HeaderCell<T>({ col, sortDir, onToggleSort }: HeaderCellProps<T>) {
         <button
           type="button"
           onClick={onToggleSort}
-          className="inline-flex items-center gap-1 uppercase tracking-wider text-xs font-medium hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+          className="inline-flex items-center gap-1 text-xs font-semibold hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
         >
           <span>{col.header}</span>
           {sortDir === 'asc' ? (
