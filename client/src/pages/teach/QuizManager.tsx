@@ -238,7 +238,11 @@ export const QuizManager = () => {
                           }}
                           disabled={togglePublishMutation.isPending}
                         >
-                          {quiz.isPublished ? <EyeOff size={16} /> : <Eye size={16} />}
+                          {quiz.isPublished ? (
+                            <Eye size={16} className="text-green-500" />
+                          ) : (
+                            <EyeOff size={16} className="text-amber-500" />
+                          )}
                         </Button>
                         <Button
                           variant="secondary"
