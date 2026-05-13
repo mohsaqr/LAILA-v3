@@ -26,7 +26,7 @@ export interface ForumThread {
   viewCount: number;
   createdAt: string;
   updatedAt: string;
-  author?: { id: number; fullname: string } | null;
+  author?: { id: number; fullname: string; avatarUrl?: string | null } | null;
   course?: { id: number; title: string; thumbnail?: string | null };
   module?: { id: number; title: string } | null;
   _count?: { posts: number };
@@ -47,7 +47,7 @@ export interface ForumPost {
   isEdited: boolean;
   createdAt: string;
   updatedAt: string;
-  author?: { id: number; fullname: string; isInstructor?: boolean } | null;
+  author?: { id: number; fullname: string; isInstructor?: boolean; avatarUrl?: string | null } | null;
   // AI Integration
   isAiGenerated?: boolean;
   aiAgentId?: number;

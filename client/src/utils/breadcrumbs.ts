@@ -18,11 +18,15 @@ export const buildForumBreadcrumb = (
   courseId: number | string,
   courseTitle: string,
   forumTitle?: string,
-  forumId?: number | string
+  forumId?: number | string,
+  /** Override for the "Forums" crumb's href. Students → /forums,
+   *  instructors / admins → /teach/forums. Falls back to the course-scoped
+   *  list when not supplied. */
+  forumsHref?: string,
 ): BreadcrumbItem[] => {
   const items: BreadcrumbItem[] = [
     ...buildCourseBreadcrumb(courseId, courseTitle),
-    { label: 'Forums', href: `/courses/${courseId}/forums` },
+    { label: 'Forums', href: forumsHref ?? `/courses/${courseId}/forums` },
   ];
   if (forumTitle && forumId) {
     items.push({ label: forumTitle, href: `/courses/${courseId}/forums/${forumId}` });
