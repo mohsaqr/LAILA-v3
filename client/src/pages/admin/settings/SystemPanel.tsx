@@ -5,11 +5,14 @@ import { Database, RefreshCw, Download, HardDrive, Clock, Shield, AlertTriangle 
 import { adminApi } from '../../../api/admin';
 import { Button } from '../../../components/common/Button';
 import { Loading } from '../../../components/common/Loading';
+import { StatCard } from '../../../components/admin/StatCard';
+import { useTheme } from '../../../hooks/useTheme';
 import toast from 'react-hot-toast';
 
 export const SystemPanel = () => {
   const { t } = useTranslation(['admin', 'common']);
   const queryClient = useQueryClient();
+  const { isDark } = useTheme();
   const [confirmReset, setConfirmReset] = useState(false);
 
   const { data, isLoading } = useQuery({
@@ -18,6 +21,17 @@ export const SystemPanel = () => {
   });
 
   const stats = data?.stats;
+
+  const c = {
+    bgBlue: isDark ? 'rgba(59,130,246,0.2)' : '#dbeafe',
+    bgGreen: isDark ? 'rgba(34,197,94,0.2)' : '#dcfce7',
+    bgPurple: isDark ? 'rgba(139,92,246,0.2)' : '#ede9fe',
+    bgOrange: isDark ? 'rgba(249,115,22,0.2)' : '#ffedd5',
+    txBlue: isDark ? '#93c5fd' : '#2563eb',
+    txGreen: isDark ? '#86efac' : '#16a34a',
+    txPurple: isDark ? '#c4b5fd' : '#7c3aed',
+    txOrange: isDark ? '#fdba74' : '#ea580c',
+  };
 
   const handleExportAll = async () => {
     try {
@@ -49,58 +63,36 @@ export const SystemPanel = () => {
 
   return (
     <div>
-      {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('system_settings')}</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">{t('system_info_maintenance')}</p>
-      </div>
-
-      {/* Stats Cards */}
+      {/* Stats Cards — same StatCard the dashboard / logs use. */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-              <Database className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{stats?.totalCourses || 0}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">{t('total_courses')}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-50 dark:bg-green-900/30 rounded-lg">
-              <HardDrive className="w-5 h-5 text-green-600 dark:text-green-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{stats?.totalUsers || 0}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">{t('total_users')}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
-              <Clock className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{stats?.totalEnrollments || 0}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">{t('enrollments')}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-50 dark:bg-orange-900/30 rounded-lg">
-              <Shield className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{stats?.activeUsers || stats?.totalUsers || 0}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">{t('active_users')}</p>
-            </div>
-          </div>
-        </div>
+        <StatCard
+          icon={<Database className="w-5 h-5" style={{ color: c.txBlue }} />}
+          iconBgColor={c.bgBlue}
+          value={(stats?.totalCourses || 0).toLocaleString()}
+          label={t('total_courses')}
+          size="sm"
+        />
+        <StatCard
+          icon={<HardDrive className="w-5 h-5" style={{ color: c.txGreen }} />}
+          iconBgColor={c.bgGreen}
+          value={(stats?.totalUsers || 0).toLocaleString()}
+          label={t('total_users')}
+          size="sm"
+        />
+        <StatCard
+          icon={<Clock className="w-5 h-5" style={{ color: c.txPurple }} />}
+          iconBgColor={c.bgPurple}
+          value={(stats?.totalEnrollments || 0).toLocaleString()}
+          label={t('enrollments')}
+          size="sm"
+        />
+        <StatCard
+          icon={<Shield className="w-5 h-5" style={{ color: c.txOrange }} />}
+          iconBgColor={c.bgOrange}
+          value={(stats?.activeUsers || stats?.totalUsers || 0).toLocaleString()}
+          label={t('active_users')}
+          size="sm"
+        />
       </div>
 
       {/* System Info */}

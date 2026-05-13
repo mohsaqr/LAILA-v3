@@ -1,37 +1,29 @@
 /**
- * User Interactions Tab Component for the Logs Dashboard.
- * Comprehensive interaction analytics with all database fields,
- * advanced filtering, pagination, search, sorting, and export capabilities.
+ * User Interactions tab — StatCard strip + DataTable + details modal.
+ * Style matches /teach/quizzes and the chatbot registry.
  */
 
-import { useState, useMemo, Fragment } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import {
-  Filter,
-  RefreshCw,
-  Loader2,
-  CheckCircle,
-  Search,
-  ChevronDown,
-  ChevronUp,
-  ChevronLeft,
-  ChevronRight,
-  FileText,
-  FileJson,
-  X,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-  MousePointer,
-  Users,
+  Eye,
   Globe,
+  MousePointer,
+  ScrollText,
+  Users,
 } from 'lucide-react';
 import { analyticsApi, InteractionFilters } from '../../../api/admin';
-import { Card, CardBody, CardHeader } from '../../../components/common/Card';
-import { Button } from '../../../components/common/Button';
-import { Loading } from '../../../components/common/Loading';
-import { formatDate } from './exportUtils';
+import { StatCard } from '../../../components/admin/StatCard';
+import {
+  DataTable,
+  type ColumnDef,
+} from '../../../components/common/DataTable';
+import { RowMenu } from '../../../components/common/RowMenu';
+import { Modal } from '../../../components/common/Modal';
+import { useTheme } from '../../../hooks/useTheme';
+import { formatDate, formatFullDate } from './exportUtils';
 
 interface InteractionsTabProps {
   exportStatus: 'idle' | 'loading' | 'success' | 'error';
@@ -42,7 +34,6 @@ interface InteractionsTabProps {
 interface InteractionLog {
   id: number;
   timestamp: string;
-  timestampMs: string | null;
   sessionId: string | null;
   sessionDuration: number | null;
   timeOnPage: number | null;
@@ -69,7 +60,6 @@ interface InteractionLog {
   elementType: string | null;
   elementText: string | null;
   elementHref: string | null;
-  elementClasses: string | null;
   elementName: string | null;
   elementValue: string | null;
   scrollDepth: number | null;
@@ -87,12 +77,8 @@ interface InteractionLog {
   ipAddress: string | null;
   userAgent: string | null;
   metadata: Record<string, unknown> | null;
-  testMode: string | null;
 }
 
-type SortField = 'timestamp' | 'userFullname' | 'eventType' | 'pagePath' | 'courseTitle' | 'deviceType' | 'browserName' | 'scrollDepth' | 'timeOnPage';
-
-// Event type color mappings
 const eventTypeColors: Record<string, string> = {
   click: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
   page_view: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300',
@@ -104,747 +90,474 @@ const eventTypeColors: Record<string, string> = {
   custom: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300',
 };
 
-export const InteractionsTab = ({ exportStatus, setExportStatus, initialUserId }: InteractionsTabProps) => {
+export const InteractionsTab = ({
+  exportStatus,
+  setExportStatus,
+  initialUserId,
+}: InteractionsTabProps) => {
   const { t } = useTranslation(['admin', 'common']);
-  // Filter state
-  const [filters, setFilters] = useState<InteractionFilters>({
+  const { isDark } = useTheme();
+  const [details, setDetails] = useState<InteractionLog | null>(null);
+
+  const c = {
+    bgBlue: isDark ? 'rgba(59,130,246,0.2)' : '#dbeafe',
+    bgGreen: isDark ? 'rgba(34,197,94,0.2)' : '#dcfce7',
+    bgTeal: isDark ? 'rgba(8,143,143,0.2)' : '#f0fdfd',
+    bgPurple: isDark ? 'rgba(139,92,246,0.2)' : '#ede9fe',
+    txBlue: isDark ? '#93c5fd' : '#2563eb',
+    txGreen: isDark ? '#86efac' : '#16a34a',
+    txTeal: isDark ? '#5eecec' : '#088F8F',
+    txPurple: isDark ? '#c4b5fd' : '#7c3aed',
+  };
+
+  const baseFilters: InteractionFilters = {
     page: 1,
-    limit: 50,
+    limit: 1000,
     sortBy: 'timestamp',
     sortOrder: 'desc',
     ...(initialUserId ? { userId: initialUserId } : {}),
-  });
-  const [searchInput, setSearchInput] = useState('');
-  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  };
 
-  // Fetch filter options
+  const { data: logsData, isLoading } = useQuery({
+    queryKey: ['interactions', 'all', initialUserId ?? null],
+    queryFn: () => analyticsApi.queryInteractions(baseFilters),
+  });
+
   const { data: filterOptions } = useQuery({
     queryKey: ['interactionFilterOptions'],
     queryFn: () => analyticsApi.getInteractionFilterOptions(),
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch interactions
-  const { data: logsData, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ['interactions', filters],
-    queryFn: () => analyticsApi.queryInteractions(filters),
-  });
-
-  // Fetch summary stats
   const { data: summary } = useQuery({
-    queryKey: ['interactionSummary', filters.startDate, filters.endDate, filters.courseId],
-    queryFn: () => analyticsApi.getInteractionSummary({
-      startDate: filters.startDate,
-      endDate: filters.endDate,
-      courseId: filters.courseId,
-    }),
+    queryKey: ['interactionSummary'],
+    queryFn: () => analyticsApi.getInteractionSummary({}),
   });
 
-  const logs: InteractionLog[] = logsData?.logs || [];
-  const pagination = logsData?.pagination || { page: 1, limit: 50, total: 0, totalPages: 0 };
+  const logs: InteractionLog[] = logsData?.logs ?? [];
 
-  // Handle search
-  const handleSearch = () => {
-    setFilters(prev => ({ ...prev, search: searchInput, page: 1 }));
-  };
-
-  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  };
-
-  // Handle filter changes
-  const updateFilter = (key: keyof InteractionFilters, value: string | number | undefined) => {
-    setFilters(prev => ({ ...prev, [key]: value || undefined, page: 1 }));
-  };
-
-  // Handle sort
-  const handleSort = (field: SortField) => {
-    setFilters(prev => ({
-      ...prev,
-      sortBy: field,
-      sortOrder: prev.sortBy === field && prev.sortOrder === 'desc' ? 'asc' : 'desc',
-    }));
-  };
-
-  // Handle pagination
-  const goToPage = (page: number) => {
-    setFilters(prev => ({ ...prev, page }));
-  };
-
-  // Handle row expansion
-  const toggleRow = (id: number) => {
-    setExpandedRows(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  // Clear all filters
-  const clearFilters = () => {
-    setFilters({
-      page: 1,
-      limit: 50,
-      sortBy: 'timestamp',
-      sortOrder: 'desc',
-    });
-    setSearchInput('');
-  };
-
-  // Export handlers
-  const handleExportCSV = async () => {
+  const handleExport = async () => {
     setExportStatus('loading');
     try {
-      await analyticsApi.exportInteractionsCSV(filters);
+      await analyticsApi.exportInteractionsJSON(baseFilters);
       setExportStatus('success');
+      toast.success(t('export_downloaded', { defaultValue: 'Export downloaded' }));
       setTimeout(() => setExportStatus('idle'), 2000);
     } catch {
       setExportStatus('error');
+      toast.error(t('export_failed', { defaultValue: 'Export failed' }));
       setTimeout(() => setExportStatus('idle'), 2000);
     }
   };
 
-  const handleExportJSON = async () => {
-    setExportStatus('loading');
-    try {
-      await analyticsApi.exportInteractionsJSON(filters);
-      setExportStatus('success');
-      setTimeout(() => setExportStatus('idle'), 2000);
-    } catch {
-      setExportStatus('error');
-      setTimeout(() => setExportStatus('idle'), 2000);
-    }
-  };
-
-  // Memoized stats display
-  const statsDisplay = useMemo(() => {
-    const typeStats: Record<string, number> = {};
-    (summary?.byType || []).forEach((t: { type: string; count: number }) => {
-      typeStats[t.type] = t.count;
-    });
-    const topTypes = Object.entries(typeStats).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    return { topTypes };
-  }, [summary]);
-
-  // Sort icon component
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (filters.sortBy !== field) {
-      return <ArrowUpDown className="w-3 h-3 ml-1 opacity-30" />;
-    }
-    return filters.sortOrder === 'asc'
-      ? <ArrowUp className="w-3 h-3 ml-1" />
-      : <ArrowDown className="w-3 h-3 ml-1" />;
-  };
-
-  // Check if any filters are active
-  const hasActiveFilters = filters.userId || filters.courseId || filters.eventType || filters.pagePath || filters.startDate || filters.endDate || filters.search;
+  const columns: ColumnDef<InteractionLog>[] = [
+    {
+      id: 'timestamp',
+      header: t('timestamp'),
+      sortAccessor: l => new Date(l.timestamp).getTime(),
+      width: '11rem',
+      cell: l => (
+        <span className="text-xs text-gray-600 dark:text-gray-300 tabular-nums whitespace-nowrap">
+          {formatDate(l.timestamp)}
+        </span>
+      ),
+    },
+    {
+      id: 'user',
+      header: t('user'),
+      sortAccessor: l => (l.userFullname || '').toLowerCase(),
+      width: '14%',
+      filter: {
+        kind: 'select',
+        options:
+          filterOptions?.users.map(u => ({
+            value: String(u.id),
+            label: u.fullname || u.email || `User #${u.id}`,
+          })) ?? [],
+        predicate: (l, v) => String(l.userId ?? '') === v,
+      },
+      cell: l => (
+        <div className="min-w-0">
+          <p className="text-sm truncate text-gray-700 dark:text-gray-200">
+            {l.userFullname || t('common:anonymous', { defaultValue: 'Anonymous' })}
+          </p>
+          <p className="text-xs truncate text-gray-500 dark:text-gray-400">
+            {l.userEmail}
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: 'event',
+      header: t('event'),
+      sortAccessor: l => l.eventType,
+      width: '8rem',
+      filter: {
+        kind: 'select',
+        options:
+          filterOptions?.eventTypes.map(e => ({
+            value: e.eventType,
+            label: `${e.eventType} (${e.count})`,
+          })) ?? [],
+        predicate: (l, v) => l.eventType === v,
+      },
+      cell: l => (
+        <div>
+          <span
+            className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
+              eventTypeColors[l.eventType] ||
+              'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200'
+            }`}
+          >
+            {l.eventType}
+          </span>
+          {l.eventAction && (
+            <p className="text-[10px] text-gray-400 mt-0.5">{l.eventAction}</p>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: 'page',
+      header: t('page_label'),
+      sortAccessor: l => (l.pagePath || '').toLowerCase(),
+      width: '20%',
+      filter: {
+        kind: 'select',
+        options:
+          filterOptions?.pages.map(p => ({
+            value: p.path,
+            label: p.path,
+          })) ?? [],
+        predicate: (l, v) => l.pagePath === v,
+      },
+      cell: l => (
+        <div className="min-w-0">
+          <p
+            className="text-sm truncate text-gray-700 dark:text-gray-200 font-mono text-xs"
+            title={l.pagePath || ''}
+          >
+            {l.pagePath || '—'}
+          </p>
+          {l.pageTitle && (
+            <p
+              className="text-xs truncate text-gray-400 dark:text-gray-500"
+              title={l.pageTitle}
+            >
+              {l.pageTitle}
+            </p>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: 'course',
+      header: t('course'),
+      sortAccessor: l => (l.courseTitle || '').toLowerCase(),
+      width: '14%',
+      hideOnMobile: true,
+      filter: {
+        kind: 'select',
+        options:
+          filterOptions?.courses
+            .filter(co => co.id != null)
+            .map(co => ({
+              value: String(co.id),
+              label: co.title || `Course #${co.id}`,
+            })) ?? [],
+        predicate: (l, v) => String(l.courseId ?? '') === v,
+      },
+      cell: l =>
+        l.courseTitle ? (
+          <span
+            className="block truncate text-sm text-gray-600 dark:text-gray-300"
+            title={l.courseTitle}
+          >
+            {l.courseTitle}
+          </span>
+        ) : (
+          <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
+        ),
+    },
+    {
+      id: 'device',
+      header: t('device'),
+      sortAccessor: l => l.deviceType || '',
+      width: '8rem',
+      hideOnMobile: true,
+      cell: l => (
+        <div className="min-w-0">
+          <p className="text-xs text-gray-600 dark:text-gray-300">
+            {l.deviceType || '—'}
+          </p>
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate">
+            {l.browserName}
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: 'scroll',
+      header: t('scroll'),
+      sortAccessor: l => l.scrollDepth ?? -1,
+      width: '7rem',
+      align: 'right',
+      hideOnMobile: true,
+      cell: l =>
+        l.scrollDepth != null ? (
+          <div className="flex items-center gap-1.5 justify-end">
+            <div className="w-10 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-cyan-500 dark:bg-cyan-400 rounded-full"
+                style={{ width: `${l.scrollDepth}%` }}
+              />
+            </div>
+            <span className="text-xs text-gray-600 dark:text-gray-300 tabular-nums">
+              {l.scrollDepth}%
+            </span>
+          </div>
+        ) : (
+          <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
+        ),
+    },
+  ];
 
   return (
     <>
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardBody className="flex items-center gap-4 p-4">
-            <div className="w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-              <MousePointer className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {(summary?.totalInteractions || pagination.total || 0).toLocaleString()}
-              </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">{t('total_interactions')}</div>
-            </div>
-          </CardBody>
-        </Card>
-        <Card>
-          <CardBody className="flex items-center gap-4 p-4">
-            <div className="w-12 h-12 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-              <Users className="w-6 h-6 text-green-600 dark:text-green-400" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {summary?.uniqueSessions || 0}
-              </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">{t('unique_sessions')}</div>
-            </div>
-          </CardBody>
-        </Card>
-        <Card>
-          <CardBody className="p-4">
-            <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">{t('top_event_types')}</div>
-            <div className="flex flex-wrap gap-1">
-              {statsDisplay.topTypes.map(([type, count]: [string, number]) => (
-                <span
-                  key={type}
-                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${eventTypeColors[type] || 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`}
-                >
-                  {type}: {count}
-                </span>
-              ))}
-            </div>
-          </CardBody>
-        </Card>
-        <Card>
-          <CardBody className="flex items-center gap-4 p-4">
-            <div className="w-12 h-12 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-              <Globe className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {summary?.byPage?.length || 0}
-              </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">{t('pages_tracked')}</div>
-            </div>
-          </CardBody>
-        </Card>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard
+          icon={<MousePointer className="w-5 h-5" style={{ color: c.txBlue }} />}
+          iconBgColor={c.bgBlue}
+          value={(summary?.totalInteractions || 0).toLocaleString()}
+          label={t('total_interactions')}
+          size="sm"
+        />
+        <StatCard
+          icon={<Users className="w-5 h-5" style={{ color: c.txGreen }} />}
+          iconBgColor={c.bgGreen}
+          value={(summary?.uniqueSessions || 0).toLocaleString()}
+          label={t('unique_sessions')}
+          size="sm"
+        />
+        <StatCard
+          icon={<Globe className="w-5 h-5" style={{ color: c.txPurple }} />}
+          iconBgColor={c.bgPurple}
+          value={(summary?.byPage?.length || 0).toLocaleString()}
+          label={t('pages_tracked')}
+          size="sm"
+        />
+        <StatCard
+          icon={<ScrollText className="w-5 h-5" style={{ color: c.txTeal }} />}
+          iconBgColor={c.bgTeal}
+          value={(filterOptions?.eventTypes.length || 0).toLocaleString()}
+          label={t('event_type')}
+          size="sm"
+        />
       </div>
 
-      {/* Filters */}
-      <Card className="mb-6">
-        <CardHeader>
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
-              <Filter className="w-4 h-4" />
-              {t('filters')}
-              {hasActiveFilters && (
-                <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded-full">
-                  {t('active')}
-                </span>
-              )}
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => refetch()}
-                disabled={isFetching}
-              >
-                {isFetching ? (
-                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-4 h-4 mr-1" />
-                )}
-                {t('common:refresh')}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportCSV}
-                disabled={exportStatus === 'loading'}
-              >
-                <FileText className="w-4 h-4 mr-1" />
-                {t('csv')}
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleExportJSON}
-                disabled={exportStatus === 'loading'}
-              >
-                {exportStatus === 'loading' ? (
-                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                ) : exportStatus === 'success' ? (
-                  <CheckCircle className="w-4 h-4 mr-1 text-green-500" />
-                ) : (
-                  <FileJson className="w-4 h-4 mr-1" />
-                )}
-                {t('json')}
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardBody>
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-            {/* Search */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('search')}</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md pl-9 pr-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                  placeholder={t('search_user_page_course')}
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  onKeyDown={handleSearchKeyDown}
-                />
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                {searchInput && (
-                  <button
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                    onClick={() => {
-                      setSearchInput('');
-                      if (filters.search) {
-                        updateFilter('search', undefined);
-                      }
-                    }}
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            </div>
+      <DataTable<InteractionLog>
+        rows={logs}
+        columns={columns}
+        rowKey={l => l.id}
+        isLoading={isLoading}
+        pageSize={20}
+        globalSearch={{
+          placeholder: t('search_user_page_course'),
+          predicate: (l, q) => {
+            const x = q.toLowerCase();
+            return (
+              (l.userFullname || '').toLowerCase().includes(x) ||
+              (l.userEmail || '').toLowerCase().includes(x) ||
+              (l.pagePath || '').toLowerCase().includes(x) ||
+              (l.pageTitle || '').toLowerCase().includes(x) ||
+              (l.courseTitle || '').toLowerCase().includes(x) ||
+              l.eventType.toLowerCase().includes(x)
+            );
+          },
+        }}
+        exportAction={{
+          onClick: handleExport,
+          label: exportStatus === 'loading' ? t('common:loading') : undefined,
+        }}
+        rowActions={l => (
+          <RowMenu
+            items={[
+              {
+                key: 'details',
+                label: t('view_details', { defaultValue: 'View details' }),
+                icon: <Eye className="w-3.5 h-3.5" />,
+                onClick: () => setDetails(l),
+              },
+            ]}
+          />
+        )}
+      />
 
-            {/* User Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('user')}</label>
-              <select
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                value={filters.userId || ''}
-                onChange={(e) => updateFilter('userId', e.target.value ? parseInt(e.target.value) : undefined)}
-              >
-                <option value="">{t('all_users')}</option>
-                {filterOptions?.users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.fullname || u.email || `User #${u.id}`}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Course Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('course')}</label>
-              <select
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                value={filters.courseId || ''}
-                onChange={(e) => updateFilter('courseId', e.target.value ? parseInt(e.target.value) : undefined)}
-              >
-                <option value="">{t('all_courses')}</option>
-                {filterOptions?.courses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.title || `Course #${c.id}`}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Event Type Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('event_type')}</label>
-              <select
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                value={filters.eventType || ''}
-                onChange={(e) => updateFilter('eventType', e.target.value || undefined)}
-              >
-                <option value="">{t('all_types')}</option>
-                {filterOptions?.eventTypes.map((e) => (
-                  <option key={e.eventType} value={e.eventType}>
-                    {e.eventType} ({e.count})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Page Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('page')}</label>
-              <select
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                value={filters.pagePath || ''}
-                onChange={(e) => updateFilter('pagePath', e.target.value || undefined)}
-              >
-                <option value="">{t('all_pages')}</option>
-                {filterOptions?.pages.map((p) => (
-                  <option key={p.path} value={p.path}>
-                    {p.path.length > 30 ? '...' + p.path.slice(-27) : p.path} ({p.count})
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Date Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mt-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('start_date')}</label>
-              <input
-                type="date"
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                value={filters.startDate || ''}
-                onChange={(e) => updateFilter('startDate', e.target.value || undefined)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('end_date')}</label>
-              <input
-                type="date"
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                value={filters.endDate || ''}
-                onChange={(e) => updateFilter('endDate', e.target.value || undefined)}
-              />
-            </div>
-            <div className="flex items-end">
-              <Button variant="outline" className="w-full" onClick={clearFilters}>
-                <X className="w-4 h-4 mr-1" />
-                {t('clear_filters')}
-              </Button>
-            </div>
-          </div>
-        </CardBody>
-      </Card>
-
-      {/* Interactions Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between text-gray-900 dark:text-gray-100">
-            <span>{t('user_interactions')}</span>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              {t('showing_range', { start: (pagination.page - 1) * pagination.limit + 1, end: Math.min(pagination.page * pagination.limit, pagination.total), total: pagination.total.toLocaleString() })}
-            </span>
-          </div>
-        </CardHeader>
-        <CardBody className="p-0">
-          {isLoading ? (
-            <div className="p-8"><Loading /></div>
-          ) : logs.length === 0 ? (
-            <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-              {t('no_interaction_logs')}
-              {hasActiveFilters && (
-                <div className="mt-2">
-                  <Button variant="outline" size="sm" onClick={clearFilters}>
-                    {t('clear_filters')}
-                  </Button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
-                  <tr>
-                    <th className="w-8 px-2 py-3"></th>
-                    <th
-                      className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600/50"
-                      onClick={() => handleSort('timestamp')}
-                    >
-                      <div className="flex items-center">
-                        {t('timestamp')}
-                        <SortIcon field="timestamp" />
-                      </div>
-                    </th>
-                    <th
-                      className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600/50"
-                      onClick={() => handleSort('userFullname')}
-                    >
-                      <div className="flex items-center">
-                        {t('user')}
-                        <SortIcon field="userFullname" />
-                      </div>
-                    </th>
-                    <th
-                      className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600/50"
-                      onClick={() => handleSort('eventType')}
-                    >
-                      <div className="flex items-center">
-                        {t('event')}
-                        <SortIcon field="eventType" />
-                      </div>
-                    </th>
-                    <th
-                      className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600/50"
-                      onClick={() => handleSort('pagePath')}
-                    >
-                      <div className="flex items-center">
-                        {t('page_label')}
-                        <SortIcon field="pagePath" />
-                      </div>
-                    </th>
-                    <th
-                      className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600/50"
-                      onClick={() => handleSort('courseTitle')}
-                    >
-                      <div className="flex items-center">
-                        {t('course')}
-                        <SortIcon field="courseTitle" />
-                      </div>
-                    </th>
-                    <th
-                      className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600/50"
-                      onClick={() => handleSort('deviceType')}
-                    >
-                      <div className="flex items-center">
-                        {t('device')}
-                        <SortIcon field="deviceType" />
-                      </div>
-                    </th>
-                    <th
-                      className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600/50"
-                      onClick={() => handleSort('scrollDepth')}
-                    >
-                      <div className="flex items-center">
-                        {t('scroll')}
-                        <SortIcon field="scrollDepth" />
-                      </div>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {logs.map((log) => (
-                    <Fragment key={log.id}>
-                      <tr
-                        className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
-                        onClick={() => toggleRow(log.id)}
-                      >
-                        <td className="px-2 py-3 text-center">
-                          {expandedRows.has(log.id) ? (
-                            <ChevronUp className="w-4 h-4 text-gray-400" />
-                          ) : (
-                            <ChevronDown className="w-4 h-4 text-gray-400" />
-                          )}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-gray-600 dark:text-gray-400">
-                          {formatDate(log.timestamp)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="font-medium text-gray-900 dark:text-gray-100">
-                            {log.userFullname || 'Anonymous'}
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">{log.userEmail}</div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${eventTypeColors[log.eventType] || 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`}>
-                            {log.eventType}
-                          </span>
-                          {log.eventAction && (
-                            <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{log.eventAction}</div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="text-sm text-gray-700 dark:text-gray-300 truncate max-w-[150px]" title={log.pagePath || ''}>
-                            {log.pagePath || '-'}
-                          </div>
-                          {log.pageTitle && (
-                            <div className="text-xs text-gray-400 dark:text-gray-500 truncate max-w-[150px]">{log.pageTitle}</div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {log.courseTitle ? (
-                            <div className="text-sm text-gray-700 dark:text-gray-300 truncate max-w-[120px]">
-                              {log.courseTitle}
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 dark:text-gray-500">-</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">
-                          <div>{log.deviceType || '-'}</div>
-                          <div className="text-gray-400">{log.browserName}</div>
-                        </td>
-                        <td className="px-4 py-3">
-                          {log.scrollDepth != null ? (
-                            <div className="flex items-center gap-2">
-                              <div className="w-12 h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-cyan-500 dark:bg-cyan-400 rounded-full"
-                                  style={{ width: `${log.scrollDepth}%` }}
-                                />
-                              </div>
-                              <span className="text-xs text-gray-600 dark:text-gray-400">{log.scrollDepth}%</span>
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 dark:text-gray-500">-</span>
-                          )}
-                        </td>
-                      </tr>
-                      {/* Expanded Details Row */}
-                      {expandedRows.has(log.id) && (
-                        <tr className="bg-gray-50 dark:bg-gray-800/50">
-                          <td colSpan={8} className="px-4 py-4">
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
-                              {/* User Context */}
-                              <div className="space-y-2">
-                                <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
-                                  {t('user_context')}
-                                </h4>
-                                <div className="space-y-1 text-gray-600 dark:text-gray-400">
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('id')}:</span> {log.userId || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('email')}:</span> {log.userEmail || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('name')}:</span> {log.userFullname || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('session')}:</span> {log.sessionId ? log.sessionId.substring(0, 16) + '...' : '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('session_duration')}:</span> {log.sessionDuration != null ? `${log.sessionDuration}s` : '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('time_on_page')}:</span> {log.timeOnPage != null ? `${log.timeOnPage}s` : '-'}</div>
-                                </div>
-                              </div>
-
-                              {/* Event Details */}
-                              <div className="space-y-2">
-                                <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
-                                  {t('event_details')}
-                                </h4>
-                                <div className="space-y-1 text-gray-600 dark:text-gray-400">
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('type')}:</span> {log.eventType}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('event_category')}:</span> {log.eventCategory || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('event_action')}:</span> {log.eventAction || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('event_label')}:</span> {log.eventLabel || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('event_value')}:</span> {log.eventValue ?? '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('event_sequence')}:</span> {log.eventSequence ?? '-'}</div>
-                                </div>
-                              </div>
-
-                              {/* Page & Course Context */}
-                              <div className="space-y-2">
-                                <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
-                                  {t('page_course')}
-                                </h4>
-                                <div className="space-y-1 text-gray-600 dark:text-gray-400">
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('page_label')}:</span> {log.pagePath || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('title_label')}:</span> {log.pageTitle || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('referrer')}:</span> {log.referrerUrl ? log.referrerUrl.substring(0, 30) + '...' : '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('course')}:</span> {log.courseTitle || '-'} {log.courseId && `(#${log.courseId})`}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('module')}:</span> {log.moduleTitle || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('lecture')}:</span> {log.lectureTitle || '-'}</div>
-                                </div>
-                              </div>
-
-                              {/* Client Info */}
-                              <div className="space-y-2">
-                                <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
-                                  {t('client_info')}
-                                </h4>
-                                <div className="space-y-1 text-gray-600 dark:text-gray-400">
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('device')}:</span> {log.deviceType || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('browser')}:</span> {log.browserName} {log.browserVersion}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('os')}:</span> {log.osName} {log.osVersion}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('screen')}:</span> {log.screenWidth && log.screenHeight ? `${log.screenWidth}x${log.screenHeight}` : '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('viewport')}:</span> {log.viewportWidth && log.viewportHeight ? `${log.viewportWidth}x${log.viewportHeight}` : '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('language_label')}:</span> {log.language || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('timezone_label')}:</span> {log.timezone || '-'}</div>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Element Details */}
-                            {(log.elementId || log.elementType || log.elementText) && (
-                              <div className="mt-4">
-                                <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1 mb-2">
-                                  {t('element_details')}
-                                </h4>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 dark:text-gray-400">
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('element_id')}:</span> {log.elementId || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('element_type_label')}:</span> {log.elementType || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('element_name')}:</span> {log.elementName || '-'}</div>
-                                  <div><span className="text-gray-500 dark:text-gray-500">{t('element_value_label')}:</span> {log.elementValue || '-'}</div>
-                                  {log.elementText && (
-                                    <div className="col-span-2"><span className="text-gray-500 dark:text-gray-500">{t('element_text')}:</span> {log.elementText.substring(0, 100)}{log.elementText.length > 100 ? '...' : ''}</div>
-                                  )}
-                                  {log.elementHref && (
-                                    <div className="col-span-2"><span className="text-gray-500 dark:text-gray-500">{t('element_href')}:</span> {log.elementHref}</div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Metadata */}
-                            {log.metadata && Object.keys(log.metadata).length > 0 && (
-                              <div className="mt-4">
-                                <details>
-                                  <summary className="cursor-pointer text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                    {t('metadata_expand')}
-                                  </summary>
-                                  <pre className="mt-2 p-3 bg-gray-100 dark:bg-gray-900 rounded text-xs overflow-x-auto text-gray-800 dark:text-gray-200">
-                                    {JSON.stringify(log.metadata, null, 2)}
-                                  </pre>
-                                </details>
-                              </div>
-                            )}
-
-                            {log.testMode && (
-                              <div className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                                {t('test_mode')}: {log.testMode}
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* Pagination */}
-          {pagination.totalPages > 1 && (
-            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-gray-200 dark:border-gray-700">
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                {t('page_x_of_y', { page: pagination.page, total: pagination.totalPages })}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => goToPage(1)}
-                  disabled={pagination.page === 1}
-                >
-                  {t('first')}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => goToPage(pagination.page - 1)}
-                  disabled={pagination.page === 1}
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  {t('prev')}
-                </Button>
-
-                {/* Page numbers */}
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                    let pageNum: number;
-                    if (pagination.totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (pagination.page <= 3) {
-                      pageNum = i + 1;
-                    } else if (pagination.page >= pagination.totalPages - 2) {
-                      pageNum = pagination.totalPages - 4 + i;
-                    } else {
-                      pageNum = pagination.page - 2 + i;
-                    }
-
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => goToPage(pageNum)}
-                        className={`px-3 py-1 rounded text-sm ${
-                          pagination.page === pageNum
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => goToPage(pagination.page + 1)}
-                  disabled={pagination.page === pagination.totalPages}
-                >
-                  {t('next')}
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => goToPage(pagination.totalPages)}
-                  disabled={pagination.page === pagination.totalPages}
-                >
-                  {t('last')}
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardBody>
-      </Card>
+      <Modal
+        isOpen={!!details}
+        onClose={() => setDetails(null)}
+        title={details?.eventType || t('user_interactions')}
+        size="4xl"
+      >
+        {details && <InteractionDetailsView log={details} />}
+      </Modal>
     </>
   );
 };
+
+const InteractionDetailsView = ({ log }: { log: InteractionLog }) => {
+  const { t } = useTranslation(['admin']);
+  return (
+    <div className="space-y-4">
+      <div className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+        {formatFullDate(log.timestamp)}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+        <Section title={t('user_context')}>
+          <KV k={t('id')} v={log.userId} />
+          <KV k={t('email')} v={log.userEmail} />
+          <KV k={t('name')} v={log.userFullname} />
+          <KV
+            k={t('session')}
+            v={log.sessionId ? `${log.sessionId.substring(0, 16)}…` : null}
+          />
+          <KV
+            k={t('session_duration')}
+            v={log.sessionDuration != null ? `${log.sessionDuration}s` : null}
+          />
+          <KV
+            k={t('time_on_page')}
+            v={log.timeOnPage != null ? `${log.timeOnPage}s` : null}
+          />
+        </Section>
+
+        <Section title={t('event_details')}>
+          <KV k={t('type')} v={log.eventType} />
+          <KV k={t('event_category')} v={log.eventCategory} />
+          <KV k={t('event_action')} v={log.eventAction} />
+          <KV k={t('event_label')} v={log.eventLabel} />
+          <KV k={t('event_value')} v={log.eventValue} />
+          <KV k={t('event_sequence')} v={log.eventSequence} />
+        </Section>
+
+        <Section title={t('page_course')}>
+          <KV
+            k={t('page_label')}
+            v={<span className="font-mono text-xs">{log.pagePath}</span>}
+          />
+          <KV k={t('title_label')} v={log.pageTitle} />
+          <KV
+            k={t('referrer')}
+            v={
+              log.referrerUrl
+                ? `${log.referrerUrl.substring(0, 30)}…`
+                : null
+            }
+          />
+          <KV
+            k={t('course')}
+            v={
+              log.courseTitle
+                ? `${log.courseTitle} (#${log.courseId})`
+                : null
+            }
+          />
+          <KV k={t('module')} v={log.moduleTitle} />
+          <KV k={t('lecture')} v={log.lectureTitle} />
+        </Section>
+
+        <Section title={t('client_info')}>
+          <KV k={t('device')} v={log.deviceType} />
+          <KV
+            k={t('browser')}
+            v={
+              log.browserName
+                ? `${log.browserName} ${log.browserVersion || ''}`.trim()
+                : null
+            }
+          />
+          <KV
+            k={t('os')}
+            v={log.osName ? `${log.osName} ${log.osVersion || ''}`.trim() : null}
+          />
+          <KV
+            k={t('screen')}
+            v={
+              log.screenWidth && log.screenHeight
+                ? `${log.screenWidth}×${log.screenHeight}`
+                : null
+            }
+          />
+          <KV
+            k={t('viewport')}
+            v={
+              log.viewportWidth && log.viewportHeight
+                ? `${log.viewportWidth}×${log.viewportHeight}`
+                : null
+            }
+          />
+          <KV k={t('language_label')} v={log.language} />
+          <KV k={t('timezone_label')} v={log.timezone} />
+        </Section>
+
+        {(log.elementId || log.elementType || log.elementText) && (
+          <Section title={t('element_details')} full>
+            <KV k={t('element_id')} v={log.elementId} />
+            <KV k={t('element_type_label')} v={log.elementType} />
+            <KV k={t('element_name')} v={log.elementName} />
+            <KV k={t('element_value_label')} v={log.elementValue} />
+            {log.elementText && (
+              <KV
+                k={t('element_text')}
+                v={
+                  log.elementText.length > 100
+                    ? `${log.elementText.slice(0, 100)}…`
+                    : log.elementText
+                }
+              />
+            )}
+            {log.elementHref && (
+              <KV
+                k={t('element_href')}
+                v={<span className="font-mono text-xs">{log.elementHref}</span>}
+              />
+            )}
+          </Section>
+        )}
+
+        {log.metadata && Object.keys(log.metadata).length > 0 && (
+          <Section title={t('metadata_expand')} full>
+            <pre className="max-h-48 overflow-y-auto p-3 bg-gray-100 dark:bg-gray-900 rounded text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+              {JSON.stringify(log.metadata, null, 2)}
+            </pre>
+          </Section>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const Section = ({
+  title,
+  children,
+  full,
+}: {
+  title: string;
+  children: React.ReactNode;
+  full?: boolean;
+}) => (
+  <div className={`space-y-2 ${full ? 'md:col-span-2 lg:col-span-3' : ''}`}>
+    <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
+      {title}
+    </h4>
+    <div className="space-y-1 text-gray-600 dark:text-gray-400">{children}</div>
+  </div>
+);
+
+const KV = ({ k, v }: { k: string; v: React.ReactNode }) => (
+  <div>
+    <span className="text-gray-500 dark:text-gray-500">{k}:</span>{' '}
+    {v ?? '—'}
+  </div>
+);

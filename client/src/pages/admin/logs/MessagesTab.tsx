@@ -1,35 +1,30 @@
 /**
- * Messages Tab Component for the Logs Dashboard.
- * Unified view of all messages across Chatbot, Tutor, and Agent systems.
+ * Messages tab — StatCard strip + DataTable + details modal.
+ * Style matches /teach/quizzes and the chatbot registry.
  */
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import {
-  MessageCircle,
-  Clock,
-  Users,
   Bot,
-  User,
-  Zap,
-  RefreshCw,
-  Download,
-  Loader2,
-  X,
-  Filter,
-  FileSpreadsheet,
-  ChevronDown,
-  ChevronUp,
-  BookOpen,
   Cpu,
+  Eye,
+  MessageCircle,
+  Users,
+  Zap,
 } from 'lucide-react';
-import { messagesApi, UnifiedMessage, MessageFilters } from '../../../api/admin';
-import { Card, CardBody, CardHeader } from '../../../components/common/Card';
-import { Button } from '../../../components/common/Button';
-import { Loading } from '../../../components/common/Loading';
+import { messagesApi, UnifiedMessage } from '../../../api/admin';
+import { StatCard } from '../../../components/admin/StatCard';
+import {
+  DataTable,
+  type ColumnDef,
+} from '../../../components/common/DataTable';
+import { RowMenu } from '../../../components/common/RowMenu';
+import { Modal } from '../../../components/common/Modal';
+import { useTheme } from '../../../hooks/useTheme';
 import { formatDate, formatFullDate } from './exportUtils';
-import { debug } from '../../../utils/debug';
 
 interface MessagesTabProps {
   exportStatus: 'idle' | 'loading' | 'success' | 'error';
@@ -48,756 +43,425 @@ const ROLE_COLORS: Record<string, string> = {
   assistant: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
 };
 
-export const MessagesTab = ({ exportStatus, setExportStatus, initialUserId }: MessagesTabProps) => {
+export const MessagesTab = ({
+  exportStatus,
+  setExportStatus,
+  initialUserId,
+}: MessagesTabProps) => {
   const { t } = useTranslation(['admin', 'common']);
-  const [filters, setFilters] = useState<MessageFilters>({
-    page: 1,
-    limit: 50,
-    ...(initialUserId ? { userId: initialUserId } : {}),
-  });
-  const [showFilters, setShowFilters] = useState(false);
-  const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
-  const [selectedMessage, setSelectedMessage] = useState<UnifiedMessage | null>(null);
+  const { isDark } = useTheme();
+  const [details, setDetails] = useState<UnifiedMessage | null>(null);
 
-  // Fetch stats
-  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
-    queryKey: ['messageStats', filters.startDate, filters.endDate, filters.systemType, filters.courseId, filters.userId],
-    queryFn: () => messagesApi.getStats({
-      startDate: filters.startDate,
-      endDate: filters.endDate,
-      systemType: filters.systemType,
-      courseId: filters.courseId,
-      userId: filters.userId,
-    }),
-  });
-
-  // Fetch messages
-  const { data: messagesData, isLoading: messagesLoading, refetch: refetchMessages } = useQuery({
-    queryKey: ['messages', filters],
-    queryFn: () => messagesApi.getMessages(filters),
-  });
-
-  const handleRefresh = () => {
-    refetchStats();
-    refetchMessages();
+  const c = {
+    bgBlue: isDark ? 'rgba(59,130,246,0.2)' : '#dbeafe',
+    bgGreen: isDark ? 'rgba(34,197,94,0.2)' : '#dcfce7',
+    bgTeal: isDark ? 'rgba(8,143,143,0.2)' : '#f0fdfd',
+    bgPurple: isDark ? 'rgba(139,92,246,0.2)' : '#ede9fe',
+    bgOrange: isDark ? 'rgba(249,115,22,0.2)' : '#ffedd5',
+    txBlue: isDark ? '#93c5fd' : '#2563eb',
+    txGreen: isDark ? '#86efac' : '#16a34a',
+    txTeal: isDark ? '#5eecec' : '#088F8F',
+    txPurple: isDark ? '#c4b5fd' : '#7c3aed',
+    txOrange: isDark ? '#fdba74' : '#ea580c',
   };
 
-  const handleExportCSV = async () => {
+  const { data: messagesData, isLoading } = useQuery({
+    queryKey: ['messages', 'all', initialUserId ?? null],
+    queryFn: () =>
+      messagesApi.getMessages({
+        page: 1,
+        limit: 1000,
+        ...(initialUserId ? { userId: initialUserId } : {}),
+      }),
+  });
+
+  const { data: stats } = useQuery({
+    queryKey: ['messageStats', initialUserId ?? null],
+    queryFn: () =>
+      messagesApi.getStats({
+        ...(initialUserId ? { userId: initialUserId } : {}),
+      }),
+  });
+
+  const messages: UnifiedMessage[] = messagesData?.messages ?? [];
+
+  const handleExport = async () => {
     setExportStatus('loading');
     try {
-      await messagesApi.exportCSV(filters);
+      await messagesApi.exportCSV({
+        ...(initialUserId ? { userId: initialUserId } : {}),
+      });
       setExportStatus('success');
+      toast.success(t('export_downloaded', { defaultValue: 'Export downloaded' }));
       setTimeout(() => setExportStatus('idle'), 2000);
-    } catch (error: unknown) {
-      debug.error('CSV Export failed:', error);
+    } catch {
       setExportStatus('error');
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      alert(`Export failed: ${message}`);
+      toast.error(t('export_failed', { defaultValue: 'Export failed' }));
       setTimeout(() => setExportStatus('idle'), 2000);
     }
   };
 
-  const handleExportExcel = async () => {
-    setExportStatus('loading');
-    try {
-      await messagesApi.exportExcel(filters);
-      setExportStatus('success');
-      setTimeout(() => setExportStatus('idle'), 2000);
-    } catch (error: unknown) {
-      debug.error('Excel Export failed:', error);
-      setExportStatus('error');
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      alert(`Export failed: ${message}`);
-      setTimeout(() => setExportStatus('idle'), 2000);
-    }
-  };
-
-  const toggleMessageExpand = (id: string) => {
-    const newExpanded = new Set(expandedMessages);
-    if (newExpanded.has(id)) {
-      newExpanded.delete(id);
-    } else {
-      newExpanded.add(id);
-    }
-    setExpandedMessages(newExpanded);
-  };
-
-  const handlePageChange = (newPage: number) => {
-    setFilters(prev => ({ ...prev, page: newPage }));
-  };
-
-  if (statsLoading && messagesLoading) {
-    return <Loading text={t('loading_messages')} />;
-  }
+  const columns: ColumnDef<UnifiedMessage>[] = [
+    {
+      id: 'timestamp',
+      header: t('timestamp'),
+      sortAccessor: m => new Date(m.timestamp).getTime(),
+      width: '11rem',
+      cell: m => (
+        <span className="text-xs text-gray-600 dark:text-gray-300 tabular-nums whitespace-nowrap">
+          {formatDate(m.timestamp)}
+        </span>
+      ),
+    },
+    {
+      id: 'system',
+      header: t('system'),
+      sortAccessor: m => m.systemType,
+      width: '7rem',
+      filter: {
+        kind: 'select',
+        options: [
+          { value: 'chatbot', label: t('chatbot') },
+          { value: 'tutor', label: t('tutor') },
+          { value: 'agent', label: t('agent_tests') },
+        ],
+        predicate: (m, v) => m.systemType === v,
+      },
+      cell: m => (
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+            SYSTEM_TYPE_COLORS[m.systemType] ||
+            'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200'
+          }`}
+        >
+          {m.systemType}
+        </span>
+      ),
+    },
+    {
+      id: 'role',
+      header: t('role'),
+      sortAccessor: m => m.role,
+      width: '6.5rem',
+      filter: {
+        kind: 'select',
+        options: [
+          { value: 'user', label: t('common:user', { defaultValue: 'User' }) },
+          {
+            value: 'assistant',
+            label: t('common:assistant', { defaultValue: 'Assistant' }),
+          },
+        ],
+        predicate: (m, v) => m.role === v,
+      },
+      cell: m => (
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+            ROLE_COLORS[m.role] ||
+            'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200'
+          }`}
+        >
+          {m.role}
+        </span>
+      ),
+    },
+    {
+      id: 'user',
+      header: t('user'),
+      sortAccessor: m => (m.userFullname || '').toLowerCase(),
+      width: '14%',
+      cell: m => (
+        <div className="min-w-0">
+          <p className="text-sm truncate text-gray-700 dark:text-gray-200">
+            {m.userFullname || t('common:unknown', { defaultValue: 'Unknown' })}
+          </p>
+          <p className="text-xs truncate text-gray-500 dark:text-gray-400">
+            {m.userEmail}
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: 'course',
+      header: t('course'),
+      sortAccessor: m => (m.courseTitle || '').toLowerCase(),
+      width: '14%',
+      hideOnMobile: true,
+      cell: m =>
+        m.courseTitle ? (
+          <span
+            className="block truncate text-sm text-gray-600 dark:text-gray-300"
+            title={m.courseTitle}
+          >
+            {m.courseTitle}
+          </span>
+        ) : (
+          <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
+        ),
+    },
+    {
+      id: 'content',
+      header: t('content'),
+      sortAccessor: m => m.content.slice(0, 60).toLowerCase(),
+      width: '32%',
+      cell: m => (
+        <p
+          className="text-sm truncate text-gray-700 dark:text-gray-300"
+          title={m.content}
+        >
+          {m.content}
+        </p>
+      ),
+    },
+    {
+      id: 'model',
+      header: t('model'),
+      sortAccessor: m => (m.aiModel || '').toLowerCase(),
+      width: '10rem',
+      hideOnMobile: true,
+      cell: m => (
+        <span className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate block">
+          {m.aiModel || '—'}
+        </span>
+      ),
+    },
+    {
+      id: 'tokens',
+      header: t('tokens', { defaultValue: 'Tokens' }),
+      sortAccessor: m => m.totalTokens ?? -1,
+      align: 'right',
+      width: '5.5rem',
+      hideOnMobile: true,
+      cell: m => (
+        <span className="text-xs text-gray-600 dark:text-gray-300 tabular-nums">
+          {m.totalTokens ?? '—'}
+        </span>
+      ),
+    },
+  ];
 
   return (
     <>
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardBody className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-              <MessageCircle className="w-6 h-6 text-gray-600 dark:text-gray-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats?.total || 0}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{t('total_messages')}</p>
-            </div>
-          </CardBody>
-        </Card>
-        <Card>
-          <CardBody className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-              <Bot className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats?.chatbot || 0}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{t('chatbot')}</p>
-            </div>
-          </CardBody>
-        </Card>
-        <Card>
-          <CardBody className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-              <Cpu className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats?.tutor || 0}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{t('tutor')}</p>
-            </div>
-          </CardBody>
-        </Card>
-        <Card>
-          <CardBody className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-              <Zap className="w-6 h-6 text-amber-600 dark:text-amber-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats?.agent || 0}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{t('agent_tests')}</p>
-            </div>
-          </CardBody>
-        </Card>
-      </div>
-
-      {/* Additional Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardBody className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-              <Users className="w-6 h-6 text-green-600 dark:text-green-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats?.uniqueUsers || 0}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{t('unique_users')}</p>
-            </div>
-          </CardBody>
-        </Card>
-        <Card>
-          <CardBody className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center">
-              <Clock className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {stats?.avgResponseTimeMs ? `${(stats.avgResponseTimeMs / 1000).toFixed(2)}s` : 'N/A'}
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{t('avg_response')}</p>
-            </div>
-          </CardBody>
-        </Card>
-        <Card>
-          <CardBody className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
-              <Zap className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {stats?.totalTokens ? stats.totalTokens.toLocaleString() : '0'}
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{t('total_tokens')}</p>
-            </div>
-          </CardBody>
-        </Card>
-        <Card>
-          <CardBody className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
-              <BookOpen className="w-6 h-6 text-rose-600 dark:text-rose-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {stats?.byCourse?.length || 0}
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{t('courses')}</p>
-            </div>
-          </CardBody>
-        </Card>
-      </div>
-
-      {/* Breakdowns Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        {/* By Model */}
-        <Card>
-          <CardHeader className="py-3">
-            <div className="flex items-center gap-2">
-              <Cpu className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{t('by_ai_model')}</h3>
-            </div>
-          </CardHeader>
-          <CardBody className="pt-0">
-            <div className="space-y-2 max-h-40 overflow-y-auto">
-              {stats?.byModel && stats.byModel.length > 0 ? (
-                stats.byModel.map((item) => (
-                  <div key={item.model} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-700 dark:text-gray-300 font-mono text-xs truncate" title={item.model}>
-                      {item.model || 'Unknown'}
-                    </span>
-                    <span className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 rounded text-xs font-medium">
-                      {item.count}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-gray-400 dark:text-gray-500 text-sm">{t('common:no_data')}</p>
-              )}
-            </div>
-          </CardBody>
-        </Card>
-
-        {/* By Course */}
-        <Card>
-          <CardHeader className="py-3">
-            <div className="flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{t('by_course')}</h3>
-            </div>
-          </CardHeader>
-          <CardBody className="pt-0">
-            <div className="space-y-2 max-h-40 overflow-y-auto">
-              {stats?.byCourse && stats.byCourse.length > 0 ? (
-                stats.byCourse.map((item) => (
-                  <div key={item.courseId} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-700 dark:text-gray-300 truncate" title={item.courseTitle}>
-                      {item.courseTitle || `Course #${item.courseId}`}
-                    </span>
-                    <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded text-xs font-medium">
-                      {item.count}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-gray-400 dark:text-gray-500 text-sm">{t('common:no_data')}</p>
-              )}
-            </div>
-          </CardBody>
-        </Card>
-      </div>
-
-      {/* Filters & Actions */}
-      <Card className="mb-6">
-        <CardHeader className="flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('messages')}</h3>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
-              <Filter className="w-4 h-4 mr-1" />
-              {t('filters')}
-              {showFilters ? <ChevronUp className="w-4 h-4 ml-1" /> : <ChevronDown className="w-4 h-4 ml-1" />}
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleRefresh}>
-              <RefreshCw className="w-4 h-4 mr-1" />
-              {t('common:refresh')}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleExportCSV} disabled={exportStatus === 'loading'}>
-              {exportStatus === 'loading' ? (
-                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-              ) : (
-                <Download className="w-4 h-4 mr-1" />
-              )}
-              {t('csv')}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleExportExcel} disabled={exportStatus === 'loading'}>
-              {exportStatus === 'loading' ? (
-                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-              ) : (
-                <FileSpreadsheet className="w-4 h-4 mr-1" />
-              )}
-              {t('excel')}
-            </Button>
-          </div>
-        </CardHeader>
-
-        {/* Filters Panel */}
-        {showFilters && (
-          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('start_date')}</label>
-                <input
-                  type="date"
-                  value={filters.startDate || ''}
-                  onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value || undefined, page: 1 }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('end_date')}</label>
-                <input
-                  type="date"
-                  value={filters.endDate || ''}
-                  onChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value || undefined, page: 1 }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('system_type')}</label>
-                <select
-                  value={filters.systemType || ''}
-                  onChange={(e) => setFilters(prev => ({ ...prev, systemType: e.target.value as MessageFilters['systemType'] || undefined, page: 1 }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
-                >
-                  <option value="">{t('all_systems')}</option>
-                  <option value="chatbot">{t('chatbot')}</option>
-                  <option value="tutor">{t('tutor')}</option>
-                  <option value="agent">{t('agent_tests')}</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('user_id')}</label>
-                <input
-                  type="number"
-                  placeholder={t('filter_by_user_id')}
-                  value={filters.userId || ''}
-                  onChange={(e) => setFilters(prev => ({ ...prev, userId: e.target.value ? parseInt(e.target.value) : undefined, page: 1 }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
-                />
-              </div>
-            </div>
-            <div className="mt-4 flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setFilters({ page: 1, limit: 50 })}
-              >
-                {t('clear_filters')}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Messages Table */}
-        <CardBody className="p-0">
-          {messagesLoading ? (
-            <div className="p-8 text-center">
-              <Loading text={t('loading_messages')} />
-            </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
-                    <tr>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('timestamp')}</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('system')}</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('session')}</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('user')}</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('course')}</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('module_assignment')}</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('lecture_section')}</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('chatbot_agent')}</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('role')}</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('content')}</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('device')}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {messagesData?.messages && messagesData.messages.length > 0 ? (
-                      messagesData.messages.map((msg) => (
-                        <tr
-                          key={msg.id}
-                          className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
-                          onClick={() => setSelectedMessage(msg)}
-                        >
-                          <td className="px-3 py-2 text-gray-500 dark:text-gray-400 whitespace-nowrap text-xs">
-                            {formatDate(msg.timestamp)}
-                          </td>
-                          <td className="px-3 py-2">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${SYSTEM_TYPE_COLORS[msg.systemType]}`}>
-                              {msg.systemType}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-xs">
-                            <span className="font-mono text-gray-600 dark:text-gray-400 truncate max-w-[80px] block" title={msg.sessionId || ''}>
-                              {msg.sessionId ? msg.sessionId.slice(0, 8) + '...' : '-'}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-xs">
-                            <div className="text-gray-900 dark:text-gray-100">{msg.userFullname || 'Unknown'}</div>
-                            <div className="text-gray-400 dark:text-gray-500 text-[10px]">{msg.userEmail}</div>
-                          </td>
-                          <td className="px-3 py-2 text-xs">
-                            {msg.courseTitle ? (
-                              <div className="text-blue-600 dark:text-blue-400 truncate max-w-[120px]" title={msg.courseTitle}>
-                                {msg.courseTitle}
-                              </div>
-                            ) : (
-                              <span className="text-gray-400">-</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-xs">
-                            {msg.moduleTitle ? (
-                              <div className="text-gray-700 dark:text-gray-300 truncate max-w-[120px]" title={msg.moduleTitle}>
-                                {msg.moduleTitle}
-                              </div>
-                            ) : (
-                              <span className="text-gray-400">-</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-xs">
-                            {msg.lectureTitle ? (
-                              <div className="text-gray-600 dark:text-gray-400 truncate max-w-[120px]" title={msg.lectureTitle}>
-                                {msg.lectureTitle}
-                              </div>
-                            ) : (
-                              <span className="text-gray-400">-</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-xs">
-                            {msg.contextName || msg.agentName ? (
-                              <div className="text-purple-600 dark:text-purple-400 truncate max-w-[100px]" title={msg.contextName || msg.agentName || ''}>
-                                {msg.contextName || msg.agentName}
-                              </div>
-                            ) : (
-                              <span className="text-gray-400">-</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${ROLE_COLORS[msg.role]}`}>
-                              {msg.role}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2">
-                            <div
-                              className={`text-xs text-gray-800 dark:text-gray-200 ${expandedMessages.has(msg.id) ? '' : 'max-w-[250px] truncate'}`}
-                              onClick={(e) => { e.stopPropagation(); toggleMessageExpand(msg.id); }}
-                            >
-                              {msg.content}
-                            </div>
-                            {msg.content.length > 80 && (
-                              <button
-                                className="text-blue-600 dark:text-blue-400 text-[10px] hover:underline"
-                                onClick={(e) => { e.stopPropagation(); toggleMessageExpand(msg.id); }}
-                              >
-                                {expandedMessages.has(msg.id) ? t('show_less') : t('show_more')}
-                              </button>
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-xs text-gray-600 dark:text-gray-400">
-                            {msg.deviceType || '-'}
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={11} className="px-3 py-8 text-center text-gray-500 dark:text-gray-400">
-                          {t('no_messages_found')}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pagination */}
-              {messagesData?.pagination && messagesData.pagination.totalPages > 1 && (
-                <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('showing_messages_range', { start: ((messagesData.pagination.page - 1) * messagesData.pagination.limit) + 1, end: Math.min(messagesData.pagination.page * messagesData.pagination.limit, messagesData.pagination.total), total: messagesData.pagination.total })}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={messagesData.pagination.page <= 1}
-                      onClick={() => handlePageChange(messagesData.pagination.page - 1)}
-                    >
-                      {t('previous')}
-                    </Button>
-                    <span className="px-3 py-1 text-sm text-gray-700 dark:text-gray-300">
-                      {t('page_x_of_y', { page: messagesData.pagination.page, total: messagesData.pagination.totalPages })}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={messagesData.pagination.page >= messagesData.pagination.totalPages}
-                      onClick={() => handlePageChange(messagesData.pagination.page + 1)}
-                    >
-                      {t('next')}
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </CardBody>
-      </Card>
-
-      {/* Message Detail Modal */}
-      {selectedMessage && (
-        <MessageDetailModal
-          message={selectedMessage}
-          onClose={() => setSelectedMessage(null)}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+        <StatCard
+          icon={<MessageCircle className="w-5 h-5" style={{ color: c.txTeal }} />}
+          iconBgColor={c.bgTeal}
+          value={(stats?.total || 0).toLocaleString()}
+          label={t('total_messages')}
+          size="sm"
         />
-      )}
+        <StatCard
+          icon={<Bot className="w-5 h-5" style={{ color: c.txBlue }} />}
+          iconBgColor={c.bgBlue}
+          value={(stats?.chatbot || 0).toLocaleString()}
+          label={t('chatbot')}
+          size="sm"
+        />
+        <StatCard
+          icon={<Cpu className="w-5 h-5" style={{ color: c.txPurple }} />}
+          iconBgColor={c.bgPurple}
+          value={(stats?.tutor || 0).toLocaleString()}
+          label={t('tutor')}
+          size="sm"
+        />
+        <StatCard
+          icon={<Zap className="w-5 h-5" style={{ color: c.txOrange }} />}
+          iconBgColor={c.bgOrange}
+          value={(stats?.agent || 0).toLocaleString()}
+          label={t('agent_tests')}
+          size="sm"
+        />
+        <StatCard
+          icon={<Users className="w-5 h-5" style={{ color: c.txGreen }} />}
+          iconBgColor={c.bgGreen}
+          value={(stats?.uniqueUsers || 0).toLocaleString()}
+          label={t('unique_users')}
+          size="sm"
+        />
+      </div>
+
+      <DataTable<UnifiedMessage>
+        rows={messages}
+        columns={columns}
+        rowKey={m => m.id}
+        isLoading={isLoading}
+        pageSize={20}
+        globalSearch={{
+          placeholder: t('search_messages', {
+            defaultValue: 'Search by user, course, or content…',
+          }),
+          predicate: (m, q) => {
+            const x = q.toLowerCase();
+            return (
+              (m.userFullname || '').toLowerCase().includes(x) ||
+              (m.userEmail || '').toLowerCase().includes(x) ||
+              (m.courseTitle || '').toLowerCase().includes(x) ||
+              m.content.toLowerCase().includes(x) ||
+              (m.aiModel || '').toLowerCase().includes(x)
+            );
+          },
+        }}
+        exportAction={{
+          onClick: handleExport,
+          label: exportStatus === 'loading' ? t('common:loading') : undefined,
+        }}
+        rowActions={m => (
+          <RowMenu
+            items={[
+              {
+                key: 'details',
+                label: t('view_details', { defaultValue: 'View details' }),
+                icon: <Eye className="w-3.5 h-3.5" />,
+                onClick: () => setDetails(m),
+              },
+            ]}
+          />
+        )}
+      />
+
+      <Modal
+        isOpen={!!details}
+        onClose={() => setDetails(null)}
+        title={t('message_details')}
+        size="4xl"
+      >
+        {details && <MessageDetailsView m={details} />}
+      </Modal>
     </>
   );
 };
 
-interface MessageDetailModalProps {
-  message: UnifiedMessage;
-  onClose: () => void;
-}
-
-const MessageDetailModal = ({ message, onClose }: MessageDetailModalProps) => {
-  const { t } = useTranslation(['admin', 'common']);
+const MessageDetailsView = ({ m }: { m: UnifiedMessage }) => {
+  const { t } = useTranslation(['admin']);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-700/50">
-          <div className="flex items-center gap-3">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('message_details')}</h3>
-            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${SYSTEM_TYPE_COLORS[message.systemType]}`}>
-              {message.systemType}
-            </span>
-            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${ROLE_COLORS[message.role]}`}>
-              {message.role}
-            </span>
-          </div>
-          <button onClick={onClose} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded">
-            <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-          </button>
-        </div>
-
-        {/* Modal Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-            {/* Left Column */}
-            <div className="space-y-4">
-              {/* Timing & Session */}
-              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-                <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                  <Clock className="w-4 h-4" /> {t('timing_session')}
-                </h4>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div><span className="text-gray-500 dark:text-gray-400">Timestamp:</span></div>
-                  <div className="font-medium text-gray-900 dark:text-gray-100">{formatFullDate(message.timestamp)}</div>
-                  <div><span className="text-gray-500 dark:text-gray-400">Session ID:</span></div>
-                  <div className="font-mono text-xs text-gray-900 dark:text-gray-100">{message.sessionId || '-'}</div>
-                  <div><span className="text-gray-500 dark:text-gray-400">Conversation ID:</span></div>
-                  <div className="font-mono text-xs text-gray-900 dark:text-gray-100">{message.conversationId || '-'}</div>
-                  {message.messageIndex !== null && (
-                    <>
-                      <div><span className="text-gray-500 dark:text-gray-400">Message Index:</span></div>
-                      <div className="text-gray-900 dark:text-gray-100">{message.messageIndex}</div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* User */}
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-                <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                  <User className="w-4 h-4" /> User
-                </h4>
-                <div className="text-sm">
-                  <p className="font-medium text-gray-900 dark:text-gray-100">{message.userFullname || 'Unknown'}</p>
-                  <p className="text-gray-500 dark:text-gray-400">{message.userEmail || '-'}</p>
-                  <p className="text-gray-500 dark:text-gray-400 text-xs">ID: {message.userId || '-'}</p>
-                </div>
-              </div>
-
-              {/* Context */}
-              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-                <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                  <BookOpen className="w-4 h-4" /> Context
-                </h4>
-                <div className="space-y-2 text-sm">
-                  {message.courseTitle && (
-                    <div className="flex items-center gap-2">
-                      <span className="w-20 text-gray-500 dark:text-gray-400">Course:</span>
-                      <span className="font-medium text-gray-900 dark:text-gray-100">{message.courseTitle}</span>
-                      {message.courseId && <span className="text-xs text-gray-400">(ID: {message.courseId})</span>}
-                    </div>
-                  )}
-                  {message.moduleTitle && (
-                    <div className="flex items-center gap-2">
-                      <span className="w-20 text-gray-500 dark:text-gray-400">Module:</span>
-                      <span className="text-gray-900 dark:text-gray-100">{message.moduleTitle}</span>
-                      {message.moduleId && <span className="text-xs text-gray-400">(ID: {message.moduleId})</span>}
-                    </div>
-                  )}
-                  {message.lectureTitle && (
-                    <div className="flex items-center gap-2">
-                      <span className="w-20 text-gray-500 dark:text-gray-400">Lecture:</span>
-                      <span className="text-gray-900 dark:text-gray-100">{message.lectureTitle}</span>
-                      {message.lectureId && <span className="text-xs text-gray-400">(ID: {message.lectureId})</span>}
-                    </div>
-                  )}
-                  {message.sectionId && (
-                    <div className="flex items-center gap-2">
-                      <span className="w-20 text-gray-500 dark:text-gray-400">Section ID:</span>
-                      <span className="text-gray-900 dark:text-gray-100">{message.sectionId}</span>
-                    </div>
-                  )}
-                  {message.contextName && (
-                    <div className="flex items-center gap-2">
-                      <span className="w-20 text-gray-500 dark:text-gray-400">Name:</span>
-                      <span className="text-gray-900 dark:text-gray-100">{message.contextName}</span>
-                    </div>
-                  )}
-                  {message.agentName && (
-                    <div className="flex items-center gap-2">
-                      <span className="w-20 text-gray-500 dark:text-gray-400">Agent:</span>
-                      <span className="text-gray-900 dark:text-gray-100">{message.agentName} (v{message.agentVersion})</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Device/Client Info */}
-              {(message.deviceType || message.browserName || message.ipAddress) && (
-                <div className="bg-slate-50 dark:bg-slate-900/20 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                    <Cpu className="w-4 h-4" /> Client Info
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    {message.deviceType && (
-                      <div className="flex items-center gap-2">
-                        <span className="w-20 text-gray-500 dark:text-gray-400">Device:</span>
-                        <span className="text-gray-900 dark:text-gray-100">{message.deviceType}</span>
-                      </div>
-                    )}
-                    {message.browserName && (
-                      <div className="flex items-center gap-2">
-                        <span className="w-20 text-gray-500 dark:text-gray-400">Browser:</span>
-                        <span className="text-gray-900 dark:text-gray-100">{message.browserName}</span>
-                      </div>
-                    )}
-                    {message.ipAddress && (
-                      <div className="flex items-center gap-2">
-                        <span className="w-20 text-gray-500 dark:text-gray-400">IP Address:</span>
-                        <span className="font-mono text-xs text-gray-900 dark:text-gray-100">{message.ipAddress}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Right Column */}
-            <div className="space-y-4">
-              {/* AI Settings */}
-              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
-                <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                  <Cpu className="w-4 h-4" /> AI Settings
-                </h4>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div><span className="text-gray-500 dark:text-gray-400">Model:</span></div>
-                  <div className="font-mono text-xs text-gray-900 dark:text-gray-100">{message.aiModel || '-'}</div>
-                  <div><span className="text-gray-500 dark:text-gray-400">Provider:</span></div>
-                  <div className="text-gray-900 dark:text-gray-100">{message.aiProvider || '-'}</div>
-                  {message.temperature !== null && (
-                    <>
-                      <div><span className="text-gray-500 dark:text-gray-400">Temperature:</span></div>
-                      <div className="text-gray-900 dark:text-gray-100">{message.temperature}</div>
-                    </>
-                  )}
-                  {message.maxTokens !== null && (
-                    <>
-                      <div><span className="text-gray-500 dark:text-gray-400">Max Tokens:</span></div>
-                      <div className="text-gray-900 dark:text-gray-100">{message.maxTokens}</div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Token Usage */}
-              <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4">
-                <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                  <Zap className="w-4 h-4" /> Token Usage
-                </h4>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div><span className="text-gray-500 dark:text-gray-400">Prompt:</span></div>
-                  <div className="text-gray-900 dark:text-gray-100">{message.promptTokens ?? '-'}</div>
-                  <div><span className="text-gray-500 dark:text-gray-400">Completion:</span></div>
-                  <div className="text-gray-900 dark:text-gray-100">{message.completionTokens ?? '-'}</div>
-                  <div><span className="text-gray-500 dark:text-gray-400">Total:</span></div>
-                  <div className="font-medium text-gray-900 dark:text-gray-100">{message.totalTokens ?? '-'}</div>
-                  <div><span className="text-gray-500 dark:text-gray-400">Response Time:</span></div>
-                  <div className="text-gray-900 dark:text-gray-100">
-                    {message.responseTimeMs ? `${(message.responseTimeMs / 1000).toFixed(2)}s` : '-'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Routing Info (Tutor) */}
-              {(message.routingReason || message.synthesizedFrom) && (
-                <div className="bg-cyan-50 dark:bg-cyan-900/20 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                    <Bot className="w-4 h-4" /> Routing
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    {message.routingReason && (
-                      <div>
-                        <span className="text-gray-500 dark:text-gray-400">Reason:</span>
-                        <p className="text-gray-900 dark:text-gray-100">{message.routingReason}</p>
-                      </div>
-                    )}
-                    {message.routingConfidence !== null && (
-                      <div>
-                        <span className="text-gray-500 dark:text-gray-400">Confidence:</span>
-                        <span className="ml-2 text-gray-900 dark:text-gray-100">{(message.routingConfidence * 100).toFixed(1)}%</span>
-                      </div>
-                    )}
-                    {message.synthesizedFrom && (
-                      <div>
-                        <span className="text-gray-500 dark:text-gray-400">Synthesized From:</span>
-                        <p className="text-gray-900 dark:text-gray-100 text-xs font-mono">{message.synthesizedFrom}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Message Content */}
-          <div className="mt-6 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-            <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-              <MessageCircle className="w-4 h-4" /> Message Content
-            </h4>
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-              <pre className="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap break-words">
-                {message.content}
-              </pre>
-            </div>
-          </div>
-
-          {/* System Prompt */}
-          {message.systemPrompt && (
-            <div className="mt-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-              <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                <Bot className="w-4 h-4" /> System Prompt
-              </h4>
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600 max-h-48 overflow-y-auto">
-                <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">
-                  {message.systemPrompt}
-                </pre>
-              </div>
-            </div>
-          )}
-        </div>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+            SYSTEM_TYPE_COLORS[m.systemType] || 'bg-gray-100 dark:bg-gray-700 text-gray-700'
+          }`}
+        >
+          {m.systemType}
+        </span>
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+            ROLE_COLORS[m.role] || 'bg-gray-100 dark:bg-gray-700 text-gray-700'
+          }`}
+        >
+          {m.role}
+        </span>
+        <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+          {formatFullDate(m.timestamp)}
+        </span>
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <Section title={t('user')}>
+          <KV k={t('name')} v={m.userFullname} />
+          <KV k={t('email')} v={m.userEmail} />
+          <KV k="ID" v={m.userId} />
+        </Section>
+
+        <Section title="Context">
+          <KV k={t('course')} v={m.courseTitle} />
+          <KV k={t('module')} v={m.moduleTitle} />
+          <KV k={t('lecture')} v={m.lectureTitle} />
+          {m.contextName && <KV k="Chatbot" v={m.contextName} />}
+          {m.agentName && (
+            <KV k="Agent" v={`${m.agentName} (v${m.agentVersion})`} />
+          )}
+        </Section>
+
+        <Section title={t('configuration')}>
+          <KV k={t('model')} v={<span className="font-mono text-xs">{m.aiModel}</span>} />
+          <KV k="Provider" v={m.aiProvider} />
+          <KV k={t('temperature')} v={m.temperature} />
+          <KV k={t('max_tokens')} v={m.maxTokens} />
+        </Section>
+
+        <Section title="Tokens">
+          <KV k="Prompt" v={m.promptTokens} />
+          <KV k="Completion" v={m.completionTokens} />
+          <KV k="Total" v={m.totalTokens} />
+          <KV
+            k={t('last_activity')}
+            v={
+              m.responseTimeMs
+                ? `${(m.responseTimeMs / 1000).toFixed(2)}s`
+                : null
+            }
+          />
+        </Section>
+
+        {(m.routingReason || m.synthesizedFrom) && (
+          <Section title="Routing" full>
+            {m.routingReason && <KV k="Reason" v={m.routingReason} />}
+            {m.routingConfidence != null && (
+              <KV
+                k="Confidence"
+                v={`${(m.routingConfidence * 100).toFixed(1)}%`}
+              />
+            )}
+            {m.synthesizedFrom && (
+              <KV
+                k="Synthesized from"
+                v={<span className="font-mono text-xs">{m.synthesizedFrom}</span>}
+              />
+            )}
+          </Section>
+        )}
+
+        {(m.deviceType || m.browserName || m.ipAddress) && (
+          <Section title="Client" full>
+            <KV k={t('device')} v={m.deviceType} />
+            <KV k={t('browser')} v={m.browserName} />
+            <KV k="IP" v={<span className="font-mono text-xs">{m.ipAddress}</span>} />
+          </Section>
+        )}
+      </div>
+
+      <Section title={t('content')} full>
+        <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 max-h-72 overflow-y-auto">
+          <pre className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
+            {m.content}
+          </pre>
+        </div>
+      </Section>
+
+      {m.systemPrompt && (
+        <Section title={t('system_prompt')} full>
+          <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 max-h-48 overflow-y-auto">
+            <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">
+              {m.systemPrompt}
+            </pre>
+          </div>
+        </Section>
+      )}
     </div>
   );
 };
+
+const Section = ({
+  title,
+  children,
+  full,
+}: {
+  title: string;
+  children: React.ReactNode;
+  full?: boolean;
+}) => (
+  <div className={`space-y-2 ${full ? 'md:col-span-2' : ''}`}>
+    <h4 className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-1">
+      {title}
+    </h4>
+    <div className="space-y-1 text-gray-600 dark:text-gray-400">{children}</div>
+  </div>
+);
+
+const KV = ({ k, v }: { k: string; v: React.ReactNode }) => (
+  <div>
+    <span className="text-gray-500 dark:text-gray-500">{k}:</span>{' '}
+    {v ?? '—'}
+  </div>
+);
+
