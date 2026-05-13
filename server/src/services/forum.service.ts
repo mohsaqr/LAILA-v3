@@ -370,7 +370,7 @@ class ForumService {
     const uniqueAuthorIds = [...new Set(authorIds)];
     const authors = await prisma.user.findMany({
       where: { id: { in: uniqueAuthorIds } },
-      select: { id: true, fullname: true, isInstructor: true },
+      select: { id: true, fullname: true, isInstructor: true, avatarUrl: true },
     });
     const authorMap = new Map(authors.map(a => [a.id, a]));
 

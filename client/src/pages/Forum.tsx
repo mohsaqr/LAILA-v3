@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { forumsApi, ForumPost, CreatePostInput, TutorAgent } from '../api/forums';
+import { resolveFileUrl } from '../api/client';
 import { coursesApi } from '../api/courses';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
@@ -334,29 +335,22 @@ export const Forum = () => {
    * power the "5 stacked avatars + first-reply preview" footer and to
    * count the total replies.
    */
-  const flattenReplies = (post: ThreadedPost): ThreadedPost[] => {
-    const out: ThreadedPost[] = [];
-    const walk = (r: ThreadedPost) => {
-      out.push(r);
-      r.replies?.forEach(walk);
-    };
-    post.replies?.forEach(walk);
-    return out;
-  };
-
-  // Render a single post with optional collapsed replies summary.
+  // Render a single post recursively. Each comment / reply uses the
+  // same shape: avatar column (with +/- toggle + stacked avatars below
+  // the avatar when it has replies), then a content column. Expanded
+  // children render under the parent through a small horizontal stub,
+  // recursing into renderPost so a reply-of-a-reply keeps its own
+  // toggle and stacked-avatar peek.
   const renderPost = (post: ThreadedPost, depth: number = 0) => {
-    const maxDepth = 3; // Max nesting level for visual clarity
-    const isNested = depth > 0;
+    const maxDepth = 6; // Cap recursion just to keep DOM sane.
     const isAiPost = !!post.isAiGenerated;
     const authorName = isAiPost
       ? (post.aiAgentName || t('tutors:ai_tutor'))
       : (post.author?.fullname || t('anonymous'));
     const isExpanded = expandedReplies.has(post.id);
-    const flatReplies = flattenReplies(post);
-    const visibleAvatars = flatReplies.slice(0, 5);
-
-    const hasReplies = !isNested && flatReplies.length > 0;
+    const directReplies = post.replies || [];
+    const hasReplies = directReplies.length > 0 && depth < maxDepth;
+    const visibleAvatars = directReplies.slice(0, 5);
 
     // The header / body / actions block used by both the parent comment
     // and each expanded reply — DRY'd so the two layouts stay identical.
@@ -471,9 +465,9 @@ export const Forum = () => {
       </>
     );
 
-    // Avatar swatch for a post — either the user Avatar or an AI bot.
-    // Replies pass 'sm' so they read as visually subordinate to the
-    // parent comment while staying centred in the same avatar column.
+    // Avatar swatch for a post — either the user's uploaded avatar
+    // (rendered via the shared <Avatar src=…/> which falls back to
+    // initials only when src is empty) or an AI bot's icon.
     const avatarFor = (
       p: ThreadedPost,
       name: string,
@@ -481,32 +475,33 @@ export const Forum = () => {
     ) => {
       const aiBox = size === 'sm' ? 'w-8 h-8' : 'w-9 h-9';
       const iconPx = size === 'sm' ? 16 : 18;
-      return p.isAiGenerated ? (
-        <div
-          className={`${aiBox} rounded-full flex items-center justify-center flex-shrink-0`}
-          style={{ backgroundColor: colors.aiAccent }}
-        >
-          {p.aiAgent?.avatarUrl ? (
-            <img src={p.aiAgent.avatarUrl} alt="" className={`${aiBox} rounded-full`} />
-          ) : (
-            <Bot size={iconPx} className="text-white" />
-          )}
-        </div>
-      ) : (
-        <Avatar name={name} size={size} />
-      );
+      if (p.isAiGenerated) {
+        return (
+          <div
+            className={`${aiBox} rounded-full flex items-center justify-center flex-shrink-0`}
+            style={{ backgroundColor: colors.aiAccent }}
+          >
+            {p.aiAgent?.avatarUrl ? (
+              <img src={p.aiAgent.avatarUrl} alt="" className={`${aiBox} rounded-full`} />
+            ) : (
+              <Bot size={iconPx} className="text-white" />
+            )}
+          </div>
+        );
+      }
+      const src = p.author?.avatarUrl ? resolveFileUrl(p.author.avatarUrl) : undefined;
+      return <Avatar name={name} size={size} src={src} />;
     };
 
+    const isNested = depth > 0;
     return (
-      <div key={post.id} className={isNested ? 'mt-2' : ''}>
+      <div key={post.id}>
         <div
-          className={isNested ? 'pl-3 py-2 pr-2' : 'px-6 pt-5 pb-5'}
+          className={isNested ? '' : 'px-6 pt-5 pb-5'}
           style={
-            isNested
-              ? { borderLeft: `2px solid ${colors.border}` }
-              : isAiPost
-                ? { backgroundColor: colors.bgAi }
-                : undefined
+            !isNested && isAiPost
+              ? { backgroundColor: colors.bgAi }
+              : undefined
           }
         >
           <div className="flex items-stretch gap-3">
@@ -534,7 +529,7 @@ export const Forum = () => {
                         ? t('hide_replies', { defaultValue: 'Hide replies' })
                         : t('show_replies', { defaultValue: 'Show replies' })
                     }
-                    title={`${flatReplies.length}`}
+                    title={`${directReplies.length}`}
                   >
                     {isExpanded ? <Minus className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
                   </button>
@@ -568,18 +563,26 @@ export const Forum = () => {
                                   className="w-6 h-6 rounded-full object-cover"
                                 />
                               ) : (
-                                <Avatar name={rName} size="xs" />
+                                <Avatar
+                                  name={rName}
+                                  size="xs"
+                                  src={
+                                    r.author?.avatarUrl
+                                      ? resolveFileUrl(r.author.avatarUrl)
+                                      : undefined
+                                  }
+                                />
                               )}
                             </span>
                           );
                         })}
                       </div>
-                      {flatReplies.length > 5 && (
+                      {directReplies.length > 5 && (
                         <span
                           className="text-[10px] mt-1"
                           style={{ color: colors.textSecondary }}
                         >
-                          +{flatReplies.length - 5}
+                          +{directReplies.length - 5}
                         </span>
                       )}
                     </>
@@ -601,26 +604,19 @@ export const Forum = () => {
             </div>
           </div>
 
-          {/* Expanded replies — the vertical line continues straight
-              down through the column that sits under the parent's
-              avatar (left:17px), and at each reply a short horizontal
-              stub branches off to the right and lands on the avatar's
-              left edge. On the last reply, the vertical line stops at
-              the branch so the tree caps cleanly. */}
-          {hasReplies && isExpanded && flatReplies.map((reply, i) => {
-            const isLast = i === flatReplies.length - 1;
-            const rIsAi = !!reply.isAiGenerated;
-            const rAuthorName = rIsAi
-              ? (reply.aiAgentName || t('tutors:ai_tutor'))
-              : (reply.author?.fullname || t('anonymous'));
-            // Avatar md = 40px. With pt-4 (16px), the avatar's
-            // vertical centre sits 36px below the row top — and the
-            // horizontal stub branches off the line at that y.
-            const AVATAR_CENTER = 36;
+          {/* Expanded direct children — each rendered through the same
+              renderPost so a reply-of-a-reply keeps its own avatar
+              column, +/- toggle and stacked-avatar peek. A short
+              horizontal stub indents the child under the parent's
+              vertical line; on the last child the parent's line caps
+              cleanly at the stub. */}
+          {hasReplies && isExpanded && directReplies.map((reply, i) => {
+            const isLast = i === directReplies.length - 1;
+            // The avatar's vertical centre sits ~30px from the top of
+            // the stub row (pt-3 + half of the w-9 avatar = 12+18).
+            const AVATAR_CENTER = 30;
             return (
               <div key={reply.id} className="relative flex items-stretch">
-                {/* Vertical line — runs through the row's full height,
-                    or stops at the branch on the last reply. */}
                 <span
                   aria-hidden
                   className="absolute border-l-2"
@@ -631,7 +627,6 @@ export const Forum = () => {
                     borderColor: colors.border,
                   }}
                 />
-                {/* Horizontal stub — line → avatar left edge. */}
                 <span
                   aria-hidden
                   className="absolute border-t-2"
@@ -642,17 +637,11 @@ export const Forum = () => {
                     borderColor: colors.border,
                   }}
                 />
-                {/* Reserved column matching the parent's avatar column
-                    so the line aligns with the line above. */}
+                {/* Spacer matching the parent's w-9 avatar column so
+                    the stub lands at the right horizontal offset. */}
                 <div className="w-9 flex-shrink-0" />
-                {/* Indented avatar — full size, visually subordinate
-                    via the horizontal-stub indent. */}
-                <div className="pt-4 flex-shrink-0">
-                  {avatarFor(reply, rAuthorName)}
-                </div>
-                {/* Content with breathing room. */}
-                <div className="flex-1 min-w-0 pt-4 pb-3 pl-3">
-                  {renderContent(reply, rAuthorName, rIsAi)}
+                <div className="flex-1 min-w-0 pt-3">
+                  {renderPost(reply, depth + 1)}
                 </div>
               </div>
             );
@@ -681,6 +670,8 @@ export const Forum = () => {
       courseId!,
       course?.title || t('course'),
       thread.title,
+      undefined,
+      isInstructor ? '/teach/forums' : '/forums',
     );
 
     return (
