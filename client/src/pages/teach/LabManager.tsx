@@ -8,7 +8,6 @@ import {
   BookOpen,
   Code,
   Eye,
-  FlaskConical,
   Globe,
   Layers,
   Loader2,
@@ -296,26 +295,21 @@ export const LabManager = () => {
       sortAccessor: l => l.name.toLowerCase(),
       width: '32%',
       cell: l => (
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="w-7 h-7 rounded bg-gradient-to-r from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0">
-            <FlaskConical className="w-3.5 h-3.5 text-white" />
-          </div>
-          <div className="min-w-0">
+        <div className="min-w-0">
+          <p
+            className="text-sm truncate text-gray-700 dark:text-gray-200"
+            title={l.name}
+          >
+            {l.name}
+          </p>
+          {l.description && (
             <p
-              className="text-sm truncate text-gray-700 dark:text-gray-200"
-              title={l.name}
+              className="text-xs truncate text-gray-500 dark:text-gray-400"
+              title={l.description}
             >
-              {l.name}
+              {l.description}
             </p>
-            {l.description && (
-              <p
-                className="text-xs truncate text-gray-500 dark:text-gray-400"
-                title={l.description}
-              >
-                {l.description}
-              </p>
-            )}
-          </div>
+          )}
         </div>
       ),
     },
