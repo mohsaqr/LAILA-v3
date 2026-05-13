@@ -55,6 +55,9 @@ export interface DataTableProps<T> {
   rowKey: (row: T) => string | number;
   /** Top-right primary CTA. */
   createCta?: { label: string; onClick: () => void; icon?: React.ReactNode };
+  /** Optional secondary CTA rendered to the left of `createCta`.
+   *  Useful for "Generate with AI" + "Create" side-by-side. */
+  secondaryCta?: { label: string; onClick: () => void; icon?: React.ReactNode };
   /** Top-right secondary "Export" button. The consumer is responsible for
    *  fetching the data and triggering the download (e.g. JSON / CSV). */
   exportAction?: { onClick: () => void | Promise<void>; label?: string };
@@ -83,6 +86,7 @@ export function DataTable<T>({
   columns,
   rowKey,
   createCta,
+  secondaryCta,
   exportAction,
   globalSearch,
   pageSize = 20,
@@ -189,7 +193,7 @@ export function DataTable<T>({
     <Card>
       <CardBody>
         {/* Toolbar: global search (left) + Filter / Create CTA (right). */}
-        {(globalSearch || createCta || exportAction || filterableColumns.length > 0) && (
+        {(globalSearch || createCta || secondaryCta || exportAction || filterableColumns.length > 0) && (
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
             {globalSearch ? (
               <div className="relative flex-1 max-w-sm">
@@ -235,6 +239,16 @@ export function DataTable<T>({
                   <Download className="w-3.5 h-3.5" />
                   {exportAction.label ?? t('common:export', { defaultValue: 'Export' })}
                 </button>
+              )}
+              {secondaryCta && (
+                <Button
+                  onClick={secondaryCta.onClick}
+                  size="sm"
+                  variant="secondary"
+                  icon={secondaryCta.icon}
+                >
+                  {secondaryCta.label}
+                </Button>
               )}
               {createCta && (
                 <Button

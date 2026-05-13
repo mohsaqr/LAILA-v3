@@ -359,16 +359,6 @@ export const SurveyManager = () => {
         />
       </div>
 
-      <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
-        <Button variant="secondary" onClick={() => setShowGenerateModal(true)}>
-          <Sparkles className="w-4 h-4 mr-2" />
-          {t('generate_with_ai')}
-        </Button>
-        <Button onClick={() => setShowCreateModal(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          {t('create_survey')}
-        </Button>
-      </div>
 
       {error && (
         <div className="mb-4 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400">
@@ -393,6 +383,8 @@ export const SurveyManager = () => {
         }}
         onToggleExpand={toggleSurveyExpand}
         expandedSurveyId={expandedSurveyId}
+        onCreate={() => setShowCreateModal(true)}
+        onGenerate={() => setShowGenerateModal(true)}
       />
 
       {/* Question editor panel — shown below the table for the
@@ -817,6 +809,8 @@ interface SurveysTableProps {
   onAskDelete: (s: Survey) => void;
   onToggleExpand: (s: Survey) => void;
   expandedSurveyId: number | null;
+  onCreate: () => void;
+  onGenerate: () => void;
 }
 
 /**
@@ -832,6 +826,8 @@ const SurveysTable = ({
   onAskDelete,
   onToggleExpand,
   expandedSurveyId,
+  onCreate,
+  onGenerate,
 }: SurveysTableProps) => {
   const { t } = useTranslation(['teaching', 'common']);
 
@@ -903,6 +899,16 @@ const SurveysTable = ({
           defaultValue: 'Search surveys…',
         }),
         predicate: (s, q) => s.title.toLowerCase().includes(q.toLowerCase()),
+      }}
+      secondaryCta={{
+        label: t('generate_with_ai'),
+        icon: <Sparkles className="w-4 h-4" />,
+        onClick: onGenerate,
+      }}
+      createCta={{
+        label: t('create_survey'),
+        icon: <Plus className="w-4 h-4" />,
+        onClick: onCreate,
       }}
       empty={
         <div className="flex items-center justify-center gap-2 py-6 text-sm text-gray-500 dark:text-gray-400">
