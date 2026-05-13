@@ -1,16 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Award, Plus, Edit, Trash2 } from 'lucide-react';
+import { Award, Edit, Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../hooks/useAuth';
-import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
-import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
+import {
+  DataTable,
+  type ColumnDef,
+} from '../../components/common/DataTable';
+import { RowMenu } from '../../components/common/RowMenu';
 import { RichTextEditor } from '../../components/forum/RichTextEditor';
 import apiClient from '../../api/client';
 import activityLogger from '../../services/activityLogger';
@@ -29,7 +31,6 @@ interface CertificateTemplate {
 
 export const CertificateManager = () => {
   const { t } = useTranslation(['teaching', 'common']);
-  const { isDark } = useTheme();
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
   useEffect(() => {
@@ -45,20 +46,13 @@ export const CertificateManager = () => {
     templateHtml: '',
   });
 
-  const colors = {
-    bg: isDark ? '#111827' : '#f9fafb',
-    cardBg: isDark ? '#1f2937' : '#ffffff',
-    textPrimary: isDark ? '#f3f4f6' : '#111827',
-    textSecondary: isDark ? '#9ca3af' : '#6b7280',
-    border: isDark ? '#374151' : '#e5e7eb',
-    accent: '#088F8F',
-    gold: '#f59e0b',
-  };
-
-  const { data: templates, isLoading } = useQuery({
+  const { data: templates = [], isLoading } = useQuery({
     queryKey: ['certificateTemplates'],
     queryFn: async () => {
-      const response = await apiClient.get<{ success: boolean; data: CertificateTemplate[] }>('/certificates/templates');
+      const response = await apiClient.get<{
+        success: boolean;
+        data: CertificateTemplate[];
+      }>('/certificates/templates');
       return response.data.data;
     },
   });
@@ -100,21 +94,14 @@ export const CertificateManager = () => {
       setTemplateToDelete(null);
       toast.success(t('template_deleted'));
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       setTemplateToDelete(null);
-      const message = error?.response?.data?.message || t('failed_delete_template');
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response
+          ?.data?.message || t('failed_delete_template');
       toast.error(message);
     },
   });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingTemplate) {
-      updateMutation.mutate({ id: editingTemplate.id, data: formData });
-    } else {
-      createMutation.mutate(formData);
-    }
-  };
 
   const openEditModal = (template: CertificateTemplate) => {
     setEditingTemplate(template);
@@ -131,101 +118,156 @@ export const CertificateManager = () => {
     setFormData({ name: '', description: '', templateHtml: '' });
   };
 
-  if (isLoading) {
-    return <Loading text={t('loading_certificate_templates')} />;
-  }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingTemplate) {
+      updateMutation.mutate({ id: editingTemplate.id, data: formData });
+    } else {
+      createMutation.mutate(formData);
+    }
+  };
+
+  const columns: ColumnDef<CertificateTemplate>[] = [
+    {
+      id: 'name',
+      header: t('common:name', { defaultValue: 'Name' }),
+      sortAccessor: c => c.name.toLowerCase(),
+      width: '32%',
+      cell: c => (
+        <div className="flex items-center gap-2 min-w-0">
+          <Award className="w-4 h-4 flex-shrink-0 text-amber-500" />
+          <div className="min-w-0">
+            <p
+              className="text-sm truncate text-gray-700 dark:text-gray-200"
+              title={c.name}
+            >
+              {c.name}
+            </p>
+            {c.isDefault && (
+              <span className="inline-block mt-0.5 text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                {t('default_label')}
+              </span>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'description',
+      header: t('description_label'),
+      sortAccessor: c => (c.description || '').toLowerCase(),
+      hideOnMobile: true,
+      cell: c => (
+        <span
+          className="block truncate text-sm text-gray-600 dark:text-gray-300"
+          title={c.description || ''}
+        >
+          {c.description || '—'}
+        </span>
+      ),
+    },
+    {
+      id: 'issued',
+      header: t('issued', { defaultValue: 'Issued' }),
+      sortAccessor: c => c.issuedCount,
+      align: 'right',
+      width: '5.5rem',
+      cell: c => (
+        <span className="text-sm text-gray-600 dark:text-gray-300 tabular-nums">
+          {c.issuedCount}
+        </span>
+      ),
+    },
+    ...(isAdmin
+      ? ([
+          {
+            id: 'creator',
+            header: t('created_by', { defaultValue: 'Created by' }),
+            sortAccessor: c => (c.creator?.fullname || '').toLowerCase(),
+            hideOnMobile: true,
+            width: '12rem',
+            cell: c => (
+              <span className="text-sm text-gray-600 dark:text-gray-300 truncate block">
+                {c.creator?.fullname || '—'}
+              </span>
+            ),
+          },
+        ] as ColumnDef<CertificateTemplate>[])
+      : []),
+    {
+      id: 'created',
+      header: t('created', { defaultValue: 'Created' }),
+      sortAccessor: c => new Date(c.createdAt).getTime(),
+      align: 'right',
+      width: '7rem',
+      hideOnMobile: true,
+      cell: c => (
+        <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums whitespace-nowrap">
+          {new Date(c.createdAt).toLocaleDateString()}
+        </span>
+      ),
+    },
+  ];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-      {/* Breadcrumb navigation */}
       <div className="mb-6">
-        <Breadcrumb homeHref="/" items={[{ label: t('certificate_templates') }]} />
+        <Breadcrumb
+          homeHref="/"
+          items={[{ label: t('certificate_templates') }]}
+        />
       </div>
 
-      <div className="flex justify-end mb-6 md:mb-8">
-        <Button onClick={() => setShowCreateModal(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          {t('new_template')}
-        </Button>
-      </div>
+      <DataTable<CertificateTemplate>
+        rows={templates}
+        columns={columns}
+        rowKey={c => c.id}
+        isLoading={isLoading}
+        pageSize={20}
+        globalSearch={{
+          placeholder: t('search_templates', {
+            defaultValue: 'Search by name or description…',
+          }),
+          predicate: (c, q) => {
+            const x = q.toLowerCase();
+            return (
+              c.name.toLowerCase().includes(x) ||
+              (c.description || '').toLowerCase().includes(x)
+            );
+          },
+        }}
+        createCta={{
+          label: t('new_template'),
+          icon: <Plus className="w-4 h-4" />,
+          onClick: () => setShowCreateModal(true),
+        }}
+        rowActions={c => (
+          <RowMenu
+            items={[
+              {
+                key: 'edit',
+                label: t('common:edit', { defaultValue: 'Edit' }),
+                icon: <Edit className="w-3.5 h-3.5" />,
+                onClick: () => openEditModal(c),
+              },
+              {
+                key: 'delete',
+                label: t('common:delete', { defaultValue: 'Delete' }),
+                icon: <Trash2 className="w-3.5 h-3.5" />,
+                onClick: () => setTemplateToDelete(c),
+                destructive: true,
+              },
+            ]}
+          />
+        )}
+      />
 
-      {!templates || templates.length === 0 ? (
-        <Card>
-          <CardBody className="text-center py-12">
-            <Award className="w-12 h-12 mx-auto mb-4" style={{ color: colors.gold }} />
-            <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>
-              {t('no_templates_created')}
-            </h3>
-            <p style={{ color: colors.textSecondary }}>
-              {t('create_templates_desc')}
-            </p>
-            <Button className="mt-4" onClick={() => setShowCreateModal(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              {t('create_template')}
-            </Button>
-          </CardBody>
-        </Card>
-      ) : (
-        <div className="grid gap-4 md:gap-6 md:grid-cols-2">
-          {templates.map((template) => (
-            <Card key={template.id}>
-              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-                <div className="flex items-center gap-3">
-                  <Award className="w-5 h-5" style={{ color: colors.gold }} />
-                  <div>
-                    <h3 className="font-semibold" style={{ color: colors.textPrimary }}>
-                      {template.name}
-                    </h3>
-                    {template.isDefault && (
-                      <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded-full">
-                        {t('default_label')}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => openEditModal(template)}
-                    className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-                    title={t('edit')}
-                  >
-                    <Edit className="w-4 h-4" style={{ color: colors.textSecondary }} />
-                  </button>
-                  <button
-                    onClick={() => setTemplateToDelete(template)}
-                    className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-                    title={t('common:delete')}
-                  >
-                    <Trash2 className="w-4 h-4 text-red-500" />
-                  </button>
-                </div>
-              </CardHeader>
-              <CardBody>
-                {template.description && (
-                  <p className="text-sm mb-3" style={{ color: colors.textSecondary }}>
-                    {template.description}
-                  </p>
-                )}
-                <div className="flex items-center justify-between text-sm" style={{ color: colors.textSecondary }}>
-                  <span>{t('x_certificates_issued', { count: template.issuedCount })}</span>
-                  <span>{t('created_date', { date: new Date(template.createdAt).toLocaleDateString() })}</span>
-                </div>
-                {isAdmin && template.creator && (
-                  <p className="text-xs mt-2" style={{ color: colors.textSecondary }}>
-                    {t('created_by', { name: template.creator.fullname })}
-                  </p>
-                )}
-              </CardBody>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         isOpen={!!templateToDelete}
         onClose={() => setTemplateToDelete(null)}
-        onConfirm={() => templateToDelete && deleteMutation.mutate(templateToDelete.id)}
+        onConfirm={() =>
+          templateToDelete && deleteMutation.mutate(templateToDelete.id)
+        }
         title={t('delete_template')}
         message={t('delete_template_confirm', { name: templateToDelete?.name })}
         confirmText={t('common:delete')}
@@ -233,60 +275,55 @@ export const CertificateManager = () => {
         loading={deleteMutation.isPending}
       />
 
-      {/* Create/Edit Modal */}
       <Modal
         isOpen={showCreateModal || !!editingTemplate}
         onClose={closeModal}
-        title={editingTemplate ? t('edit_template') : t('create_certificate_template')}
+        title={
+          editingTemplate
+            ? t('edit_template')
+            : t('create_certificate_template')
+        }
         size="3xl"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
+            <label className="block text-sm font-medium mb-1 text-gray-800 dark:text-gray-100">
               {t('template_name_label')}
             </label>
             <input
               type="text"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg border"
-              style={{
-                backgroundColor: colors.cardBg,
-                borderColor: colors.border,
-                color: colors.textPrimary,
-              }}
+              onChange={e => setFormData({ ...formData, name: e.target.value })}
+              className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
               placeholder={t('template_name_placeholder')}
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
+            <label className="block text-sm font-medium mb-1 text-gray-800 dark:text-gray-100">
               {t('description_label')}
             </label>
             <input
               type="text"
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg border"
-              style={{
-                backgroundColor: colors.cardBg,
-                borderColor: colors.border,
-                color: colors.textPrimary,
-              }}
+              onChange={e =>
+                setFormData({ ...formData, description: e.target.value })
+              }
+              className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
               placeholder={t('template_description_placeholder')}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
+            <label className="block text-sm font-medium mb-1 text-gray-800 dark:text-gray-100">
               {t('certificate_content_html')}
             </label>
             <RichTextEditor
               value={formData.templateHtml}
-              onChange={(html) => setFormData({ ...formData, templateHtml: html })}
+              onChange={html => setFormData({ ...formData, templateHtml: html })}
               placeholder={t('certificate_html_placeholder')}
               maxImageSizeKB={1024}
             />
-            <p className="text-xs mt-1" style={{ color: colors.textSecondary }}>
+            <p className="text-xs mt-1 text-gray-500 dark:text-gray-400">
               {t('available_placeholders')}
             </p>
           </div>
@@ -294,7 +331,10 @@ export const CertificateManager = () => {
             <Button type="button" variant="outline" onClick={closeModal}>
               {t('common:cancel')}
             </Button>
-            <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+            <Button
+              type="submit"
+              disabled={createMutation.isPending || updateMutation.isPending}
+            >
               {editingTemplate ? t('update_template') : t('create_template')}
             </Button>
           </div>
