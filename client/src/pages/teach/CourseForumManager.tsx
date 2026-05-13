@@ -12,7 +12,7 @@ import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import apiClient from '../../api/client';
-import { forumsApi, CreateForumInput, Forum } from '../../api/forums';
+import { forumsApi, CreateForumInput, type ForumThread as Forum } from '../../api/forums';
 import activityLogger from '../../services/activityLogger';
 
 interface CourseInfo {
@@ -29,6 +29,7 @@ export const CourseForumManager = () => {
   const [editingForum, setEditingForum] = useState<Forum | null>(null);
   const [formData, setFormData] = useState<CreateForumInput>({
     title: '',
+    content: '',
     description: '',
     isPublished: true,
     allowAnonymous: false,
@@ -100,6 +101,7 @@ export const CourseForumManager = () => {
   const resetForm = () => {
     setFormData({
       title: '',
+      content: '',
       description: '',
       isPublished: true,
       allowAnonymous: false,
@@ -119,6 +121,7 @@ export const CourseForumManager = () => {
     setEditingForum(forum);
     setFormData({
       title: forum.title,
+      content: forum.content || '',
       description: forum.description || '',
       isPublished: forum.isPublished,
       allowAnonymous: forum.allowAnonymous,
@@ -228,7 +231,7 @@ export const CourseForumManager = () => {
                 <div className="flex items-center gap-4 text-sm" style={{ color: colors.textSecondary }}>
                   <div className="flex items-center gap-1">
                     <Users className="w-4 h-4" />
-                    <span>{forum._count?.threads || 0} threads</span>
+                    <span>{forum._count?.posts || 0} replies</span>
                   </div>
                   {forum.allowAnonymous && (
                     <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">

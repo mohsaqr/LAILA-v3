@@ -22,6 +22,7 @@ import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { EmptyState } from '../../components/common/EmptyState';
 import { Input, TextArea } from '../../components/common/Input';
 import { AssignmentWizardModal } from '../../components/teach/AssignmentWizardModal';
+import { ForumWizardModal, type ForumWizardFormData } from '../../components/teach/ForumWizardModal';
 import { QuizWizardModal, blankQuestion, type QuizWizardFormData, type QuizQuestionFormData } from '../../components/teach/QuizWizardModal';
 import { ModuleItem } from '../../components/teach/ModuleItem';
 import { CourseModule, Lecture, CodeLab, Assignment, CustomLab, LabTemplate, LabAssignment, ModuleQuiz } from '../../types';
@@ -57,12 +58,7 @@ interface AssignmentFormData {
   isPublished: boolean;
 }
 
-interface ForumFormData {
-  title: string;
-  description: string;
-  isPublished: boolean;
-  allowAnonymous: boolean;
-}
+type ForumFormData = ForumWizardFormData;
 
 type QuizFormData = QuizWizardFormData;
 
@@ -152,12 +148,13 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
     gracePeriodDeadline: '',
     isPublished: false,
   });
-  const [forumForm, setForumForm] = useState<ForumFormData>({
+  const blankForumForm = (): ForumFormData => ({
     title: '',
-    description: '',
+    content: '',
     isPublished: true,
     allowAnonymous: false,
   });
+  const [forumForm, setForumForm] = useState<ForumFormData>(blankForumForm);
   const blankQuizForm = (): QuizFormData => ({
     title: '',
     description: '',
@@ -730,14 +727,14 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
   };
 
   const openAddForumModal = (module: CourseModule) => {
-    setForumForm({ title: '', description: '', isPublished: true, allowAnonymous: false });
+    setForumForm(blankForumForm());
     setForumModal({ isOpen: true, moduleId: module.id });
   };
 
   const openEditForumModal = (forum: Forum) => {
     setForumForm({
       title: forum.title,
-      description: forum.description || '',
+      content: forum.content || '',
       isPublished: forum.isPublished,
       allowAnonymous: forum.allowAnonymous,
     });
@@ -746,7 +743,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
 
   const closeForumModal = () => {
     setForumModal({ isOpen: false });
-    setForumForm({ title: '', description: '', isPublished: true, allowAnonymous: false });
+    setForumForm(blankForumForm());
   };
 
   const openAddQuizModal = (module: CourseModule) => {
@@ -921,8 +918,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
     }
   };
 
-  const handleForumSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleForumSubmit = () => {
     if (!forumForm.title.trim()) {
       toast.error(t('forum_title_required'));
       return;
@@ -1063,7 +1059,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
 
   // Forum reordering - use orderIndex updates
   const handleMoveForumUp = (forum: Forum, module: CourseModule) => {
-    const forums = module.forums || [];
+    const forums = module.forumThreads || [];
     const sorted = [...forums].sort((a, b) => a.orderIndex - b.orderIndex);
     const index = sorted.findIndex(f => f.id === forum.id);
     if (index <= 0) return;
@@ -1075,7 +1071,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
   };
 
   const handleMoveForumDown = (forum: Forum, module: CourseModule) => {
-    const forums = module.forums || [];
+    const forums = module.forumThreads || [];
     const sorted = [...forums].sort((a, b) => a.orderIndex - b.orderIndex);
     const index = sorted.findIndex(f => f.id === forum.id);
     if (index < 0 || index >= sorted.length - 1) return;
@@ -2143,66 +2139,17 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
         loading={deleteAssignmentMutation.isPending}
       />
 
-      {/* Forum Modal */}
-      <Modal
+      {/* Forum Wizard Modal */}
+      <ForumWizardModal
         isOpen={forumModal.isOpen}
+        isEdit={!!forumModal.forum}
+        courseTitle={course?.title ?? ''}
+        form={forumForm}
+        setForm={setForumForm}
+        isSubmitting={createForumMutation.isPending || updateForumMutation.isPending}
         onClose={closeForumModal}
-        title={forumModal.forum ? t('edit_forum') : t('add_forum')}
-        size="3xl"
-      >
-        <form onSubmit={handleForumSubmit} className="space-y-4">
-          <Input
-            label={t('forum_title')}
-            value={forumForm.title}
-            onChange={e => setForumForm(f => ({ ...f, title: e.target.value }))}
-            placeholder={t('forum_title_placeholder')}
-            required
-          />
-          <TextArea
-            label={t('forum_description')}
-            value={forumForm.description}
-            onChange={e => setForumForm(f => ({ ...f, description: e.target.value }))}
-            placeholder={t('forum_description_placeholder')}
-            rows={3}
-          />
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="forumIsPublished"
-              checked={forumForm.isPublished}
-              onChange={e => setForumForm(f => ({ ...f, isPublished: e.target.checked }))}
-              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            <label htmlFor="forumIsPublished" className="text-sm text-gray-700 dark:text-gray-300">
-              {t('publish_forum')}
-            </label>
-          </div>
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="forumAllowAnonymous"
-              checked={forumForm.allowAnonymous}
-              onChange={e => setForumForm(f => ({ ...f, allowAnonymous: e.target.checked }))}
-              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            <label htmlFor="forumAllowAnonymous" className="text-sm text-gray-700 dark:text-gray-300">
-              {t('allow_anonymous_posts')}
-            </label>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="secondary" onClick={closeForumModal}>
-              {t('common:cancel')}
-            </Button>
-            <Button
-              type="submit"
-              loading={createForumMutation.isPending || updateForumMutation.isPending}
-            >
-              {forumModal.forum ? t('common:update') : t('common:create')}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+        onSubmit={handleForumSubmit}
+      />
 
       {/* Delete Forum Confirmation */}
       <ConfirmDialog

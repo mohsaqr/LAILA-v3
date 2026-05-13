@@ -1,12 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MessageSquare, Users, Clock, ChevronRight } from 'lucide-react';
-import { useTheme } from '../hooks/useTheme';
-import { Card, CardBody } from '../components/common/Card';
-import { Loading } from '../components/common/Loading';
+import { MessageSquare } from 'lucide-react';
 import { Breadcrumb } from '../components/common/Breadcrumb';
+import { DataTable, type ColumnDef } from '../components/common/DataTable';
 import apiClient from '../api/client';
 import activityLogger from '../services/activityLogger';
 
@@ -16,29 +14,37 @@ interface ForumListItem {
   description: string | null;
   courseId: number;
   courseName: string;
-  threadCount: number;
+  moduleId: number | null;
+  moduleName: string | null;
+  replyCount: number;
   lastActivity: string | null;
 }
 
-export const ForumList = () => {
-  const { isDark } = useTheme();
-  const { t } = useTranslation(['courses', 'common']);
+const formatDate = (iso: string | null) => {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+};
 
-  // Log page view on mount
+/**
+ * Cross-course forum list rendered with the shared `DataTable` so it
+ * matches /teach/quizzes and /teach/surveys (title-case headers, filter
+ * card, global search, paginated). Read-only: clicking a row jumps to
+ * the single-discussion page. Visible to every signed-in user; the row
+ * set is already permission-scoped server-side.
+ */
+export const ForumList = () => {
+  const { t } = useTranslation(['courses', 'common', 'teaching']);
+  const navigate = useNavigate();
+
   useEffect(() => {
     activityLogger.logForumListViewed();
   }, []);
 
-  const colors = {
-    bg: isDark ? '#111827' : '#f9fafb',
-    cardBg: isDark ? '#1f2937' : '#ffffff',
-    textPrimary: isDark ? '#f3f4f6' : '#111827',
-    textSecondary: isDark ? '#9ca3af' : '#6b7280',
-    border: isDark ? '#374151' : '#e5e7eb',
-    accent: '#088F8F',
-  };
-
-  const { data: forums, isLoading } = useQuery({
+  const { data: forums = [], isLoading } = useQuery({
     queryKey: ['forums', 'all'],
     queryFn: async () => {
       const response = await apiClient.get<{ success: boolean; data: ForumListItem[] }>('/forums');
@@ -46,89 +52,110 @@ export const ForumList = () => {
     },
   });
 
-  if (isLoading) {
-    return <Loading text={t('loading_forums')} />;
-  }
+  // Unique courses across loaded rows — drives the column filter.
+  const courseOptions = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const f of forums) {
+      if (!map.has(f.courseId)) map.set(f.courseId, f.courseName);
+    }
+    return Array.from(map.entries())
+      .sort((a, b) => a[1].localeCompare(b[1]))
+      .map(([id, name]) => ({ value: String(id), label: name }));
+  }, [forums]);
+
+  const columns: ColumnDef<ForumListItem>[] = [
+    {
+      id: 'title',
+      header: t('teaching:forum_title', { defaultValue: 'Forum' }),
+      sortAccessor: f => f.title.toLowerCase(),
+      width: '40%',
+      cell: f => (
+        <span
+          className="block truncate font-normal text-gray-700 dark:text-gray-200"
+          title={f.title}
+        >
+          {f.title}
+        </span>
+      ),
+    },
+    {
+      id: 'course',
+      header: t('teaching:quiz_column_course', { defaultValue: 'Course' }),
+      sortAccessor: f => f.courseName.toLowerCase(),
+      width: '32%',
+      filter: {
+        kind: 'select',
+        options: courseOptions,
+        predicate: (f, v) => String(f.courseId) === v,
+      },
+      cell: f => (
+        <span
+          className="block truncate text-gray-600 dark:text-gray-300"
+          title={f.courseName}
+        >
+          {f.courseName}
+        </span>
+      ),
+    },
+    {
+      id: 'replies',
+      header: t('teaching:responses', { defaultValue: 'Replies' }),
+      sortAccessor: f => f.replyCount,
+      align: 'right',
+      width: '7rem',
+      cell: f => (
+        <span className="text-gray-600 dark:text-gray-300 tabular-nums">
+          {f.replyCount}
+        </span>
+      ),
+    },
+    {
+      id: 'lastActivity',
+      header: t('courses:last_activity', { defaultValue: 'Last activity' }),
+      sortAccessor: f => f.lastActivity ?? '',
+      align: 'right',
+      width: '10rem',
+      hideOnMobile: true,
+      cell: f => (
+        <span className="text-gray-500 dark:text-gray-400">
+          {formatDate(f.lastActivity)}
+        </span>
+      ),
+    },
+  ];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-      {/* Breadcrumb navigation */}
       <div className="mb-6">
         <Breadcrumb items={[{ label: t('forums') }]} />
       </div>
 
-
-      {!forums || forums.length === 0 ? (
-        <Card>
-          <CardBody className="text-center py-8 sm:py-12">
-            <MessageSquare className="w-12 h-12 mx-auto mb-4" style={{ color: colors.textSecondary }} />
-            <h3 className="text-lg font-medium mb-2" style={{ color: colors.textPrimary }}>
-              {t('no_forums_available')}
-            </h3>
-            <p style={{ color: colors.textSecondary }}>
-              {t('forums_will_appear')}
-            </p>
-          </CardBody>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {forums.map((forum) => (
-            <Link
-              key={forum.id}
-              to={`/courses/${forum.courseId}/forums/${forum.id}`}
-              className="block"
-            >
-              <Card className="hover:shadow-lg transition-shadow">
-                <CardBody className="flex flex-col sm:flex-row sm:items-center gap-4">
-                  {/* Icon */}
-                  <div
-                    className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: `${colors.accent}20` }}
-                  >
-                    <MessageSquare className="w-6 h-6" style={{ color: colors.accent }} />
-                  </div>
-
-                  {/* Description — 3/5 */}
-                  <div className="w-full sm:w-3/5 min-w-0">
-                    <h3 className="font-semibold" style={{ color: colors.textPrimary }}>
-                      {forum.title}
-                    </h3>
-                    <p className="text-sm" style={{ color: colors.textSecondary }}>
-                      {forum.courseName}
-                    </p>
-                    {forum.description && (
-                      <p className="text-sm mt-1 line-clamp-2" style={{ color: colors.textSecondary }}>
-                        {forum.description}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Stats — 2/5 */}
-                  <div className="w-full sm:w-2/5 flex items-center justify-start sm:justify-end gap-4 sm:gap-6 flex-wrap">
-                    <div className="flex items-center gap-1.5" style={{ color: colors.textSecondary }}>
-                      <Users className="w-4 h-4 flex-shrink-0" />
-                      <span className="text-sm whitespace-nowrap">{t('n_threads', { count: forum.threadCount })}</span>
-                    </div>
-                    {forum.lastActivity && (
-                      <div className="flex items-center gap-1.5" style={{ color: colors.textSecondary }}>
-                        <Clock className="w-4 h-4 flex-shrink-0" />
-                        <span className="text-sm whitespace-nowrap">
-                          {new Date(forum.lastActivity).toLocaleDateString('en-GB', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric',
-                          })}
-                        </span>
-                      </div>
-                    )}
-                    <ChevronRight className="w-5 h-5 flex-shrink-0" style={{ color: colors.textSecondary }} />
-                  </div>
-                </CardBody>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      )}
+      <DataTable<ForumListItem>
+        rows={forums}
+        columns={columns}
+        rowKey={f => f.id}
+        isLoading={isLoading}
+        pageSize={20}
+        onRowClick={f => navigate(`/courses/${f.courseId}/forums/${f.id}`)}
+        globalSearch={{
+          placeholder: t('teaching:search_forums_placeholder', {
+            defaultValue: 'Search forums…',
+          }),
+          predicate: (f, q) => {
+            const lower = q.toLowerCase();
+            return (
+              f.title.toLowerCase().includes(lower) ||
+              f.courseName.toLowerCase().includes(lower)
+            );
+          },
+        }}
+        empty={
+          <div className="flex items-center justify-center gap-2 py-6 text-sm text-gray-500 dark:text-gray-400">
+            <MessageSquare className="w-4 h-4" />
+            <span>{t('forums_will_appear', { defaultValue: 'Forums appear here once your instructors create them.' })}</span>
+          </div>
+        }
+      />
     </div>
   );
 };

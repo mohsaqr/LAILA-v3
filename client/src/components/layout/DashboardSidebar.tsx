@@ -108,7 +108,7 @@ export const DashboardSidebar = ({ mobileOpen = false, onMobileClose, isDesktop 
     { label: t('lab_templates'), icon: FlaskConical, path: '/teach/labs' },
     { label: t('quizzes'), icon: FileQuestion, path: '/teach/quizzes' },
     { label: t('surveys'), icon: ClipboardCheck, path: '/teach/surveys' },
-    { label: t('forums'), icon: MessageSquare, path: '/forums' },
+    { label: t('forums'), icon: MessageSquare, path: '/teach/forums' },
     { label: t('certificate_templates'), icon: Award, path: '/teach/certificates' },
     { label: t('gradebook'), icon: ClipboardList, path: '/dashboard/gradebook' },
     { label: t('calendar'), icon: Calendar, path: '/dashboard/calendar' },

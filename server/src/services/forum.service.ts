@@ -7,19 +7,36 @@ import { courseRoleService } from './courseRole.service.js';
 
 const logger = createLogger('forum');
 
+/**
+ * Forum and ForumThread were merged into a single flat ForumThread model
+ * (see migration `forum_collapse_layers`). What used to be a Forum is now
+ * just a ForumThread with `courseId` + `moduleId` set directly. To minimize
+ * client churn, the public method names keep the legacy "Forum" naming:
+ *   - `createForum`, `updateForum`, `deleteForum` operate on a thread.
+ *   - `getForums(courseId)` returns the threads for a course.
+ *   - `createThread`, `getThreads`, `getForum` are removed (the discussion
+ *     *is* the thread).
+ */
+
 export interface CreateForumInput {
   title: string;
+  content: string;
   description?: string;
   isPublished?: boolean;
   allowAnonymous?: boolean;
   orderIndex?: number;
   moduleId?: number;
+  isAnonymous?: boolean;
 }
 
-export interface CreateThreadInput {
-  title: string;
-  content: string;
-  isAnonymous?: boolean;
+export interface UpdateForumInput {
+  title?: string;
+  content?: string;
+  description?: string;
+  isPublished?: boolean;
+  allowAnonymous?: boolean;
+  orderIndex?: number;
+  moduleId?: number | null;
 }
 
 export interface CreatePostInput {
@@ -28,39 +45,39 @@ export interface CreatePostInput {
   isAnonymous?: boolean;
 }
 
+const replyCountInclude = {
+  _count: { select: { posts: true } },
+} as const;
+
 class ForumService {
   // =========================================================================
-  // FORUM CRUD
+  // DISCUSSION (formerly Forum/Thread) CRUD
   // =========================================================================
 
   /**
-   * Get all forums across all courses the user has access to
+   * Cross-course list — used by the student "all my forums" view and the
+   * student dashboard. Students see only published discussions in their
+   * enrolled courses; instructors see their own courses (including team
+   * roles); admins see everything.
    */
   async getAllUserForums(userId: number, isInstructor = false, isAdmin = false) {
     let courseIds: number[] = [];
 
     if (isAdmin) {
-      // Admins see all published forums
-      const courses = await prisma.course.findMany({
-        select: { id: true },
-      });
+      const courses = await prisma.course.findMany({ select: { id: true } });
       courseIds = courses.map(c => c.id);
     } else if (isInstructor) {
-      // Instructors see forums from their own courses and courses they're team members of
       const ownCourses = await prisma.course.findMany({
         where: { instructorId: userId },
         select: { id: true },
       });
       courseIds = ownCourses.map(c => c.id);
-      // Also include courses where the instructor is a team member
       const teamCourseRoles = await prisma.courseRole.findMany({
         where: { userId },
         select: { courseId: true },
       });
-      const teamCourseIds = teamCourseRoles.map(r => r.courseId);
-      courseIds = [...new Set([...courseIds, ...teamCourseIds])];
+      courseIds = [...new Set([...courseIds, ...teamCourseRoles.map(r => r.courseId)])];
     } else {
-      // Students see forums from enrolled courses
       const enrollments = await prisma.enrollment.findMany({
         where: { userId, status: 'active' },
         select: { courseId: true },
@@ -68,353 +85,254 @@ class ForumService {
       courseIds = enrollments.map(e => e.courseId);
     }
 
-    if (courseIds.length === 0) {
-      return [];
-    }
+    if (courseIds.length === 0) return [];
 
-    const forums = await prisma.forum.findMany({
+    const threads = await prisma.forumThread.findMany({
       where: {
         courseId: { in: courseIds },
-        isPublished: true,
+        ...(isAdmin || isInstructor ? {} : { isPublished: true }),
       },
       include: {
         course: { select: { id: true, title: true } },
-        _count: { select: { threads: true } },
-        threads: {
-          select: { createdAt: true },
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
+        module: { select: { id: true, title: true } },
+        ...replyCountInclude,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
     });
 
-    return forums.map(forum => ({
-      id: forum.id,
-      title: forum.title,
-      description: forum.description,
-      courseId: forum.courseId,
-      courseName: forum.course.title,
-      threadCount: forum._count.threads,
-      lastActivity: forum.threads[0]?.createdAt || null,
+    return threads.map(t => ({
+      id: t.id,
+      title: t.title,
+      description: t.description,
+      courseId: t.courseId,
+      courseName: t.course.title,
+      moduleId: t.moduleId,
+      moduleName: t.module?.title ?? null,
+      replyCount: t._count.posts,
+      lastActivity: t.updatedAt,
+    }));
+  }
+
+  /**
+   * Instructor view of every discussion in courses they own/team — drives
+   * the /teach/forums table.
+   */
+  async getInstructorForumThreads(userId: number, isAdmin = false) {
+    let where: any;
+    if (isAdmin) {
+      where = {};
+    } else {
+      const teamRoles = await prisma.courseRole.findMany({
+        where: { userId },
+        select: { courseId: true },
+      });
+      const teamCourseIds = teamRoles.map(r => r.courseId);
+      where = teamCourseIds.length > 0
+        ? { course: { OR: [{ instructorId: userId }, { id: { in: teamCourseIds } }] } }
+        : { course: { instructorId: userId } };
+    }
+
+    const threads = await prisma.forumThread.findMany({
+      where,
+      include: {
+        course: { select: { id: true, title: true, thumbnail: true } },
+        module: { select: { id: true, title: true } },
+        ...replyCountInclude,
+      },
+      orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
+    });
+
+    return threads.map(t => ({
+      id: t.id,
+      title: t.title,
+      description: t.description,
+      content: t.content,
+      courseId: t.courseId,
+      courseName: t.course.title,
+      courseThumbnail: t.course.thumbnail,
+      moduleId: t.moduleId,
+      moduleName: t.module?.title ?? null,
+      isPublished: t.isPublished,
+      isPinned: t.isPinned,
+      isLocked: t.isLocked,
+      allowAnonymous: t.allowAnonymous,
+      replyCount: t._count.posts,
+      authorId: t.authorId,
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt,
     }));
   }
 
   async getForums(courseId: number, userId: number, isInstructor = false, isAdmin = false) {
-    // Check enrollment/access
+    // Access check
     if (!isAdmin && !isInstructor) {
       const isTeam = await courseRoleService.isTeamMember(userId, courseId);
       if (!isTeam) {
         const enrollment = await prisma.enrollment.findUnique({
           where: { userId_courseId: { userId, courseId } },
         });
-
-        if (!enrollment) {
-          throw new AppError('Not enrolled in this course', 403);
-        }
+        if (!enrollment) throw new AppError('Not enrolled in this course', 403);
       }
     }
 
-    const forums = await prisma.forum.findMany({
+    const threads = await prisma.forumThread.findMany({
       where: {
         courseId,
         ...(isAdmin || isInstructor ? {} : { isPublished: true }),
       },
-      include: {
-        _count: { select: { threads: true } },
-      },
-      orderBy: [{ orderIndex: 'asc' }, { createdAt: 'desc' }],
+      include: replyCountInclude,
+      orderBy: [{ isPinned: 'desc' }, { orderIndex: 'asc' }, { createdAt: 'desc' }],
     });
 
-    return forums;
+    return threads;
   }
 
-  /**
-   * Get forums for a specific module
-   */
   async getModuleForums(moduleId: number, userId: number, isInstructor = false, isAdmin = false) {
-    const module = await prisma.courseModule.findUnique({
+    const moduleRow = await prisma.courseModule.findUnique({
       where: { id: moduleId },
       include: { course: { select: { id: true, instructorId: true } } },
     });
 
-    if (!module) {
-      throw new AppError('Module not found', 404);
-    }
+    if (!moduleRow) throw new AppError('Module not found', 404);
 
-    // Verify access
-    const isCourseInstructor = module.course.instructorId === userId;
+    const isCourseInstructor = moduleRow.course.instructorId === userId;
     const isTeamMember = !isAdmin && !isCourseInstructor && !isInstructor
-      ? await courseRoleService.isTeamMember(userId, module.course.id)
+      ? await courseRoleService.isTeamMember(userId, moduleRow.course.id)
       : false;
     if (!isAdmin && !isCourseInstructor && !isInstructor && !isTeamMember) {
       const enrollment = await prisma.enrollment.findUnique({
-        where: { userId_courseId: { userId, courseId: module.course.id } },
+        where: { userId_courseId: { userId, courseId: moduleRow.course.id } },
       });
-      if (!enrollment) {
-        throw new AppError('Not enrolled in this course', 403);
-      }
+      if (!enrollment) throw new AppError('Not enrolled in this course', 403);
     }
 
-    const forums = await prisma.forum.findMany({
+    const threads = await prisma.forumThread.findMany({
       where: {
         moduleId,
         ...(isAdmin || isCourseInstructor || isInstructor || isTeamMember ? {} : { isPublished: true }),
       },
-      include: {
-        _count: { select: { threads: true } },
-      },
-      orderBy: [{ orderIndex: 'asc' }],
+      include: replyCountInclude,
+      orderBy: [{ isPinned: 'desc' }, { orderIndex: 'asc' }],
     });
 
-    return forums;
-  }
-
-  async getForum(forumId: number, userId: number, isInstructor = false, isAdmin = false) {
-    const forum = await prisma.forum.findUnique({
-      where: { id: forumId },
-      include: {
-        course: { select: { id: true, title: true, instructorId: true } },
-        threads: {
-          include: {
-            posts: {
-              where: { parentId: null },
-              select: { id: true },
-            },
-          },
-          orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
-          take: 20,
-        },
-        _count: { select: { threads: true } },
-      },
-    });
-
-    if (!forum) throw new AppError('Forum not found', 404);
-    if (!forum.isPublished && !isAdmin && forum.course.instructorId !== userId) {
-      const isTeam = await courseRoleService.isTeamMember(userId, forum.course.id);
-      if (!isTeam) {
-        throw new AppError('Forum not found', 404);
-      }
-    }
-
-    // Get author info for threads
-    const authorIds = [...new Set(forum.threads.map(t => t.authorId))];
-    const authors = await prisma.user.findMany({
-      where: { id: { in: authorIds } },
-      select: { id: true, fullname: true },
-    });
-    const authorMap = new Map(authors.map(a => [a.id, a]));
-
-    // Transform threads with reply counts and author info
-    const threadsWithInfo = forum.threads.map(thread => ({
-      ...thread,
-      author: thread.isAnonymous ? null : authorMap.get(thread.authorId),
-      replyCount: thread.posts.length,
-      posts: undefined,
-    }));
-
-    return {
-      ...forum,
-      threads: threadsWithInfo,
-    };
+    return threads;
   }
 
   async createForum(courseId: number, instructorId: number, data: CreateForumInput, isAdmin = false) {
-    // Verify ownership
-    const course = await prisma.course.findUnique({
-      where: { id: courseId },
-    });
-
+    const course = await prisma.course.findUnique({ where: { id: courseId } });
     if (!course) throw new AppError('Course not found', 404);
     if (course.instructorId !== instructorId && !isAdmin) {
       const isTeam = await courseRoleService.isTeamMember(instructorId, courseId);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+      if (!isTeam) throw new AppError('Not authorized', 403);
     }
 
-    // Validate moduleId belongs to this course if provided
     if (data.moduleId) {
-      const module = await prisma.courseModule.findUnique({
+      const moduleRow = await prisma.courseModule.findUnique({
         where: { id: data.moduleId },
       });
-      if (!module || module.courseId !== courseId) {
+      if (!moduleRow || moduleRow.courseId !== courseId) {
         throw new AppError('Module does not belong to this course', 400);
       }
     }
 
-    const forum = await prisma.forum.create({
+    const thread = await prisma.forumThread.create({
       data: {
         courseId,
-        moduleId: data.moduleId || null,
+        moduleId: data.moduleId ?? null,
+        authorId: instructorId,
         title: data.title,
+        content: data.content,
         description: data.description,
         isPublished: data.isPublished ?? true,
         allowAnonymous: data.allowAnonymous ?? false,
         orderIndex: data.orderIndex ?? 0,
+        isAnonymous: data.isAnonymous ?? false,
       },
     });
 
     logger.info({
       action: 'FORUM_CREATED',
-      forumId: forum.id,
-      forumTitle: data.title,
+      threadId: thread.id,
+      title: data.title,
       courseId,
       courseName: course.title,
-      moduleId: data.moduleId || null,
+      moduleId: data.moduleId ?? null,
       instructorId,
       isPublished: data.isPublished ?? true,
       allowAnonymous: data.allowAnonymous ?? false,
-      description: data.description || null,
       timestamp: new Date().toISOString(),
     }, `Forum created: "${data.title}" in course "${course.title}"${data.moduleId ? ` (module ${data.moduleId})` : ''}`);
 
-    return forum;
+    return thread;
   }
 
-  async updateForum(forumId: number, instructorId: number, data: Partial<CreateForumInput>, isAdmin = false) {
-    const forum = await prisma.forum.findUnique({
-      where: { id: forumId },
+  async updateForum(threadId: number, instructorId: number, data: UpdateForumInput, isAdmin = false) {
+    const thread = await prisma.forumThread.findUnique({
+      where: { id: threadId },
       include: { course: true },
     });
-
-    if (!forum) throw new AppError('Forum not found', 404);
-    if (forum.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, forum.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!thread) throw new AppError('Forum not found', 404);
+    if (thread.course.instructorId !== instructorId && !isAdmin) {
+      const isTeam = await courseRoleService.isTeamMember(instructorId, thread.courseId);
+      if (!isTeam) throw new AppError('Not authorized', 403);
     }
 
-    const updatedForum = await prisma.forum.update({
-      where: { id: forumId },
+    const updated = await prisma.forumThread.update({
+      where: { id: threadId },
       data,
     });
 
     logger.info({
       action: 'FORUM_UPDATED',
-      forumId,
-      forumTitle: updatedForum.title,
-      courseId: forum.courseId,
-      courseName: forum.course.title,
+      threadId,
+      title: updated.title,
+      courseId: thread.courseId,
+      courseName: thread.course.title,
       updatedBy: instructorId,
       changes: data,
       timestamp: new Date().toISOString(),
-    }, `Forum updated: "${updatedForum.title}" in course "${forum.course.title}"`);
+    }, `Forum updated: "${updated.title}" in course "${thread.course.title}"`);
 
-    return updatedForum;
+    return updated;
   }
 
-  async deleteForum(forumId: number, instructorId: number, isAdmin = false) {
-    const forum = await prisma.forum.findUnique({
-      where: { id: forumId },
-      include: {
-        course: true,
-        _count: { select: { threads: true } },
-      },
+  async deleteForum(threadId: number, instructorId: number, isAdmin = false) {
+    const thread = await prisma.forumThread.findUnique({
+      where: { id: threadId },
+      include: { course: true, _count: { select: { posts: true } } },
     });
-
-    if (!forum) throw new AppError('Forum not found', 404);
-    if (forum.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, forum.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!thread) throw new AppError('Forum not found', 404);
+    if (thread.course.instructorId !== instructorId && !isAdmin) {
+      const isTeam = await courseRoleService.isTeamMember(instructorId, thread.courseId);
+      if (!isTeam) throw new AppError('Not authorized', 403);
     }
 
-    await prisma.forum.delete({ where: { id: forumId } });
+    await prisma.forumThread.delete({ where: { id: threadId } });
 
     logger.info({
       action: 'FORUM_DELETED',
-      forumId,
-      forumTitle: forum.title,
-      courseId: forum.courseId,
-      courseName: forum.course.title,
+      threadId,
+      title: thread.title,
+      courseId: thread.courseId,
+      courseName: thread.course.title,
       deletedBy: instructorId,
-      threadsDeleted: forum._count.threads,
+      postsDeleted: thread._count.posts,
       timestamp: new Date().toISOString(),
-    }, `Forum deleted: "${forum.title}" in course "${forum.course.title}" (had ${forum._count.threads} threads)`);
+    }, `Forum deleted: "${thread.title}" in course "${thread.course.title}" (had ${thread._count.posts} replies)`);
 
     return { message: 'Forum deleted' };
   }
 
   // =========================================================================
-  // THREAD CRUD
+  // THREAD READ + INSTRUCTOR ACTIONS
   // =========================================================================
-
-  async getThreads(forumId: number, userId: number, page = 1, limit = 20, isInstructor = false, isAdmin = false) {
-    const forum = await prisma.forum.findUnique({
-      where: { id: forumId },
-      include: { course: { select: { id: true, instructorId: true } } },
-    });
-
-    if (!forum || !forum.isPublished) throw new AppError('Forum not found', 404);
-
-    // Verify user has access to this forum's course
-    const isCourseInstructor = forum.course.instructorId === userId;
-    if (!isAdmin && !isCourseInstructor && !isInstructor) {
-      const isTeam = await courseRoleService.isTeamMember(userId, forum.course.id);
-      if (!isTeam) {
-        const enrollment = await prisma.enrollment.findUnique({
-          where: { userId_courseId: { userId, courseId: forum.course.id } },
-        });
-        if (!enrollment) {
-          throw new AppError('Not enrolled in this course', 403);
-        }
-      }
-    }
-
-    const skip = (page - 1) * limit;
-
-    const [threads, total] = await Promise.all([
-      prisma.forumThread.findMany({
-        where: { forumId },
-        include: {
-          posts: {
-            where: { parentId: null },
-            select: { id: true },
-          },
-        },
-        orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
-        skip,
-        take: limit,
-      }),
-      prisma.forumThread.count({ where: { forumId } }),
-    ]);
-
-    // Get author info
-    const authorIds = [...new Set(threads.map(t => t.authorId))];
-    const authors = await prisma.user.findMany({
-      where: { id: { in: authorIds } },
-      select: { id: true, fullname: true },
-    });
-    const authorMap = new Map(authors.map(a => [a.id, a]));
-
-    const threadsWithInfo = threads.map(thread => ({
-      ...thread,
-      author: thread.isAnonymous ? null : authorMap.get(thread.authorId),
-      replyCount: thread.posts.length,
-      posts: undefined,
-    }));
-
-    return {
-      threads: threadsWithInfo,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    };
-  }
 
   async getThread(threadId: number, userId: number, isInstructor = false, isAdmin = false) {
     const thread = await prisma.forumThread.findUnique({
       where: { id: threadId },
       include: {
-        forum: {
-          include: { course: { select: { id: true, title: true, instructorId: true } } },
-        },
+        course: { select: { id: true, title: true, instructorId: true } },
+        module: { select: { id: true, title: true } },
         posts: {
           orderBy: { createdAt: 'asc' },
           include: {
@@ -422,36 +340,33 @@ class ForumService {
             requester: { select: { id: true, fullname: true } },
           },
         },
+        _count: { select: { likes: true } },
       },
     });
 
     if (!thread) throw new AppError('Thread not found', 404);
 
-    // Verify user has access to this forum's course
-    const isCourseInstructor = (thread.forum as any).course?.instructorId === userId;
+    const isCourseInstructor = thread.course.instructorId === userId;
     if (!isAdmin && !isCourseInstructor && !isInstructor) {
-      const isTeam = await courseRoleService.isTeamMember(userId, thread.forum.courseId);
+      const isTeam = await courseRoleService.isTeamMember(userId, thread.courseId);
       if (!isTeam) {
         const enrollment = await prisma.enrollment.findUnique({
-          where: { userId_courseId: { userId, courseId: thread.forum.courseId } },
+          where: { userId_courseId: { userId, courseId: thread.courseId } },
         });
-        if (!enrollment) {
-          throw new AppError('Not enrolled in this course', 403);
-        }
+        if (!enrollment) throw new AppError('Not enrolled in this course', 403);
       }
     }
+    if (!thread.isPublished && !isAdmin && !isCourseInstructor) {
+      const isTeam = await courseRoleService.isTeamMember(userId, thread.courseId);
+      if (!isTeam) throw new AppError('Thread not found', 404);
+    }
 
-    // Increment view count
     await prisma.forumThread.update({
       where: { id: threadId },
       data: { viewCount: { increment: 1 } },
     });
 
-    // Get author info for thread and posts
-    const authorIds = [
-      thread.authorId,
-      ...thread.posts.map(p => p.authorId),
-    ];
+    const authorIds = [thread.authorId, ...thread.posts.map(p => p.authorId)];
     const uniqueAuthorIds = [...new Set(authorIds)];
     const authors = await prisma.user.findMany({
       where: { id: { in: uniqueAuthorIds } },
@@ -459,108 +374,93 @@ class ForumService {
     });
     const authorMap = new Map(authors.map(a => [a.id, a]));
 
-    // Transform posts with author info
     const postsWithAuthors = thread.posts.map(post => ({
       ...post,
       author: post.isAnonymous ? null : authorMap.get(post.authorId),
     }));
 
+    const myLikeRow = await prisma.forumThreadLike.findUnique({
+      where: { threadId_userId: { threadId, userId } },
+      select: { id: true },
+    });
+
     return {
       ...thread,
       author: thread.isAnonymous ? null : authorMap.get(thread.authorId),
       posts: postsWithAuthors,
+      likeCount: thread._count.likes,
+      myLike: !!myLikeRow,
     };
   }
 
-  async createThread(forumId: number, userId: number, data: CreateThreadInput) {
-    const forum = await prisma.forum.findUnique({
-      where: { id: forumId },
-      include: { course: true },
+  /**
+   * Toggle a "like" from `userId` on `threadId`. The (threadId, userId)
+   * unique constraint keeps us idempotent: insert when missing, delete
+   * when present. Returns the resulting state + the updated total count.
+   */
+  async toggleThreadLike(threadId: number, userId: number) {
+    const thread = await prisma.forumThread.findUnique({
+      where: { id: threadId },
+      include: { course: { select: { id: true, instructorId: true } } },
     });
+    if (!thread) throw new AppError('Thread not found', 404);
 
-    if (!forum) throw new AppError('Forum not found', 404);
-    if (!forum.isPublished) throw new AppError('Forum is not available', 400);
-
-    // Check enrollment (except for instructors/admins)
+    // Same access gate as getThread: enrollment / team / instructor / admin.
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, fullname: true, email: true, isAdmin: true, isInstructor: true },
+      select: { isAdmin: true, isInstructor: true },
     });
-
-    if (!user?.isAdmin && forum.course.instructorId !== userId) {
-      const isTeam = await courseRoleService.isTeamMember(userId, forum.courseId);
+    const isCourseInstructor = thread.course.instructorId === userId;
+    if (!user?.isAdmin && !isCourseInstructor) {
+      const isTeam = await courseRoleService.isTeamMember(userId, thread.courseId);
       if (!isTeam) {
         const enrollment = await prisma.enrollment.findUnique({
-          where: { userId_courseId: { userId, courseId: forum.courseId } },
+          where: { userId_courseId: { userId, courseId: thread.courseId } },
         });
         if (!enrollment) throw new AppError('Not enrolled in this course', 403);
       }
     }
 
-    // Check if anonymous posting is allowed
-    if (data.isAnonymous && !forum.allowAnonymous) {
-      throw new AppError('Anonymous posting is not allowed in this forum', 400);
-    }
-
-    const thread = await prisma.forumThread.create({
-      data: {
-        forumId,
-        authorId: userId,
-        title: data.title,
-        content: data.content,
-        isAnonymous: data.isAnonymous ?? false,
-      },
+    const existing = await prisma.forumThreadLike.findUnique({
+      where: { threadId_userId: { threadId, userId } },
+      select: { id: true },
     });
 
-    // Comprehensive logging for thread creation
-    logger.info({
-      action: 'THREAD_CREATED',
-      threadId: thread.id,
-      threadTitle: data.title,
-      forumId,
-      forumTitle: forum.title,
-      courseId: forum.courseId,
-      courseName: forum.course.title,
-      author: {
-        userId,
-        name: user?.fullname || 'Unknown',
-        email: user?.email || 'Unknown',
-        isAnonymous: data.isAnonymous ?? false,
-      },
-      content: data.content.substring(0, 500) + (data.content.length > 500 ? '...' : ''),
-      contentLength: data.content.length,
-      timestamp: new Date().toISOString(),
-    }, `Thread created: "${data.title}" by ${user?.fullname || 'Unknown'} in forum "${forum.title}"`);
+    let liked: boolean;
+    if (existing) {
+      await prisma.forumThreadLike.delete({ where: { id: existing.id } });
+      liked = false;
+    } else {
+      await prisma.forumThreadLike.create({ data: { threadId, userId } });
+      liked = true;
+    }
 
-    return thread;
+    const likeCount = await prisma.forumThreadLike.count({ where: { threadId } });
+    return { liked, likeCount };
   }
 
-  async updateThread(threadId: number, userId: number, data: Partial<CreateThreadInput>, isAdmin = false) {
+  async updateThread(threadId: number, userId: number, data: { title?: string; content?: string }, isAdmin = false) {
     const thread = await prisma.forumThread.findUnique({
       where: { id: threadId },
-      include: { forum: { include: { course: true } } },
+      include: { course: true },
     });
 
     if (!thread) throw new AppError('Thread not found', 404);
-    const isTeamForThread = !isAdmin && thread.forum.course.instructorId !== userId
-      ? await courseRoleService.isTeamMember(userId, thread.forum.course.id)
+    const isTeamForThread = !isAdmin && thread.course.instructorId !== userId
+      ? await courseRoleService.isTeamMember(userId, thread.courseId)
       : false;
-    if (thread.isLocked && !isAdmin && thread.forum.course.instructorId !== userId && !isTeamForThread) {
+    if (thread.isLocked && !isAdmin && thread.course.instructorId !== userId && !isTeamForThread) {
       throw new AppError('Thread is locked', 400);
     }
-    if (thread.authorId !== userId && !isAdmin && thread.forum.course.instructorId !== userId && !isTeamForThread) {
+    if (thread.authorId !== userId && !isAdmin && thread.course.instructorId !== userId && !isTeamForThread) {
       throw new AppError('Not authorized', 403);
     }
 
-    const updatedThread = await prisma.forumThread.update({
+    const updated = await prisma.forumThread.update({
       where: { id: threadId },
-      data: {
-        title: data.title,
-        content: data.content,
-      },
+      data,
     });
 
-    // Get user info for logging
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { fullname: true, email: true },
@@ -570,47 +470,34 @@ class ForumService {
       action: 'THREAD_UPDATED',
       threadId,
       oldTitle: thread.title,
-      newTitle: updatedThread.title,
-      forumId: thread.forumId,
-      forumTitle: thread.forum.title,
-      courseId: thread.forum.courseId,
-      courseName: thread.forum.course.title,
-      updatedBy: {
-        userId,
-        name: user?.fullname || 'Unknown',
-        email: user?.email || 'Unknown',
-      },
+      newTitle: updated.title,
+      courseId: thread.courseId,
+      courseName: thread.course.title,
+      updatedBy: { userId, name: user?.fullname ?? 'Unknown', email: user?.email ?? 'Unknown' },
       titleChanged: data.title !== undefined && data.title !== thread.title,
       contentChanged: data.content !== undefined,
       timestamp: new Date().toISOString(),
-    }, `Thread updated: "${updatedThread.title}" by ${user?.fullname || 'Unknown'} in forum "${thread.forum.title}"`);
+    }, `Thread updated: "${updated.title}" by ${user?.fullname ?? 'Unknown'} in course "${thread.course.title}"`);
 
-    return updatedThread;
+    return updated;
   }
 
   async deleteThread(threadId: number, userId: number, isAdmin = false) {
     const thread = await prisma.forumThread.findUnique({
       where: { id: threadId },
-      include: {
-        forum: { include: { course: true } },
-        _count: { select: { posts: true } },
-      },
+      include: { course: true, _count: { select: { posts: true } } },
     });
 
     if (!thread) throw new AppError('Thread not found', 404);
-    if (thread.authorId !== userId && !isAdmin && thread.forum.course.instructorId !== userId) {
-      const isTeam = await courseRoleService.isTeamMember(userId, thread.forum.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (thread.authorId !== userId && !isAdmin && thread.course.instructorId !== userId) {
+      const isTeam = await courseRoleService.isTeamMember(userId, thread.courseId);
+      if (!isTeam) throw new AppError('Not authorized', 403);
     }
 
-    // Get user info for logging
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { fullname: true, email: true },
     });
-
     const threadAuthor = await prisma.user.findUnique({
       where: { id: thread.authorId },
       select: { fullname: true },
@@ -622,47 +509,36 @@ class ForumService {
       action: 'THREAD_DELETED',
       threadId,
       threadTitle: thread.title,
-      forumId: thread.forumId,
-      forumTitle: thread.forum.title,
-      courseId: thread.forum.courseId,
-      courseName: thread.forum.course.title,
-      deletedBy: {
-        userId,
-        name: user?.fullname || 'Unknown',
-        email: user?.email || 'Unknown',
-      },
+      courseId: thread.courseId,
+      courseName: thread.course.title,
+      deletedBy: { userId, name: user?.fullname ?? 'Unknown', email: user?.email ?? 'Unknown' },
       threadAuthor: {
         userId: thread.authorId,
-        name: thread.isAnonymous ? 'Anonymous' : (threadAuthor?.fullname || 'Unknown'),
+        name: thread.isAnonymous ? 'Anonymous' : (threadAuthor?.fullname ?? 'Unknown'),
       },
       postsDeleted: thread._count.posts,
       timestamp: new Date().toISOString(),
-    }, `Thread deleted: "${thread.title}" by ${user?.fullname || 'Unknown'} (had ${thread._count.posts} posts)`);
+    }, `Thread deleted: "${thread.title}" by ${user?.fullname ?? 'Unknown'} (had ${thread._count.posts} posts)`);
 
     return { message: 'Thread deleted' };
   }
 
-  // Instructor actions
   async pinThread(threadId: number, userId: number, isPinned: boolean, isAdmin = false) {
     const thread = await prisma.forumThread.findUnique({
       where: { id: threadId },
-      include: { forum: { include: { course: true } } },
+      include: { course: true },
     });
-
     if (!thread) throw new AppError('Thread not found', 404);
-    if (!isAdmin && thread.forum.course.instructorId !== userId) {
-      const isTeam = await courseRoleService.isTeamMember(userId, thread.forum.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!isAdmin && thread.course.instructorId !== userId) {
+      const isTeam = await courseRoleService.isTeamMember(userId, thread.courseId);
+      if (!isTeam) throw new AppError('Not authorized', 403);
     }
 
-    const updatedThread = await prisma.forumThread.update({
+    const updated = await prisma.forumThread.update({
       where: { id: threadId },
       data: { isPinned },
     });
 
-    // Get user info for logging
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { fullname: true },
@@ -672,40 +548,31 @@ class ForumService {
       action: isPinned ? 'THREAD_PINNED' : 'THREAD_UNPINNED',
       threadId,
       threadTitle: thread.title,
-      forumId: thread.forumId,
-      forumTitle: thread.forum.title,
-      courseId: thread.forum.courseId,
-      courseName: thread.forum.course.title,
-      actionBy: {
-        userId,
-        name: user?.fullname || 'Unknown',
-      },
+      courseId: thread.courseId,
+      courseName: thread.course.title,
+      actionBy: { userId, name: user?.fullname ?? 'Unknown' },
       timestamp: new Date().toISOString(),
-    }, `Thread ${isPinned ? 'pinned' : 'unpinned'}: "${thread.title}" by ${user?.fullname || 'Unknown'}`);
+    }, `Thread ${isPinned ? 'pinned' : 'unpinned'}: "${thread.title}" by ${user?.fullname ?? 'Unknown'}`);
 
-    return updatedThread;
+    return updated;
   }
 
   async lockThread(threadId: number, userId: number, isLocked: boolean, isAdmin = false) {
     const thread = await prisma.forumThread.findUnique({
       where: { id: threadId },
-      include: { forum: { include: { course: true } } },
+      include: { course: true },
     });
-
     if (!thread) throw new AppError('Thread not found', 404);
-    if (!isAdmin && thread.forum.course.instructorId !== userId) {
-      const isTeam = await courseRoleService.isTeamMember(userId, thread.forum.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!isAdmin && thread.course.instructorId !== userId) {
+      const isTeam = await courseRoleService.isTeamMember(userId, thread.courseId);
+      if (!isTeam) throw new AppError('Not authorized', 403);
     }
 
-    const updatedThread = await prisma.forumThread.update({
+    const updated = await prisma.forumThread.update({
       where: { id: threadId },
       data: { isLocked },
     });
 
-    // Get user info for logging
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { fullname: true },
@@ -715,56 +582,48 @@ class ForumService {
       action: isLocked ? 'THREAD_LOCKED' : 'THREAD_UNLOCKED',
       threadId,
       threadTitle: thread.title,
-      forumId: thread.forumId,
-      forumTitle: thread.forum.title,
-      courseId: thread.forum.courseId,
-      courseName: thread.forum.course.title,
-      actionBy: {
-        userId,
-        name: user?.fullname || 'Unknown',
-      },
+      courseId: thread.courseId,
+      courseName: thread.course.title,
+      actionBy: { userId, name: user?.fullname ?? 'Unknown' },
       timestamp: new Date().toISOString(),
-    }, `Thread ${isLocked ? 'locked' : 'unlocked'}: "${thread.title}" by ${user?.fullname || 'Unknown'}`);
+    }, `Thread ${isLocked ? 'locked' : 'unlocked'}: "${thread.title}" by ${user?.fullname ?? 'Unknown'}`);
 
-    return updatedThread;
+    return updated;
   }
 
   // =========================================================================
-  // POST CRUD
+  // POST (reply) CRUD
   // =========================================================================
 
   async createPost(threadId: number, userId: number, data: CreatePostInput) {
     const thread = await prisma.forumThread.findUnique({
       where: { id: threadId },
-      include: { forum: { include: { course: true } } },
+      include: { course: true },
     });
 
     if (!thread) throw new AppError('Thread not found', 404);
 
-    // Check enrollment
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, fullname: true, email: true, isAdmin: true, isInstructor: true },
     });
 
-    const isCourseOwner = thread.forum.course.instructorId === userId;
+    const isCourseOwner = thread.course.instructorId === userId;
     const isTeamForPost = !user?.isAdmin && !isCourseOwner
-      ? await courseRoleService.isTeamMember(userId, thread.forum.courseId)
+      ? await courseRoleService.isTeamMember(userId, thread.courseId)
       : false;
 
-    // Locked thread: only admin, instructor, or team can post
     if (thread.isLocked && !user?.isAdmin && !isCourseOwner && !isTeamForPost) {
       throw new AppError('Thread is locked', 400);
     }
 
     if (!user?.isAdmin && !isCourseOwner && !isTeamForPost) {
       const enrollment = await prisma.enrollment.findUnique({
-        where: { userId_courseId: { userId, courseId: thread.forum.courseId } },
+        where: { userId_courseId: { userId, courseId: thread.courseId } },
       });
       if (!enrollment) throw new AppError('Not enrolled in this course', 403);
     }
 
-    // Validate parent post and get parent author info for logging
     let parentPostInfo: { id: number; authorId: number; authorName: string; content: string } | null = null;
     if (data.parentId) {
       const parentPost = await prisma.forumPost.findUnique({
@@ -773,7 +632,6 @@ class ForumService {
       if (!parentPost || parentPost.threadId !== threadId) {
         throw new AppError('Invalid parent post', 400);
       }
-      // Get parent author info
       const parentAuthor = await prisma.user.findUnique({
         where: { id: parentPost.authorId },
         select: { id: true, fullname: true },
@@ -781,20 +639,18 @@ class ForumService {
       parentPostInfo = {
         id: parentPost.id,
         authorId: parentPost.authorId,
-        authorName: parentPost.isAnonymous ? 'Anonymous' : (parentAuthor?.fullname || 'Unknown'),
+        authorName: parentPost.isAnonymous ? 'Anonymous' : (parentAuthor?.fullname ?? 'Unknown'),
         content: parentPost.content.substring(0, 200) + (parentPost.content.length > 200 ? '...' : ''),
       };
     }
 
-    // Get thread author info
     const threadAuthor = await prisma.user.findUnique({
       where: { id: thread.authorId },
       select: { fullname: true },
     });
 
-    // Check anonymous permissions
-    if (data.isAnonymous && !thread.forum.allowAnonymous) {
-      throw new AppError('Anonymous posting is not allowed in this forum', 400);
+    if (data.isAnonymous && !thread.allowAnonymous) {
+      throw new AppError('Anonymous posting is not allowed in this discussion', 400);
     }
 
     const post = await prisma.forumPost.create({
@@ -807,69 +663,54 @@ class ForumService {
       },
     });
 
-    // Comprehensive logging for post creation
     const isReplyToPost = !!data.parentId;
-    const replyType = isReplyToPost ? 'REPLY_TO_POST' : 'REPLY_TO_THREAD';
-
     logger.info({
       action: 'POST_CREATED',
-      replyType,
+      replyType: isReplyToPost ? 'REPLY_TO_POST' : 'REPLY_TO_THREAD',
       postId: post.id,
       threadId,
       threadTitle: thread.title,
-      forumId: thread.forumId,
-      forumTitle: thread.forum.title,
-      courseId: thread.forum.courseId,
-      courseName: thread.forum.course.title,
+      courseId: thread.courseId,
+      courseName: thread.course.title,
       author: {
         userId,
-        name: user?.fullname || 'Unknown',
-        email: user?.email || 'Unknown',
+        name: user?.fullname ?? 'Unknown',
+        email: user?.email ?? 'Unknown',
         isAnonymous: data.isAnonymous ?? false,
       },
       threadAuthor: {
         userId: thread.authorId,
-        name: thread.isAnonymous ? 'Anonymous' : (threadAuthor?.fullname || 'Unknown'),
+        name: thread.isAnonymous ? 'Anonymous' : (threadAuthor?.fullname ?? 'Unknown'),
       },
-      parentPost: parentPostInfo ? {
-        postId: parentPostInfo.id,
-        authorId: parentPostInfo.authorId,
-        authorName: parentPostInfo.authorName,
-        contentPreview: parentPostInfo.content,
-      } : null,
-      repliedTo: isReplyToPost
-        ? { type: 'post', postId: data.parentId, authorName: parentPostInfo?.authorName }
-        : { type: 'thread', threadId, authorName: thread.isAnonymous ? 'Anonymous' : (threadAuthor?.fullname || 'Unknown') },
+      parentPost: parentPostInfo,
       content: data.content.substring(0, 500) + (data.content.length > 500 ? '...' : ''),
       contentLength: data.content.length,
       timestamp: new Date().toISOString(),
-    }, `Post created: ${user?.fullname || 'Unknown'} ${isReplyToPost ? `replied to ${parentPostInfo?.authorName}'s post` : `replied to thread "${thread.title}"`} in forum "${thread.forum.title}"`);
+    }, `Post created: ${user?.fullname ?? 'Unknown'} ${isReplyToPost ? `replied to ${parentPostInfo?.authorName}'s post` : `replied to thread "${thread.title}"`}`);
 
-    // Send notification to thread author (if not self-reply and not anonymous)
     if (thread.authorId !== userId && !thread.isAnonymous) {
       notificationService.notifyForumReply({
         userId: thread.authorId,
-        courseId: thread.forum.courseId,
-        forumId: thread.forumId,
+        courseId: thread.courseId,
+        forumId: thread.id, // legacy field name kept on the notification payload
         threadId: thread.id,
         threadTitle: thread.title,
-        replierName: data.isAnonymous ? 'Someone' : (user?.fullname || 'A user'),
+        replierName: data.isAnonymous ? 'Someone' : (user?.fullname ?? 'A user'),
       }).catch(err => {
         logger.warn({ err, threadId, userId }, 'Failed to send forum reply notification');
       });
     }
 
-    // If replying to a specific post, also notify the post author (if different from thread author and self)
     if (parentPostInfo && parentPostInfo.authorId !== userId && parentPostInfo.authorId !== thread.authorId) {
       notificationService.notifyForumReply({
         userId: parentPostInfo.authorId,
-        courseId: thread.forum.courseId,
-        forumId: thread.forumId,
+        courseId: thread.courseId,
+        forumId: thread.id,
         threadId: thread.id,
         threadTitle: thread.title,
-        replierName: data.isAnonymous ? 'Someone' : (user?.fullname || 'A user'),
+        replierName: data.isAnonymous ? 'Someone' : (user?.fullname ?? 'A user'),
       }).catch(err => {
-        logger.warn({ err, threadId, postId: parentPostInfo.id, userId }, 'Failed to send forum reply notification to post author');
+        logger.warn({ err, threadId, postId: parentPostInfo!.id, userId }, 'Failed to send forum reply notification to post author');
       });
     }
 
@@ -879,21 +720,17 @@ class ForumService {
   async updatePost(postId: number, userId: number, content: string, isAdmin = false) {
     const post = await prisma.forumPost.findUnique({
       where: { id: postId },
-      include: {
-        thread: {
-          include: { forum: { include: { course: true } } },
-        },
-      },
+      include: { thread: { include: { course: true } } },
     });
 
     if (!post) throw new AppError('Post not found', 404);
-    const isTeamForPostUpdate = !isAdmin && post.thread.forum.course.instructorId !== userId
-      ? await courseRoleService.isTeamMember(userId, post.thread.forum.course.id)
+    const isTeamForPostUpdate = !isAdmin && post.thread.course.instructorId !== userId
+      ? await courseRoleService.isTeamMember(userId, post.thread.courseId)
       : false;
-    if (post.thread.isLocked && !isAdmin && post.thread.forum.course.instructorId !== userId && !isTeamForPostUpdate) {
+    if (post.thread.isLocked && !isAdmin && post.thread.course.instructorId !== userId && !isTeamForPostUpdate) {
       throw new AppError('Thread is locked', 400);
     }
-    if (post.authorId !== userId && !isAdmin && post.thread.forum.course.instructorId !== userId && !isTeamForPostUpdate) {
+    if (post.authorId !== userId && !isAdmin && post.thread.course.instructorId !== userId && !isTeamForPostUpdate) {
       throw new AppError('Not authorized', 403);
     }
 
@@ -903,7 +740,6 @@ class ForumService {
       data: { content, isEdited: true },
     });
 
-    // Get user info for logging
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { fullname: true, email: true },
@@ -914,19 +750,13 @@ class ForumService {
       postId,
       threadId: post.threadId,
       threadTitle: post.thread.title,
-      forumId: post.thread.forumId,
-      forumTitle: post.thread.forum.title,
-      courseId: post.thread.forum.courseId,
-      courseName: post.thread.forum.course.title,
-      editedBy: {
-        userId,
-        name: user?.fullname || 'Unknown',
-        email: user?.email || 'Unknown',
-      },
+      courseId: post.thread.courseId,
+      courseName: post.thread.course.title,
+      editedBy: { userId, name: user?.fullname ?? 'Unknown', email: user?.email ?? 'Unknown' },
       oldContent: oldContent.substring(0, 300) + (oldContent.length > 300 ? '...' : ''),
       newContent: content.substring(0, 300) + (content.length > 300 ? '...' : ''),
       timestamp: new Date().toISOString(),
-    }, `Post updated: ${user?.fullname || 'Unknown'} edited post #${postId} in thread "${post.thread.title}"`);
+    }, `Post updated: ${user?.fullname ?? 'Unknown'} edited post #${postId} in thread "${post.thread.title}"`);
 
     return updatedPost;
   }
@@ -935,34 +765,26 @@ class ForumService {
     const post = await prisma.forumPost.findUnique({
       where: { id: postId },
       include: {
-        thread: {
-          include: { forum: { include: { course: true } } },
-        },
+        thread: { include: { course: true } },
         _count: { select: { replies: true } },
       },
     });
 
     if (!post) throw new AppError('Post not found', 404);
-    if (post.authorId !== userId && !isAdmin && post.thread.forum.course.instructorId !== userId) {
-      const isTeam = await courseRoleService.isTeamMember(userId, post.thread.forum.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (post.authorId !== userId && !isAdmin && post.thread.course.instructorId !== userId) {
+      const isTeam = await courseRoleService.isTeamMember(userId, post.thread.courseId);
+      if (!isTeam) throw new AppError('Not authorized', 403);
     }
 
-    // Get user info for logging (the deleter)
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { fullname: true, email: true },
     });
-
-    // Get post author info
     const postAuthor = await prisma.user.findUnique({
       where: { id: post.authorId },
       select: { fullname: true },
     });
 
-    // Get parent post info if this was a reply
     let parentPostInfo = null;
     if (post.parentId) {
       const parentPost = await prisma.forumPost.findUnique({
@@ -975,39 +797,29 @@ class ForumService {
         });
         parentPostInfo = {
           postId: parentPost.id,
-          authorName: parentPost.isAnonymous ? 'Anonymous' : (parentAuthor?.fullname || 'Unknown'),
+          authorName: parentPost.isAnonymous ? 'Anonymous' : (parentAuthor?.fullname ?? 'Unknown'),
         };
       }
     }
 
     await prisma.forumPost.delete({ where: { id: postId } });
 
-    const postAuthorName = post.isAnonymous ? 'Anonymous' : (postAuthor?.fullname || 'Unknown');
-
+    const postAuthorName = post.isAnonymous ? 'Anonymous' : (postAuthor?.fullname ?? 'Unknown');
     logger.info({
       action: 'POST_DELETED',
       postId,
       threadId: post.threadId,
       threadTitle: post.thread.title,
-      forumId: post.thread.forumId,
-      forumTitle: post.thread.forum.title,
-      courseId: post.thread.forum.courseId,
-      courseName: post.thread.forum.course.title,
-      deletedBy: {
-        userId,
-        name: user?.fullname || 'Unknown',
-        email: user?.email || 'Unknown',
-      },
-      postAuthor: {
-        userId: post.authorId,
-        name: postAuthorName,
-      },
+      courseId: post.thread.courseId,
+      courseName: post.thread.course.title,
+      deletedBy: { userId, name: user?.fullname ?? 'Unknown', email: user?.email ?? 'Unknown' },
+      postAuthor: { userId: post.authorId, name: postAuthorName },
       parentPost: parentPostInfo,
       wasReplyToPost: !!post.parentId,
       deletedContent: post.content.substring(0, 300) + (post.content.length > 300 ? '...' : ''),
       repliesDeleted: post._count.replies,
       timestamp: new Date().toISOString(),
-    }, `Post deleted: ${user?.fullname || 'Unknown'} deleted post #${postId} by ${postAuthorName} in thread "${post.thread.title}"`);
+    }, `Post deleted: ${user?.fullname ?? 'Unknown'} deleted post #${postId} by ${postAuthorName} in thread "${post.thread.title}"`);
 
     return { message: 'Post deleted' };
   }
@@ -1016,52 +828,30 @@ class ForumService {
   // AI AGENT INTEGRATION
   // =========================================================================
 
-  /**
-   * Get available AI agents (tutor-category chatbots) for forum integration
-   */
   async getAvailableAgents(courseId: number) {
-    // Get active chatbots with tutor category
     const chatbots = await prisma.chatbot.findMany({
-      where: {
-        isActive: true,
-        category: 'tutor',
-      },
+      where: { isActive: true, category: 'tutor' },
       select: {
-        id: true,
-        name: true,
-        displayName: true,
-        description: true,
-        avatarUrl: true,
-        personality: true,
+        id: true, name: true, displayName: true,
+        description: true, avatarUrl: true, personality: true,
       },
       orderBy: { displayName: 'asc' },
     });
 
-    // Also check for course-specific tutors
     const courseTutors = await prisma.courseTutor.findMany({
-      where: {
-        courseId,
-        isActive: true,
-      },
+      where: { courseId, isActive: true },
       include: {
         chatbot: {
           select: {
-            id: true,
-            name: true,
-            displayName: true,
-            description: true,
-            avatarUrl: true,
-            personality: true,
+            id: true, name: true, displayName: true,
+            description: true, avatarUrl: true, personality: true,
           },
         },
       },
       orderBy: { displayOrder: 'asc' },
     });
 
-    // Combine global tutors with course-specific ones
     const agentMap = new Map();
-
-    // Add course tutors first (with custom names if set)
     for (const ct of courseTutors) {
       agentMap.set(ct.chatbot.id, {
         id: ct.chatbot.id,
@@ -1073,23 +863,14 @@ class ForumService {
         isCourseSpecific: true,
       });
     }
-
-    // Add global tutors if not already added
     for (const bot of chatbots) {
       if (!agentMap.has(bot.id)) {
-        agentMap.set(bot.id, {
-          ...bot,
-          isCourseSpecific: false,
-        });
+        agentMap.set(bot.id, { ...bot, isCourseSpecific: false });
       }
     }
-
     return Array.from(agentMap.values());
   }
 
-  /**
-   * Build conversation context from thread and posts for AI
-   */
   private buildForumContext(
     thread: {
       title: string;
@@ -1112,25 +893,20 @@ class ForumService {
       author?: { fullname: string } | null;
       isAnonymous: boolean;
     } | null,
-    courseContext?: { title: string } | null
+    courseContext?: { title: string } | null,
   ): string {
     const lines: string[] = [];
-
-    // Course context
     if (courseContext?.title) {
       lines.push(`Course: ${courseContext.title}`);
       lines.push('');
     }
-
-    // Thread information
-    const threadAuthor = thread.isAnonymous ? 'Anonymous Student' : (thread.author?.fullname || 'Unknown');
-    lines.push(`Discussion Thread: "${thread.title}"`);
+    const threadAuthor = thread.isAnonymous ? 'Anonymous Student' : (thread.author?.fullname ?? 'Unknown');
+    lines.push(`Discussion: "${thread.title}"`);
     lines.push(`Started by: ${threadAuthor}`);
     lines.push(`Original question/topic:`);
     lines.push(thread.content);
     lines.push('');
 
-    // Previous posts (chronological)
     if (thread.posts.length > 0) {
       lines.push('--- Discussion so far ---');
       for (const post of thread.posts) {
@@ -1140,7 +916,7 @@ class ForumService {
         } else if (post.isAnonymous) {
           authorName = 'Anonymous Student';
         } else {
-          authorName = post.author?.fullname || 'Unknown';
+          authorName = post.author?.fullname ?? 'Unknown';
         }
         lines.push(`\n[${authorName}]:`);
         lines.push(post.content);
@@ -1148,9 +924,8 @@ class ForumService {
       lines.push('');
     }
 
-    // Specific post being replied to
     if (parentPost) {
-      const parentAuthor = parentPost.isAnonymous ? 'Anonymous Student' : (parentPost.author?.fullname || 'Unknown');
+      const parentAuthor = parentPost.isAnonymous ? 'Anonymous Student' : (parentPost.author?.fullname ?? 'Unknown');
       lines.push('--- You are specifically replying to this post ---');
       lines.push(`[${parentAuthor}]:`);
       lines.push(parentPost.content);
@@ -1160,85 +935,52 @@ class ForumService {
     return lines.join('\n');
   }
 
-  /**
-   * Create an AI-generated forum post
-   */
-  async createAiPost(
-    threadId: number,
-    requestingUserId: number,
-    agentId: number,
-    parentId?: number
-  ) {
-    // 1. Get thread with all posts for context
+  async createAiPost(threadId: number, requestingUserId: number, agentId: number, parentId?: number) {
     const thread = await prisma.forumThread.findUnique({
       where: { id: threadId },
       include: {
-        forum: {
-          include: { course: { select: { id: true, title: true, instructorId: true } } },
-        },
-        posts: {
-          orderBy: { createdAt: 'asc' },
-        },
+        course: { select: { id: true, title: true, instructorId: true } },
+        posts: { orderBy: { createdAt: 'asc' } },
       },
     });
 
-    if (!thread) {
-      throw new AppError('Thread not found', 404);
-    }
+    if (!thread) throw new AppError('Thread not found', 404);
+    if (thread.isLocked) throw new AppError('Thread is locked', 400);
 
-    if (thread.isLocked) {
-      throw new AppError('Thread is locked', 400);
-    }
-
-    // 2. Verify user enrollment/access
     const user = await prisma.user.findUnique({
       where: { id: requestingUserId },
       select: { id: true, fullname: true, email: true, isAdmin: true, isInstructor: true },
     });
 
-    if (!user?.isAdmin && thread.forum.course.instructorId !== requestingUserId) {
-      const isTeam = await courseRoleService.isTeamMember(requestingUserId, thread.forum.courseId);
+    if (!user?.isAdmin && thread.course.instructorId !== requestingUserId) {
+      const isTeam = await courseRoleService.isTeamMember(requestingUserId, thread.courseId);
       if (!isTeam) {
         const enrollment = await prisma.enrollment.findUnique({
-          where: { userId_courseId: { userId: requestingUserId, courseId: thread.forum.courseId } },
+          where: { userId_courseId: { userId: requestingUserId, courseId: thread.courseId } },
         });
-        if (!enrollment) {
-          throw new AppError('Not enrolled in this course', 403);
-        }
+        if (!enrollment) throw new AppError('Not enrolled in this course', 403);
       }
     }
 
-    // 3. Get agent (chatbot) details
-    const agent = await prisma.chatbot.findUnique({
-      where: { id: agentId },
-    });
+    const agent = await prisma.chatbot.findUnique({ where: { id: agentId } });
+    if (!agent || !agent.isActive) throw new AppError('AI agent not available', 404);
 
-    if (!agent || !agent.isActive) {
-      throw new AppError('AI agent not available', 404);
-    }
-
-    // 4. Get thread author for context
     const threadAuthor = await prisma.user.findUnique({
       where: { id: thread.authorId },
       select: { fullname: true },
     });
 
-    // 5. Get parent post if replying to specific post
     let parentPost: {
       id: number;
       content: string;
       author?: { fullname: string } | null;
       isAnonymous: boolean;
     } | null = null;
-
     if (parentId) {
-      const fetchedParent = await prisma.forumPost.findUnique({
-        where: { id: parentId },
-      });
+      const fetchedParent = await prisma.forumPost.findUnique({ where: { id: parentId } });
       if (!fetchedParent || fetchedParent.threadId !== threadId) {
         throw new AppError('Invalid parent post', 400);
       }
-      // Get author info separately
       const parentAuthor = await prisma.user.findUnique({
         where: { id: fetchedParent.authorId },
         select: { fullname: true },
@@ -1251,7 +993,6 @@ class ForumService {
       };
     }
 
-    // 6. Fetch authors for all posts
     const postAuthorIds = [...new Set(thread.posts.map(p => p.authorId))];
     const postAuthors = await prisma.user.findMany({
       where: { id: { in: postAuthorIds } },
@@ -1259,7 +1000,6 @@ class ForumService {
     });
     const postAuthorMap = new Map(postAuthors.map(a => [a.id, a]));
 
-    // 7. Build conversation context
     const forumContext = this.buildForumContext(
       {
         title: thread.title,
@@ -1277,10 +1017,9 @@ class ForumService {
         })),
       },
       parentPost,
-      thread.forum.course
+      thread.course,
     );
 
-    // 8. Build AI prompt
     const systemPrompt = `${agent.systemPrompt}
 
 You are participating in a student forum discussion. Your role is to help students learn by providing thoughtful, educational responses.
@@ -1299,7 +1038,6 @@ ${agent.knowledgeContext ? `Additional context: ${agent.knowledgeContext}` : ''}
       ? `Please respond to this specific post in the discussion. Consider the full thread context above.`
       : `Please contribute to this discussion thread. Consider what has been said so far and add something helpful.`;
 
-    // 9. Call chatService to generate response
     const aiResponse = await chatService.chat({
       message: userMessage,
       module: 'forum-ai-agent',
@@ -1308,13 +1046,10 @@ ${agent.knowledgeContext ? `Additional context: ${agent.knowledgeContext}` : ''}
       temperature: agent.temperature ?? 0.7,
     }, requestingUserId);
 
-    // 10. Create ForumPost with isAiGenerated=true
-    // For AI posts, we use a system user ID or the agent's associated user
-    // Using the requesting user as authorId but marking it as AI generated
     const post = await prisma.forumPost.create({
       data: {
         threadId,
-        authorId: requestingUserId, // Track who requested, but content is AI
+        authorId: requestingUserId,
         content: aiResponse.reply,
         parentId,
         isAnonymous: false,
@@ -1329,45 +1064,31 @@ ${agent.knowledgeContext ? `Additional context: ${agent.knowledgeContext}` : ''}
       },
     });
 
-    // Get author info for response
     const postAuthor = await prisma.user.findUnique({
       where: { id: post.authorId },
       select: { id: true, fullname: true },
     });
 
-    // Create response object with author info
-    const responsePost = {
-      ...post,
-      author: postAuthor,
-    };
-
-    // 11. Comprehensive logging
     logger.info({
       action: 'AI_POST_CREATED',
-      postId: responsePost.id,
+      postId: post.id,
       threadId,
       threadTitle: thread.title,
-      forumId: thread.forumId,
-      forumTitle: thread.forum.title,
-      courseId: thread.forum.courseId,
-      courseName: thread.forum.course.title,
-      aiAgent: {
-        id: agent.id,
-        name: agent.name,
-        displayName: agent.displayName,
-      },
+      courseId: thread.courseId,
+      courseName: thread.course.title,
+      aiAgent: { id: agent.id, name: agent.name, displayName: agent.displayName },
       requestedBy: {
         userId: requestingUserId,
-        name: user?.fullname || 'Unknown',
-        email: user?.email || 'Unknown',
+        name: user?.fullname ?? 'Unknown',
+        email: user?.email ?? 'Unknown',
       },
-      parentPostId: parentId || null,
+      parentPostId: parentId ?? null,
       responseTime: aiResponse.responseTime,
       model: aiResponse.model,
       timestamp: new Date().toISOString(),
     }, `AI post created: ${agent.displayName} replied in thread "${thread.title}" (requested by ${user?.fullname})`);
 
-    return responsePost;
+    return { ...post, author: postAuthor };
   }
 }
 

@@ -157,16 +157,16 @@ export class CourseService {
                 _count: { select: { questions: true } },
               },
             },
-            forums: {
+            forumThreads: {
               where: includeUnpublished ? {} : { isPublished: true },
-              orderBy: { orderIndex: 'asc' },
+              orderBy: [{ isPinned: 'desc' }, { orderIndex: 'asc' }],
               select: {
                 id: true,
                 title: true,
                 description: true,
                 isPublished: true,
                 moduleId: true,
-                _count: { select: { threads: true } },
+                _count: { select: { posts: true } },
               },
             },
             moduleSurveys: {
@@ -327,9 +327,9 @@ export class CourseService {
           },
         },
 
-        forums: {
-          orderBy: [{ orderIndex: 'asc' }, { createdAt: 'desc' }],
-          include: { _count: { select: { threads: true } } },
+        forumThreads: {
+          orderBy: [{ isPinned: 'desc' }, { orderIndex: 'asc' }, { createdAt: 'desc' }],
+          include: { _count: { select: { posts: true } } },
         },
       },
     });
@@ -347,7 +347,8 @@ export class CourseService {
     }
 
     // Destructure so `course` doesn't carry the extra joined arrays
-    const { assignments, courseTutors: rawTutors, labAssignments, forums, ...courseData } = result;
+    const { assignments, courseTutors: rawTutors, labAssignments, forumThreads, ...courseData } = result;
+    const forums = forumThreads; // keep legacy key on the API envelope
 
     // Compute totalMessages per tutor from nested counts (avoids N+1)
     const tutors = rawTutors.map(({ conversations, ...tutor }) => ({

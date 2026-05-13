@@ -550,25 +550,26 @@ router.get('/forum-summary', asyncHandler(async (req: AuthRequest, res: Response
   const [
     totalThreads,
     totalPosts,
-    totalForums,
     anonymousPosts,
   ] = await Promise.all([
     prisma.forumThread.count(),
     prisma.forumPost.count(),
-    prisma.forum.count(),
     prisma.forumPost.count({ where: { isAnonymous: true } }),
   ]);
+  // After the forum_collapse_layers migration each thread IS a forum,
+  // so "total forums" and "total threads" are the same number.
+  const totalForums = totalThreads;
 
-  // Posts by course
-  const byCourse = await prisma.forum.findMany({
+  // Discussions by course — top 10 with the most replies.
+  const byCourse = await prisma.forumThread.findMany({
     select: {
       id: true,
       title: true,
       courseId: true,
       course: { select: { title: true } },
-      _count: { select: { threads: true } },
+      _count: { select: { posts: true } },
     },
-    orderBy: { threads: { _count: 'desc' } },
+    orderBy: { posts: { _count: 'desc' } },
     take: 10,
   });
 
@@ -599,14 +600,7 @@ router.get('/forum-summary', asyncHandler(async (req: AuthRequest, res: Response
     take: 20,
     orderBy: { createdAt: 'desc' },
     include: {
-      forum: {
-        select: {
-          id: true,
-          title: true,
-          courseId: true,
-          course: { select: { title: true } },
-        },
-      },
+      course: { select: { id: true, title: true } },
       _count: { select: { posts: true } },
     },
   });
@@ -628,14 +622,8 @@ router.get('/forum-summary', asyncHandler(async (req: AuthRequest, res: Response
         select: {
           id: true,
           title: true,
-          forum: {
-            select: {
-              id: true,
-              title: true,
-              courseId: true,
-              course: { select: { title: true } },
-            },
-          },
+          courseId: true,
+          course: { select: { title: true } },
         },
       },
       parent: {
@@ -662,10 +650,10 @@ router.get('/forum-summary', asyncHandler(async (req: AuthRequest, res: Response
     createdAt: t.createdAt,
     authorId: t.authorId,
     authorName: threadAuthorMap.get(t.authorId)?.fullname || 'Unknown',
-    forumId: t.forum.id,
-    forumTitle: t.forum.title,
-    courseId: t.forum.courseId,
-    courseTitle: t.forum.course.title,
+    forumId: t.id,
+    forumTitle: t.title,
+    courseId: t.courseId,
+    courseTitle: t.course.title,
     postCount: t._count.posts,
   }));
 
@@ -680,21 +668,21 @@ router.get('/forum-summary', asyncHandler(async (req: AuthRequest, res: Response
     isAnonymous: p.isAnonymous,
     threadId: p.thread.id,
     threadTitle: p.thread.title,
-    forumId: p.thread.forum.id,
-    forumTitle: p.thread.forum.title,
-    courseId: p.thread.forum.courseId,
-    courseTitle: p.thread.forum.course.title,
+    forumId: p.thread.id,
+    forumTitle: p.thread.title,
+    courseId: p.thread.courseId,
+    courseTitle: p.thread.course.title,
     parentId: p.parentId,
     isReply: !!p.parentId,
   }));
 
-  // Format by course
-  const formattedByCourse = byCourse.map(f => ({
-    forumId: f.id,
-    forumTitle: f.title,
-    courseId: f.courseId,
-    courseTitle: f.course.title,
-    threadCount: f._count.threads,
+  // Format by course (each thread is a "forum" in the flat model)
+  const formattedByCourse = byCourse.map(t => ({
+    forumId: t.id,
+    forumTitle: t.title,
+    courseId: t.courseId,
+    courseTitle: t.course.title,
+    threadCount: t._count.posts,
   }));
 
   res.json({
@@ -721,11 +709,7 @@ router.get('/forum-export/csv', asyncHandler(async (req: AuthRequest, res: Respo
     include: {
       thread: {
         include: {
-          forum: {
-            include: {
-              course: { select: { id: true, title: true } },
-            },
-          },
+          course: { select: { id: true, title: true } },
         },
       },
       parent: {
@@ -795,10 +779,10 @@ router.get('/forum-export/csv', asyncHandler(async (req: AuthRequest, res: Respo
       thread?.title || '',
       thread?.authorId || '',
       threadAuthor?.fullname || '',
-      p.thread.forum.id,
-      p.thread.forum.title,
-      p.thread.forum.course.id,
-      p.thread.forum.course.title,
+      p.thread.id,
+      p.thread.title,
+      p.thread.course.id,
+      p.thread.course.title,
       p.parentId || '',
       p.parent?.authorId || '',
       parentAuthor?.fullname || '',
@@ -827,11 +811,7 @@ router.get('/forum-export/excel', asyncHandler(async (req: AuthRequest, res: Res
     include: {
       thread: {
         include: {
-          forum: {
-            include: {
-              course: { select: { id: true, title: true } },
-            },
-          },
+          course: { select: { id: true, title: true } },
         },
       },
       parent: {
@@ -848,11 +828,7 @@ router.get('/forum-export/excel', asyncHandler(async (req: AuthRequest, res: Res
   const threads = await prisma.forumThread.findMany({
     orderBy: { createdAt: 'desc' },
     include: {
-      forum: {
-        include: {
-          course: { select: { id: true, title: true } },
-        },
-      },
+      course: { select: { id: true, title: true } },
       _count: { select: { posts: true } },
     },
   });
@@ -930,10 +906,10 @@ router.get('/forum-export/excel', asyncHandler(async (req: AuthRequest, res: Res
       threadId: p.threadId,
       threadTitle: thread?.title || '',
       threadAuthor: threadAuthor?.fullname || '',
-      forumId: p.thread.forum.id,
-      forumTitle: p.thread.forum.title,
-      courseId: p.thread.forum.course.id,
-      courseTitle: p.thread.forum.course.title,
+      forumId: p.thread.id,
+      forumTitle: p.thread.title,
+      courseId: p.thread.course.id,
+      courseTitle: p.thread.course.title,
       parentPostId: p.parentId || '',
       replyingToUser: parentAuthor?.fullname || (p.parentId ? 'Unknown' : threadAuthor?.fullname || ''),
       replyType: p.parentId ? 'Reply to Post' : 'Reply to Thread',
@@ -980,10 +956,10 @@ router.get('/forum-export/excel', asyncHandler(async (req: AuthRequest, res: Res
       authorId: t.authorId,
       authorName: author?.fullname || 'Unknown',
       authorEmail: author?.email || '',
-      forumId: t.forum.id,
-      forumTitle: t.forum.title,
-      courseId: t.forum.course.id,
-      courseTitle: t.forum.course.title,
+      forumId: t.id,
+      forumTitle: t.title,
+      courseId: t.course.id,
+      courseTitle: t.course.title,
       postCount: t._count.posts,
       isPinned: t.isPinned ? 'Yes' : 'No',
       isLocked: t.isLocked ? 'Yes' : 'No',

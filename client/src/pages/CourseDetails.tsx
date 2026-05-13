@@ -388,7 +388,7 @@ export const CourseDetails = () => {
                       codeLabs={module.codeLabs}
                       quizzes={module.quizzes}
                       assignments={module.assignments}
-                      forums={module.forums}
+                      forums={module.forumThreads}
                       surveys={module.moduleSurveys as any}
                       labAssignments={(module as any).labAssignments}
                       hasAccess={hasAccess}

@@ -183,7 +183,9 @@ export const ModuleSection = ({
       type: 'forum' as ContentType,
       title: forum.title,
       subtitle: forum.description || undefined,
-      metadata: forum._count?.threads ? t('x_threads', { count: forum._count.threads }) : undefined,
+      metadata: forum._count?.posts
+        ? t('x_replies', { count: forum._count.posts, defaultValue: '{{count}} replies' })
+        : undefined,
       href: `/courses/${courseId}/forums/${forum.id}`,
       orderIndex: forum.orderIndex ?? 0,
     })),

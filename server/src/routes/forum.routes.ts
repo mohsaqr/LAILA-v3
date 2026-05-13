@@ -7,20 +7,31 @@ import { z } from 'zod';
 
 const router = Router();
 
-// Validation schemas
+/**
+ * After the forum_collapse_layers migration, each "forum" is just a
+ * ForumThread with `courseId` set directly. Legacy URLs that referenced
+ * `forumId` now operate on the same numeric id (renamed conceptually).
+ */
+
 const createForumSchema = z.object({
   title: z.string().min(1).max(200),
+  content: z.string().min(1).max(50000),
   description: z.string().max(1000).optional(),
   isPublished: z.boolean().optional(),
   allowAnonymous: z.boolean().optional(),
   orderIndex: z.number().min(0).optional(),
   moduleId: z.number().positive().optional(),
+  isAnonymous: z.boolean().optional(),
 });
 
-const createThreadSchema = z.object({
-  title: z.string().min(1).max(300),
-  content: z.string().min(1).max(50000),
-  isAnonymous: z.boolean().optional(),
+const updateForumSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  content: z.string().min(1).max(50000).optional(),
+  description: z.string().max(1000).optional(),
+  isPublished: z.boolean().optional(),
+  allowAnonymous: z.boolean().optional(),
+  orderIndex: z.number().min(0).optional(),
+  moduleId: z.number().positive().nullable().optional(),
 });
 
 const createPostSchema = z.object({
@@ -30,192 +41,144 @@ const createPostSchema = z.object({
 });
 
 // =========================================================================
-// FORUM ROUTES
+// FORUM / DISCUSSION ROUTES
 // =========================================================================
 
-// Get all forums across all enrolled courses for current user
+// Cross-course list (student view): published discussions in courses the
+// user is enrolled in / teaches / admins on.
 router.get('/', authenticateToken, asyncHandler(async (req, res) => {
   const user = (req as any).user;
   const forums = await forumService.getAllUserForums(user.id, user.isInstructor, user.isAdmin);
   res.json({ success: true, data: forums });
 }));
 
-// Get all forums for a course
+// Cross-course list for the /teach/forums DataTable (instructor view).
+router.get('/instructor', authenticateToken, requireInstructor, asyncHandler(async (req, res) => {
+  const user = (req as any).user;
+  const threads = await forumService.getInstructorForumThreads(user.id, user.isAdmin);
+  res.json({ success: true, data: threads });
+}));
+
+// All discussions for a course.
 router.get('/course/:courseId', authenticateToken, asyncHandler(async (req, res) => {
   const courseId = parseInt(req.params.courseId);
   const user = (req as any).user;
-
-  const forums = await forumService.getForums(
-    courseId,
-    user.id,
-    user.isInstructor,
-    user.isAdmin
-  );
-
+  const forums = await forumService.getForums(courseId, user.id, user.isInstructor, user.isAdmin);
   res.json({ success: true, data: forums });
 }));
 
-// Get forums for a specific module
+// Discussions scoped to a single module.
 router.get('/module/:moduleId', authenticateToken, asyncHandler(async (req, res) => {
   const moduleId = parseInt(req.params.moduleId);
   const user = (req as any).user;
-
-  const forums = await forumService.getModuleForums(
-    moduleId,
-    user.id,
-    user.isInstructor,
-    user.isAdmin
-  );
-
+  const forums = await forumService.getModuleForums(moduleId, user.id, user.isInstructor, user.isAdmin);
   res.json({ success: true, data: forums });
 }));
 
-// Get single forum with recent threads
-router.get('/:forumId', authenticateToken, asyncHandler(async (req, res) => {
-  const forumId = parseInt(req.params.forumId);
-  const user = (req as any).user;
-
-  const forum = await forumService.getForum(
-    forumId,
-    user.id,
-    user.isInstructor,
-    user.isAdmin
-  );
-
-  res.json({ success: true, data: forum });
-}));
-
-// Create forum (instructor only)
+// Create a discussion (instructor only).
 router.post('/course/:courseId', authenticateToken, requireInstructor, asyncHandler(async (req, res) => {
   const courseId = parseInt(req.params.courseId);
   const user = (req as any).user;
   const data = createForumSchema.parse(req.body);
-
   const forum = await forumService.createForum(courseId, user.id, data, user.isAdmin);
   res.status(201).json({ success: true, data: forum });
 }));
 
-// Update forum
-router.put('/:forumId', authenticateToken, requireInstructor, asyncHandler(async (req, res) => {
-  const forumId = parseInt(req.params.forumId);
+// Update a discussion (title / content / publish / settings).
+router.put('/:threadId', authenticateToken, requireInstructor, asyncHandler(async (req, res) => {
+  const threadId = parseInt(req.params.threadId);
   const user = (req as any).user;
-  const data = createForumSchema.partial().parse(req.body);
-
-  const forum = await forumService.updateForum(forumId, user.id, data, user.isAdmin);
+  const data = updateForumSchema.parse(req.body);
+  const forum = await forumService.updateForum(threadId, user.id, data, user.isAdmin);
   res.json({ success: true, data: forum });
 }));
 
-// Delete forum
-router.delete('/:forumId', authenticateToken, requireInstructor, asyncHandler(async (req, res) => {
-  const forumId = parseInt(req.params.forumId);
+// Delete a discussion.
+router.delete('/:threadId', authenticateToken, requireInstructor, asyncHandler(async (req, res) => {
+  const threadId = parseInt(req.params.threadId);
   const user = (req as any).user;
-
-  const result = await forumService.deleteForum(forumId, user.id, user.isAdmin);
+  const result = await forumService.deleteForum(threadId, user.id, user.isAdmin);
   res.json({ success: true, ...result });
 }));
 
 // =========================================================================
-// THREAD ROUTES
+// THREAD READ + INSTRUCTOR ACTIONS
 // =========================================================================
 
-// Get threads for a forum (paginated, with enrollment verification)
-router.get('/:forumId/threads', authenticateToken, asyncHandler(async (req, res) => {
-  const forumId = parseInt(req.params.forumId);
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
-  const user = (req as any).user;
-
-  const result = await forumService.getThreads(forumId, user.id, page, limit, user.isInstructor, user.isAdmin);
-  res.json({ success: true, data: result });
-}));
-
-// Get single thread with posts (with enrollment verification)
+// Single discussion with its replies.
 router.get('/threads/:threadId', authenticateToken, asyncHandler(async (req, res) => {
   const threadId = parseInt(req.params.threadId);
   const user = (req as any).user;
-
   const thread = await forumService.getThread(threadId, user.id, user.isInstructor, user.isAdmin);
   res.json({ success: true, data: thread });
 }));
 
-// Create thread
-router.post('/:forumId/threads', authenticateToken, asyncHandler(async (req, res) => {
-  const forumId = parseInt(req.params.forumId);
-  const user = (req as any).user;
-  const data = createThreadSchema.parse(req.body);
-
-  const thread = await forumService.createThread(forumId, user.id, data);
-  res.status(201).json({ success: true, data: thread });
-}));
-
-// Update thread
 router.put('/threads/:threadId', authenticateToken, asyncHandler(async (req, res) => {
   const threadId = parseInt(req.params.threadId);
   const user = (req as any).user;
-  const data = createThreadSchema.partial().parse(req.body);
-
+  const data = z.object({
+    title: z.string().min(1).max(300).optional(),
+    content: z.string().min(1).max(50000).optional(),
+  }).parse(req.body);
   const thread = await forumService.updateThread(threadId, user.id, data, user.isAdmin);
   res.json({ success: true, data: thread });
 }));
 
-// Delete thread
 router.delete('/threads/:threadId', authenticateToken, asyncHandler(async (req, res) => {
   const threadId = parseInt(req.params.threadId);
   const user = (req as any).user;
-
   const result = await forumService.deleteThread(threadId, user.id, user.isAdmin);
   res.json({ success: true, ...result });
 }));
 
-// Pin/unpin thread (instructor only)
 router.put('/threads/:threadId/pin', authenticateToken, requireInstructor, asyncHandler(async (req, res) => {
   const threadId = parseInt(req.params.threadId);
   const user = (req as any).user;
   const { isPinned } = z.object({ isPinned: z.boolean() }).parse(req.body);
-
   const thread = await forumService.pinThread(threadId, user.id, isPinned, user.isAdmin);
   res.json({ success: true, data: thread });
 }));
 
-// Lock/unlock thread (instructor only)
 router.put('/threads/:threadId/lock', authenticateToken, requireInstructor, asyncHandler(async (req, res) => {
   const threadId = parseInt(req.params.threadId);
   const user = (req as any).user;
   const { isLocked } = z.object({ isLocked: z.boolean() }).parse(req.body);
-
   const thread = await forumService.lockThread(threadId, user.id, isLocked, user.isAdmin);
   res.json({ success: true, data: thread });
 }));
 
+// Toggle a "like" by the current user on this discussion. Idempotent via
+// the (threadId, userId) unique constraint — POSTing twice toggles off.
+router.post('/threads/:threadId/like', authenticateToken, asyncHandler(async (req, res) => {
+  const threadId = parseInt(req.params.threadId);
+  const user = (req as any).user;
+  const result = await forumService.toggleThreadLike(threadId, user.id);
+  res.json({ success: true, data: result });
+}));
+
 // =========================================================================
-// POST ROUTES
+// POST (reply) ROUTES
 // =========================================================================
 
-// Create post (reply to thread)
 router.post('/threads/:threadId/posts', authenticateToken, asyncHandler(async (req, res) => {
   const threadId = parseInt(req.params.threadId);
   const user = (req as any).user;
   const data = createPostSchema.parse(req.body);
-
   const post = await forumService.createPost(threadId, user.id, data);
   res.status(201).json({ success: true, data: post });
 }));
 
-// Update post
 router.put('/posts/:postId', authenticateToken, asyncHandler(async (req, res) => {
   const postId = parseInt(req.params.postId);
   const user = (req as any).user;
   const { content } = z.object({ content: z.string().min(1).max(50000) }).parse(req.body);
-
   const post = await forumService.updatePost(postId, user.id, content, user.isAdmin);
   res.json({ success: true, data: post });
 }));
 
-// Delete post
 router.delete('/posts/:postId', authenticateToken, asyncHandler(async (req, res) => {
   const postId = parseInt(req.params.postId);
   const user = (req as any).user;
-
   const result = await forumService.deletePost(postId, user.id, user.isAdmin);
   res.json({ success: true, ...result });
 }));
@@ -224,15 +187,12 @@ router.delete('/posts/:postId', authenticateToken, asyncHandler(async (req, res)
 // AI AGENT ROUTES
 // =========================================================================
 
-// Get available AI agents for a course's forums
 router.get('/course/:courseId/agents', authenticateToken, asyncHandler(async (req, res) => {
   const courseId = parseInt(req.params.courseId);
-
   const agents = await forumService.getAvailableAgents(courseId);
   res.json({ success: true, data: agents });
 }));
 
-// Request AI agent to post in thread
 const createAiPostSchema = z.object({
   agentId: z.number().positive(),
   parentId: z.number().positive().optional(),
@@ -242,7 +202,6 @@ router.post('/threads/:threadId/ai-post', authenticateToken, forumAiLimiter, asy
   const threadId = parseInt(req.params.threadId);
   const user = (req as any).user;
   const { agentId, parentId } = createAiPostSchema.parse(req.body);
-
   const post = await forumService.createAiPost(threadId, user.id, agentId, parentId);
   res.status(201).json({ success: true, data: post });
 }));

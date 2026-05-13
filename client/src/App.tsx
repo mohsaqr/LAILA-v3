@@ -94,6 +94,7 @@ import {
   QuizEditor,
   QuizManager,
   QuizList,
+  TeachForumList,
   CertificateManager,
   CourseForumManager,
   CourseCertificateManager,
@@ -814,6 +815,16 @@ function App() {
           element={
             <ProtectedRoute requireInstructor>
               <CourseTutorManager />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Instructor cross-course forums table */}
+        <Route
+          path="/teach/forums"
+          element={
+            <ProtectedRoute requireInstructor>
+              <TeachForumList />
             </ProtectedRoute>
           }
         />
