@@ -93,6 +93,10 @@ interface ModuleItemProps {
   lectureAssignments?: Record<number, Assignment[]>;
   // All surveys available for linking (from courseDetails)
   allSurveys?: ModuleSurvey[];
+  // Optional controlled expand/collapse — when both are provided the
+  // parent (CurriculumEditor) drives the open state for accordion mode.
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
 }
 
 export const ModuleItem = ({
@@ -134,10 +138,25 @@ export const ModuleItem = ({
   onDeleteQuiz,
   lectureAssignments = {},
   allSurveys: allSurveysProp = [],
+  isExpanded: isExpandedProp,
+  onToggleExpand,
 }: ModuleItemProps) => {
   const { t } = useTranslation(['teaching']);
   const queryClient = useQueryClient();
-  const [isExpanded, setIsExpanded] = useState(true);
+  const isControlled = isExpandedProp !== undefined && !!onToggleExpand;
+  const [isExpandedInternal, setIsExpandedInternal] = useState(
+    isExpandedProp ?? true,
+  );
+  const isExpanded = isControlled ? !!isExpandedProp : isExpandedInternal;
+  const setIsExpanded = (next: boolean) => {
+    if (isControlled) {
+      // Parent toggles; we just relay the intent. The parent decides
+      // whether to expand this one and collapse siblings.
+      if (next !== isExpanded) onToggleExpand!();
+    } else {
+      setIsExpandedInternal(next);
+    }
+  };
   const [inlineLectureTitle, setInlineLectureTitle] = useState<string | null>(null);
   const [inlineLectureSubmitting, setInlineLectureSubmitting] = useState(false);
   const inlineLectureInputRef = useRef<HTMLInputElement>(null);

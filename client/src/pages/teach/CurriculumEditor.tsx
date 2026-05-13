@@ -128,6 +128,9 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
     originalQuestionIds?: number[];
   }>({ isOpen: false });
   const [deleteCourseConfirm, setDeleteCourseConfirm] = useState(false);
+  // Accordion: only one module is expanded at a time. Default to none
+  // (all collapsed when the page opens).
+  const [openModuleId, setOpenModuleId] = useState<number | null>(null);
 
   // Form states
   const [moduleForm, setModuleForm] = useState<ModuleFormData>({ title: '', description: '', label: '' });
@@ -1401,6 +1404,12 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
                   courseId={courseId}
                   isFirst={index === 0}
                   isLast={index === sortedModules.length - 1}
+                  isExpanded={openModuleId === module.id}
+                  onToggleExpand={() =>
+                    setOpenModuleId(prev =>
+                      prev === module.id ? null : module.id,
+                    )
+                  }
                   onEdit={openEditModuleModal}
                   onDelete={setDeleteModuleConfirm}
                   onTogglePublish={(m) => toggleModulePublishMutation.mutate({ id: m.id, isPublished: !m.isPublished })}
