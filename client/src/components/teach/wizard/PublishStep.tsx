@@ -223,8 +223,8 @@ export const PublishStep = ({
                   ? module.assignments
                   : assignments.filter(a => (a as any).moduleId === module.id);
               const moduleForums =
-                module.forums?.length
-                  ? module.forums
+                module.forumThreads?.length
+                  ? module.forumThreads
                   : forums.filter(f => (f as any).moduleId === module.id);
               const moduleLabAssignments =
                 (module as any).labAssignments?.length

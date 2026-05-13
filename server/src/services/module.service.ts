@@ -203,7 +203,7 @@ export class ModuleService {
           case 'assignment':
             return prisma.assignment.update({ where: { id: item.id }, data });
           case 'forum':
-            return prisma.forum.update({ where: { id: item.id }, data });
+            return prisma.forumThread.update({ where: { id: item.id }, data });
           case 'quiz':
             return prisma.quiz.update({ where: { id: item.id }, data });
           case 'survey':

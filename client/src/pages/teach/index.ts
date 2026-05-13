@@ -15,6 +15,7 @@ export { CourseTutorManager } from './CourseTutorManager';
 export { QuizEditor } from './QuizEditor';
 export { QuizManager } from './QuizManager';
 export { QuizList } from './QuizList';
+export { TeachForumList } from './TeachForumList';
 export { CertificateManager } from './CertificateManager';
 export { CourseForumManager } from './CourseForumManager';
 export { CourseCertificateManager } from './CourseCertificateManager';

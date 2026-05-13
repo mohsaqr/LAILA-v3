@@ -178,7 +178,7 @@ router.get('/:id/resource-counts', authenticateToken, requireInstructor, asyncHa
   ] = await Promise.all([
     prisma.assignment.count({ where: { courseId } }),
     prisma.quiz.count({ where: { courseId } }),
-    prisma.forum.count({ where: { courseId } }),
+    prisma.forumThread.count({ where: { courseId } }),
     prisma.moduleSurvey.count({ where: { courseId } }),
     prisma.enrollment.count({ where: { courseId } }),
     prisma.certificate.count({ where: { courseId } }),

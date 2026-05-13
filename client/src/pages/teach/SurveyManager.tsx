@@ -1,18 +1,20 @@
-import { useState, useEffect } from 'react';
-import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { coursesApi } from '../../api/courses';
 import {
-  Plus,
-  Edit2,
-  Trash2,
   BarChart3,
-  Eye,
-  GripVertical,
   ChevronDown,
   ChevronUp,
+  Edit2,
+  Eye,
+  EyeOff,
+  GripVertical,
+  ListChecks,
+  Plus,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 import {
   Survey,
@@ -21,11 +23,13 @@ import {
   SurveyQuestionType as QuestionType,
 } from '../../types';
 import { surveysApi } from '../../api/surveys';
-import { Card, CardBody } from '../../components/common/Card';
+import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
+import { DataTable, type ColumnDef } from '../../components/common/DataTable';
+import { RowMenu } from '../../components/common/RowMenu';
 import { useTheme } from '../../hooks/useTheme';
 import { SurveyGenerator } from '../../components/teaching/SurveyGenerator';
 import activityLogger from '../../services/activityLogger';
@@ -70,8 +74,6 @@ export const SurveyManager = () => {
     isRequired: true,
   });
   const [submitting, setSubmitting] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
     activityLogger.logSurveyManagerViewed(courseId ? parseInt(courseId) : undefined);
@@ -96,7 +98,6 @@ export const SurveyManager = () => {
   const handleSurveyGenerated = (survey: Survey) => {
     setSurveys(prev => [survey, ...prev]);
     setExpandedSurveyId(survey.id);
-    setCurrentPage(1);
   };
 
   const handleCreateSurvey = async () => {
@@ -109,7 +110,6 @@ export const SurveyManager = () => {
       setShowCreateModal(false);
       setSurveyForm({ title: '', description: '', isAnonymous: false });
       setExpandedSurveyId(newSurvey.id);
-      setCurrentPage(1);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to create survey');
     } finally {
@@ -157,6 +157,20 @@ export const SurveyManager = () => {
       );
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to publish survey');
+    }
+  };
+
+  const handleTogglePublish = async (survey: Survey) => {
+    if (!survey.isPublished) {
+      return handlePublishSurvey(survey);
+    }
+    try {
+      const updated = await surveysApi.updateSurvey(survey.id, { isPublished: false });
+      setSurveys(prev =>
+        prev.map(s => (s.id === survey.id ? { ...s, ...updated } : s))
+      );
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to unpublish survey');
     }
   };
 
@@ -368,241 +382,151 @@ export const SurveyManager = () => {
         </div>
       )}
 
-      {surveys.length === 0 ? (
-        <Card>
-          <CardBody className="text-center py-12">
-            <p
-              className="text-lg mb-4"
-              style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
-            >
-              {t('no_surveys_yet')}
-            </p>
-            <Button onClick={() => setShowCreateModal(true)}>
-              {t('create_first_survey')}
-            </Button>
-          </CardBody>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {surveys.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map(survey => (
-            <Card key={survey.id}>
-              <div
-                className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 cursor-pointer"
-                onClick={() => toggleSurveyExpand(survey)}
-              >
-                <div className="flex items-center gap-4">
-                  <div>
-                    <h3
-                      className="font-semibold"
-                      style={{ color: isDark ? '#f3f4f6' : '#111827' }}
-                    >
-                      {survey.title}
-                    </h3>
-                    {(survey as any).moduleSurveys?.length > 0 && (
-                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                        {(survey as any).moduleSurveys.map((ms: any) => (
-                          <Link
-                            key={ms.id}
-                            to={`/teach/surveys/${survey.id}/responses?moduleId=${ms.module.id}${courseId ? `&courseId=${courseId}` : ''}`}
-                            onClick={e => e.stopPropagation()}
-                            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
-                          >
-                            <BarChart3 className="w-3 h-3" />
-                            {ms.module.title}
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-3 mt-1">
-                      <span
-                        className="text-sm"
-                        style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
-                      >
-                        {t('questions_stat', { count: survey._count?.questions || 0 })}
-                      </span>
-                      {survey.isAnonymous && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">
-                          {t('anonymous_badge')}
-                        </span>
-                      )}
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${
-                          survey.isPublished
-                            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                            : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
-                        }`}
-                      >
-                        {survey.isPublished ? t('published') : t('draft')}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {!survey.isPublished && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={e => {
-                        e.stopPropagation();
-                        handlePublishSurvey(survey);
-                      }}
-                      title={t('publish_survey')}
-                      disabled={(survey._count?.questions || 0) === 0}
-                    >
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={e => {
-                      e.stopPropagation();
-                      openEditModal(survey);
-                    }}
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={e => {
-                      e.stopPropagation();
-                      setSelectedSurvey(survey);
-                      setShowDeleteModal(true);
-                    }}
-                  >
-                    <Trash2 className="w-4 h-4 text-red-500" />
-                  </Button>
-                  {expandedSurveyId === survey.id ? (
-                    <ChevronUp className="w-5 h-5" style={{ color: isDark ? '#9ca3af' : '#6b7280' }} />
-                  ) : (
-                    <ChevronDown className="w-5 h-5" style={{ color: isDark ? '#9ca3af' : '#6b7280' }} />
-                  )}
-                </div>
-              </div>
+      <SurveysTable
+        surveys={surveys}
+        courseId={courseId}
+        onOpenEdit={openEditModal}
+        onTogglePublish={handleTogglePublish}
+        onAskDelete={s => {
+          setSelectedSurvey(s);
+          setShowDeleteModal(true);
+        }}
+        onToggleExpand={toggleSurveyExpand}
+        expandedSurveyId={expandedSurveyId}
+      />
 
-              {expandedSurveyId === survey.id && (
-                <div
-                  className="border-t p-4"
-                  style={{ borderColor: isDark ? '#374151' : '#e5e7eb' }}
+      {/* Question editor panel — shown below the table for the
+          currently expanded survey. Triggered by the "Manage questions"
+          row action. */}
+      {expandedSurveyId != null && (
+        (() => {
+          const survey = surveys.find(s => s.id === expandedSurveyId);
+          if (!survey) return null;
+          return (
+            <Card className="mt-4">
+              <div
+                className="p-4 border-b flex items-center justify-between"
+                style={{ borderColor: isDark ? '#374151' : '#e5e7eb' }}
+              >
+                <div className="min-w-0">
+                  <p
+                    className="text-xs font-semibold uppercase tracking-wider"
+                    style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
+                  >
+                    {t('survey_questions', { defaultValue: 'Questions' })}
+                  </p>
+                  <p
+                    className="text-sm font-semibold truncate mt-0.5"
+                    style={{ color: isDark ? '#f3f4f6' : '#111827' }}
+                  >
+                    {survey.title}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setExpandedSurveyId(null)}
+                  className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
+                  aria-label={t('common:close', { defaultValue: 'Close' })}
                 >
-                  {survey.questions && survey.questions.length > 0 ? (
-                    <div className="space-y-3">
-                      {survey.questions.map((question, index) => (
-                        <div
-                          key={question.id}
-                          className="flex items-start gap-3 p-3 rounded-lg"
-                          style={{
-                            backgroundColor: isDark ? '#111827' : '#f9fafb',
-                          }}
-                        >
-                          <GripVertical
-                            className="w-4 h-4 mt-1 cursor-grab"
-                            style={{ color: isDark ? '#6b7280' : '#9ca3af' }}
-                          />
-                          <div className="flex-1">
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <span
-                                  className="text-sm font-medium"
-                                  style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
-                                >
-                                  Q{index + 1}
-                                </span>
-                                <p
-                                  className="font-medium"
-                                  style={{ color: isDark ? '#f3f4f6' : '#111827' }}
-                                >
-                                  {question.questionText}
-                                  {question.isRequired && (
-                                    <span className="text-red-500 ml-1">*</span>
-                                  )}
-                                </p>
-                                <span
-                                  className="text-xs"
-                                  style={{ color: isDark ? '#6b7280' : '#9ca3af' }}
-                                >
-                                  {question.questionType.replace('_', ' ')}
-                                </span>
-                                {question.options && question.options.length > 0 && (
-                                  <div className="mt-2 flex flex-wrap gap-1">
-                                    {question.options.map((opt, i) => (
-                                      <span
-                                        key={i}
-                                        className="text-xs px-2 py-0.5 rounded"
-                                        style={{
-                                          backgroundColor: isDark ? '#374151' : '#e5e7eb',
-                                          color: isDark ? '#d1d5db' : '#4b5563',
-                                        }}
-                                      >
-                                        {opt}
-                                      </span>
-                                    ))}
-                                  </div>
+                  <ChevronUp className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-4">
+                {survey.questions && survey.questions.length > 0 ? (
+                  <div className="space-y-3">
+                    {survey.questions.map((question, index) => (
+                      <div
+                        key={question.id}
+                        className="flex items-start gap-3 p-3 rounded-lg"
+                        style={{ backgroundColor: isDark ? '#111827' : '#f9fafb' }}
+                      >
+                        <GripVertical
+                          className="w-4 h-4 mt-1 cursor-grab"
+                          style={{ color: isDark ? '#6b7280' : '#9ca3af' }}
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <span
+                                className="text-sm font-medium"
+                                style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
+                              >
+                                Q{index + 1}
+                              </span>
+                              <p
+                                className="font-medium"
+                                style={{ color: isDark ? '#f3f4f6' : '#111827' }}
+                              >
+                                {question.questionText}
+                                {question.isRequired && (
+                                  <span className="text-red-500 ml-1">*</span>
                                 )}
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => openQuestionModal(survey, question)}
-                                >
-                                  <Edit2 className="w-3 h-3" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDeleteQuestion(survey, question.id)}
-                                >
-                                  <Trash2 className="w-3 h-3 text-red-500" />
-                                </Button>
-                              </div>
+                              </p>
+                              <span
+                                className="text-xs"
+                                style={{ color: isDark ? '#6b7280' : '#9ca3af' }}
+                              >
+                                {question.questionType.replace('_', ' ')}
+                              </span>
+                              {question.options && question.options.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-1">
+                                  {question.options.map((opt, i) => (
+                                    <span
+                                      key={i}
+                                      className="text-xs px-2 py-0.5 rounded"
+                                      style={{
+                                        backgroundColor: isDark ? '#374151' : '#e5e7eb',
+                                        color: isDark ? '#d1d5db' : '#4b5563',
+                                      }}
+                                    >
+                                      {opt}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openQuestionModal(survey, question)}
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteQuestion(survey, question.id)}
+                              >
+                                <Trash2 className="w-3 h-3 text-red-500" />
+                              </Button>
                             </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p
-                      className="text-sm text-center py-4"
-                      style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
-                    >
-                      {t('no_questions_yet')}
-                    </p>
-                  )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-4"
-                    onClick={() => openQuestionModal(survey)}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p
+                    className="text-sm text-center py-4"
+                    style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
                   >
-                    <Plus className="w-4 h-4 mr-2" />
-                    {t('add_question')}
-                  </Button>
-                </div>
-              )}
-            </Card>
-          ))}
-
-          {/* Pagination */}
-          {Math.ceil(surveys.length / ITEMS_PER_PAGE) > 1 && (
-            <div className="mt-8 flex justify-center gap-2">
-              {Array.from({ length: Math.ceil(surveys.length / ITEMS_PER_PAGE) }, (_, i) => i + 1).map(p => (
-                <button
-                  key={p}
-                  onClick={() => { setCurrentPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                  className={`px-4 py-2 rounded-lg ${
-                    p === currentPage
-                      ? 'bg-primary-500 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
+                    {t('no_questions_yet')}
+                  </p>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                  onClick={() => openQuestionModal(survey)}
                 >
-                  {p}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+                  <Plus className="w-4 h-4 mr-2" />
+                  {t('add_question')}
+                </Button>
+              </div>
+            </Card>
+          );
+        })()
       )}
 
       {/* Create Survey Modal */}
@@ -882,5 +806,170 @@ export const SurveyManager = () => {
         </div>
       </Modal>
     </div>
+  );
+};
+
+interface SurveysTableProps {
+  surveys: Survey[];
+  courseId?: string;
+  onOpenEdit: (s: Survey) => void;
+  onTogglePublish: (s: Survey) => void;
+  onAskDelete: (s: Survey) => void;
+  onToggleExpand: (s: Survey) => void;
+  expandedSurveyId: number | null;
+}
+
+/**
+ * Surveys list rendered with the shared DataTable so it matches the
+ * /teach/quizzes design (title-case headers, filter card, 3-dot row
+ * menu, paginated). Row actions are mapped to the parent's modals.
+ */
+const SurveysTable = ({
+  surveys,
+  courseId,
+  onOpenEdit,
+  onTogglePublish,
+  onAskDelete,
+  onToggleExpand,
+  expandedSurveyId,
+}: SurveysTableProps) => {
+  const { t } = useTranslation(['teaching', 'common']);
+
+  const columns = useMemo<ColumnDef<Survey>[]>(() => [
+    {
+      id: 'title',
+      header: t('teaching:survey_title', { defaultValue: 'Survey' }),
+      sortAccessor: s => s.title.toLowerCase(),
+      width: '38%',
+      cell: s => (
+        <button
+          type="button"
+          onClick={() => onToggleExpand(s)}
+          className="block w-full text-left truncate font-normal text-gray-700 dark:text-gray-200 hover:text-teal-600 dark:hover:text-teal-400"
+          title={s.title}
+        >
+          {s.title}
+        </button>
+      ),
+    },
+    {
+      id: 'anonymous',
+      header: t('teaching:anonymous_badge', { defaultValue: 'Anonymous' }),
+      sortAccessor: s => (s.isAnonymous ? 1 : 0),
+      width: '14%',
+      cell: s =>
+        s.isAnonymous ? (
+          <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">
+            {t('teaching:anonymous_badge', { defaultValue: 'Anonymous' })}
+          </span>
+        ) : (
+          <span className="text-gray-400">—</span>
+        ),
+    },
+    {
+      id: 'questions',
+      header: t('teaching:quiz_column_questions', { defaultValue: 'Questions' }),
+      sortAccessor: s => s._count?.questions ?? 0,
+      align: 'right',
+      width: '7rem',
+      cell: s => (
+        <span className="text-gray-600 dark:text-gray-300 tabular-nums">
+          {s._count?.questions ?? 0}
+        </span>
+      ),
+    },
+    {
+      id: 'responses',
+      header: t('teaching:responses', { defaultValue: 'Responses' }),
+      sortAccessor: s => s._count?.responses ?? 0,
+      align: 'right',
+      width: '8rem',
+      cell: s => (
+        <span className="text-gray-600 dark:text-gray-300 tabular-nums">
+          {s._count?.responses ?? 0}
+        </span>
+      ),
+    },
+  ], [t, onToggleExpand]);
+
+  return (
+    <DataTable<Survey>
+      rows={surveys}
+      columns={columns}
+      rowKey={s => s.id}
+      pageSize={20}
+      globalSearch={{
+        placeholder: t('teaching:search_surveys_placeholder', {
+          defaultValue: 'Search surveys…',
+        }),
+        predicate: (s, q) => s.title.toLowerCase().includes(q.toLowerCase()),
+      }}
+      empty={
+        <div className="flex items-center justify-center gap-2 py-6 text-sm text-gray-500 dark:text-gray-400">
+          <ListChecks className="w-4 h-4" />
+          <span>{t('teaching:no_surveys_yet')}</span>
+        </div>
+      }
+      rowActions={s => {
+        const canPublish = (s._count?.questions ?? 0) > 0;
+        return (
+          <RowMenu
+            items={[
+              {
+                key: 'questions',
+                label:
+                  expandedSurveyId === s.id
+                    ? t('common:close', { defaultValue: 'Close' })
+                    : t('teaching:add_question', { defaultValue: 'Manage questions' }),
+                icon: expandedSurveyId === s.id ? (
+                  <ChevronUp className="w-3.5 h-3.5" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5" />
+                ),
+                onClick: () => onToggleExpand(s),
+              },
+              {
+                key: 'edit',
+                label: t('common:edit', { defaultValue: 'Edit' }),
+                icon: <Edit2 className="w-3.5 h-3.5" />,
+                onClick: () => onOpenEdit(s),
+              },
+              {
+                key: 'publish',
+                label: s.isPublished
+                  ? t('teaching:unpublish', { defaultValue: 'Unpublish' })
+                  : t('teaching:publish', { defaultValue: 'Publish' }),
+                icon: s.isPublished ? (
+                  <EyeOff className="w-3.5 h-3.5" />
+                ) : (
+                  <Eye className="w-3.5 h-3.5" />
+                ),
+                onClick: () => onTogglePublish(s),
+                disabled: !s.isPublished && !canPublish,
+              },
+              ...((s as any).moduleSurveys?.length
+                ? [{
+                    key: 'responses',
+                    label: t('teaching:survey_responses', { defaultValue: 'Responses' }),
+                    icon: <BarChart3 className="w-3.5 h-3.5" />,
+                    onClick: () => {
+                      const ms = (s as any).moduleSurveys[0];
+                      const url = `/teach/surveys/${s.id}/responses?moduleId=${ms.module.id}${courseId ? `&courseId=${courseId}` : ''}`;
+                      window.location.href = url;
+                    },
+                  }]
+                : []),
+              {
+                key: 'delete',
+                label: t('common:delete', { defaultValue: 'Delete' }),
+                icon: <Trash2 className="w-3.5 h-3.5" />,
+                onClick: () => onAskDelete(s),
+                destructive: true,
+              },
+            ]}
+          />
+        );
+      }}
+    />
   );
 };

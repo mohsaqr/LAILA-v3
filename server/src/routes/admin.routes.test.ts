@@ -476,9 +476,10 @@ describe('Admin Routes', () => {
       vi.mocked(prisma.forumPost.count)
         .mockResolvedValueOnce(200) // totalPosts
         .mockResolvedValueOnce(30); // anonymousPosts
-      vi.mocked(prisma.forum.count).mockResolvedValue(10);
-      vi.mocked(prisma.forum.findMany).mockResolvedValue([
-        { id: 1, title: 'Forum 1', courseId: 1, course: { title: 'Course 1' }, _count: { threads: 5 } },
+      // Forum table was dropped in forum_collapse_layers; "byCourse"
+      // now reads ForumThread directly.
+      vi.mocked(prisma.forumThread.findMany).mockResolvedValueOnce([
+        { id: 1, title: 'Forum 1', courseId: 1, course: { title: 'Course 1' }, _count: { posts: 5 } },
       ] as any);
       vi.mocked(prisma.forumPost.groupBy).mockResolvedValue([
         { authorId: 1, _count: { id: 10 } },
@@ -492,7 +493,8 @@ describe('Admin Routes', () => {
           title: 'Thread 1',
           createdAt: new Date(),
           authorId: 1,
-          forum: { id: 1, title: 'Forum 1', courseId: 1, course: { title: 'Course 1' } },
+          courseId: 1,
+          course: { id: 1, title: 'Course 1' },
           _count: { posts: 5 },
         },
       ] as any);
@@ -507,7 +509,8 @@ describe('Admin Routes', () => {
           thread: {
             id: 1,
             title: 'Thread 1',
-            forum: { id: 1, title: 'Forum 1', courseId: 1, course: { title: 'Course 1' } },
+            courseId: 1,
+            course: { id: 1, title: 'Course 1' },
           },
           parent: null,
         },
@@ -614,7 +617,8 @@ describe('Admin Routes', () => {
           isAnonymous: false,
           isPinned: false,
           isLocked: false,
-          forum: { id: 1, title: 'Test Forum', course: { id: 1, title: 'Test Course' } },
+          courseId: 1,
+          course: { id: 1, title: 'Test Course' },
           _count: { posts: 2 },
         },
         {
@@ -626,7 +630,8 @@ describe('Admin Routes', () => {
           isAnonymous: true,
           isPinned: true,
           isLocked: false,
-          forum: { id: 1, title: 'Test Forum', course: { id: 1, title: 'Test Course' } },
+          courseId: 1,
+          course: { id: 1, title: 'Test Course' },
           _count: { posts: 1 },
         },
       ] as any);
@@ -641,7 +646,7 @@ describe('Admin Routes', () => {
           isAnonymous: false,
           parentId: null,
           isAiGenerated: false,
-          thread: { title: 'Test Thread', forum: { title: 'Test Forum', course: { title: 'Test Course' } } },
+          thread: { id: 1, title: 'Test Thread', courseId: 1, course: { id: 1, title: 'Test Course' } },
         },
         {
           id: 2,
@@ -651,7 +656,7 @@ describe('Admin Routes', () => {
           isAnonymous: true,
           parentId: 1,
           isAiGenerated: false,
-          thread: { title: 'Test Thread', forum: { title: 'Test Forum', course: { title: 'Test Course' } } },
+          thread: { id: 1, title: 'Test Thread', courseId: 1, course: { id: 1, title: 'Test Course' } },
         },
         {
           id: 3,
@@ -661,7 +666,7 @@ describe('Admin Routes', () => {
           isAnonymous: false,
           parentId: null,
           isAiGenerated: false,
-          thread: { title: 'Test Thread', forum: { title: 'Test Forum', course: { title: 'Test Course' } } },
+          thread: { id: 1, title: 'Test Thread', courseId: 1, course: { id: 1, title: 'Test Course' } },
         },
       ] as any);
 
@@ -687,7 +692,8 @@ describe('Admin Routes', () => {
           authorId: 1,
           createdAt: new Date(),
           isAnonymous: false,
-          forum: { title: 'Test Forum', course: { title: 'Test Course' } },
+          courseId: 1,
+          course: { id: 1, title: 'Test Course' },
         },
         {
           id: 2,
@@ -696,7 +702,8 @@ describe('Admin Routes', () => {
           authorId: 2,
           createdAt: new Date(),
           isAnonymous: true,
-          forum: { title: 'Test Forum', course: { title: 'Test Course' } },
+          courseId: 1,
+          course: { id: 1, title: 'Test Course' },
         },
       ] as any);
       vi.mocked(prisma.forumPost.findMany).mockResolvedValue([
@@ -708,7 +715,7 @@ describe('Admin Routes', () => {
           isAnonymous: false,
           parentId: null,
           isAiGenerated: false,
-          thread: { title: 'Test Thread', forum: { title: 'Test Forum', course: { title: 'Test Course' } } },
+          thread: { id: 1, title: 'Test Thread', courseId: 1, course: { id: 1, title: 'Test Course' } },
         },
         {
           id: 2,
@@ -718,7 +725,7 @@ describe('Admin Routes', () => {
           isAnonymous: true,
           parentId: 1,
           isAiGenerated: false,
-          thread: { title: 'Test Thread', forum: { title: 'Test Forum', course: { title: 'Test Course' } } },
+          thread: { id: 1, title: 'Test Thread', courseId: 1, course: { id: 1, title: 'Test Course' } },
         },
       ] as any);
       vi.mocked(prisma.user.findMany).mockResolvedValue([

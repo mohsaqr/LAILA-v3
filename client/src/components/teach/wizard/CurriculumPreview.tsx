@@ -43,7 +43,7 @@ const buildFlatItems = (m: CourseModule): FlatItem[] => {
   const lectures = m.lectures || [];
   const codeLabs = m.codeLabs || [];
   const assignments = m.assignments || [];
-  const forums = m.forums || [];
+  const forums = m.forumThreads || [];
   const quizzes = m.quizzes || [];
   const moduleSurveys = m.moduleSurveys || [];
   const labAssignments = (m as any).labAssignments || [];
@@ -244,13 +244,13 @@ const ItemPreviewRow = ({ item }: { item: FlatItem }) => {
 
   if (item.type === 'forum') {
     const f = item.data;
-    const threadCount = f._count?.threads || 0;
+    const replyCount = (f._count as any)?.posts || 0;
     return (
       <PreviewRow
         tone="teal"
         Icon={MessageSquare}
         title={f.title}
-        meta={[t('forum', { defaultValue: 'Forum' }), t('x_threads', { count: threadCount })]}
+        meta={[t('forum', { defaultValue: 'Forum' }), t('x_replies', { count: replyCount, defaultValue: '{{count}} replies' })]}
         draft={!f.isPublished}
       />
     );

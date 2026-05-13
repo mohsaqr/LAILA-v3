@@ -1654,18 +1654,8 @@ Ask one question at a time and build on the student's responses. Help them see c
     });
   }
 
-  // Forum 1
-  await prisma.forum.create({
-    data: {
-      courseId: course4.id,
-      moduleId: c4m1.id,
-      title: 'Discuss: Your Teaching Philosophy',
-      description: 'Share your emerging teaching philosophy. What do you believe about how people learn best? What kind of teacher do you aspire to be? Draw on the learning theories discussed in this module to articulate your perspective. Respond to at least two classmates with thoughtful feedback.',
-      isPublished: true,
-      allowAnonymous: false,
-      orderIndex: 0,
-    },
-  });
+  // Forums are seeded in one batch near the end of this file (10 fake
+  // discussions across the four seeded courses).
 
   // ---- Module 2: Instructional Design ----
   const c4m2 = await findOrCreateModule({
@@ -2851,18 +2841,113 @@ Key topics to explore: data privacy, algorithmic bias, equity of access, academi
     },
   });
 
-  // Forum 2: AI in the Classroom
-  await prisma.forum.create({
-    data: {
+  // ---- Seed 10 fake forum discussions across the four courses ----
+  // Each discussion is a single ForumThread (the flat model after the
+  // forum_collapse_layers migration). All are published and authored by
+  // the course's primary instructor.
+  const fakeForumThreads: Array<{
+    courseId: number;
+    moduleId: number | null;
+    authorId: number;
+    title: string;
+    content: string;
+    description?: string;
+    isPinned?: boolean;
+    allowAnonymous?: boolean;
+  }> = [
+    {
+      courseId: course4.id,
+      moduleId: c4m1.id,
+      authorId: instructor.id,
+      title: 'Discuss: Your Teaching Philosophy',
+      content: '<p>Share your emerging teaching philosophy. What do you believe about how people learn best?</p><p>Draw on the learning theories from this module, then reply to at least two classmates with thoughtful feedback.</p>',
+      isPinned: true,
+    },
+    {
       courseId: course4.id,
       moduleId: c4m4.id,
-      title: 'Debate: AI in the Classroom - Help or Hindrance?',
-      description: 'Take a position on whether AI tools should be widely adopted in K-12 and higher education classrooms. Support your argument with evidence from the course readings and your own research. Engage constructively with at least two classmates who hold different views.',
-      isPublished: true,
-      allowAnonymous: false,
-      orderIndex: 0,
+      authorId: instructor.id,
+      title: 'Debate: AI in the Classroom — Help or Hindrance?',
+      content: '<p>Take a position on whether AI tools should be widely adopted in K-12 and higher education. Support your argument with evidence from the course readings and your own research. Engage constructively with at least two classmates who hold different views.</p>',
     },
-  });
+    {
+      courseId: course4.id,
+      moduleId: c4m2.id,
+      authorId: instructor.id,
+      title: 'Backward design — the moment it clicked for you',
+      content: '<p>Recall a lesson you taught (or attended) where the goals, activities, and assessments lined up perfectly. What made it work? What would you keep, and what would you redesign in light of this module?</p>',
+    },
+    {
+      courseId: course4.id,
+      moduleId: c4m3.id,
+      authorId: instructor.id,
+      title: 'A classroom assessment that surprised you',
+      content: '<p>Share an assessment you have used or experienced that revealed something you did not expect about student understanding. What did it tell you that a standard test would have missed?</p>',
+      allowAnonymous: true,
+    },
+    {
+      courseId: course1.id,
+      moduleId: c1m1.id,
+      authorId: instructor.id,
+      title: 'Welcome — introduce yourself',
+      content: '<p>Post a short introduction: who you are, what you hope to take away from this course, and one thing that has surprised you about the topic so far.</p>',
+      isPinned: true,
+    },
+    {
+      courseId: course1.id,
+      moduleId: c1m2.id,
+      authorId: instructor.id,
+      title: 'A real-world example for this module',
+      content: '<p>Find a real-world example that connects to this module\'s key concepts, post the link or summary, and explain why you chose it.</p>',
+    },
+    {
+      courseId: course2.id,
+      moduleId: c2m1.id,
+      authorId: instructor.id,
+      title: 'Question of the week — what tripped you up?',
+      content: '<p>What is the single concept from this week that you would most want a peer (or an AI tutor) to walk you through? Posting your stumbling blocks publicly often helps the whole class.</p>',
+      allowAnonymous: true,
+    },
+    {
+      courseId: course2.id,
+      moduleId: c2m2.id,
+      authorId: instructor.id,
+      title: 'Project ideas — let\'s brainstorm together',
+      content: '<p>Drop your project idea (a sentence or two is enough). Everyone is encouraged to react with what they would build on, push back on, or steal.</p>',
+    },
+    {
+      courseId: course3.id,
+      moduleId: c3m1.id,
+      authorId: instructor2.id,
+      title: 'Reading reflection — biggest surprise',
+      content: '<p>What in this module\'s readings most challenged your prior assumptions? Quote the passage and unpack why it stood out.</p>',
+    },
+    {
+      courseId: course3.id,
+      moduleId: c3m2.id,
+      authorId: instructor2.id,
+      title: 'Office hours — open thread',
+      content: '<p>If you have a quick question that does not warrant its own thread, drop it here. I check this thread daily.</p>',
+    },
+  ];
+
+  for (let i = 0; i < fakeForumThreads.length; i += 1) {
+    const f = fakeForumThreads[i];
+    await prisma.forumThread.create({
+      data: {
+        courseId: f.courseId,
+        moduleId: f.moduleId,
+        authorId: f.authorId,
+        title: f.title,
+        content: f.content,
+        description: f.description,
+        isPublished: true,
+        allowAnonymous: f.allowAnonymous ?? false,
+        isPinned: f.isPinned ?? false,
+        orderIndex: i,
+      },
+    });
+  }
 
   // ---- Set up Course Tutors for Collaborative Module ----
   const socraticTutor = await prisma.chatbot.findUnique({ where: { name: 'socratic-tutor' } });

@@ -1,5 +1,7 @@
-// Import Forum from api/forums for use in CourseModule
-import type { Forum as ForumType } from '../api/forums';
+// Forums collapsed: each "forum" is now a ForumThread with title +
+// rich-text content + courseId/moduleId. Imported here so CourseModule
+// can carry the list of discussions inline.
+import type { ForumThread } from '../api/forums';
 
 // Interactive lab assignment requirement identifiers
 export const INTERACTIVE_LAB_REQUIREMENTS = {
@@ -78,7 +80,9 @@ export interface CourseModule {
   lectures?: Lecture[];
   codeLabs?: CodeLab[];
   assignments?: Assignment[];
-  forums?: ForumType[];
+  /** After forum_collapse_layers, a course module's "forums" are
+   *  ForumThreads directly. Server returns the list under `forumThreads`. */
+  forumThreads?: ForumThread[];
   quizzes?: ModuleQuiz[];
   moduleSurveys?: { survey: ModuleSurvey }[];
   _count?: {
@@ -106,8 +110,9 @@ export interface ModuleQuiz {
   _count?: { questions: number };
 }
 
-// Re-export Forum type for convenience
-export type { Forum } from '../api/forums';
+// Re-export ForumThread for convenience (alias 'Forum' kept as an alias
+// since the public surface uses the legacy name).
+export type { ForumThread as Forum, ForumThread } from '../api/forums';
 
 // Code Lab types
 export interface CodeLab {
