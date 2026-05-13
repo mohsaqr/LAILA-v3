@@ -24,6 +24,7 @@ import { Input, TextArea } from '../../components/common/Input';
 import { AssignmentWizardModal } from '../../components/teach/AssignmentWizardModal';
 import { ForumWizardModal, type ForumWizardFormData } from '../../components/teach/ForumWizardModal';
 import { QuizWizardModal, blankQuestion, type QuizWizardFormData, type QuizQuestionFormData } from '../../components/teach/QuizWizardModal';
+import { LessonWizardModal, type LessonWizardFormData } from '../../components/teach/LessonWizardModal';
 import { ModuleItem } from '../../components/teach/ModuleItem';
 import { CourseModule, Lecture, CodeLab, Assignment, CustomLab, LabTemplate, LabAssignment, ModuleQuiz } from '../../types';
 
@@ -88,6 +89,9 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
     isOpen: boolean;
     moduleId?: number;
     lecture?: Lecture;
+    /** Filled in after Step 1 saves a NEW lesson so Step 2's
+     *  LessonEditor has a lectureId to autosave against. */
+    activeLectureId?: number;
   }>({ isOpen: false });
   const [deleteModuleConfirm, setDeleteModuleConfirm] = useState<CourseModule | null>(null);
   const [deleteLectureConfirm, setDeleteLectureConfirm] = useState<Lecture | null>(null);
@@ -260,9 +264,8 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
       activityLogger.logLectureCreated(newLecture.id, newLecture.title, courseId, variables.moduleId);
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('lesson_created'));
-      closeLectureModal();
-      // Stay on the curriculum page — the user can click "Manage content"
-      // on the new lecture to open the lecture editor when they're ready.
+      // The wizard owns its own lifecycle and advances to step 2 once
+      // the new lecture's id is available — don't auto-close it here.
     },
     onError: () => toast.error(t('failed_to_create_lesson')),
   });
@@ -298,7 +301,6 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('lesson_updated'));
-      closeLectureModal();
     },
     onError: () => toast.error(t('failed_to_update_lesson')),
   });
@@ -649,8 +651,8 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
   };
 
   const openAddLectureModal = (module: CourseModule) => {
-    setLectureForm({ title: '', contentType: 'mixed', duration: 0, isFree: false });
-    setLectureModal({ isOpen: true, moduleId: module.id });
+    setLectureForm({ title: '', contentType: 'text', duration: 0, isFree: false });
+    setLectureModal({ isOpen: true, moduleId: module.id, activeLectureId: undefined });
   };
 
   const openEditLectureModal = (lecture: Lecture) => {
@@ -660,12 +662,39 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
       duration: lecture.duration || 0,
       isFree: lecture.isFree,
     });
-    setLectureModal({ isOpen: true, lecture });
+    setLectureModal({ isOpen: true, lecture, activeLectureId: lecture.id });
   };
 
   const closeLectureModal = () => {
     setLectureModal({ isOpen: false });
     setLectureForm({ title: '', contentType: 'mixed', duration: 0, isFree: false });
+  };
+
+  /**
+   * Wizard Step 1 submit. For new lessons creates the lecture so we
+   * have an id; for edits updates metadata in place. Step 2 then uses
+   * `activeLectureId` to drive the LessonEditor's autosave.
+   */
+  const handleLessonWizardStep1 = async () => {
+    const trimmed = lectureForm.title.trim();
+    if (!trimmed) {
+      toast.error(t('lesson_title_required'));
+      throw new Error('title required');
+    }
+    if (lectureModal.lecture) {
+      await updateLectureMutation.mutateAsync({
+        id: lectureModal.lecture.id,
+        data: { ...lectureForm, title: trimmed },
+      });
+      return;
+    }
+    if (lectureModal.moduleId) {
+      const created = await createLectureMutation.mutateAsync({
+        moduleId: lectureModal.moduleId,
+        data: { ...lectureForm, title: trimmed },
+      });
+      setLectureModal(prev => ({ ...prev, activeLectureId: created.id }));
+    }
   };
 
   const openAddCodeLabModal = (module: CourseModule) => {
@@ -867,20 +896,6 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
       updateModuleMutation.mutate({ id: moduleModal.module.id, data: moduleForm });
     } else {
       createModuleMutation.mutate(moduleForm);
-    }
-  };
-
-  const handleLectureSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!lectureForm.title.trim()) {
-      toast.error(t('lesson_title_required'));
-      return;
-    }
-
-    if (lectureModal.lecture) {
-      updateLectureMutation.mutate({ id: lectureModal.lecture.id, data: lectureForm });
-    } else if (lectureModal.moduleId) {
-      createLectureMutation.mutate({ moduleId: lectureModal.moduleId, data: lectureForm });
     }
   };
 
@@ -1285,14 +1300,16 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
             <span className="text-white text-xs font-medium">{t('navigation:analytics')}</span>
           </Link>
 
-          {/* Publish/Unpublish */}
+          {/* Publish/Unpublish — icon reflects the current state of the
+              course (eye when published, eye-off when not); the label
+              still describes the action the button performs. */}
           {course.status === 'published' ? (
             <button
               onClick={() => unpublishMutation.mutate()}
               disabled={unpublishMutation.isPending}
-              className="flex flex-col items-center gap-2 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors text-center disabled:opacity-50"
+              className="flex flex-col items-center gap-2 p-3 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 transition-colors text-center disabled:opacity-50"
             >
-              <EyeOff className="w-5 h-5 text-amber-400" />
+              <Eye className="w-5 h-5 text-emerald-400" />
               <span className="text-white text-xs font-medium">
                 {unpublishMutation.isPending ? t('unpublishing') : t('unpublish')}
               </span>
@@ -1301,9 +1318,9 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
             <button
               onClick={() => publishMutation.mutate()}
               disabled={publishMutation.isPending}
-              className="flex flex-col items-center gap-2 p-3 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 transition-colors text-center disabled:opacity-50"
+              className="flex flex-col items-center gap-2 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors text-center disabled:opacity-50"
             >
-              <Eye className="w-5 h-5 text-emerald-400" />
+              <EyeOff className="w-5 h-5 text-amber-400" />
               <span className="text-white text-xs font-medium">
                 {publishMutation.isPending ? t('publishing') : t('publish')}
               </span>
@@ -1596,43 +1613,25 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
         </form>
       </Modal>
 
-      {/* Lesson Modal */}
-      <Modal
+      {/* Lesson Wizard — two-step popup: basics on step 1, full
+          rich-text editor (with file + chatbot embeds, autosaves)
+          on step 2. View Details and Edit both route here. */}
+      <LessonWizardModal
         isOpen={lectureModal.isOpen}
+        isEdit={!!lectureModal.lecture}
+        courseTitle={course?.title || ''}
+        lectureId={lectureModal.activeLectureId ?? null}
+        initialSections={lectureModal.lecture?.sections ?? []}
+        form={lectureForm as LessonWizardFormData}
+        setForm={updater =>
+          setLectureForm(prev => updater(prev as LessonWizardFormData))
+        }
+        isSubmittingStep1={
+          createLectureMutation.isPending || updateLectureMutation.isPending
+        }
+        onSubmitStep1={handleLessonWizardStep1}
         onClose={closeLectureModal}
-        title={lectureModal.lecture ? t('edit_lesson') : t('add_lesson')}
-        size="md"
-      >
-        <form onSubmit={handleLectureSubmit} className="space-y-4">
-          <Input
-            label={t('lesson_title')}
-            value={lectureForm.title}
-            onChange={e => setLectureForm(f => ({ ...f, title: e.target.value }))}
-            placeholder={t('lesson_title_placeholder')}
-            required
-            autoFocus
-          />
-          <Input
-            label={t('duration_minutes')}
-            type="number"
-            value={lectureForm.duration}
-            onChange={e => setLectureForm(f => ({ ...f, duration: parseInt(e.target.value) || 0 }))}
-            min={0}
-          />
-
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="secondary" onClick={closeLectureModal}>
-              {t('common:cancel')}
-            </Button>
-            <Button
-              type="submit"
-              loading={createLectureMutation.isPending || updateLectureMutation.isPending}
-            >
-              {lectureModal.lecture ? t('common:update') : t('common:create')}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+      />
 
       {/* Delete Module Confirmation */}
       <ConfirmDialog

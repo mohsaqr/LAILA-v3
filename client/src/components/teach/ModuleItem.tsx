@@ -109,8 +109,8 @@ export const ModuleItem = ({
   onTogglePublish,
   onMoveUp,
   onMoveDown,
-  onSubmitInlineLecture,
-  onAddLecture: _onAddLecture,
+  onSubmitInlineLecture: _onSubmitInlineLecture,
+  onAddLecture,
   onEditLecture,
   onDeleteLecture,
   onToggleLecturePublish,
@@ -155,35 +155,6 @@ export const ModuleItem = ({
       if (next !== isExpanded) onToggleExpand!();
     } else {
       setIsExpandedInternal(next);
-    }
-  };
-  const [inlineLectureTitle, setInlineLectureTitle] = useState<string | null>(null);
-  const [inlineLectureSubmitting, setInlineLectureSubmitting] = useState(false);
-  const inlineLectureInputRef = useRef<HTMLInputElement>(null);
-
-  const beginInlineLecture = () => {
-    setInlineLectureTitle('');
-    setIsExpanded(true);
-    setTimeout(() => inlineLectureInputRef.current?.focus(), 0);
-  };
-
-  const cancelInlineLecture = () => {
-    setInlineLectureTitle(null);
-    setInlineLectureSubmitting(false);
-  };
-
-  const submitInlineLecture = async () => {
-    const trimmed = (inlineLectureTitle ?? '').trim();
-    if (!trimmed) return;
-    setInlineLectureSubmitting(true);
-    try {
-      await onSubmitInlineLecture(module.id, trimmed);
-      // Reset for the next one — leaves the form open so the user can add
-      // multiple lessons in a row without re-clicking "+ Lesson".
-      setInlineLectureTitle('');
-      setTimeout(() => inlineLectureInputRef.current?.focus(), 0);
-    } finally {
-      setInlineLectureSubmitting(false);
     }
   };
   const [fileUploadLectureId, setFileUploadLectureId] = useState<number | null>(null);
@@ -489,13 +460,13 @@ export const ModuleItem = ({
           {onTogglePublish && (
             <button
               onClick={() => onTogglePublish(module)}
-              className={`p-1.5 rounded-lg transition-colors ${module.isPublished ? 'hover:bg-amber-100 dark:hover:bg-amber-900/30' : 'hover:bg-green-100 dark:hover:bg-green-900/30'}`}
+              className={`p-1.5 rounded-lg transition-colors ${module.isPublished ? 'hover:bg-green-100 dark:hover:bg-green-900/30' : 'hover:bg-amber-100 dark:hover:bg-amber-900/30'}`}
               title={module.isPublished ? t('unpublish_module') : t('publish_module')}
             >
               {module.isPublished ? (
-                <EyeOff className="w-4 h-4 text-amber-500" />
-              ) : (
                 <Eye className="w-4 h-4 text-green-500" />
+              ) : (
+                <EyeOff className="w-4 h-4 text-amber-500" />
               )}
             </button>
           )}
@@ -835,52 +806,13 @@ export const ModuleItem = ({
             </div>
           )}
 
-          {/* Inline "+ Lesson" form — appears in place when the user clicks
-              the action button below. Stays open after Save so the user
-              can rapid-fire add multiple lessons. Esc / Cancel closes it. */}
-          {inlineLectureTitle !== null && (
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <form
-                onSubmit={e => { e.preventDefault(); submitInlineLecture(); }}
-                className="flex items-center gap-2"
-              >
-                <input
-                  ref={inlineLectureInputRef}
-                  type="text"
-                  value={inlineLectureTitle}
-                  onChange={e => setInlineLectureTitle(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Escape') cancelInlineLecture(); }}
-                  placeholder={t('lesson_title_placeholder', { defaultValue: 'Lesson title' })}
-                  className="flex-1 min-w-0 px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  disabled={inlineLectureSubmitting}
-                />
-                <Button
-                  type="submit"
-                  size="sm"
-                  loading={inlineLectureSubmitting}
-                  disabled={!(inlineLectureTitle ?? '').trim()}
-                >
-                  {t('common:save', { defaultValue: 'Save' })}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={cancelInlineLecture}
-                  disabled={inlineLectureSubmitting}
-                >
-                  {t('common:cancel', { defaultValue: 'Cancel' })}
-                </Button>
-              </form>
-            </div>
-          )}
 
           {/* Module-level add buttons — always visible at module footer */}
           <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100 flex-wrap">
             <Button
               variant="ghost"
               size="sm"
-              onClick={beginInlineLecture}
+              onClick={() => onAddLecture(module)}
               icon={<Plus className="w-4 h-4" />}
               className="flex-1 min-w-[100px]"
             >

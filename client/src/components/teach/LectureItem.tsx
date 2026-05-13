@@ -1,17 +1,17 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Trash2,
   ChevronUp,
   ChevronDown,
-  ChevronRight,
   Edit2,
   Eye,
   EyeOff,
+  FileText,
+  Layers,
+  Video,
 } from 'lucide-react';
 import { Assignment, Lecture } from '../../types';
 import { AssignmentItem } from './AssignmentItem';
-import { LessonEditor } from './lesson-editor';
 
 interface LectureItemProps {
   lecture: Lecture;
@@ -28,6 +28,43 @@ interface LectureItemProps {
   onDeleteAssignment?: (assignment: Assignment) => void;
 }
 
+const typeSwatch = (
+  contentType: Lecture['contentType'],
+): {
+  icon: typeof FileText;
+  bg: string;
+  border: string;
+  fg: string;
+  /** Color for the "Lesson" tag under the title. */
+  tag: string;
+} => {
+  if (contentType === 'video') {
+    return {
+      icon: Video,
+      bg: 'bg-purple-50',
+      border: 'border-purple-200',
+      fg: 'text-purple-600',
+      tag: 'text-purple-600',
+    };
+  }
+  if (contentType === 'mixed') {
+    return {
+      icon: Layers,
+      bg: 'bg-teal-50',
+      border: 'border-teal-200',
+      fg: 'text-teal-600',
+      tag: 'text-teal-600',
+    };
+  }
+  return {
+    icon: FileText,
+    bg: 'bg-blue-50',
+    border: 'border-blue-200',
+    fg: 'text-blue-600',
+    tag: 'text-blue-600',
+  };
+};
+
 export const LectureItem = ({
   lecture,
   courseId,
@@ -43,31 +80,46 @@ export const LectureItem = ({
   onDeleteAssignment,
 }: LectureItemProps) => {
   const { t } = useTranslation(['teaching']);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const { icon: TypeIcon, bg, border, fg, tag } = typeSwatch(lecture.contentType);
 
   return (
     <div>
     <div
-      className={`flex items-center gap-3 p-3 min-h-[64px] bg-gray-50 hover:bg-gray-100 transition-colors ${
-        isExpanded ? 'rounded-t-lg' : 'rounded-lg'
-      }`}
+      className={`flex items-center gap-3 p-3 min-h-[64px] rounded-lg ${bg} hover:opacity-90 transition`}
     >
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        {/* Chevron toggle for the inline editor */}
-        <button
-          type="button"
-          onClick={() => setIsExpanded(o => !o)}
-          aria-expanded={isExpanded}
-          aria-label={t(isExpanded ? 'collapse' : 'expand', { defaultValue: isExpanded ? 'Collapse' : 'Expand' })}
-          className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-white/60 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 shrink-0"
+      <button
+        type="button"
+        onClick={() => onEdit(lecture)}
+        className="flex items-center gap-3 flex-1 min-w-0 text-left"
+        title={t('edit_lesson_details', { defaultValue: 'Open lesson' })}
+      >
+        <span
+          className={`flex items-center justify-center w-8 h-8 rounded bg-white border ${border} flex-shrink-0`}
         >
-          {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-        </button>
-        {/* Lecture title only — meta info (contentType / duration / draft) is intentionally hidden. */}
-        <h4 className="flex-1 min-w-0 text-sm font-medium text-gray-900 truncate">
-          {lecture.title}
-        </h4>
-      </div>
+          <TypeIcon className={`w-4 h-4 ${fg}`} />
+        </span>
+        <div className="flex-1 min-w-0">
+          <h4 className="text-sm font-medium text-gray-900 truncate">
+            {lecture.title}
+          </h4>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500">
+            <span className={`font-medium ${tag}`}>
+              {t('lesson_singular', { defaultValue: 'Lesson' })}
+            </span>
+            {lecture.duration ? (
+              <>
+                <span>•</span>
+                <span>
+                  {t('duration_minutes_short', {
+                    defaultValue: '{{n}} min',
+                    n: lecture.duration,
+                  })}
+                </span>
+              </>
+            ) : null}
+          </div>
+        </div>
+      </button>
 
       <div className="flex items-center gap-1 flex-shrink-0">
       {/* Reorder buttons */}
@@ -95,13 +147,13 @@ export const LectureItem = ({
         {onTogglePublish && (
           <button
             onClick={(e) => { e.stopPropagation(); onTogglePublish(lecture); }}
-            className={`p-1.5 rounded transition-colors ${lecture.isPublished ? 'hover:bg-amber-100' : 'hover:bg-green-100'}`}
+            className={`p-1.5 rounded transition-colors ${lecture.isPublished ? 'hover:bg-green-100' : 'hover:bg-amber-100'}`}
             title={lecture.isPublished ? t('unpublish_lesson') : t('publish_lesson')}
           >
             {lecture.isPublished ? (
-              <EyeOff className="w-4 h-4 text-amber-500" />
-            ) : (
               <Eye className="w-4 h-4 text-green-500" />
+            ) : (
+              <EyeOff className="w-4 h-4 text-amber-500" />
             )}
           </button>
         )}
@@ -122,15 +174,6 @@ export const LectureItem = ({
       </div>
       </div>
     </div>
-
-    {/* Inline lesson editor — one Tiptap canvas per lesson with File
-        and Chatbot insertable as inline nodes. Sits flush against
-        the lecture header for a single-unit feel. */}
-    {isExpanded && (
-      <div className="px-3 pt-2 pb-4 bg-gray-50 rounded-b-lg">
-        <LessonEditor lectureId={lecture.id} initialSections={lecture.sections ?? []} />
-      </div>
-    )}
 
     {/* Lecture-level assignments nested below this lecture */}
     {assignments.length > 0 && (
