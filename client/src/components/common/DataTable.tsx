@@ -6,6 +6,7 @@ import {
   ChevronRight,
   ChevronUp,
   ChevronsUpDown,
+  Download,
   FileQuestion,
   Filter as FilterIcon,
   Plus,
@@ -54,6 +55,9 @@ export interface DataTableProps<T> {
   rowKey: (row: T) => string | number;
   /** Top-right primary CTA. */
   createCta?: { label: string; onClick: () => void; icon?: React.ReactNode };
+  /** Top-right secondary "Export" button. The consumer is responsible for
+   *  fetching the data and triggering the download (e.g. JSON / CSV). */
+  exportAction?: { onClick: () => void | Promise<void>; label?: string };
   /** Top-left global search input. */
   globalSearch?: {
     placeholder: string;
@@ -79,6 +83,7 @@ export function DataTable<T>({
   columns,
   rowKey,
   createCta,
+  exportAction,
   globalSearch,
   pageSize = 20,
   isLoading,
@@ -184,7 +189,7 @@ export function DataTable<T>({
     <Card>
       <CardBody>
         {/* Toolbar: global search (left) + Filter / Create CTA (right). */}
-        {(globalSearch || createCta || filterableColumns.length > 0) && (
+        {(globalSearch || createCta || exportAction || filterableColumns.length > 0) && (
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
             {globalSearch ? (
               <div className="relative flex-1 max-w-sm">
@@ -221,9 +226,20 @@ export function DataTable<T>({
                   )}
                 </button>
               )}
+              {exportAction && (
+                <button
+                  type="button"
+                  onClick={() => void exportAction.onClick()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  {exportAction.label ?? t('common:export', { defaultValue: 'Export' })}
+                </button>
+              )}
               {createCta && (
                 <Button
                   onClick={createCta.onClick}
+                  size="sm"
                   icon={createCta.icon ?? <Plus className="w-4 h-4" />}
                 >
                   {createCta.label}
