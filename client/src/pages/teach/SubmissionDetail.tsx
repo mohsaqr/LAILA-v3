@@ -179,9 +179,17 @@ export const SubmissionDetail = () => {
             <div>
               <h1 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3">{assignment.title}</h1>
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                  <User className="w-5 h-5 text-gray-500" />
-                </div>
+                {submission.user?.avatarUrl ? (
+                  <img
+                    src={resolveFileUrl(submission.user.avatarUrl) || ''}
+                    alt={submission.user?.fullname ?? ''}
+                    className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                    <User className="w-5 h-5 text-gray-500" />
+                  </div>
+                )}
                 <div>
                   <p className="font-medium text-gray-900">
                     {submission.user?.fullname ?? t('unknown_student')}
@@ -328,17 +336,19 @@ export const SubmissionDetail = () => {
           </h2>
 
           <form onSubmit={handleGradeSubmit} className="space-y-4">
-            <Input
-              label={t('grade_out_of', { max: assignment.points })}
-              type="number"
-              value={gradeForm.grade}
-              onChange={e =>
-                setGradeForm(f => ({ ...f, grade: parseInt(e.target.value) || 0 }))
-              }
-              min={0}
-              max={assignment.points}
-              required
-            />
+            <div className="max-w-[12rem]">
+              <Input
+                label={t('grade_out_of', { max: assignment.points })}
+                type="number"
+                value={gradeForm.grade}
+                onChange={e =>
+                  setGradeForm(f => ({ ...f, grade: parseInt(e.target.value) || 0 }))
+                }
+                min={0}
+                max={assignment.points}
+                required
+              />
+            </div>
 
             <TextArea
               label={t('notes_and_feedback')}
@@ -348,7 +358,7 @@ export const SubmissionDetail = () => {
               rows={5}
             />
 
-            <div className="flex items-center justify-end gap-3 pt-2 border-t">
+            <div className="flex items-center justify-end gap-3 pt-2">
               <Button
                 type="button"
                 variant="secondary"
