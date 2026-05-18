@@ -88,6 +88,32 @@ export interface AttemptResultsResponse {
   results: AttemptResult[];
 }
 
+export interface QuizStatsOption {
+  text: string;
+  count: number;
+  pct: number;
+  correct: boolean;
+}
+
+export interface QuizStatsQuestion {
+  id: number;
+  questionText: string;
+  questionType: 'multiple_choice' | 'true_false' | 'short_answer' | 'fill_in_blank';
+  points: number;
+  totalResponses: number;
+  correct: number;
+  incorrect: number;
+  accuracy: number;
+  options: QuizStatsOption[];
+}
+
+export interface QuizStats {
+  totalAttempts: number;
+  participants: number;
+  averageScore: number;
+  questions: QuizStatsQuestion[];
+}
+
 export interface CreateQuizInput {
   title: string;
   description?: string;
@@ -241,6 +267,11 @@ export const quizzesApi = {
   // Instructor view
   getQuizAttempts: async (quizId: number): Promise<(QuizAttempt & { user: { id: number; fullname: string; email: string } })[]> => {
     const response = await apiClient.get<ApiResponse<any[]>>(`/quizzes/${quizId}/attempts`);
+    return response.data.data!;
+  },
+
+  getQuizStats: async (quizId: number): Promise<QuizStats> => {
+    const response = await apiClient.get<ApiResponse<QuizStats>>(`/quizzes/${quizId}/stats`);
     return response.data.data!;
   },
 

@@ -1027,6 +1027,114 @@ export class QuizService {
     }));
   }
 
+  /**
+   * Per-question response analytics for the instructor Overview tab:
+   * how often each option was picked, correct/incorrect tallies and
+   * accuracy. Aggregated across all submitted attempts.
+   */
+  async getQuizStats(quizId: number, instructorId: number, isAdmin = false) {
+    const quiz = await prisma.quiz.findUnique({
+      where: { id: quizId },
+      include: {
+        course: true,
+        questions: { orderBy: { orderIndex: 'asc' } },
+      },
+    });
+
+    if (!quiz) throw new AppError('Quiz not found', 404);
+    if (quiz.course.instructorId !== instructorId && !isAdmin) {
+      const isTeam = await courseRoleService.isTeamMember(instructorId, quiz.course.id);
+      if (!isTeam) throw new AppError('Not authorized', 403);
+    }
+
+    const attempts = await prisma.quizAttempt.findMany({
+      where: { quizId, submittedAt: { not: null } },
+      select: { id: true, userId: true, score: true },
+    });
+    const attemptIds = attempts.map(a => a.id);
+    const answers = attemptIds.length
+      ? await prisma.quizAnswer.findMany({
+          where: { attemptId: { in: attemptIds } },
+          select: { questionId: true, answer: true, isCorrect: true },
+        })
+      : [];
+
+    const byQuestion = new Map<number, typeof answers>();
+    for (const a of answers) {
+      const list = byQuestion.get(a.questionId) ?? [];
+      list.push(a);
+      byQuestion.set(a.questionId, list);
+    }
+
+    const pct = (n: number, total: number) =>
+      total > 0 ? Math.round((n / total) * 100) : 0;
+
+    const questions = quiz.questions.map(q => {
+      const qa = (byQuestion.get(q.id) ?? []).filter(
+        x => x.answer != null && String(x.answer).trim() !== '',
+      );
+      const totalResponses = qa.length;
+      const correct = qa.filter(x => x.isCorrect === true).length;
+      const incorrect = qa.filter(x => x.isCorrect === false).length;
+
+      let options: { text: string; count: number; pct: number; correct: boolean }[] = [];
+      if (q.questionType === 'multiple_choice') {
+        const opts: string[] = q.options ? JSON.parse(q.options) : [];
+        const correctSet = new Set(
+          this.decodeMcAnswers(q.correctAnswer).map(s => s.toLowerCase()),
+        );
+        options = opts.map(o => {
+          const count = qa.filter(x =>
+            this.decodeMcAnswers(x.answer)
+              .map(s => s.toLowerCase())
+              .includes(o.toLowerCase()),
+          ).length;
+          return {
+            text: o,
+            count,
+            pct: pct(count, totalResponses),
+            correct: correctSet.has(o.toLowerCase()),
+          };
+        });
+      } else if (q.questionType === 'true_false') {
+        const correctTf = String(q.correctAnswer).toLowerCase().trim();
+        options = ['true', 'false'].map(o => {
+          const count = qa.filter(
+            x => String(x.answer).toLowerCase().trim() === o,
+          ).length;
+          return {
+            text: o === 'true' ? 'True' : 'False',
+            count,
+            pct: pct(count, totalResponses),
+            correct: correctTf === o,
+          };
+        });
+      }
+
+      return {
+        id: q.id,
+        questionText: q.questionText,
+        questionType: q.questionType,
+        points: q.points,
+        totalResponses,
+        correct,
+        incorrect,
+        accuracy: pct(correct, totalResponses),
+        options,
+      };
+    });
+
+    const scores = attempts.map(a => a.score ?? 0);
+    return {
+      totalAttempts: attempts.length,
+      participants: new Set(attempts.map(a => a.userId)).size,
+      averageScore: scores.length
+        ? Math.round(scores.reduce((s, v) => s + v, 0) / scores.length)
+        : 0,
+      questions,
+    };
+  }
+
   // =========================================================================
   // HELPERS
   // =========================================================================

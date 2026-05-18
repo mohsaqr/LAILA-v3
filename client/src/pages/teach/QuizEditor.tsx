@@ -63,6 +63,13 @@ export const QuizEditor = () => {
     queryFn: () => quizzesApi.getQuiz(parsedQuizId),
   });
 
+  // Per-question response analytics for the Overview tab.
+  const { data: quizStats, isLoading: statsLoading } = useQuery({
+    queryKey: ['quiz-stats', parsedQuizId],
+    queryFn: () => quizzesApi.getQuizStats(parsedQuizId),
+    enabled: activeTab === 'overview',
+  });
+
   // Update quiz mutation (inline settings)
   const updateQuizMutation = useMutation({
     mutationFn: (data: Partial<Quiz>) => quizzesApi.updateQuiz(parsedQuizId, data),
@@ -458,15 +465,148 @@ export const QuizEditor = () => {
           ))}
         </div>
 
-        {activeTab === 'overview' && (
-          <Card>
-            <CardBody className="py-12 text-center text-sm">
-              <span style={{ color: colors.textSecondary }}>
-                {t('overview', { defaultValue: 'Overview' })}
-              </span>
-            </CardBody>
-          </Card>
-        )}
+        {activeTab === 'overview' &&
+          (statsLoading ? (
+            <Card>
+              <CardBody className="py-12 text-center text-sm">
+                <span style={{ color: colors.textSecondary }}>
+                  {t('common:loading', { defaultValue: 'Loading…' })}
+                </span>
+              </CardBody>
+            </Card>
+          ) : !quizStats || quizStats.totalAttempts === 0 ? (
+            <Card>
+              <CardBody className="py-12 text-center text-sm">
+                <span style={{ color: colors.textSecondary }}>
+                  {t('no_responses_yet', {
+                    defaultValue: 'No responses yet — statistics appear once students submit.',
+                  })}
+                </span>
+              </CardBody>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              <Card>
+                <CardBody>
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    {[
+                      { v: quizStats.totalAttempts, l: t('x_attempts_label', { defaultValue: 'Attempts' }) },
+                      { v: quizStats.participants, l: t('participants_label', { defaultValue: 'Participants' }) },
+                      { v: `${quizStats.averageScore}%`, l: t('avg_score_label', { defaultValue: 'Avg. score' }) },
+                    ].map(s => (
+                      <div key={s.l}>
+                        <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
+                          {s.v}
+                        </p>
+                        <p className="text-xs" style={{ color: colors.textSecondary }}>
+                          {s.l}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </CardBody>
+              </Card>
+
+              {quizStats.questions.map((q, idx) => (
+                <Card key={q.id}>
+                  <CardBody>
+                    {/* Eyebrow + inline stat pills */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="text-[11px] font-semibold uppercase tracking-wider"
+                          style={{ color: colors.textSecondary }}
+                        >
+                          {t('question_x_of_y', {
+                            defaultValue: 'Question {{n}} of {{m}}',
+                            n: idx + 1,
+                            m: quizStats.questions.length,
+                          })}
+                        </span>
+                        <span
+                          className="text-[11px] px-2 py-0.5 rounded-full capitalize"
+                          style={{ backgroundColor: colors.bgInput, color: colors.textSecondary }}
+                        >
+                          {q.questionType.replace(/_/g, ' ')}
+                        </span>
+                        <span className="text-[11px]" style={{ color: colors.textSecondary }}>
+                          {t('x_points', { count: q.points })}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
+                          style={{ backgroundColor: 'rgba(16,185,129,0.12)', color: '#059669' }}
+                          title={t('correct_label', { defaultValue: 'Correct' })}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#10b981' }} />
+                          {q.correct} {t('correct_label', { defaultValue: 'Correct' })}
+                        </span>
+                        <span
+                          className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
+                          style={{ backgroundColor: 'rgba(239,68,68,0.12)', color: '#dc2626' }}
+                          title={t('incorrect_label', { defaultValue: 'Incorrect' })}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#ef4444' }} />
+                          {q.incorrect} {t('incorrect_label', { defaultValue: 'Incorrect' })}
+                        </span>
+                        <span
+                          className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                          style={{ backgroundColor: colors.bgInput, color: colors.textPrimary }}
+                        >
+                          {q.accuracy}% {t('accuracy_label', { defaultValue: 'Accuracy' })}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div
+                      className="fitb-render prose prose-sm dark:prose-invert max-w-none text-[15px] mb-5 break-words"
+                      style={{ color: colors.textPrimary }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(q.questionText) }}
+                    />
+
+                    {q.options.length > 0 ? (
+                      <div className="space-y-3">
+                        {q.options.map((o, oi) => (
+                          <div key={oi} className="flex items-center gap-4">
+                            <span
+                              className="w-40 sm:w-52 shrink-0 text-sm truncate"
+                              style={{ color: colors.textPrimary }}
+                              title={o.text}
+                            >
+                              {o.text}
+                            </span>
+                            <div
+                              className="flex-1 h-2.5 rounded-full overflow-hidden"
+                              style={{ backgroundColor: colors.border }}
+                            >
+                              <div
+                                className="h-full rounded-full transition-[width]"
+                                style={{
+                                  width: `${o.pct}%`,
+                                  backgroundColor: o.correct ? '#10b981' : '#ef4444',
+                                }}
+                              />
+                            </div>
+                            <span
+                              className="w-24 shrink-0 text-right text-xs tabular-nums"
+                              style={{ color: colors.textSecondary }}
+                            >
+                              {o.count} · {o.pct}%
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm" style={{ color: colors.textSecondary }}>
+                        {t('x_resp', { defaultValue: '{{count}} resp.', count: q.totalResponses })}
+                      </p>
+                    )}
+                  </CardBody>
+                </Card>
+              ))}
+            </div>
+          ))}
 
         {/* Questions */}
         {activeTab === 'questions' && (
