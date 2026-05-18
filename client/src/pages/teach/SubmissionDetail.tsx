@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  ArrowLeft,
   User,
   Calendar,
   Award,
@@ -165,7 +164,6 @@ export const SubmissionDetail = () => {
       label: assignment.title,
       href: `/teach/courses/${courseId}/assignments/${assId}/submissions`,
     },
-    { label: submission.user?.fullname ?? t('unknown_student') },
   ];
 
   return (
@@ -174,26 +172,12 @@ export const SubmissionDetail = () => {
         <Breadcrumb homeHref="/" items={breadcrumbItems} />
       </div>
 
-      {/* Back button */}
-      <div className="mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            navigate(`/teach/courses/${courseId}/assignments/${assId}/submissions`)
-          }
-          icon={<ArrowLeft className="w-4 h-4" />}
-        >
-          {t('back_to_submissions')}
-        </Button>
-      </div>
-
       {/* Submission Header */}
       <Card className="mb-6">
         <CardBody>
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
             <div>
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900 mb-3">{assignment.title}</h1>
+              <h1 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3">{assignment.title}</h1>
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
                   <User className="w-5 h-5 text-gray-500" />
@@ -207,11 +191,11 @@ export const SubmissionDetail = () => {
               </div>
               <div className="flex flex-wrap items-center gap-4 text-sm">
                 <div className="flex items-center gap-1.5 text-gray-500">
-                  <Calendar className="w-4 h-4" />
+                  <Calendar className="w-4 h-4 text-blue-500" />
                   <span>{t('submitted_at', { date: formatDate(submission.submittedAt) })}</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-gray-500">
-                  <Award className="w-4 h-4" />
+                  <Award className="w-4 h-4 text-amber-500" />
                   <span>{t('x_points', { count: assignment.points })}</span>
                 </div>
                 <StatusBadge status={isGraded ? 'graded' : 'submitted'} />
