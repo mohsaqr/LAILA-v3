@@ -37,6 +37,15 @@ const CurriculumRedirect = () => {
   return <Navigate to={`/teach/courses/${id}/setup?step=setting`} replace />;
 };
 
+// Course-scoped teaching list pages (quizzes / forums / assignments /
+// surveys) are retired in favour of the global DataTable pages filtered
+// by ?courseId=, so the curriculum, breadcrumb and direct links all land
+// on one consistent design.
+const TeachListRedirect = ({ section }: { section: string }) => {
+  const { id } = useParams();
+  return <Navigate to={`/teach/${section}?courseId=${id}`} replace />;
+};
+
 // Layout
 import { Layout } from './components/layout/Layout';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
@@ -83,7 +92,6 @@ import {
   CourseEdit,
   LectureEditor,
   CodeLabEditor,
-  AssignmentManager,
   SubmissionReview,
   SubmissionDetail,
   ChatbotLogs,
@@ -92,11 +100,10 @@ import {
   SurveyResponses,
   CourseTutorManager,
   QuizEditor,
-  QuizManager,
   QuizList,
+  AssignmentList,
   TeachForumList,
   CertificateManager,
-  CourseForumManager,
   CourseCertificateManager,
 } from './pages/teach';
 import { CourseAnalytics } from './pages/teach/CourseAnalytics';
@@ -730,7 +737,7 @@ function App() {
           path="/teach/courses/:id/quizzes"
           element={
             <ProtectedRoute requireInstructor>
-              <QuizManager />
+              <TeachListRedirect section="quizzes" />
             </ProtectedRoute>
           }
         />
@@ -746,7 +753,7 @@ function App() {
           path="/teach/courses/:id/assignments"
           element={
             <ProtectedRoute requireInstructor>
-              <AssignmentManager />
+              <TeachListRedirect section="assignments" />
             </ProtectedRoute>
           }
         />
@@ -834,7 +841,7 @@ function App() {
           path="/teach/courses/:id/forums"
           element={
             <ProtectedRoute requireInstructor>
-              <CourseForumManager />
+              <TeachListRedirect section="forums" />
             </ProtectedRoute>
           }
         />
@@ -865,6 +872,15 @@ function App() {
           element={
             <ProtectedRoute requireInstructor>
               <QuizList />
+            </ProtectedRoute>
+          }
+        />
+        {/* Assignment List (Instructor - all assignments) */}
+        <Route
+          path="/teach/assignments"
+          element={
+            <ProtectedRoute requireInstructor>
+              <AssignmentList />
             </ProtectedRoute>
           }
         />
@@ -900,7 +916,7 @@ function App() {
           path="/teach/courses/:id/surveys"
           element={
             <ProtectedRoute requireInstructor>
-              <SurveyManager />
+              <TeachListRedirect section="surveys" />
             </ProtectedRoute>
           }
         />

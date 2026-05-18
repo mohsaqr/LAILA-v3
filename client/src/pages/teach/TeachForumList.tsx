@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Edit, Eye, EyeOff, MessageSquare, Pin, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
+import { buildTeachingListBreadcrumb } from '../../utils/breadcrumbs';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { DataTable, type ColumnDef } from '../../components/common/DataTable';
 import { RowMenu } from '../../components/common/RowMenu';
@@ -17,6 +18,8 @@ export const TeachForumList = () => {
   const { t } = useTranslation(['teaching', 'common', 'navigation']);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const courseIdParam = searchParams.get('courseId');
 
   const [deleteTarget, setDeleteTarget] = useState<InstructorForumThread | null>(null);
   const [editTarget, setEditTarget] = useState<InstructorForumThread | null>(null);
@@ -42,10 +45,15 @@ export const TeachForumList = () => {
     setEditForm({ title: '', content: '', isPublished: true, allowAnonymous: false });
   };
 
-  const { data: threads = [], isLoading } = useQuery({
+  const { data: allThreads = [], isLoading } = useQuery({
     queryKey: ['forums', 'instructor'],
     queryFn: () => forumsApi.getInstructorForumThreads(),
   });
+
+  // Scoped to a single course when reached from a curriculum link.
+  const threads = courseIdParam
+    ? allThreads.filter(th => String(th.courseId) === courseIdParam)
+    : allThreads;
 
   // Courses for the filter dropdown (cached — also used by /teach/quizzes).
   const { data: myCourses = [] } = useQuery({
@@ -199,7 +207,20 @@ export const TeachForumList = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       <div className="mb-6">
-        <Breadcrumb homeHref="/" items={[{ label: t('navigation:forums', { defaultValue: 'Forums' }) }]} />
+        <Breadcrumb
+          homeHref="/"
+          items={
+            courseIdParam
+              ? buildTeachingListBreadcrumb(
+                  t('navigation:forums', { defaultValue: 'Forums' }),
+                  courseIdParam,
+                  myCourses.find(c => String(c.id) === courseIdParam)?.title ||
+                    threads[0]?.courseName ||
+                    t('navigation:forums', { defaultValue: 'Forums' }),
+                )
+              : [{ label: t('navigation:forums', { defaultValue: 'Forums' }) }]
+          }
+        />
       </div>
 
       <DataTable<InstructorForumThread>
