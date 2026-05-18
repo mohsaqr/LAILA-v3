@@ -542,6 +542,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
         correctAnswer: encodeCorrectAnswers(correctTexts),
         explanation: q.explanation.trim() || undefined,
         points: q.points,
+        shuffleOptions: q.shuffleOptions,
         orderIndex,
       };
     }
@@ -551,6 +552,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
       correctAnswer: q.correctAnswer.trim(),
       explanation: q.explanation.trim() || undefined,
       points: q.points,
+      shuffleOptions: q.shuffleOptions,
       orderIndex,
     };
   };
@@ -809,6 +811,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
           correctAnswer: isMc ? '' : (q.correctAnswer ?? ''),
           explanation: q.explanation ?? '',
           points: q.points ?? 1,
+          shuffleOptions: q.shuffleOptions ?? false,
         };
       });
       setQuizForm({
