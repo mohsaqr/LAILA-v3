@@ -1,10 +1,29 @@
 import apiClient from './client';
 import { Assignment, AssignmentSubmission, AssignmentAttachment, ApiResponse } from '../types';
 
+export interface InstructorAssignment {
+  id: number;
+  title: string;
+  courseId: number;
+  courseName: string;
+  courseThumbnail: string | null;
+  moduleId: number | null;
+  submissionType: string;
+  dueDate: string | null;
+  points: number;
+  isPublished: boolean;
+  submissionCount: number;
+}
+
 export const assignmentsApi = {
   // Assignments
   getAssignments: async (courseId: number) => {
     const response = await apiClient.get<ApiResponse<Assignment[]>>(`/assignments/course/${courseId}`);
+    return response.data.data!;
+  },
+
+  getInstructorAssignments: async (): Promise<InstructorAssignment[]> => {
+    const response = await apiClient.get<ApiResponse<InstructorAssignment[]>>('/assignments/instructor');
     return response.data.data!;
   },
 

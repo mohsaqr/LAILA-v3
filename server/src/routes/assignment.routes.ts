@@ -32,6 +32,12 @@ router.get('/my-gradebook', authenticateToken, asyncHandler(async (req: AuthRequ
   res.json({ success: true, data: gradebook });
 }));
 
+// Get all assignments for instructor across their courses (must be before /:id)
+router.get('/instructor', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const assignments = await assignmentService.getInstructorAssignments(req.user!.id, req.user!.isAdmin);
+  res.json({ success: true, data: assignments });
+}));
+
 // Get assignment by ID
 router.get('/:id', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = parseInt(req.params.id);

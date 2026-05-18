@@ -79,6 +79,43 @@ export class AssignmentService {
     return assignments;
   }
 
+  /**
+   * Get all assignments for an instructor across all their courses.
+   * Mirrors quizService.getInstructorQuizzes — powers the global
+   * /teach/assignments DataTable.
+   */
+  async getInstructorAssignments(instructorId: number, isAdmin = false) {
+    const where: any = {};
+
+    if (!isAdmin) {
+      where.course = { instructorId };
+    }
+
+    const assignments = await prisma.assignment.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        course: { select: { id: true, title: true, thumbnail: true } },
+        module: { select: { id: true, title: true } },
+        _count: { select: { submissions: true } },
+      },
+    });
+
+    return assignments.map(a => ({
+      id: a.id,
+      title: a.title,
+      courseId: a.courseId,
+      courseName: a.course.title,
+      courseThumbnail: a.course.thumbnail,
+      moduleId: a.moduleId,
+      submissionType: a.submissionType,
+      dueDate: a.dueDate,
+      points: a.points,
+      isPublished: a.isPublished,
+      submissionCount: a._count.submissions,
+    }));
+  }
+
   async getAssignmentById(assignmentId: number, userId?: number) {
     const assignment = await prisma.assignment.findUnique({
       where: { id: assignmentId },
