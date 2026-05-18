@@ -10,7 +10,9 @@ import {
   FileText,
   ExternalLink,
   Bot,
+  User,
 } from 'lucide-react';
+import { resolveFileUrl } from '../../api/client';
 import { assignmentsApi } from '../../api/assignments';
 import { agentAssignmentsApi } from '../../api/agentAssignments';
 import { coursesApi } from '../../api/courses';
@@ -32,6 +34,7 @@ interface SubmissionRow {
   id: number;
   studentName: string;
   studentEmail: string;
+  avatarUrl?: string | null;
   status: RowStatus;
   grade: number | null;
   submittedAt: string | null;
@@ -116,6 +119,7 @@ export const SubmissionReview = () => {
           id: c.id,
           studentName: c.user?.fullname || t('unknown_student'),
           studentEmail: c.user?.email || '',
+          avatarUrl: (c.user as { avatarUrl?: string | null } | undefined)?.avatarUrl ?? null,
           status,
           grade: c.submission?.status === 'graded' ? c.submission.grade ?? null : null,
           submittedAt: c.submittedAt || null,
@@ -139,6 +143,7 @@ export const SubmissionReview = () => {
         id: s.id,
         studentName: s.user?.fullname || t('unknown_student'),
         studentEmail: s.user?.email || '',
+        avatarUrl: s.user?.avatarUrl ?? null,
         status,
         grade: s.status === 'graded' ? s.grade ?? null : null,
         submittedAt: s.submittedAt || null,
@@ -190,15 +195,29 @@ export const SubmissionReview = () => {
         predicate: (r, v) => r.studentName === v,
       },
       cell: (r) => (
-        <div className="min-w-0">
-          <p className="font-medium text-gray-800 dark:text-gray-100 truncate" title={r.studentName}>
-            {r.studentName}
-          </p>
-          {r.studentEmail && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 truncate" title={r.studentEmail}>
-              {r.studentEmail}
-            </p>
+        <div className="flex items-center gap-2.5 min-w-0">
+          {r.avatarUrl ? (
+            <img
+              src={resolveFileUrl(r.avatarUrl) || ''}
+              alt=""
+              aria-hidden="true"
+              className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+            />
+          ) : (
+            <span className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+              <User className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            </span>
           )}
+          <div className="min-w-0">
+            <p className="font-medium text-gray-800 dark:text-gray-100 truncate" title={r.studentName}>
+              {r.studentName}
+            </p>
+            {r.studentEmail && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate" title={r.studentEmail}>
+                {r.studentEmail}
+              </p>
+            )}
+          </div>
         </div>
       ),
     },

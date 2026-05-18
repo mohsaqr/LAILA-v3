@@ -341,7 +341,7 @@ export class AssignmentService {
       where: { assignmentId },
       include: {
         user: {
-          select: { id: true, fullname: true, email: true },
+          select: { id: true, fullname: true, email: true, avatarUrl: true },
         },
         gradedBy: {
           select: { id: true, fullname: true },
@@ -358,7 +358,7 @@ export class AssignmentService {
       where: { id: submissionId },
       include: {
         user: {
-          select: { id: true, fullname: true, email: true },
+          select: { id: true, fullname: true, email: true, avatarUrl: true },
         },
         gradedBy: {
           select: { id: true, fullname: true },
