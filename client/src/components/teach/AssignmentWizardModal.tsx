@@ -161,8 +161,8 @@ export const AssignmentWizardModal = ({
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
-          className="relative w-full max-w-2xl bg-white dark:bg-gray-800 rounded-2xl shadow-2xl flex flex-col"
-          style={{ height: 'min(620px, calc(100vh - 2rem))' }}
+          className="relative w-full max-w-5xl bg-white dark:bg-gray-800 rounded-2xl shadow-2xl flex flex-col"
+          style={{ height: 'min(820px, calc(100vh - 2rem))' }}
         >
           {/* Header */}
           <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-700">
@@ -173,7 +173,7 @@ export const AssignmentWizardModal = ({
               <h3 id={titleId} className="text-lg font-bold text-gray-900 dark:text-gray-100 mt-0.5">
                 {isEdit
                   ? t('edit_assignment', { defaultValue: 'Edit assignment' })
-                  : t('add_assignment', { defaultValue: 'New assignment' })}
+                  : t('create_assignment', { defaultValue: 'Create Assignment' })}
               </h3>
             </div>
             <button
@@ -190,15 +190,6 @@ export const AssignmentWizardModal = ({
           <div className="flex-1 overflow-y-auto px-6 py-5">
             {step === 1 && (
               <div className="space-y-6">
-                <div>
-                  <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-                    {t('wizard_step_assignment_type', { defaultValue: 'What kind of assignment?' })}
-                  </h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('wizard_step_assignment_type_hint', { defaultValue: 'Pick a submission type and give it a clear title.' })}
-                  </p>
-                </div>
-
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
                     {t('assignment_title', { defaultValue: 'Title' })}
@@ -250,14 +241,6 @@ export const AssignmentWizardModal = ({
 
             {step === 2 && (
               <div className="space-y-4">
-                <div>
-                  <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-                    {t('wizard_step_assignment_description', { defaultValue: 'Describe the assignment' })}
-                  </h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('wizard_step_assignment_description_hint', { defaultValue: 'Explain what students need to do, the criteria, and any expectations.' })}
-                  </p>
-                </div>
                 <RichTextEditor
                   value={form.description}
                   onChange={val => setForm(f => ({ ...f, description: val }))}
@@ -268,14 +251,6 @@ export const AssignmentWizardModal = ({
 
             {step === 3 && (
               <div className="space-y-5">
-                <div>
-                  <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-                    {t('wizard_step_assignment_grading', { defaultValue: 'Grading and deadline' })}
-                  </h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('wizard_step_assignment_grading_hint', { defaultValue: 'Set the points, weight, and when the assignment is due.' })}
-                  </p>
-                </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>

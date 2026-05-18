@@ -191,8 +191,8 @@ export const QuizWizardModal = ({
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
-          className="relative w-full max-w-2xl bg-white dark:bg-gray-800 rounded-2xl shadow-2xl flex flex-col"
-          style={{ height: 'min(640px, calc(100vh - 2rem))' }}
+          className="relative w-full max-w-5xl bg-white dark:bg-gray-800 rounded-2xl shadow-2xl flex flex-col"
+          style={{ height: 'min(820px, calc(100vh - 2rem))' }}
         >
           {/* Header */}
           <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-700">
@@ -203,7 +203,7 @@ export const QuizWizardModal = ({
               <h3 id={titleId} className="text-lg font-bold text-gray-900 dark:text-gray-100 mt-0.5">
                 {isEdit
                   ? t('edit_quiz', { defaultValue: 'Edit quiz' })
-                  : t('create_quiz', { defaultValue: 'New quiz' })}
+                  : t('create_quiz', { defaultValue: 'Create Quiz' })}
               </h3>
             </div>
             <button
@@ -220,15 +220,6 @@ export const QuizWizardModal = ({
           <div className="flex-1 overflow-y-auto px-6 py-5">
             {step === 1 && (
               <div className="space-y-5">
-                <div>
-                  <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-                    {t('wizard_step_quiz_details', { defaultValue: 'Quiz details' })}
-                  </h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('wizard_step_quiz_details_hint', { defaultValue: 'Give it a title and explain what students will be tested on.' })}
-                  </p>
-                </div>
-
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
                     {t('quiz_title', { defaultValue: 'Title' })}
@@ -270,14 +261,6 @@ export const QuizWizardModal = ({
 
             {step === 2 && (
               <div className="space-y-5">
-                <div>
-                  <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-                    {t('wizard_step_quiz_settings', { defaultValue: 'Settings' })}
-                  </h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('wizard_step_quiz_settings_hint', { defaultValue: 'Configure timing, attempts, and the passing score.' })}
-                  </p>
-                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
@@ -360,9 +343,6 @@ export const QuizWizardModal = ({
                         m: form.questions.length,
                       })}
                     </h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {t('wizard_step_quiz_question_hint', { defaultValue: 'Pick a question type, write the prompt, and set the correct answer.' })}
-                    </p>
                   </div>
                   {form.questions.length > 1 && (
                     <button

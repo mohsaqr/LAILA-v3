@@ -23,7 +23,7 @@ interface ForumWizardModalProps {
   onSubmit: () => void;
 }
 
-const TOTAL_STEPS = 3;
+const TOTAL_STEPS = 2;
 const BRAND = '#088F8F';
 const BRAND_LIGHT = '#0d9488';
 
@@ -32,11 +32,10 @@ const BRAND_LIGHT = '#0d9488';
  * AssignmentWizardModal / QuizWizardModal: same dimensions, header,
  * footer, brand-teal progress bar, focus trap, ESC + body-scroll lock.
  *
- *   Step 1 — title
- *   Step 2 — rich-text content
- *   Step 3 — settings (publish + allow-anonymous-replies)
+ *   Step 1 — title + rich-text content
+ *   Step 2 — settings (publish + allow-anonymous-replies)
  *
- * Submit fires on step 3 once title and content are non-empty.
+ * Submit fires on step 2 once title and content are non-empty.
  */
 export const ForumWizardModal = ({
   isOpen,
@@ -77,7 +76,7 @@ export const ForumWizardModal = ({
   // Strip tags + nbsp to detect actually-empty rich-text content
   const contentText = form.content.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, '').trim();
   const contentValid = contentText.length > 0;
-  const canContinue = step === 1 ? titleValid : step === 2 ? contentValid : true;
+  const canContinue = step === 1 ? (titleValid && contentValid) : true;
   const canSubmit = titleValid && contentValid;
 
   const goNext = () => {
@@ -103,8 +102,8 @@ export const ForumWizardModal = ({
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
-          className="relative w-full max-w-2xl bg-white dark:bg-gray-800 rounded-2xl shadow-2xl flex flex-col"
-          style={{ height: 'min(620px, calc(100vh - 2rem))' }}
+          className="relative w-full max-w-5xl bg-white dark:bg-gray-800 rounded-2xl shadow-2xl flex flex-col"
+          style={{ height: 'min(820px, calc(100vh - 2rem))' }}
         >
           {/* Header */}
           <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-700">
@@ -115,7 +114,7 @@ export const ForumWizardModal = ({
               <h3 id={titleId} className="text-lg font-bold text-gray-900 dark:text-gray-100 mt-0.5">
                 {isEdit
                   ? t('teaching:edit_forum', { defaultValue: 'Edit forum' })
-                  : t('teaching:add_forum', { defaultValue: 'New forum' })}
+                  : t('teaching:create_forum', { defaultValue: 'Create Forum' })}
               </h3>
             </div>
             <button
@@ -133,17 +132,6 @@ export const ForumWizardModal = ({
             {step === 1 && (
               <div className="space-y-6">
                 <div>
-                  <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-                    {t('teaching:wizard_step_forum_title', { defaultValue: 'Give your forum a title' })}
-                  </h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('teaching:wizard_step_forum_title_hint', {
-                      defaultValue: 'A short, descriptive prompt that invites students to discuss.',
-                    })}
-                  </p>
-                </div>
-
-                <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
                     {t('teaching:forum_title_label', { defaultValue: 'Title' })}
                   </label>
@@ -159,41 +147,21 @@ export const ForumWizardModal = ({
                     style={{ borderColor: titleValid ? BRAND : undefined }}
                   />
                 </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                    {t('teaching:forum_description_label', { defaultValue: 'Description' })}
+                  </label>
+                  <RichTextEditor
+                    value={form.content}
+                    onChange={val => setForm(f => ({ ...f, content: val }))}
+                    editorClassName="px-3 py-2 min-h-[260px] max-h-[320px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
+                  />
+                </div>
               </div>
             )}
 
             {step === 2 && (
-              <div className="space-y-4">
-                <div>
-                  <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-                    {t('teaching:wizard_step_forum_content', { defaultValue: 'Write the prompt' })}
-                  </h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('teaching:wizard_step_forum_content_hint', {
-                      defaultValue: 'This is what students will see at the top of the discussion before replying.',
-                    })}
-                  </p>
-                </div>
-                <RichTextEditor
-                  value={form.content}
-                  onChange={val => setForm(f => ({ ...f, content: val }))}
-                  editorClassName="px-3 py-2 min-h-[260px] max-h-[320px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
-                />
-              </div>
-            )}
-
-            {step === 3 && (
               <div className="space-y-5">
-                <div>
-                  <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-                    {t('teaching:wizard_step_forum_settings', { defaultValue: 'Settings' })}
-                  </h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('teaching:wizard_step_forum_settings_hint', {
-                      defaultValue: 'Decide who can see the discussion and how students may participate.',
-                    })}
-                  </p>
-                </div>
 
                 <div className="flex items-center justify-between p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
                   <div className="min-w-0">

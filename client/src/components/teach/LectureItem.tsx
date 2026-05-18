@@ -7,8 +7,6 @@ import {
   Eye,
   EyeOff,
   FileText,
-  Layers,
-  Video,
 } from 'lucide-react';
 import { Assignment, Lecture } from '../../types';
 import { AssignmentItem } from './AssignmentItem';
@@ -28,42 +26,26 @@ interface LectureItemProps {
   onDeleteAssignment?: (assignment: Assignment) => void;
 }
 
-const typeSwatch = (
-  contentType: Lecture['contentType'],
-): {
+/**
+ * Every lesson reads the same regardless of contentType (text / video /
+ * mixed). A single slate swatch keeps lessons visually distinct from the
+ * other content types in the list — quiz (cyan), survey (indigo), forum
+ * (teal), code lab (emerald), assignment (amber), interactive (violet).
+ */
+const typeSwatch = (): {
   icon: typeof FileText;
   bg: string;
   border: string;
   fg: string;
   /** Color for the "Lesson" tag under the title. */
   tag: string;
-} => {
-  if (contentType === 'video') {
-    return {
-      icon: Video,
-      bg: 'bg-purple-50',
-      border: 'border-purple-200',
-      fg: 'text-purple-600',
-      tag: 'text-purple-600',
-    };
-  }
-  if (contentType === 'mixed') {
-    return {
-      icon: Layers,
-      bg: 'bg-teal-50',
-      border: 'border-teal-200',
-      fg: 'text-teal-600',
-      tag: 'text-teal-600',
-    };
-  }
-  return {
-    icon: FileText,
-    bg: 'bg-blue-50',
-    border: 'border-blue-200',
-    fg: 'text-blue-600',
-    tag: 'text-blue-600',
-  };
-};
+} => ({
+  icon: FileText,
+  bg: 'bg-slate-100 dark:bg-slate-700/30',
+  border: 'border-slate-300 dark:border-slate-600',
+  fg: 'text-slate-600 dark:text-slate-300',
+  tag: 'text-slate-600 dark:text-slate-300',
+});
 
 export const LectureItem = ({
   lecture,
@@ -80,7 +62,7 @@ export const LectureItem = ({
   onDeleteAssignment,
 }: LectureItemProps) => {
   const { t } = useTranslation(['teaching']);
-  const { icon: TypeIcon, bg, border, fg, tag } = typeSwatch(lecture.contentType);
+  const { icon: TypeIcon, bg, border, fg, tag } = typeSwatch();
 
   return (
     <div>
