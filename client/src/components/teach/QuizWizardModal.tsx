@@ -78,7 +78,8 @@ const isQuestionValid = (q: QuizQuestionFormData): boolean => {
     return q.correctIndexes.every(i => !!q.options[i]?.trim());
   }
   if (q.questionType === 'true_false') {
-    return q.correctAnswer === 'true' || q.correctAnswer === 'false';
+    const a = q.correctAnswer.toLowerCase();
+    return a === 'true' || a === 'false';
   }
   return q.correctAnswer.trim().length > 0;
 };
@@ -534,7 +535,7 @@ export const QuizWizardModal = ({
                     </label>
                     <div className="flex gap-2">
                       {(['true', 'false'] as const).map(v => {
-                        const selected = currentQuestion.correctAnswer === v;
+                        const selected = currentQuestion.correctAnswer.toLowerCase() === v;
                         return (
                           <button
                             key={v}
