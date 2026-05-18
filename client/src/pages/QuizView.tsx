@@ -22,6 +22,11 @@ import { Breadcrumb } from '../components/common/Breadcrumb';
 import { buildQuizBreadcrumb } from '../utils/breadcrumbs';
 import { sanitizeHtml } from '../utils/sanitize';
 import { decodeCorrectAnswers, encodeCorrectAnswers } from '../utils/quizAnswer';
+import {
+  isWordBankText,
+  decodeBlankAnswers,
+  encodeBlankAnswers,
+} from '../utils/fillBlank';
 import { activityLogger } from '../services/activityLogger';
 import { useTracker } from '../services/tracker';
 import { TrackedContent } from '../components/common/TrackedContent';
@@ -321,7 +326,56 @@ export const QuizView = () => {
                   </>
                 )}
 
-                {(currentQuestion.questionType === 'short_answer' || currentQuestion.questionType === 'fill_in_blank') && (
+                {currentQuestion.questionType === 'fill_in_blank' &&
+                  isWordBankText(currentQuestion.questionText) &&
+                  (() => {
+                    const filled = decodeBlankAnswers(answers[currentQuestion.id]);
+                    const parts = currentQuestion.questionText.split(
+                      /<span[^>]*data-blank="(\d+)"[^>]*>\s*<\/span>/g,
+                    );
+                    const setBlank = (n: number, val: string) => {
+                      const next = { ...filled, [String(n)]: val };
+                      if (!val) delete next[String(n)];
+                      handleAnswerChange(
+                        currentQuestion.id,
+                        encodeBlankAnswers(next as Record<number, string>),
+                      );
+                    };
+                    return (
+                      <div
+                        className="fitb-render leading-10 text-base"
+                        style={{ color: colors.textPrimary }}
+                      >
+                        {parts.map((part, i) =>
+                          i % 2 === 0 ? (
+                            <span
+                              key={i}
+                              dangerouslySetInnerHTML={{ __html: sanitizeHtml(part) }}
+                            />
+                          ) : (
+                            (() => {
+                              const n = parseInt(part, 10);
+                              return (
+                                <input
+                                  key={i}
+                                  type="text"
+                                  value={filled[String(n)] || ''}
+                                  onChange={(e) => setBlank(n, e.target.value)}
+                                  aria-label={`Blank ${n}`}
+                                  className="fitb-input"
+                                  style={{ color: colors.textPrimary }}
+                                />
+                              );
+                            })()
+                          ),
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                {(currentQuestion.questionType === 'short_answer' ||
+                  (currentQuestion.questionType === 'fill_in_blank' &&
+                    !isWordBankText(currentQuestion.questionText))) && (
                   <input
                     type="text"
                     value={answers[currentQuestion.id] || ''}

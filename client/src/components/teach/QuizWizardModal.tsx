@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { X, Check, Trash2, Plus, ChevronUp, ChevronDown } from 'lucide-react';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { RichTextEditor } from '../forum/RichTextEditor';
+import { FillBlankEditor } from './FillBlankEditor';
 import { Button } from '../common/Button';
 import { SearchableSelect } from '../common/SearchableSelect';
 
@@ -417,12 +418,19 @@ export const QuizWizardModal = ({
                   <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
                     {t('question_text_label', { defaultValue: 'Question text' })}
                   </label>
-                  <RichTextEditor
-                    value={currentQuestion.questionText}
-                    onChange={html => updateQuestion(questionIndex, { questionText: html })}
-                    placeholder={t('question_text_placeholder', { defaultValue: 'Enter your question…' })}
-                    editorClassName="px-3 py-2 min-h-[100px] max-h-[240px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
-                  />
+                  {currentQuestion.questionType === 'fill_in_blank' ? (
+                    <FillBlankEditor
+                      html={currentQuestion.questionText}
+                      onChange={html => updateQuestion(questionIndex, { questionText: html })}
+                    />
+                  ) : (
+                    <RichTextEditor
+                      value={currentQuestion.questionText}
+                      onChange={html => updateQuestion(questionIndex, { questionText: html })}
+                      placeholder={t('question_text_placeholder', { defaultValue: 'Enter your question…' })}
+                      editorClassName="px-3 py-2 min-h-[100px] max-h-[240px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
+                    />
+                  )}
                 </div>
 
                 {currentQuestion.questionType === 'multiple_choice' && (
@@ -547,8 +555,7 @@ export const QuizWizardModal = ({
                   </div>
                 )}
 
-                {(currentQuestion.questionType === 'short_answer' ||
-                  currentQuestion.questionType === 'fill_in_blank') && (
+                {currentQuestion.questionType === 'short_answer' && (
                   <div>
                     <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
                       {t('correct_answer_label', { defaultValue: 'Correct answer' })}

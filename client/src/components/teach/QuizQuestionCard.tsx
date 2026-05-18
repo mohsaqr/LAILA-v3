@@ -8,6 +8,13 @@ import { RichTextEditor } from '../forum/RichTextEditor';
 import { useTheme } from '../../hooks/useTheme';
 import { sanitizeHtml } from '../../utils/sanitize';
 import { decodeCorrectAnswers, encodeCorrectAnswers } from '../../utils/quizAnswer';
+import {
+  parseEditorHtml,
+  buildEditorHtml,
+  encodeFillBlank,
+  decodeFillBlank,
+} from '../../utils/fillBlank';
+import { FillBlankEditor } from './FillBlankEditor';
 import { QuizQuestion, CreateQuestionInput } from '../../api/quizzes';
 
 /** Website base/primary colour (tailwind primary-500). */
@@ -37,17 +44,23 @@ export const defaultQuestionForm: QuestionFormData = {
   shuffleOptions: false,
 };
 
-const toForm = (q: QuizQuestion): QuestionFormData => ({
-  questionType: q.questionType,
-  questionText: q.questionText,
-  options: q.options && q.options.length > 0 ? q.options : ['', '', '', ''],
-  correctAnswers:
-    q.questionType === 'multiple_choice' ? decodeCorrectAnswers(q.correctAnswer) : [],
-  correctAnswer: q.questionType === 'multiple_choice' ? '' : q.correctAnswer || '',
-  explanation: q.explanation || '',
-  points: q.points,
-  shuffleOptions: q.shuffleOptions ?? false,
-});
+const toForm = (q: QuizQuestion): QuestionFormData => {
+  const fb = q.questionType === 'fill_in_blank' ? decodeFillBlank(q.correctAnswer) : null;
+  return {
+    questionType: q.questionType,
+    questionText: fb ? buildEditorHtml(q.questionText, fb.blanks) : q.questionText,
+    options: q.options && q.options.length > 0 ? q.options : ['', '', '', ''],
+    correctAnswers:
+      q.questionType === 'multiple_choice' ? decodeCorrectAnswers(q.correctAnswer) : [],
+    correctAnswer:
+      q.questionType === 'multiple_choice' || q.questionType === 'fill_in_blank'
+        ? ''
+        : q.correctAnswer || '',
+    explanation: q.explanation || '',
+    points: q.points,
+    shuffleOptions: q.shuffleOptions ?? false,
+  };
+};
 
 const isHtml = (s: string) => s.trim().startsWith('<');
 
@@ -112,19 +125,34 @@ export const QuizQuestionCard = ({
 
   const handleSave = () => {
     const isMc = form.questionType === 'multiple_choice';
+    const isFitb = form.questionType === 'fill_in_blank';
     const filteredOptions = form.options.filter(o => o.trim() !== '');
+
+    let questionText = form.questionText.trim();
+    let correctAnswer = form.correctAnswer;
+    let options: string[] | undefined;
+
+    if (isMc) {
+      options = filteredOptions;
+      correctAnswer = encodeCorrectAnswers(
+        form.correctAnswers.filter(a => filteredOptions.includes(a)),
+      );
+    } else if (isFitb) {
+      const { template, blanks } = parseEditorHtml(form.questionText);
+      questionText = template;
+      correctAnswer = encodeFillBlank(blanks);
+    }
+
     const data: CreateQuestionInput = {
       questionType: form.questionType,
-      questionText: form.questionText.trim(),
-      correctAnswer: isMc
-        ? encodeCorrectAnswers(form.correctAnswers.filter(a => filteredOptions.includes(a)))
-        : form.correctAnswer,
+      questionText,
+      correctAnswer,
       explanation: form.explanation.trim() || undefined,
       points: form.points,
       shuffleOptions: form.shuffleOptions,
     };
-    if (isMc) {
-      data.options = filteredOptions;
+    if (options) {
+      data.options = options;
     }
     onSave(data, startInEdit ? undefined : question.id);
     if (!startInEdit) setMode('view');
@@ -190,6 +218,10 @@ export const QuizQuestionCard = ({
 
   /* ---------------------------------- VIEW --------------------------------- */
   if (mode === 'view') {
+    const fbView =
+      question.questionType === 'fill_in_blank'
+        ? decodeFillBlank(question.correctAnswer)
+        : null;
     return (
       <Card>
         <CardBody>
@@ -225,7 +257,17 @@ export const QuizQuestionCard = ({
             <div className="flex-1 min-w-0">
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
                 <div className="min-w-0">
-                  {isHtml(question.questionText) ? (
+                  {fbView ? (
+                    <div
+                      className="fitb-render prose prose-sm dark:prose-invert max-w-none"
+                      style={{ color: colors.textPrimary }}
+                      dangerouslySetInnerHTML={{
+                        __html: sanitizeHtml(
+                          buildEditorHtml(question.questionText, fbView.blanks),
+                        ),
+                      }}
+                    />
+                  ) : isHtml(question.questionText) ? (
                     <div
                       className="prose prose-sm dark:prose-invert max-w-none"
                       style={{ color: colors.textPrimary }}
@@ -270,23 +312,21 @@ export const QuizQuestionCard = ({
                       <span className="font-medium capitalize">{question.correctAnswer}</span>
                     </p>
                   )}
-                  {(question.questionType === 'short_answer' ||
-                    question.questionType === 'fill_in_blank') &&
-                    question.correctAnswer && (
-                      <div className="mt-2 text-sm" style={{ color: colors.textSecondary }}>
-                        <span className="font-medium">{t('correct_answer_label')}:</span>{' '}
-                        {isHtml(question.correctAnswer) ? (
-                          <span
-                            className="prose prose-sm dark:prose-invert max-w-none inline"
-                            dangerouslySetInnerHTML={{
-                              __html: sanitizeHtml(question.correctAnswer),
-                            }}
-                          />
-                        ) : (
-                          <span className="font-medium">{question.correctAnswer}</span>
-                        )}
-                      </div>
-                    )}
+                  {question.questionType === 'short_answer' && question.correctAnswer && (
+                    <div className="mt-2 text-sm" style={{ color: colors.textSecondary }}>
+                      <span className="font-medium">{t('correct_answer_label')}:</span>{' '}
+                      {isHtml(question.correctAnswer) ? (
+                        <span
+                          className="prose prose-sm dark:prose-invert max-w-none inline"
+                          dangerouslySetInnerHTML={{
+                            __html: sanitizeHtml(question.correctAnswer),
+                          }}
+                        />
+                      ) : (
+                        <span className="font-medium">{question.correctAnswer}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Button
@@ -349,12 +389,19 @@ export const QuizQuestionCard = ({
             <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
               {t('question_text_label')}
             </label>
-            <RichTextEditor
-              value={form.questionText}
-              onChange={(html) => setForm({ ...form, questionText: html })}
-              placeholder={t('question_text_placeholder', { defaultValue: 'Enter your question…' })}
-              editorClassName="px-3 py-2 min-h-[120px] max-h-[300px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
-            />
+            {form.questionType === 'fill_in_blank' ? (
+              <FillBlankEditor
+                html={form.questionText}
+                onChange={(html) => setForm({ ...form, questionText: html })}
+              />
+            ) : (
+              <RichTextEditor
+                value={form.questionText}
+                onChange={(html) => setForm({ ...form, questionText: html })}
+                placeholder={t('question_text_placeholder', { defaultValue: 'Enter your question…' })}
+                editorClassName="px-3 py-2 min-h-[120px] max-h-[300px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
+              />
+            )}
           </div>
 
           {form.questionType === 'multiple_choice' && (
@@ -458,7 +505,7 @@ export const QuizQuestionCard = ({
             </div>
           )}
 
-          {(form.questionType === 'short_answer' || form.questionType === 'fill_in_blank') && (
+          {form.questionType === 'short_answer' && (
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
                 {t('correct_answer_label')}
