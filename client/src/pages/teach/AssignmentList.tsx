@@ -9,6 +9,10 @@ import { buildTeachingListBreadcrumb } from '../../utils/breadcrumbs';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { DataTable, type ColumnDef } from '../../components/common/DataTable';
 import { RowMenu } from '../../components/common/RowMenu';
+import {
+  AssignmentWizardModal,
+  type AssignmentWizardFormData,
+} from '../../components/teach/AssignmentWizardModal';
 import { coursesApi } from '../../api/courses';
 import { resolveFileUrl } from '../../api/client';
 import { assignmentsApi, type InstructorAssignment } from '../../api/assignments';
@@ -21,6 +25,44 @@ export const AssignmentList = () => {
   const courseIdParam = searchParams.get('courseId');
 
   const [deleteTarget, setDeleteTarget] = useState<InstructorAssignment | null>(null);
+
+  const emptyAssignmentForm: AssignmentWizardFormData = {
+    title: '',
+    description: '',
+    submissionType: 'text',
+    points: 100,
+    weight: 1.0,
+    dueDate: '',
+    gracePeriodDeadline: '',
+    isPublished: false,
+  };
+  const [editTarget, setEditTarget] = useState<InstructorAssignment | null>(null);
+  const [editForm, setEditForm] = useState<AssignmentWizardFormData>(emptyAssignmentForm);
+
+  // Pull the full assignment (the list row is summary-only) then open the
+  // same three-step wizard used on the course content page.
+  const openEditModal = async (a: InstructorAssignment) => {
+    try {
+      const full = await assignmentsApi.getAssignmentById(a.id);
+      setEditForm({
+        title: full.title,
+        description: full.description || '',
+        submissionType: full.submissionType,
+        points: full.points,
+        weight: full.weight ?? 1.0,
+        dueDate: full.dueDate
+          ? new Date(full.dueDate).toISOString().slice(0, 16)
+          : '',
+        gracePeriodDeadline: full.gracePeriodDeadline
+          ? new Date(full.gracePeriodDeadline).toISOString().slice(0, 16)
+          : '',
+        isPublished: full.isPublished,
+      });
+      setEditTarget(a);
+    } catch {
+      toast.error(t('teaching:failed_to_update_assignment'));
+    }
+  };
 
   const { data: allAssignments = [], isLoading } = useQuery({
     queryKey: ['assignments', 'instructor'],
@@ -49,6 +91,23 @@ export const AssignmentList = () => {
           ? t('teaching:assignment_published')
           : t('teaching:assignment_unpublished'),
       );
+    },
+    onError: () => toast.error(t('teaching:failed_to_update_assignment')),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: AssignmentWizardFormData }) =>
+      assignmentsApi.updateAssignment(id, {
+        ...data,
+        dueDate: data.dueDate ? data.dueDate + ':00.000Z' : null,
+        gracePeriodDeadline: data.gracePeriodDeadline
+          ? data.gracePeriodDeadline + ':00.000Z'
+          : null,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assignments', 'instructor'] });
+      toast.success(t('teaching:assignment_updated', { defaultValue: 'Assignment updated' }));
+      setEditTarget(null);
     },
     onError: () => toast.error(t('teaching:failed_to_update_assignment')),
   });
@@ -222,8 +281,7 @@ export const AssignmentList = () => {
                 key: 'edit',
                 label: t('common:edit', { defaultValue: 'Edit' }),
                 icon: <Edit className="w-3.5 h-3.5" />,
-                onClick: () =>
-                  navigate(`/teach/courses/${a.courseId}/setup?step=content`),
+                onClick: () => openEditModal(a),
               },
               {
                 key: 'submissions',
@@ -264,6 +322,19 @@ export const AssignmentList = () => {
         message={t('teaching:confirm_delete_assignment_body', { title: deleteTarget?.title })}
         confirmText={t('common:delete', { defaultValue: 'Delete' })}
         loading={deleteMutation.isPending}
+      />
+
+      <AssignmentWizardModal
+        isOpen={!!editTarget}
+        isEdit
+        courseTitle={editTarget?.courseName ?? ''}
+        form={editForm}
+        setForm={setEditForm}
+        isSubmitting={updateMutation.isPending}
+        onClose={() => setEditTarget(null)}
+        onSubmit={() =>
+          editTarget && updateMutation.mutate({ id: editTarget.id, data: editForm })
+        }
       />
     </div>
   );
