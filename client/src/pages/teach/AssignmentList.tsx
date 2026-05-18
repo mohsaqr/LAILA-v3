@@ -137,10 +137,15 @@ export const AssignmentList = () => {
       sortAccessor: a => (a.dueDate ? new Date(a.dueDate).getTime() : 0),
       align: 'right',
       hideOnMobile: true,
-      width: '8rem',
+      width: '11rem',
       cell: a => (
         <span className="text-gray-600 dark:text-gray-300 tabular-nums">
-          {a.dueDate ? new Date(a.dueDate).toLocaleDateString() : '—'}
+          {a.dueDate
+            ? new Date(a.dueDate).toLocaleString(undefined, {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              })
+            : '—'}
         </span>
       ),
     },
@@ -217,6 +222,13 @@ export const AssignmentList = () => {
                 key: 'edit',
                 label: t('common:edit', { defaultValue: 'Edit' }),
                 icon: <Edit className="w-3.5 h-3.5" />,
+                onClick: () =>
+                  navigate(`/teach/courses/${a.courseId}/setup?step=content`),
+              },
+              {
+                key: 'submissions',
+                label: t('teaching:submissions', { defaultValue: 'Submissions' }),
+                icon: <ClipboardList className="w-3.5 h-3.5" />,
                 onClick: () => navigate(openAssignment(a)),
               },
               {
