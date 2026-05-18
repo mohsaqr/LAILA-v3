@@ -112,8 +112,6 @@ export const DashboardSidebar = ({ mobileOpen = false, onMobileClose, isDesktop 
     { label: t('surveys'), icon: ClipboardCheck, path: '/teach/surveys' },
     { label: t('forums'), icon: MessageSquare, path: '/teach/forums' },
     { label: t('certificate_templates'), icon: Award, path: '/teach/certificates' },
-    { label: t('gradebook'), icon: ClipboardList, path: '/dashboard/gradebook' },
-    { label: t('calendar'), icon: Calendar, path: '/dashboard/calendar' },
   ];
 
   // Admin section — appended after the instructor items for admins in
