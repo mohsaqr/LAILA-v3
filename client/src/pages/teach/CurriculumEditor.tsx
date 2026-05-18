@@ -1419,6 +1419,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
                   key={module.id}
                   module={module}
                   courseId={courseId}
+                  courseTitle={course?.title ?? ''}
                   isFirst={index === 0}
                   isLast={index === sortedModules.length - 1}
                   isExpanded={openModuleId === module.id}
@@ -1661,8 +1662,9 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
       <Modal
         isOpen={codeLabModal.isOpen}
         onClose={closeCodeLabModal}
-        title={codeLabModal.codeLab ? t('edit_code_lab') : t('add_code_lab')}
-        size="3xl"
+        subtitle={course?.title ?? ''}
+        title={codeLabModal.codeLab ? t('edit_code_lab') : t('create_code_lab')}
+        size="5xl"
       >
         {/* Tabs - only show for new code labs */}
         {!codeLabModal.codeLab && (
@@ -1731,9 +1733,6 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
             {/* Edit Content Button - only for existing code labs */}
             {codeLabModal.codeLab && (
               <div className="border-t border-gray-200 pt-4 mt-4">
-                <p className="text-sm text-gray-600 mb-3">
-                  {t('add_code_blocks_instructions')}
-                </p>
                 <Link
                   to={`/teach/courses/${courseId}/code-labs/${codeLabModal.codeLab.id}`}
                   className="btn btn-secondary w-full flex items-center justify-center gap-2"

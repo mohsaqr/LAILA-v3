@@ -7,7 +7,6 @@ import {
   ChevronDown,
   Edit,
   Trash2,
-  Plus,
   ChevronUp,
   Eye,
   EyeOff,
@@ -25,7 +24,10 @@ import {
   X,
   Search,
   ClipboardCheck,
+  ClipboardList,
   FileQuestion,
+  FlaskConical,
+  MessageSquare,
   CheckCircle2,
 } from 'lucide-react';
 import { CourseModule, Lecture, CodeLab, Assignment, LabAssignment, Forum, ModuleQuiz } from '../../types';
@@ -45,6 +47,8 @@ import { getAuthToken } from '../../utils/auth';
 interface ModuleItemProps {
   module: CourseModule & { labAssignments?: LabAssignment[] };
   courseId: number;
+  /** Course name shown as the eyebrow line in content popups. */
+  courseTitle?: string;
   isFirst: boolean;
   isLast: boolean;
   onEdit: (module: CourseModule) => void;
@@ -102,6 +106,7 @@ interface ModuleItemProps {
 export const ModuleItem = ({
   module,
   courseId,
+  courseTitle,
   isFirst,
   isLast,
   onEdit,
@@ -813,8 +818,8 @@ export const ModuleItem = ({
               variant="ghost"
               size="sm"
               onClick={() => onAddLecture(module)}
-              icon={<Plus className="w-4 h-4" />}
-              className="flex-1 min-w-[100px]"
+              icon={<FileText className="w-4 h-4" />}
+              className="flex-1 min-w-[100px] text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700/30"
             >
               {t('lesson', { defaultValue: 'Lesson' })}
             </Button>
@@ -822,7 +827,7 @@ export const ModuleItem = ({
               variant="ghost"
               size="sm"
               onClick={() => onAddCodeLab(module)}
-              icon={<Plus className="w-4 h-4" />}
+              icon={<FlaskConical className="w-4 h-4" />}
               className="flex-1 min-w-[100px] text-emerald-600 hover:bg-emerald-50"
             >
               {t('code_lab', { defaultValue: 'Code Lab' })}
@@ -831,7 +836,7 @@ export const ModuleItem = ({
               variant="ghost"
               size="sm"
               onClick={() => onAddAssignment(module)}
-              icon={<Plus className="w-4 h-4" />}
+              icon={<ClipboardList className="w-4 h-4" />}
               className="flex-1 min-w-[100px] text-amber-600 hover:bg-amber-50"
             >
               {t('assignment', { defaultValue: 'Assignment' })}
@@ -841,7 +846,7 @@ export const ModuleItem = ({
                 variant="ghost"
                 size="sm"
                 onClick={() => onAddForum(module)}
-                icon={<Plus className="w-4 h-4" />}
+                icon={<MessageSquare className="w-4 h-4" />}
                 className="flex-1 min-w-[100px] text-teal-600 hover:bg-teal-50"
               >
                 {t('forum', { defaultValue: 'Forum' })}
@@ -852,7 +857,7 @@ export const ModuleItem = ({
                 variant="ghost"
                 size="sm"
                 onClick={() => onAddQuiz(module)}
-                icon={<Plus className="w-4 h-4" />}
+                icon={<FileQuestion className="w-4 h-4" />}
                 className="flex-1 min-w-[100px] text-cyan-600 hover:bg-cyan-50"
               >
                 {t('quiz_singular', { defaultValue: 'Quiz' })}
@@ -862,7 +867,7 @@ export const ModuleItem = ({
               variant="ghost"
               size="sm"
               onClick={() => setSurveyModalOpen(true)}
-              icon={<Plus className="w-4 h-4" />}
+              icon={<ClipboardCheck className="w-4 h-4" />}
               className="flex-1 min-w-[100px] text-indigo-600 hover:bg-indigo-50"
             >
               {t('survey_singular', { defaultValue: 'Survey' })}
@@ -1066,7 +1071,7 @@ export const ModuleItem = ({
       </Modal>
 
       {/* Survey Selection Modal */}
-      <Modal isOpen={surveyModalOpen} onClose={() => { setSurveyModalOpen(false); setSurveySearch(''); }} title={t('select_survey')} size="3xl">
+      <Modal isOpen={surveyModalOpen} onClose={() => { setSurveyModalOpen(false); setSurveySearch(''); }} subtitle={courseTitle} title={t('create_survey')} size="5xl">
         <div className="space-y-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />

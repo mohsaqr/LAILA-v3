@@ -164,7 +164,7 @@ export const LessonWizardModal = ({
               >
                 {isEdit
                   ? t('teaching:edit_lesson', { defaultValue: 'Edit lesson' })
-                  : t('teaching:add_lesson', { defaultValue: 'New lesson' })}
+                  : t('teaching:create_lesson', { defaultValue: 'Create Lesson' })}
               </h3>
             </div>
             <button
@@ -181,20 +181,6 @@ export const LessonWizardModal = ({
           <div className="flex-1 overflow-y-auto px-6 py-5">
             {step === 1 && (
               <div className="space-y-6 max-w-3xl">
-                <div>
-                  <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-                    {t('teaching:wizard_step_lesson_basics', {
-                      defaultValue: 'Lesson basics',
-                    })}
-                  </h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('teaching:wizard_step_lesson_basics_hint', {
-                      defaultValue:
-                        'Give the lesson a title, choose what kind of content it holds, and an estimated duration.',
-                    })}
-                  </p>
-                </div>
-
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
                     {t('teaching:lesson_title', { defaultValue: 'Title' })}
@@ -284,20 +270,6 @@ export const LessonWizardModal = ({
 
             {step === 2 && (
               <div className="space-y-3">
-                <div>
-                  <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-                    {t('teaching:wizard_step_lesson_content', {
-                      defaultValue: 'Lesson content',
-                    })}
-                  </h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('teaching:wizard_step_lesson_content_hint', {
-                      defaultValue:
-                        'Write the lesson body. Embed files, videos and an AI chatbot using the editor toolbar — changes save automatically.',
-                    })}
-                  </p>
-                </div>
-
                 {lectureId ? (
                   <LessonEditor
                     lectureId={lectureId}

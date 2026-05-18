@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Users, Activity, Hash, Settings2, Network, GitBranch, Expand, Search, Pencil, X, TrendingUp, Clock, RefreshCw, ChevronDown } from 'lucide-react';
+import { Users, Activity, Hash, Settings2, Network, GitBranch, Expand, Search, Pencil, X, TrendingUp, Clock, RefreshCw, Filter as FilterIcon } from 'lucide-react';
 import {
   tna, ftna, ctna, atna,
   centralities, prune, summary, layout as dynaLayout,
@@ -218,96 +218,6 @@ function resolveInterpretation(
 }
 
 /* ------------------------------------------------------------------ */
-/*  Searchable filter dropdown                                         */
-/* ------------------------------------------------------------------ */
-
-const SearchableFilterSelect = ({
-  label,
-  value,
-  onChange,
-  options,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (val: string) => void;
-  options: { value: string; label: string }[];
-  placeholder: string;
-}) => {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const filtered = options.filter(o =>
-    o.label.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const selectedLabel = value ? options.find(o => o.value === value)?.label || placeholder : placeholder;
-
-  return (
-    <div className="flex flex-col gap-1" ref={ref}>
-      <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setOpen(!open)}
-          className="w-full min-w-[180px] px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-left flex items-center justify-between gap-2"
-        >
-          <span className="truncate">{selectedLabel}</span>
-          <ChevronDown className="w-3.5 h-3.5 flex-shrink-0 text-gray-400" />
-        </button>
-        {open && (
-          <div className="absolute top-full left-0 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-60 flex flex-col">
-            <div className="p-1.5 border-b border-gray-100 dark:border-gray-700">
-              <div className="relative">
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                <input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Search..."
-                  autoFocus
-                  className="w-full pl-7 pr-2 py-1 text-xs rounded border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                />
-              </div>
-            </div>
-            <div className="overflow-y-auto flex-1">
-              <button
-                type="button"
-                onClick={() => { onChange(''); setOpen(false); setSearch(''); }}
-                className={`w-full px-3 py-1.5 text-xs text-left hover:bg-gray-50 dark:hover:bg-gray-700 ${!value ? 'text-violet-600 font-medium' : 'text-gray-600 dark:text-gray-300'}`}
-              >
-                {placeholder}
-              </button>
-              {filtered.map(o => (
-                <button
-                  key={o.value}
-                  type="button"
-                  onClick={() => { onChange(o.value); setOpen(false); setSearch(''); }}
-                  className={`w-full px-3 py-1.5 text-xs text-left hover:bg-gray-50 dark:hover:bg-gray-700 truncate ${o.value === value ? 'text-violet-600 font-medium' : 'text-gray-600 dark:text-gray-300'}`}
-                >
-                  {o.label}
-                </button>
-              ))}
-              {filtered.length === 0 && (
-                <p className="px-3 py-2 text-xs text-gray-400">No results</p>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-/* ------------------------------------------------------------------ */
 /*  Deferred range slider — smooth local state, commits on pointerUp  */
 /* ------------------------------------------------------------------ */
 
@@ -362,6 +272,8 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
 
   // Top-level tab
   const [activeTab, setActiveTab] = useState<PageTab>('analytics');
+  // Collapsible filter panel (toggled by the toolbar Filter button, like /admin/logs)
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Shared filters
   const [courseId, setCourseId] = useState<number | undefined>(fixedCourseId);
@@ -681,7 +593,7 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
 
   const pageTitle = isStudent ? t('my_analytics') : isAdmin ? t('analytics') : t('course_analytics');
   const Wrapper = isAdmin
-    ? ({ children }: { children: React.ReactNode }) => <AdminLayout title={pageTitle} fullWidth>{children}</AdminLayout>
+    ? ({ children }: { children: React.ReactNode }) => <AdminLayout title={pageTitle} description={t('analytics_desc')} fullWidth>{children}</AdminLayout>
     : ({ children }: { children: React.ReactNode }) => (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
           <div className="mb-6">
@@ -696,109 +608,198 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
 
   return (
     <Wrapper>
-        {/* ========== Header row: tabs + filters ========== */}
-        <div className="flex flex-wrap items-end gap-3 mb-4">
-
-          {/* Tabs */}
-          <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden text-sm mr-auto">
-            {availableTabs.map(tab => {
-              const label = tab === 'activity' ? t('activity_tab') : tab === 'analytics' ? t('network') : tab === 'clusters' ? t('clusters_title') : tab === 'patterns' ? t('patterns_title') : t('analytics_settings');
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-1.5 font-medium transition-colors ${
-                    activeTab === tab
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Course filter — hidden when caller pins a course */}
-          {!isStudent && fixedCourseId == null && (
-            <SearchableFilterSelect
-              label={t('course')}
-              value={courseId ? String(courseId) : ''}
-              onChange={val => { setCourseId(val ? parseInt(val) : undefined); setSelectedUserId(undefined); }}
-              options={(filterOptions?.courses ?? []).map((co: any) => ({ value: String(co.id), label: co.title || '' }))}
-              placeholder={t('all_courses')}
-            />
-          )}
-          {/* Student filter — hidden when caller pins a user (e.g. instructor's
-              per-student drill-down). Without this gate the picker appears
-              interactive but its value is overridden by `effectiveUserId`,
-              which is misleading. */}
-          {!isStudent && fixedUserId == null && (
-            <SearchableFilterSelect
-              label={t('select_student')}
-              value={selectedUserId ? String(selectedUserId) : ''}
-              onChange={val => setSelectedUserId(val ? parseInt(val) : undefined)}
-              options={(filterOptions?.users ?? []).map((u: any) => ({ value: String(u.id), label: `${u.fullname || ''} (${u.email || ''})` }))}
-              placeholder={t('all_students')}
-            />
-          )}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-500 dark:text-gray-400">{t('start_date')}</label>
-            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-              className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-500 dark:text-gray-400">{t('end_date')}</label>
-            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-              className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300" />
-          </div>
-
-          {/* Analytics-only filters */}
-          {activeTab === 'analytics' && (
-            <>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-gray-500 dark:text-gray-400">
-                  {t('prune_threshold')}: {pruneThreshold.toFixed(2)}
-                </label>
-                <input type="range" min={0} max={0.5} step={0.01} value={pruneThreshold}
-                  onChange={e => setPruneThreshold(parseFloat(e.target.value))} className="w-32" />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-gray-500 dark:text-gray-400">{t('model_type')}</label>
-                <select value={modelType} onChange={e => setModelType(e.target.value as ModelType)}
-                  className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300">
-                  <option value="relative">{t('model_relative')}</option>
-                  <option value="frequency">{t('model_frequency')}</option>
-                  <option value="co-occurrence">{t('model_cooccurrence')}</option>
-                  <option value="attention">{t('model_attention')}</option>
-                </select>
-              </div>
-            </>
-          )}
-
-          {/* Refresh + last-updated indicator */}
-          <div className="flex items-center gap-1.5">
-            {lastUpdated > 0 && (
-              <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">
-                {new Date(lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            )}
-            <button onClick={refreshCurrentTab} disabled={isRefreshing}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-40"
-              title={t('refresh')}>
-              <RefreshCw className={`w-4 h-4 text-gray-500 dark:text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
-
-          {/* Settings icon for quick access (hidden for students) */}
-          {!isStudent && activeTab !== 'settings' && (
-            <button onClick={() => setActiveTab('settings')}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ml-1"
-              title={t('analytics_settings')}>
-              <Settings2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-            </button>
-          )}
+        {/* ========== Tab navigation (matches /admin/logs) ========== */}
+        <div
+          className="flex flex-wrap gap-2 mb-6 pb-4"
+          style={{ borderBottom: `1px solid ${isDark ? '#374151' : '#e5e7eb'}` }}
+        >
+          {availableTabs.map(tab => {
+            const label = tab === 'activity' ? t('activity_tab') : tab === 'analytics' ? t('network') : tab === 'clusters' ? t('clusters_title') : tab === 'patterns' ? t('patterns_title') : t('analytics_settings');
+            const icon =
+              tab === 'activity' ? <Activity className="w-4 h-4" /> :
+              tab === 'analytics' ? <Network className="w-4 h-4" /> :
+              tab === 'clusters' ? <Hash className="w-4 h-4" /> :
+              tab === 'patterns' ? <GitBranch className="w-4 h-4" /> :
+              <Settings2 className="w-4 h-4" />;
+            const isActive = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                  isActive ? 'bg-primary-600 text-white' : ''
+                }`}
+                style={!isActive ? {
+                  backgroundColor: isDark ? '#1f2937' : '#ffffff',
+                  color: isDark ? '#d1d5db' : '#374151',
+                  border: `1px solid ${isDark ? '#374151' : '#e5e7eb'}`,
+                } : undefined}
+              >
+                {icon}
+                {label}
+              </button>
+            );
+          })}
         </div>
+
+        {/* ========== Toolbar: Filter / Refresh / Settings (matches /admin/logs DataTable toolbar) ========== */}
+        {(() => {
+          const anyFiltersActive =
+            (fixedCourseId == null && !!courseId) ||
+            (fixedUserId == null && !!selectedUserId) ||
+            !!startDate || !!endDate;
+          const toolbarBtn =
+            'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors';
+          return (
+            <div className="flex flex-wrap items-center justify-end gap-2 mb-4">
+              {lastUpdated > 0 && (
+                <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap mr-1">
+                  {new Date(lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => setFiltersOpen(o => !o)}
+                aria-expanded={filtersOpen}
+                className={toolbarBtn}
+              >
+                <FilterIcon className="w-3.5 h-3.5" />
+                {t('filters')}
+                {anyFiltersActive && (
+                  <span
+                    className="ml-0.5 inline-block w-1.5 h-1.5 rounded-full"
+                    style={{ backgroundColor: '#088F8F' }}
+                  />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={refreshCurrentTab}
+                disabled={isRefreshing}
+                className={`${toolbarBtn} disabled:opacity-40`}
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                {t('refresh')}
+              </button>
+              {!isStudent && activeTab !== 'settings' && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('settings')}
+                  className={toolbarBtn}
+                >
+                  <Settings2 className="w-3.5 h-3.5" />
+                  {t('analytics_settings')}
+                </button>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ========== Collapsible filter panel ========== */}
+        {filtersOpen && (
+          <div
+            className="mb-4 rounded-xl border p-3 sm:p-4 bg-white dark:bg-gray-800"
+            style={{ borderColor: isDark ? '#374151' : '#e5e7eb' }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <span
+                className="text-sm font-semibold"
+                style={{ color: isDark ? '#f3f4f6' : '#111827' }}
+              >
+                {t('filters')}
+              </span>
+              <button
+                type="button"
+                onClick={() => setFiltersOpen(false)}
+                title={t('analytics_settings')}
+                className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {(() => {
+                const fieldLabel = 'block text-sm font-medium mb-1.5';
+                const fieldLabelStyle = { color: isDark ? '#cbd5e1' : '#374151' } as const;
+                const fieldInput =
+                  'w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-1';
+                return (
+                  <>
+                    {/* Course filter — hidden when caller pins a course */}
+                    {!isStudent && fixedCourseId == null && (
+                      <div>
+                        <label className={fieldLabel} style={fieldLabelStyle}>{t('course')}</label>
+                        <SearchableSelect
+                          value={courseId ? String(courseId) : ''}
+                          onChange={val => { setCourseId(val ? parseInt(val) : undefined); setSelectedUserId(undefined); }}
+                          options={[
+                            { value: '', label: t('all_courses') },
+                            ...(filterOptions?.courses ?? []).map((co: any) => ({ value: String(co.id), label: co.title || '' })),
+                          ]}
+                        />
+                      </div>
+                    )}
+                    {/* Student filter — hidden when caller pins a user (e.g. instructor's
+                        per-student drill-down). Without this gate the picker appears
+                        interactive but its value is overridden by `effectiveUserId`,
+                        which is misleading. */}
+                    {!isStudent && fixedUserId == null && (
+                      <div>
+                        <label className={fieldLabel} style={fieldLabelStyle}>{t('select_student')}</label>
+                        <SearchableSelect
+                          value={selectedUserId ? String(selectedUserId) : ''}
+                          onChange={val => setSelectedUserId(val ? parseInt(val) : undefined)}
+                          options={[
+                            { value: '', label: t('all_students') },
+                            ...(filterOptions?.users ?? []).map((u: any) => ({ value: String(u.id), label: `${u.fullname || ''} (${u.email || ''})` })),
+                          ]}
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <label className={fieldLabel} style={fieldLabelStyle}>{t('start_date')}</label>
+                      <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+                        className={fieldInput} />
+                    </div>
+                    <div>
+                      <label className={fieldLabel} style={fieldLabelStyle}>{t('end_date')}</label>
+                      <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+                        className={fieldInput} />
+                    </div>
+
+                    {/* Analytics-only filters */}
+                    {activeTab === 'analytics' && (
+                      <>
+                        <div>
+                          <label className={fieldLabel} style={fieldLabelStyle}>
+                            {t('prune_threshold')}: {pruneThreshold.toFixed(2)}
+                          </label>
+                          <input type="range" min={0} max={0.5} step={0.01} value={pruneThreshold}
+                            onChange={e => setPruneThreshold(parseFloat(e.target.value))}
+                            className="w-full h-2 mt-2 rounded-full accent-violet-600 cursor-pointer" />
+                        </div>
+                        <div>
+                          <label className={fieldLabel} style={fieldLabelStyle}>{t('model_type')}</label>
+                          <SearchableSelect
+                            value={modelType}
+                            onChange={val => setModelType(val as ModelType)}
+                            options={[
+                              { value: 'relative', label: t('model_relative') },
+                              { value: 'frequency', label: t('model_frequency') },
+                              { value: 'co-occurrence', label: t('model_cooccurrence') },
+                              { value: 'attention', label: t('model_attention') },
+                            ]}
+                          />
+                        </div>
+                      </>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        )}
 
         {/* ========== Student banner ========== */}
         {isStudent && (
