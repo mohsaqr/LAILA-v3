@@ -483,6 +483,7 @@ export interface AssignmentSubmission {
     id: number;
     fullname: string;
     email: string;
+    avatarUrl?: string | null;
   };
   gradedBy?: {
     id: number;
