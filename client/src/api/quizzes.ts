@@ -33,6 +33,7 @@ export interface QuizQuestion {
   correctAnswer?: string;
   explanation?: string;
   points: number;
+  shuffleOptions?: boolean;
   orderIndex: number;
   savedAnswer?: string;
 }
@@ -109,6 +110,7 @@ export interface CreateQuestionInput {
   correctAnswer: string;
   explanation?: string;
   points?: number;
+  shuffleOptions?: boolean;
   orderIndex?: number;
 }
 

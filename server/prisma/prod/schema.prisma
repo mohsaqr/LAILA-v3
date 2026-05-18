@@ -1748,6 +1748,7 @@ model QuizQuestion {
   correctAnswer String       @map("correct_answer")
   explanation   String?
   points        Float        @default(1)
+  shuffleOptions Boolean     @default(false) @map("shuffle_options")
   orderIndex    Int          @default(0) @map("order_index")
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")

@@ -32,6 +32,7 @@ const createQuestionSchema = z.object({
   correctAnswer: z.string().min(1),
   explanation: z.string().optional(),
   points: z.number().positive().optional(),
+  shuffleOptions: z.boolean().optional(),
   orderIndex: z.number().min(0).optional(),
 });
 

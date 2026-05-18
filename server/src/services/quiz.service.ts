@@ -33,6 +33,7 @@ export interface CreateQuestionInput {
   correctAnswer: string;
   explanation?: string;
   points?: number;
+  shuffleOptions?: boolean;
   orderIndex?: number;
 }
 
@@ -127,6 +128,7 @@ export class QuizService {
             questionText: true,
             options: true,
             points: true,
+            shuffleOptions: true,
             orderIndex: true,
             // Only include correct answer for instructors
             ...(includeAnswers ? { correctAnswer: true, explanation: true } : {}),
@@ -391,6 +393,7 @@ export class QuizService {
         correctAnswer: data.correctAnswer,
         explanation: data.explanation,
         points: data.points ?? 1,
+        shuffleOptions: data.shuffleOptions ?? false,
         orderIndex: data.orderIndex ?? quiz._count.questions,
       },
     });
@@ -424,6 +427,7 @@ export class QuizService {
         correctAnswer: data.correctAnswer,
         explanation: data.explanation,
         points: data.points,
+        shuffleOptions: data.shuffleOptions,
         orderIndex: data.orderIndex,
       },
     });
@@ -516,6 +520,7 @@ export class QuizService {
             correctAnswer: data.correctAnswer,
             explanation: data.explanation,
             points: data.points ?? 1,
+            shuffleOptions: data.shuffleOptions ?? false,
             orderIndex: orderIndex + idx,
           },
         });
@@ -638,18 +643,20 @@ export class QuizService {
       questionText: q.questionText,
       options: q.options ? JSON.parse(q.options) : null,
       points: q.points,
+      shuffleOptions: q.shuffleOptions,
     }));
 
     if (quiz.shuffleQuestions) {
       questions = this.shuffleArray(questions);
     }
 
-    if (quiz.shuffleOptions) {
-      questions = questions.map((q: any) => ({
-        ...q,
-        options: q.options ? this.shuffleArray(q.options) : null,
-      }));
-    }
+    // Shuffle a question's options when the quiz-wide flag is on OR the
+    // question opts in via its own shuffleOptions.
+    questions = questions.map((q: any) =>
+      (quiz.shuffleOptions || q.shuffleOptions) && q.options
+        ? { ...q, options: this.shuffleArray(q.options) }
+        : q,
+    );
 
     // Map saved answers
     const answerMap = new Map(
