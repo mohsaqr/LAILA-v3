@@ -4,72 +4,50 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Plus,
-  Trash2,
   Save,
-  GripVertical,
   AlertCircle,
-  CheckCircle,
-  Settings,
   Eye,
   EyeOff,
   Sparkles,
+  Pencil,
+  ListChecks,
+  Clock,
+  Repeat,
+  Target,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { quizzesApi, Quiz, QuizQuestion, CreateQuestionInput } from '../../api/quizzes';
-import { coursesApi } from '../../api/courses';
 import { useTheme } from '../../hooks/useTheme';
 import { Card, CardBody } from '../../components/common/Card';
 import { Loading } from '../../components/common/Loading';
 import { Button } from '../../components/common/Button';
-import { Modal } from '../../components/common/Modal';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
-import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { MCQGenerator } from '../../components/teaching/MCQGenerator';
 import { RichTextEditor } from '../../components/forum/RichTextEditor';
 import { sanitizeHtml } from '../../utils/sanitize';
+import { QuizQuestionCard } from '../../components/teach/QuizQuestionCard';
 import activityLogger from '../../services/activityLogger';
 
-interface QuestionFormData {
-  questionType: 'multiple_choice' | 'true_false' | 'short_answer' | 'fill_in_blank';
-  questionText: string;
-  options: string[];
-  correctAnswer: string;
-  explanation: string;
-  points: number;
-}
-
-const defaultQuestionForm: QuestionFormData = {
-  questionType: 'multiple_choice',
-  questionText: '',
-  options: ['', '', '', ''],
-  correctAnswer: '',
-  explanation: '',
-  points: 1,
-};
-
 export const QuizEditor = () => {
-  const { t } = useTranslation(['teaching', 'common']);
+  const { t } = useTranslation(['teaching', 'common', 'navigation']);
   const { id: courseId, quizId } = useParams<{ id: string; quizId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const parsedQuizId = parseInt(quizId!, 10);
   const { isDark } = useTheme();
 
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [settingsDescription, setSettingsDescription] = useState('');
   const [settingsInstructions, setSettingsInstructions] = useState('');
-  const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false);
+  const [isAddingQuestion, setIsAddingQuestion] = useState(false);
   const [isAIGeneratorOpen, setIsAIGeneratorOpen] = useState(false);
-  const [editingQuestion, setEditingQuestion] = useState<QuizQuestion | null>(null);
-  const [questionForm, setQuestionForm] = useState<QuestionFormData>(defaultQuestionForm);
+  const [activeTab, setActiveTab] = useState<'questions' | 'overview'>('questions');
 
   const colors = {
     bg: isDark ? '#111827' : '#f9fafb',
-    bgCard: isDark ? '#1f2937' : '#ffffff',
     textPrimary: isDark ? '#f3f4f6' : '#111827',
     textSecondary: isDark ? '#9ca3af' : '#6b7280',
     border: isDark ? '#374151' : '#e5e7eb',
-    bgHover: isDark ? '#374151' : '#f3f4f6',
     bgInput: isDark ? '#374151' : '#ffffff',
   };
 
@@ -79,29 +57,22 @@ export const QuizEditor = () => {
     }
   }, [parsedQuizId, courseId]);
 
-  // Fetch course info for breadcrumbs
-  const { data: course } = useQuery({
-    queryKey: ['course', courseId],
-    queryFn: () => coursesApi.getCourseById(parseInt(courseId!)),
-    enabled: !!courseId,
-  });
-
   // Fetch quiz with questions
   const { data: quiz, isLoading, error } = useQuery({
     queryKey: ['quiz', parsedQuizId],
     queryFn: () => quizzesApi.getQuiz(parsedQuizId),
   });
 
-  // Update quiz mutation
+  // Update quiz mutation (inline settings)
   const updateQuizMutation = useMutation({
     mutationFn: (data: Partial<Quiz>) => quizzesApi.updateQuiz(parsedQuizId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quiz', parsedQuizId] });
       toast.success(t('quiz_updated'));
-      setIsSettingsOpen(false);
+      setIsEditingSettings(false);
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || t('failed_to_update_quiz'));
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || t('failed_to_update_quiz'));
     },
   });
 
@@ -111,11 +82,10 @@ export const QuizEditor = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quiz', parsedQuizId] });
       toast.success(t('question_added'));
-      setIsQuestionModalOpen(false);
-      setQuestionForm(defaultQuestionForm);
+      setIsAddingQuestion(false);
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || t('failed_add_question'));
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || t('failed_add_question'));
     },
   });
 
@@ -126,12 +96,9 @@ export const QuizEditor = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quiz', parsedQuizId] });
       toast.success(t('question_updated'));
-      setIsQuestionModalOpen(false);
-      setEditingQuestion(null);
-      setQuestionForm(defaultQuestionForm);
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || t('failed_update_question'));
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || t('failed_update_question'));
     },
   });
 
@@ -142,8 +109,19 @@ export const QuizEditor = () => {
       queryClient.invalidateQueries({ queryKey: ['quiz', parsedQuizId] });
       toast.success(t('question_deleted'));
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || t('failed_delete_question'));
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || t('failed_delete_question'));
+    },
+  });
+
+  // Reorder questions mutation
+  const reorderQuestionsMutation = useMutation({
+    mutationFn: (questionIds: number[]) => quizzesApi.reorderQuestions(parsedQuizId, questionIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quiz', parsedQuizId] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || t('failed_to_update_quiz'));
     },
   });
 
@@ -154,44 +132,14 @@ export const QuizEditor = () => {
       queryClient.invalidateQueries({ queryKey: ['quiz', parsedQuizId] });
       toast.success(quiz?.isPublished ? t('quiz_unpublished') : t('quiz_published'));
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || t('failed_to_update_quiz'));
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || t('failed_to_update_quiz'));
     },
   });
 
-  const handleOpenQuestionModal = (question?: QuizQuestion) => {
-    if (question) {
-      setEditingQuestion(question);
-      setQuestionForm({
-        questionType: question.questionType,
-        questionText: question.questionText,
-        options: question.options || ['', '', '', ''],
-        correctAnswer: question.correctAnswer || '',
-        explanation: question.explanation || '',
-        points: question.points,
-      });
-    } else {
-      setEditingQuestion(null);
-      setQuestionForm(defaultQuestionForm);
-    }
-    setIsQuestionModalOpen(true);
-  };
-
-  const handleSaveQuestion = () => {
-    const data: CreateQuestionInput = {
-      questionType: questionForm.questionType,
-      questionText: questionForm.questionText,
-      correctAnswer: questionForm.correctAnswer,
-      explanation: questionForm.explanation || undefined,
-      points: questionForm.points,
-    };
-
-    if (questionForm.questionType === 'multiple_choice') {
-      data.options = questionForm.options.filter(o => o.trim() !== '');
-    }
-
-    if (editingQuestion) {
-      updateQuestionMutation.mutate({ questionId: editingQuestion.id, data });
+  const handleSaveQuestion = (data: CreateQuestionInput, questionId?: number) => {
+    if (questionId) {
+      updateQuestionMutation.mutate({ questionId, data });
     } else {
       addQuestionMutation.mutate(data);
     }
@@ -201,6 +149,15 @@ export const QuizEditor = () => {
     if (window.confirm(t('delete_question_confirm'))) {
       deleteQuestionMutation.mutate(questionId);
     }
+  };
+
+  const moveQuestion = (index: number, direction: 'up' | 'down') => {
+    if (!quiz?.questions) return;
+    const target = direction === 'up' ? index - 1 : index + 1;
+    if (target < 0 || target >= quiz.questions.length) return;
+    const reordered = [...quiz.questions];
+    [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+    reorderQuestionsMutation.mutate(reordered.map(q => q.id));
   };
 
   if (isLoading) {
@@ -222,9 +179,28 @@ export const QuizEditor = () => {
   }
 
   const breadcrumbItems = [
-    ...buildTeachingBreadcrumb(courseId, course?.title || 'Course', 'Quizzes'),
+    { label: 'Courses', href: '/courses' },
+    { label: t('navigation:quizzes'), href: '/teach/quizzes' },
     { label: quiz.title },
   ];
+
+  const stats = [
+    { icon: ListChecks, value: quiz.questions?.length || 0, label: t('questions_label') },
+    { icon: Clock, value: quiz.timeLimit || '∞', label: t('minutes_label') },
+    { icon: Repeat, value: quiz.maxAttempts || '∞', label: t('max_attempts') },
+    { icon: Target, value: `${quiz.passingScore}%`, label: t('passing_score') },
+  ];
+
+  const draftQuestion: QuizQuestion = {
+    id: -1,
+    questionType: 'multiple_choice',
+    questionText: '',
+    options: ['', '', '', ''],
+    correctAnswer: '',
+    explanation: '',
+    points: 1,
+    orderIndex: quiz.questions?.length || 0,
+  };
 
   return (
     <div className="min-h-screen py-6 md:py-8" style={{ backgroundColor: colors.bg }}>
@@ -234,203 +210,308 @@ export const QuizEditor = () => {
           <Breadcrumb homeHref="/" items={breadcrumbItems} />
         </div>
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold" style={{ color: colors.textPrimary }}>
-              {quiz.title}
-            </h1>
-            <p className="text-sm" style={{ color: colors.textSecondary }}>
-              {t('x_questions', { count: quiz.questions?.length || 0 })}
-              {quiz.timeLimit && ` • ${t('time_limit_display', { minutes: quiz.timeLimit })}`}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button variant="secondary" onClick={() => {
-              setSettingsDescription(quiz.description || '');
-              setSettingsInstructions(quiz.instructions || '');
-              setIsSettingsOpen(true);
-            }}>
-              <Settings size={18} />
-              {t('settings')}
-            </Button>
-            <Button
-              variant={quiz.isPublished ? 'secondary' : 'primary'}
-              onClick={() => togglePublishMutation.mutate()}
-              disabled={togglePublishMutation.isPending}
-            >
-              {quiz.isPublished ? (
-                <>
-                  <EyeOff size={18} />
-                  {t('unpublish')}
-                </>
-              ) : (
-                <>
-                  <Eye size={18} />
-                  {t('publish')}
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-
-        {/* Quiz Info Card */}
+        {/* Quiz overview card — stats + description + instructions in one card */}
         <Card className="mb-6">
           <CardBody>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-              <div>
-                <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
-                  {quiz.questions?.length || 0}
-                </p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>{t('questions_label')}</p>
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 flex-1">
+                {stats.map(({ icon: Icon, value, label }) => (
+                  <div key={label} className="flex items-center gap-3">
+                    <span className="w-10 h-10 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center flex-shrink-0">
+                      <Icon size={20} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-xl font-bold leading-tight" style={{ color: colors.textPrimary }}>
+                        {value}
+                      </p>
+                      <p className="text-xs truncate" style={{ color: colors.textSecondary }}>
+                        {label}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div>
-                <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
-                  {quiz.timeLimit || '∞'}
-                </p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>{t('minutes_label')}</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
-                  {quiz.maxAttempts || '∞'}
-                </p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>{t('max_attempts')}</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
-                  {quiz.passingScore}%
-                </p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>{t('passing_score')}</p>
+
+              <div className="flex items-center gap-2 flex-wrap lg:flex-shrink-0">
+                <span
+                  className={`inline-flex items-center justify-center gap-1.5 w-28 text-xs font-medium px-2.5 py-1 rounded-full ${
+                    quiz.isPublished
+                      ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                      : 'bg-gray-500/10 text-gray-500 dark:text-gray-400'
+                  }`}
+                >
+                  {quiz.isPublished ? <Eye size={13} /> : <EyeOff size={13} />}
+                  {quiz.isPublished ? t('published') : t('draft')}
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  aria-label={t('edit_quiz')}
+                  title={t('edit_quiz')}
+                  onClick={() => {
+                    setSettingsDescription(quiz.description || '');
+                    setSettingsInstructions(quiz.instructions || '');
+                    setIsEditingSettings((v) => !v);
+                  }}
+                >
+                  <Pencil size={16} />
+                </Button>
+                <Button
+                  variant={quiz.isPublished ? 'secondary' : 'primary'}
+                  size="sm"
+                  aria-label={quiz.isPublished ? t('unpublish') : t('publish')}
+                  title={quiz.isPublished ? t('unpublish') : t('publish')}
+                  onClick={() => togglePublishMutation.mutate()}
+                  disabled={togglePublishMutation.isPending}
+                >
+                  {quiz.isPublished ? <EyeOff size={16} /> : <Eye size={16} />}
+                </Button>
               </div>
             </div>
+
+            {!isEditingSettings && (quiz.description || quiz.instructions) && (
+              <div
+                className="mt-5 pt-5 border-t space-y-4"
+                style={{ borderColor: colors.border }}
+              >
+                {quiz.description && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2" style={{ color: colors.textSecondary }}>
+                      {t('description_label')}
+                    </h3>
+                    <div
+                      className="prose prose-sm dark:prose-invert max-w-none"
+                      style={{ color: colors.textPrimary }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(quiz.description) }}
+                    />
+                  </div>
+                )}
+                {quiz.instructions && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2" style={{ color: colors.textSecondary }}>
+                      {t('instructions_label')}
+                    </h3>
+                    <div
+                      className="prose prose-sm dark:prose-invert max-w-none"
+                      style={{ color: colors.textPrimary }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(quiz.instructions) }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </CardBody>
         </Card>
 
-        {/* Description & Instructions */}
-        {(quiz.description || quiz.instructions) && (
+        {/* Inline settings panel */}
+        {isEditingSettings && (
           <Card className="mb-6">
-            <CardBody className="space-y-4">
-              {quiz.description && (
+            <CardBody>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.currentTarget);
+                  updateQuizMutation.mutate({
+                    title: formData.get('title') as string,
+                    description: settingsDescription || undefined,
+                    instructions: settingsInstructions || undefined,
+                    timeLimit: formData.get('timeLimit')
+                      ? parseInt(formData.get('timeLimit') as string)
+                      : undefined,
+                    maxAttempts: parseInt(formData.get('maxAttempts') as string) || 1,
+                    passingScore: parseInt(formData.get('passingScore') as string) || 70,
+                    shuffleQuestions: formData.get('shuffleQuestions') === 'on',
+                    shuffleOptions: formData.get('shuffleOptions') === 'on',
+                  });
+                }}
+                className="space-y-4"
+              >
+                <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
+                  {t('quiz_settings')}
+                </h2>
                 <div>
-                  <h3 className="text-sm font-semibold mb-2" style={{ color: colors.textSecondary }}>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    {t('title_label')}
+                  </label>
+                  <input
+                    name="title"
+                    defaultValue={quiz.title}
+                    required
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                     {t('description_label')}
-                  </h3>
-                  <div
-                    className="prose prose-sm dark:prose-invert max-w-none"
-                    style={{ color: colors.textPrimary }}
-                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(quiz.description) }}
+                  </label>
+                  <RichTextEditor
+                    value={settingsDescription}
+                    onChange={setSettingsDescription}
+                    editorClassName="forum-reply-editor px-3 py-2 min-h-[200px] max-h-[400px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
                   />
                 </div>
-              )}
-              {quiz.instructions && (
                 <div>
-                  <h3 className="text-sm font-semibold mb-2" style={{ color: colors.textSecondary }}>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                     {t('instructions_label')}
-                  </h3>
-                  <div
-                    className="prose prose-sm dark:prose-invert max-w-none"
-                    style={{ color: colors.textPrimary }}
-                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(quiz.instructions) }}
+                  </label>
+                  <RichTextEditor
+                    value={settingsInstructions}
+                    onChange={setSettingsInstructions}
+                    editorClassName="forum-reply-editor px-3 py-2 min-h-[120px] max-h-[300px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
                   />
                 </div>
-              )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                      {t('time_limit_minutes')}
+                    </label>
+                    <input
+                      name="timeLimit"
+                      type="number"
+                      min="0"
+                      defaultValue={quiz.timeLimit || ''}
+                      placeholder={t('no_time_limit')}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                      {t('max_attempts')}
+                    </label>
+                    <input
+                      name="maxAttempts"
+                      type="number"
+                      min="0"
+                      defaultValue={quiz.maxAttempts}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                      {t('passing_score_percent')}
+                    </label>
+                    <input
+                      name="passingScore"
+                      type="number"
+                      min="0"
+                      max="100"
+                      defaultValue={quiz.passingScore}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      name="shuffleQuestions"
+                      type="checkbox"
+                      defaultChecked={quiz.shuffleQuestions}
+                      className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{t('shuffle_questions')}</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      name="shuffleOptions"
+                      type="checkbox"
+                      defaultChecked={quiz.shuffleOptions}
+                      className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{t('shuffle_options')}</span>
+                  </label>
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button type="button" variant="secondary" onClick={() => setIsEditingSettings(false)}>
+                    {t('common:cancel')}
+                  </Button>
+                  <Button type="submit" disabled={updateQuizMutation.isPending}>
+                    <Save size={18} />
+                    {t('common:save')}
+                  </Button>
+                </div>
+              </form>
             </CardBody>
           </Card>
         )}
 
-        {/* Questions List */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4">
-          <h2 className="text-lg sm:text-xl font-semibold" style={{ color: colors.textPrimary }}>
-            {t('questions_label')}
-          </h2>
+        {/* Tabs — splits the rest of the page into Questions / Overview */}
+        <div
+          className="flex items-center gap-6 border-b mb-6"
+          style={{ borderColor: colors.border }}
+        >
+          {(['questions', 'overview'] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className="relative pb-3 text-sm font-medium transition-colors"
+              style={{ color: activeTab === tab ? colors.textPrimary : colors.textSecondary }}
+            >
+              {tab === 'questions' ? t('questions_label') : t('overview', { defaultValue: 'Overview' })}
+              {activeTab === tab && (
+                <span
+                  className="absolute left-0 right-0 -bottom-px h-0.5 rounded-full"
+                  style={{ backgroundColor: colors.textPrimary }}
+                />
+              )}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'overview' && (
+          <Card>
+            <CardBody className="py-12 text-center text-sm">
+              <span style={{ color: colors.textSecondary }}>
+                {t('overview', { defaultValue: 'Overview' })}
+              </span>
+            </CardBody>
+          </Card>
+        )}
+
+        {/* Questions */}
+        {activeTab === 'questions' && (
+        <>
+        <div className="flex items-center justify-end gap-3 mb-4">
           <div className="flex items-center gap-2 flex-wrap">
             <Button variant="secondary" onClick={() => setIsAIGeneratorOpen(true)}>
               <Sparkles size={18} />
               {t('generate_with_ai')}
             </Button>
-            <Button onClick={() => handleOpenQuestionModal()}>
+            <Button onClick={() => setIsAddingQuestion(true)} disabled={isAddingQuestion}>
               <Plus size={18} />
               {t('add_question')}
             </Button>
           </div>
         </div>
 
-        {quiz.questions && quiz.questions.length > 0 ? (
+        {(quiz.questions && quiz.questions.length > 0) || isAddingQuestion ? (
           <div className="space-y-4">
-            {quiz.questions.map((question, idx) => (
-              <Card key={question.id}>
-                <CardBody>
-                  <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0 cursor-move" style={{ color: colors.textSecondary }}>
-                      <GripVertical size={20} />
-                    </div>
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-semibold">
-                      {idx + 1}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-                        <div>
-                          <p className="font-medium" style={{ color: colors.textPrimary }}>
-                            {question.questionText}
-                          </p>
-                          <div className="flex items-center gap-3 mt-2">
-                            <span
-                              className="text-xs px-2 py-1 rounded"
-                              style={{ backgroundColor: colors.bgHover, color: colors.textSecondary }}
-                            >
-                              {question.questionType.replace('_', ' ')}
-                            </span>
-                            <span className="text-sm" style={{ color: colors.textSecondary }}>
-                              {t('x_points', { count: question.points })}
-                            </span>
-                          </div>
-                          {question.questionType === 'multiple_choice' && question.options && (
-                            <div className="mt-3 space-y-1">
-                              {question.options.map((opt, optIdx) => (
-                                <div
-                                  key={optIdx}
-                                  className="flex items-center gap-2 text-sm"
-                                  style={{ color: colors.textSecondary }}
-                                >
-                                  {opt === question.correctAnswer ? (
-                                    <CheckCircle size={14} className="text-green-500" />
-                                  ) : (
-                                    <span className="w-3.5" />
-                                  )}
-                                  {opt}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          {question.questionType === 'true_false' && (
-                            <p className="mt-2 text-sm" style={{ color: colors.textSecondary }}>
-                              {t('correct_answer_label')}: <span className="font-medium">{question.correctAnswer}</span>
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => handleOpenQuestionModal(question)}
-                          >
-                            {t('edit')}
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => handleDeleteQuestion(question.id)}
-                          >
-                            <Trash2 size={16} />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
+            {quiz.questions?.map((question, idx) => (
+              <QuizQuestionCard
+                key={question.id}
+                question={question}
+                index={idx}
+                total={quiz.questions!.length}
+                isSaving={updateQuestionMutation.isPending}
+                onSave={handleSaveQuestion}
+                onDelete={handleDeleteQuestion}
+                onMove={moveQuestion}
+              />
             ))}
+            {isAddingQuestion && (
+              <QuizQuestionCard
+                key="draft"
+                question={draftQuestion}
+                index={quiz.questions?.length || 0}
+                total={(quiz.questions?.length || 0) + 1}
+                startInEdit
+                isSaving={addQuestionMutation.isPending}
+                onSave={handleSaveQuestion}
+                onDelete={() => setIsAddingQuestion(false)}
+                onMove={() => {}}
+                onCancelNew={() => setIsAddingQuestion(false)}
+              />
+            )}
           </div>
         ) : (
           <Card>
@@ -440,141 +521,16 @@ export const QuizEditor = () => {
               <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
                 {t('add_first_question_desc')}
               </p>
-              <Button onClick={() => handleOpenQuestionModal()} className="mt-4">
+              <Button onClick={() => setIsAddingQuestion(true)} className="mt-4">
                 <Plus size={18} />
                 {t('add_question')}
               </Button>
             </CardBody>
           </Card>
         )}
+        </>
+        )}
       </div>
-
-      {/* Settings Modal */}
-      <Modal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        title={t('quiz_settings')}
-        size="3xl"
-      >
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const formData = new FormData(e.currentTarget);
-            updateQuizMutation.mutate({
-              title: formData.get('title') as string,
-              description: settingsDescription || undefined,
-              instructions: settingsInstructions || undefined,
-              timeLimit: formData.get('timeLimit') ? parseInt(formData.get('timeLimit') as string) : undefined,
-              maxAttempts: parseInt(formData.get('maxAttempts') as string) || 1,
-              passingScore: parseInt(formData.get('passingScore') as string) || 70,
-              shuffleQuestions: formData.get('shuffleQuestions') === 'on',
-              shuffleOptions: formData.get('shuffleOptions') === 'on',
-            });
-          }}
-          className="space-y-4"
-        >
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              {t('title_label')}
-            </label>
-            <input
-              name="title"
-              defaultValue={quiz.title}
-              required
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              {t('description_label')}
-            </label>
-            <RichTextEditor
-              value={settingsDescription}
-              onChange={setSettingsDescription}
-              editorClassName="forum-reply-editor px-3 py-2 min-h-[200px] max-h-[400px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              {t('instructions_label')}
-            </label>
-            <RichTextEditor
-              value={settingsInstructions}
-              onChange={setSettingsInstructions}
-              editorClassName="forum-reply-editor px-3 py-2 min-h-[120px] max-h-[300px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
-            />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                {t('time_limit_minutes')}
-              </label>
-              <input
-                name="timeLimit"
-                type="number"
-                min="0"
-                defaultValue={quiz.timeLimit || ''}
-                placeholder={t('no_time_limit')}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                {t('max_attempts')}
-              </label>
-              <input
-                name="maxAttempts"
-                type="number"
-                min="0"
-                defaultValue={quiz.maxAttempts}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                {t('passing_score_percent')}
-              </label>
-              <input
-                name="passingScore"
-                type="number"
-                min="0"
-                max="100"
-                defaultValue={quiz.passingScore}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-6">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                name="shuffleQuestions"
-                type="checkbox"
-                defaultChecked={quiz.shuffleQuestions}
-                className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-300">{t('shuffle_questions')}</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                name="shuffleOptions"
-                type="checkbox"
-                defaultChecked={quiz.shuffleOptions}
-                className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-300">{t('shuffle_options')}</span>
-            </label>
-          </div>
-          <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="secondary" onClick={() => setIsSettingsOpen(false)}>
-              {t('common:cancel')}
-            </Button>
-            <Button type="submit" disabled={updateQuizMutation.isPending}>
-              <Save size={18} />
-              {t('save_settings')}
-            </Button>
-          </div>
-        </form>
-      </Modal>
 
       {/* AI MCQ Generator Modal */}
       <MCQGenerator
@@ -585,181 +541,6 @@ export const QuizEditor = () => {
           queryClient.invalidateQueries({ queryKey: ['quiz', parsedQuizId] });
         }}
       />
-
-      {/* Question Modal */}
-      <Modal
-        isOpen={isQuestionModalOpen}
-        onClose={() => {
-          setIsQuestionModalOpen(false);
-          setEditingQuestion(null);
-          setQuestionForm(defaultQuestionForm);
-        }}
-        title={editingQuestion ? t('edit_question') : t('add_question')}
-        size="3xl"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-              {t('question_type_label')}
-            </label>
-            <select
-              value={questionForm.questionType}
-              onChange={(e) => setQuestionForm({
-                ...questionForm,
-                questionType: e.target.value as QuestionFormData['questionType'],
-                correctAnswer: '',
-              })}
-              className="w-full px-3 py-2 rounded-lg"
-              style={{ backgroundColor: colors.bgInput, borderColor: colors.border, borderWidth: 1, color: colors.textPrimary }}
-            >
-              <option value="multiple_choice">{t('multiple_choice')}</option>
-              <option value="true_false">{t('true_false')}</option>
-              <option value="short_answer">{t('short_answer')}</option>
-              <option value="fill_in_blank">{t('fill_in_blank')}</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-              {t('question_text_label')}
-            </label>
-            <textarea
-              value={questionForm.questionText}
-              onChange={(e) => setQuestionForm({ ...questionForm, questionText: e.target.value })}
-              rows={3}
-              required
-              className="w-full px-3 py-2 rounded-lg"
-              style={{ backgroundColor: colors.bgInput, borderColor: colors.border, borderWidth: 1, color: colors.textPrimary }}
-            />
-          </div>
-
-          {questionForm.questionType === 'multiple_choice' && (
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-                {t('options_click_correct')}
-              </label>
-              <div className="space-y-2">
-                {questionForm.options.map((option, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setQuestionForm({ ...questionForm, correctAnswer: option })}
-                      className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                        questionForm.correctAnswer === option && option
-                          ? 'bg-green-500 text-white'
-                          : ''
-                      }`}
-                      style={questionForm.correctAnswer !== option || !option ? {
-                        backgroundColor: colors.border,
-                        color: colors.textSecondary,
-                      } : {}}
-                    >
-                      {questionForm.correctAnswer === option && option ? <CheckCircle size={14} /> : idx + 1}
-                    </button>
-                    <input
-                      value={option}
-                      onChange={(e) => {
-                        const newOptions = [...questionForm.options];
-                        newOptions[idx] = e.target.value;
-                        setQuestionForm({ ...questionForm, options: newOptions });
-                      }}
-                      placeholder={t('option_placeholder', { number: idx + 1 })}
-                      className="flex-1 px-3 py-2 rounded-lg"
-                      style={{ backgroundColor: colors.bgInput, borderColor: colors.border, borderWidth: 1, color: colors.textPrimary }}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {questionForm.questionType === 'true_false' && (
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-                {t('correct_answer_label')}
-              </label>
-              <div className="flex gap-4">
-                {['true', 'false'].map((value) => (
-                  <label key={value} className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="trueFalse"
-                      value={value}
-                      checked={questionForm.correctAnswer === value}
-                      onChange={(e) => setQuestionForm({ ...questionForm, correctAnswer: e.target.value })}
-                      className="w-4 h-4"
-                    />
-                    <span style={{ color: colors.textPrimary }} className="capitalize">{value}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {(questionForm.questionType === 'short_answer' || questionForm.questionType === 'fill_in_blank') && (
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-                {t('correct_answer_label')}
-              </label>
-              <input
-                value={questionForm.correctAnswer}
-                onChange={(e) => setQuestionForm({ ...questionForm, correctAnswer: e.target.value })}
-                required
-                className="w-full px-3 py-2 rounded-lg"
-                style={{ backgroundColor: colors.bgInput, borderColor: colors.border, borderWidth: 1, color: colors.textPrimary }}
-              />
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-              {t('explanation_label')}
-            </label>
-            <textarea
-              value={questionForm.explanation}
-              onChange={(e) => setQuestionForm({ ...questionForm, explanation: e.target.value })}
-              rows={2}
-              className="w-full px-3 py-2 rounded-lg"
-              style={{ backgroundColor: colors.bgInput, borderColor: colors.border, borderWidth: 1, color: colors.textPrimary }}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-              {t('points_label')}
-            </label>
-            <input
-              type="number"
-              min="1"
-              value={questionForm.points}
-              onChange={(e) => setQuestionForm({ ...questionForm, points: parseInt(e.target.value) || 1 })}
-              className="w-32 px-3 py-2 rounded-lg"
-              style={{ backgroundColor: colors.bgInput, borderColor: colors.border, borderWidth: 1, color: colors.textPrimary }}
-            />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-4">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                setIsQuestionModalOpen(false);
-                setEditingQuestion(null);
-                setQuestionForm(defaultQuestionForm);
-              }}
-            >
-              {t('common:cancel')}
-            </Button>
-            <Button
-              onClick={handleSaveQuestion}
-              disabled={addQuestionMutation.isPending || updateQuestionMutation.isPending}
-            >
-              <Save size={18} />
-              {editingQuestion ? t('update_question') : t('add_question')}
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Check, CheckCircle, Trash2, Plus } from 'lucide-react';
+import { X, Check, Trash2, Plus, ChevronUp, ChevronDown } from 'lucide-react';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { RichTextEditor } from '../forum/RichTextEditor';
 import { Button } from '../common/Button';
@@ -27,6 +27,8 @@ export interface QuizQuestionFormData {
   correctAnswer: string;
   explanation: string;
   points: number;
+  /** Per-question option shuffle (randomize order). */
+  shuffleOptions: boolean;
 }
 
 export interface QuizWizardFormData {
@@ -63,6 +65,7 @@ export const blankQuestion = (): QuizQuestionFormData => ({
   correctAnswer: '',
   explanation: '',
   points: 1,
+  shuffleOptions: false,
 });
 
 const isQuestionValid = (q: QuizQuestionFormData): boolean => {
@@ -151,6 +154,36 @@ export const QuizWizardModal = ({
       ...f,
       questions: f.questions.map((q, i) => (i === idx ? { ...q, ...patch } : q)),
     }));
+  };
+
+  // Option list mutations for multiple_choice — keep correctIndexes in
+  // sync as options are added / removed / reordered.
+  const addOption = (qi: number) => {
+    const q = form.questions[qi];
+    updateQuestion(qi, { options: [...q.options, ''] });
+  };
+
+  const removeOption = (qi: number, oi: number) => {
+    const q = form.questions[qi];
+    if (q.options.length <= 2) return;
+    updateQuestion(qi, {
+      options: q.options.filter((_, i) => i !== oi),
+      correctIndexes: q.correctIndexes
+        .filter(i => i !== oi)
+        .map(i => (i > oi ? i - 1 : i)),
+    });
+  };
+
+  const moveOption = (qi: number, oi: number, dir: 'up' | 'down') => {
+    const q = form.questions[qi];
+    const target = dir === 'up' ? oi - 1 : oi + 1;
+    if (target < 0 || target >= q.options.length) return;
+    const options = [...q.options];
+    [options[oi], options[target]] = [options[target], options[oi]];
+    const correctIndexes = q.correctIndexes
+      .map(i => (i === oi ? target : i === target ? oi : i))
+      .sort((a, b) => a - b);
+    updateQuestion(qi, { options, correctIndexes });
   };
 
   const addQuestion = () => {
@@ -384,11 +417,11 @@ export const QuizWizardModal = ({
                   <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
                     {t('question_text_label', { defaultValue: 'Question text' })}
                   </label>
-                  <textarea
+                  <RichTextEditor
                     value={currentQuestion.questionText}
-                    onChange={e => updateQuestion(questionIndex, { questionText: e.target.value })}
-                    rows={2}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-1"
+                    onChange={html => updateQuestion(questionIndex, { questionText: html })}
+                    placeholder={t('question_text_placeholder', { defaultValue: 'Enter your question…' })}
+                    editorClassName="px-3 py-2 min-h-[100px] max-h-[240px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
                   />
                 </div>
 
@@ -413,15 +446,16 @@ export const QuizWizardModal = ({
                                 });
                               }}
                               disabled={!opt.trim()}
-                              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                              style={{
-                                backgroundColor: isCorrect ? '#22c55e' : '#e5e7eb',
-                                color: isCorrect ? '#ffffff' : '#6b7280',
-                              }}
+                              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              style={
+                                isCorrect
+                                  ? { backgroundColor: BRAND, color: '#ffffff' }
+                                  : { border: '2px solid #cbd5e1', color: '#6b7280' }
+                              }
                               aria-label={t('mark_as_correct', { defaultValue: 'Mark as correct' })}
                               aria-pressed={isCorrect}
                             >
-                              {isCorrect ? <CheckCircle className="w-4 h-4" /> : oi + 1}
+                              {isCorrect ? <Check className="w-4 h-4" strokeWidth={3} /> : oi + 1}
                             </button>
                             <input
                               value={opt}
@@ -438,12 +472,50 @@ export const QuizWizardModal = ({
                                 });
                               }}
                               placeholder={t('option_placeholder', { number: oi + 1, defaultValue: `Option ${oi + 1}` })}
-                              className="flex-1 px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-1"
+                              className="flex-1 px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-offset-1"
                             />
+                            <button
+                              type="button"
+                              aria-label={t('move_up', { defaultValue: 'Move up' })}
+                              title={t('move_up', { defaultValue: 'Move up' })}
+                              disabled={oi === 0}
+                              onClick={() => moveOption(questionIndex, oi, 'up')}
+                              className="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                              <ChevronUp className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={t('move_down', { defaultValue: 'Move down' })}
+                              title={t('move_down', { defaultValue: 'Move down' })}
+                              disabled={oi === currentQuestion.options.length - 1}
+                              onClick={() => moveOption(questionIndex, oi, 'down')}
+                              className="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                              <ChevronDown className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={t('remove_option', { defaultValue: 'Remove option' })}
+                              title={t('remove_option', { defaultValue: 'Remove option' })}
+                              disabled={currentQuestion.options.length <= 2}
+                              onClick={() => removeOption(questionIndex, oi)}
+                              className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         );
                       })}
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => addOption(questionIndex)}
+                      className="mt-2 inline-flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      {t('add_option', { defaultValue: 'Add answers' })}
+                    </button>
                   </div>
                 )}
 
@@ -481,38 +553,66 @@ export const QuizWizardModal = ({
                     <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
                       {t('correct_answer_label', { defaultValue: 'Correct answer' })}
                     </label>
-                    <input
-                      type="text"
+                    <RichTextEditor
                       value={currentQuestion.correctAnswer}
-                      onChange={e => updateQuestion(questionIndex, { correctAnswer: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-1"
+                      onChange={html => updateQuestion(questionIndex, { correctAnswer: html })}
+                      editorClassName="px-3 py-2 min-h-[80px] max-h-[180px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
                     />
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
-                      {t('explanation_label', { defaultValue: 'Explanation (optional)' })}
-                    </label>
-                    <input
-                      type="text"
-                      value={currentQuestion.explanation}
-                      onChange={e => updateQuestion(questionIndex, { explanation: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-1"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                    {t('explanation_label', { defaultValue: 'Explanation (optional)' })}
+                  </label>
+                  <RichTextEditor
+                    value={currentQuestion.explanation}
+                    onChange={html => updateQuestion(questionIndex, { explanation: html })}
+                    editorClassName="px-3 py-2 min-h-[80px] max-h-[180px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-end gap-6 pt-3 border-t border-gray-100 dark:border-gray-700">
+                  {currentQuestion.questionType === 'multiple_choice' && (
+                    <div className="w-72">
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                        {t('randomize_order', { defaultValue: 'Randomize order' })}
+                      </label>
+                      <SearchableSelect
+                        value={currentQuestion.shuffleOptions ? 'shuffle' : 'keep'}
+                        onChange={val =>
+                          updateQuestion(questionIndex, {
+                            shuffleOptions: val === 'shuffle',
+                          })
+                        }
+                        options={[
+                          { value: 'keep', label: t('keep_choices_order', { defaultValue: 'Keep choices in current order' }) },
+                          { value: 'shuffle', label: t('shuffle_choices', { defaultValue: 'Shuffle choices' }) },
+                        ]}
+                      />
+                    </div>
+                  )}
                   <div>
                     <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
                       {t('points_label', { defaultValue: 'Points' })}
                     </label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={currentQuestion.points}
-                      onChange={e => updateQuestion(questionIndex, { points: parseInt(e.target.value) || 1 })}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-1"
-                    />
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900">
+                      <input
+                        type="number"
+                        min={1}
+                        value={currentQuestion.points}
+                        onChange={e => updateQuestion(questionIndex, { points: parseInt(e.target.value) || 1 })}
+                        className="w-12 bg-transparent text-gray-900 dark:text-gray-100 focus:outline-none"
+                      />
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        {t('points_label', { defaultValue: 'Points' })}
+                      </span>
+                      <span
+                        className="w-3.5 h-3.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: '#f59e0b' }}
+                        aria-hidden="true"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
