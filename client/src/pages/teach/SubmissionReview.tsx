@@ -1,43 +1,56 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  User,
-  Calendar,
   Award,
   Check,
   Clock,
+  Calendar,
   FileText,
   ExternalLink,
   Bot,
-  MessageSquare,
 } from 'lucide-react';
 import { assignmentsApi } from '../../api/assignments';
 import { agentAssignmentsApi } from '../../api/agentAssignments';
 import { coursesApi } from '../../api/courses';
-import { Card, CardBody, CardHeader } from '../../components/common/Card';
+import { Card, CardBody } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { StatusBadge } from '../../components/common/StatusBadge';
-import { EmptyState } from '../../components/common/EmptyState';
+import { DataTable, type ColumnDef } from '../../components/common/DataTable';
+import { RowMenu } from '../../components/common/RowMenu';
 import { sanitizeHtml, isHtmlContent } from '../../utils/sanitize';
 import { AssignmentSubmission } from '../../types';
 import activityLogger from '../../services/activityLogger';
 import { TrackedContent } from '../../components/common/TrackedContent';
 
+type RowStatus = 'graded' | 'submitted' | 'pending' | 'draft';
+
+interface SubmissionRow {
+  id: number;
+  studentName: string;
+  studentEmail: string;
+  status: RowStatus;
+  grade: number | null;
+  submittedAt: string | null;
+  /** late = past due; grace = within the grace window. */
+  late: boolean;
+  grace: boolean;
+  agentName?: string;
+  onView: (() => void) | null;
+}
+
 export const SubmissionReview = () => {
-  const { t } = useTranslation(['teaching', 'navigation']);
+  const { t } = useTranslation(['teaching', 'navigation', 'common', 'courses']);
   const { id, assignmentId } = useParams<{ id: string; assignmentId: string }>();
   const courseId = parseInt(id!, 10);
   const assId = parseInt(assignmentId!, 10);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (assId && courseId) {
-      activityLogger.logSubmissionListViewed(assId, courseId);
-    }
+    if (assId && courseId) activityLogger.logSubmissionListViewed(assId, courseId);
   }, [assId, courseId]);
 
   const { data: course } = useQuery({
@@ -54,22 +67,20 @@ export const SubmissionReview = () => {
 
   const isAgentAssignment = assignment?.submissionType === 'ai_agent';
 
-  // Regular submissions
-  const { data: submissions, isLoading: submissionsLoading } = useQuery({
+  const { data: submissions = [], isLoading: submissionsLoading } = useQuery({
     queryKey: ['assignmentSubmissions', assId],
     queryFn: () => assignmentsApi.getSubmissions(assId),
     enabled: !!assId && !isAgentAssignment && !assignmentLoading,
   });
 
-  // Agent submissions
   const { data: agentSubmissions = [], isLoading: agentSubmissionsLoading } = useQuery({
     queryKey: ['agentSubmissions', assId],
     queryFn: () => agentAssignmentsApi.getAgentSubmissions(assId),
     enabled: !!assId && isAgentAssignment && !assignmentLoading,
   });
 
-  const formatDate = (dateStr: string, utc = false) => {
-    return new Date(dateStr).toLocaleDateString(undefined, {
+  const formatDate = (dateStr: string, utc = false) =>
+    new Date(dateStr).toLocaleString(undefined, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -77,39 +88,80 @@ export const SubmissionReview = () => {
       minute: '2-digit',
       ...(utc ? { timeZone: 'UTC' } : {}),
     });
+
+  const lateInfo = (submittedAt: string | null | undefined) => {
+    if (!submittedAt || !assignment?.dueDate) return { late: false, grace: false };
+    const s = new Date(submittedAt);
+    const due = new Date(assignment.dueDate);
+    if (s <= due) return { late: false, grace: false };
+    if (
+      assignment.gracePeriodDeadline &&
+      s <= new Date(assignment.gracePeriodDeadline)
+    )
+      return { late: true, grace: true };
+    return { late: true, grace: false };
   };
 
-  const getSubmissionStatus = (submission: AssignmentSubmission) => {
-    if (submission.status === 'graded') return 'graded';
-    if (submission.status === 'submitted') return 'submitted';
-    return 'pending';
-  };
-
-  const getAgentSubmissionStatus = (config: typeof agentSubmissions[0]) => {
-    if (config.submission?.status === 'graded') return 'graded';
-    if (!config.isDraft) return 'submitted';
-    return 'draft';
-  };
-
-  const getTypeLabel = () => {
-    switch (assignment?.submissionType) {
-      case 'ai_agent': return t('ai_agent_assignment');
-      case 'file': return t('file_assignment');
-      case 'mixed': return t('mixed_assignment');
-      default: return t('text_assignment');
+  const rows: SubmissionRow[] = useMemo(() => {
+    if (isAgentAssignment) {
+      return agentSubmissions.map((c) => {
+        const status: RowStatus =
+          c.submission?.status === 'graded'
+            ? 'graded'
+            : !c.isDraft
+            ? 'submitted'
+            : 'draft';
+        const { late, grace } = lateInfo(c.submittedAt);
+        return {
+          id: c.id,
+          studentName: c.user?.fullname || t('unknown_student'),
+          studentEmail: c.user?.email || '',
+          status,
+          grade: c.submission?.status === 'graded' ? c.submission.grade ?? null : null,
+          submittedAt: c.submittedAt || null,
+          late,
+          grace,
+          agentName: c.agentName,
+          onView: c.submission
+            ? () =>
+                navigate(
+                  `/teach/courses/${courseId}/assignments/${assId}/agent-submissions/${c.submission!.id}`,
+                )
+            : null,
+        };
+      });
     }
-  };
+    return (submissions as AssignmentSubmission[]).map((s) => {
+      const status: RowStatus =
+        s.status === 'graded' ? 'graded' : s.status === 'submitted' ? 'submitted' : 'pending';
+      const { late, grace } = lateInfo(s.submittedAt);
+      return {
+        id: s.id,
+        studentName: s.user?.fullname || t('unknown_student'),
+        studentEmail: s.user?.email || '',
+        status,
+        grade: s.status === 'graded' ? s.grade ?? null : null,
+        submittedAt: s.submittedAt || null,
+        late,
+        grace,
+        onView: () =>
+          navigate(`/teach/courses/${courseId}/assignments/${assId}/submissions/${s.id}`),
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAgentAssignment, agentSubmissions, submissions, assignment, courseId, assId]);
 
-  const loading = assignmentLoading || (isAgentAssignment ? agentSubmissionsLoading : submissionsLoading);
+  const loading =
+    assignmentLoading || (isAgentAssignment ? agentSubmissionsLoading : submissionsLoading);
 
-  if (loading) {
-    return <Loading fullScreen text={t('loading_submissions')} />;
-  }
+  if (loading) return <Loading fullScreen text={t('loading_submissions')} />;
 
   if (!assignment) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{t('assignment_not_found')}</h1>
+        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+          {t('assignment_not_found')}
+        </h1>
         <Button onClick={() => navigate(`/teach/courses/${courseId}/assignments`)}>
           {t('back_to_assignments')}
         </Button>
@@ -117,21 +169,121 @@ export const SubmissionReview = () => {
     );
   }
 
-  const pendingCount = isAgentAssignment
-    ? agentSubmissions.filter(s => !s.isDraft && s.submission?.status !== 'graded').length
-    : submissions?.filter(s => s.status === 'submitted').length || 0;
-  const gradedCount = isAgentAssignment
-    ? agentSubmissions.filter(s => s.submission?.status === 'graded').length
-    : submissions?.filter(s => s.status === 'graded').length || 0;
-  const totalCount = isAgentAssignment ? agentSubmissions.length : (submissions?.length || 0);
+  const pendingCount = rows.filter((r) => r.status === 'submitted').length;
+  const gradedCount = rows.filter((r) => r.status === 'graded').length;
 
-  const TypeIcon = isAgentAssignment ? Bot : FileText;
-  const typeColor = isAgentAssignment ? 'text-violet-600' : 'text-blue-600';
-  const typeBg = isAgentAssignment ? 'bg-violet-100' : 'bg-blue-100';
+  const studentOptions = Array.from(
+    new Map(rows.map((r) => [r.studentName, r.studentName])).keys(),
+  )
+    .sort()
+    .map((n) => ({ value: n, label: n }));
+
+  const columns: ColumnDef<SubmissionRow>[] = [
+    {
+      id: 'student',
+      header: t('teaching:student', { defaultValue: 'Student' }),
+      sortAccessor: (r) => r.studentName.toLowerCase(),
+      width: '30%',
+      filter: {
+        kind: 'select',
+        options: studentOptions,
+        predicate: (r, v) => r.studentName === v,
+      },
+      cell: (r) => (
+        <div className="min-w-0">
+          <p className="font-medium text-gray-800 dark:text-gray-100 truncate" title={r.studentName}>
+            {r.studentName}
+          </p>
+          {r.studentEmail && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate" title={r.studentEmail}>
+              {r.studentEmail}
+            </p>
+          )}
+        </div>
+      ),
+    },
+    ...(isAgentAssignment
+      ? [
+          {
+            id: 'agent',
+            header: t('teaching:agent', { defaultValue: 'Agent' }),
+            sortAccessor: (r: SubmissionRow) => r.agentName?.toLowerCase() ?? '',
+            hideOnMobile: true,
+            width: '22%',
+            cell: (r: SubmissionRow) => (
+              <span className="text-gray-600 dark:text-gray-300 truncate">{r.agentName || '—'}</span>
+            ),
+          } as ColumnDef<SubmissionRow>,
+        ]
+      : []),
+    {
+      id: 'status',
+      header: t('teaching:status', { defaultValue: 'Status' }),
+      sortAccessor: (r) => r.status,
+      width: '8rem',
+      filter: {
+        kind: 'select',
+        options: [
+          { value: 'submitted', label: t('common:status_submitted', { defaultValue: 'Submitted' }) },
+          { value: 'graded', label: t('common:status_graded', { defaultValue: 'Graded' }) },
+          { value: 'pending', label: t('common:status_pending', { defaultValue: 'Pending' }) },
+          { value: 'draft', label: t('common:status_draft', { defaultValue: 'Draft' }) },
+        ],
+        predicate: (r, v) => r.status === v,
+      },
+      cell: (r) => <StatusBadge status={r.status} />,
+    },
+    {
+      id: 'grade',
+      header: t('teaching:grade', { defaultValue: 'Grade' }),
+      sortAccessor: (r) => r.grade ?? -1,
+      align: 'right',
+      hideOnMobile: true,
+      width: '7rem',
+      cell: (r) =>
+        r.grade != null ? (
+          <span className="font-medium tabular-nums text-gray-800 dark:text-gray-100">
+            {r.grade}/{assignment.points}
+          </span>
+        ) : (
+          <span className="text-gray-400">—</span>
+        ),
+    },
+    {
+      id: 'submitted',
+      header: t('teaching:submitted', { defaultValue: 'Submitted' }),
+      sortAccessor: (r) => (r.submittedAt ? new Date(r.submittedAt).getTime() : 0),
+      align: 'right',
+      width: '13rem',
+      filter: {
+        kind: 'date',
+        // v is YYYY-MM-DD from the calendar; match the same local day.
+        predicate: (r, v) =>
+          !!r.submittedAt &&
+          new Date(r.submittedAt).toLocaleDateString('en-CA') === v,
+      },
+      cell: (r) =>
+        r.submittedAt ? (
+          <span
+            className={`text-sm tabular-nums ${
+              r.grace
+                ? 'text-amber-600 font-medium'
+                : r.late
+                ? 'text-red-500 font-medium'
+                : 'text-gray-600 dark:text-gray-300'
+            }`}
+          >
+            {formatDate(r.submittedAt)}
+            {r.grace && ` (${t('courses:grace_period_status', { defaultValue: 'Grace Period' })})`}
+          </span>
+        ) : (
+          <span className="text-gray-400">—</span>
+        ),
+    },
+  ];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-      {/* Breadcrumb */}
       <div className="mb-6">
         <Breadcrumb
           homeHref="/"
@@ -147,254 +299,101 @@ export const SubmissionReview = () => {
         />
       </div>
 
-      {/* Assignment Header */}
+      {/* Compact assignment header */}
       <Card className="mb-6">
         <CardBody>
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <TypeIcon className={`w-5 h-5 ${typeColor}`} />
-                <span className={`text-sm font-medium ${typeColor} ${typeBg} px-2 py-0.5 rounded`}>
-                  {getTypeLabel()}
-                </span>
-              </div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{assignment.title}</h1>
-              {assignment.description && (
-                isHtmlContent(assignment.description)
-                  ? <TrackedContent context="assignment" courseId={courseId} objectId={assId} objectTitle={assignment.title}>
-                      <div className="text-gray-600 mb-4 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(assignment.description) }} />
-                    </TrackedContent>
-                  : <p className="text-gray-600 mb-4">{assignment.description}</p>
-              )}
-              <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-sm">
-                <div className="flex items-center gap-2 text-gray-500">
-                  <Award className="w-4 h-4" />
-                  <span>{t('x_points', { count: assignment.points })}</span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-500">
-                  <Clock className="w-4 h-4 text-yellow-500" />
-                  <span>{t('pending_count', { count: pendingCount })}</span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-500">
-                  <Check className="w-4 h-4 text-green-500" />
-                  <span>{t('graded_count', { count: gradedCount })}</span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-500">
-                  <Calendar className="w-4 h-4" />
-                  <span>
-                    {assignment.dueDate
-                      ? `${t('due_date')}: ${formatDate(assignment.dueDate, true)}`
-                      : t('no_due_date')}
-                  </span>
-                </div>
-                {assignment.gracePeriodDeadline && (
-                  <div className="flex items-center gap-2 text-amber-600">
-                    <Clock className="w-4 h-4" />
-                    <span>
-                      {t('courses:grace_period_deadline', { defaultValue: 'Grace Period Deadline' })}: {formatDate(assignment.gracePeriodDeadline, true)}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
+          <div className="flex items-center gap-2 mb-1">
+            {isAgentAssignment ? (
+              <Bot className="w-4 h-4 text-violet-600" />
+            ) : (
+              <FileText className="w-4 h-4 text-blue-600" />
+            )}
+            <span className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              {t('submissions')}
+            </span>
+          </div>
+          <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {assignment.title}
+          </h1>
+          {assignment.description &&
+            (isHtmlContent(assignment.description) ? (
+              <TrackedContent
+                context="assignment"
+                courseId={courseId}
+                objectId={assId}
+                objectTitle={assignment.title}
+              >
+                <div
+                  className="text-sm text-gray-600 dark:text-gray-300 mt-1 prose prose-sm dark:prose-invert max-w-none"
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(assignment.description) }}
+                />
+              </TrackedContent>
+            ) : (
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                {assignment.description}
+              </p>
+            ))}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm mt-3 text-gray-500 dark:text-gray-400">
+            <span className="flex items-center gap-1.5">
+              <Award className="w-4 h-4" />
+              {t('x_points', { count: assignment.points })}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-yellow-500" />
+              {t('pending_count', { count: pendingCount })}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Check className="w-4 h-4 text-green-500" />
+              {t('graded_count', { count: gradedCount })}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Calendar className="w-4 h-4" />
+              {assignment.dueDate
+                ? `${t('due_date')}: ${formatDate(assignment.dueDate, true)}`
+                : t('no_due_date')}
+            </span>
           </div>
         </CardBody>
       </Card>
 
-      {/* Submissions List */}
-      <Card>
-        <CardHeader>
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
-            {t('submissions_count', { count: totalCount })}
-          </h2>
-        </CardHeader>
-        <CardBody>
-          {isAgentAssignment ? (
-            /* Agent Submissions */
-            agentSubmissions.length > 0 ? (
-              <div className="space-y-4">
-                {agentSubmissions.map((config) => (
-                  <div
-                    key={config.id}
-                    className="border border-gray-200 rounded-lg p-4"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                          <User className="w-5 h-5 text-gray-500" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-gray-900">
-                            {config.user?.fullname || t('unknown_student')}
-                          </h3>
-                          <p className="text-sm text-gray-500">{config.user?.email}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <StatusBadge status={getAgentSubmissionStatus(config)} />
-                        {config.submission?.status === 'graded' && (
-                          <span className="text-lg font-semibold text-gray-900">
-                            {config.submission.grade}/{assignment.points}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Agent Info */}
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
-                      <div className="flex items-center gap-1.5">
-                        <Bot className="w-4 h-4 text-violet-500" />
-                        <span className="font-medium">{config.agentName}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <MessageSquare className="w-4 h-4 text-gray-400" />
-                        <span>
-                          {config._count?.testConversations || 0} {t('test_conversations')}
-                        </span>
-                      </div>
-                      <span className="text-gray-400">&middot;</span>
-                      <span>{t('version')} {config.version}</span>
-                    </div>
-
-                    {/* Submission date */}
-                    {config.submittedAt && (
-                      <div className={`mt-2 text-xs ${
-                        assignment.dueDate && assignment.gracePeriodDeadline
-                          && new Date(config.submittedAt) > new Date(assignment.dueDate)
-                          && new Date(config.submittedAt) <= new Date(assignment.gracePeriodDeadline)
-                          ? 'text-amber-600 font-medium'
-                          : assignment.dueDate && new Date(config.submittedAt) > new Date(assignment.dueDate)
-                          ? 'text-red-500 font-medium'
-                          : 'text-gray-500'
-                      }`}>
-                        {t('submitted')} {formatDate(config.submittedAt)}
-                        {assignment.dueDate && assignment.gracePeriodDeadline
-                          && new Date(config.submittedAt) > new Date(assignment.dueDate)
-                          && new Date(config.submittedAt) <= new Date(assignment.gracePeriodDeadline)
-                          && ` (${t('courses:grace_period_status', { defaultValue: 'Grace Period' })})`}
-                      </div>
-                    )}
-
-                    {/* Feedback preview */}
-                    {config.submission?.feedback && (
-                      <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-700">
-                        <span className="font-medium">{t('feedback')}: </span>
-                        {config.submission.feedback.length > 100
-                          ? `${config.submission.feedback.slice(0, 100)}...`
-                          : config.submission.feedback}
-                      </div>
-                    )}
-
-                    {/* View Answer button */}
-                    {config.submission && (
-                      <div className="mt-3 flex justify-end">
-                        <Button
-                          size="sm"
-                          onClick={() =>
-                            navigate(
-                              `/teach/courses/${courseId}/assignments/${assId}/agent-submissions/${config.submission!.id}`
-                            )
-                          }
-                        >
-                          {t('view_answer')}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <EmptyState
-                icon={Bot}
-                title={t('no_submissions_yet')}
-                description={t('no_submissions_description')}
-              />
-            )
-          ) : (
-            /* Regular Submissions */
-            submissions && submissions.length > 0 ? (
-              <div className="space-y-4">
-                {submissions.map(submission => (
-                  <div
-                    key={submission.id}
-                    className="border border-gray-200 rounded-lg p-4"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                          <User className="w-5 h-5 text-gray-500" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-gray-900">
-                            {submission.user?.fullname || t('unknown_student')}
-                          </h3>
-                          <p className="text-sm text-gray-500">{submission.user?.email}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <StatusBadge status={getSubmissionStatus(submission)} />
-                        {submission.status === 'graded' && (
-                          <span className="text-lg font-semibold text-gray-900">
-                            {submission.grade}/{assignment.points}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Submission date */}
-                    <div className={`mt-2 text-xs ${
-                      assignment.dueDate && assignment.gracePeriodDeadline
-                        && new Date(submission.submittedAt) > new Date(assignment.dueDate)
-                        && new Date(submission.submittedAt) <= new Date(assignment.gracePeriodDeadline)
-                        ? 'text-amber-600 font-medium'
-                        : assignment.dueDate && new Date(submission.submittedAt) > new Date(assignment.dueDate)
-                        ? 'text-red-500 font-medium'
-                        : 'text-gray-500'
-                    }`}>
-                      {t('submitted_at', { date: formatDate(submission.submittedAt) })}
-                      {assignment.dueDate && assignment.gracePeriodDeadline
-                        && new Date(submission.submittedAt) > new Date(assignment.dueDate)
-                        && new Date(submission.submittedAt) <= new Date(assignment.gracePeriodDeadline)
-                        && ` (${t('courses:grace_period_status', { defaultValue: 'Grace Period' })})`}
-                    </div>
-
-                    {/* Existing Feedback */}
-                    {submission.feedback && (
-                      <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-700">
-                        <span className="font-medium">{t('feedback')}: </span>
-                        {submission.feedback.length > 100
-                          ? `${submission.feedback.slice(0, 100)}...`
-                          : submission.feedback}
-                      </div>
-                    )}
-
-                    {/* Actions */}
-                    <div className="mt-3 flex justify-end">
-                      <Button
-                        size="sm"
-                        onClick={() =>
-                          navigate(
-                            `/teach/courses/${courseId}/assignments/${assId}/submissions/${submission.id}`
-                          )
-                        }
-                        icon={<ExternalLink className="w-3 h-3" />}
-                      >
-                        {t('view_answer')}
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <EmptyState
-                icon={FileText}
-                title={t('no_submissions_yet')}
-                description={t('no_submissions_description')}
-              />
-            )
-          )}
-        </CardBody>
-      </Card>
+      <DataTable<SubmissionRow>
+        rows={rows}
+        columns={columns}
+        rowKey={(r) => r.id}
+        pageSize={20}
+        globalSearch={{
+          placeholder: t('teaching:search_students', {
+            defaultValue: 'Search by name or email…',
+          }),
+          predicate: (r, q) => {
+            const lower = q.toLowerCase();
+            return (
+              r.studentName.toLowerCase().includes(lower) ||
+              r.studentEmail.toLowerCase().includes(lower)
+            );
+          },
+        }}
+        empty={
+          <div className="flex items-center justify-center gap-2 py-6 text-sm text-gray-500 dark:text-gray-400">
+            <FileText className="w-4 h-4" />
+            <span>{t('no_submissions_yet')}</span>
+          </div>
+        }
+        rowActions={(r) =>
+          r.onView ? (
+            <RowMenu
+              items={[
+                {
+                  key: 'view',
+                  label: t('view_answer'),
+                  icon: <ExternalLink className="w-3.5 h-3.5" />,
+                  onClick: r.onView,
+                },
+              ]}
+            />
+          ) : null
+        }
+      />
     </div>
   );
 };

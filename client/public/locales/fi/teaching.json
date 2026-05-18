@@ -30,6 +30,8 @@
   "graded": "Arvioitu",
   "not_graded": "Ei arvioitu",
   "grade": "Arvosana",
+  "agent": "Agentti",
+  "filter_by_date": "Suodata päivämäärän mukaan…",
   "score": "Pisteet",
   "points": "Pisteitä",
   "max_points": "Max pisteet",

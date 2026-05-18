@@ -30,6 +30,8 @@
   "graded": "Calificado",
   "not_graded": "No calificado",
   "grade": "Calificación",
+  "agent": "Agente",
+  "filter_by_date": "Filtrar por fecha…",
   "score": "Puntuación",
   "points": "Puntos",
   "max_points": "Puntos máximos",
