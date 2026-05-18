@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Edit, Eye, EyeOff, FileQuestion, Trash2 } from 'lucide-react';
+import { Edit, Eye, EyeOff, ClipboardList, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingListBreadcrumb } from '../../utils/breadcrumbs';
@@ -11,30 +11,29 @@ import { DataTable, type ColumnDef } from '../../components/common/DataTable';
 import { RowMenu } from '../../components/common/RowMenu';
 import { coursesApi } from '../../api/courses';
 import { resolveFileUrl } from '../../api/client';
-import { quizzesApi, type InstructorQuiz } from '../../api/quizzes';
+import { assignmentsApi, type InstructorAssignment } from '../../api/assignments';
 
-export const QuizList = () => {
+export const AssignmentList = () => {
   const { t } = useTranslation(['teaching', 'common', 'navigation']);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const courseIdParam = searchParams.get('courseId');
 
-  const [deleteTarget, setDeleteTarget] = useState<InstructorQuiz | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<InstructorAssignment | null>(null);
 
-  const { data: allQuizzes = [], isLoading } = useQuery({
-    queryKey: ['quizzes', 'instructor'],
-    queryFn: () => quizzesApi.getInstructorQuizzes(),
+  const { data: allAssignments = [], isLoading } = useQuery({
+    queryKey: ['assignments', 'instructor'],
+    queryFn: () => assignmentsApi.getInstructorAssignments(),
   });
 
-  // When reached from a course's curriculum the list is scoped to that
-  // course via ?courseId= (and the breadcrumb gains a course crumb).
-  const quizzes = courseIdParam
-    ? allQuizzes.filter(q => String(q.courseId) === courseIdParam)
-    : allQuizzes;
+  // Scoped to a single course when reached from a curriculum link.
+  const assignments = courseIdParam
+    ? allAssignments.filter(a => String(a.courseId) === courseIdParam)
+    : allAssignments;
 
-  // Owned courses feed the "Filter by course" select. Cached query —
-  // also used by TeachDashboard, so this is usually a hit.
+  // Owned courses feed the "Filter by course" select (cached query —
+  // shared with /teach/quizzes & /teach/forums).
   const { data: myCourses = [] } = useQuery({
     queryKey: ['my-courses'],
     queryFn: () => coursesApi.getMyCourses(),
@@ -42,63 +41,60 @@ export const QuizList = () => {
 
   const togglePublishMutation = useMutation({
     mutationFn: ({ id, isPublished }: { id: number; isPublished: boolean }) =>
-      quizzesApi.updateQuiz(id, { isPublished }),
+      assignmentsApi.updateAssignment(id, { isPublished }),
     onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['quizzes', 'instructor'] });
+      queryClient.invalidateQueries({ queryKey: ['assignments', 'instructor'] });
       toast.success(
         vars.isPublished
-          ? t('teaching:quiz_published', { defaultValue: 'Quiz published' })
-          : t('teaching:quiz_unpublished', { defaultValue: 'Quiz unpublished' }),
+          ? t('teaching:assignment_published')
+          : t('teaching:assignment_unpublished'),
       );
     },
-    onError: () =>
-      toast.error(
-        t('teaching:failed_to_update_quiz', { defaultValue: 'Failed to update quiz' }),
-      ),
+    onError: () => toast.error(t('teaching:failed_to_update_assignment')),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => quizzesApi.deleteQuiz(id),
+    mutationFn: (id: number) => assignmentsApi.deleteAssignment(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['quizzes', 'instructor'] });
-      toast.success(t('teaching:quiz_deleted'));
+      queryClient.invalidateQueries({ queryKey: ['assignments', 'instructor'] });
+      toast.success(t('teaching:assignment_deleted'));
       setDeleteTarget(null);
     },
-    onError: () => toast.error(t('teaching:failed_to_delete_quiz')),
+    onError: () => toast.error(t('teaching:failed_to_delete_assignment')),
   });
 
-  const columns: ColumnDef<InstructorQuiz>[] = [
+  const openAssignment = (a: InstructorAssignment) =>
+    `/teach/courses/${a.courseId}/assignments/${a.id}/submissions`;
+
+  const columns: ColumnDef<InstructorAssignment>[] = [
     {
       id: 'title',
-      header: t('teaching:quiz_column_quiz', { defaultValue: 'Quiz' }),
-      sortAccessor: q => q.title.toLowerCase(),
+      header: t('teaching:assignment_column_assignment'),
+      sortAccessor: a => a.title.toLowerCase(),
       width: '32%',
-      cell: q => (
+      cell: a => (
         <Link
-          to={`/teach/courses/${q.courseId}/quizzes/${q.id}`}
+          to={openAssignment(a)}
           className="block truncate font-normal text-gray-700 dark:text-gray-200 hover:text-teal-600 dark:hover:text-teal-400"
-          title={q.title}
+          title={a.title}
         >
-          {q.title}
+          {a.title}
         </Link>
       ),
     },
     {
       id: 'course',
       header: t('teaching:quiz_column_course', { defaultValue: 'Course' }),
-      sortAccessor: q => q.courseName.toLowerCase(),
-      width: '30%',
+      sortAccessor: a => a.courseName.toLowerCase(),
+      width: '28%',
       filter: {
         kind: 'select',
-        options: myCourses.map(c => ({
-          value: String(c.id),
-          label: c.title,
-        })),
-        predicate: (q, v) => String(q.courseId) === v,
+        options: myCourses.map(c => ({ value: String(c.id), label: c.title })),
+        predicate: (a, v) => String(a.courseId) === v,
       },
-      cell: q => {
-        const thumb = q.courseThumbnail
-          ? resolveFileUrl(q.courseThumbnail) || q.courseThumbnail
+      cell: a => {
+        const thumb = a.courseThumbnail
+          ? resolveFileUrl(a.courseThumbnail) || a.courseThumbnail
           : null;
         return (
           <div className="flex items-center gap-2 min-w-0">
@@ -116,63 +112,58 @@ export const QuizList = () => {
                 aria-hidden="true"
               />
             )}
-            <span
-              className="truncate text-gray-600 dark:text-gray-300"
-              title={q.courseName}
-            >
-              {q.courseName}
+            <span className="truncate text-gray-600 dark:text-gray-300" title={a.courseName}>
+              {a.courseName}
             </span>
           </div>
         );
       },
     },
     {
-      id: 'time',
-      header: t('teaching:quiz_column_time', { defaultValue: 'Time' }),
-      sortAccessor: q => q.timeLimit,
+      id: 'type',
+      header: t('teaching:assignment_column_type'),
+      sortAccessor: a => a.submissionType,
+      hideOnMobile: true,
+      width: '8rem',
+      cell: a => (
+        <span className="capitalize text-gray-600 dark:text-gray-300">
+          {a.submissionType.replace('_', ' ')}
+        </span>
+      ),
+    },
+    {
+      id: 'due',
+      header: t('teaching:assignment_column_due'),
+      sortAccessor: a => (a.dueDate ? new Date(a.dueDate).getTime() : 0),
+      align: 'right',
+      hideOnMobile: true,
+      width: '8rem',
+      cell: a => (
+        <span className="text-gray-600 dark:text-gray-300 tabular-nums">
+          {a.dueDate ? new Date(a.dueDate).toLocaleDateString() : '—'}
+        </span>
+      ),
+    },
+    {
+      id: 'points',
+      header: t('teaching:assignment_column_points'),
+      sortAccessor: a => a.points,
       align: 'right',
       hideOnMobile: true,
       width: '6rem',
-      cell: q => (
-        <span className="text-gray-600 dark:text-gray-300 tabular-nums">
-          {q.timeLimit ?? '—'}
-        </span>
+      cell: a => (
+        <span className="text-gray-600 dark:text-gray-300 tabular-nums">{a.points}</span>
       ),
     },
     {
-      id: 'maxAttempts',
-      header: t('teaching:quiz_column_attempts_short', { defaultValue: 'Attempts' }),
-      sortAccessor: q => q.maxAttempts,
-      align: 'right',
-      hideOnMobile: true,
-      width: '6rem',
-      cell: q => (
-        <span className="text-gray-600 dark:text-gray-300 tabular-nums">
-          {q.maxAttempts}
-        </span>
-      ),
-    },
-    {
-      id: 'participants',
-      header: t('teaching:quiz_column_participants_short', { defaultValue: 'People' }),
-      sortAccessor: q => q.participantCount,
-      align: 'right',
-      width: '5.5rem',
-      cell: q => (
-        <span className="text-gray-600 dark:text-gray-300 tabular-nums">
-          {q.participantCount}
-        </span>
-      ),
-    },
-    {
-      id: 'questions',
-      header: t('teaching:quiz_column_questions', { defaultValue: 'Questions' }),
-      sortAccessor: q => q.questionCount,
+      id: 'submissions',
+      header: t('teaching:assignment_column_submissions'),
+      sortAccessor: a => a.submissionCount,
       align: 'right',
       width: '7rem',
-      cell: q => (
+      cell: a => (
         <span className="text-gray-600 dark:text-gray-300 tabular-nums">
-          {q.questionCount}
+          {a.submissionCount}
         </span>
       ),
     },
@@ -186,72 +177,66 @@ export const QuizList = () => {
           items={
             courseIdParam
               ? buildTeachingListBreadcrumb(
-                  t('navigation:quizzes'),
+                  t('navigation:assignments'),
                   courseIdParam,
                   myCourses.find(c => String(c.id) === courseIdParam)?.title ||
-                    quizzes[0]?.courseName ||
-                    t('navigation:quizzes'),
+                    assignments[0]?.courseName ||
+                    t('navigation:assignments'),
                 )
-              : [{ label: t('navigation:quizzes') }]
+              : [{ label: t('navigation:assignments') }]
           }
         />
       </div>
 
-      <DataTable<InstructorQuiz>
-        rows={quizzes}
+      <DataTable<InstructorAssignment>
+        rows={assignments}
         columns={columns}
-        rowKey={q => q.id}
+        rowKey={a => a.id}
         isLoading={isLoading}
         pageSize={20}
         globalSearch={{
-          placeholder: t('teaching:search_quizzes_placeholder', {
-            defaultValue: 'Search by quiz or course…',
-          }),
-          predicate: (q, query) => {
+          placeholder: t('teaching:search_assignments_placeholder'),
+          predicate: (a, query) => {
             const lower = query.toLowerCase();
             return (
-              q.title.toLowerCase().includes(lower) ||
-              q.courseName.toLowerCase().includes(lower)
+              a.title.toLowerCase().includes(lower) ||
+              a.courseName.toLowerCase().includes(lower)
             );
           },
         }}
         empty={
           <div className="flex items-center justify-center gap-2 py-6 text-sm text-gray-500 dark:text-gray-400">
-            <FileQuestion className="w-4 h-4" />
-            <span>{t('teaching:quizzes_appear_here')}</span>
+            <ClipboardList className="w-4 h-4" />
+            <span>{t('teaching:assignments_appear_here')}</span>
           </div>
         }
-        rowActions={q => (
+        rowActions={a => (
           <RowMenu
             items={[
               {
                 key: 'edit',
                 label: t('common:edit', { defaultValue: 'Edit' }),
                 icon: <Edit className="w-3.5 h-3.5" />,
-                onClick: () =>
-                  navigate(`/teach/courses/${q.courseId}/quizzes/${q.id}`),
+                onClick: () => navigate(openAssignment(a)),
               },
               {
                 key: 'publish',
-                label: q.isPublished
+                label: a.isPublished
                   ? t('teaching:unpublish', { defaultValue: 'Unpublish' })
                   : t('teaching:publish', { defaultValue: 'Publish' }),
-                icon: q.isPublished ? (
+                icon: a.isPublished ? (
                   <EyeOff className="w-3.5 h-3.5" />
                 ) : (
                   <Eye className="w-3.5 h-3.5" />
                 ),
                 onClick: () =>
-                  togglePublishMutation.mutate({
-                    id: q.id,
-                    isPublished: !q.isPublished,
-                  }),
+                  togglePublishMutation.mutate({ id: a.id, isPublished: !a.isPublished }),
               },
               {
                 key: 'delete',
                 label: t('common:delete', { defaultValue: 'Delete' }),
                 icon: <Trash2 className="w-3.5 h-3.5" />,
-                onClick: () => setDeleteTarget(q),
+                onClick: () => setDeleteTarget(a),
                 destructive: true,
               },
             ]}
@@ -259,20 +244,15 @@ export const QuizList = () => {
         )}
       />
 
-      {/* Delete confirmation */}
       <ConfirmDialog
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
-        title={t('teaching:confirm_delete_quiz_title', { defaultValue: 'Delete quiz?' })}
-        message={t('teaching:confirm_delete_quiz_body', {
-          defaultValue: 'This deletes the quiz and all its questions and attempts.',
-          title: deleteTarget?.title,
-        })}
+        title={t('teaching:confirm_delete_assignment_title')}
+        message={t('teaching:confirm_delete_assignment_body', { title: deleteTarget?.title })}
         confirmText={t('common:delete', { defaultValue: 'Delete' })}
         loading={deleteMutation.isPending}
       />
     </div>
   );
 };
-

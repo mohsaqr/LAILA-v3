@@ -120,6 +120,21 @@ export const buildTeachingBreadcrumb = (
 };
 
 /**
+ * Build breadcrumb for a global teaching list page (quizzes / forums /
+ * assignments / surveys) when it is pre-filtered to a single course via
+ * `?courseId=`. Renders `Courses › <Course> › <Section>`.
+ */
+export const buildTeachingListBreadcrumb = (
+  section: string,
+  courseId: number | string,
+  courseTitle: string
+): BreadcrumbItem[] => [
+  { label: 'Courses', href: '/courses' },
+  { label: courseTitle, href: `/teach/courses/${courseId}/curriculum` },
+  { label: section },
+];
+
+/**
  * Build breadcrumb for admin pages
  */
 export const buildAdminBreadcrumb = (

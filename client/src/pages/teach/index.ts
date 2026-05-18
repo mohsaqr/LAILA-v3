@@ -5,6 +5,7 @@ export { CurriculumEditor } from './CurriculumEditor';
 export { LectureEditor } from './LectureEditor';
 export { CodeLabEditor } from './CodeLabEditor';
 export { AssignmentManager } from './AssignmentManager';
+export { AssignmentList } from './AssignmentList';
 export { SubmissionReview } from './SubmissionReview';
 export { SubmissionDetail } from './SubmissionDetail';
 export { ChatbotLogs } from './ChatbotLogs';
