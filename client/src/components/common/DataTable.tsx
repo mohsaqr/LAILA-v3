@@ -32,6 +32,11 @@ export type ColumnFilter<T> =
       kind: 'select';
       options: { value: string; label: string }[];
       predicate: (row: T, v: string) => boolean;
+    }
+  | {
+      /** Native date picker (calendar). Predicate receives `YYYY-MM-DD`. */
+      kind: 'date';
+      predicate: (row: T, v: string) => boolean;
     };
 
 export interface ColumnDef<T> {
@@ -311,7 +316,8 @@ export function DataTable<T>({
                     else delete next[col.id];
                     return next;
                   });
-                if (col.filter!.kind === 'text') {
+                if (col.filter!.kind === 'text' || col.filter!.kind === 'date') {
+                  const isDate = col.filter!.kind === 'date';
                   return (
                     <div key={col.id}>
                       <label
@@ -321,13 +327,15 @@ export function DataTable<T>({
                         {col.header}
                       </label>
                       <input
-                        type="text"
+                        type={isDate ? 'date' : 'text'}
                         value={value}
                         onChange={e => {
                           setValue(e.target.value);
                           setPage(1);
                         }}
-                        placeholder={col.filter!.placeholder ?? col.header}
+                        placeholder={
+                          isDate ? undefined : (col.filter as { placeholder?: string }).placeholder ?? col.header
+                        }
                         className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-1"
                       />
                     </div>

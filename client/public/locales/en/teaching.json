@@ -30,6 +30,8 @@
   "graded": "Graded",
   "not_graded": "Not Graded",
   "grade": "Grade",
+  "agent": "Agent",
+  "filter_by_date": "Filter by date…",
   "score": "Score",
   "points": "Points",
   "max_points": "Max Points",
