@@ -471,20 +471,8 @@ export const QuizEditor = () => {
         {/* Questions */}
         {activeTab === 'questions' && (
         <>
-        <div className="flex items-center justify-end gap-3 mb-4">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button variant="secondary" onClick={() => setIsAIGeneratorOpen(true)}>
-              <Sparkles size={18} />
-              {t('generate_with_ai')}
-            </Button>
-            <Button onClick={() => setIsAddingQuestion(true)} disabled={isAddingQuestion}>
-              <Plus size={18} />
-              {t('add_question')}
-            </Button>
-          </div>
-        </div>
-
         {(quiz.questions && quiz.questions.length > 0) || isAddingQuestion ? (
+          <>
           <div className="space-y-4">
             {quiz.questions?.map((question, idx) => (
               <QuizQuestionCard
@@ -513,6 +501,17 @@ export const QuizEditor = () => {
               />
             )}
           </div>
+          <div className="flex items-center justify-end gap-2 flex-wrap mt-6">
+            <Button variant="secondary" onClick={() => setIsAIGeneratorOpen(true)}>
+              <Sparkles size={18} />
+              {t('generate_with_ai')}
+            </Button>
+            <Button onClick={() => setIsAddingQuestion(true)} disabled={isAddingQuestion}>
+              <Plus size={18} />
+              {t('add_question')}
+            </Button>
+          </div>
+          </>
         ) : (
           <Card>
             <CardBody className="text-center py-12">
