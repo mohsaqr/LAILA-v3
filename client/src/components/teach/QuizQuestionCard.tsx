@@ -492,7 +492,7 @@ export const QuizQuestionCard = ({
                       type="radio"
                       name={`tf-${question.id}-${index}`}
                       value={value}
-                      checked={form.correctAnswer === value}
+                      checked={form.correctAnswer.toLowerCase() === value}
                       onChange={(e) => setForm({ ...form, correctAnswer: e.target.value })}
                       className="w-4 h-4"
                     />

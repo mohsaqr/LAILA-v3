@@ -828,7 +828,12 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
           questionText: fb ? buildEditorHtml(q.questionText, fb.blanks) : q.questionText,
           options: opts,
           correctIndexes,
-          correctAnswer: isMc || fb ? '' : (q.correctAnswer ?? ''),
+          correctAnswer:
+            isMc || fb
+              ? ''
+              : q.questionType === 'true_false'
+                ? (q.correctAnswer ?? '').toLowerCase()
+                : (q.correctAnswer ?? ''),
           explanation: q.explanation ?? '',
           points: q.points ?? 1,
           shuffleOptions: q.shuffleOptions ?? false,
