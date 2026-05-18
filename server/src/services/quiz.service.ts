@@ -745,8 +745,9 @@ export class QuizService {
       const answer = attempt.answers.find(a => a.questionId === question.id);
 
       if (answer) {
-        const isCorrect = this.checkAnswer(question, answer.answer || '');
-        const points = isCorrect ? question.points : 0;
+        const graded = this.gradeQuestion(question, answer.answer || '');
+        const isCorrect = graded.isCorrect;
+        const points = graded.fraction * question.points;
         pointsEarned += points;
 
         await prisma.quizAnswer.update({
@@ -821,6 +822,47 @@ export class QuizService {
       }
     }
     return [trimmed];
+  }
+
+  /**
+   * Grade a question, returning the fraction of points earned (0..1) plus a
+   * boolean "fully correct". Word-bank fill_in_blank awards partial credit
+   * per blank; everything else is all-or-nothing via checkAnswer().
+   */
+  private gradeQuestion(question: any, userAnswer: string): { isCorrect: boolean; fraction: number } {
+    if (question.questionType === 'fill_in_blank') {
+      const raw = String(question.correctAnswer ?? '').trim();
+      if (raw.startsWith('{')) {
+        try {
+          const def = JSON.parse(raw);
+          if (def && def.t === 'fitb' && Array.isArray(def.blanks)) {
+            const blanks: string[] = def.blanks;
+            let studentMap: Record<string, string> = {};
+            const a = String(userAnswer ?? '').trim();
+            if (a.startsWith('{')) {
+              try {
+                const parsed = JSON.parse(a);
+                if (parsed && typeof parsed === 'object') studentMap = parsed;
+              } catch {
+                /* unanswered / malformed */
+              }
+            }
+            if (blanks.length === 0) return { isCorrect: false, fraction: 0 };
+            let correct = 0;
+            blanks.forEach((expected, i) => {
+              const given = String(studentMap[String(i + 1)] ?? '').toLowerCase().trim();
+              if (given && given === String(expected).toLowerCase().trim()) correct += 1;
+            });
+            const fraction = correct / blanks.length;
+            return { isCorrect: fraction === 1, fraction };
+          }
+        } catch {
+          /* fall through to legacy string match */
+        }
+      }
+    }
+    const ok = this.checkAnswer(question, userAnswer);
+    return { isCorrect: ok, fraction: ok ? 1 : 0 };
   }
 
   private checkAnswer(question: any, userAnswer: string): boolean {

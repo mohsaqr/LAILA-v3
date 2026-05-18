@@ -12,6 +12,12 @@ import { customLabsApi } from '../../api/customLabs';
 import { forumsApi, Forum, CreateForumInput } from '../../api/forums';
 import { quizzesApi, CreateQuizInput } from '../../api/quizzes';
 import { decodeCorrectAnswers, encodeCorrectAnswers } from '../../utils/quizAnswer';
+import {
+  parseEditorHtml,
+  buildEditorHtml,
+  encodeFillBlank,
+  decodeFillBlank,
+} from '../../utils/fillBlank';
 import { useTheme } from '../../hooks/useTheme';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
@@ -546,6 +552,18 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
         orderIndex,
       };
     }
+    if (q.questionType === 'fill_in_blank') {
+      const { template, blanks } = parseEditorHtml(q.questionText);
+      return {
+        questionType: q.questionType,
+        questionText: template,
+        correctAnswer: encodeFillBlank(blanks),
+        explanation: q.explanation.trim() || undefined,
+        points: q.points,
+        shuffleOptions: q.shuffleOptions,
+        orderIndex,
+      };
+    }
     return {
       questionType: q.questionType,
       questionText: q.questionText.trim(),
@@ -802,13 +820,15 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
               .map(text => (q.options ?? []).findIndex(o => o === text))
               .filter(i => i >= 0)
           : [];
+        const fb =
+          q.questionType === 'fill_in_blank' ? decodeFillBlank(q.correctAnswer) : null;
         return {
           id: q.id,
           questionType: q.questionType,
-          questionText: q.questionText,
+          questionText: fb ? buildEditorHtml(q.questionText, fb.blanks) : q.questionText,
           options: opts,
           correctIndexes,
-          correctAnswer: isMc ? '' : (q.correctAnswer ?? ''),
+          correctAnswer: isMc || fb ? '' : (q.correctAnswer ?? ''),
           explanation: q.explanation ?? '',
           points: q.points ?? 1,
           shuffleOptions: q.shuffleOptions ?? false,
