@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -41,6 +41,13 @@ interface LessonEditorProps {
   initialSections: LectureSection[];
 }
 
+/** Imperative handle so a parent (e.g. an inline "Save" button) can force a
+ *  final persist of the current content and await it. The editor still
+ *  autosaves on its own; this just flushes any not-yet-debounced edit. */
+export interface LessonEditorHandle {
+  flush: () => Promise<void>;
+}
+
 /**
  * Build the initial HTML document by walking the existing
  * `LectureSection[]` (sorted by `order`) and emitting:
@@ -76,7 +83,10 @@ const buildInitialHTML = (sections: LectureSection[]): string => {
  * type='text' (find-or-create + reuse). Any pre-existing sections
  * are consolidated on first save and the extras deleted.
  */
-export const LessonEditor = ({ lectureId, initialSections }: LessonEditorProps) => {
+export const LessonEditor = forwardRef<LessonEditorHandle, LessonEditorProps>((
+  { lectureId, initialSections },
+  ref,
+) => {
   const { t } = useTranslation('teaching');
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
@@ -233,6 +243,41 @@ export const LessonEditor = ({ lectureId, initialSections }: LessonEditorProps) 
     },
   });
 
+  // Force-persist the current document and await it. Reuses the same
+  // canonical-section logic as autosave so it never creates a duplicate
+  // section, even if an autosave create is mid-flight.
+  const flush = async (): Promise<void> => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    if (!editor) return;
+    const html = editor.isEmpty ? '' : editor.getHTML();
+
+    // Wait out any autosave create that's already in flight so we don't
+    // create a second section for the same lecture.
+    for (let i = 0; creatingRef.current && i < 100; i += 1) {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+
+    if (html === lastSavedRef.current) return;
+    setSaveState('saving');
+    lastSavedRef.current = html;
+    if (canonicalIdRef.current != null) {
+      await updateSectionMutation.mutateAsync({ id: canonicalIdRef.current, content: html });
+    } else {
+      creatingRef.current = true;
+      try {
+        const created = await createSectionMutation.mutateAsync({ content: html });
+        canonicalIdRef.current = created.id;
+      } finally {
+        creatingRef.current = false;
+      }
+    }
+  };
+
+  useImperativeHandle(ref, () => ({ flush }));
+
   // Run consolidation once after the editor mounts.
   useEffect(() => {
     if (!editor) return;
@@ -375,25 +420,41 @@ export const LessonEditor = ({ lectureId, initialSections }: LessonEditorProps) 
     onClick,
     isActive,
     title,
+    accent = false,
     children,
   }: {
     onClick: () => void;
     isActive?: boolean;
     title: string;
+    /** Media-insert actions (image, video, file, chatbot) use a teal accent
+     *  so they read as "add rich content" rather than text formatting. */
+    accent?: boolean;
     children: React.ReactNode;
   }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      className={`p-1.5 rounded transition-colors ${
-        isActive
-          ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300'
-          : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-      }`}
-    >
-      {children}
-    </button>
+    <span className="relative group/tbtn">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={title}
+        className={`p-1.5 rounded transition-colors ${
+          isActive
+            ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300'
+            : accent
+              ? 'text-teal-600 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/40'
+              : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+        }`}
+      >
+        {children}
+      </button>
+      {/* Immediate hover tooltip (below the button so it isn't clipped by the
+          toolbar's overflow-hidden) describing what the icon does. */}
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute left-1/2 top-full z-50 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover/tbtn:opacity-100 dark:bg-gray-700"
+      >
+        {title}
+      </span>
+    </span>
   );
 
   return (
@@ -416,23 +477,32 @@ export const LessonEditor = ({ lectureId, initialSections }: LessonEditorProps) 
         <Btn onClick={() => editor.chain().focus().setTextAlign('right').run()} isActive={editor.isActive({ textAlign: 'right' })} title="Align Right"><AlignRight size={16} /></Btn>
         <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1" />
         <Btn onClick={addLink} isActive={editor.isActive('link')} title="Add Link"><LinkIcon size={16} /></Btn>
-        <Btn onClick={() => imageInputRef.current?.click()} title="Add Image"><ImagePlus size={16} /></Btn>
+        <Btn
+          onClick={() => imageInputRef.current?.click()}
+          accent
+          title={t('insert_image', { defaultValue: 'Insert image' })}
+        >
+          <ImagePlus size={16} />
+        </Btn>
         <Btn
           onClick={() => videoInputRef.current?.click()}
-          title={t('insert_video', { defaultValue: 'Insert Video' })}
+          accent
+          title={t('insert_video', { defaultValue: 'Insert video' })}
         >
           {uploadingVideo ? <Loader2 size={16} className="animate-spin" /> : <Video size={16} />}
         </Btn>
         <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1" />
         <Btn
           onClick={() => fileInputRef.current?.click()}
-          title={t('block_file', { defaultValue: 'Insert File' })}
+          accent
+          title={t('insert_file', { defaultValue: 'Insert file' })}
         >
           {uploadingFile ? <Loader2 size={16} className="animate-spin" /> : <FileUp size={16} />}
         </Btn>
         <Btn
           onClick={insertChatbot}
-          title={t('block_chatbot', { defaultValue: 'Insert Chatbot' })}
+          accent
+          title={t('insert_chatbot', { defaultValue: 'Insert AI chatbot' })}
         >
           <Bot size={16} />
         </Btn>
@@ -467,4 +537,6 @@ export const LessonEditor = ({ lectureId, initialSections }: LessonEditorProps) 
       />
     </div>
   );
-};
+});
+
+LessonEditor.displayName = 'LessonEditor';
