@@ -249,9 +249,12 @@ interface DashboardProps {
   mode?: 'admin' | 'instructor' | 'student';
   fixedCourseId?: number;
   fixedUserId?: number;
+  /** When embedded in another page (e.g. StudentAnalytics) skip the
+   *  built-in breadcrumb + page container so the host owns the chrome. */
+  embedded?: boolean;
 }
 
-export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: DashboardProps) => {
+export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId, embedded = false }: DashboardProps) => {
   const { t } = useTranslation(['admin']);
   const { isDark } = useTheme();
 
@@ -592,7 +595,9 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId }: Dashbo
   }
 
   const pageTitle = isStudent ? t('my_analytics') : isAdmin ? t('analytics') : t('course_analytics');
-  const Wrapper = isAdmin
+  const Wrapper = embedded
+    ? ({ children }: { children: React.ReactNode }) => <>{children}</>
+    : isAdmin
     ? ({ children }: { children: React.ReactNode }) => <AdminLayout title={pageTitle} description={t('analytics_desc')} fullWidth>{children}</AdminLayout>
     : ({ children }: { children: React.ReactNode }) => (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">

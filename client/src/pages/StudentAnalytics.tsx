@@ -43,7 +43,7 @@ export const StudentAnalytics = () => {
           ]}
         />
       </div>
-      <Dashboard mode="student" fixedCourseId={parsedCourseId} fixedUserId={user?.id} />
+      <Dashboard mode="student" embedded fixedCourseId={parsedCourseId} fixedUserId={user?.id} />
     </div>
   );
 };
