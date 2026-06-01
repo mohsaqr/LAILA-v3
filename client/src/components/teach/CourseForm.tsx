@@ -4,8 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { ChevronDown, X, Search, HelpCircle, ImageIcon, Trash2 } from 'lucide-react';
 import { Input } from '../common/Input';
 import { Button } from '../common/Button';
-import { Course, CurriculumViewMode, Category } from '../../types';
+import { Course, CurriculumViewMode } from '../../types';
 import { categoriesApi } from '../../api/categories';
+import { coursesApi } from '../../api/courses';
 import { uploadsApi } from '../../api/uploads';
 import { resolveFileUrl } from '../../api/client';
 import { RichTextEditor } from '../forum/RichTextEditor';
@@ -20,7 +21,20 @@ export interface CourseFormData {
   curriculumViewMode: CurriculumViewMode;
   /** Optional — server auto-generates if empty. */
   activationCode: string;
+  /** `datetime-local` value (local time, "YYYY-MM-DDTHH:mm"); '' when unset. */
+  startTime: string;
+  /** Course IDs that must be completed before enrolling in this course. */
+  prerequisiteIds: number[];
 }
+
+/** ISO-8601 → `datetime-local` input value in the browser's local timezone. */
+const toDateTimeLocal = (iso?: string | null): string => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
 
 interface CourseFormProps {
   initialData?: Partial<Course>;
@@ -78,13 +92,16 @@ const InfoPopup = ({ text }: { text: string }) => {
 
 interface MultiSelectProps {
   label: string;
-  allCategories: Category[];
+  /** Any entity with a numeric id and a display title (categories, courses…). */
+  items: { id: number; title: string }[];
   selectedIds: number[];
   onChange: (ids: number[]) => void;
   error?: string;
+  placeholder?: string;
+  emptyHint?: string;
 }
 
-const CategoryMultiSelect = ({ label, allCategories, selectedIds, onChange, error }: MultiSelectProps) => {
+const EntityMultiSelect = ({ label, items, selectedIds, onChange, error, placeholder, emptyHint }: MultiSelectProps) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -101,8 +118,8 @@ const CategoryMultiSelect = ({ label, allCategories, selectedIds, onChange, erro
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const selected = allCategories.filter(c => selectedIds.includes(c.id));
-  const filtered = allCategories.filter(c =>
+  const selected = items.filter(c => selectedIds.includes(c.id));
+  const filtered = items.filter(c =>
     c.title.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -138,7 +155,7 @@ const CategoryMultiSelect = ({ label, allCategories, selectedIds, onChange, erro
       >
         {selected.length === 0 ? (
           <span className="text-sm text-gray-400 dark:text-gray-500 flex-1">
-            Select categories…
+            {placeholder ?? 'Select…'}
           </span>
         ) : (
           selected.map(cat => (
@@ -185,7 +202,7 @@ const CategoryMultiSelect = ({ label, allCategories, selectedIds, onChange, erro
           <ul className="max-h-52 overflow-y-auto py-1">
             {filtered.length === 0 ? (
               <li className="px-4 py-2 text-sm text-gray-400 dark:text-gray-500">
-                No results
+                {items.length === 0 && emptyHint ? emptyHint : 'No results'}
               </li>
             ) : (
               filtered.map(cat => {
@@ -392,6 +409,16 @@ export const CourseForm = ({
     queryFn: categoriesApi.getCategories,
   });
 
+  // Candidate courses for the prerequisites picker — the teacher's own
+  // courses, excluding the one being edited (can't require itself).
+  const { data: myCourses = [] } = useQuery({
+    queryKey: ['myCourses'],
+    queryFn: coursesApi.getMyCourses,
+  });
+  const prerequisiteOptions = myCourses
+    .filter(c => c.id !== initialData?.id)
+    .map(c => ({ id: c.id, title: c.title }));
+
   const difficultyOptions = [
     { value: 'beginner', label: 'Beginner' },
     { value: 'intermediate', label: 'Intermediate' },
@@ -414,6 +441,8 @@ export const CourseForm = ({
     isPublic: true,
     curriculumViewMode: 'mini-cards',
     activationCode: '',
+    startTime: '',
+    prerequisiteIds: [],
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [thumbnailPreview, setThumbnailPreview] = useState<string>('');
@@ -431,6 +460,8 @@ export const CourseForm = ({
         isPublic: initialData.isPublic ?? true,
         curriculumViewMode: initialData.curriculumViewMode || 'mini-cards',
         activationCode: initialData.activationCode || '',
+        startTime: toDateTimeLocal(initialData.startTime),
+        prerequisiteIds: initialData.prerequisites?.map(p => p.prerequisiteCourseId) ?? [],
       });
       if (initialData.thumbnail) {
         setThumbnailPreview(resolveFileUrl(initialData.thumbnail));
@@ -534,13 +565,35 @@ export const CourseForm = ({
         />
       </div>
 
-      <CategoryMultiSelect
-        label={t('category')}
-        allCategories={categories}
-        selectedIds={formData.categoryIds}
-        onChange={ids => setFormData(prev => ({ ...prev, categoryIds: ids }))}
-        error={mergedErrors.categoryIds}
-      />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+        <EntityMultiSelect
+          label={t('category')}
+          items={categories}
+          selectedIds={formData.categoryIds}
+          onChange={ids => setFormData(prev => ({ ...prev, categoryIds: ids }))}
+          error={mergedErrors.categoryIds}
+          placeholder="Select categories…"
+        />
+
+        <div>
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('course_start_time', { defaultValue: 'Start Time' })}
+            </label>
+            <InfoPopup
+              text={t('course_start_time_help', {
+                defaultValue: 'Optional. The date and time this course officially begins.',
+              })}
+            />
+          </div>
+          <Input
+            type="datetime-local"
+            value={formData.startTime}
+            onChange={e => handleChange('startTime', e.target.value)}
+            error={mergedErrors.startTime}
+          />
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <SearchableSelect
@@ -561,6 +614,16 @@ export const CourseForm = ({
           infoPopup={t('curriculum_view_mode_help')}
         />
       </div>
+
+      <EntityMultiSelect
+        label={t('prerequisites', { defaultValue: 'Prerequisites' })}
+        items={prerequisiteOptions}
+        selectedIds={formData.prerequisiteIds}
+        onChange={ids => setFormData(prev => ({ ...prev, prerequisiteIds: ids }))}
+        placeholder={t('prerequisites_placeholder', { defaultValue: 'Select courses…' })}
+        emptyHint={t('prerequisites_empty', { defaultValue: 'No other courses available.' })}
+        error={mergedErrors.prerequisiteIds}
+      />
 
       <div>
         <div className="flex items-center gap-1.5 mb-1.5">

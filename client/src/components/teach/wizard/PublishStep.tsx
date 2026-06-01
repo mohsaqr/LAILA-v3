@@ -356,7 +356,7 @@ export const PublishStep = ({
 
       {/* ─── Team members table — hidden when no members ────────────── */}
       {roles.length > 0 && (
-        <Section title={t('teaching:wizard_step_team', { defaultValue: 'Team Members' })}>
+        <Section title={t('teaching:wizard_step_team', { defaultValue: 'Teachers' })}>
           <div
             className="rounded-lg border overflow-hidden"
             style={{ borderColor: cardBorder }}

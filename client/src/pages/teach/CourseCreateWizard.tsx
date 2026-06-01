@@ -120,9 +120,9 @@ export const CourseCreateWizard = () => {
 
   const steps: StepperItem[] = [
     { id: 'setting', label: t('teaching:wizard_step_setting', { defaultValue: 'Setting' }),     icon: SettingsIcon },
+    { id: 'team',    label: t('teaching:wizard_step_team',    { defaultValue: 'Teachers' }),    icon: UsersIcon },
     { id: 'content', label: t('teaching:wizard_step_content', { defaultValue: 'Content' }),     icon: Layers },
     { id: 'tutors',  label: t('teaching:wizard_step_tutors',  { defaultValue: 'AI Tutors' }),   icon: Bot },
-    { id: 'team',    label: t('teaching:wizard_step_team',    { defaultValue: 'Team Members' }),icon: UsersIcon },
     { id: 'publish', label: t('teaching:wizard_step_publish', { defaultValue: 'Publish' }),     icon: Send },
   ];
 
@@ -138,12 +138,17 @@ export const CourseCreateWizard = () => {
 
   const createMutation = useMutation({
     mutationFn: (data: CourseFormData) =>
-      coursesApi.createCourse({ ...data, difficulty: data.difficulty || null } as Partial<Course>),
+      coursesApi.createCourse({
+        ...data,
+        difficulty: data.difficulty || null,
+        startTime: data.startTime ? new Date(data.startTime).toISOString() : null,
+      } as Partial<Course>),
     onSuccess: created => {
       activityLogger.logCourseCreated(created.id, created.title);
       toast.success(t('teaching:course_created', { defaultValue: 'Course created' }));
       queryClient.invalidateQueries({ queryKey: ['courses'] });
-      navigate(`/teach/courses/${created.id}/setup?step=content`, { replace: true });
+      // Land on the step right after Setting (currently Teachers).
+      navigate(`/teach/courses/${created.id}/setup?step=${STEP_ORDER[1]}`, { replace: true });
     },
     onError: (err: any) => {
       const msg = err?.response?.data?.error ?? err?.message ?? t('teaching:failed_to_create_course');
@@ -170,6 +175,7 @@ export const CourseCreateWizard = () => {
       coursesApi.updateCourse(courseId!, {
         ...data,
         difficulty: data.difficulty || null,
+        startTime: data.startTime ? new Date(data.startTime).toISOString() : null,
       } as Partial<Course>),
     onSuccess: () => {
       toast.success(t('teaching:course_saved', { defaultValue: 'Saved' }));
@@ -213,7 +219,8 @@ export const CourseCreateWizard = () => {
       // navigate handled in onSuccess
     } else {
       await updateMutation.mutateAsync(formSnapshot);
-      goToStep('content');
+      // Advance to the step immediately after Setting (currently Teachers).
+      goToStep(STEP_ORDER[1]);
     }
   }, [formSnapshot, courseId, createMutation, updateMutation, goToStep, t]);
 

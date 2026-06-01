@@ -5,6 +5,7 @@ import { CreateCourseInput, UpdateCourseInput } from '../utils/validation.js';
 import { CourseFilters } from '../types/index.js';
 import { learningAnalyticsService } from './learningAnalytics.service.js';
 import { courseRoleService } from './courseRole.service.js';
+import { prerequisiteService } from './prerequisite.service.js';
 
 // Context for system event logging
 export interface SystemEventContext {
@@ -194,7 +195,10 @@ export class CourseService {
       throw new AppError('Course not found', 404);
     }
 
-    return course;
+    // Prerequisites live in a relation-less table; fetch + attach so the
+    // public course page can show them as links.
+    const prerequisites = await prerequisiteService.getPrerequisites(id);
+    return { ...course, prerequisites };
   }
 
   /**
@@ -369,6 +373,11 @@ export class CourseService {
       },
     });
 
+    // Course prerequisites (separate table, no Prisma relation) — attach to
+    // the course payload so the setup form can hydrate its multi-select.
+    const prerequisites = await prerequisiteService.getPrerequisites(id);
+    (courseData as typeof courseData & { prerequisites?: unknown }).prerequisites = prerequisites;
+
     return { course: courseData, assignments, tutors, labs: labAssignments, forums, surveys };
   }
 
@@ -482,7 +491,7 @@ export class CourseService {
 
   async createCourse(instructorId: number, data: CreateCourseInput, context?: SystemEventContext) {
     const slug = this.generateSlug(data.title);
-    const { categoryIds, activationCode: providedCode, ...courseData } = data;
+    const { categoryIds, prerequisiteIds, activationCode: providedCode, ...courseData } = data;
 
     // Use the user-supplied code (uppercased) if non-empty, otherwise auto-generate.
     const activationCode =
@@ -493,6 +502,8 @@ export class CourseService {
     const course = await prisma.course.create({
       data: {
         ...courseData,
+        // Blank datetime-local input arrives as '' — store as null.
+        startTime: courseData.startTime ? courseData.startTime : null,
         slug,
         instructorId,
         activationCode,
@@ -509,6 +520,10 @@ export class CourseService {
       await prisma.courseCategory.createMany({
         data: categoryIds.map(categoryId => ({ courseId: course.id, categoryId })),
       });
+    }
+
+    if (prerequisiteIds?.length) {
+      await prerequisiteService.setPrerequisites(course.id, prerequisiteIds);
     }
 
     // Log course creation event
@@ -556,7 +571,7 @@ export class CourseService {
       isPublic: course.isPublic,
     };
 
-    const { categoryIds, activationCode, ...courseData } = data;
+    const { categoryIds, prerequisiteIds, activationCode, ...courseData } = data;
 
     // Only touch activationCode when the caller actually sent something
     // non-empty; an empty string means "leave it as is" so we don't wipe
@@ -564,6 +579,10 @@ export class CourseService {
     const updateData: typeof courseData & { activationCode?: string } = { ...courseData };
     if (typeof activationCode === 'string' && activationCode.trim().length > 0) {
       updateData.activationCode = activationCode.trim().toUpperCase();
+    }
+    // Normalize the optional start time: '' (cleared field) → null.
+    if ('startTime' in updateData) {
+      updateData.startTime = updateData.startTime ? updateData.startTime : null;
     }
 
     const updated = await prisma.course.update({
@@ -584,6 +603,10 @@ export class CourseService {
           data: categoryIds.map(categoryId => ({ courseId, categoryId })),
         });
       }
+    }
+
+    if (prerequisiteIds !== undefined) {
+      await prerequisiteService.setPrerequisites(courseId, prerequisiteIds);
     }
 
     // Log course update event

@@ -354,6 +354,7 @@ model Course {
   curriculumViewMode         String                @default("mini-cards") @map("curriculum_view_mode")
   enabledLabs                String?               @map("enabled_labs")
   activationCode             String?               @map("activation_code")
+  startTime                  DateTime?             @map("start_time")
   assignments                Assignment[]
   batchEnrollmentJobs        BatchEnrollmentJob[]
   announcements              CourseAnnouncement[]
