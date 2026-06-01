@@ -825,44 +825,53 @@ export const ModuleItem = ({
           )}
 
 
-          {/* Module-level add buttons — always visible at module footer */}
-          <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100 flex-wrap">
+          {/* Module-level add buttons — icon-only; the action name
+              ("Add Lesson", "Add Forum", …) shows as a hover tooltip. */}
+          <div className="flex items-center gap-1 mt-3 pt-3 border-t border-gray-100 flex-wrap">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onAddLecture(module)}
-              icon={<FileText className="w-4 h-4" />}
-              className="flex-1 min-w-[100px] text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700/30"
+              icon={<FileText className="w-4 h-4 text-slate-600 dark:text-slate-300" />}
+              title={t('add_lesson', { defaultValue: 'Add Lesson' })}
+              aria-label={t('add_lesson', { defaultValue: 'Add Lesson' })}
+              className="hover:bg-slate-100 dark:hover:bg-slate-700/30"
             >
-              {t('lesson', { defaultValue: 'Lesson' })}
+              {null}
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onAddCodeLab(module)}
-              icon={<FlaskConical className="w-4 h-4" />}
-              className="flex-1 min-w-[100px] text-emerald-600 hover:bg-emerald-50"
+              icon={<FlaskConical className="w-4 h-4 text-emerald-600" />}
+              title={t('add_code_lab', { defaultValue: 'Add Code Lab' })}
+              aria-label={t('add_code_lab', { defaultValue: 'Add Code Lab' })}
+              className="hover:bg-emerald-50"
             >
-              {t('code_lab', { defaultValue: 'Code Lab' })}
+              {null}
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onAddAssignment(module)}
-              icon={<ClipboardList className="w-4 h-4" />}
-              className="flex-1 min-w-[100px] text-amber-600 hover:bg-amber-50"
+              icon={<ClipboardList className="w-4 h-4 text-amber-600" />}
+              title={t('add_assignment', { defaultValue: 'Add Assignment' })}
+              aria-label={t('add_assignment', { defaultValue: 'Add Assignment' })}
+              className="hover:bg-amber-50"
             >
-              {t('assignment', { defaultValue: 'Assignment' })}
+              {null}
             </Button>
             {onAddForum && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => onAddForum(module)}
-                icon={<MessageSquare className="w-4 h-4" />}
-                className="flex-1 min-w-[100px] text-teal-600 hover:bg-teal-50"
+                icon={<MessageSquare className="w-4 h-4 text-teal-600" />}
+                title={t('add_forum', { defaultValue: 'Add Forum' })}
+                aria-label={t('add_forum', { defaultValue: 'Add Forum' })}
+                className="hover:bg-teal-50"
               >
-                {t('forum', { defaultValue: 'Forum' })}
+                {null}
               </Button>
             )}
             {onAddQuiz && (
@@ -870,20 +879,24 @@ export const ModuleItem = ({
                 variant="ghost"
                 size="sm"
                 onClick={() => onAddQuiz(module)}
-                icon={<FileQuestion className="w-4 h-4" />}
-                className="flex-1 min-w-[100px] text-cyan-600 hover:bg-cyan-50"
+                icon={<FileQuestion className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />}
+                title={t('add_quiz', { defaultValue: 'Add Quiz' })}
+                aria-label={t('add_quiz', { defaultValue: 'Add Quiz' })}
+                className="hover:bg-cyan-50"
               >
-                {t('quiz_singular', { defaultValue: 'Quiz' })}
+                {null}
               </Button>
             )}
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setSurveyModalOpen(true)}
-              icon={<ClipboardCheck className="w-4 h-4" />}
-              className="flex-1 min-w-[100px] text-indigo-600 hover:bg-indigo-50"
+              icon={<ClipboardCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />}
+              title={t('add_survey', { defaultValue: 'Add Survey' })}
+              aria-label={t('add_survey', { defaultValue: 'Add Survey' })}
+              className="hover:bg-indigo-50"
             >
-              {t('survey_singular', { defaultValue: 'Survey' })}
+              {null}
             </Button>
           </div>
         </div>
