@@ -1,13 +1,14 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Download, FileText, Sparkles, Upload, BookOpen, ChevronLeft, ChevronRight, CheckCircle, Circle } from 'lucide-react';
+import { Download, FileText, Sparkles, Upload, BookOpen, ChevronLeft, ChevronRight, CheckCircle, Circle, Pencil, Save } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../api/courses';
 import { enrollmentsApi } from '../api/enrollments';
 import { resolveFileUrl } from '../api/client';
 import { useTheme } from '../hooks/useTheme';
+import { useAuth } from '../hooks/useAuth';
 
 import { Card, CardBody } from '../components/common/Card';
 import { Breadcrumb } from '../components/common/Breadcrumb';
@@ -15,7 +16,7 @@ import { Loading } from '../components/common/Loading';
 import { LectureAIHelper } from '../components/lecture';
 import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStudent';
 import { AssignmentSectionStudent } from '../components/course/AssignmentSectionStudent';
-import { LessonViewer } from '../components/teach/lesson-editor';
+import { LessonViewer, LessonEditor, type LessonEditorHandle } from '../components/teach/lesson-editor';
 import { marked } from 'marked';
 import { sanitizeHtml, isHtmlContent } from '../utils/sanitize';
 import { TrackedContent } from '../components/common/TrackedContent';
@@ -33,9 +34,15 @@ export const LectureView = () => {
   const { t } = useTranslation(['courses', 'common']);
   const { courseId, lectureId } = useParams<{ courseId: string; lectureId: string }>();
   const { isDark } = useTheme();
+  const { user, isActualAdmin } = useAuth();
   const track = useTracker('lecture');
 
   const queryClient = useQueryClient();
+
+  // Inline Edit Mode (instructors / course team / admins only).
+  const [editMode, setEditMode] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const editorRef = useRef<LessonEditorHandle>(null);
 
 
   // Theme colors
@@ -100,6 +107,35 @@ export const LectureView = () => {
       toast.error(t('common:error'));
     },
   });
+
+  // Who may edit this lecture inline: course instructor, course team
+  // member, or an actual admin — same rule as the course "Manage" control.
+  const canManage = !!(
+    isActualAdmin ||
+    (course && (user?.id === course.instructorId || (course as { isTeamMember?: boolean }).isTeamMember))
+  );
+
+  // Persist the editor's content (it also autosaves) and return to view mode.
+  const handleSaveEdit = async () => {
+    setSavingEdit(true);
+    try {
+      await editorRef.current?.flush();
+      await queryClient.invalidateQueries({ queryKey: ['lecture', lectureId] });
+      toast.success(t('common:saved', { defaultValue: 'Saved' }));
+      setEditMode(false);
+    } catch {
+      toast.error(t('common:error'));
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  // Leave edit mode without an explicit save. Content edited so far has
+  // already been autosaved, so refetch to show the latest persisted state.
+  const handleExitEdit = () => {
+    queryClient.invalidateQueries({ queryKey: ['lecture', lectureId] });
+    setEditMode(false);
+  };
 
   // Note: no client-side `viewed lecture` log — the server already
   // writes one on each GET /lectures/:id in lecture.service.ts.
@@ -338,16 +374,66 @@ export const LectureView = () => {
       <div>
         <Card>
           {/* Lecture Header */}
-          <div className="px-4 sm:px-6 py-4" style={{ borderBottom: `1px solid ${colors.borderLight}`, backgroundColor: colors.bgHeader }}>
-            <h1 className="text-xl sm:text-2xl font-bold" style={{ color: colors.textPrimary }}>{lecture.title}</h1>
-            {lecture.duration && (
-              <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-                {t('n_minutes', { count: lecture.duration })}
-              </p>
+          <div className="px-4 sm:px-6 py-4 flex items-start gap-3" style={{ borderBottom: `1px solid ${colors.borderLight}`, backgroundColor: colors.bgHeader }}>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold" style={{ color: colors.textPrimary }}>{lecture.title}</h1>
+              {lecture.duration && (
+                <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
+                  {t('n_minutes', { count: lecture.duration })}
+                </p>
+              )}
+            </div>
+            {canManage && !editMode && (
+              <button
+                type="button"
+                onClick={() => setEditMode(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all hover:-translate-y-0.5 flex-shrink-0"
+                style={{
+                  backgroundColor: isDark ? 'rgba(8,143,143,0.18)' : '#ccfbfb',
+                  color: isDark ? '#22d3d3' : '#065c5c',
+                }}
+              >
+                <Pencil className="w-4 h-4" strokeWidth={2.25} />
+                {t('edit_mode', { defaultValue: 'Edit Mode' })}
+              </button>
             )}
           </div>
 
           <CardBody className="py-6 px-4 sm:px-6">
+            {editMode ? (
+              /* Inline editing: reuse the lecture rich-text editor (rich text
+                 tools + image / video / chatbot). It autosaves; the Save
+                 button flushes the final state and returns to view mode. */
+              <div>
+                <LessonEditor
+                  ref={editorRef}
+                  lectureId={lecture.id}
+                  initialSections={lecture.sections ?? []}
+                />
+                <div className="mt-4 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={handleExitEdit}
+                    disabled={savingEdit}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
+                    style={{ backgroundColor: colors.bgHover, color: colors.textSecondary }}
+                  >
+                    {t('common:cancel')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveEdit}
+                    disabled={savingEdit}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all hover:-translate-y-0.5 disabled:opacity-60 disabled:translate-y-0"
+                    style={{ backgroundImage: 'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)' }}
+                  >
+                    {savingEdit ? <Circle className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    {t('common:save')}
+                  </button>
+                </div>
+              </div>
+            ) : (
+            <>
             {/* Video content */}
             {lecture.videoUrl && (
               <div className="mb-8 aspect-video bg-black rounded-lg overflow-hidden">
@@ -432,6 +518,8 @@ export const LectureView = () => {
                   </button>
                 )}
               </div>
+            )}
+            </>
             )}
           </CardBody>
         </Card>
