@@ -7,9 +7,14 @@ import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import { FileNode } from './FileNodeExtension';
 import { ChatbotNode } from './ChatbotNodeExtension';
+import { VideoNode } from './VideoNodeExtension';
+import { LessonMediaContext } from './LessonMediaContext';
 
 interface LessonViewerProps {
   html: string;
+  /** Lecture context so embedded media (video) can attribute watch logs. */
+  courseId?: number;
+  lectureId?: number;
 }
 
 /**
@@ -19,7 +24,7 @@ interface LessonViewerProps {
  * the editor (sans edit affordances; the node views check
  * `editor.isEditable`).
  */
-export const LessonViewer = ({ html }: LessonViewerProps) => {
+export const LessonViewer = ({ html, courseId, lectureId }: LessonViewerProps) => {
   const editor = useEditor({
     editable: false,
     extensions: [
@@ -33,6 +38,7 @@ export const LessonViewer = ({ html }: LessonViewerProps) => {
       }),
       FileNode,
       ChatbotNode,
+      VideoNode,
     ],
     content: html,
   });
@@ -49,9 +55,11 @@ export const LessonViewer = ({ html }: LessonViewerProps) => {
   if (!editor) return null;
 
   return (
-    <EditorContent
-      editor={editor}
-      className="prose prose-sm dark:prose-invert max-w-none"
-    />
+    <LessonMediaContext.Provider value={{ courseId, lectureId }}>
+      <EditorContent
+        editor={editor}
+        className="prose prose-sm dark:prose-invert max-w-none"
+      />
+    </LessonMediaContext.Provider>
   );
 };

@@ -223,10 +223,14 @@ export const LectureView = () => {
       case 'text':
       case 'ai-generated': {
         const isHtml = isHtmlContent(section.content);
+        // Detect lesson nodes independently of isHtmlContent — content that
+        // *starts* with a node (e.g. a video-first lesson) isn't matched by
+        // the narrow isHtmlContent regex, but still must use LessonViewer so
+        // the node renders instead of being stripped by sanitize/markdown.
         const containsLessonNodes =
-          isHtml &&
-          (section.content?.includes('<lecture-file') ||
-            section.content?.includes('<lecture-chatbot'));
+          section.content?.includes('<lecture-file') ||
+          section.content?.includes('<lecture-chatbot') ||
+          section.content?.includes('<lecture-video');
         return (
           <div key={section.id} className="mb-8">
             {section.title && (
@@ -243,7 +247,11 @@ export const LectureView = () => {
                   /* Use the read-only lesson editor so <lecture-file> and
                      <lecture-chatbot> nodes render with their proper UI. */
                   <div style={{ color: colors.textPrimary }}>
-                    <LessonViewer html={section.content} />
+                    <LessonViewer
+                      html={section.content}
+                      courseId={parseInt(courseId!)}
+                      lectureId={parseInt(lectureId!)}
+                    />
                   </div>
                 ) : (
                   <div
