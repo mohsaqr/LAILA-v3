@@ -85,7 +85,7 @@ export const InstructorDashboard = () => {
               icon={GraduationCap}
               label={t('your_courses')}
               value={overview?.kpis.totalCourses ?? '—'}
-              color="violet"
+              color="teal"
               href="#course-completion"
             />
             <StatTile
@@ -99,14 +99,14 @@ export const InstructorDashboard = () => {
               icon={FileText}
               label={t('assignments')}
               value={overview?.kpis.totalAssignments ?? '—'}
-              color="amber"
+              color="cyan"
               href="#course-completion"
             />
             <StatTile
               icon={ClipboardCheck}
               label={t('pending_grading')}
               value={overview?.kpis.pendingGrading ?? '—'}
-              color="rose"
+              color="sky"
               href={
                 gradingQueue && gradingQueue.length > 0
                   ? `/teach/courses/${gradingQueue[0].courseId}/assignments/${gradingQueue[0].assignmentId}/submissions`

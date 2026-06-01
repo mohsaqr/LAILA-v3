@@ -112,28 +112,28 @@ export const AdminDashboard = () => {
               icon={Users}
               label={t('admin:total_users', { defaultValue: 'Total Users' })}
               value={overview?.kpis.totalUsers ?? '—'}
-              color="sky"
+              color="teal"
               href="#user-activity-log"
             />
             <StatTile
               icon={GraduationCap}
               label={t('admin:total_courses', { defaultValue: 'Total Courses' })}
               value={overview?.kpis.totalCourses ?? '—'}
-              color="violet"
+              color="emerald"
               href="#course-overview"
             />
             <StatTile
               icon={GraduationCap}
               label={t('admin:total_enrollments', { defaultValue: 'Total Enrollments' })}
               value={overview?.kpis.totalEnrollments ?? '—'}
-              color="emerald"
+              color="cyan"
               href="/admin/settings?tab=enrollments"
             />
             <StatTile
               icon={Activity}
               label={t('admin:total_activity_logs', { defaultValue: 'Total Activity Logs' })}
               value={overview?.kpis.totalActivityLogs ?? '—'}
-              color="amber"
+              color="sky"
               href="/admin/logs"
             />
           </div>

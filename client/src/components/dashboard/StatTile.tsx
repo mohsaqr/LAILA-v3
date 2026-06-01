@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { LucideIcon } from 'lucide-react';
 
-export type StatTileColor = 'violet' | 'emerald' | 'amber' | 'rose' | 'sky' | 'cyan';
+export type StatTileColor = 'violet' | 'emerald' | 'amber' | 'rose' | 'sky' | 'cyan' | 'teal';
 
 interface StatTileProps {
   icon: LucideIcon;
@@ -54,6 +54,14 @@ const COLOR_MAP: Record<StatTileColor, { bg: string; iconBg: string; iconFg: str
     iconFg: '#0e7490',
     valueFg: '#083344',
     labelFg: '#155e75',
+  },
+  // LAILA base teal.
+  teal: {
+    bg: 'linear-gradient(135deg, #ccfbf1 0%, #99f6e4 100%)',
+    iconBg: 'rgba(13, 148, 136, 0.20)',
+    iconFg: '#0f766e',
+    valueFg: '#042f2e',
+    labelFg: '#115e59',
   },
 };
 

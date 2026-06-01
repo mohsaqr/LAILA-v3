@@ -19,7 +19,7 @@ interface CourseResourcesBarProps {
   };
 }
 
-type Tone = 'amber' | 'sky' | 'emerald' | 'violet' | 'cyan';
+type Tone = 'teal' | 'sky' | 'emerald' | 'slate' | 'cyan';
 
 interface Resource {
   key: 'certificates' | 'students' | 'gradebook' | 'logs' | 'analytics';
@@ -33,18 +33,18 @@ interface Resource {
 // Per-pill palette: pastel surface + saturated icon/text so each
 // resource is recognizable at a glance without being loud.
 const TONE_LIGHT: Record<Tone, { bg: string; border: string; text: string; icon: string; countBg: string; countText: string }> = {
-  amber:   { bg: '#fef3c7', border: '#fde68a', text: '#92400e', icon: '#b45309', countBg: '#fde68a', countText: '#78350f' },
+  teal:    { bg: '#ccfbf1', border: '#99f6e4', text: '#115e59', icon: '#0f766e', countBg: '#99f6e4', countText: '#134e4a' },
   sky:     { bg: '#e0f2fe', border: '#bae6fd', text: '#075985', icon: '#0369a1', countBg: '#bae6fd', countText: '#0c4a6e' },
   emerald: { bg: '#d1fae5', border: '#a7f3d0', text: '#065f46', icon: '#047857', countBg: '#a7f3d0', countText: '#064e3b' },
-  violet:  { bg: '#ede9fe', border: '#ddd6fe', text: '#5b21b6', icon: '#6d28d9', countBg: '#ddd6fe', countText: '#4c1d95' },
+  slate:   { bg: '#f1f5f9', border: '#e2e8f0', text: '#334155', icon: '#475569', countBg: '#e2e8f0', countText: '#1e293b' },
   cyan:    { bg: '#cffafe', border: '#a5f3fc', text: '#155e75', icon: '#0e7490', countBg: '#a5f3fc', countText: '#164e63' },
 };
 
 const TONE_DARK: Record<Tone, { bg: string; border: string; text: string; icon: string; countBg: string; countText: string }> = {
-  amber:   { bg: 'rgba(245, 158, 11, 0.12)', border: 'rgba(245, 158, 11, 0.30)', text: '#fcd34d', icon: '#fbbf24', countBg: 'rgba(245, 158, 11, 0.22)', countText: '#fde68a' },
+  teal:    { bg: 'rgba(13, 148, 136, 0.14)', border: 'rgba(13, 148, 136, 0.32)', text: '#5eead4', icon: '#2dd4bf', countBg: 'rgba(13, 148, 136, 0.24)', countText: '#99f6e4' },
   sky:     { bg: 'rgba(14, 165, 233, 0.12)', border: 'rgba(14, 165, 233, 0.30)', text: '#7dd3fc', icon: '#38bdf8', countBg: 'rgba(14, 165, 233, 0.22)', countText: '#bae6fd' },
   emerald: { bg: 'rgba(16, 185, 129, 0.12)', border: 'rgba(16, 185, 129, 0.30)', text: '#6ee7b7', icon: '#34d399', countBg: 'rgba(16, 185, 129, 0.22)', countText: '#a7f3d0' },
-  violet:  { bg: 'rgba(139, 92, 246, 0.14)', border: 'rgba(139, 92, 246, 0.32)', text: '#c4b5fd', icon: '#a78bfa', countBg: 'rgba(139, 92, 246, 0.24)', countText: '#ddd6fe' },
+  slate:   { bg: 'rgba(148, 163, 184, 0.12)', border: 'rgba(148, 163, 184, 0.30)', text: '#cbd5e1', icon: '#94a3b8', countBg: 'rgba(148, 163, 184, 0.22)', countText: '#e2e8f0' },
   cyan:    { bg: 'rgba(6, 182, 212, 0.12)',  border: 'rgba(6, 182, 212, 0.30)',  text: '#67e8f9', icon: '#22d3ee', countBg: 'rgba(6, 182, 212, 0.22)',  countText: '#a5f3fc' },
 };
 
@@ -66,7 +66,7 @@ export const CourseResourcesBar = ({ courseId, counts }: CourseResourcesBarProps
       label: t('navigation:certificates', { defaultValue: 'Certificates' }),
       icon: Award,
       to: `/teach/courses/${courseId}/certificates`,
-      tone: 'amber',
+      tone: 'teal',
       count: counts?.certificates,
     },
     {
@@ -89,7 +89,7 @@ export const CourseResourcesBar = ({ courseId, counts }: CourseResourcesBarProps
       label: t('navigation:logs', { defaultValue: 'Logs' }),
       icon: Activity,
       to: `/teach/courses/${courseId}/logs`,
-      tone: 'violet',
+      tone: 'slate',
       count: counts?.activityLogs,
     },
     {
