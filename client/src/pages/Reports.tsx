@@ -33,14 +33,6 @@ export const Reports = () => {
         <Breadcrumb items={[{ label: t('reports') }]} />
       </div>
 
-      <div className="mb-6 md:mb-8">
-        <h1 className="text-xl sm:text-2xl font-bold" style={{ color: colors.textPrimary }}>
-          {t('reports')}
-        </h1>
-        <p className="mt-1" style={{ color: colors.textSecondary }}>
-          {t('courses:select_course_for_reports')}
-        </p>
-      </div>
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

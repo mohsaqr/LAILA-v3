@@ -31,6 +31,21 @@ const LegacyCatalogRedirect = () => {
   return <Navigate to={`/courses/${id}`} replace />;
 };
 
+// /teach/courses/:id/curriculum is retired — fold into the wizard.
+const CurriculumRedirect = () => {
+  const { id } = useParams();
+  return <Navigate to={`/teach/courses/${id}/setup?step=setting`} replace />;
+};
+
+// Course-scoped teaching list pages (quizzes / forums / assignments /
+// surveys) are retired in favour of the global DataTable pages filtered
+// by ?courseId=, so the curriculum, breadcrumb and direct links all land
+// on one consistent design.
+const TeachListRedirect = ({ section }: { section: string }) => {
+  const { id } = useParams();
+  return <Navigate to={`/teach/${section}?courseId=${id}`} replace />;
+};
+
 // Layout
 import { Layout } from './components/layout/Layout';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
@@ -42,7 +57,7 @@ import { Register } from './pages/auth/Register';
 import { ForgotPassword } from './pages/auth/ForgotPassword';
 
 // Main pages
-import { Dashboard } from './pages/Dashboard';
+import { DashboardRouter } from './pages/dashboards';
 import { Catalog } from './pages/Catalog';
 import { CourseDetails } from './pages/CourseDetails';
 import { ContentView } from './pages/ContentView';
@@ -73,11 +88,10 @@ import { LectureView } from './pages/LectureView';
 // Teaching pages
 import {
   CourseCreate,
+  CourseCreateWizard,
   CourseEdit,
-  CurriculumEditor,
   LectureEditor,
   CodeLabEditor,
-  AssignmentManager,
   SubmissionReview,
   SubmissionDetail,
   ChatbotLogs,
@@ -86,10 +100,10 @@ import {
   SurveyResponses,
   CourseTutorManager,
   QuizEditor,
-  QuizManager,
   QuizList,
+  AssignmentList,
+  TeachForumList,
   CertificateManager,
-  CourseForumManager,
   CourseCertificateManager,
 } from './pages/teach';
 import { CourseAnalytics } from './pages/teach/CourseAnalytics';
@@ -119,7 +133,6 @@ import {
 
 // Admin pages
 import {
-  AdminFrontpage,
   AdminSettings,
   LogsDashboard,
   UsersManagement,
@@ -227,7 +240,7 @@ function App() {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <DashboardRouter />
             </ProtectedRoute>
           }
         />
@@ -657,12 +670,27 @@ function App() {
         />
 
         {/* Teaching routes (instructor) */}
-        <Route path="/teach" element={<Navigate to="/courses" replace />} />
+        <Route
+          path="/teach"
+          element={
+            <ProtectedRoute requireInstructor>
+              <DashboardRouter />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/teach/create"
           element={
             <ProtectedRoute requireInstructor>
               <CourseCreate />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teach/courses/:id/setup"
+          element={
+            <ProtectedRoute requireInstructor>
+              <CourseCreateWizard />
             </ProtectedRoute>
           }
         />
@@ -674,11 +702,18 @@ function App() {
             </ProtectedRoute>
           }
         />
+        {/*
+          The standalone /curriculum page is retired in favour of the
+          unified /setup wizard. Redirect any incoming hit (and the
+          legacy "Manage / Curriculum" links scattered across the app)
+          to the wizard's Setting step. The CurriculumEditor component
+          itself is kept; the wizard's Content step still embeds it.
+        */}
         <Route
           path="/teach/courses/:id/curriculum"
           element={
             <ProtectedRoute requireInstructor>
-              <CurriculumEditor />
+              <CurriculumRedirect />
             </ProtectedRoute>
           }
         />
@@ -702,7 +737,7 @@ function App() {
           path="/teach/courses/:id/quizzes"
           element={
             <ProtectedRoute requireInstructor>
-              <QuizManager />
+              <TeachListRedirect section="quizzes" />
             </ProtectedRoute>
           }
         />
@@ -718,7 +753,7 @@ function App() {
           path="/teach/courses/:id/assignments"
           element={
             <ProtectedRoute requireInstructor>
-              <AssignmentManager />
+              <TeachListRedirect section="assignments" />
             </ProtectedRoute>
           }
         />
@@ -791,12 +826,22 @@ function App() {
           }
         />
 
+        {/* Instructor cross-course forums table */}
+        <Route
+          path="/teach/forums"
+          element={
+            <ProtectedRoute requireInstructor>
+              <TeachForumList />
+            </ProtectedRoute>
+          }
+        />
+
         {/* Course Forum Manager (Instructor) */}
         <Route
           path="/teach/courses/:id/forums"
           element={
             <ProtectedRoute requireInstructor>
-              <CourseForumManager />
+              <TeachListRedirect section="forums" />
             </ProtectedRoute>
           }
         />
@@ -827,6 +872,15 @@ function App() {
           element={
             <ProtectedRoute requireInstructor>
               <QuizList />
+            </ProtectedRoute>
+          }
+        />
+        {/* Assignment List (Instructor - all assignments) */}
+        <Route
+          path="/teach/assignments"
+          element={
+            <ProtectedRoute requireInstructor>
+              <AssignmentList />
             </ProtectedRoute>
           }
         />
@@ -862,7 +916,7 @@ function App() {
           path="/teach/courses/:id/surveys"
           element={
             <ProtectedRoute requireInstructor>
-              <SurveyManager />
+              <TeachListRedirect section="surveys" />
             </ProtectedRoute>
           }
         />
@@ -913,15 +967,8 @@ function App() {
           }
         />
 
-        {/* Admin routes */}
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute requireAdmin>
-              <AdminFrontpage />
-            </ProtectedRoute>
-          }
-        />
+        {/* Admin routes — /admin frontpage now lives at /dashboard for admins */}
+        <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
         <Route
           path="/admin/settings"
           element={
@@ -1004,11 +1051,7 @@ function App() {
         />
         <Route
           path="/admin/*"
-          element={
-            <ProtectedRoute requireAdmin>
-              <AdminFrontpage />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/dashboard" replace />}
         />
 
         {/* Settings & Profile */}

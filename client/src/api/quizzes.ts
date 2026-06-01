@@ -33,6 +33,7 @@ export interface QuizQuestion {
   correctAnswer?: string;
   explanation?: string;
   points: number;
+  shuffleOptions?: boolean;
   orderIndex: number;
   savedAnswer?: string;
 }
@@ -87,6 +88,32 @@ export interface AttemptResultsResponse {
   results: AttemptResult[];
 }
 
+export interface QuizStatsOption {
+  text: string;
+  count: number;
+  pct: number;
+  correct: boolean;
+}
+
+export interface QuizStatsQuestion {
+  id: number;
+  questionText: string;
+  questionType: 'multiple_choice' | 'true_false' | 'short_answer' | 'fill_in_blank';
+  points: number;
+  totalResponses: number;
+  correct: number;
+  incorrect: number;
+  accuracy: number;
+  options: QuizStatsOption[];
+}
+
+export interface QuizStats {
+  totalAttempts: number;
+  participants: number;
+  averageScore: number;
+  questions: QuizStatsQuestion[];
+}
+
 export interface CreateQuizInput {
   title: string;
   description?: string;
@@ -109,6 +136,7 @@ export interface CreateQuestionInput {
   correctAnswer: string;
   explanation?: string;
   points?: number;
+  shuffleOptions?: boolean;
   orderIndex?: number;
 }
 
@@ -149,6 +177,23 @@ export interface PracticeQuizInput {
   difficulty?: 'easy' | 'medium' | 'hard';
 }
 
+/** Row shape returned by `/quizzes/instructor` (cross-course list). */
+export interface InstructorQuiz {
+  id: number;
+  title: string;
+  courseId: number;
+  courseName: string;
+  courseThumbnail: string | null;
+  moduleId: number | null;
+  timeLimit: number | null;
+  maxAttempts: number;
+  passingScore: number;
+  isPublished: boolean;
+  questionCount: number;
+  attemptCount: number;
+  participantCount: number;
+}
+
 export const quizzesApi = {
   // Quiz CRUD
   getQuizzes: async (courseId: number): Promise<Quiz[]> => {
@@ -158,6 +203,11 @@ export const quizzesApi = {
 
   getQuiz: async (quizId: number): Promise<Quiz & { questions: QuizQuestion[] }> => {
     const response = await apiClient.get<ApiResponse<Quiz & { questions: QuizQuestion[] }>>(`/quizzes/${quizId}`);
+    return response.data.data!;
+  },
+
+  getInstructorQuizzes: async (): Promise<InstructorQuiz[]> => {
+    const response = await apiClient.get<ApiResponse<InstructorQuiz[]>>('/quizzes/instructor');
     return response.data.data!;
   },
 
@@ -217,6 +267,11 @@ export const quizzesApi = {
   // Instructor view
   getQuizAttempts: async (quizId: number): Promise<(QuizAttempt & { user: { id: number; fullname: string; email: string } })[]> => {
     const response = await apiClient.get<ApiResponse<any[]>>(`/quizzes/${quizId}/attempts`);
+    return response.data.data!;
+  },
+
+  getQuizStats: async (quizId: number): Promise<QuizStats> => {
+    const response = await apiClient.get<ApiResponse<QuizStats>>(`/quizzes/${quizId}/stats`);
     return response.data.data!;
   },
 

@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { assignmentsApi } from '../api/assignments';
 import { useTheme } from '../hooks/useTheme';
-import { useAuth } from '../hooks/useAuth';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { EmptyState } from '../components/common/EmptyState';
@@ -41,7 +40,6 @@ interface CourseGrade {
 export const DashboardGradebook = () => {
   const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
-  const { isInstructor } = useAuth();
 
   // Log page view on mount
   useEffect(() => {
@@ -175,23 +173,6 @@ export const DashboardGradebook = () => {
           <Breadcrumb items={[{ label: t('gradebook') }]} />
         </div>
 
-        {/* Header */}
-        <div className="mb-6 md:mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div
-              className="w-10 h-10 rounded-lg flex items-center justify-center"
-              style={{ backgroundColor: colors.bgIndigo }}
-            >
-              <ClipboardList className="w-5 h-5" style={{ color: colors.textIndigo }} />
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold" style={{ color: colors.textPrimary }}>
-              {isInstructor ? t('my_grades_as_student') : t('my_grades')}
-            </h1>
-          </div>
-          <p style={{ color: colors.textSecondary }}>
-            {t('view_grades_description')}
-          </p>
-        </div>
 
         {courseGrades.length > 0 ? (
           <>

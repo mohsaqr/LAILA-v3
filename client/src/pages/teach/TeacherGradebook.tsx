@@ -320,7 +320,7 @@ export const TeacherGradebook = () => {
 
   if (!course) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
         <h1 className="text-xl sm:text-2xl font-bold mb-2" style={{ color: colors.textPrimary }}>{t('course_not_found')}</h1>
         <Button onClick={() => navigate('/teach')}>{t('back_to_teaching')}</Button>
       </div>
@@ -350,11 +350,7 @@ export const TeacherGradebook = () => {
         <Breadcrumb homeHref="/" items={breadcrumbItems} />
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold" style={{ color: colors.textPrimary }}>{t('gradebook')}</h1>
-          <p style={{ color: colors.textSecondary }}>{course.title}</p>
-        </div>
+      <div className="flex justify-end mb-6">
         <Button onClick={exportCSV} variant="secondary" icon={<Download className="w-4 h-4" />}>
           {t('export_csv')}
         </Button>

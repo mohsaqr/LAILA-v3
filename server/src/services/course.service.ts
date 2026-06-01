@@ -53,7 +53,7 @@ export class CourseService {
         where,
         include: {
           instructor: {
-            select: { id: true, fullname: true },
+            select: { id: true, fullname: true, avatarUrl: true },
           },
           categories: { include: { category: true } },
           _count: {
@@ -88,7 +88,7 @@ export class CourseService {
       where,
       include: {
         instructor: {
-          select: { id: true, fullname: true, email: true },
+          select: { id: true, fullname: true, email: true, avatarUrl: true },
         },
         categories: { include: { category: true } },
         modules: {
@@ -157,16 +157,16 @@ export class CourseService {
                 _count: { select: { questions: true } },
               },
             },
-            forums: {
+            forumThreads: {
               where: includeUnpublished ? {} : { isPublished: true },
-              orderBy: { orderIndex: 'asc' },
+              orderBy: [{ isPinned: 'desc' }, { orderIndex: 'asc' }],
               select: {
                 id: true,
                 title: true,
                 description: true,
                 isPublished: true,
                 moduleId: true,
-                _count: { select: { threads: true } },
+                _count: { select: { posts: true } },
               },
             },
             moduleSurveys: {
@@ -244,7 +244,7 @@ export class CourseService {
     const result = await prisma.course.findUnique({
       where: { id },
       include: {
-        instructor: { select: { id: true, fullname: true, email: true } },
+        instructor: { select: { id: true, fullname: true, email: true, avatarUrl: true } },
         categories: { include: { category: true } },
         _count: { select: { enrollments: true } },
 
@@ -259,7 +259,11 @@ export class CourseService {
                 sections: {
                   orderBy: { order: 'asc' },
                   select: {
-                    id: true, type: true, fileName: true, fileUrl: true, fileType: true, order: true,
+                    id: true, type: true, order: true, title: true, content: true,
+                    fileName: true, fileUrl: true, fileType: true, fileSize: true,
+                    chatbotTitle: true, chatbotIntro: true, chatbotImageUrl: true,
+                    chatbotSystemPrompt: true, chatbotWelcome: true,
+                    assignmentId: true, showDeadline: true, showPoints: true,
                   },
                 },
               },
@@ -323,9 +327,9 @@ export class CourseService {
           },
         },
 
-        forums: {
-          orderBy: [{ orderIndex: 'asc' }, { createdAt: 'desc' }],
-          include: { _count: { select: { threads: true } } },
+        forumThreads: {
+          orderBy: [{ isPinned: 'desc' }, { orderIndex: 'asc' }, { createdAt: 'desc' }],
+          include: { _count: { select: { posts: true } } },
         },
       },
     });
@@ -343,7 +347,8 @@ export class CourseService {
     }
 
     // Destructure so `course` doesn't carry the extra joined arrays
-    const { assignments, courseTutors: rawTutors, labAssignments, forums, ...courseData } = result;
+    const { assignments, courseTutors: rawTutors, labAssignments, forumThreads, ...courseData } = result;
+    const forums = forumThreads; // keep legacy key on the API envelope
 
     // Compute totalMessages per tutor from nested counts (avoids N+1)
     const tutors = rawTutors.map(({ conversations, ...tutor }) => ({
@@ -372,7 +377,7 @@ export class CourseService {
       where: { slug, status: 'published' },
       include: {
         instructor: {
-          select: { id: true, fullname: true },
+          select: { id: true, fullname: true, avatarUrl: true },
         },
         categories: { include: { category: true } },
         modules: {
@@ -446,7 +451,7 @@ export class CourseService {
         where: { slug },
         include: {
           instructor: {
-            select: { id: true, fullname: true },
+            select: { id: true, fullname: true, avatarUrl: true },
           },
           categories: { include: { category: true } },
           modules: {
@@ -477,9 +482,13 @@ export class CourseService {
 
   async createCourse(instructorId: number, data: CreateCourseInput, context?: SystemEventContext) {
     const slug = this.generateSlug(data.title);
-    const { categoryIds, ...courseData } = data;
+    const { categoryIds, activationCode: providedCode, ...courseData } = data;
 
-    const activationCode = this.generateActivationCode();
+    // Use the user-supplied code (uppercased) if non-empty, otherwise auto-generate.
+    const activationCode =
+      providedCode && providedCode.trim().length > 0
+        ? providedCode.trim().toUpperCase()
+        : this.generateActivationCode();
 
     const course = await prisma.course.create({
       data: {
@@ -547,11 +556,19 @@ export class CourseService {
       isPublic: course.isPublic,
     };
 
-    const { categoryIds, ...courseData } = data;
+    const { categoryIds, activationCode, ...courseData } = data;
+
+    // Only touch activationCode when the caller actually sent something
+    // non-empty; an empty string means "leave it as is" so we don't wipe
+    // the existing code.
+    const updateData: typeof courseData & { activationCode?: string } = { ...courseData };
+    if (typeof activationCode === 'string' && activationCode.trim().length > 0) {
+      updateData.activationCode = activationCode.trim().toUpperCase();
+    }
 
     const updated = await prisma.course.update({
       where: { id: courseId },
-      data: courseData,
+      data: updateData,
       include: {
         instructor: {
           select: { id: true, fullname: true },
@@ -728,17 +745,23 @@ export class CourseService {
     return updated;
   }
 
-  async getInstructorCourses(instructorId: number, _isAdmin = false) {
-    // Also include courses where the user has a team role (TA, co_instructor, course_admin)
-    const teamRoles = await prisma.courseRole.findMany({
-      where: { userId: instructorId },
-      select: { courseId: true },
-    });
-    const teamCourseIds = teamRoles.map(r => r.courseId);
-
-    const where = teamCourseIds.length > 0
-      ? { OR: [{ instructorId }, { id: { in: teamCourseIds } }] }
-      : { instructorId };
+  async getInstructorCourses(instructorId: number, isAdmin = false) {
+    // Admins see every course regardless of ownership. Instructors see
+    // courses they own plus any where they have a team role (TA,
+    // co_instructor, course_admin).
+    let where: any;
+    if (isAdmin) {
+      where = {};
+    } else {
+      const teamRoles = await prisma.courseRole.findMany({
+        where: { userId: instructorId },
+        select: { courseId: true },
+      });
+      const teamCourseIds = teamRoles.map(r => r.courseId);
+      where = teamCourseIds.length > 0
+        ? { OR: [{ instructorId }, { id: { in: teamCourseIds } }] }
+        : { instructorId };
+    }
 
     const courses = await prisma.course.findMany({
       where,

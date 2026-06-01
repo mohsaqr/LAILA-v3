@@ -1,18 +1,31 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Search, Download, ChevronLeft, ChevronRight, Pencil, Activity } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { Activity, Pencil, UserCheck, UserX } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { usersApi } from '../../../api/users';
 import { adminApi } from '../../../api/admin';
-import { useTheme } from '../../../hooks/useTheme';
 import { useAuthStore } from '../../../store/authStore';
 import { Button } from '../../../components/common/Button';
 import { Modal } from '../../../components/common/Modal';
-import { Loading } from '../../../components/common/Loading';
-import toast from 'react-hot-toast';
+import {
+  DataTable,
+  type ColumnDef,
+} from '../../../components/common/DataTable';
+import { RowMenu } from '../../../components/common/RowMenu';
 
 type Role = 'student' | 'instructor' | 'admin';
+
+interface AdminUser {
+  id: number;
+  fullname: string;
+  email: string;
+  isAdmin: boolean;
+  isInstructor: boolean;
+  isActive?: boolean;
+  createdAt?: string;
+}
 
 interface EditableUser {
   id: number;
@@ -21,43 +34,25 @@ interface EditableUser {
   isInstructor: boolean;
 }
 
+const roleOf = (u: AdminUser): Role =>
+  u.isAdmin ? 'admin' : u.isInstructor ? 'instructor' : 'student';
+
 export const UsersPanel = () => {
   const { t } = useTranslation(['admin', 'common']);
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const currentUser = useAuthStore(state => state.user);
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState('');
+
   const [editUser, setEditUser] = useState<EditableUser | null>(null);
   const [selectedRole, setSelectedRole] = useState<Role>('student');
-  const limit = 15;
-  const { isDark } = useTheme();
-
-  // Theme colors
-  const colors = {
-    bg: isDark ? '#1f2937' : '#ffffff',
-    bgHeader: isDark ? 'rgba(55, 65, 81, 0.5)' : '#f9fafb',
-    bgInput: isDark ? '#1f2937' : '#ffffff',
-    bgAvatar: isDark ? '#374151' : '#e5e7eb',
-    textPrimary: isDark ? '#f3f4f6' : '#111827',
-    textSecondary: isDark ? '#9ca3af' : '#6b7280',
-    textMuted: isDark ? '#6b7280' : '#9ca3af',
-    border: isDark ? '#374151' : '#e5e7eb',
-    borderLight: isDark ? '#374151' : '#f3f4f6',
-    // Badge colors
-    bgRed: isDark ? 'rgba(239, 68, 68, 0.2)' : '#fef2f2',
-    textRed: isDark ? '#fca5a5' : '#dc2626',
-    bgBlue: isDark ? 'rgba(59, 130, 246, 0.2)' : '#eff6ff',
-    textBlue: isDark ? '#93c5fd' : '#1d4ed8',
-    bgGray: isDark ? '#374151' : '#f3f4f6',
-    textGray: isDark ? '#d1d5db' : '#374151',
-    bgGreen: isDark ? 'rgba(34, 197, 94, 0.2)' : '#f0fdf4',
-    textGreen: isDark ? '#86efac' : '#15803d',
-  };
 
   const { data, isLoading } = useQuery({
-    queryKey: ['users', page, search],
-    queryFn: () => usersApi.getUsers(page, limit, search || undefined),
+    queryKey: ['users', 'all'],
+    // Pull a large page so DataTable can do client-side filter/sort/page.
+    queryFn: () => usersApi.getUsers(1, 1000),
   });
+
+  const users: AdminUser[] = data?.users ?? [];
 
   const toggleStatusMutation = useMutation({
     mutationFn: ({ userId, isActive }: { userId: number; isActive: boolean }) =>
@@ -69,8 +64,15 @@ export const UsersPanel = () => {
   });
 
   const changeRoleMutation = useMutation({
-    mutationFn: ({ userId, isAdmin, isInstructor }: { userId: number; isAdmin: boolean; isInstructor: boolean }) =>
-      usersApi.updateUser(userId, { isAdmin, isInstructor }),
+    mutationFn: ({
+      userId,
+      isAdmin,
+      isInstructor,
+    }: {
+      userId: number;
+      isAdmin: boolean;
+      isInstructor: boolean;
+    }) => usersApi.updateUser(userId, { isAdmin, isInstructor }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       toast.success(t('user_updated'));
@@ -78,14 +80,18 @@ export const UsersPanel = () => {
     },
   });
 
-  const openEditRole = (user: any) => {
+  const openEditRole = (user: AdminUser) => {
     if (user.id === currentUser?.id) {
       toast.error(t('cannot_change_own_role'));
       return;
     }
-    const role: Role = user.isAdmin ? 'admin' : user.isInstructor ? 'instructor' : 'student';
-    setSelectedRole(role);
-    setEditUser({ id: user.id, fullname: user.fullname, isAdmin: user.isAdmin, isInstructor: user.isInstructor });
+    setSelectedRole(roleOf(user));
+    setEditUser({
+      id: user.id,
+      fullname: user.fullname,
+      isAdmin: user.isAdmin,
+      isInstructor: user.isInstructor,
+    });
   };
 
   const handleRoleSave = () => {
@@ -99,8 +105,10 @@ export const UsersPanel = () => {
 
   const handleExport = async () => {
     try {
-      const data = await adminApi.exportData('users');
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const payload = await adminApi.exportData('users');
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {
+        type: 'application/json',
+      });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -113,183 +121,158 @@ export const UsersPanel = () => {
     }
   };
 
-  if (isLoading) {
-    return <Loading text={t('loading_users')} />;
-  }
+  const roles: { value: Role; label: string }[] = useMemo(
+    () => [
+      { value: 'student', label: t('role_student') },
+      { value: 'instructor', label: t('role_instructor') },
+      { value: 'admin', label: t('role_admin') },
+    ],
+    [t],
+  );
 
-  const users = data?.users || [];
-  const pagination = data?.pagination;
-
-  const roles: { value: Role; label: string }[] = [
-    { value: 'student', label: t('role_student') },
-    { value: 'instructor', label: t('role_instructor') },
-    { value: 'admin', label: t('role_admin') },
+  const columns: ColumnDef<AdminUser>[] = [
+    {
+      id: 'user',
+      header: t('user'),
+      sortAccessor: u => u.fullname.toLowerCase(),
+      width: '40%',
+      cell: u => (
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-medium text-gray-600 dark:text-gray-300 flex-shrink-0">
+            {u.fullname?.charAt(0)?.toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm truncate text-gray-700 dark:text-gray-200" title={u.fullname}>
+              {u.fullname}
+            </p>
+            <p className="text-xs truncate text-gray-500 dark:text-gray-400" title={u.email}>
+              {u.email}
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'role',
+      header: t('role'),
+      sortAccessor: u => roleOf(u),
+      width: '8rem',
+      filter: {
+        kind: 'select',
+        options: roles.map(r => ({ value: r.value, label: r.label })),
+        predicate: (u, v) => roleOf(u) === v,
+      },
+      cell: u => {
+        const r = roleOf(u);
+        const cls =
+          r === 'admin'
+            ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+            : r === 'instructor'
+            ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200';
+        return (
+          <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${cls}`}>
+            {t(`role_${r}`)}
+          </span>
+        );
+      },
+    },
+    {
+      id: 'status',
+      header: t('status'),
+      sortAccessor: u => (u.isActive !== false ? 'active' : 'inactive'),
+      width: '7rem',
+      hideOnMobile: true,
+      filter: {
+        kind: 'select',
+        options: [
+          { value: 'active', label: t('status_active') },
+          { value: 'inactive', label: t('status_inactive') },
+        ],
+        predicate: (u, v) => (u.isActive !== false ? 'active' : 'inactive') === v,
+      },
+      cell: u =>
+        u.isActive !== false ? (
+          <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+            {t('status_active')}
+          </span>
+        ) : (
+          <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+            {t('status_inactive')}
+          </span>
+        ),
+    },
+    {
+      id: 'joined',
+      header: t('joined'),
+      sortAccessor: u => (u.createdAt ? new Date(u.createdAt).getTime() : 0),
+      width: '7rem',
+      hideOnMobile: true,
+      align: 'right',
+      cell: u => (
+        <span className="text-xs text-gray-600 dark:text-gray-300 tabular-nums">
+          {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—'}
+        </span>
+      ),
+    },
   ];
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>{t('users')}</h2>
-          <p className="text-sm" style={{ color: colors.textSecondary }}>{t('total_users', { count: pagination?.total || 0 })}</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleExport}>
-            <Download className="w-4 h-4 mr-1" /> {t('common:export')}
-          </Button>
-        </div>
-      </div>
-
-      {/* Search */}
-      <div className="mb-4">
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
-          <input
-            type="text"
-            placeholder={t('search_users')}
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="w-full pl-10 pr-4 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            style={{
-              backgroundColor: colors.bgInput,
-              color: colors.textPrimary,
-              border: `1px solid ${colors.border}`,
-            }}
+      <DataTable<AdminUser>
+        rows={users}
+        columns={columns}
+        rowKey={u => u.id}
+        isLoading={isLoading}
+        pageSize={15}
+        globalSearch={{
+          placeholder: t('search_users'),
+          predicate: (u, q) => {
+            const l = q.toLowerCase();
+            return (
+              u.fullname.toLowerCase().includes(l) ||
+              u.email.toLowerCase().includes(l)
+            );
+          },
+        }}
+        exportAction={{ onClick: handleExport }}
+        rowActions={u => (
+          <RowMenu
+            items={[
+              {
+                key: 'edit',
+                label: t('change_role'),
+                icon: <Pencil className="w-3.5 h-3.5" />,
+                onClick: () => openEditRole(u),
+              },
+              {
+                key: 'logs',
+                label: t('view_logs', { defaultValue: 'View Logs' }),
+                icon: <Activity className="w-3.5 h-3.5" />,
+                onClick: () => navigate(`/admin/logs?userId=${u.id}`),
+              },
+              {
+                key: 'toggle',
+                label:
+                  u.isActive !== false
+                    ? t('deactivate')
+                    : t('activate'),
+                icon:
+                  u.isActive !== false ? (
+                    <UserX className="w-3.5 h-3.5" />
+                  ) : (
+                    <UserCheck className="w-3.5 h-3.5" />
+                  ),
+                onClick: () =>
+                  toggleStatusMutation.mutate({
+                    userId: u.id,
+                    isActive: u.isActive === false,
+                  }),
+              },
+            ]}
           />
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="rounded-lg overflow-hidden" style={{ backgroundColor: colors.bg, border: `1px solid ${colors.border}` }}>
-        <table className="w-full">
-          <thead>
-            <tr style={{ borderBottom: `1px solid ${colors.border}`, backgroundColor: colors.bgHeader }}>
-              <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>{t('user')}</th>
-              <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>{t('role')}</th>
-              <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>{t('status')}</th>
-              <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>{t('joined')}</th>
-              <th className="text-right text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: colors.textSecondary }}>{t('actions')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((user: any, index: number) => (
-              <tr
-                key={user.id}
-                style={{ borderBottom: index < users.length - 1 ? `1px solid ${colors.borderLight}` : 'none' }}
-              >
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium"
-                      style={{ backgroundColor: colors.bgAvatar, color: colors.textSecondary }}
-                    >
-                      {user.fullname?.charAt(0)?.toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>{user.fullname}</p>
-                      <p className="text-xs" style={{ color: colors.textSecondary }}>{user.email}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex gap-1">
-                    {user.isAdmin && (
-                      <span
-                        className="inline-flex px-2 py-0.5 text-xs font-medium rounded"
-                        style={{ backgroundColor: colors.bgRed, color: colors.textRed }}
-                      >{t('role_admin')}</span>
-                    )}
-                    {user.isInstructor && !user.isAdmin && (
-                      <span
-                        className="inline-flex px-2 py-0.5 text-xs font-medium rounded"
-                        style={{ backgroundColor: colors.bgBlue, color: colors.textBlue }}
-                      >{t('role_instructor')}</span>
-                    )}
-                    {!user.isAdmin && !user.isInstructor && (
-                      <span
-                        className="inline-flex px-2 py-0.5 text-xs font-medium rounded"
-                        style={{ backgroundColor: colors.bgGray, color: colors.textGray }}
-                      >{t('role_student')}</span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className="inline-flex px-2 py-0.5 text-xs font-medium rounded"
-                    style={{
-                      backgroundColor: user.isActive !== false ? colors.bgGreen : colors.bgGray,
-                      color: user.isActive !== false ? colors.textGreen : colors.textMuted,
-                    }}
-                  >
-                    {user.isActive !== false ? t('status_active') : t('status_inactive')}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-sm" style={{ color: colors.textSecondary }}>
-                  {new Date(user.createdAt).toLocaleDateString()}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex items-center justify-end gap-3">
-                    <button
-                      onClick={() => openEditRole(user)}
-                      title={t('change_role')}
-                      className="p-1 rounded hover:opacity-70 transition-opacity"
-                      style={{ color: colors.textSecondary }}
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <Link
-                      to={`/admin/logs?userId=${user.id}`}
-                      title={t('view_logs', { defaultValue: 'View Logs' })}
-                      className="p-1 rounded hover:opacity-70 transition-opacity"
-                      style={{ color: colors.textSecondary }}
-                    >
-                      <Activity className="w-3.5 h-3.5" />
-                    </Link>
-                    <button
-                      onClick={() => toggleStatusMutation.mutate({ userId: user.id, isActive: user.isActive === false })}
-                      className="text-xs hover:underline"
-                      style={{ color: colors.textSecondary }}
-                    >
-                      {user.isActive !== false ? t('deactivate') : t('activate')}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {/* Pagination */}
-        {pagination && pagination.totalPages > 1 && (
-          <div
-            className="flex items-center justify-between px-4 py-3"
-            style={{ borderTop: `1px solid ${colors.border}`, backgroundColor: colors.bgHeader }}
-          >
-            <p className="text-sm" style={{ color: colors.textSecondary }}>
-              {t('page_x_of_y', { page: pagination.page, total: pagination.totalPages })}
-            </p>
-            <div className="flex gap-1">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="p-1 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ color: colors.textSecondary }}
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
-                disabled={page === pagination.totalPages}
-                className="p-1 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ color: colors.textSecondary }}
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
         )}
-      </div>
+      />
 
       {/* Change Role Modal */}
       <Modal
@@ -302,13 +285,11 @@ export const UsersPanel = () => {
           {roles.map(({ value, label }) => (
             <label
               key={value}
-              className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors"
-              style={{
-                borderColor: selectedRole === value ? '#6366f1' : colors.border,
-                backgroundColor: selectedRole === value
-                  ? (isDark ? 'rgba(99,102,241,0.15)' : '#eef2ff')
-                  : 'transparent',
-              }}
+              className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                selectedRole === value
+                  ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
+                  : 'border-gray-200 dark:border-gray-700'
+              }`}
             >
               <input
                 type="radio"
@@ -318,7 +299,9 @@ export const UsersPanel = () => {
                 onChange={() => setSelectedRole(value)}
                 className="accent-indigo-500"
               />
-              <span className="text-sm font-medium" style={{ color: colors.textPrimary }}>{label}</span>
+              <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                {label}
+              </span>
             </label>
           ))}
         </div>

@@ -5,13 +5,9 @@ import { useTranslation } from 'react-i18next';
 import {
   Users,
   BookOpen,
-  PlayCircle,
-  Edit,
+  LineChart,
   Settings,
-  MessageSquare,
-  PenSquare,
-  Eye,
-  Network,
+  GraduationCap,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../api/courses';
@@ -23,9 +19,13 @@ import { Button } from '../components/common/Button';
 import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { CollaborativeModule } from '../components/course/CollaborativeModule';
+import { CourseUpcomingAssignments } from '../components/course/CourseUpcomingAssignments';
+import { MiniCalendar } from '../components/dashboard/MiniCalendar';
 import { ModuleSection } from '../components/course/ModuleSection';
 import { Modal } from '../components/common/Modal';
 import { Input } from '../components/common/Input';
+import { Avatar } from '../components/dashboard/Avatar';
+import { resolveFileUrl } from '../api/client';
 import { useEffect, useRef, useState } from 'react';
 import { CurriculumViewMode } from '../types';
 import activityLogger from '../services/activityLogger';
@@ -40,9 +40,6 @@ export const CourseDetails = () => {
   const { t } = useTranslation(['courses', 'common']);
   const track = useTracker('course');
   const moduleRefs = useRef<Record<number, HTMLElement | null>>({});
-
-  // Edit mode state — admins/instructors default to view mode; edit is a deliberate act
-  const [isEditMode, setIsEditMode] = useState(false);
 
   // Activation code modal state
   const [showCodeModal, setShowCodeModal] = useState(false);
@@ -113,13 +110,7 @@ export const CourseDetails = () => {
     }
   }, [course?.id, isAuthenticated]);
 
-  // Scroll to module
-  const scrollToModule = (moduleId: number) => {
-    const element = moduleRefs.current[moduleId];
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
+  // (Module scroll-to helper removed — sidebar Modules card was retired.)
 
   if (isLoading) {
     return <Loading fullScreen text={t('loading_course')} />;
@@ -139,16 +130,38 @@ export const CourseDetails = () => {
   const isCourseInstructor = user?.id === course.instructorId;
   const showInstructorControls = isCourseInstructor || isTeamMember;
   const hasAccess = isEnrolled || isActualAdmin || isCourseInstructor || isTeamMember;
-  const totalLectures = course.modules?.reduce((sum, m) => sum + (m.lectures?.length || 0), 0) || 0;
+  const canManage = showInstructorControls || isActualAdmin;
+  const thumbnail = course.thumbnail
+    ? resolveFileUrl(course.thumbnail) || course.thumbnail
+    : null;
+  const studentCount = course._count?.enrollments ?? 0;
+  const moduleCount = course.modules?.length ?? 0;
 
   // Get the view mode from course settings, default to 'mini-cards'
   const viewMode: CurriculumViewMode = (course as any).curriculumViewMode || 'mini-cards';
 
+  // Flatten this course's published assignments and build the calendar
+  // bucket so the sidebar can show upcoming items + a small month view.
+  const courseAssignments = (course.modules ?? []).flatMap(
+    m => m.assignments ?? [],
+  );
+  const assignmentsByDate = (() => {
+    const map = new Map<string, number>();
+    for (const a of courseAssignments) {
+      if (!a.isPublished || !a.dueDate) continue;
+      const d = new Date(a.dueDate);
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      map.set(iso, (map.get(iso) ?? 0) + 1);
+    }
+    return map;
+  })();
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: colors.bg }}>
-      {/* Breadcrumb */}
-      <div style={{ backgroundColor: colors.bgHeader, borderBottom: `1px solid ${colors.border}` }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+      {/* Breadcrumb — matches the dashboard / catalog pattern (inline,
+          no full-width bar, just sitting in the max-w container). */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 md:pt-8">
+        <div className="mb-4">
           <Breadcrumb
             items={[
               { label: t('courses'), href: '/courses' },
@@ -158,91 +171,199 @@ export const CourseDetails = () => {
         </div>
       </div>
 
-      {/* Instructor Toolbar — only shown when edit mode is active */}
-      {(showInstructorControls || isActualAdmin) && (
-        isEditMode ? (
-          <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-              <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
-                <PenSquare className="w-5 h-5" />
-                <span className="font-medium">{t('instructor_view')}</span>
-              </div>
-              <div className="flex items-center gap-3 flex-wrap">
-                <button
-                  onClick={() => { track('edit_mode_toggled', { verb: 'interacted', objectType: 'course', objectId: parseInt(id!), courseId: parseInt(id!), payload: { editMode: false } }); setIsEditMode(false); }}
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 rounded-lg transition-colors border border-amber-300 dark:border-amber-700"
-                >
-                  <Eye className="w-4 h-4" />
-                  {t('exit_edit_mode')}
-                </button>
-                <Link
-                  to={`/teach/courses/${course.id}/curriculum`}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
-                >
-                  <Edit className="w-4 h-4" />
-                  {t('edit_course')}
-                </Link>
-                <Link
-                  to={`/teach/courses/${course.id}/edit`}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
-                >
-                  <Settings className="w-4 h-4" />
-                  {t('common:settings')}
-                </Link>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="border-b" style={{ borderColor: isDark ? '#374151' : '#e5e7eb' }}>
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex justify-end">
-              <button
-                onClick={() => { track('edit_mode_toggled', { verb: 'interacted', objectType: 'course', objectId: parseInt(id!), courseId: parseInt(id!), payload: { editMode: true } }); setIsEditMode(true); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
-                style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
+      {/* Hero — info on the left, thumbnail card on the right. */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div
+          className="rounded-2xl border p-4 sm:p-5"
+          style={{
+            backgroundColor: isDark ? '#1f2937' : '#ffffff',
+            borderColor: isDark ? '#374151' : '#e5e7eb',
+          }}
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            {/* Left — info */}
+            <div className="lg:col-span-2 flex flex-col gap-2.5">
+              {(course.categories?.length ?? 0) > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {course.categories!.map(({ category }) => (
+                    <span
+                      key={category.id}
+                      className="text-[11px] font-medium px-2.5 py-1 rounded-full"
+                      style={{
+                        backgroundColor: isDark ? 'rgba(8,143,143,0.18)' : '#ccfbfb',
+                        color: isDark ? '#22d3d3' : '#065c5c',
+                      }}
+                    >
+                      {category.title}
+                    </span>
+                  ))}
+                  {course.difficulty && (
+                    <span
+                      className="text-[11px] font-medium px-2.5 py-1 rounded-full"
+                      style={{
+                        backgroundColor: isDark ? 'rgba(245,158,11,0.18)' : '#fef3c7',
+                        color: isDark ? '#fcd34d' : '#92400e',
+                      }}
+                    >
+                      {course.difficulty}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <h1
+                className="text-2xl sm:text-3xl font-bold leading-tight"
+                style={{ color: colors.textPrimary }}
               >
-                <PenSquare className="w-3.5 h-3.5" />
-                {t('edit_mode')}
-              </button>
-            </div>
-          </div>
-        )
-      )}
+                {course.title}
+              </h1>
 
-      {/* Hero Section */}
-      <div className="gradient-bg text-white py-6 md:py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2">{course.title}</h1>
-          {course.categories && course.categories.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-3">
-              {course.categories.map(({ category }) => (
-                <span key={category.id} className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-white/20 text-white">
-                  {category.title}
+              {course.description && (
+                <TrackedContent
+                  context="course"
+                  courseId={parseInt(id!)}
+                  objectId={parseInt(id!)}
+                  objectTitle={course.title}
+                >
+                  <div
+                    className="prose prose-sm dark:prose-invert max-w-none"
+                    style={{ color: colors.textSecondary }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(course.description) }}
+                  />
+                </TrackedContent>
+              )}
+
+              {/* Stats strip — small and inline, right after the description. */}
+              <div
+                className="flex flex-wrap items-center gap-3 text-xs"
+                style={{ color: colors.textMuted }}
+              >
+                <span className="inline-flex items-center gap-1">
+                  <Users className="w-3.5 h-3.5" />
+                  <span className="tabular-nums">{studentCount}</span>
+                  <span>{t('student', { defaultValue: 'Student' })}</span>
                 </span>
-              ))}
-            </div>
-          )}
-          {course.description && (
-            <TrackedContent context="course" courseId={parseInt(id!)} objectId={parseInt(id!)} objectTitle={course.title}>
-              <div className="text-white mb-4 prose prose-sm max-w-none [&_*]:text-white/95 [&_a]:text-white [&_a]:underline" dangerouslySetInnerHTML={{ __html: sanitizeHtml(course.description) }} />
-            </TrackedContent>
-          )}
-          <div className="flex flex-wrap items-center gap-4 text-sm">
-            <span className="flex items-center gap-1"><Users className="w-4 h-4" /> {t('n_students', { count: course._count?.enrollments || 0 })}</span>
-            <span className="flex items-center gap-1"><BookOpen className="w-4 h-4" /> {t('n_modules', { count: course.modules?.length || 0 })}</span>
-            <span className="flex items-center gap-1"><PlayCircle className="w-4 h-4" /> {t('n_lessons', { count: totalLectures })}</span>
-            <span>{t('by_instructor', { name: course.instructor?.fullname })}</span>
-          </div>
+                <span style={{ color: colors.textMuted }}>·</span>
+                <span className="inline-flex items-center gap-1">
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span className="tabular-nums">{moduleCount}</span>
+                  <span>{t('module', { defaultValue: 'Module' })}</span>
+                </span>
+              </div>
 
-          {/* Action buttons for non-enrolled users */}
-          <div className="mt-4 flex flex-wrap gap-3">
-            {!isEnrolled && isAuthenticated && (
-              <Button onClick={handleEnrollClick} loading={enrollMutation.isPending} className="bg-white text-primary-600 hover:bg-gray-100">
-                {t('enroll_now')}
-              </Button>
-            )}
-            {!isAuthenticated && (
-              <Link to="/login" className="btn bg-white text-primary-600 hover:bg-gray-100">{t('sign_in_to_enroll')}</Link>
-            )}
+              {/* Instructor + Enroll on one line. */}
+              <div className="flex flex-wrap items-center gap-3 mt-1">
+                {course.instructor && (
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Avatar
+                      src={course.instructor.avatarUrl
+                        ? resolveFileUrl(course.instructor.avatarUrl)
+                        : null}
+                      name={course.instructor.fullname || '?'}
+                      size="xs"
+                    />
+                    <span
+                      className="text-xs font-medium truncate"
+                      style={{ color: colors.textSecondary }}
+                    >
+                      {course.instructor.fullname}
+                    </span>
+                  </div>
+                )}
+                {/* Action cluster — all buttons share size, padding,
+                    icon treatment and radius. Primary actions use the
+                    brand gradient fill; Manage uses the soft secondary
+                    tint to signal its different role. */}
+                <div className="ml-auto flex items-center gap-2 flex-wrap">
+                  {!isEnrolled && isAuthenticated && (
+                    <button
+                      type="button"
+                      onClick={handleEnrollClick}
+                      disabled={enrollMutation.isPending}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                      style={{
+                        backgroundImage:
+                          'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)',
+                        color: '#ffffff',
+                      }}
+                    >
+                      <GraduationCap className="w-4 h-4" strokeWidth={2.25} />
+                      {enrollMutation.isPending
+                        ? t('common:loading', { defaultValue: 'Loading…' })
+                        : t('enroll_now')}
+                    </button>
+                  )}
+                  {isEnrolled && (
+                    <Link
+                      to={`/courses/${id}/analytics`}
+                      onClick={() =>
+                        track('analytics_link_clicked', {
+                          verb: 'interacted',
+                          objectType: 'analytics',
+                          courseId: parseInt(id!),
+                        })
+                      }
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                      style={{
+                        backgroundImage:
+                          'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)',
+                        color: '#ffffff',
+                      }}
+                    >
+                      <LineChart className="w-4 h-4" strokeWidth={2.25} />
+                      {t('learning_analytics', { defaultValue: 'Learning Analytics' })}
+                    </Link>
+                  )}
+                  {!isAuthenticated && (
+                    <Link
+                      to="/login"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                      style={{
+                        backgroundImage:
+                          'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)',
+                        color: '#ffffff',
+                      }}
+                    >
+                      <GraduationCap className="w-4 h-4" strokeWidth={2.25} />
+                      {t('sign_in_to_enroll')}
+                    </Link>
+                  )}
+                  {canManage && (
+                    <Link
+                      to={`/teach/courses/${course.id}/setup?step=setting`}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all hover:-translate-y-0.5"
+                      style={{
+                        backgroundColor: isDark ? 'rgba(8,143,143,0.18)' : '#ccfbfb',
+                        color: isDark ? '#22d3d3' : '#065c5c',
+                      }}
+                    >
+                      <Settings className="w-4 h-4" strokeWidth={2.25} />
+                      {t('manage', { defaultValue: 'Manage' })}
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right — thumbnail card */}
+            <div className="lg:col-span-1">
+              <div
+                className="aspect-video w-full rounded-2xl overflow-hidden flex items-center justify-center"
+                style={{
+                  backgroundImage: 'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)',
+                }}
+              >
+                {thumbnail ? (
+                  <img
+                    src={thumbnail}
+                    alt={course.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <GraduationCap className="w-12 h-12 text-white/80" />
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -267,8 +388,8 @@ export const CourseDetails = () => {
                       codeLabs={module.codeLabs}
                       quizzes={module.quizzes}
                       assignments={module.assignments}
-                      forums={module.forums}
-                      surveys={module.moduleSurveys?.map(ms => ms.survey)}
+                      forums={module.forumThreads}
+                      surveys={module.moduleSurveys as any}
                       labAssignments={(module as any).labAssignments}
                       hasAccess={hasAccess}
                       viewMode={viewMode}
@@ -291,39 +412,18 @@ export const CourseDetails = () => {
           {/* Sidebar */}
           {hasAccess && (
             <div className="lg:w-96 flex-shrink-0">
-              <div className="lg:sticky lg:top-4 space-y-4">
-                {/* Module Navigation */}
-                {course.modules && course.modules.length > 0 && (
-                  <Card>
-                    <CardBody className="p-4">
-                      <h3 className="font-semibold mb-3" style={{ color: colors.textPrimary }}>
-                        {t('modules')}
-                      </h3>
-                      <nav className="space-y-1">
-                        {course.modules.map((module, idx) => (
-                          <button
-                            key={module.id}
-                            onClick={() => { track('module_navigated', { verb: 'interacted', objectType: 'module', objectId: module.id, courseId: parseInt(id!) }); scrollToModule(module.id); }}
-                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-3"
-                          >
-                            <span
-                              className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
-                              style={{ backgroundColor: colors.bgPrimary, color: colors.textPrimary600 }}
-                            >
-                              {idx + 1}
-                            </span>
-                            <span
-                              className="text-sm truncate"
-                              style={{ color: colors.textPrimary }}
-                            >
-                              {module.title}
-                            </span>
-                          </button>
-                        ))}
-                      </nav>
-                    </CardBody>
-                  </Card>
+              <div className="lg:sticky lg:top-4 space-y-8">
+                {/* Compact month calendar marked with this course's
+                    assignment deadlines. */}
+                {assignmentsByDate.size > 0 && (
+                  <MiniCalendar itemsByDate={assignmentsByDate} />
                 )}
+
+                {/* Upcoming assignments for this course (sidebar). */}
+                <CourseUpcomingAssignments
+                  courseId={parseInt(id!)}
+                  assignments={courseAssignments}
+                />
 
                 {/* Collaborative Module */}
                 <CollaborativeModule
@@ -332,53 +432,6 @@ export const CourseDetails = () => {
                   moduleName={(course as any).collaborativeModuleName}
                   isInstructor={showInstructorControls || isActualAdmin}
                 />
-
-                {/* Discussion Forums Card */}
-                <Link to={`/courses/${id}/forums`} onClick={() => track('forums_link_clicked', { verb: 'interacted', objectType: 'forum', courseId: parseInt(id!) })}>
-                  <Card hover className="transition-shadow">
-                    <CardBody className="flex items-center gap-4 p-4">
-                      <div
-                        className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: colors.bgTeal }}
-                      >
-                        <MessageSquare className="w-6 h-6" style={{ color: colors.textTeal }} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium" style={{ color: colors.textPrimary }}>
-                          {t('discussion_forums')}
-                        </h3>
-                        <p className="text-sm" style={{ color: colors.textSecondary }}>
-                          {t('join_course_discussions')}
-                        </p>
-                      </div>
-                    </CardBody>
-                  </Card>
-                </Link>
-
-                {/* My Learning Analytics Card — visible to enrolled students */}
-                {isEnrolled && (
-                  <Link to={`/courses/${id}/analytics`} onClick={() => track('analytics_link_clicked', { verb: 'interacted', objectType: 'analytics', courseId: parseInt(id!) })}>
-                    <Card hover className="transition-shadow">
-                      <CardBody className="flex items-center gap-4 p-4">
-                        <div
-                          className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: colors.bgPurple }}
-                        >
-                          <Network className="w-6 h-6" style={{ color: colors.textPurple }} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium" style={{ color: colors.textPrimary }}>
-                            {t('my_learning_analytics')}
-                          </h3>
-                          <p className="text-sm" style={{ color: colors.textSecondary }}>
-                            {t('view_your_learning_network')}
-                          </p>
-                        </div>
-                      </CardBody>
-                    </Card>
-                  </Link>
-                )}
-
               </div>
             </div>
           )}

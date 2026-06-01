@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect } from 'react';
-import { sanitizeHtml } from '../../utils/sanitize';
 import activityLogger from '../../services/activityLogger';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, Link } from 'react-router-dom';
@@ -12,6 +11,13 @@ import { assignmentsApi } from '../../api/assignments';
 import { customLabsApi } from '../../api/customLabs';
 import { forumsApi, Forum, CreateForumInput } from '../../api/forums';
 import { quizzesApi, CreateQuizInput } from '../../api/quizzes';
+import { decodeCorrectAnswers, encodeCorrectAnswers } from '../../utils/quizAnswer';
+import {
+  parseEditorHtml,
+  buildEditorHtml,
+  encodeFillBlank,
+  decodeFillBlank,
+} from '../../utils/fillBlank';
 import { useTheme } from '../../hooks/useTheme';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
@@ -20,9 +26,11 @@ import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { Modal } from '../../components/common/Modal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { EmptyState } from '../../components/common/EmptyState';
-import { StatusBadge } from '../../components/common/StatusBadge';
-import { Input, TextArea, Select } from '../../components/common/Input';
-import { RichTextEditor } from '../../components/forum/RichTextEditor';
+import { Input, TextArea } from '../../components/common/Input';
+import { AssignmentWizardModal } from '../../components/teach/AssignmentWizardModal';
+import { ForumWizardModal, type ForumWizardFormData } from '../../components/teach/ForumWizardModal';
+import { QuizWizardModal, blankQuestion, type QuizWizardFormData, type QuizQuestionFormData } from '../../components/teach/QuizWizardModal';
+import { LessonWizardModal, type LessonWizardFormData } from '../../components/teach/LessonWizardModal';
 import { ModuleItem } from '../../components/teach/ModuleItem';
 import { CourseModule, Lecture, CodeLab, Assignment, CustomLab, LabTemplate, LabAssignment, ModuleQuiz } from '../../types';
 
@@ -57,27 +65,21 @@ interface AssignmentFormData {
   isPublished: boolean;
 }
 
-interface ForumFormData {
-  title: string;
-  description: string;
-  isPublished: boolean;
-  allowAnonymous: boolean;
+type ForumFormData = ForumWizardFormData;
+
+type QuizFormData = QuizWizardFormData;
+
+interface CurriculumEditorProps {
+  /** When provided (e.g. from the wizard), skip useParams and use this id. */
+  courseId?: number;
+  /** When true, hide the page-level breadcrumb + outer max-w container so the editor can be embedded inside another page (the wizard). */
+  embedded?: boolean;
 }
 
-interface QuizFormData {
-  title: string;
-  description: string;
-  instructions: string;
-  timeLimit: string;
-  maxAttempts: string;
-  passingScore: string;
-  isPublished: boolean;
-}
-
-export const CurriculumEditor = () => {
+export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: CurriculumEditorProps = {}) => {
   const { t } = useTranslation('teaching');
   const { id } = useParams<{ id: string }>();
-  const courseId = parseInt(id!, 10);
+  const courseId = courseIdProp ?? parseInt(id!, 10);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isDark } = useTheme();
@@ -93,6 +95,9 @@ export const CurriculumEditor = () => {
     isOpen: boolean;
     moduleId?: number;
     lecture?: Lecture;
+    /** Filled in after Step 1 saves a NEW lesson so Step 2's
+     *  LessonEditor has a lectureId to autosave against. */
+    activeLectureId?: number;
   }>({ isOpen: false });
   const [deleteModuleConfirm, setDeleteModuleConfirm] = useState<CourseModule | null>(null);
   const [deleteLectureConfirm, setDeleteLectureConfirm] = useState<Lecture | null>(null);
@@ -127,14 +132,21 @@ export const CurriculumEditor = () => {
   const [quizModal, setQuizModal] = useState<{
     isOpen: boolean;
     moduleId?: number;
+    /** Set when editing an existing quiz. */
+    quizId?: number;
+    /** Question IDs present when the edit modal was opened — used to compute deletions. */
+    originalQuestionIds?: number[];
   }>({ isOpen: false });
   const [deleteCourseConfirm, setDeleteCourseConfirm] = useState(false);
+  // Accordion: only one module is expanded at a time. Default to none
+  // (all collapsed when the page opens).
+  const [openModuleId, setOpenModuleId] = useState<number | null>(null);
 
   // Form states
   const [moduleForm, setModuleForm] = useState<ModuleFormData>({ title: '', description: '', label: '' });
   const [lectureForm, setLectureForm] = useState<LectureFormData>({
     title: '',
-    contentType: 'text',
+    contentType: 'mixed',
     duration: 0,
     isFree: false,
   });
@@ -149,13 +161,14 @@ export const CurriculumEditor = () => {
     gracePeriodDeadline: '',
     isPublished: false,
   });
-  const [forumForm, setForumForm] = useState<ForumFormData>({
+  const blankForumForm = (): ForumFormData => ({
     title: '',
-    description: '',
+    content: '',
     isPublished: true,
     allowAnonymous: false,
   });
-  const [quizForm, setQuizForm] = useState<QuizFormData>({
+  const [forumForm, setForumForm] = useState<ForumFormData>(blankForumForm);
+  const blankQuizForm = (): QuizFormData => ({
     title: '',
     description: '',
     instructions: '',
@@ -163,7 +176,9 @@ export const CurriculumEditor = () => {
     maxAttempts: '1',
     passingScore: '60',
     isPublished: false,
+    questions: [blankQuestion()],
   });
+  const [quizForm, setQuizForm] = useState<QuizFormData>(blankQuizForm);
 
   useEffect(() => {
     if (courseId) {
@@ -255,10 +270,36 @@ export const CurriculumEditor = () => {
       activityLogger.logLectureCreated(newLecture.id, newLecture.title, courseId, variables.moduleId);
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('lesson_created'));
-      closeLectureModal();
+      // The wizard owns its own lifecycle and advances to step 2 once
+      // the new lecture's id is available — don't auto-close it here.
     },
     onError: () => toast.error(t('failed_to_create_lesson')),
   });
+
+  /**
+   * Inline "+ Lesson" form handler. Creates the lecture with sensible
+   * defaults (text article, 0 min, not free), then immediately seeds an
+   * empty text section so the lesson opens straight into the editor
+   * instead of asking the instructor to pick a section type first.
+   */
+  const handleInlineLectureSubmit = async (moduleId: number, title: string) => {
+    const newLecture = await createLectureMutation.mutateAsync({
+      moduleId,
+      data: {
+        title,
+        contentType: 'text',
+        duration: 0,
+        isFree: false,
+      },
+    });
+    try {
+      await coursesApi.createSection(newLecture.id, { type: 'text', content: '' });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+    } catch {
+      // Non-fatal: lecture exists; lesson editor will handle empty state on open.
+    }
+    return newLecture;
+  };
 
   const updateLectureMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: LectureFormData }) =>
@@ -266,7 +307,6 @@ export const CurriculumEditor = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('lesson_updated'));
-      closeLectureModal();
     },
     onError: () => toast.error(t('failed_to_update_lesson')),
   });
@@ -487,15 +527,119 @@ export const CurriculumEditor = () => {
     onError: () => toast.error(t('failed_to_delete_forum')),
   });
 
-  // Quiz mutation
+  /**
+   * Build the per-question API payload from a wizard form question.
+   * Trims options/correct answer to drop the empty MC slots before send.
+   */
+  const buildQuestionPayload = (q: QuizQuestionFormData, orderIndex: number) => {
+    if (q.questionType === 'multiple_choice') {
+      // Encode the set of correct options as a JSON array string so the
+      // server can grade against multiple correct answers. See
+      // utils/quizAnswer.ts — legacy plain-string rows still parse.
+      const trimmed = q.options.map(o => o.trim());
+      const filtered = trimmed.filter(Boolean);
+      const correctTexts = q.correctIndexes
+        .map(i => trimmed[i] ?? '')
+        .filter(Boolean);
+      return {
+        questionType: q.questionType,
+        questionText: q.questionText.trim(),
+        options: filtered,
+        correctAnswer: encodeCorrectAnswers(correctTexts),
+        explanation: q.explanation.trim() || undefined,
+        points: q.points,
+        shuffleOptions: q.shuffleOptions,
+        orderIndex,
+      };
+    }
+    if (q.questionType === 'fill_in_blank') {
+      const { template, blanks } = parseEditorHtml(q.questionText);
+      return {
+        questionType: q.questionType,
+        questionText: template,
+        correctAnswer: encodeFillBlank(blanks),
+        explanation: q.explanation.trim() || undefined,
+        points: q.points,
+        shuffleOptions: q.shuffleOptions,
+        orderIndex,
+      };
+    }
+    return {
+      questionType: q.questionType,
+      questionText: q.questionText.trim(),
+      correctAnswer: q.correctAnswer.trim(),
+      explanation: q.explanation.trim() || undefined,
+      points: q.points,
+      shuffleOptions: q.shuffleOptions,
+      orderIndex,
+    };
+  };
+
+  /**
+   * Create-quiz orchestration: createQuiz → optional updateQuiz to flip
+   * isPublished (CreateQuizInput doesn't accept it) → addQuestionsBulk.
+   * Each phase failure is logged but does not roll back the previous,
+   * so the instructor can recover from the QuizEditor page if needed.
+   */
   const createQuizMutation = useMutation({
-    mutationFn: (data: CreateQuizInput) => quizzesApi.createQuiz(courseId, data),
+    mutationFn: async (input: {
+      data: CreateQuizInput;
+      isPublished: boolean;
+      questions: QuizQuestionFormData[];
+    }) => {
+      const created = await quizzesApi.createQuiz(courseId, input.data);
+      if (input.isPublished) {
+        await quizzesApi.updateQuiz(created.id, { isPublished: true });
+      }
+      if (input.questions.length > 0) {
+        await quizzesApi.addQuestionsBulk(
+          created.id,
+          input.questions.map((q, i) => buildQuestionPayload(q, i)),
+        );
+      }
+      return created;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('quiz_created'));
       closeQuizModal();
     },
     onError: () => toast.error(t('failed_to_create_quiz')),
+  });
+
+  /**
+   * Edit-quiz orchestration: updateQuiz, then per-question reconcile
+   * — add new, update existing, delete those removed from the form.
+   */
+  const updateQuizMutation = useMutation({
+    mutationFn: async (input: {
+      quizId: number;
+      data: Partial<CreateQuizInput> & { isPublished?: boolean };
+      questions: QuizQuestionFormData[];
+      originalQuestionIds: number[];
+    }) => {
+      await quizzesApi.updateQuiz(input.quizId, input.data);
+      const currentIds = input.questions
+        .map(q => q.id)
+        .filter((id): id is number => id != null);
+      const removed = input.originalQuestionIds.filter(id => !currentIds.includes(id));
+      await Promise.all(removed.map(id => quizzesApi.deleteQuestion(id)));
+      for (let i = 0; i < input.questions.length; i += 1) {
+        const q = input.questions[i];
+        const payload = buildQuestionPayload(q, i);
+        if (q.id != null) {
+          await quizzesApi.updateQuestion(q.id, payload);
+        } else {
+          await quizzesApi.addQuestion(input.quizId, payload);
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+      toast.success(t('quiz_updated', { defaultValue: 'Quiz updated' }));
+      closeQuizModal();
+    },
+    onError: () => toast.error(t('failed_to_update_quiz', { defaultValue: 'Failed to update quiz' })),
   });
 
   const [deleteQuizConfirm, setDeleteQuizConfirm] = useState<ModuleQuiz | null>(null);
@@ -528,7 +672,7 @@ export const CurriculumEditor = () => {
 
   const openAddLectureModal = (module: CourseModule) => {
     setLectureForm({ title: '', contentType: 'text', duration: 0, isFree: false });
-    setLectureModal({ isOpen: true, moduleId: module.id });
+    setLectureModal({ isOpen: true, moduleId: module.id, activeLectureId: undefined });
   };
 
   const openEditLectureModal = (lecture: Lecture) => {
@@ -538,12 +682,39 @@ export const CurriculumEditor = () => {
       duration: lecture.duration || 0,
       isFree: lecture.isFree,
     });
-    setLectureModal({ isOpen: true, lecture });
+    setLectureModal({ isOpen: true, lecture, activeLectureId: lecture.id });
   };
 
   const closeLectureModal = () => {
     setLectureModal({ isOpen: false });
-    setLectureForm({ title: '', contentType: 'text', duration: 0, isFree: false });
+    setLectureForm({ title: '', contentType: 'mixed', duration: 0, isFree: false });
+  };
+
+  /**
+   * Wizard Step 1 submit. For new lessons creates the lecture so we
+   * have an id; for edits updates metadata in place. Step 2 then uses
+   * `activeLectureId` to drive the LessonEditor's autosave.
+   */
+  const handleLessonWizardStep1 = async () => {
+    const trimmed = lectureForm.title.trim();
+    if (!trimmed) {
+      toast.error(t('lesson_title_required'));
+      throw new Error('title required');
+    }
+    if (lectureModal.lecture) {
+      await updateLectureMutation.mutateAsync({
+        id: lectureModal.lecture.id,
+        data: { ...lectureForm, title: trimmed },
+      });
+      return;
+    }
+    if (lectureModal.moduleId) {
+      const created = await createLectureMutation.mutateAsync({
+        moduleId: lectureModal.moduleId,
+        data: { ...lectureForm, title: trimmed },
+      });
+      setLectureModal(prev => ({ ...prev, activeLectureId: created.id }));
+    }
   };
 
   const openAddCodeLabModal = (module: CourseModule) => {
@@ -608,14 +779,14 @@ export const CurriculumEditor = () => {
   };
 
   const openAddForumModal = (module: CourseModule) => {
-    setForumForm({ title: '', description: '', isPublished: true, allowAnonymous: false });
+    setForumForm(blankForumForm());
     setForumModal({ isOpen: true, moduleId: module.id });
   };
 
   const openEditForumModal = (forum: Forum) => {
     setForumForm({
       title: forum.title,
-      description: forum.description || '',
+      content: forum.content || '',
       isPublished: forum.isPublished,
       allowAnonymous: forum.allowAnonymous,
     });
@@ -624,33 +795,74 @@ export const CurriculumEditor = () => {
 
   const closeForumModal = () => {
     setForumModal({ isOpen: false });
-    setForumForm({ title: '', description: '', isPublished: true, allowAnonymous: false });
+    setForumForm(blankForumForm());
   };
 
   const openAddQuizModal = (module: CourseModule) => {
-    setQuizForm({
-      title: '',
-      description: '',
-      instructions: '',
-      timeLimit: '',
-      maxAttempts: '1',
-      passingScore: '60',
-      isPublished: false,
-    });
+    setQuizForm(blankQuizForm());
     setQuizModal({ isOpen: true, moduleId: module.id });
+  };
+
+  const openEditQuizModal = async (quiz: ModuleQuiz) => {
+    try {
+      const full = await quizzesApi.getQuiz(quiz.id);
+      const questions: QuizQuestionFormData[] = (full.questions ?? []).map(q => {
+        const isMc = q.questionType === 'multiple_choice';
+        const opts = isMc
+          ? [...(q.options ?? []), '', '', '', ''].slice(0, Math.max(4, q.options?.length ?? 0))
+          : [];
+        // Decode the stored correctAnswer (JSON array for new rows, plain
+        // string for legacy single-correct rows) and resolve to indexes
+        // by matching against the option list.
+        const correctTexts = isMc ? decodeCorrectAnswers(q.correctAnswer) : [];
+        const correctIndexes: number[] = isMc
+          ? correctTexts
+              .map(text => (q.options ?? []).findIndex(o => o === text))
+              .filter(i => i >= 0)
+          : [];
+        const fb =
+          q.questionType === 'fill_in_blank' ? decodeFillBlank(q.correctAnswer) : null;
+        return {
+          id: q.id,
+          questionType: q.questionType,
+          questionText: fb ? buildEditorHtml(q.questionText, fb.blanks) : q.questionText,
+          options: opts,
+          correctIndexes,
+          correctAnswer:
+            isMc || fb
+              ? ''
+              : q.questionType === 'true_false'
+                ? (q.correctAnswer ?? '').toLowerCase()
+                : (q.correctAnswer ?? ''),
+          explanation: q.explanation ?? '',
+          points: q.points ?? 1,
+          shuffleOptions: q.shuffleOptions ?? false,
+        };
+      });
+      setQuizForm({
+        title: full.title,
+        description: full.description ?? '',
+        instructions: full.instructions ?? '',
+        timeLimit: full.timeLimit != null ? String(full.timeLimit) : '',
+        maxAttempts: String(full.maxAttempts ?? 1),
+        passingScore: String(full.passingScore ?? 60),
+        isPublished: full.isPublished,
+        questions: questions.length > 0 ? questions : [blankQuestion()],
+      });
+      setQuizModal({
+        isOpen: true,
+        moduleId: (full.moduleId ?? (quiz as any).moduleId) || undefined,
+        quizId: full.id,
+        originalQuestionIds: questions.filter(q => q.id != null).map(q => q.id as number),
+      });
+    } catch {
+      toast.error(t('failed_to_load_quiz', { defaultValue: 'Failed to load quiz' }));
+    }
   };
 
   const closeQuizModal = () => {
     setQuizModal({ isOpen: false });
-    setQuizForm({
-      title: '',
-      description: '',
-      instructions: '',
-      timeLimit: '',
-      maxAttempts: '1',
-      passingScore: '60',
-      isPublished: false,
-    });
+    setQuizForm(blankQuizForm());
   };
 
   // Interactive lab handlers
@@ -715,20 +927,6 @@ export const CurriculumEditor = () => {
     }
   };
 
-  const handleLectureSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!lectureForm.title.trim()) {
-      toast.error(t('lesson_title_required'));
-      return;
-    }
-
-    if (lectureModal.lecture) {
-      updateLectureMutation.mutate({ id: lectureModal.lecture.id, data: lectureForm });
-    } else if (lectureModal.moduleId) {
-      createLectureMutation.mutate({ moduleId: lectureModal.moduleId, data: lectureForm });
-    }
-  };
-
   const handleCodeLabSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!codeLabForm.title.trim()) {
@@ -766,8 +964,7 @@ export const CurriculumEditor = () => {
     }
   };
 
-  const handleForumSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleForumSubmit = () => {
     if (!forumForm.title.trim()) {
       toast.error(t('forum_title_required'));
       return;
@@ -786,24 +983,37 @@ export const CurriculumEditor = () => {
     }
   };
 
-  const handleQuizSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleQuizSubmit = () => {
     if (!quizForm.title.trim()) {
       toast.error(t('quiz_title_required'));
       return;
     }
 
+    const quizCore: Partial<CreateQuizInput> = {
+      title: quizForm.title,
+      description: quizForm.description || undefined,
+      instructions: quizForm.instructions || undefined,
+      timeLimit: quizForm.timeLimit ? parseInt(quizForm.timeLimit) : undefined,
+      maxAttempts: quizForm.maxAttempts ? parseInt(quizForm.maxAttempts) : undefined,
+      passingScore: quizForm.passingScore ? parseInt(quizForm.passingScore) : undefined,
+    };
+
+    if (quizModal.quizId != null) {
+      updateQuizMutation.mutate({
+        quizId: quizModal.quizId,
+        data: { ...quizCore, isPublished: quizForm.isPublished },
+        questions: quizForm.questions,
+        originalQuestionIds: quizModal.originalQuestionIds ?? [],
+      });
+      return;
+    }
+
     if (quizModal.moduleId) {
-      const data: CreateQuizInput = {
-        title: quizForm.title,
-        description: quizForm.description || undefined,
-        instructions: quizForm.instructions || undefined,
-        timeLimit: quizForm.timeLimit ? parseInt(quizForm.timeLimit) : undefined,
-        maxAttempts: quizForm.maxAttempts ? parseInt(quizForm.maxAttempts) : undefined,
-        passingScore: quizForm.passingScore ? parseInt(quizForm.passingScore) : undefined,
-        moduleId: quizModal.moduleId,
-      };
-      createQuizMutation.mutate(data);
+      createQuizMutation.mutate({
+        data: { ...(quizCore as CreateQuizInput), moduleId: quizModal.moduleId },
+        isPublished: quizForm.isPublished,
+        questions: quizForm.questions,
+      });
     }
   };
 
@@ -895,7 +1105,7 @@ export const CurriculumEditor = () => {
 
   // Forum reordering - use orderIndex updates
   const handleMoveForumUp = (forum: Forum, module: CourseModule) => {
-    const forums = module.forums || [];
+    const forums = module.forumThreads || [];
     const sorted = [...forums].sort((a, b) => a.orderIndex - b.orderIndex);
     const index = sorted.findIndex(f => f.id === forum.id);
     if (index <= 0) return;
@@ -907,7 +1117,7 @@ export const CurriculumEditor = () => {
   };
 
   const handleMoveForumDown = (forum: Forum, module: CourseModule) => {
-    const forums = module.forums || [];
+    const forums = module.forumThreads || [];
     const sorted = [...forums].sort((a, b) => a.orderIndex - b.orderIndex);
     const index = sorted.findIndex(f => f.id === forum.id);
     if (index < 0 || index >= sorted.length - 1) return;
@@ -994,32 +1204,23 @@ export const CurriculumEditor = () => {
     }));
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-      {/* Breadcrumb */}
-      <div className="mb-6">
-        <Breadcrumb
-          items={[
-            { label: t('navigation:courses'), href: '/teach' },
-            { label: course.title, href: `/courses/${courseId}` },
-            { label: t('curriculum_editor') },
-          ]}
-        />
-      </div>
-
-      {/* Course Header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2 flex-wrap">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{course.title}</h1>
-          <StatusBadge status={course.status} />
+    <div className={embedded ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8'}>
+      {!embedded && (
+        <div className="mb-6">
+          <Breadcrumb
+            items={[
+              { label: t('navigation:courses'), href: '/courses' },
+              { label: course.title, href: `/courses/${courseId}` },
+              { label: t('curriculum_editor') },
+            ]}
+          />
         </div>
-        {course.description ? (
-          <div className="text-gray-600 dark:text-gray-400 prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(course.description) }} />
-        ) : (
-          <p className="text-gray-600 dark:text-gray-400">{t('no_description')}</p>
-        )}
-      </div>
+      )}
 
-      {/* Course Management Card - Dark theme */}
+
+      {/* Course Management Card - Dark theme. Hidden when embedded (the wizard
+          owns these affordances and the activation code lives elsewhere). */}
+      {!embedded && (
       <div
         className="mb-6 p-4 rounded-xl"
         style={{ backgroundColor: isDark ? '#0f172a' : '#1e293b' }}
@@ -1127,14 +1328,16 @@ export const CurriculumEditor = () => {
             <span className="text-white text-xs font-medium">{t('navigation:analytics')}</span>
           </Link>
 
-          {/* Publish/Unpublish */}
+          {/* Publish/Unpublish — icon reflects the current state of the
+              course (eye when published, eye-off when not); the label
+              still describes the action the button performs. */}
           {course.status === 'published' ? (
             <button
               onClick={() => unpublishMutation.mutate()}
               disabled={unpublishMutation.isPending}
-              className="flex flex-col items-center gap-2 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors text-center disabled:opacity-50"
+              className="flex flex-col items-center gap-2 p-3 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 transition-colors text-center disabled:opacity-50"
             >
-              <EyeOff className="w-5 h-5 text-amber-400" />
+              <Eye className="w-5 h-5 text-emerald-400" />
               <span className="text-white text-xs font-medium">
                 {unpublishMutation.isPending ? t('unpublishing') : t('unpublish')}
               </span>
@@ -1143,9 +1346,9 @@ export const CurriculumEditor = () => {
             <button
               onClick={() => publishMutation.mutate()}
               disabled={publishMutation.isPending}
-              className="flex flex-col items-center gap-2 p-3 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 transition-colors text-center disabled:opacity-50"
+              className="flex flex-col items-center gap-2 p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors text-center disabled:opacity-50"
             >
-              <Eye className="w-5 h-5 text-emerald-400" />
+              <EyeOff className="w-5 h-5 text-amber-400" />
               <span className="text-white text-xs font-medium">
                 {publishMutation.isPending ? t('publishing') : t('publish')}
               </span>
@@ -1162,9 +1365,14 @@ export const CurriculumEditor = () => {
           </button>
         </div>
       </div>
+      )}
 
       {/* Curriculum Section */}
       <Card>
+        {/* CardHeader is only rendered outside the wizard. When embedded,
+            its border-b creates an empty divider line above the body, and
+            it has nothing to host (title and Add button are both hidden). */}
+        {!embedded && (
         <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div>
             <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">{t('course_curriculum')}</h2>
@@ -1174,6 +1382,7 @@ export const CurriculumEditor = () => {
           </div>
 
           {/* Add Content Dropdown */}
+          {(
           <div className="relative">
             <Button
               onClick={() => setAddContentOpen(!addContentOpen)}
@@ -1227,22 +1436,32 @@ export const CurriculumEditor = () => {
               </>
             )}
           </div>
+          )}
         </CardHeader>
+        )}
         <CardBody>
           {sortedModules.length > 0 ? (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {sortedModules.map((module, index) => (
                 <ModuleItem
                   key={module.id}
                   module={module}
                   courseId={courseId}
+                  courseTitle={course?.title ?? ''}
                   isFirst={index === 0}
                   isLast={index === sortedModules.length - 1}
+                  isExpanded={openModuleId === module.id}
+                  onToggleExpand={() =>
+                    setOpenModuleId(prev =>
+                      prev === module.id ? null : module.id,
+                    )
+                  }
                   onEdit={openEditModuleModal}
                   onDelete={setDeleteModuleConfirm}
                   onTogglePublish={(m) => toggleModulePublishMutation.mutate({ id: m.id, isPublished: !m.isPublished })}
                   onMoveUp={handleMoveModuleUp}
                   onMoveDown={handleMoveModuleDown}
+                  onSubmitInlineLecture={handleInlineLectureSubmit}
                   onAddLecture={openAddLectureModal}
                   onEditLecture={openEditLectureModal}
                   onDeleteLecture={setDeleteLectureConfirm}
@@ -1268,6 +1487,7 @@ export const CurriculumEditor = () => {
                   onMoveForumDown={handleMoveForumDown}
                   onRemoveInteractiveLab={handleRemoveInteractiveLab}
                   onAddQuiz={openAddQuizModal}
+                  onEditQuiz={openEditQuizModal}
                   onDeleteQuiz={setDeleteQuizConfirm}
                   allSurveys={allSurveys}
                 />
@@ -1277,13 +1497,31 @@ export const CurriculumEditor = () => {
             <EmptyState
               icon={Layers}
               title={t('no_modules_yet')}
-              description={t('start_building_course')}
+              description={embedded ? '' : t('start_building_course')}
               action={{ label: t('add_module'), onClick: openAddModuleModal }}
             />
           )}
 
-          {/* Collaborative Module Section */}
-          {courseTutors && courseTutors.length > 0 && (
+          {/* Always-visible "+ Add module" button when embedded — the
+              top-right "Add Content" dropdown is hidden in the wizard,
+              so without this the user has no way to append a second
+              module after the first. */}
+          {embedded && sortedModules.length > 0 && (
+            <div className="mt-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={openAddModuleModal}
+                icon={<Plus className="w-4 h-4" />}
+              >
+                {t('add_module')}
+              </Button>
+            </div>
+          )}
+
+          {/* Collaborative Module Section — hidden in the wizard's
+              Content step. AI tutors live in their own wizard step. */}
+          {!embedded && courseTutors && courseTutors.length > 0 && (
             <div
               className="mt-6 p-4 rounded-lg border-2 border-dashed"
               style={{
@@ -1383,13 +1621,6 @@ export const CurriculumEditor = () => {
             placeholder={t('module_title_placeholder')}
             required
           />
-          <Input
-            label={t('label_optional')}
-            value={moduleForm.label}
-            onChange={e => setModuleForm(f => ({ ...f, label: e.target.value }))}
-            placeholder={t('label_placeholder')}
-            helpText={t('label_help_text')}
-          />
           <TextArea
             label={t('description_optional')}
             value={moduleForm.description}
@@ -1411,85 +1642,25 @@ export const CurriculumEditor = () => {
         </form>
       </Modal>
 
-      {/* Lesson Modal */}
-      <Modal
+      {/* Lesson Wizard — two-step popup: basics on step 1, full
+          rich-text editor (with file + chatbot embeds, autosaves)
+          on step 2. View Details and Edit both route here. */}
+      <LessonWizardModal
         isOpen={lectureModal.isOpen}
+        isEdit={!!lectureModal.lecture}
+        courseTitle={course?.title || ''}
+        lectureId={lectureModal.activeLectureId ?? null}
+        initialSections={lectureModal.lecture?.sections ?? []}
+        form={lectureForm as LessonWizardFormData}
+        setForm={updater =>
+          setLectureForm(prev => updater(prev as LessonWizardFormData))
+        }
+        isSubmittingStep1={
+          createLectureMutation.isPending || updateLectureMutation.isPending
+        }
+        onSubmitStep1={handleLessonWizardStep1}
         onClose={closeLectureModal}
-        title={lectureModal.lecture ? t('edit_lesson') : t('add_lesson')}
-        size="3xl"
-      >
-        <form onSubmit={handleLectureSubmit} className="space-y-4">
-          <Input
-            label={t('lesson_title')}
-            value={lectureForm.title}
-            onChange={e => setLectureForm(f => ({ ...f, title: e.target.value }))}
-            placeholder={t('lesson_title_placeholder')}
-            required
-          />
-          <Select
-            label={t('content_type_label')}
-            value={lectureForm.contentType}
-            onChange={e =>
-              setLectureForm(f => ({
-                ...f,
-                contentType: e.target.value as 'text' | 'video' | 'mixed',
-              }))
-            }
-            options={[
-              { value: 'text', label: t('text_article') },
-              { value: 'video', label: t('video') },
-              { value: 'mixed', label: t('mixed_content') },
-            ]}
-          />
-          <Input
-            label={t('duration_minutes')}
-            type="number"
-            value={lectureForm.duration}
-            onChange={e => setLectureForm(f => ({ ...f, duration: parseInt(e.target.value) || 0 }))}
-            min={0}
-          />
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="isFree"
-              checked={lectureForm.isFree}
-              onChange={e => setLectureForm(f => ({ ...f, isFree: e.target.checked }))}
-              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            <label htmlFor="isFree" className="text-sm text-gray-700">
-              {t('allow_free_preview')}
-            </label>
-          </div>
-
-          {/* Edit Content Button - only for existing lessons */}
-          {lectureModal.lecture && (
-            <div className="border-t border-gray-200 pt-4 mt-4">
-              <p className="text-sm text-gray-600 mb-3">
-                {t('add_lesson_content_description')}
-              </p>
-              <Link
-                to={`/teach/courses/${courseId}/lectures/${lectureModal.lecture.id}`}
-                className="btn btn-secondary w-full flex items-center justify-center gap-2"
-              >
-                <FileEdit className="w-4 h-4" />
-                {t('edit_lesson_content')}
-              </Link>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="secondary" onClick={closeLectureModal}>
-              {t('common:cancel')}
-            </Button>
-            <Button
-              type="submit"
-              loading={createLectureMutation.isPending || updateLectureMutation.isPending}
-            >
-              {lectureModal.lecture ? t('common:update') : t('common:create')}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+      />
 
       {/* Delete Module Confirmation */}
       <ConfirmDialog
@@ -1519,8 +1690,9 @@ export const CurriculumEditor = () => {
       <Modal
         isOpen={codeLabModal.isOpen}
         onClose={closeCodeLabModal}
-        title={codeLabModal.codeLab ? t('edit_code_lab') : t('add_code_lab')}
-        size="3xl"
+        subtitle={course?.title ?? ''}
+        title={codeLabModal.codeLab ? t('edit_code_lab') : t('create_code_lab')}
+        size="5xl"
       >
         {/* Tabs - only show for new code labs */}
         {!codeLabModal.codeLab && (
@@ -1589,9 +1761,6 @@ export const CurriculumEditor = () => {
             {/* Edit Content Button - only for existing code labs */}
             {codeLabModal.codeLab && (
               <div className="border-t border-gray-200 pt-4 mt-4">
-                <p className="text-sm text-gray-600 mb-3">
-                  {t('add_code_blocks_instructions')}
-                </p>
                 <Link
                   to={`/teach/courses/${courseId}/code-labs/${codeLabModal.codeLab.id}`}
                   className="btn btn-secondary w-full flex items-center justify-center gap-2"
@@ -1980,131 +2149,17 @@ export const CurriculumEditor = () => {
         loading={deleteCodeLabMutation.isPending}
       />
 
-      {/* Assignment Modal */}
-      <Modal
+      {/* Assignment Modal — three-step wizard */}
+      <AssignmentWizardModal
         isOpen={assignmentModal.isOpen}
+        isEdit={!!assignmentModal.assignment}
+        courseTitle={course?.title ?? ''}
+        form={assignmentForm}
+        setForm={setAssignmentForm}
+        isSubmitting={createAssignmentMutation.isPending || updateAssignmentMutation.isPending}
         onClose={closeAssignmentModal}
-        title={assignmentModal.assignment ? t('edit_assignment') : t('add_assignment')}
-        size="3xl"
-      >
-        <form onSubmit={handleAssignmentSubmit} className="space-y-4">
-          <Input
-            label={t('assignment_title')}
-            value={assignmentForm.title}
-            onChange={e => setAssignmentForm(f => ({ ...f, title: e.target.value }))}
-            placeholder={t('assignment_title_placeholder')}
-            required
-          />
-          <Select
-            label={t('submission_type')}
-            value={assignmentForm.submissionType}
-            onChange={e =>
-              setAssignmentForm(f => ({
-                ...f,
-                submissionType: e.target.value as 'text' | 'file' | 'mixed' | 'ai_agent',
-              }))
-            }
-            options={[
-              { value: 'text', label: t('text_submission') },
-              { value: 'file', label: t('file_upload_submission') },
-              { value: 'mixed', label: t('text_file_submission') },
-              { value: 'ai_agent', label: t('ai_agent_submission') },
-            ]}
-          />
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              {t('assignment_description')}
-            </label>
-            <RichTextEditor
-              value={assignmentForm.description}
-              onChange={val => setAssignmentForm(f => ({ ...f, description: val }))}
-              editorClassName="forum-reply-editor px-3 py-2 min-h-[200px] max-h-[400px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
-            />
-          </div>
-          {assignmentForm.submissionType === 'ai_agent' && (
-            <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700">
-              {t('ai_agent_info')}
-            </div>
-          )}
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label={t('points_label')}
-              type="number"
-              value={assignmentForm.points}
-              onChange={e => setAssignmentForm(f => ({ ...f, points: parseInt(e.target.value) || 0 }))}
-              min={0}
-            />
-            <Input
-              label={t('weight_label', { defaultValue: 'Weight' })}
-              type="number"
-              value={assignmentForm.weight}
-              onChange={e => setAssignmentForm(f => ({ ...f, weight: parseFloat(e.target.value) || 0 }))}
-              min={0}
-              max={10}
-              step={0.1}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label={t('due_date_optional')}
-              type="datetime-local"
-              value={assignmentForm.dueDate}
-              onChange={e => {
-                setAssignmentForm(f => ({ ...f, dueDate: e.target.value }));
-                if (!e.target.value) setAssignmentForm(f => ({ ...f, gracePeriodDeadline: '' }));
-              }}
-            />
-            <Input
-              label={t('courses:grace_period_deadline', { defaultValue: 'Grace Period Deadline' })}
-              type="datetime-local"
-              value={assignmentForm.gracePeriodDeadline}
-              onChange={e => setAssignmentForm(f => ({ ...f, gracePeriodDeadline: e.target.value }))}
-              disabled={!assignmentForm.dueDate}
-              min={assignmentForm.dueDate || undefined}
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="isPublished"
-              checked={assignmentForm.isPublished}
-              onChange={e => setAssignmentForm(f => ({ ...f, isPublished: e.target.checked }))}
-              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            <label htmlFor="isPublished" className="text-sm text-gray-700">
-              {t('publish_assignment')}
-            </label>
-          </div>
-
-          {/* View Submissions Button - only for existing assignments */}
-          {assignmentModal.assignment && (
-            <div className="border-t border-gray-200 pt-4 mt-4">
-              <p className="text-sm text-gray-600 mb-3">
-                {t('view_submissions_description')}
-              </p>
-              <Link
-                to={`/teach/courses/${courseId}/assignments/${assignmentModal.assignment.id}/submissions`}
-                className="btn btn-secondary w-full flex items-center justify-center gap-2"
-              >
-                <FileEdit className="w-4 h-4" />
-                {t('view_submissions')}
-              </Link>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="secondary" onClick={closeAssignmentModal}>
-              {t('common:cancel')}
-            </Button>
-            <Button
-              type="submit"
-              loading={createAssignmentMutation.isPending || updateAssignmentMutation.isPending}
-            >
-              {assignmentModal.assignment ? t('common:update') : t('common:create')}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+        onSubmit={() => handleAssignmentSubmit({ preventDefault: () => {} } as React.FormEvent)}
+      />
 
       {/* Delete Assignment Confirmation */}
       <ConfirmDialog
@@ -2119,66 +2174,17 @@ export const CurriculumEditor = () => {
         loading={deleteAssignmentMutation.isPending}
       />
 
-      {/* Forum Modal */}
-      <Modal
+      {/* Forum Wizard Modal */}
+      <ForumWizardModal
         isOpen={forumModal.isOpen}
+        isEdit={!!forumModal.forum}
+        courseTitle={course?.title ?? ''}
+        form={forumForm}
+        setForm={setForumForm}
+        isSubmitting={createForumMutation.isPending || updateForumMutation.isPending}
         onClose={closeForumModal}
-        title={forumModal.forum ? t('edit_forum') : t('add_forum')}
-        size="3xl"
-      >
-        <form onSubmit={handleForumSubmit} className="space-y-4">
-          <Input
-            label={t('forum_title')}
-            value={forumForm.title}
-            onChange={e => setForumForm(f => ({ ...f, title: e.target.value }))}
-            placeholder={t('forum_title_placeholder')}
-            required
-          />
-          <TextArea
-            label={t('forum_description')}
-            value={forumForm.description}
-            onChange={e => setForumForm(f => ({ ...f, description: e.target.value }))}
-            placeholder={t('forum_description_placeholder')}
-            rows={3}
-          />
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="forumIsPublished"
-              checked={forumForm.isPublished}
-              onChange={e => setForumForm(f => ({ ...f, isPublished: e.target.checked }))}
-              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            <label htmlFor="forumIsPublished" className="text-sm text-gray-700 dark:text-gray-300">
-              {t('publish_forum')}
-            </label>
-          </div>
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="forumAllowAnonymous"
-              checked={forumForm.allowAnonymous}
-              onChange={e => setForumForm(f => ({ ...f, allowAnonymous: e.target.checked }))}
-              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            <label htmlFor="forumAllowAnonymous" className="text-sm text-gray-700 dark:text-gray-300">
-              {t('allow_anonymous_posts')}
-            </label>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="secondary" onClick={closeForumModal}>
-              {t('common:cancel')}
-            </Button>
-            <Button
-              type="submit"
-              loading={createForumMutation.isPending || updateForumMutation.isPending}
-            >
-              {forumModal.forum ? t('common:update') : t('common:create')}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+        onSubmit={handleForumSubmit}
+      />
 
       {/* Delete Forum Confirmation */}
       <ConfirmDialog
@@ -2193,91 +2199,17 @@ export const CurriculumEditor = () => {
         loading={deleteForumMutation.isPending}
       />
 
-      {/* Quiz Modal */}
-      <Modal
+      {/* Quiz Wizard Modal */}
+      <QuizWizardModal
         isOpen={quizModal.isOpen}
+        isEdit={quizModal.quizId != null}
+        courseTitle={course?.title ?? ''}
+        form={quizForm}
+        setForm={setQuizForm}
+        isSubmitting={createQuizMutation.isPending || updateQuizMutation.isPending}
         onClose={closeQuizModal}
-        title={t('create_quiz')}
-        size="3xl"
-      >
-        <form onSubmit={handleQuizSubmit} className="space-y-4">
-          <Input
-            label={t('quiz_title')}
-            value={quizForm.title}
-            onChange={e => setQuizForm(f => ({ ...f, title: e.target.value }))}
-            placeholder={t('quiz_title_placeholder')}
-            required
-          />
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              {t('quiz_description')}
-            </label>
-            <RichTextEditor
-              value={quizForm.description}
-              onChange={val => setQuizForm(f => ({ ...f, description: val }))}
-              editorClassName="forum-reply-editor px-3 py-2 min-h-[200px] max-h-[400px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              {t('quiz_instructions')}
-            </label>
-            <RichTextEditor
-              value={quizForm.instructions}
-              onChange={val => setQuizForm(f => ({ ...f, instructions: val }))}
-              editorClassName="forum-reply-editor px-3 py-2 min-h-[120px] max-h-[300px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
-            />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Input
-              label={t('time_limit_minutes')}
-              type="number"
-              value={quizForm.timeLimit}
-              onChange={e => setQuizForm(f => ({ ...f, timeLimit: e.target.value }))}
-              min={0}
-              placeholder={t('no_limit')}
-            />
-            <Input
-              label={t('max_attempts')}
-              type="number"
-              value={quizForm.maxAttempts}
-              onChange={e => setQuizForm(f => ({ ...f, maxAttempts: e.target.value }))}
-              min={0}
-            />
-            <Input
-              label={t('passing_score')}
-              type="number"
-              value={quizForm.passingScore}
-              onChange={e => setQuizForm(f => ({ ...f, passingScore: e.target.value }))}
-              min={0}
-              max={100}
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="quizIsPublished"
-              checked={quizForm.isPublished}
-              onChange={e => setQuizForm(f => ({ ...f, isPublished: e.target.checked }))}
-              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            <label htmlFor="quizIsPublished" className="text-sm text-gray-700 dark:text-gray-300">
-              {t('publish_immediately')}
-            </label>
-          </div>
-          <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="secondary" onClick={closeQuizModal}>
-              {t('common:cancel')}
-            </Button>
-            <Button
-              type="submit"
-              loading={createQuizMutation.isPending}
-            >
-              {t('common:create')}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+        onSubmit={handleQuizSubmit}
+      />
 
       {/* Delete Quiz Confirmation */}
       <ConfirmDialog

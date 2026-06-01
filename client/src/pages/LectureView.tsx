@@ -15,6 +15,7 @@ import { Loading } from '../components/common/Loading';
 import { LectureAIHelper } from '../components/lecture';
 import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStudent';
 import { AssignmentSectionStudent } from '../components/course/AssignmentSectionStudent';
+import { LessonViewer } from '../components/teach/lesson-editor';
 import { marked } from 'marked';
 import { sanitizeHtml, isHtmlContent } from '../utils/sanitize';
 import { TrackedContent } from '../components/common/TrackedContent';
@@ -186,6 +187,10 @@ export const LectureView = () => {
       case 'text':
       case 'ai-generated': {
         const isHtml = isHtmlContent(section.content);
+        const containsLessonNodes =
+          isHtml &&
+          (section.content?.includes('<lecture-file') ||
+            section.content?.includes('<lecture-chatbot'));
         return (
           <div key={section.id} className="mb-8">
             {section.title && (
@@ -198,11 +203,19 @@ export const LectureView = () => {
             )}
             {section.content && (
               <TrackedContent context="lecture" courseId={parseInt(courseId!)} objectId={section.id} objectTitle={section.title || undefined}>
-                <div
-                  className="prose dark:prose-invert max-w-none"
-                  style={{ color: colors.textPrimary }}
-                  dangerouslySetInnerHTML={{ __html: isHtml ? sanitizeHtml(section.content) : renderMarkdown(section.content) }}
-                />
+                {containsLessonNodes ? (
+                  /* Use the read-only lesson editor so <lecture-file> and
+                     <lecture-chatbot> nodes render with their proper UI. */
+                  <div style={{ color: colors.textPrimary }}>
+                    <LessonViewer html={section.content} />
+                  </div>
+                ) : (
+                  <div
+                    className="prose dark:prose-invert max-w-none"
+                    style={{ color: colors.textPrimary }}
+                    dangerouslySetInnerHTML={{ __html: isHtml ? sanitizeHtml(section.content) : renderMarkdown(section.content) }}
+                  />
+                )}
               </TrackedContent>
             )}
           </div>

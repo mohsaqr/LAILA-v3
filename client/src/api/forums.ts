@@ -1,34 +1,40 @@
 import apiClient from './client';
 import { ApiResponse } from '../types';
 
-export interface Forum {
-  id: number;
-  courseId: number;
-  moduleId?: number | null;
-  title: string;
-  description?: string;
-  isPublished: boolean;
-  allowAnonymous: boolean;
-  orderIndex: number;
-  createdAt: string;
-  updatedAt: string;
-  _count?: { threads: number };
-}
+/**
+ * The Forum container model was dropped (see migration
+ * `forum_collapse_layers`). A "forum" is now a single discussion
+ * (ForumThread) with title + rich-text content + courseId/moduleId.
+ * The original endpoint paths under `/forums/...` are preserved so the
+ * URL space and route ids don't churn — they just operate on threads.
+ */
 
 export interface ForumThread {
   id: number;
-  forumId: number;
+  courseId: number;
+  moduleId: number | null;
   authorId: number;
   title: string;
   content: string;
+  description?: string | null;
+  isPublished: boolean;
   isPinned: boolean;
   isLocked: boolean;
   isAnonymous: boolean;
+  allowAnonymous: boolean;
+  orderIndex: number;
   viewCount: number;
   createdAt: string;
   updatedAt: string;
-  author?: { id: number; fullname: string } | null;
+  author?: { id: number; fullname: string; avatarUrl?: string | null } | null;
+  course?: { id: number; title: string; thumbnail?: string | null };
+  module?: { id: number; title: string } | null;
+  _count?: { posts: number };
   replyCount?: number;
+  /** Total "likes" on the discussion. Returned by getThread. */
+  likeCount?: number;
+  /** Whether the calling user has liked. Returned by getThread. */
+  myLike?: boolean;
 }
 
 export interface ForumPost {
@@ -41,7 +47,7 @@ export interface ForumPost {
   isEdited: boolean;
   createdAt: string;
   updatedAt: string;
-  author?: { id: number; fullname: string; isInstructor?: boolean } | null;
+  author?: { id: number; fullname: string; isInstructor?: boolean; avatarUrl?: string | null } | null;
   // AI Integration
   isAiGenerated?: boolean;
   aiAgentId?: number;
@@ -61,19 +67,46 @@ export interface TutorAgent {
   isCourseSpecific?: boolean;
 }
 
+/** Row shape returned by `/forums/instructor` (cross-course list for /teach/forums). */
+export interface InstructorForumThread {
+  id: number;
+  title: string;
+  description?: string | null;
+  content: string;
+  courseId: number;
+  courseName: string;
+  courseThumbnail: string | null;
+  moduleId: number | null;
+  moduleName: string | null;
+  isPublished: boolean;
+  isPinned: boolean;
+  isLocked: boolean;
+  allowAnonymous: boolean;
+  replyCount: number;
+  authorId: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CreateForumInput {
   title: string;
+  content: string;
   description?: string;
   isPublished?: boolean;
   allowAnonymous?: boolean;
   orderIndex?: number;
   moduleId?: number;
+  isAnonymous?: boolean;
 }
 
-export interface CreateThreadInput {
-  title: string;
-  content: string;
-  isAnonymous?: boolean;
+export interface UpdateForumInput {
+  title?: string;
+  content?: string;
+  description?: string;
+  isPublished?: boolean;
+  allowAnonymous?: boolean;
+  orderIndex?: number;
+  moduleId?: number | null;
 }
 
 export interface CreatePostInput {
@@ -82,59 +115,50 @@ export interface CreatePostInput {
   isAnonymous?: boolean;
 }
 
+/** Legacy alias — old callsites imported `Forum` for what is now a ForumThread. */
+export type Forum = ForumThread;
+
 export const forumsApi = {
-  // Forum CRUD
-  getForums: async (courseId: number): Promise<Forum[]> => {
-    const response = await apiClient.get<ApiResponse<Forum[]>>(`/forums/course/${courseId}`);
+  // ============= Discussions (list / create / update / delete) =============
+
+  getForums: async (courseId: number): Promise<ForumThread[]> => {
+    const response = await apiClient.get<ApiResponse<ForumThread[]>>(`/forums/course/${courseId}`);
     return response.data.data!;
   },
 
-  getModuleForums: async (moduleId: number): Promise<Forum[]> => {
-    const response = await apiClient.get<ApiResponse<Forum[]>>(`/forums/module/${moduleId}`);
+  getModuleForums: async (moduleId: number): Promise<ForumThread[]> => {
+    const response = await apiClient.get<ApiResponse<ForumThread[]>>(`/forums/module/${moduleId}`);
     return response.data.data!;
   },
 
-  getForum: async (forumId: number): Promise<Forum & { threads: ForumThread[] }> => {
-    const response = await apiClient.get<ApiResponse<Forum & { threads: ForumThread[] }>>(`/forums/${forumId}`);
+  /** Cross-course list used by /teach/forums. */
+  getInstructorForumThreads: async (): Promise<InstructorForumThread[]> => {
+    const response = await apiClient.get<ApiResponse<InstructorForumThread[]>>('/forums/instructor');
     return response.data.data!;
   },
 
-  createForum: async (courseId: number, data: CreateForumInput): Promise<Forum> => {
-    const response = await apiClient.post<ApiResponse<Forum>>(`/forums/course/${courseId}`, data);
+  createForum: async (courseId: number, data: CreateForumInput): Promise<ForumThread> => {
+    const response = await apiClient.post<ApiResponse<ForumThread>>(`/forums/course/${courseId}`, data);
     return response.data.data!;
   },
 
-  updateForum: async (forumId: number, data: Partial<CreateForumInput>): Promise<Forum> => {
-    const response = await apiClient.put<ApiResponse<Forum>>(`/forums/${forumId}`, data);
+  updateForum: async (threadId: number, data: UpdateForumInput): Promise<ForumThread> => {
+    const response = await apiClient.put<ApiResponse<ForumThread>>(`/forums/${threadId}`, data);
     return response.data.data!;
   },
 
-  deleteForum: async (forumId: number): Promise<void> => {
-    await apiClient.delete(`/forums/${forumId}`);
+  deleteForum: async (threadId: number): Promise<void> => {
+    await apiClient.delete(`/forums/${threadId}`);
   },
 
-  // Thread CRUD
-  getThreads: async (forumId: number, page = 1, limit = 20): Promise<{
-    threads: ForumThread[];
-    pagination: { page: number; limit: number; total: number; pages: number };
-  }> => {
-    const response = await apiClient.get<ApiResponse<any>>(`/forums/${forumId}/threads`, {
-      params: { page, limit },
-    });
-    return response.data.data!;
-  },
+  // ============= Single discussion + instructor mutations =============
 
-  getThread: async (threadId: number): Promise<ForumThread & { posts: ForumPost[]; forum: Forum }> => {
+  getThread: async (threadId: number): Promise<ForumThread & { posts: ForumPost[] }> => {
     const response = await apiClient.get<ApiResponse<any>>(`/forums/threads/${threadId}`);
     return response.data.data!;
   },
 
-  createThread: async (forumId: number, data: CreateThreadInput): Promise<ForumThread> => {
-    const response = await apiClient.post<ApiResponse<ForumThread>>(`/forums/${forumId}/threads`, data);
-    return response.data.data!;
-  },
-
-  updateThread: async (threadId: number, data: Partial<CreateThreadInput>): Promise<ForumThread> => {
+  updateThread: async (threadId: number, data: { title?: string; content?: string }): Promise<ForumThread> => {
     const response = await apiClient.put<ApiResponse<ForumThread>>(`/forums/threads/${threadId}`, data);
     return response.data.data!;
   },
@@ -153,7 +177,16 @@ export const forumsApi = {
     return response.data.data!;
   },
 
-  // Post CRUD
+  /** Toggle the calling user's "like" on this discussion. */
+  toggleThreadLike: async (threadId: number): Promise<{ liked: boolean; likeCount: number }> => {
+    const response = await apiClient.post<ApiResponse<{ liked: boolean; likeCount: number }>>(
+      `/forums/threads/${threadId}/like`,
+    );
+    return response.data.data!;
+  },
+
+  // ============= Replies (posts) =============
+
   createPost: async (threadId: number, data: CreatePostInput): Promise<ForumPost> => {
     const response = await apiClient.post<ApiResponse<ForumPost>>(`/forums/threads/${threadId}/posts`, data);
     return response.data.data!;
@@ -168,7 +201,8 @@ export const forumsApi = {
     await apiClient.delete(`/forums/posts/${postId}`);
   },
 
-  // AI Agent Integration
+  // ============= AI Agent integration =============
+
   getForumAgents: async (courseId: number): Promise<TutorAgent[]> => {
     const response = await apiClient.get<ApiResponse<TutorAgent[]>>(`/forums/course/${courseId}/agents`);
     return response.data.data!;

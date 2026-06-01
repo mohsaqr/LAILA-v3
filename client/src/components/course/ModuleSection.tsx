@@ -37,6 +37,8 @@ interface ContentItem {
   metadata?: string;
   href: string;
   isFree?: boolean;
+  /** Sort key. Items with the same orderIndex tie-break by id. */
+  orderIndex: number;
 }
 
 // Icon mapping for list/accordion views
@@ -122,7 +124,11 @@ export const ModuleSection = ({
     return 'lecture';
   };
 
-  // Build unified content items list
+  // Build unified content items list. Each entry carries the
+  // type-specific `orderIndex` so the final list can be sorted into a
+  // single sequence — matches the instructor's reordering in the
+  // curriculum editor (lecture, codelab, assignment, forum, quiz,
+  // survey all share one global order via the reorder-items endpoint).
   const contentItems: ContentItem[] = [
     ...publishedLectures.map(lecture => ({
       id: lecture.id,
@@ -131,6 +137,7 @@ export const ModuleSection = ({
       metadata: lecture.duration ? t('x_min', { count: lecture.duration }) : undefined,
       href: `/courses/${courseId}/lectures/${lecture.id}`,
       isFree: lecture.isFree,
+      orderIndex: lecture.orderIndex ?? 0,
     })),
     ...publishedLabs.map(lab => ({
       id: lab.id,
@@ -138,6 +145,7 @@ export const ModuleSection = ({
       title: lab.title,
       subtitle: lab.description || undefined,
       href: `/courses/${courseId}/code-labs/${lab.id}`,
+      orderIndex: lab.orderIndex ?? 0,
     })),
     ...labAssignments.map(la => ({
       id: la.id,
@@ -145,6 +153,9 @@ export const ModuleSection = ({
       title: la.lab.name,
       subtitle: la.lab.description || undefined,
       href: `/labs/${la.lab.id}?courseId=${courseId}`,
+      // Lab templates have no orderIndex; pin them after the unified
+      // sequence so existing courses don't reshuffle visually.
+      orderIndex: Number.MAX_SAFE_INTEGER - 2,
     })),
     ...publishedQuizzes.map(quiz => ({
       id: quiz.id,
@@ -153,6 +164,7 @@ export const ModuleSection = ({
       subtitle: quiz.description || undefined,
       metadata: quiz._count?.questions ? t('x_questions', { count: quiz._count.questions }) : undefined,
       href: `/courses/${courseId}/quizzes/${quiz.id}`,
+      orderIndex: (quiz as any).orderIndex ?? 0,
     })),
     ...publishedAssignments.map(assignment => ({
       id: assignment.id,
@@ -164,22 +176,29 @@ export const ModuleSection = ({
       href: assignment.submissionType === 'ai_agent'
         ? `/courses/${courseId}/agent-assignments/${assignment.id}`
         : `/courses/${courseId}/assignments/${assignment.id}`,
+      orderIndex: (assignment as any).orderIndex ?? 0,
     })),
     ...publishedForums.map(forum => ({
       id: forum.id,
       type: 'forum' as ContentType,
       title: forum.title,
       subtitle: forum.description || undefined,
-      metadata: forum._count?.threads ? t('x_threads', { count: forum._count.threads }) : undefined,
+      metadata: forum._count?.posts
+        ? t('x_replies', { count: forum._count.posts, defaultValue: '{{count}} replies' })
+        : undefined,
       href: `/courses/${courseId}/forums/${forum.id}`,
+      orderIndex: forum.orderIndex ?? 0,
     })),
-    ...publishedSurveys.map(survey => ({
-      id: survey.id,
+    ...publishedSurveys.map((s: any) => ({
+      id: s.survey?.id ?? s.id,
       type: 'survey' as ContentType,
-      title: survey.title,
-      subtitle: survey.description || undefined,
-      metadata: survey._count?.questions ? t('x_questions', { count: survey._count.questions }) : undefined,
-      href: `/surveys/${survey.id}?moduleId=${module.id}&courseId=${courseId}`,
+      title: s.survey?.title ?? s.title,
+      subtitle: (s.survey?.description ?? s.description) || undefined,
+      metadata: (s.survey?._count?.questions ?? s._count?.questions)
+        ? t('x_questions', { count: s.survey?._count?.questions ?? s._count?.questions })
+        : undefined,
+      href: `/surveys/${s.survey?.id ?? s.id}?moduleId=${module.id}&courseId=${courseId}`,
+      orderIndex: s.orderIndex ?? 0,
     })),
     ...(module.interactiveLabs
       ? module.interactiveLabs.split(',').map((key: string) => key.trim()).filter(Boolean)
@@ -193,12 +212,12 @@ export const ModuleSection = ({
             type: 'interactive_lab' as ContentType,
             title: key === 'tna' ? t('exercise.title') : key === 'sna' ? t('sna.title') : key,
             href: `/courses/${courseId}/${key}-exercise`,
+            // Interactive labs have no orderIndex; pin after the
+            // unified sequence.
+            orderIndex: Number.MAX_SAFE_INTEGER - 1 + idx,
           }))
       : []),
-  ];
-
-  // Calculate content counts for module header
-  const contentCount = contentItems.length;
+  ].sort((a, b) => (a.orderIndex - b.orderIndex) || (a.id - b.id));
 
   // Get card size based on view mode
   const getCardSize = (): ContentCardSize => {
@@ -337,12 +356,6 @@ export const ModuleSection = ({
           >
             {module.title}
           </span>
-          <span
-            className="text-sm"
-            style={{ color: colors.textSecondary }}
-          >
-            {t('x_items', { count: contentCount })}
-          </span>
         </button>
 
         {isExpanded && hasContent && (
@@ -405,12 +418,6 @@ export const ModuleSection = ({
                 {module.description}
               </p>
             )}
-            <p
-              className="text-xs sm:text-sm mt-1"
-              style={{ color: colors.textSecondary }}
-            >
-              {t('x_items', { count: contentCount })}
-            </p>
           </div>
         </div>
       </div>

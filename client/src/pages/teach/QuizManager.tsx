@@ -142,17 +142,8 @@ export const QuizManager = () => {
           <Breadcrumb homeHref="/" items={breadcrumbItems} />
         </div>
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold" style={{ color: colors.textPrimary }}>
-              {t('quiz_manager')}
-            </h1>
-            <p className="text-sm" style={{ color: colors.textSecondary }}>
-              {t('create_manage_quizzes')}
-            </p>
-          </div>
-
+        {/* Header actions */}
+        <div className="flex justify-end mb-6">
           <Button onClick={() => setIsCreateModalOpen(true)}>
             <Plus size={18} />
             {t('create_quiz')}
@@ -247,7 +238,11 @@ export const QuizManager = () => {
                           }}
                           disabled={togglePublishMutation.isPending}
                         >
-                          {quiz.isPublished ? <EyeOff size={16} /> : <Eye size={16} />}
+                          {quiz.isPublished ? (
+                            <Eye size={16} className="text-green-500" />
+                          ) : (
+                            <EyeOff size={16} className="text-amber-500" />
+                          )}
                         </Button>
                         <Button
                           variant="secondary"

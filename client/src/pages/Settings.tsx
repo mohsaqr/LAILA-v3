@@ -9,6 +9,7 @@ import { usersApi } from '../api/users';
 import { notificationsApi, NotificationPreferences } from '../api/notifications';
 import { Card, CardBody, CardHeader } from '../components/common/Card';
 import { Button } from '../components/common/Button';
+import { Breadcrumb } from '../components/common/Breadcrumb';
 import { useLanguageStore } from '../store/languageStore';
 import { supportedLanguages, SupportedLanguage } from '../i18n/config';
 import activityLogger from '../services/activityLogger';
@@ -196,10 +197,12 @@ export const Settings = () => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-      <h1 className="text-2xl sm:text-3xl font-bold mb-6 md:mb-8" style={{ color: colors.textPrimary }}>{t('settings')}</h1>
-
-      <div className="space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+      <div className="max-w-3xl mx-auto">
+        <div className="mb-6">
+          <Breadcrumb items={[{ label: t('settings') }]} />
+        </div>
+        <div className="space-y-6">
         {/* In-App Notifications */}
         <Card>
           <CardHeader className="flex items-center gap-3">
@@ -404,6 +407,7 @@ export const Settings = () => {
             </div>
           </CardBody>
         </Card>
+        </div>
       </div>
     </div>
   );

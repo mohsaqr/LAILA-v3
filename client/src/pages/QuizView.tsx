@@ -21,6 +21,12 @@ import { Modal } from '../components/common/Modal';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { buildQuizBreadcrumb } from '../utils/breadcrumbs';
 import { sanitizeHtml } from '../utils/sanitize';
+import { decodeCorrectAnswers, encodeCorrectAnswers } from '../utils/quizAnswer';
+import {
+  isWordBankText,
+  decodeBlankAnswers,
+  encodeBlankAnswers,
+} from '../utils/fillBlank';
 import { activityLogger } from '../services/activityLogger';
 import { useTracker } from '../services/tracker';
 import { TrackedContent } from '../components/common/TrackedContent';
@@ -260,27 +266,39 @@ export const QuizView = () => {
 
               {/* Answer options */}
               <div className="space-y-3 mt-6">
-                {currentQuestion.questionType === 'multiple_choice' && currentQuestion.options?.map((option, idx) => (
-                  <label
-                    key={idx}
-                    className="flex items-center gap-3 p-4 rounded-lg cursor-pointer transition-all"
-                    style={{
-                      backgroundColor: answers[currentQuestion.id] === option ? colors.bgSelected : 'transparent',
-                      borderWidth: 2,
-                      borderColor: answers[currentQuestion.id] === option ? colors.borderSelected : colors.border,
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name={`question-${currentQuestion.id}`}
-                      value={option}
-                      checked={answers[currentQuestion.id] === option}
-                      onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}
-                      className="w-4 h-4 text-blue-500"
-                    />
-                    <span style={{ color: colors.textPrimary }}>{option}</span>
-                  </label>
-                ))}
+                {currentQuestion.questionType === 'multiple_choice' && (() => {
+                  // Multi-correct MC: stored answer is a JSON array of
+                  // selected option strings. Toggle individual options.
+                  const selected = decodeCorrectAnswers(answers[currentQuestion.id]);
+                  return currentQuestion.options?.map((option, idx) => {
+                    const isChecked = selected.includes(option);
+                    return (
+                      <label
+                        key={idx}
+                        className="flex items-center gap-3 p-4 rounded-lg cursor-pointer transition-all"
+                        style={{
+                          backgroundColor: isChecked ? colors.bgSelected : 'transparent',
+                          borderWidth: 2,
+                          borderColor: isChecked ? colors.borderSelected : colors.border,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          value={option}
+                          checked={isChecked}
+                          onChange={() => {
+                            const next = isChecked
+                              ? selected.filter(s => s !== option)
+                              : [...selected, option];
+                            handleAnswerChange(currentQuestion.id, encodeCorrectAnswers(next));
+                          }}
+                          className="w-4 h-4 text-blue-500"
+                        />
+                        <span style={{ color: colors.textPrimary }}>{option}</span>
+                      </label>
+                    );
+                  });
+                })()}
 
                 {currentQuestion.questionType === 'true_false' && (
                   <>
@@ -308,7 +326,56 @@ export const QuizView = () => {
                   </>
                 )}
 
-                {(currentQuestion.questionType === 'short_answer' || currentQuestion.questionType === 'fill_in_blank') && (
+                {currentQuestion.questionType === 'fill_in_blank' &&
+                  isWordBankText(currentQuestion.questionText) &&
+                  (() => {
+                    const filled = decodeBlankAnswers(answers[currentQuestion.id]);
+                    const parts = currentQuestion.questionText.split(
+                      /<span[^>]*data-blank="(\d+)"[^>]*>\s*<\/span>/g,
+                    );
+                    const setBlank = (n: number, val: string) => {
+                      const next = { ...filled, [String(n)]: val };
+                      if (!val) delete next[String(n)];
+                      handleAnswerChange(
+                        currentQuestion.id,
+                        encodeBlankAnswers(next as Record<number, string>),
+                      );
+                    };
+                    return (
+                      <div
+                        className="fitb-render leading-10 text-base"
+                        style={{ color: colors.textPrimary }}
+                      >
+                        {parts.map((part, i) =>
+                          i % 2 === 0 ? (
+                            <span
+                              key={i}
+                              dangerouslySetInnerHTML={{ __html: sanitizeHtml(part) }}
+                            />
+                          ) : (
+                            (() => {
+                              const n = parseInt(part, 10);
+                              return (
+                                <input
+                                  key={i}
+                                  type="text"
+                                  value={filled[String(n)] || ''}
+                                  onChange={(e) => setBlank(n, e.target.value)}
+                                  aria-label={`Blank ${n}`}
+                                  className="fitb-input"
+                                  style={{ color: colors.textPrimary }}
+                                />
+                              );
+                            })()
+                          ),
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                {(currentQuestion.questionType === 'short_answer' ||
+                  (currentQuestion.questionType === 'fill_in_blank' &&
+                    !isWordBankText(currentQuestion.questionText))) && (
                   <input
                     type="text"
                     value={answers[currentQuestion.id] || ''}
@@ -340,7 +407,15 @@ export const QuizView = () => {
           </Button>
 
           <div className="flex flex-wrap gap-2 justify-center">
-            {attemptData.questions.map((q, idx) => (
+            {attemptData.questions.map((q, idx) => {
+              // MC stores selections as a JSON array — `'[]'` is truthy
+              // but means unanswered, so decode and count.
+              const raw = answers[q.id];
+              const isAnswered =
+                q.questionType === 'multiple_choice'
+                  ? decodeCorrectAnswers(raw).length > 0
+                  : !!raw;
+              return (
               <button
                 key={q.id}
                 onClick={() => { track('question_jumped', { verb: 'interacted', objectType: 'quiz', objectId: parsedQuizId, courseId: parseInt(courseId!, 10), payload: { fromIndex: currentQuestionIndex, toIndex: idx } }); setCurrentQuestionIndex(idx); }}
@@ -348,13 +423,14 @@ export const QuizView = () => {
                   idx === currentQuestionIndex ? 'ring-2 ring-blue-500 ring-offset-2' : ''
                 }`}
                 style={{
-                  backgroundColor: answers[q.id] ? colors.bgGreen : colors.border,
-                  color: answers[q.id] ? colors.textGreen : colors.textSecondary,
+                  backgroundColor: isAnswered ? colors.bgGreen : colors.border,
+                  color: isAnswered ? colors.textGreen : colors.textSecondary,
                 }}
               >
                 {idx + 1}
               </button>
-            ))}
+              );
+            })}
           </div>
 
           <Button

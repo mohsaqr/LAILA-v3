@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  ArrowLeft,
   User,
   Calendar,
   Award,
@@ -125,7 +124,7 @@ export const SubmissionDetail = () => {
 
   if (!assignment || !submission) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
         <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">{t('submission_not_found')}</h1>
         <Button
@@ -165,27 +164,12 @@ export const SubmissionDetail = () => {
       label: assignment.title,
       href: `/teach/courses/${courseId}/assignments/${assId}/submissions`,
     },
-    { label: submission.user?.fullname ?? t('unknown_student') },
   ];
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       <div className="mb-6">
         <Breadcrumb homeHref="/" items={breadcrumbItems} />
-      </div>
-
-      {/* Back button */}
-      <div className="mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            navigate(`/teach/courses/${courseId}/assignments/${assId}/submissions`)
-          }
-          icon={<ArrowLeft className="w-4 h-4" />}
-        >
-          {t('back_to_submissions')}
-        </Button>
       </div>
 
       {/* Submission Header */}
@@ -193,11 +177,19 @@ export const SubmissionDetail = () => {
         <CardBody>
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
             <div>
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900 mb-3">{assignment.title}</h1>
+              <h1 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3">{assignment.title}</h1>
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                  <User className="w-5 h-5 text-gray-500" />
-                </div>
+                {submission.user?.avatarUrl ? (
+                  <img
+                    src={resolveFileUrl(submission.user.avatarUrl) || ''}
+                    alt={submission.user?.fullname ?? ''}
+                    className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                    <User className="w-5 h-5 text-gray-500" />
+                  </div>
+                )}
                 <div>
                   <p className="font-medium text-gray-900">
                     {submission.user?.fullname ?? t('unknown_student')}
@@ -207,11 +199,11 @@ export const SubmissionDetail = () => {
               </div>
               <div className="flex flex-wrap items-center gap-4 text-sm">
                 <div className="flex items-center gap-1.5 text-gray-500">
-                  <Calendar className="w-4 h-4" />
+                  <Calendar className="w-4 h-4 text-blue-500" />
                   <span>{t('submitted_at', { date: formatDate(submission.submittedAt) })}</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-gray-500">
-                  <Award className="w-4 h-4" />
+                  <Award className="w-4 h-4 text-amber-500" />
                   <span>{t('x_points', { count: assignment.points })}</span>
                 </div>
                 <StatusBadge status={isGraded ? 'graded' : 'submitted'} />
@@ -344,17 +336,19 @@ export const SubmissionDetail = () => {
           </h2>
 
           <form onSubmit={handleGradeSubmit} className="space-y-4">
-            <Input
-              label={t('grade_out_of', { max: assignment.points })}
-              type="number"
-              value={gradeForm.grade}
-              onChange={e =>
-                setGradeForm(f => ({ ...f, grade: parseInt(e.target.value) || 0 }))
-              }
-              min={0}
-              max={assignment.points}
-              required
-            />
+            <div className="max-w-[12rem]">
+              <Input
+                label={t('grade_out_of', { max: assignment.points })}
+                type="number"
+                value={gradeForm.grade}
+                onChange={e =>
+                  setGradeForm(f => ({ ...f, grade: parseInt(e.target.value) || 0 }))
+                }
+                min={0}
+                max={assignment.points}
+                required
+              />
+            </div>
 
             <TextArea
               label={t('notes_and_feedback')}
@@ -364,7 +358,7 @@ export const SubmissionDetail = () => {
               rows={5}
             />
 
-            <div className="flex items-center justify-end gap-3 pt-2 border-t">
+            <div className="flex items-center justify-end gap-3 pt-2">
               <Button
                 type="button"
                 variant="secondary"

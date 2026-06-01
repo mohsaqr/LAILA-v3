@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  ArrowLeft,
   User,
   Award,
   Check,
@@ -18,6 +17,8 @@ import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { EmptyState } from '../../components/common/EmptyState';
+import { Breadcrumb } from '../../components/common/Breadcrumb';
+import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 
 export const AgentSubmissionsList = () => {
   const { t } = useTranslation(['teaching', 'common']);
@@ -45,7 +46,7 @@ export const AgentSubmissionsList = () => {
 
   if (!assignment) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 text-center">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('assignment_not_found')}</h1>
         <Button onClick={() => navigate(`/teach/courses/${courseId}/assignments`)}>
           {t('back_to_assignments')}
@@ -78,17 +79,18 @@ export const AgentSubmissionsList = () => {
   ).length;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-      {/* Header */}
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+      {/* Breadcrumb */}
       <div className="mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(`/teach/courses/${courseId}/assignments`)}
-          icon={<ArrowLeft className="w-4 h-4" />}
-        >
-          {t('back_to_assignments')}
-        </Button>
+        <Breadcrumb
+          homeHref="/"
+          items={[
+            ...buildTeachingBreadcrumb(courseId, (assignment as any)?.course?.title || t('common:course', { defaultValue: 'Course' })),
+            { label: t('assignments'), href: `/teach/courses/${courseId}/assignments` },
+            { label: assignment.title, href: `/teach/courses/${courseId}/assignments/${assId}` },
+            { label: t('submissions') },
+          ]}
+        />
       </div>
 
       {/* Assignment Header */}

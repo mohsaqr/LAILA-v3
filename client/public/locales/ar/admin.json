@@ -89,6 +89,8 @@
   "manage_enrollments": "إدارة تسجيلات الدورات",
   "add_enrollment": "إضافة تسجيل",
   "total_enrollments": "إجمالي التسجيلات",
+  "total_activity_logs": "إجمالي سجلات النشاط",
+  "admin_section": "الإدارة",
   "active_enrollments": "التسجيلات النشطة",
   "completed_enrollments": "التسجيلات المكتملة",
   "last_7_days": "آخر 7 أيام",
@@ -770,5 +772,17 @@
   "module_tutor_desc": "مدرس ذكاء اصطناعي لأسئلة المقرر وأجوبتها",
   "default_provider": "الافتراضي (المنصة)",
   "local_llm_note": "يجب أن تعمل المزودون المحليون على مضيف الخادم.",
-  "module_assignment_saved": "تم حفظ توجيه الوحدة"
+  "module_assignment_saved": "تم حفظ توجيه الوحدة",
+  "activity_timeline": "الجدول الزمني للنشاط",
+  "weekly_activity_timeline": "الجدول الزمني للنشاط الأسبوعي",
+  "full_analytics": "التحليلات الكاملة ←",
+  "growth_last_7_days": "النمو — آخر 7 أيام",
+  "signups": "التسجيلات",
+  "course_distribution": "توزيع الكورسات",
+  "llm_providers": "نماذج LLM",
+  "analytics": "التحليلات",
+  "total_users": "إجمالي المستخدمين",
+  "active_users": "المستخدمون النشطون",
+  "published_courses": "الكورسات المنشورة",
+  "total_enrollments": "الاشتراكات"
 }

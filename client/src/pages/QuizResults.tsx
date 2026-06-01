@@ -16,6 +16,7 @@ import { Loading } from '../components/common/Loading';
 import { Button } from '../components/common/Button';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { buildQuizBreadcrumb } from '../utils/breadcrumbs';
+import { decodeCorrectAnswers } from '../utils/quizAnswer';
 import activityLogger from '../services/activityLogger';
 
 export const QuizResults = () => {
@@ -221,7 +222,14 @@ export const QuizResults = () => {
                           className="font-medium"
                           style={{ color: result.isCorrect ? colors.textGreen : colors.textRed }}
                         >
-                          {result.userAnswer || t('no_answer')}
+                          {(() => {
+                            // MC answers are JSON arrays; render as comma-separated.
+                            if (result.question.questionType === 'multiple_choice') {
+                              const picks = decodeCorrectAnswers(result.userAnswer);
+                              return picks.length > 0 ? picks.join(', ') : t('no_answer');
+                            }
+                            return result.userAnswer || t('no_answer');
+                          })()}
                         </span>
                       </div>
 
@@ -229,7 +237,9 @@ export const QuizResults = () => {
                         <div className="flex items-start gap-2">
                           <span style={{ color: colors.textSecondary }}>{t('correct_answer')}</span>
                           <span className="font-medium" style={{ color: colors.textGreen }}>
-                            {result.question.correctAnswer}
+                            {result.question.questionType === 'multiple_choice'
+                              ? decodeCorrectAnswers(result.question.correctAnswer).join(', ')
+                              : result.question.correctAnswer}
                           </span>
                         </div>
                       )}

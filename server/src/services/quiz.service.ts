@@ -33,6 +33,7 @@ export interface CreateQuestionInput {
   correctAnswer: string;
   explanation?: string;
   points?: number;
+  shuffleOptions?: boolean;
   orderIndex?: number;
 }
 
@@ -127,6 +128,7 @@ export class QuizService {
             questionText: true,
             options: true,
             points: true,
+            shuffleOptions: true,
             orderIndex: true,
             // Only include correct answer for instructors
             ...(includeAnswers ? { correctAnswer: true, explanation: true } : {}),
@@ -235,22 +237,42 @@ export class QuizService {
       where,
       orderBy: { createdAt: 'desc' },
       include: {
-        course: { select: { id: true, title: true } },
+        course: { select: { id: true, title: true, thumbnail: true } },
         module: { select: { id: true, title: true } },
         _count: { select: { questions: true, attempts: true } },
       },
     });
+
+    // Distinct participant count per quiz — one query for all in-scope
+    // quizzes, then bucket by quizId. attempts._count above is the total
+    // attempts including retakes; participantCount is unique students.
+    const quizIds = quizzes.map(q => q.id);
+    const participantsPerQuiz = new Map<number, number>();
+    if (quizIds.length > 0) {
+      const pairs = await prisma.quizAttempt.findMany({
+        where: { quizId: { in: quizIds } },
+        distinct: ['quizId', 'userId'],
+        select: { quizId: true },
+      });
+      for (const p of pairs) {
+        participantsPerQuiz.set(p.quizId, (participantsPerQuiz.get(p.quizId) ?? 0) + 1);
+      }
+    }
 
     return quizzes.map(quiz => ({
       id: quiz.id,
       title: quiz.title,
       courseId: quiz.courseId,
       courseName: quiz.course.title,
+      courseThumbnail: quiz.course.thumbnail,
       moduleId: quiz.moduleId,
       timeLimit: quiz.timeLimit,
+      maxAttempts: quiz.maxAttempts,
+      passingScore: quiz.passingScore,
       isPublished: quiz.isPublished,
       questionCount: quiz._count.questions,
       attemptCount: quiz._count.attempts,
+      participantCount: participantsPerQuiz.get(quiz.id) ?? 0,
     }));
   }
 
@@ -371,6 +393,7 @@ export class QuizService {
         correctAnswer: data.correctAnswer,
         explanation: data.explanation,
         points: data.points ?? 1,
+        shuffleOptions: data.shuffleOptions ?? false,
         orderIndex: data.orderIndex ?? quiz._count.questions,
       },
     });
@@ -404,6 +427,7 @@ export class QuizService {
         correctAnswer: data.correctAnswer,
         explanation: data.explanation,
         points: data.points,
+        shuffleOptions: data.shuffleOptions,
         orderIndex: data.orderIndex,
       },
     });
@@ -496,6 +520,7 @@ export class QuizService {
             correctAnswer: data.correctAnswer,
             explanation: data.explanation,
             points: data.points ?? 1,
+            shuffleOptions: data.shuffleOptions ?? false,
             orderIndex: orderIndex + idx,
           },
         });
@@ -618,18 +643,20 @@ export class QuizService {
       questionText: q.questionText,
       options: q.options ? JSON.parse(q.options) : null,
       points: q.points,
+      shuffleOptions: q.shuffleOptions,
     }));
 
     if (quiz.shuffleQuestions) {
       questions = this.shuffleArray(questions);
     }
 
-    if (quiz.shuffleOptions) {
-      questions = questions.map((q: any) => ({
-        ...q,
-        options: q.options ? this.shuffleArray(q.options) : null,
-      }));
-    }
+    // Shuffle a question's options when the quiz-wide flag is on OR the
+    // question opts in via its own shuffleOptions.
+    questions = questions.map((q: any) =>
+      (quiz.shuffleOptions || q.shuffleOptions) && q.options
+        ? { ...q, options: this.shuffleArray(q.options) }
+        : q,
+    );
 
     // Map saved answers
     const answerMap = new Map(
@@ -718,8 +745,9 @@ export class QuizService {
       const answer = attempt.answers.find(a => a.questionId === question.id);
 
       if (answer) {
-        const isCorrect = this.checkAnswer(question, answer.answer || '');
-        const points = isCorrect ? question.points : 0;
+        const graded = this.gradeQuestion(question, answer.answer || '');
+        const isCorrect = graded.isCorrect;
+        const points = graded.fraction * question.points;
         pointsEarned += points;
 
         await prisma.quizAnswer.update({
@@ -770,20 +798,105 @@ export class QuizService {
     };
   }
 
-  private checkAnswer(question: any, userAnswer: string): boolean {
-    const correct = question.correctAnswer.toLowerCase().trim();
-    const answer = userAnswer.toLowerCase().trim();
+  /**
+   * Multiple-choice answers — both stored correct and submitted — may be a
+   * JSON array of option strings (new multi-correct format) or a plain
+   * string (legacy single-correct). Normalize to a list either way.
+   * Mirror of utils/quizAnswer.ts on the client.
+   */
+  private decodeMcAnswers(raw: string | null | undefined): string[] {
+    if (raw == null) return [];
+    const trimmed = String(raw).trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .filter((s: unknown): s is string => typeof s === 'string')
+            .map(s => s.trim())
+            .filter(Boolean);
+        }
+      } catch {
+        /* fall through */
+      }
+    }
+    return [trimmed];
+  }
 
+  /**
+   * Grade a question, returning the fraction of points earned (0..1) plus a
+   * boolean "fully correct". Word-bank fill_in_blank awards partial credit
+   * per blank; everything else is all-or-nothing via checkAnswer().
+   */
+  private gradeQuestion(question: any, userAnswer: string): { isCorrect: boolean; fraction: number } {
+    if (question.questionType === 'fill_in_blank') {
+      const raw = String(question.correctAnswer ?? '').trim();
+      if (raw.startsWith('{')) {
+        try {
+          const def = JSON.parse(raw);
+          if (def && def.t === 'fitb' && Array.isArray(def.blanks)) {
+            const blanks: string[] = def.blanks;
+            let studentMap: Record<string, string> = {};
+            const a = String(userAnswer ?? '').trim();
+            if (a.startsWith('{')) {
+              try {
+                const parsed = JSON.parse(a);
+                if (parsed && typeof parsed === 'object') studentMap = parsed;
+              } catch {
+                /* unanswered / malformed */
+              }
+            }
+            if (blanks.length === 0) return { isCorrect: false, fraction: 0 };
+            let correct = 0;
+            blanks.forEach((expected, i) => {
+              const given = String(studentMap[String(i + 1)] ?? '').toLowerCase().trim();
+              if (given && given === String(expected).toLowerCase().trim()) correct += 1;
+            });
+            const fraction = correct / blanks.length;
+            return { isCorrect: fraction === 1, fraction };
+          }
+        } catch {
+          /* fall through to legacy string match */
+        }
+      }
+    }
+    const ok = this.checkAnswer(question, userAnswer);
+    return { isCorrect: ok, fraction: ok ? 1 : 0 };
+  }
+
+  private checkAnswer(question: any, userAnswer: string): boolean {
     switch (question.questionType) {
-      case 'multiple_choice':
-      case 'true_false':
+      case 'multiple_choice': {
+        // Strict set-equality: student must pick exactly the marked
+        // correct options — no partial credit, no extras.
+        const correctSet = new Set(
+          this.decodeMcAnswers(question.correctAnswer).map(s => s.toLowerCase()),
+        );
+        const answerSet = new Set(
+          this.decodeMcAnswers(userAnswer).map(s => s.toLowerCase()),
+        );
+        if (correctSet.size === 0 || correctSet.size !== answerSet.size) return false;
+        for (const c of correctSet) if (!answerSet.has(c)) return false;
+        return true;
+      }
+      case 'true_false': {
+        const correct = String(question.correctAnswer).toLowerCase().trim();
+        const answer = userAnswer.toLowerCase().trim();
         return answer === correct;
+      }
       case 'short_answer':
-      case 'fill_in_blank':
+      case 'fill_in_blank': {
+        const correct = String(question.correctAnswer).toLowerCase().trim();
+        const answer = userAnswer.toLowerCase().trim();
         // Allow some flexibility for text answers
         return answer === correct || correct.includes(answer);
-      default:
+      }
+      default: {
+        const correct = String(question.correctAnswer).toLowerCase().trim();
+        const answer = userAnswer.toLowerCase().trim();
         return answer === correct;
+      }
     }
   }
 
@@ -912,6 +1025,114 @@ export class QuizService {
       user: userMap.get(a.userId),
       passed: (a.score ?? 0) >= quiz.passingScore,
     }));
+  }
+
+  /**
+   * Per-question response analytics for the instructor Overview tab:
+   * how often each option was picked, correct/incorrect tallies and
+   * accuracy. Aggregated across all submitted attempts.
+   */
+  async getQuizStats(quizId: number, instructorId: number, isAdmin = false) {
+    const quiz = await prisma.quiz.findUnique({
+      where: { id: quizId },
+      include: {
+        course: true,
+        questions: { orderBy: { orderIndex: 'asc' } },
+      },
+    });
+
+    if (!quiz) throw new AppError('Quiz not found', 404);
+    if (quiz.course.instructorId !== instructorId && !isAdmin) {
+      const isTeam = await courseRoleService.isTeamMember(instructorId, quiz.course.id);
+      if (!isTeam) throw new AppError('Not authorized', 403);
+    }
+
+    const attempts = await prisma.quizAttempt.findMany({
+      where: { quizId, submittedAt: { not: null } },
+      select: { id: true, userId: true, score: true },
+    });
+    const attemptIds = attempts.map(a => a.id);
+    const answers = attemptIds.length
+      ? await prisma.quizAnswer.findMany({
+          where: { attemptId: { in: attemptIds } },
+          select: { questionId: true, answer: true, isCorrect: true },
+        })
+      : [];
+
+    const byQuestion = new Map<number, typeof answers>();
+    for (const a of answers) {
+      const list = byQuestion.get(a.questionId) ?? [];
+      list.push(a);
+      byQuestion.set(a.questionId, list);
+    }
+
+    const pct = (n: number, total: number) =>
+      total > 0 ? Math.round((n / total) * 100) : 0;
+
+    const questions = quiz.questions.map(q => {
+      const qa = (byQuestion.get(q.id) ?? []).filter(
+        x => x.answer != null && String(x.answer).trim() !== '',
+      );
+      const totalResponses = qa.length;
+      const correct = qa.filter(x => x.isCorrect === true).length;
+      const incorrect = qa.filter(x => x.isCorrect === false).length;
+
+      let options: { text: string; count: number; pct: number; correct: boolean }[] = [];
+      if (q.questionType === 'multiple_choice') {
+        const opts: string[] = q.options ? JSON.parse(q.options) : [];
+        const correctSet = new Set(
+          this.decodeMcAnswers(q.correctAnswer).map(s => s.toLowerCase()),
+        );
+        options = opts.map(o => {
+          const count = qa.filter(x =>
+            this.decodeMcAnswers(x.answer)
+              .map(s => s.toLowerCase())
+              .includes(o.toLowerCase()),
+          ).length;
+          return {
+            text: o,
+            count,
+            pct: pct(count, totalResponses),
+            correct: correctSet.has(o.toLowerCase()),
+          };
+        });
+      } else if (q.questionType === 'true_false') {
+        const correctTf = String(q.correctAnswer).toLowerCase().trim();
+        options = ['true', 'false'].map(o => {
+          const count = qa.filter(
+            x => String(x.answer).toLowerCase().trim() === o,
+          ).length;
+          return {
+            text: o === 'true' ? 'True' : 'False',
+            count,
+            pct: pct(count, totalResponses),
+            correct: correctTf === o,
+          };
+        });
+      }
+
+      return {
+        id: q.id,
+        questionText: q.questionText,
+        questionType: q.questionType,
+        points: q.points,
+        totalResponses,
+        correct,
+        incorrect,
+        accuracy: pct(correct, totalResponses),
+        options,
+      };
+    });
+
+    const scores = attempts.map(a => a.score ?? 0);
+    return {
+      totalAttempts: attempts.length,
+      participants: new Set(attempts.map(a => a.userId)).size,
+      averageScore: scores.length
+        ? Math.round(scores.reduce((s, v) => s + v, 0) / scores.length)
+        : 0,
+      questions,
+    };
   }
 
   // =========================================================================

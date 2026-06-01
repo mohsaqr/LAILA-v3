@@ -341,7 +341,7 @@ export const StudentAgentBuilder = () => {
 
   if (error || !data) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 text-center">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
         <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
         <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('failed_to_load_assignment')}</h1>
         <p className="text-gray-600 mb-4">

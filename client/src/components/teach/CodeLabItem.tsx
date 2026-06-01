@@ -35,7 +35,7 @@ export const CodeLabItem = ({
   const blockCount = codeLab.blocks?.length || 0;
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors">
+    <div className="flex items-center gap-3 p-3 min-h-[64px] bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors">
       <div className="flex items-center gap-3 flex-1 min-w-0">
       <div className="flex items-center justify-center w-8 h-8 rounded bg-white border border-emerald-200 flex-shrink-0">
         <FlaskConical className="w-4 h-4 text-emerald-600" />
@@ -60,7 +60,7 @@ export const CodeLabItem = ({
       </div>
       </div>
 
-      <div className="flex items-center gap-1 flex-wrap justify-end sm:justify-start">
+      <div className="flex items-center gap-1 flex-shrink-0">
       {/* Edit Content Button */}
       <Link
         to={`/teach/courses/${courseId}/code-labs/${codeLab.id}`}

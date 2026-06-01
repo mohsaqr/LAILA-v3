@@ -26,6 +26,18 @@ interface CourseFilters {
   limit?: number;
 }
 
+export type ModuleItemType = 'lecture' | 'codelab' | 'assignment' | 'forum' | 'quiz' | 'survey';
+
+export interface CourseResourceCounts {
+  assignments: number;
+  quizzes: number;
+  forums: number;
+  surveys: number;
+  students: number;
+  certificates: number;
+  activityLogs: number;
+}
+
 export const coursesApi = {
   // Catalog
   getCourses: async (filters: CourseFilters = {}) => {
@@ -52,6 +64,13 @@ export const coursesApi = {
 
   getCourseDetails: async (id: number) => {
     const response = await apiClient.get<ApiResponse<any>>(`/courses/${id}/details`);
+    return response.data.data!;
+  },
+
+  getResourceCounts: async (id: number): Promise<CourseResourceCounts> => {
+    const response = await apiClient.get<ApiResponse<CourseResourceCounts>>(
+      `/courses/${id}/resource-counts`
+    );
     return response.data.data!;
   },
 
@@ -121,6 +140,17 @@ export const coursesApi = {
     const response = await apiClient.put<ApiResponse<{ message: string }>>(
       `/courses/${courseId}/modules/reorder`,
       { moduleIds }
+    );
+    return response.data;
+  },
+
+  reorderModuleItems: async (
+    moduleId: number,
+    items: { type: ModuleItemType; id: number }[]
+  ) => {
+    const response = await apiClient.put<ApiResponse<{ message: string }>>(
+      `/courses/modules/${moduleId}/reorder-items`,
+      { items }
     );
     return response.data;
   },

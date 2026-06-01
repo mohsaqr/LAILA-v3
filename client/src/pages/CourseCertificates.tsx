@@ -88,16 +88,6 @@ export const CourseCertificates = () => {
         <Breadcrumb items={breadcrumbItems} />
       </div>
 
-      <div className="mb-6 md:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>
-          {t('course_certificates')}
-        </h1>
-        {course && (
-          <p className="mt-2" style={{ color: colors.textSecondary }}>
-            {t('certificate_for', { course: course.title })}
-          </p>
-        )}
-      </div>
 
       {/* Earned Certificates */}
       <section className="mb-6 md:mb-10">

@@ -1,30 +1,26 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Search,
   GraduationCap,
-  Users,
-  Plus,
-  Settings,
-  BookOpen,
-  Edit,
-  Eye,
-  CheckCircle,
-  PlayCircle,
   ChevronDown,
   X,
 } from 'lucide-react';
 import { coursesApi } from '../api/courses';
-import { enrollmentsApi } from '../api/enrollments';
 import { categoriesApi } from '../api/categories';
+import { meApi } from '../api/me';
+import { adminApi } from '../api/admin';
 import { Card, CardBody } from '../components/common/Card';
 import { Input } from '../components/common/Input';
-import { Button } from '../components/common/Button';
 import { Loading } from '../components/common/Loading';
 import { Breadcrumb } from '../components/common/Breadcrumb';
-import { Course, Enrollment, Category } from '../types';
+import {
+  CatalogStatsCard,
+  ContinueLearningRail,
+  CourseCardV2,
+} from '../components/courses';
+import type { Course, Category } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import { activityLogger } from '../services/activityLogger';
@@ -277,23 +273,17 @@ const SearchableSelect = ({
   );
 };
 
-// Theme colors helper
 const getThemeColors = (isDark: boolean) => ({
   textPrimary: isDark ? '#f3f4f6' : '#111827',
   textSecondary: isDark ? '#9ca3af' : '#6b7280',
-  textMuted: isDark ? '#6b7280' : '#9ca3af',
-  border: isDark ? '#374151' : '#e5e7eb',
-  bgSecondary: isDark ? '#374151' : '#f3f4f6',
-  inputBg: isDark ? '#1f2937' : '#ffffff',
 });
 
 export const Catalog = () => {
   const { t } = useTranslation(['courses', 'common']);
-  const { isAuthenticated, isInstructor, isAdmin, viewAsRole } = useAuth();
+  const { user, isAuthenticated, isInstructor, isAdmin } = useAuth();
   const { isDark } = useTheme();
   const colors = getThemeColors(isDark);
-  const [searchParams, setSearchParams] = useSearchParams();
-  const filter = searchParams.get('filter'); // 'enrolled' | 'completed' | null
+
   const [search, setSearch] = useState('');
   const [categoryIds, setCategoryIds] = useState<number[]>([]);
   const [difficulty, setDifficulty] = useState('');
@@ -301,37 +291,53 @@ export const Catalog = () => {
 
   const canCreateCourses = isInstructor || isAdmin;
 
-  // Log catalog viewed once
   useEffect(() => {
     activityLogger.log({ verb: 'viewed', objectType: 'catalog', objectTitle: 'Course Catalog' });
   }, []);
 
-  // Fetch user's enrollments when filter is active
-  const { data: enrollments, isLoading: enrollmentsLoading } = useQuery({
-    queryKey: ['myEnrollments'],
-    queryFn: () => enrollmentsApi.getMyEnrollments(),
-    enabled: isAuthenticated && (filter === 'enrolled' || filter === 'completed'),
+  // Stats: admins → platform-wide; instructors (non-admin) → scoped to their courses.
+  const { data: adminStats, isLoading: adminStatsLoading } = useQuery({
+    queryKey: ['admin', 'dashboardOverview', 'catalog'],
+    queryFn: () => adminApi.getDashboardOverview(),
+    enabled: isAuthenticated && isAdmin,
+  });
+  const { data: teachStats, isLoading: teachStatsLoading } = useQuery({
+    queryKey: ['me', 'teachingOverview', 'catalog'],
+    queryFn: () => meApi.getTeachingOverview(),
+    enabled: isAuthenticated && isInstructor && !isAdmin,
   });
 
-  // Fetch instructor's own courses if they are an instructor or admin
-  // Include viewAsRole in query key so cache is separate per view mode
-  const { data: myCourses, isLoading: myCoursesLoading } = useQuery({
-    queryKey: ['myCourses', viewAsRole],
-    queryFn: () => coursesApi.getMyCourses(),
-    enabled: isAuthenticated && canCreateCourses,
+  // Continue Learning rail — for any signed-in user with in-progress enrollments.
+  const { data: continueRail } = useQuery({
+    queryKey: ['me', 'continueLearning', 'catalog'],
+    queryFn: () => meApi.getContinueLearning(),
+    enabled: isAuthenticated,
   });
 
-  // Fetch categories for filter dropdown
   const { data: categoriesList } = useQuery({
     queryKey: ['categories'],
     queryFn: categoriesApi.getCategories,
   });
 
-  // Fetch public course catalog
   const { data, isLoading } = useQuery({
     queryKey: ['courses', { search, categoryIds, difficulty, page }],
-    queryFn: () => coursesApi.getCourses({ search, categoryIds: categoryIds.length ? categoryIds : undefined, difficulty, page, limit: 12 }),
+    queryFn: () => coursesApi.getCourses({
+      search,
+      categoryIds: categoryIds.length ? categoryIds : undefined,
+      difficulty,
+      page,
+      limit: 12,
+    }),
   });
+
+  // Look up the current user's progress per courseId so cards can render
+  // a progress bar when the viewer is enrolled.
+  const progressByCourseId = useMemo(() => {
+    const map = new Map<number, number>();
+    (continueRail ?? []).forEach(item => map.set(item.courseId, item.progress));
+    return map;
+  }, [continueRail]);
+
   // Log search with debounce (fires 800ms after user stops typing)
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -343,7 +349,6 @@ export const Catalog = () => {
     return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
   }, [search]);
 
-  // Log filter changes (category, difficulty, tab)
   useEffect(() => {
     if (categoryIds.length > 0) {
       const names = (categoriesList || []).filter(c => categoryIds.includes(c.id)).map(c => c.title);
@@ -357,175 +362,63 @@ export const Catalog = () => {
     }
   }, [difficulty]);
 
-  useEffect(() => {
-    if (filter) {
-      activityLogger.logCatalogFiltered({ filterType: 'tab', filter });
-    }
-  }, [filter]);
-
   const difficulties = [
     { value: 'beginner', label: t('beginner') },
     { value: 'intermediate', label: t('intermediate') },
     { value: 'advanced', label: t('advanced') },
   ];
 
+  const totalCourses = isAdmin
+    ? adminStats?.kpis.totalCourses ?? 0
+    : teachStats?.kpis.totalCourses ?? 0;
+  const totalStudents = isAdmin
+    ? adminStats?.kpis.totalUsers ?? 0
+    : teachStats?.kpis.totalStudents ?? 0;
+  const statsLoading = isAdmin ? adminStatsLoading : teachStatsLoading;
+
+  // Rail shows only in-progress courses. The progress map (passed to
+  // CourseCardV2) keeps every enrolled course so a finished one still
+  // shows its 100 % bar on its catalog card — it just doesn't compete
+  // for space in the "continue learning" rail.
+  const railItems = (continueRail ?? []).filter(item => item.progress < 100);
+  const showRail = isAuthenticated && railItems.length > 0;
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-      {/* Breadcrumb */}
-      <div className="mb-6">
+      <div className="mb-4">
         <Breadcrumb items={[{ label: t('courses') }]} />
       </div>
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6 md:mb-8">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>{t('courses')}</h1>
-          <p className="mt-1" style={{ color: colors.textSecondary }}>
-            {canCreateCourses
-              ? t('manage_discover_courses')
-              : t('discover_ai_courses')}
-          </p>
-        </div>
-        {canCreateCourses && (
-          <Link to="/teach/create">
-            <Button icon={<Plus className="w-4 h-4" />}>{t('create_course')}</Button>
-          </Link>
-        )}
-      </div>
-
-      {/* Filter Tabs */}
-      {isAuthenticated && (
-        <div className="mb-6 flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700">
-          <button
-            onClick={() => setSearchParams({})}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              !filter
-                ? 'border-primary-500 text-primary-600 dark:text-primary-400'
-                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
-          >
-            <GraduationCap className="w-4 h-4 inline mr-1.5" />
-            {t('all_courses')}
-          </button>
-          <button
-            onClick={() => setSearchParams({ filter: 'enrolled' })}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              filter === 'enrolled'
-                ? 'border-primary-500 text-primary-600 dark:text-primary-400'
-                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
-          >
-            <PlayCircle className="w-4 h-4 inline mr-1.5" />
-            {t('my_enrolled')}
-          </button>
-          <button
-            onClick={() => setSearchParams({ filter: 'completed' })}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              filter === 'completed'
-                ? 'border-primary-500 text-primary-600 dark:text-primary-400'
-                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
-          >
-            <CheckCircle className="w-4 h-4 inline mr-1.5" />
-            {t('completed')}
-          </button>
-        </div>
-      )}
-
-      {/* Filtered Courses (Enrolled/Completed) */}
-      {filter && isAuthenticated && (
+      {canCreateCourses && (
         <div className="mb-6 md:mb-8">
-          <h2 className="text-lg sm:text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
-            {filter === 'enrolled' ? (
-              <>
-                <PlayCircle className="w-5 h-5 text-primary-500" />
-                {t('my_enrolled_courses')}
-              </>
-            ) : (
-              <>
-                <CheckCircle className="w-5 h-5 text-green-500" />
-                {t('completed_courses')}
-              </>
-            )}
-          </h2>
-          {enrollmentsLoading ? (
-            <Loading text={t('loading_courses')} />
-          ) : enrollments && enrollments.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-              {enrollments
-                .filter((enrollment: Enrollment) =>
-                  filter === 'completed' ? enrollment.progress === 100 : true
-                )
-                .map((enrollment: Enrollment) => (
-                  <EnrolledCourseCard key={enrollment.id} enrollment={enrollment} />
-                ))}
-            </div>
-          ) : (
-            <Card>
-              <CardBody className="text-center py-8">
-                <GraduationCap className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">
-                  {filter === 'completed' ? t('no_completed_courses') : t('no_enrolled_courses')}
-                </h3>
-                <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
-                  {filter === 'completed'
-                    ? t('complete_course_to_see')
-                    : t('browse_enroll_get_started')}
-                </p>
-                <button
-                  onClick={() => setSearchParams({})}
-                  className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium text-sm"
-                >
-                  {t('browse_catalog')}
-                </button>
-              </CardBody>
-            </Card>
-          )}
+          <CatalogStatsCard
+            totalCourses={totalCourses}
+            totalStudents={totalStudents}
+            totalCoursesLabel={t('courses')}
+            totalStudentsLabel={t('students')}
+            createLabel={t('create_course')}
+            loading={statsLoading}
+          />
         </div>
       )}
 
-      {/* My Courses Section - For instructors and admins */}
-      {canCreateCourses && !filter && (
-        <div className="mb-8 md:mb-12">
-          <h2 className="text-lg sm:text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
-            <BookOpen className="w-5 h-5 text-primary-500" />
-            {t('my_courses')}
+      {showRail && (
+        <div className="mb-8 md:mb-10">
+          <h2
+            className="text-sm sm:text-base font-semibold mb-3"
+            style={{ color: colors.textPrimary }}
+          >
+            {t('continue_learning')}
           </h2>
-          {myCoursesLoading ? (
-            <Loading text={t('loading_courses')} />
-          ) : myCourses && myCourses.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-              {myCourses.map((course: Course) => (
-                <InstructorCourseCard key={course.id} course={course} />
-              ))}
-            </div>
-          ) : (
-            <Card>
-              <CardBody className="text-center py-8">
-                <GraduationCap className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">{t('no_courses_yet')}</h3>
-                <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">{t('create_first_course')}</p>
-                <Link to="/teach/create">
-                  <Button size="sm" icon={<Plus className="w-4 h-4" />}>
-                    {t('create_course')}
-                  </Button>
-                </Link>
-              </CardBody>
-            </Card>
-          )}
+          <ContinueLearningRail
+            items={railItems}
+            percentLabel={(percent) => t('percent_complete', { percent })}
+          />
         </div>
       )}
 
-      {/* Course Catalog Section - Hide when filter is active */}
-      {!filter && (
       <div>
-        <h2 className="text-lg sm:text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: colors.textPrimary }}>
-          <GraduationCap className="w-5 h-5 text-primary-500" />
-          {t('course_catalog')}
-        </h2>
-
-        {/* Filters */}
-        <div className="mb-6 flex flex-col md:flex-row gap-4">
+        <div className="mb-5 flex flex-col md:flex-row gap-3 md:gap-4">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <Input
@@ -539,7 +432,6 @@ export const Catalog = () => {
               className="pl-11"
             />
           </div>
-
           <div className="w-full md:w-64">
             <CategoryMultiSelect
               allCategories={categoriesList || []}
@@ -547,7 +439,6 @@ export const Catalog = () => {
               onChange={(ids) => { setCategoryIds(ids); setPage(1); }}
             />
           </div>
-
           <div className="w-full md:w-48">
             <SearchableSelect
               options={difficulties}
@@ -558,18 +449,27 @@ export const Catalog = () => {
           </div>
         </div>
 
-        {/* Course Grid */}
         {isLoading ? (
           <Loading text={t('loading_courses')} />
         ) : data?.courses && data.courses.length > 0 ? (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-              {data.courses.map((course: Course) => (
-                <CourseCard key={course.id} course={course} />
-              ))}
+              {data.courses.map((course: Course) => {
+                const courseProgress = progressByCourseId.get(course.id);
+                return (
+                  <CourseCardV2
+                    key={course.id}
+                    course={course}
+                    progress={courseProgress ?? null}
+                    canManage={isAdmin || course.instructorId === user?.id}
+                    studentsLabel={(count) => t('n_students', { count })}
+                    progressLabel={t('progress')}
+                    manageLabel={t('manage')}
+                  />
+                );
+              })}
             </div>
 
-            {/* Pagination */}
             {data.pagination && data.pagination.totalPages > 1 && (
               <div className="mt-6 md:mt-8 flex flex-wrap justify-center gap-2">
                 {Array.from({ length: data.pagination.totalPages }, (_, i) => i + 1).map((p) => (
@@ -598,205 +498,6 @@ export const Catalog = () => {
           </Card>
         )}
       </div>
-      )}
     </div>
-  );
-};
-
-// Card for enrolled courses
-const EnrolledCourseCard = ({ enrollment }: { enrollment: Enrollment }) => {
-  const { t } = useTranslation(['courses']);
-  const { isDark } = useTheme();
-  const colors = getThemeColors(isDark);
-  const course = enrollment.course;
-  if (!course) return null;
-
-  const progress = enrollment.progress || 0;
-  const isCompleted = progress === 100;
-
-  return (
-    <Link to={`/courses/${course.id}`}>
-      <Card hover className="h-full">
-        {/* Thumbnail */}
-        <div className="h-32 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-t-xl flex items-center justify-center relative">
-          {course.thumbnail ? (
-            <img
-              src={course.thumbnail}
-              alt={course.title}
-              className="w-full h-full object-cover rounded-t-xl"
-            />
-          ) : (
-            <GraduationCap className="w-12 h-12 text-white/80" />
-          )}
-          {/* Progress badge */}
-          <span
-            className={`absolute top-2 right-2 px-2 py-1 text-xs font-medium rounded ${
-              isCompleted
-                ? 'bg-green-100 text-green-700'
-                : 'bg-blue-100 text-blue-700'
-            }`}
-          >
-            {isCompleted ? t('completed') : t('percent_complete', { percent: Math.round(progress) })}
-          </span>
-        </div>
-
-        <CardBody>
-          {/* Title */}
-          <h3 className="font-semibold mb-2 line-clamp-2" style={{ color: colors.textPrimary }}>{course.title}</h3>
-
-          {/* Progress bar */}
-          <div className="mb-3">
-            <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: isDark ? '#374151' : '#e5e7eb' }}>
-              <div
-                className={`h-full rounded-full transition-all ${isCompleted ? 'bg-green-500' : 'bg-primary-500'}`}
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Continue button */}
-          <div className="flex items-center justify-between text-sm">
-            <span style={{ color: colors.textSecondary }}>{course.instructor?.fullname}</span>
-            <span className="text-primary-600 dark:text-primary-400 font-medium">
-              {isCompleted ? t('review') : t('continue')} →
-            </span>
-          </div>
-        </CardBody>
-      </Card>
-    </Link>
-  );
-};
-
-// Card for instructor's own courses with management options
-const InstructorCourseCard = ({ course }: { course: Course }) => {
-  const { t } = useTranslation(['courses', 'common']);
-  const { isDark } = useTheme();
-  const colors = getThemeColors(isDark);
-  return (
-    <Card className="h-full">
-      {/* Thumbnail */}
-      <div className="h-32 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-t-xl flex items-center justify-center relative">
-        {course.thumbnail ? (
-          <img
-            src={course.thumbnail}
-            alt={course.title}
-            className="w-full h-full object-cover rounded-t-xl"
-          />
-        ) : (
-          <GraduationCap className="w-12 h-12 text-white/80" />
-        )}
-        {/* Status badge */}
-        <span
-          className={`absolute top-2 right-2 px-2 py-1 text-xs font-medium rounded ${
-            course.status === 'published'
-              ? 'bg-green-100 text-green-700'
-              : 'bg-yellow-100 text-yellow-700'
-          }`}
-        >
-          {course.status === 'published' ? t('common:published') : t('common:draft')}
-        </span>
-      </div>
-
-      <CardBody className="flex flex-col">
-        {/* Title */}
-        <h3 className="font-semibold mb-2 line-clamp-2" style={{ color: colors.textPrimary }}>{course.title}</h3>
-
-        {/* Stats */}
-        <div className="flex items-center gap-4 text-sm mb-4" style={{ color: colors.textSecondary }}>
-          <span className="flex items-center gap-1">
-            <Users className="w-4 h-4" />
-            {t('n_students', { count: course._count?.enrollments || 0 })}
-          </span>
-          <span className="flex items-center gap-1">
-            <BookOpen className="w-4 h-4" />
-            {t('n_modules', { count: course._count?.modules || 0 })}
-          </span>
-        </div>
-
-        {/* Actions */}
-        <div className="mt-auto flex gap-2">
-          <Link to={`/courses/${course.id}`} className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-            <Eye className="w-4 h-4" />
-            {t('view_course')}
-          </Link>
-          <Link to={`/teach/courses/${course.id}/curriculum`} title={t('common:edit')} className="inline-flex items-center justify-center px-2 py-1.5 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-            <Edit className="w-4 h-4" />
-          </Link>
-          <Link to={`/teach/courses/${course.id}/edit`} title={t('settings:settings')} className="inline-flex items-center justify-center px-2 py-1.5 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-            <Settings className="w-4 h-4" />
-          </Link>
-        </div>
-      </CardBody>
-    </Card>
-  );
-};
-
-// Card for catalog courses
-const CourseCard = ({ course }: { course: Course }) => {
-  const { t } = useTranslation(['courses']);
-  const { isDark } = useTheme();
-  const colors = getThemeColors(isDark);
-  const difficultyColors: Record<string, string> = {
-    beginner: 'bg-green-100 text-green-700',
-    intermediate: 'bg-yellow-100 text-yellow-700',
-    advanced: 'bg-red-100 text-red-700',
-  };
-
-  const difficultyLabels: Record<string, string> = {
-    beginner: t('beginner'),
-    intermediate: t('intermediate'),
-    advanced: t('advanced'),
-  };
-
-  return (
-    <Link to={`/courses/${course.id}`}>
-      <Card hover className="h-full">
-        {/* Thumbnail */}
-        <div className="h-40 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-t-xl flex items-center justify-center">
-          {course.thumbnail ? (
-            <img
-              src={course.thumbnail}
-              alt={course.title}
-              className="w-full h-full object-cover rounded-t-xl"
-            />
-          ) : (
-            <GraduationCap className="w-16 h-16 text-white/80" />
-          )}
-        </div>
-
-        <CardBody>
-          {/* Category & Difficulty */}
-          <div className="flex items-center gap-2 mb-3 flex-wrap">
-            {course.categories?.slice(0, 2).map(cc => (
-              <span key={cc.category.id} className="text-xs font-medium text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/30 px-2 py-1 rounded">
-                {cc.category.title}
-              </span>
-            ))}
-            {course.difficulty && (
-              <span
-                className={`text-xs font-medium px-2 py-1 rounded ${difficultyColors[course.difficulty] || ''}`}
-              >
-                {difficultyLabels[course.difficulty] || course.difficulty}
-              </span>
-            )}
-          </div>
-
-          {/* Title */}
-          <h3 className="font-semibold mb-2 line-clamp-2" style={{ color: colors.textPrimary }}>{course.title}</h3>
-
-          {/* Description */}
-          <p className="text-sm mb-4 line-clamp-2" style={{ color: colors.textSecondary }}>{course.description?.replace(/<[^>]*>/g, '') || ''}</p>
-
-          {/* Footer */}
-          <div className="flex items-center justify-between text-sm" style={{ color: colors.textSecondary }}>
-            <span>{course.instructor?.fullname}</span>
-            <div className="flex items-center gap-1">
-              <Users className="w-4 h-4" />
-              <span>{course._count?.enrollments || 0}</span>
-            </div>
-          </div>
-        </CardBody>
-      </Card>
-    </Link>
   );
 };

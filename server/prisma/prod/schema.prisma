@@ -40,6 +40,7 @@ model User {
   emotionalPulses             EmotionalPulse[]
   enrollments                 Enrollment[]
   aiRequestedPosts            ForumPost[]               @relation("AiRequestedPosts")
+  forumThreadLikes            ForumThreadLike[]
   activityLogs                LearningActivityLog[]     @relation("ActivityLogs")
   explainThreads              LectureExplainThread[]    @relation("UserExplainThreads")
   surveyResponses             SurveyResponse[]          @relation("SurveyResponses")
@@ -362,7 +363,7 @@ model Course {
   courseTutors               CourseTutor[]
   instructor                 User                  @relation("InstructorCourses", fields: [instructorId], references: [id])
   enrollments                Enrollment[]
-  forums                     Forum[]
+  forumThreads               ForumThread[]
   labAssignments             LabAssignment[]
   activityLogs               LearningActivityLog[] @relation("CourseActivityLogs")
   quizzes                    Quiz[]
@@ -410,7 +411,7 @@ model CourseModule {
   assignments     Assignment[]
   codeLabs        CodeLab[]
   course          Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  forums          Forum[]
+  forumThreads    ForumThread[]
   labAssignments  LabAssignment[]
   lectures        Lecture[]
   moduleSurveys    ModuleSurvey[]
@@ -609,6 +610,7 @@ model Assignment {
   reflectionRequirement String?                @map("reflection_requirement")
   postSurveyId          Int?                   @map("post_survey_id")
   postSurveyRequired    Boolean                @default(false) @map("post_survey_required")
+  orderIndex            Int                    @default(0) @map("order_index")
   designEvents          AgentDesignEventLog[]
   submissions           AssignmentSubmission[]
   postSurvey            Survey?                @relation("PostAssignmentSurvey", fields: [postSurveyId], references: [id])
@@ -1523,14 +1525,15 @@ model Survey {
 }
 
 model ModuleSurvey {
-  id       Int          @id @default(autoincrement())
-  courseId  Int          @map("course_id")
-  moduleId Int          @map("module_id")
-  surveyId Int          @map("survey_id")
-  addedAt  DateTime     @default(now()) @map("added_at")
-  course   Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  module   CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  survey   Survey       @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  id         Int          @id @default(autoincrement())
+  courseId   Int          @map("course_id")
+  moduleId   Int          @map("module_id")
+  surveyId   Int          @map("survey_id")
+  orderIndex Int          @default(0) @map("order_index")
+  addedAt    DateTime     @default(now()) @map("added_at")
+  course     Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  module     CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  survey     Survey       @relation(fields: [surveyId], references: [id], onDelete: Cascade)
 
   @@unique([moduleId, surveyId])
   @@index([courseId])
@@ -1722,6 +1725,7 @@ model Quiz {
   isPublished      Boolean        @default(false) @map("is_published")
   dueDate          DateTime?      @map("due_date")
   availableFrom    DateTime?      @map("available_from")
+  orderIndex       Int            @default(0) @map("order_index")
   createdAt        DateTime       @default(now()) @map("created_at")
   updatedAt        DateTime       @updatedAt @map("updated_at")
   attempts         QuizAttempt[]
@@ -1744,6 +1748,7 @@ model QuizQuestion {
   correctAnswer String       @map("correct_answer")
   explanation   String?
   points        Float        @default(1)
+  shuffleOptions Boolean     @default(false) @map("shuffle_options")
   orderIndex    Int          @default(0) @map("order_index")
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")
@@ -1794,45 +1799,51 @@ model QuizAnswer {
   @@map("quiz_answers")
 }
 
-model Forum {
+model ForumThread {
   id             Int           @id @default(autoincrement())
+  // Promoted from the dropped Forum model — each thread is now an
+  // independent discussion attached directly to a course (and
+  // optionally a module).
   courseId       Int           @map("course_id")
   moduleId       Int?          @map("module_id")
-  title          String
   description    String?
   isPublished    Boolean       @default(true) @map("is_published")
   allowAnonymous Boolean       @default(false) @map("allow_anonymous")
   orderIndex     Int           @default(0) @map("order_index")
+  // Existing thread fields:
+  authorId       Int           @map("author_id")
+  title          String
+  content        String
+  isPinned       Boolean       @default(false) @map("is_pinned")
+  isLocked       Boolean       @default(false) @map("is_locked")
+  isAnonymous    Boolean       @default(false) @map("is_anonymous")
+  viewCount      Int           @default(0) @map("view_count")
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
-  threads        ForumThread[]
-  module         CourseModule? @relation(fields: [moduleId], references: [id])
+  posts          ForumPost[]
+  likes          ForumThreadLike[]
   course         Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  module         CourseModule? @relation(fields: [moduleId], references: [id], onDelete: SetNull)
 
   @@index([courseId])
   @@index([moduleId])
-  @@map("forums")
-}
-
-model ForumThread {
-  id          Int         @id @default(autoincrement())
-  forumId     Int         @map("forum_id")
-  authorId    Int         @map("author_id")
-  title       String
-  content     String
-  isPinned    Boolean     @default(false) @map("is_pinned")
-  isLocked    Boolean     @default(false) @map("is_locked")
-  isAnonymous Boolean     @default(false) @map("is_anonymous")
-  viewCount   Int         @default(0) @map("view_count")
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
-  posts       ForumPost[]
-  forum       Forum       @relation(fields: [forumId], references: [id], onDelete: Cascade)
-
-  @@index([forumId])
   @@index([authorId])
   @@index([isPinned])
   @@map("forum_threads")
+}
+
+model ForumThreadLike {
+  id        Int         @id @default(autoincrement())
+  threadId  Int         @map("thread_id")
+  userId    Int         @map("user_id")
+  createdAt DateTime    @default(now()) @map("created_at")
+  thread    ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, userId])
+  @@index([threadId])
+  @@index([userId])
+  @@map("forum_thread_likes")
 }
 
 model ForumPost {

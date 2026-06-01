@@ -163,16 +163,6 @@ export const CourseCertificateManager = () => {
         />
       </div>
 
-      <div className="mb-6 md:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>
-          {t('certificate_manager')}
-        </h1>
-        {course && (
-          <p className="mt-2" style={{ color: colors.textSecondary }}>
-            {t('issue_manage_certificates_for', { course: course.title })}
-          </p>
-        )}
-      </div>
 
       {/* Issued Certificates */}
       <section className="mb-6 md:mb-10">

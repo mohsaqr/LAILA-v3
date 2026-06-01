@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Navbar } from './Navbar';
 import { DashboardSidebar } from './DashboardSidebar';
-import { AutoBreadcrumb } from './AutoBreadcrumb';
 import { SkipLinks } from '../common/SkipLinks';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
@@ -116,7 +115,6 @@ export const Layout = () => {
         className="flex-1 transition-all duration-300"
         style={{ marginLeft: sidebarWidth }}
       >
-        <AutoBreadcrumb />
         <Outlet />
       </main>
     </div>

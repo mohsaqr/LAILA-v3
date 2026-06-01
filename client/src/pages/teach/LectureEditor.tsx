@@ -1,51 +1,47 @@
-import { useState, useEffect, useRef } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Save, Layers } from 'lucide-react';
+import { ArrowLeft, Clock, MoreHorizontal, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../../api/courses';
-import { Card, CardBody, CardHeader } from '../../components/common/Card';
-import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
-import { Input, Select } from '../../components/common/Input';
-import { EmptyState } from '../../components/common/EmptyState';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
-import { SectionEditor, AddSectionToolbar } from '../../components/teach/SectionEditor';
-import { UpdateSectionData } from '../../types';
+import { useTheme } from '../../hooks/useTheme';
+import { BlockStream } from '../../components/teach/lecture-blocks';
 import activityLogger from '../../services/activityLogger';
 
+/**
+ * Lecture editor — single continuous block-based canvas.
+ *
+ * Header: inline-editable title + duration + a "..." menu (delete).
+ * Body: BlockStream renders the section list (text / file / chatbot)
+ * with an inline + Text · + File · + Chatbot inserter between every
+ * pair of blocks plus drag-and-drop reordering.
+ */
 export const LectureEditor = () => {
-  const { t } = useTranslation(['teaching', 'common']);
+  const { t } = useTranslation(['teaching', 'common', 'navigation']);
   const { id, lectureId } = useParams<{ id: string; lectureId: string }>();
   const courseId = parseInt(id!, 10);
   const lecId = parseInt(lectureId!, 10);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { isDark } = useTheme();
 
-  // Track if we've already processed the addSection param
-  const addSectionProcessed = useRef(false);
+  const [title, setTitle] = useState('');
+  const [duration, setDuration] = useState(0);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
-  const [formData, setFormData] = useState({
-    title: '',
-    contentType: 'text' as 'text' | 'video' | 'mixed',
-    videoUrl: '',
-    duration: 0,
-    isFree: false,
-  });
-  const [deleteSectionConfirm, setDeleteSectionConfirm] = useState<number | null>(null);
-  const [expandedSectionId, setExpandedSectionId] = useState<number | null>(null);
-
-  // Query for lecture data
   const { data: lecture, isLoading } = useQuery({
     queryKey: ['lecture', lecId],
     queryFn: () => coursesApi.getLectureById(lecId),
     enabled: !!lecId,
   });
 
-  // Query for course data (for context)
   const { data: course } = useQuery({
     queryKey: ['course', courseId],
     queryFn: () => coursesApi.getCourseById(courseId),
@@ -59,358 +55,187 @@ export const LectureEditor = () => {
   }, [lecId, courseId]);
 
   useEffect(() => {
-    if (lecture) {
-      setFormData({
-        title: lecture.title || '',
-        contentType: lecture.contentType || 'text',
-        videoUrl: lecture.videoUrl || '',
-        duration: lecture.duration || 0,
-        isFree: lecture.isFree || false,
-      });
-    }
+    if (!lecture) return;
+    setTitle(lecture.title ?? '');
+    setDuration(lecture.duration ?? 0);
   }, [lecture]);
 
-  // Mutations
-  const updateLectureMutation = useMutation({
-    mutationFn: (data: typeof formData) => coursesApi.updateLecture(lecId, data),
-    onSuccess: () => {
-      activityLogger.logLectureUpdated(lecId, formData.title, courseId, lecture?.moduleId);
-      queryClient.invalidateQueries({ queryKey: ['lecture', lecId] });
-      queryClient.invalidateQueries({ queryKey: ['courseModules', courseId] });
-      toast.success(t('lesson_saved'));
-    },
-    onError: () => toast.error(t('failed_to_save_lesson_msg')),
-  });
-
-  const createSectionMutation = useMutation({
-    mutationFn: (type: 'text' | 'file' | 'ai-generated' | 'chatbot' | 'assignment') =>
-      coursesApi.createSection(lecId, { type }),
-    onSuccess: (newSection) => {
-      queryClient.invalidateQueries({ queryKey: ['lecture', lecId] });
-      // Auto-expand the newly created section
-      setExpandedSectionId(newSection.id);
-      toast.success(t('section_added'));
-    },
-    onError: () => toast.error(t('failed_to_add_section')),
-  });
-
-  const updateSectionMutation = useMutation({
-    mutationFn: ({ sectionId, data }: { sectionId: number; data: UpdateSectionData }) =>
-      coursesApi.updateSection(sectionId, data),
+  const updateMutation = useMutation({
+    mutationFn: (data: { title?: string; duration?: number }) =>
+      coursesApi.updateLecture(lecId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lecture', lecId] });
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
     },
-    onError: () => toast.error(t('failed_to_save_section')),
+    onError: () => {
+      toast.error(t('teaching:failed_to_save_lesson', { defaultValue: 'Failed to save.' }));
+    },
   });
 
-  const deleteSectionMutation = useMutation({
-    mutationFn: (sectionId: number) => coursesApi.deleteSection(sectionId),
+  const deleteMutation = useMutation({
+    mutationFn: () => coursesApi.deleteLecture(lecId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lecture', lecId] });
-      toast.success(t('section_deleted'));
-      setDeleteSectionConfirm(null);
+      toast.success(t('teaching:lesson_deleted', { defaultValue: 'Lesson deleted' }));
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+      navigate(`/teach/courses/${courseId}/curriculum`);
     },
-    onError: () => toast.error(t('failed_to_delete_section')),
+    onError: () => {
+      toast.error(t('teaching:failed_to_delete_lesson', { defaultValue: 'Failed to delete.' }));
+    },
   });
 
-  const reorderSectionsMutation = useMutation({
-    mutationFn: (sectionIds: number[]) => coursesApi.reorderSections(lecId, sectionIds),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lecture', lecId] });
-    },
-    onError: () => toast.error(t('failed_to_reorder_sections')),
-  });
-
-  const handleSave = () => {
-    if (!formData.title.trim()) {
-      toast.error(t('title_required_msg'));
+  const commitTitle = () => {
+    const trimmed = title.trim();
+    setEditingTitle(false);
+    if (!trimmed) {
+      setTitle(lecture?.title ?? '');
       return;
     }
-    updateLectureMutation.mutate(formData);
-  };
-
-  const handleChange = (field: keyof typeof formData, value: string | number | boolean) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleAddSection = (type: 'text' | 'file' | 'ai-generated' | 'chatbot' | 'assignment') => {
-    createSectionMutation.mutate(type);
-  };
-
-  // Auto-add section from URL param (e.g., ?addSection=text)
-  useEffect(() => {
-    const addSectionType = searchParams.get('addSection') as 'text' | 'file' | 'ai-generated' | 'chatbot' | 'assignment' | null;
-
-    if (addSectionType && lecture && !addSectionProcessed.current && !createSectionMutation.isPending) {
-      addSectionProcessed.current = true;
-      // Clear the param from URL
-      searchParams.delete('addSection');
-      setSearchParams(searchParams, { replace: true });
-      // Add the section
-      createSectionMutation.mutate(addSectionType);
-    }
-  }, [searchParams, lecture, createSectionMutation.isPending, setSearchParams]);
-
-  const handleUpdateSection = (sectionId: number, data: UpdateSectionData) => {
-    updateSectionMutation.mutate({ sectionId, data });
-  };
-
-  const handleDeleteSection = (sectionId: number) => {
-    setDeleteSectionConfirm(sectionId);
-  };
-
-  const handleMoveSection = (sectionId: number, direction: 'up' | 'down') => {
-    if (!lecture?.sections) return;
-
-    const sections = [...lecture.sections].sort((a, b) => a.order - b.order);
-    const currentIndex = sections.findIndex(s => s.id === sectionId);
-
-    if (direction === 'up' && currentIndex > 0) {
-      const newOrder = [...sections];
-      [newOrder[currentIndex - 1], newOrder[currentIndex]] = [
-        newOrder[currentIndex],
-        newOrder[currentIndex - 1],
-      ];
-      reorderSectionsMutation.mutate(newOrder.map(s => s.id));
-    } else if (direction === 'down' && currentIndex < sections.length - 1) {
-      const newOrder = [...sections];
-      [newOrder[currentIndex], newOrder[currentIndex + 1]] = [
-        newOrder[currentIndex + 1],
-        newOrder[currentIndex],
-      ];
-      reorderSectionsMutation.mutate(newOrder.map(s => s.id));
+    if (trimmed !== (lecture?.title ?? '')) {
+      updateMutation.mutate({ title: trimmed });
     }
   };
 
-  if (isLoading) {
-    return <Loading fullScreen text={t('loading_lesson')} />;
-  }
+  const commitDuration = (value: number) => {
+    if (value === (lecture?.duration ?? 0)) return;
+    updateMutation.mutate({ duration: value });
+  };
 
-  if (!lecture) {
+  if (isLoading || !lecture) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{t('lesson_not_found')}</h1>
-        <Button onClick={() => navigate(`/teach/courses/${courseId}/curriculum`)}>
-          {t('back_to_curriculum')}
-        </Button>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <Loading text={t('common:loading', { defaultValue: 'Loading…' })} />
       </div>
     );
   }
 
-  const sections = lecture.sections
-    ? [...lecture.sections].sort((a, b) => a.order - b.order)
-    : [];
+  const muted = isDark ? '#9ca3af' : '#6b7280';
+  const subtle = isDark ? '#cbd5e1' : '#374151';
+  const titleColor = isDark ? '#f3f4f6' : '#111827';
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-      {/* Header with Breadcrumb */}
-      <div className="flex items-center justify-between mb-6">
-        <Breadcrumb
-          items={[
-            { label: t('teaching'), href: '/teach' },
-            { label: course?.title || t('course'), href: `/courses/${courseId}` },
-            { label: t('curriculum_editor'), href: `/teach/courses/${courseId}/curriculum` },
-            { label: lecture.title || t('lesson_title') },
-          ]}
-        />
-      </div>
+    <div className="min-h-screen" style={{ backgroundColor: isDark ? '#0b1220' : '#f8fafc' }}>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+        <div className="mb-6">
+          <Breadcrumb
+            items={[
+              { label: t('navigation:courses'), href: '/courses' },
+              { label: course?.title ?? '…', href: `/teach/courses/${courseId}/curriculum` },
+              { label: lecture.title ?? t('teaching:lesson', { defaultValue: 'Lesson' }) },
+            ]}
+          />
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Lesson Title */}
-          <Card>
-            <CardHeader>
-              <h1 className="text-lg sm:text-xl font-semibold text-gray-900">{t('edit_lesson')}</h1>
-            </CardHeader>
-            <CardBody>
-              <Input
-                label={t('lesson_title')}
-                value={formData.title}
-                onChange={e => handleChange('title', e.target.value)}
-                placeholder={t('enter_lesson_title')}
-                required
-              />
-            </CardBody>
-          </Card>
+        {/* Slim back link */}
+        <button
+          type="button"
+          onClick={() => navigate(`/teach/courses/${courseId}/curriculum`)}
+          className="inline-flex items-center gap-1.5 text-sm font-medium mb-4 transition-colors"
+          style={{ color: muted }}
+        >
+          <ArrowLeft className="w-4 h-4" />
+          {t('teaching:curriculum_editor', { defaultValue: 'Curriculum' })}
+        </button>
 
-          {/* Sections */}
-          <Card>
-            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-              <div>
-                <h2 className="text-lg sm:text-xl font-semibold text-gray-900">{t('sections')}</h2>
-                <p className="text-sm text-gray-500">
-                  {t('add_organize_content')}
-                </p>
-              </div>
-            </CardHeader>
-            <CardBody>
-              {sections.length > 0 ? (
-                <div className="space-y-2">
-                  {sections.map((section, index) => (
-                    <SectionEditor
-                      key={section.id}
-                      section={section}
-                      index={index}
-                      totalSections={sections.length}
-                      onUpdate={handleUpdateSection}
-                      onDelete={handleDeleteSection}
-                      onMoveUp={(id) => handleMoveSection(id, 'up')}
-                      onMoveDown={(id) => handleMoveSection(id, 'down')}
-                      lectureTitle={formData.title}
-                      courseTitle={course?.title}
-                      courseId={courseId}
-                      lectureId={lecId}
-                      moduleId={lecture?.moduleId}
-                      isExpanded={expandedSectionId === section.id}
-                      onToggleExpand={(id) => setExpandedSectionId(expandedSectionId === id ? null : id)}
-                    />
-                  ))}
+        {/* Header strip — inline-editable title + duration + menu */}
+        <div className="flex items-center gap-3 mb-6">
+          {editingTitle ? (
+            <input
+              ref={titleInputRef}
+              autoFocus
+              type="text"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              onBlur={commitTitle}
+              onKeyDown={e => {
+                if (e.key === 'Enter') commitTitle();
+                if (e.key === 'Escape') { setTitle(lecture.title ?? ''); setEditingTitle(false); }
+              }}
+              className="flex-1 text-2xl sm:text-3xl font-bold bg-transparent border-b-2 outline-none px-1"
+              style={{
+                color: titleColor,
+                borderColor: '#0d9488',
+              }}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setEditingTitle(true)}
+              className="flex-1 text-left text-2xl sm:text-3xl font-bold leading-tight truncate"
+              style={{ color: titleColor }}
+            >
+              {title || t('teaching:untitled_lesson', { defaultValue: 'Untitled lesson' })}
+            </button>
+          )}
+
+          <div
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm shrink-0"
+            style={{
+              color: muted,
+              backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#f3f4f6',
+            }}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            <input
+              type="number"
+              min={0}
+              value={duration}
+              onChange={e => setDuration(parseInt(e.target.value) || 0)}
+              onBlur={() => commitDuration(duration)}
+              className="w-12 bg-transparent outline-none text-right tabular-nums"
+              style={{ color: subtle }}
+            />
+            <span>min</span>
+          </div>
+
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setMenuOpen(o => !o)}
+              aria-label={t('common:more_options', { defaultValue: 'More options' })}
+              className="inline-flex items-center justify-center w-8 h-8 rounded-lg transition-colors"
+              style={{ color: muted }}
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+            {menuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+                <div
+                  className="absolute right-0 mt-1 w-44 rounded-lg shadow-lg py-1 z-20 text-sm"
+                  style={{
+                    backgroundColor: isDark ? '#1f2937' : '#ffffff',
+                    border: `1px solid ${isDark ? '#374151' : '#e5e7eb'}`,
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => { setDeleteOpen(true); setMenuOpen(false); }}
+                    className="w-full text-left px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 text-red-600 dark:text-red-400 inline-flex items-center gap-2"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    {t('teaching:delete_lesson', { defaultValue: 'Delete lesson' })}
+                  </button>
                 </div>
-              ) : (
-                <EmptyState
-                  icon={Layers}
-                  title={t('no_sections_yet')}
-                  description={t('add_first_section_desc')}
-                />
-              )}
-
-              <AddSectionToolbar onAddSection={handleAddSection} />
-            </CardBody>
-          </Card>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Settings */}
-          <Card>
-            <CardHeader>
-              <h2 className="font-semibold text-gray-900">{t('lesson_settings')}</h2>
-            </CardHeader>
-            <CardBody className="space-y-4">
-              <Select
-                label={t('content_type_label')}
-                value={formData.contentType}
-                onChange={e =>
-                  handleChange('contentType', e.target.value as 'text' | 'video' | 'mixed')
-                }
-                options={[
-                  { value: 'text', label: t('text_article') },
-                  { value: 'video', label: t('video') },
-                  { value: 'mixed', label: t('mixed_content') },
-                ]}
-              />
-
-              {(formData.contentType === 'video' || formData.contentType === 'mixed') && (
-                <Input
-                  label={t('video_url')}
-                  value={formData.videoUrl}
-                  onChange={e => handleChange('videoUrl', e.target.value)}
-                  placeholder="https://youtube.com/watch?v=..."
-                  helpText={t('video_url_help')}
-                />
-              )}
-
-              <Input
-                label={t('duration_minutes')}
-                type="number"
-                value={formData.duration}
-                onChange={e => handleChange('duration', parseInt(e.target.value) || 0)}
-                min={0}
-              />
-
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="isFree"
-                  checked={formData.isFree}
-                  onChange={e => handleChange('isFree', e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
-                <label htmlFor="isFree" className="text-sm text-gray-700">
-                  {t('allow_free_preview')}
-                </label>
-              </div>
-
-              <Button
-                size="sm"
-                onClick={handleSave}
-                loading={updateLectureMutation.isPending}
-                icon={<Save className="w-4 h-4" />}
-                className="w-full"
-              >
-                {t('save_settings')}
-              </Button>
-            </CardBody>
-          </Card>
-
-          {/* Section Guide */}
-          <Card>
-            <CardHeader>
-              <h2 className="font-semibold text-gray-900">{t('section_types_guide')}</h2>
-            </CardHeader>
-            <CardBody>
-              <ul className="space-y-3 text-sm">
-                <li className="flex items-start gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded flex items-center justify-center text-xs font-medium">
-                    T
-                  </span>
-                  <div>
-                    <span className="font-medium text-gray-900">{t('text_section_guide')}</span>
-                    <p className="text-gray-500">{t('text_section_desc')}</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 bg-green-100 text-green-600 rounded flex items-center justify-center text-xs font-medium">
-                    F
-                  </span>
-                  <div>
-                    <span className="font-medium text-gray-900">{t('file_section_guide')}</span>
-                    <p className="text-gray-500">{t('file_section_desc')}</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 bg-purple-100 text-purple-600 rounded flex items-center justify-center text-xs font-medium">
-                    AI
-                  </span>
-                  <div>
-                    <span className="font-medium text-gray-900">{t('ai_generated_guide')}</span>
-                    <p className="text-gray-500">{t('ai_generated_desc')}</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 bg-amber-100 text-amber-600 rounded flex items-center justify-center text-xs font-medium">
-                    C
-                  </span>
-                  <div>
-                    <span className="font-medium text-gray-900">{t('chatbot_guide')}</span>
-                    <p className="text-gray-500">{t('chatbot_desc')}</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 bg-rose-100 text-rose-600 rounded flex items-center justify-center text-xs font-medium">
-                    A
-                  </span>
-                  <div>
-                    <span className="font-medium text-gray-900">{t('assignment_guide')}</span>
-                    <p className="text-gray-500">{t('assignment_desc')}</p>
-                  </div>
-                </li>
-              </ul>
-            </CardBody>
-          </Card>
-        </div>
+        <BlockStream lectureId={lecId} initialSections={lecture.sections ?? []} />
       </div>
 
-      {/* Delete Section Confirmation */}
       <ConfirmDialog
-        isOpen={deleteSectionConfirm !== null}
-        onClose={() => setDeleteSectionConfirm(null)}
-        onConfirm={() => deleteSectionConfirm && deleteSectionMutation.mutate(deleteSectionConfirm)}
-        title={t('delete_section')}
-        message={t('delete_section_confirm')}
+        isOpen={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={() => { deleteMutation.mutate(); setDeleteOpen(false); }}
+        title={t('teaching:delete_lesson', { defaultValue: 'Delete lesson' })}
+        message={t('teaching:delete_lesson_confirm', {
+          title: lecture.title ?? '',
+          defaultValue: 'Delete "{{title}}"? This will remove all of its content.',
+        })}
         confirmText={t('common:delete')}
-        loading={deleteSectionMutation.isPending}
+        loading={deleteMutation.isPending}
       />
     </div>
   );

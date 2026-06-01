@@ -1,41 +1,42 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
-  MessageSquare,
-  Plus,
+  MessageCircle,
   Pin,
   PinOff,
   Lock,
   Unlock,
-  Eye,
-  User,
-  Reply,
-  CornerDownRight,
+  Heart,
+  Share2,
   Bot,
   Sparkles,
   Trash2,
   MoreVertical,
+  Plus,
+  Minus,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { forumsApi, ForumThread, ForumPost, CreateThreadInput, CreatePostInput, TutorAgent } from '../api/forums';
+import { forumsApi, ForumPost, CreatePostInput, TutorAgent } from '../api/forums';
+import { resolveFileUrl } from '../api/client';
 import { coursesApi } from '../api/courses';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
-import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { ForumAgentSelector } from '../components/forum/ForumAgentSelector';
 import { ForumReplyInput } from '../components/forum/ForumReplyInput';
-import { buildForumBreadcrumb, buildThreadBreadcrumb } from '../utils/breadcrumbs';
+import { buildForumBreadcrumb } from '../utils/breadcrumbs';
 import DOMPurify from 'dompurify';
 import { activityLogger } from '../services/activityLogger';
 import { useTracker } from '../services/tracker';
-import { RichTextEditor } from '../components/forum/RichTextEditor';
 import { TrackedContent } from '../components/common/TrackedContent';
+import { Avatar } from '../components/dashboard/Avatar';
+import { formatRelative } from '../utils/relativeTime';
+import { extractHashtags, stripHashtags } from '../utils/forumTags';
 
 interface ThreadedPost extends ForumPost {
   replies?: ThreadedPost[];
@@ -52,8 +53,6 @@ export const Forum = () => {
   const { isDark } = useTheme();
   const track = useTracker('forum');
 
-  const [isCreateThreadOpen, setIsCreateThreadOpen] = useState(false);
-  const [newThread, setNewThread] = useState<CreateThreadInput>({ title: '', content: '' });
   const [replyContent, setReplyContent] = useState('');
   const [replyingToId, setReplyingToId] = useState<number | null>(null); // null = reply to thread, number = reply to post
   const [replyingToName, setReplyingToName] = useState<string>('');
@@ -61,6 +60,17 @@ export const Forum = () => {
   const [aiReplyToId, setAiReplyToId] = useState<number | null>(null); // null = reply to thread, number = reply to post
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showThreadActions, setShowThreadActions] = useState(false);
+  // Track which top-level comments have their replies expanded. Replies
+  // stay collapsed by default — only a tiny summary row hints at them.
+  const [expandedReplies, setExpandedReplies] = useState<Set<number>>(new Set());
+  const toggleExpandReplies = (postId: number) => {
+    setExpandedReplies(prev => {
+      const next = new Set(prev);
+      if (next.has(postId)) next.delete(postId);
+      else next.add(postId);
+      return next;
+    });
+  };
   const replyFormRef = useRef<HTMLDivElement>(null);
 
   const colors = {
@@ -88,18 +98,19 @@ export const Forum = () => {
     enabled: !!parsedCourseId,
   });
 
-  // Fetch forum or thread based on URL
-  const { data: forum, isLoading: forumLoading } = useQuery({
-    queryKey: ['forum', parsedForumId],
-    queryFn: () => forumsApi.getForum(parsedForumId),
-    enabled: !parsedThreadId,
-  });
+  // After the forum_collapse_layers migration there's exactly one
+  // discussion per forum id. Whether the URL is `/forums/:forumId` or
+  // the legacy `/forums/:forumId/threads/:threadId`, both ids point at
+  // the same ForumThread record — use whichever the route provided.
+  const effectiveThreadId = parsedThreadId ?? parsedForumId;
 
   const { data: thread, isLoading: threadLoading } = useQuery({
-    queryKey: ['thread', parsedThreadId],
-    queryFn: () => forumsApi.getThread(parsedThreadId!),
-    enabled: !!parsedThreadId,
+    queryKey: ['thread', effectiveThreadId],
+    queryFn: () => forumsApi.getThread(effectiveThreadId),
+    enabled: !!effectiveThreadId,
   });
+  const forum = thread; // legacy alias used in a few places below
+  const forumLoading = threadLoading;
 
   // Fetch available AI agents for this course
   const { data: agents = [] } = useQuery({
@@ -116,23 +127,13 @@ export const Forum = () => {
   }, [forum, parsedForumId, parsedCourseId, parsedThreadId]);
 
   // Mutations
-  const createThreadMutation = useMutation({
-    mutationFn: (data: CreateThreadInput) => forumsApi.createThread(parsedForumId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['forum', parsedForumId] });
-      track('thread_created', { verb: 'created', objectType: 'forum', objectId: parsedForumId, courseId: parsedCourseId, payload: { title: newThread.title, isAnonymous: newThread.isAnonymous } });
-      toast.success(t('discussion_started'));
-      setIsCreateThreadOpen(false);
-      setNewThread({ title: '', content: '' });
-    },
-    onError: (error: any) => toast.error(error.response?.data?.error || t('failed_create_discussion')),
-  });
-
+  // After the collapse there is no "create thread inside a forum" — the
+  // forum IS the thread; replies use createPostMutation below.
   const createPostMutation = useMutation({
-    mutationFn: (data: CreatePostInput) => forumsApi.createPost(parsedThreadId!, data),
+    mutationFn: (data: CreatePostInput) => forumsApi.createPost(effectiveThreadId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['thread', parsedThreadId] });
-      track('reply_submitted', { verb: 'submitted', objectType: 'forum', objectId: parsedForumId, courseId: parsedCourseId, payload: { isReplyToPost: !!replyingToId, threadId: parsedThreadId } });
+      queryClient.invalidateQueries({ queryKey: ['thread', effectiveThreadId] });
+      track('reply_submitted', { verb: 'submitted', objectType: 'forum', objectId: parsedForumId, courseId: parsedCourseId, payload: { isReplyToPost: !!replyingToId, threadId: effectiveThreadId } });
       toast.success(t('reply_posted'));
       setReplyContent('');
       setReplyingToId(null);
@@ -144,10 +145,10 @@ export const Forum = () => {
   // AI post mutation
   const aiPostMutation = useMutation({
     mutationFn: ({ agentId, parentId }: { agentId: number; parentId?: number }) =>
-      forumsApi.requestAiPost(parsedThreadId!, agentId, parentId),
+      forumsApi.requestAiPost(effectiveThreadId, agentId, parentId),
     onSuccess: (post, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['thread', parsedThreadId] });
-      activityLogger.log({ verb: 'interacted', objectType: 'tutor_agent', objectId: variables.agentId, courseId: parseInt(courseId!), extensions: { action: 'forum_ai_reply', forumId: parsedForumId, threadId: parsedThreadId } });
+      queryClient.invalidateQueries({ queryKey: ['thread', effectiveThreadId] });
+      activityLogger.log({ verb: 'interacted', objectType: 'tutor_agent', objectId: variables.agentId, courseId: parseInt(courseId!), extensions: { action: 'forum_ai_reply', forumId: parsedForumId, threadId: effectiveThreadId } });
       track('ai_agent_selected', { verb: 'selected', objectType: 'forum', courseId: parsedCourseId, payload: { agentId: variables.agentId, agentName: post.aiAgentName } });
       toast.success(t('ai_responded', { name: post.aiAgentName || t('tutors:ai_tutor') }));
       setShowAiSelector(false);
@@ -161,9 +162,9 @@ export const Forum = () => {
 
   // Thread management mutations (instructor only)
   const deleteThreadMutation = useMutation({
-    mutationFn: () => forumsApi.deleteThread(parsedThreadId!),
+    mutationFn: () => forumsApi.deleteThread(effectiveThreadId),
     onSuccess: () => {
-      track('thread_deleted', { verb: 'deleted', objectType: 'forum', objectId: parsedThreadId!, courseId: parsedCourseId });
+      track('thread_deleted', { verb: 'deleted', objectType: 'forum', objectId: effectiveThreadId, courseId: parsedCourseId });
       toast.success(t('discussion_deleted'));
       navigate(`/courses/${courseId}/forums/${forumId}`);
     },
@@ -171,40 +172,81 @@ export const Forum = () => {
   });
 
   const lockThreadMutation = useMutation({
-    mutationFn: (isLocked: boolean) => forumsApi.lockThread(parsedThreadId!, isLocked),
+    mutationFn: (isLocked: boolean) => forumsApi.lockThread(effectiveThreadId, isLocked),
     onSuccess: (updatedThread) => {
-      queryClient.invalidateQueries({ queryKey: ['thread', parsedThreadId] });
+      queryClient.invalidateQueries({ queryKey: ['thread', effectiveThreadId] });
       toast.success(updatedThread.isLocked ? t('discussion_locked') : t('discussion_unlocked'));
     },
     onError: (error: any) => toast.error(error.response?.data?.error || t('failed_update_discussion')),
   });
 
   const pinThreadMutation = useMutation({
-    mutationFn: (isPinned: boolean) => forumsApi.pinThread(parsedThreadId!, isPinned),
+    mutationFn: (isPinned: boolean) => forumsApi.pinThread(effectiveThreadId, isPinned),
     onSuccess: (updatedThread) => {
-      queryClient.invalidateQueries({ queryKey: ['thread', parsedThreadId] });
+      queryClient.invalidateQueries({ queryKey: ['thread', effectiveThreadId] });
       toast.success(updatedThread.isPinned ? t('discussion_pinned') : t('discussion_unpinned'));
     },
     onError: (error: any) => toast.error(error.response?.data?.error || t('failed_update_discussion')),
   });
 
+  // Like toggle with optimistic update.
+  const toggleLikeMutation = useMutation({
+    mutationFn: () => forumsApi.toggleThreadLike(effectiveThreadId),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['thread', effectiveThreadId] });
+      const prev = queryClient.getQueryData<any>(['thread', effectiveThreadId]);
+      queryClient.setQueryData(['thread', effectiveThreadId], (old: any) =>
+        old
+          ? {
+              ...old,
+              myLike: !old.myLike,
+              likeCount: (old.likeCount ?? 0) + (old.myLike ? -1 : 1),
+            }
+          : old,
+      );
+      return { prev };
+    },
+    onError: (_e, _v, ctx: any) => {
+      if (ctx?.prev) queryClient.setQueryData(['thread', effectiveThreadId], ctx.prev);
+      toast.error(t('failed_to_like', { defaultValue: 'Could not save like' }));
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['thread', effectiveThreadId] });
+    },
+  });
+
+  const deletePostMutation = useMutation({
+    mutationFn: (postId: number) => forumsApi.deletePost(postId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['thread', effectiveThreadId] });
+      toast.success(t('comment_deleted', { defaultValue: 'Comment deleted' }));
+    },
+    onError: (error: any) =>
+      toast.error(
+        error.response?.data?.error ||
+          t('failed_delete_comment', { defaultValue: 'Failed to delete comment' }),
+      ),
+  });
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        window.prompt(t('share_link_prompt', { defaultValue: 'Copy this link' }), url);
+      }
+      toast.success(t('share_link_copied', { defaultValue: 'Link copied' }));
+    } catch {
+      toast.error(t('share_link_failed', { defaultValue: 'Could not copy link' }));
+    }
+  };
+
   // Check if user is instructor/admin for this course
   const isInstructor = user?.isInstructor || user?.isAdmin || false;
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return t('just_now');
-    if (diffMins < 60) return t('m_ago', { count: diffMins });
-    if (diffHours < 24) return t('h_ago', { count: diffHours });
-    if (diffDays < 7) return t('d_ago', { count: diffDays });
-    return date.toLocaleDateString();
-  };
+  // (formatDate removed — `formatRelative` from utils/relativeTime is
+  // used everywhere on this page now.)
 
   // Build threaded posts structure
   const buildThreadedPosts = (posts: ForumPost[]): ThreadedPost[] => {
@@ -236,16 +278,6 @@ export const Forum = () => {
     setReplyContent('');
   };
 
-  const handleReplyToThread = () => {
-    track('reply_started', { verb: 'interacted', objectType: 'forum', objectId: parsedThreadId!, courseId: parsedCourseId });
-    setReplyingToId(null);
-    setReplyingToName('');
-    setReplyContent('');
-    // Scroll to the reply form at the bottom
-    setTimeout(() => {
-      replyFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 100);
-  };
 
   const handleSubmitReply = () => {
     // Check for @mentions to trigger AI after posting
@@ -298,173 +330,327 @@ export const Forum = () => {
     }
   };
 
-  // Render a single post with its nested replies
+  /**
+   * Collect every nested reply under a post as a flat list. Used to
+   * power the "5 stacked avatars + first-reply preview" footer and to
+   * count the total replies.
+   */
+  // Render a single post recursively. Each comment / reply uses the
+  // same shape: avatar column (with +/- toggle + stacked avatars below
+  // the avatar when it has replies), then a content column. Expanded
+  // children render under the parent through a small horizontal stub,
+  // recursing into renderPost so a reply-of-a-reply keeps its own
+  // toggle and stacked-avatar peek.
   const renderPost = (post: ThreadedPost, depth: number = 0) => {
-    const maxDepth = 3; // Max nesting level for visual clarity
-    const isNested = depth > 0;
-    const showReplyButton = !thread?.isLocked && depth < maxDepth;
-    const isAiPost = post.isAiGenerated;
+    const maxDepth = 6; // Cap recursion just to keep DOM sane.
+    const isAiPost = !!post.isAiGenerated;
+    const authorName = isAiPost
+      ? (post.aiAgentName || t('tutors:ai_tutor'))
+      : (post.author?.fullname || t('anonymous'));
+    const isExpanded = expandedReplies.has(post.id);
+    const directReplies = post.replies || [];
+    const hasReplies = directReplies.length > 0 && depth < maxDepth;
+    const visibleAvatars = directReplies.slice(0, 5);
 
-    return (
-      <div key={post.id} className={isNested ? 'mt-3' : ''}>
-        <div
-          className={isNested ? 'ml-4 mr-2 mb-2 pl-4 py-3 pr-3 rounded-lg' : 'p-4'}
-          style={{
-            backgroundColor: isAiPost ? colors.bgAi : (isNested ? colors.bgReply : colors.bgCard),
-          }}
-        >
-          <div>
-            {/* Reply indicator for nested posts */}
-            {isNested && (
-              <div className="flex items-center gap-1 text-xs mb-2" style={{ color: colors.textSecondary }}>
-                <CornerDownRight size={12} />
-                <span>{isAiPost ? t('ai_response') : t('reply')}</span>
-              </div>
+    // The header / body / actions block used by both the parent comment
+    // and each expanded reply — DRY'd so the two layouts stay identical.
+    const renderContent = (p: ThreadedPost, name: string, isAi: boolean) => (
+      <>
+        <div className="min-w-0 leading-tight">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span
+              className="font-semibold text-sm"
+              style={{ color: isAi ? colors.aiAccent : colors.textPrimary }}
+            >
+              {isAi && <Sparkles size={12} className="inline mr-1" />}
+              {name}
+            </span>
+            {p.author?.isInstructor && !isAi && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                {t('instructor')}
+              </span>
             )}
-
-            <div className="flex items-start gap-3">
-              {/* Avatar - different for AI posts */}
-              {isAiPost ? (
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: colors.aiAccent }}
+            <span className="text-xs" style={{ color: colors.textSecondary }}>
+              {formatRelative(p.createdAt)}
+              {p.isEdited && ` · ${t('edited')}`}
+            </span>
+          </div>
+          {isAi && p.requester && (
+            <p className="text-[11px] mt-0.5" style={{ color: colors.textSecondary }}>
+              {t('requested_by', { name: p.requester.fullname })}
+            </p>
+          )}
+        </div>
+        <TrackedContent context="forum" courseId={parsedCourseId} objectId={parsedForumId} objectTitle={name}>
+          <div
+            className="mt-1.5 text-sm prose prose-sm dark:prose-invert max-w-none break-words"
+            style={{ color: colors.textPrimary }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(p.content) }}
+          />
+        </TrackedContent>
+        {(() => {
+          const canR = !thread?.isLocked && depth < maxDepth;
+          const canD =
+            isInstructor ||
+            (!!user && !p.isAnonymous && p.author?.fullname === user.fullname);
+          if (!canR && !canD) return null;
+          return (
+            <div className="mt-2 flex items-center gap-3 text-xs">
+              {canD && (
+                <button
+                  type="button"
+                  onClick={() => deletePostMutation.mutate(p.id)}
+                  aria-label={t('common:delete', { defaultValue: 'Delete' })}
+                  title={t('common:delete', { defaultValue: 'Delete' })}
+                  className="inline-flex items-center text-red-500 hover:text-red-600 transition-colors"
                 >
-                  {post.aiAgent?.avatarUrl ? (
-                    <img src={post.aiAgent.avatarUrl} alt="" className="w-8 h-8 rounded-full" />
-                  ) : (
-                    <Bot size={16} className="text-white" />
-                  )}
-                </div>
-              ) : (
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: colors.bgHover }}
-                >
-                  <User size={16} style={{ color: colors.textSecondary }} />
-                </div>
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
               )}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  {isAiPost ? (
+              {canR && (
+                <button
+                  type="button"
+                  onClick={() => handleReplyToPost(p.id, name)}
+                  className="inline-flex items-center gap-1 font-medium hover:underline"
+                  style={{ color: colors.accent }}
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  {t('reply', { defaultValue: 'Reply' })}
+                </button>
+              )}
+              {canR && agents.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => toggleAiSelectorForPost(p.id)}
+                  disabled={aiPostMutation.isPending}
+                  className="inline-flex items-center gap-1 font-medium hover:underline disabled:opacity-60"
+                  style={{ color: colors.aiAccent }}
+                >
+                  <Bot className="w-3.5 h-3.5" />
+                  {t('ask_ai', { defaultValue: 'Ask AI' })}
+                </button>
+              )}
+            </div>
+          );
+        })()}
+        {showAiSelector && aiReplyToId === p.id && (
+          <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: colors.bgHover }}>
+            <ForumAgentSelector
+              agents={agents}
+              onSelect={(agent) => handleAiRequest(agent, p.id)}
+              disabled={aiPostMutation.isPending}
+              isLoading={aiPostMutation.isPending}
+              compact
+            />
+          </div>
+        )}
+        {replyingToId === p.id && (
+          <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: colors.bgHover }}>
+            <ForumReplyInput
+              value={replyContent}
+              onChange={setReplyContent}
+              onSubmit={handleSubmitReply}
+              onAiRequest={(agent) => handleAiRequest(agent, p.id)}
+              agents={agents}
+              placeholder={t('reply_placeholder')}
+              disabled={createPostMutation.isPending}
+              isSubmitting={createPostMutation.isPending}
+              isAiLoading={aiPostMutation.isPending}
+              replyingToName={replyingToName}
+              onCancelReply={cancelReply}
+              showAgentSelector={agents.length > 0}
+            />
+          </div>
+        )}
+      </>
+    );
+
+    // Avatar swatch for a post — either the user's uploaded avatar
+    // (rendered via the shared <Avatar src=…/> which falls back to
+    // initials only when src is empty) or an AI bot's icon.
+    const avatarFor = (
+      p: ThreadedPost,
+      name: string,
+      size: 'sm' | 'md' = 'md',
+    ) => {
+      const aiBox = size === 'sm' ? 'w-8 h-8' : 'w-9 h-9';
+      const iconPx = size === 'sm' ? 16 : 18;
+      if (p.isAiGenerated) {
+        return (
+          <div
+            className={`${aiBox} rounded-full flex items-center justify-center flex-shrink-0`}
+            style={{ backgroundColor: colors.aiAccent }}
+          >
+            {p.aiAgent?.avatarUrl ? (
+              <img src={p.aiAgent.avatarUrl} alt="" className={`${aiBox} rounded-full`} />
+            ) : (
+              <Bot size={iconPx} className="text-white" />
+            )}
+          </div>
+        );
+      }
+      const src = p.author?.avatarUrl ? resolveFileUrl(p.author.avatarUrl) : undefined;
+      return <Avatar name={name} size={size} src={src} />;
+    };
+
+    const isNested = depth > 0;
+    return (
+      <div key={post.id}>
+        <div
+          className={isNested ? '' : 'px-6 pt-5 pb-5'}
+          style={
+            !isNested && isAiPost
+              ? { backgroundColor: colors.bgAi }
+              : undefined
+          }
+        >
+          <div className="flex items-stretch gap-3">
+            {/* Avatar column. When this post has replies, the column
+                stretches and we draw a single continuous line below the
+                avatar — line, +/- toggle, more line, then either the
+                stacked-avatar peek (collapsed) or nothing (expanded —
+                the next reply rows continue the line themselves). */}
+            <div className="w-9 flex-shrink-0 flex flex-col items-center">
+              {avatarFor(post, authorName)}
+              {hasReplies && (
+                <>
+                  <span
+                    aria-hidden
+                    className="w-0 h-2 border-l-2 mt-1"
+                    style={{ borderColor: colors.border }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => toggleExpandReplies(post.id)}
+                    className="relative z-10 w-5 h-5 rounded-full border-2 bg-white dark:bg-gray-900 flex items-center justify-center"
+                    style={{ borderColor: colors.border, color: colors.textSecondary }}
+                    aria-label={
+                      isExpanded
+                        ? t('hide_replies', { defaultValue: 'Hide replies' })
+                        : t('show_replies', { defaultValue: 'Show replies' })
+                    }
+                    title={`${directReplies.length}`}
+                  >
+                    {isExpanded ? <Minus className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                  </button>
+                  {!isExpanded ? (
                     <>
-                      <span className="font-medium text-sm flex items-center gap-1" style={{ color: colors.aiAccent }}>
-                        <Sparkles size={14} />
-                        {post.aiAgentName || t('tutors:ai_tutor')}
-                      </span>
                       <span
-                        className="text-xs px-2 py-0.5 rounded"
-                        style={{
-                          backgroundColor: isDark ? 'rgba(8, 145, 178, 0.2)' : 'rgba(8, 145, 178, 0.1)',
-                          color: colors.aiAccent,
-                        }}
+                        aria-hidden
+                        className="w-0 h-2 border-l-2 mb-1"
+                        style={{ borderColor: colors.border }}
+                      />
+                      {/* Stacked avatars — first avatar's centre aligned to
+                          the line by shifting 6px left (half-column - half-avatar). */}
+                      <div
+                        className="flex -space-x-2 self-start"
+                        style={{ marginLeft: '6px' }}
                       >
-                        {t('tutors:ai_tutor')}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="font-medium text-sm" style={{ color: colors.textPrimary }}>
-                        {post.author ? post.author.fullname : t('anonymous')}
-                      </span>
-                      {post.author?.isInstructor && (
-                        <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                          {t('instructor')}
+                        {visibleAvatars.map((r, idx) => {
+                          const rName = r.isAiGenerated
+                            ? (r.aiAgentName || t('tutors:ai_tutor'))
+                            : (r.author?.fullname || t('anonymous'));
+                          return (
+                            <span
+                              key={`${r.id}-${idx}`}
+                              className="ring-2 ring-white dark:ring-gray-800 rounded-full inline-flex"
+                              style={{ zIndex: visibleAvatars.length - idx }}
+                            >
+                              {r.isAiGenerated && r.aiAgent?.avatarUrl ? (
+                                <img
+                                  src={r.aiAgent.avatarUrl}
+                                  alt=""
+                                  className="w-6 h-6 rounded-full object-cover"
+                                />
+                              ) : (
+                                <Avatar
+                                  name={rName}
+                                  size="xs"
+                                  src={
+                                    r.author?.avatarUrl
+                                      ? resolveFileUrl(r.author.avatarUrl)
+                                      : undefined
+                                  }
+                                />
+                              )}
+                            </span>
+                          );
+                        })}
+                      </div>
+                      {directReplies.length > 5 && (
+                        <span
+                          className="text-[10px] mt-1"
+                          style={{ color: colors.textSecondary }}
+                        >
+                          +{directReplies.length - 5}
                         </span>
                       )}
                     </>
+                  ) : (
+                    // Expanded: line continues to the first reply row below.
+                    <span
+                      aria-hidden
+                      className="w-0 flex-1 border-l-2 mt-1"
+                      style={{ borderColor: colors.border }}
+                    />
                   )}
-                  <span className="text-xs" style={{ color: colors.textSecondary }}>
-                    {formatDate(post.createdAt)}
-                    {post.isEdited && ` ${t('edited')}`}
-                  </span>
-                </div>
+                </>
+              )}
+            </div>
 
-                {/* Show who requested the AI response */}
-                {isAiPost && post.requester && (
-                  <p className="text-xs mt-0.5" style={{ color: colors.textSecondary }}>
-                    {t('requested_by', { name: post.requester.fullname })}
-                  </p>
-                )}
-
-                <TrackedContent context="forum" courseId={parsedCourseId} objectId={parsedForumId} objectTitle={post.author?.fullname || 'post'}>
-                  <div
-                    className="mt-2 text-sm prose prose-sm dark:prose-invert max-w-none break-words"
-                    style={{ color: colors.textPrimary }}
-                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
-                  />
-                </TrackedContent>
-
-                {/* Reply and Ask AI buttons */}
-                {showReplyButton && (
-                  <div className="mt-3 pt-2 border-t flex items-center gap-2" style={{ borderColor: colors.border }}>
-                    <button
-                      onClick={() => handleReplyToPost(post.id, isAiPost ? (post.aiAgentName || t('tutors:ai_tutor')) : (post.author?.fullname || t('anonymous')))}
-                      className="flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                      style={{ color: colors.accent }}
-                    >
-                      <Reply size={14} />
-                      {t('reply')}
-                    </button>
-                    {agents.length > 0 && (
-                      <button
-                        onClick={() => toggleAiSelectorForPost(post.id)}
-                        className="flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        style={{ color: colors.aiAccent }}
-                        disabled={aiPostMutation.isPending}
-                      >
-                        <Bot size={14} />
-                        {t('ask_ai')}
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* AI selector for this post */}
-                {showAiSelector && aiReplyToId === post.id && (
-                  <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: colors.bgHover }}>
-                    <ForumAgentSelector
-                      agents={agents}
-                      onSelect={(agent) => handleAiRequest(agent, post.id)}
-                      disabled={aiPostMutation.isPending}
-                      isLoading={aiPostMutation.isPending}
-                      compact
-                    />
-                  </div>
-                )}
-
-                {/* Inline reply form */}
-                {replyingToId === post.id && (
-                  <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: colors.bgHover }}>
-                    <ForumReplyInput
-                      value={replyContent}
-                      onChange={setReplyContent}
-                      onSubmit={handleSubmitReply}
-                      onAiRequest={(agent) => handleAiRequest(agent, post.id)}
-                      agents={agents}
-                      placeholder={t('reply_placeholder')}
-                      disabled={createPostMutation.isPending}
-                      isSubmitting={createPostMutation.isPending}
-                      isAiLoading={aiPostMutation.isPending}
-                      replyingToName={replyingToName}
-                      onCancelReply={cancelReply}
-                      showAgentSelector={agents.length > 0}
-                    />
-                  </div>
-                )}
-              </div>
+            {/* Parent content column. */}
+            <div className="flex-1 min-w-0">
+              {renderContent(post, authorName, isAiPost)}
             </div>
           </div>
-        </div>
 
-        {/* Render nested replies */}
-        {post.replies && post.replies.length > 0 && (
-          <div className="ml-6">
-            {post.replies.map(reply => renderPost(reply, depth + 1))}
-          </div>
-        )}
+          {/* Expanded direct children — each rendered through the same
+              renderPost so a reply-of-a-reply keeps its own avatar
+              column, +/- toggle and stacked-avatar peek. A short
+              horizontal stub indents the child under the parent's
+              vertical line; on the last child the parent's line caps
+              cleanly at the stub. */}
+          {hasReplies && isExpanded && directReplies.map((reply, i) => {
+            const isLast = i === directReplies.length - 1;
+            // The avatar's vertical centre sits ~30px from the top of
+            // the stub row (pt-3 + half of the w-9 avatar = 12+18).
+            const AVATAR_CENTER = 30;
+            return (
+              <div key={reply.id} className="relative flex items-stretch">
+                <span
+                  aria-hidden
+                  className="absolute border-l-2"
+                  style={{
+                    left: '17px',
+                    top: 0,
+                    height: isLast ? `${AVATAR_CENTER}px` : '100%',
+                    borderColor: colors.border,
+                  }}
+                />
+                <span
+                  aria-hidden
+                  className="absolute border-t-2"
+                  style={{
+                    left: '18px',
+                    top: `${AVATAR_CENTER - 1}px`,
+                    width: '18px',
+                    borderColor: colors.border,
+                  }}
+                />
+                {/* Spacer matching the parent's w-9 avatar column so
+                    the stub lands at the right horizontal offset. */}
+                <div className="w-9 flex-shrink-0" />
+                <div className="flex-1 min-w-0 pt-3">
+                  {renderPost(reply, depth + 1)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   };
+
 
   const isLoading = forumLoading || threadLoading;
 
@@ -472,17 +658,20 @@ export const Forum = () => {
     return <Loading text={t('loading')} />;
   }
 
-  // Thread View
-  if (parsedThreadId && thread) {
+  // Single-discussion view — rendered for any URL shape now that each
+  // forum is its own thread.
+  if (thread) {
     const threadedPosts = buildThreadedPosts(thread.posts || []);
     const totalReplies = thread.posts?.length || 0;
 
-    const threadBreadcrumbs = buildThreadBreadcrumb(
+    // With the flat model, the forum's name and the thread's name are
+    // the same; show it once at the end of the breadcrumb trail.
+    const threadBreadcrumbs = buildForumBreadcrumb(
       courseId!,
       course?.title || t('course'),
-      forumId!,
-      thread.forum?.title || t('forums'),
-      thread.title
+      thread.title,
+      undefined,
+      isInstructor ? '/teach/forums' : '/forums',
     );
 
     return (
@@ -493,195 +682,208 @@ export const Forum = () => {
             <Breadcrumb items={threadBreadcrumbs} />
           </div>
 
-          {/* Thread header */}
-          <Card className="mb-6">
-            <CardBody>
-              <div className="flex items-start gap-4">
-                <div
-                  className="w-12 h-12 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: colors.bgHover }}
-                >
-                  <User size={24} style={{ color: colors.textSecondary }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 mb-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {thread.isPinned && <Pin size={14} className="text-yellow-500" />}
-                      {thread.isLocked && <Lock size={14} className="text-red-500" />}
-                      <h1 className="text-lg sm:text-xl font-bold" style={{ color: colors.textPrimary }}>
-                        {thread.title}
-                      </h1>
+          {/* Discussion post — social-card layout */}
+          {(() => {
+            const tags = extractHashtags(thread.content);
+            const likeCount = (thread as any).likeCount ?? 0;
+            const myLike = !!(thread as any).myLike;
+            const authorName = thread.author
+              ? thread.author.fullname
+              : t('anonymous', { defaultValue: 'Anonymous' });
+            return (
+              <article
+                className="mb-6 rounded-2xl border bg-white dark:bg-gray-800"
+                style={{ borderColor: colors.border }}
+              >
+                {/* Author row */}
+                <header className="flex items-center justify-between px-6 pt-6">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar name={authorName} size="md" />
+                    <div className="min-w-0 leading-tight">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-sm font-semibold truncate" style={{ color: colors.textPrimary }}>
+                          {authorName}
+                        </span>
+                        {thread.isPinned && <Pin className="w-3.5 h-3.5 text-yellow-500" />}
+                        {thread.isLocked && <Lock className="w-3.5 h-3.5 text-red-500" />}
+                      </div>
+                      <p className="text-xs" style={{ color: colors.textSecondary }}>
+                        {formatRelative(thread.createdAt)}
+                      </p>
                     </div>
-
-                    {/* Instructor actions dropdown */}
-                    {isInstructor && (
-                      <div className="relative">
-                        <button
-                          onClick={() => setShowThreadActions(!showThreadActions)}
-                          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                          title={t('thread_actions')}
-                        >
-                          <MoreVertical size={18} style={{ color: colors.textSecondary }} />
-                        </button>
-
-                        {showThreadActions && (
-                          <div
-                            className="absolute right-0 top-full mt-1 w-48 rounded-lg shadow-lg border z-20"
-                            style={{ backgroundColor: colors.bgCard, borderColor: colors.border }}
-                          >
-                            <button
-                              onClick={() => {
-                                track('thread_pinned', { verb: 'interacted', objectType: 'forum', objectId: parsedThreadId!, courseId: parsedCourseId, payload: { pinned: !thread.isPinned } });
-                                pinThreadMutation.mutate(!thread.isPinned);
-                                setShowThreadActions(false);
-                              }}
-                              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                              style={{ color: colors.textPrimary }}
-                              disabled={pinThreadMutation.isPending}
-                            >
-                              {thread.isPinned ? <PinOff size={16} /> : <Pin size={16} />}
-                              {thread.isPinned ? t('unpin_discussion') : t('pin_discussion')}
-                            </button>
-                            <button
-                              onClick={() => {
-                                track('thread_locked', { verb: 'interacted', objectType: 'forum', objectId: parsedThreadId!, courseId: parsedCourseId, payload: { locked: !thread.isLocked } });
-                                lockThreadMutation.mutate(!thread.isLocked);
-                                setShowThreadActions(false);
-                              }}
-                              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                              style={{ color: colors.textPrimary }}
-                              disabled={lockThreadMutation.isPending}
-                            >
-                              {thread.isLocked ? <Unlock size={16} /> : <Lock size={16} />}
-                              {thread.isLocked ? t('unlock_discussion') : t('lock_discussion')}
-                            </button>
-                            <div className="border-t" style={{ borderColor: colors.border }} />
-                            <button
-                              onClick={() => {
-                                setShowDeleteConfirm(true);
-                                setShowThreadActions(false);
-                              }}
-                              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-600"
-                            >
-                              <Trash2 size={16} />
-                              {t('delete_discussion')}
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
-                  <p className="text-sm mb-4" style={{ color: colors.textSecondary }}>
-                    {thread.author ? thread.author.fullname : t('anonymous')} · {formatDate(thread.createdAt)} · {thread.viewCount} {t('views')}
-                  </p>
-                  <TrackedContent context="forum" courseId={parsedCourseId} objectId={parsedForumId} objectTitle={thread.title}>
-                    <div
-                      className="prose prose-sm dark:prose-invert max-w-none break-words"
-                      style={{ color: colors.textPrimary }}
-                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(thread.content) }}
-                    />
-                  </TrackedContent>
 
-                  {/* Reply to thread button and Ask AI */}
-                  {!thread.isLocked && (
-                    <div className="mt-4 pt-4 border-t" style={{ borderColor: colors.border }}>
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={handleReplyToThread}
-                          className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                          style={{ color: colors.accent }}
+                  {isInstructor && (
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowThreadActions(!showThreadActions)}
+                        className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        title={t('thread_actions')}
+                      >
+                        <MoreVertical size={16} style={{ color: colors.textSecondary }} />
+                      </button>
+                      {showThreadActions && (
+                        <div
+                          className="absolute right-0 top-full mt-1 w-48 rounded-lg shadow-lg border z-20"
+                          style={{ backgroundColor: colors.bgCard, borderColor: colors.border }}
                         >
-                          <Reply size={16} />
-                          {t('reply_to_thread')}
-                        </button>
-                        {agents.length > 0 && (
                           <button
-                            onClick={() => toggleAiSelectorForPost(null)}
-                            className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                            style={{ color: colors.aiAccent }}
-                            disabled={aiPostMutation.isPending}
+                            onClick={() => {
+                              track('thread_pinned', { verb: 'interacted', objectType: 'forum', objectId: effectiveThreadId, courseId: parsedCourseId, payload: { pinned: !thread.isPinned } });
+                              pinThreadMutation.mutate(!thread.isPinned);
+                              setShowThreadActions(false);
+                            }}
+                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            style={{ color: colors.textPrimary }}
+                            disabled={pinThreadMutation.isPending}
                           >
-                            <Bot size={16} />
-                            {t('ask_ai')}
+                            {thread.isPinned ? <PinOff size={16} /> : <Pin size={16} />}
+                            {thread.isPinned ? t('unpin_discussion') : t('pin_discussion')}
                           </button>
-                        )}
-                      </div>
-
-                      {/* AI selector for thread-level reply */}
-                      {showAiSelector && aiReplyToId === null && (
-                        <div className="mt-3 rounded-lg" style={{ backgroundColor: colors.bgHover }}>
-                          <ForumAgentSelector
-                            agents={agents}
-                            onSelect={(agent) => handleAiRequest(agent)}
-                            disabled={aiPostMutation.isPending}
-                            isLoading={aiPostMutation.isPending}
-                          />
+                          <button
+                            onClick={() => {
+                              track('thread_locked', { verb: 'interacted', objectType: 'forum', objectId: effectiveThreadId, courseId: parsedCourseId, payload: { locked: !thread.isLocked } });
+                              lockThreadMutation.mutate(!thread.isLocked);
+                              setShowThreadActions(false);
+                            }}
+                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            style={{ color: colors.textPrimary }}
+                            disabled={lockThreadMutation.isPending}
+                          >
+                            {thread.isLocked ? <Unlock size={16} /> : <Lock size={16} />}
+                            {thread.isLocked ? t('unlock_discussion') : t('lock_discussion')}
+                          </button>
+                          <div className="border-t" style={{ borderColor: colors.border }} />
+                          <button
+                            onClick={() => {
+                              setShowDeleteConfirm(true);
+                              setShowThreadActions(false);
+                            }}
+                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-600"
+                          >
+                            <Trash2 size={16} />
+                            {t('delete_discussion')}
+                          </button>
                         </div>
                       )}
                     </div>
                   )}
+                </header>
+
+                {/* Title + body */}
+                <div className="px-6 pt-5">
+                  <h1
+                    className="text-xl sm:text-2xl font-semibold leading-snug mb-3"
+                    style={{ color: colors.textPrimary }}
+                  >
+                    {thread.title}
+                  </h1>
+                  <TrackedContent context="forum" courseId={parsedCourseId} objectId={parsedForumId} objectTitle={thread.title}>
+                    <div
+                      className="prose prose-sm dark:prose-invert max-w-none break-words"
+                      style={{ color: colors.textPrimary }}
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(stripHashtags(thread.content)) }}
+                    />
+                  </TrackedContent>
+
+                  {tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-4">
+                      {tags.map(tag => (
+                        <span
+                          key={tag}
+                          className="inline-flex items-center px-2 py-0.5 text-xs rounded-full bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            </CardBody>
-          </Card>
 
-          {/* Replies section */}
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
-              {totalReplies} {totalReplies === 1 ? t('reply') : t('replies')}
-            </h2>
-          </div>
+                {/* Footer actions: comments / likes / share */}
+                <footer
+                  className="mt-5 px-6 py-4 border-t flex items-center gap-5 text-sm"
+                  style={{ borderColor: colors.border, color: colors.textSecondary }}
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <MessageCircle className="w-4 h-4" />
+                    <span className="tabular-nums">{totalReplies}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => user && toggleLikeMutation.mutate()}
+                    disabled={!user || toggleLikeMutation.isPending}
+                    aria-pressed={myLike}
+                    aria-label={
+                      myLike
+                        ? t('unlike_post', { defaultValue: 'Unlike' })
+                        : t('like_post', { defaultValue: 'Like' })
+                    }
+                    className="inline-flex items-center gap-1.5 hover:text-rose-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    style={{ color: myLike ? '#e11d48' : colors.textSecondary }}
+                  >
+                    <Heart className="w-4 h-4" fill={myLike ? 'currentColor' : 'none'} />
+                    {likeCount > 0 && <span className="tabular-nums">{likeCount}</span>}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleShare}
+                    aria-label={t('share', { defaultValue: 'Share' })}
+                    className="inline-flex items-center gap-1.5 hover:text-teal-600 transition-colors"
+                  >
+                    <Share2 className="w-4 h-4" />
+                  </button>
+                </footer>
+              </article>
+            );
+          })()}
 
-          {threadedPosts.length > 0 ? (
+          {/* Comments — bare card stack, no header. */}
+          {threadedPosts.length > 0 && (
             <div className="space-y-4">
               {threadedPosts.map(post => (
-                <Card key={post.id}>
+                <article
+                  key={post.id}
+                  className="rounded-2xl border bg-white dark:bg-gray-800"
+                  style={{ borderColor: colors.border }}
+                >
                   {renderPost(post, 0)}
-                </Card>
+                </article>
               ))}
             </div>
-          ) : (
-            <Card>
-              <CardBody className="text-center py-8">
-                <MessageSquare className="w-10 h-10 mx-auto mb-2" style={{ color: colors.textSecondary }} />
-                <p style={{ color: colors.textSecondary }}>{t('no_replies_yet')}</p>
-              </CardBody>
-            </Card>
           )}
 
-          {/* New reply form (replying to thread) - shown at the bottom */}
+          {/* New comment composer — shown at the bottom. */}
           {replyingToId === null && !thread.isLocked && (
             <div ref={replyFormRef}>
-            <Card className="mt-6">
-              <CardBody>
-                <h3 className="font-medium mb-3 flex items-center gap-2" style={{ color: colors.textPrimary }}>
-                  <MessageSquare size={18} />
-                  {t('post_a_reply')}
-                </h3>
+            <article
+              className="mt-6 rounded-2xl border bg-white dark:bg-gray-800 p-5"
+              style={{ borderColor: colors.border }}
+            >
                 <ForumReplyInput
                   value={replyContent}
                   onChange={setReplyContent}
                   onSubmit={handleSubmitReply}
                   onAiRequest={(agent) => handleAiRequest(agent)}
                   agents={agents}
-                  placeholder={t('reply_thread_placeholder')}
+                  placeholder={t('comment_placeholder', { defaultValue: 'Share a thoughtful comment…' })}
                   disabled={createPostMutation.isPending}
                   isSubmitting={createPostMutation.isPending}
                   isAiLoading={aiPostMutation.isPending}
                   showAgentSelector={agents.length > 0}
                 />
-              </CardBody>
-            </Card>
+            </article>
             </div>
           )}
 
           {thread.isLocked && (
-            <Card className="mt-6">
-              <CardBody className="text-center py-6">
-                <Lock className="w-8 h-8 mx-auto mb-2" style={{ color: colors.textSecondary }} />
-                <p style={{ color: colors.textSecondary }}>{t('discussion_is_locked')}</p>
-              </CardBody>
-            </Card>
+            <article
+              className="mt-6 rounded-2xl border bg-white dark:bg-gray-800 text-center py-6"
+              style={{ borderColor: colors.border }}
+            >
+              <Lock className="w-8 h-8 mx-auto mb-2" style={{ color: colors.textSecondary }} />
+              <p style={{ color: colors.textSecondary }}>{t('discussion_is_locked')}</p>
+            </article>
           )}
 
           {/* Delete confirmation modal */}
@@ -700,7 +902,7 @@ export const Forum = () => {
                 </Button>
                 <Button
                   variant="danger"
-                  onClick={() => { track('delete_confirmed', { verb: 'deleted', objectType: 'forum', objectId: parsedThreadId!, courseId: parsedCourseId }); deleteThreadMutation.mutate(); }}
+                  onClick={() => { track('delete_confirmed', { verb: 'deleted', objectType: 'forum', objectId: effectiveThreadId, courseId: parsedCourseId }); deleteThreadMutation.mutate(); }}
                   disabled={deleteThreadMutation.isPending}
                 >
                   {deleteThreadMutation.isPending ? t('deleting') : t('delete')}
@@ -721,167 +923,10 @@ export const Forum = () => {
     );
   }
 
-  // Forum View (list of threads)
-  if (!forum) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: colors.bg }}>
-        <p style={{ color: colors.textPrimary }}>{t('forum_not_found')}</p>
-      </div>
-    );
-  }
-
-  const forumBreadcrumbs = buildForumBreadcrumb(
-    courseId!,
-    course?.title || t('course'),
-    forum.title
-  );
-
+  // Discussion not found / not loaded yet.
   return (
-    <div className="min-h-screen py-6 md:py-8" style={{ backgroundColor: colors.bg }}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Breadcrumb navigation */}
-        <div className="mb-6">
-          <Breadcrumb items={forumBreadcrumbs} />
-        </div>
-
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-6">
-          <div className="w-full sm:w-4/5 min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold" style={{ color: colors.textPrimary }}>
-              {forum.title}
-            </h1>
-            {forum.description && (
-              <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>{forum.description}</p>
-            )}
-          </div>
-          <Button onClick={() => { track('new_discussion_opened', { verb: 'interacted', objectType: 'forum', objectId: parsedForumId, courseId: parsedCourseId }); setIsCreateThreadOpen(true); }} className="whitespace-nowrap flex-shrink-0">
-            <Plus size={18} />
-            {t('new_discussion')}
-          </Button>
-        </div>
-
-        {/* Threads list */}
-        {forum.threads && forum.threads.length > 0 ? (
-          <div className="space-y-3">
-            {forum.threads.map((thread: ForumThread) => (
-              <Link
-                key={thread.id}
-                to={`/courses/${courseId}/forums/${forumId}/threads/${thread.id}`}
-                className="block"
-                onClick={() => track('thread_viewed', { verb: 'viewed', objectType: 'forum', objectId: thread.id, courseId: parsedCourseId, payload: { threadTitle: thread.title } })}
-              >
-                <Card
-                  className="hover:shadow-md transition-shadow"
-                  style={thread.isPinned ? { backgroundColor: colors.bgPinned } : {}}
-                >
-                  <CardBody>
-                    <div className="flex items-start gap-4">
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: colors.bgHover }}
-                      >
-                        <MessageSquare size={20} style={{ color: colors.textSecondary }} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          {thread.isPinned && <Pin size={14} className="text-yellow-500 flex-shrink-0" />}
-                          {thread.isLocked && <Lock size={14} className="text-red-500 flex-shrink-0" />}
-                          <h3 className="font-semibold truncate" style={{ color: colors.textPrimary }}>
-                            {thread.title}
-                          </h3>
-                        </div>
-                        <p className="text-sm line-clamp-2 mb-2" style={{ color: colors.textSecondary }}>
-                          {thread.content.replace(/<[^>]*>/g, '')}
-                        </p>
-                        <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: colors.textSecondary }}>
-                          <span>{thread.author ? thread.author.fullname : t('anonymous')}</span>
-                          <span>{formatDate(thread.createdAt)}</span>
-                          <span className="flex items-center gap-1">
-                            <MessageSquare size={12} />
-                            {thread.replyCount || 0} {t('replies')}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Eye size={12} />
-                            {thread.viewCount} {t('views')}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardBody>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <Card>
-            <CardBody className="text-center py-8 sm:py-12">
-              <MessageSquare className="w-12 h-12 mx-auto mb-4" style={{ color: colors.textSecondary }} />
-              <p style={{ color: colors.textPrimary }}>{t('no_discussions_yet')}</p>
-              <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-                {t('start_first_discussion')}
-              </p>
-              <Button onClick={() => { track('new_discussion_opened', { verb: 'interacted', objectType: 'forum', objectId: parsedForumId, courseId: parsedCourseId }); setIsCreateThreadOpen(true); }} className="mt-4">
-                <Plus size={18} />
-                {t('start_discussion')}
-              </Button>
-            </CardBody>
-          </Card>
-        )}
-      </div>
-
-      {/* Create Thread Modal */}
-      <Modal
-        isOpen={isCreateThreadOpen}
-        onClose={() => setIsCreateThreadOpen(false)}
-        title={t('start_new_discussion')}
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-              {t('discussion_title')}
-            </label>
-            <input
-              value={newThread.title}
-              onChange={(e) => setNewThread({ ...newThread, title: e.target.value })}
-              placeholder={t('discussion_title_placeholder')}
-              className="w-full px-3 py-2 rounded-lg"
-              style={{ backgroundColor: colors.bgInput, borderColor: colors.border, borderWidth: 1, color: colors.textPrimary }}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: colors.textPrimary }}>
-              {t('discussion_content')}
-            </label>
-            <RichTextEditor
-              value={newThread.content}
-              onChange={(html) => setNewThread({ ...newThread, content: html })}
-              placeholder={t('discussion_content_placeholder')}
-            />
-          </div>
-          {forum?.allowAnonymous && (
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={newThread.isAnonymous}
-                onChange={(e) => { track('anonymous_toggled', { verb: 'interacted', objectType: 'forum', courseId: parsedCourseId, payload: { anonymous: e.target.checked } }); setNewThread({ ...newThread, isAnonymous: e.target.checked }); }}
-                className="w-4 h-4"
-              />
-              <span className="text-sm" style={{ color: colors.textPrimary }}>{t('post_anonymously')}</span>
-            </label>
-          )}
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="secondary" onClick={() => setIsCreateThreadOpen(false)}>
-              {t('common:cancel')}
-            </Button>
-            <Button
-              onClick={() => createThreadMutation.mutate(newThread)}
-              disabled={!newThread.title.trim() || !newThread.content.trim() || createThreadMutation.isPending}
-            >
-              {t('start_discussion')}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: colors.bg }}>
+      <p style={{ color: colors.textPrimary }}>{t('forum_not_found')}</p>
     </div>
   );
 };
