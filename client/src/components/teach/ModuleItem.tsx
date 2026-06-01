@@ -416,31 +416,44 @@ export const ModuleItem = ({
           )}
         </svg>
 
+        {/* The number badge + title together form the expand/collapse toggle.
+            A rotating chevron sub-badge sits on the number so it's obvious the
+            card opens by clicking it; the whole left region is clickable and
+            the title underlines on hover for an accordion-style affordance. */}
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="relative w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-105 flex-shrink-0 font-bold text-lg"
-          style={{ backgroundColor: 'rgba(8, 143, 143, 0.18)', color: '#066d6d' }}
+          className="group relative flex items-center gap-3 flex-1 min-w-0 text-left"
           title={isExpanded ? t('collapse', { defaultValue: 'Collapse' }) : t('expand', { defaultValue: 'Expand' })}
           aria-expanded={isExpanded}
         >
-          {(module.orderIndex ?? 0) + 1}
-        </button>
+          <span
+            className="relative w-10 h-10 rounded-xl flex items-center justify-center transition-all group-hover:scale-105 flex-shrink-0 font-bold text-lg"
+            style={{ backgroundColor: 'rgba(8, 143, 143, 0.18)', color: '#066d6d' }}
+          >
+            {(module.orderIndex ?? 0) + 1}
+            <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center bg-white dark:bg-gray-800 shadow-sm ring-1 ring-teal-200 dark:ring-teal-700">
+              <ChevronDown
+                className={`w-3 h-3 text-teal-600 dark:text-teal-300 transition-transform ${isExpanded ? '' : '-rotate-90'}`}
+              />
+            </span>
+          </span>
 
-        <div className="relative flex-1 min-w-0">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-300 mb-0.5">
-            {t('module', { defaultValue: 'Module' })}
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-base font-bold text-gray-900 dark:text-white truncate">
-              {module.title}
-            </h3>
-            {!module.isPublished && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-800/50 dark:text-amber-200">
-                {t('draft')}
+          <span className="relative flex-1 min-w-0">
+            <span className="block text-[10px] font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-300 mb-0.5">
+              {t('module', { defaultValue: 'Module' })}
+            </span>
+            <span className="flex items-center gap-2 flex-wrap">
+              <span className="text-base font-bold text-gray-900 dark:text-white truncate group-hover:underline decoration-teal-400/60 underline-offset-2">
+                {module.title}
               </span>
-            )}
-          </div>
-        </div>
+              {!module.isPublished && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-800/50 dark:text-amber-200">
+                  {t('draft')}
+                </span>
+              )}
+            </span>
+          </span>
+        </button>
 
         <div className="relative flex items-center gap-1 flex-shrink-0">
           {/* Reorder buttons */}
