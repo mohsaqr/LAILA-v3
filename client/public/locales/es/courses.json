@@ -543,6 +543,8 @@
   "curriculum": "Currículum",
   "quizzes": "Cuestionarios",
   "ai_tutors": "Tutores IA",
+  "course_published": "Curso publicado",
+  "course_unpublished": "Curso movido a borrador",
   "certificates": "Certificados",
   "course_navigation": "Navegación del Curso",
   "content_lecture": "Lección",

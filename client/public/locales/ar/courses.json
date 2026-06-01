@@ -543,6 +543,8 @@
   "curriculum": "المنهج",
   "quizzes": "الاختبارات",
   "ai_tutors": "معلمو الذكاء الاصطناعي",
+  "course_published": "تم نشر الدورة",
+  "course_unpublished": "تم نقل الدورة إلى المسودة",
   "certificates": "الشهادات",
   "course_navigation": "تصفح الدورة",
   "content_lecture": "محاضرة",
