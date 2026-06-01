@@ -22,6 +22,7 @@ import {
   Link as LinkIcon,
   ImagePlus,
   Video,
+  Youtube,
   FileUp,
   Bot,
   Loader2,
@@ -33,6 +34,10 @@ import { coursesApi } from '../../../api/courses';
 import { getAuthToken } from '../../../utils/auth';
 import { FileNode } from './FileNodeExtension';
 import { ChatbotNode } from './ChatbotNodeExtension';
+import { VideoNode } from './VideoNodeExtension';
+import { Modal } from '../../common/Modal';
+import { Button } from '../../common/Button';
+import { Input } from '../../common/Input';
 import type { LectureSection } from '../../../types';
 
 interface LessonEditorProps {
@@ -98,6 +103,11 @@ export const LessonEditor = forwardRef<LessonEditorHandle, LessonEditorProps>((
   const queuedRef = useRef<string | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  // 0–100 while a video is uploading, null otherwise.
+  const [videoProgress, setVideoProgress] = useState<number | null>(null);
+  // Embed-link dialog.
+  const [embedOpen, setEmbedOpen] = useState(false);
+  const [embedUrl, setEmbedUrl] = useState('');
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const savedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -231,6 +241,7 @@ export const LessonEditor = forwardRef<LessonEditorHandle, LessonEditorProps>((
       }),
       FileNode,
       ChatbotNode,
+      VideoNode,
     ],
     content: initialHTML,
     editorProps: {
@@ -336,38 +347,53 @@ export const LessonEditor = forwardRef<LessonEditorHandle, LessonEditorProps>((
     }
   };
 
-  const onPickVideo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onPickVideo = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
     setUploadingVideo(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const token = getAuthToken();
-      const res = await fetch('/api/uploads/file', {
-        method: 'POST',
-        body: formData,
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      const json = await res.json();
-      const fileData = json.data || json;
-      const url = fileData.url || fileData.path;
-      if (url) {
-        // Insert a native HTML5 video element. Tiptap will round-trip it
-        // through StarterKit's allowed-tags (we don't need a custom node;
-        // a simple `<video controls src=…>` survives parseHTML/renderHTML
-        // and is sanitized cleanly by the student-side renderer).
-        editor.chain().focus().insertContent(
-          `<video controls preload="metadata" src="${url}" style="max-width:100%;border-radius:8px;"></video>`,
-        ).run();
-      }
-    } catch (err) {
-      console.error('video upload failed', err);
-      toast.error(t('failed_to_save_lesson', { defaultValue: 'Failed to upload video.' }));
-    } finally {
+    setVideoProgress(0);
+
+    const fail = (msg?: string) => {
       setUploadingVideo(false);
-    }
+      setVideoProgress(null);
+      toast.error(msg || t('failed_to_save_lesson', { defaultValue: 'Failed to upload video.' }));
+    };
+
+    // XHR (not fetch) so we can report real upload progress to the
+    // instructor. Stored under uploads/courses/videos via /api/uploads/video.
+    const formData = new FormData();
+    formData.append('file', file);
+    const token = getAuthToken();
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/uploads/video');
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.upload.onprogress = ev => {
+      if (ev.lengthComputable) setVideoProgress(Math.round((ev.loaded / ev.total) * 100));
+    };
+    xhr.onload = () => {
+      setUploadingVideo(false);
+      setVideoProgress(null);
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const json = JSON.parse(xhr.responseText);
+          const data = json.data || json;
+          const url = data.url || data.path;
+          // Insert as a real video node so it renders (and round-trips
+          // through the student-side LessonViewer) instead of leaking raw
+          // `<video>` markup into the document as text.
+          if (url) editor.chain().focus().insertLectureVideo({ src: url, mode: 'file' }).run();
+        } catch {
+          fail();
+        }
+      } else {
+        let msg: string | undefined;
+        try { msg = JSON.parse(xhr.responseText)?.error; } catch { /* ignore */ }
+        fail(msg);
+      }
+    };
+    xhr.onerror = () => fail();
+    xhr.send(formData);
   };
 
   const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -412,6 +438,30 @@ export const LessonEditor = forwardRef<LessonEditorHandle, LessonEditorProps>((
   const addLink = () => {
     const url = window.prompt('URL');
     if (url) editor.chain().focus().setLink({ href: url }).run();
+  };
+
+  /** Convert a shared video URL (YouTube / Vimeo) to its embeddable form;
+   *  anything else is used as-is inside the iframe. */
+  const toEmbedUrl = (raw: string): string => {
+    const url = raw.trim();
+    const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/);
+    if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
+    const vimeo = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+    if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`;
+    return url;
+  };
+
+  const openEmbed = () => {
+    setEmbedUrl('');
+    setEmbedOpen(true);
+  };
+
+  const submitEmbed = () => {
+    const url = embedUrl.trim();
+    if (!url) return;
+    editor.chain().focus().insertLectureVideo({ src: toEmbedUrl(url), mode: 'embed' }).run();
+    setEmbedOpen(false);
+    setEmbedUrl('');
   };
 
   // ─── UI ────────────────────────────────────────────────────────────────
@@ -491,6 +541,13 @@ export const LessonEditor = forwardRef<LessonEditorHandle, LessonEditorProps>((
         >
           {uploadingVideo ? <Loader2 size={16} className="animate-spin" /> : <Video size={16} />}
         </Btn>
+        <Btn
+          onClick={openEmbed}
+          accent
+          title={t('embed_video', { defaultValue: 'Embed video link' })}
+        >
+          <Youtube size={16} />
+        </Btn>
         <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1" />
         <Btn
           onClick={() => fileInputRef.current?.click()}
@@ -521,13 +578,30 @@ export const LessonEditor = forwardRef<LessonEditorHandle, LessonEditorProps>((
           )}
         </div>
       </div>
+      {videoProgress !== null && (
+        <div className="px-3 py-2 border-b" style={{ borderColor: colors.border, backgroundColor: colors.toolbarBg }}>
+          <div className="flex items-center justify-between text-xs mb-1" style={{ color: colors.textPrimary }}>
+            <span className="inline-flex items-center gap-1.5">
+              <Loader2 size={14} className="animate-spin" />
+              {t('uploading_video', { defaultValue: 'Uploading video…' })}
+            </span>
+            <span className="tabular-nums font-medium">{videoProgress}%</span>
+          </div>
+          <div className="h-1.5 w-full rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+            <div
+              className="h-full rounded-full transition-all duration-200"
+              style={{ width: `${videoProgress}%`, backgroundColor: '#0d9488' }}
+            />
+          </div>
+        </div>
+      )}
       <EditorContent
         editor={editor}
         className="px-3 py-3 min-h-[280px] max-h-[600px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
         style={{ color: colors.textPrimary }}
       />
       <input ref={imageInputRef} type="file" accept="image/*" onChange={onPickImage} className="hidden" />
-      <input ref={videoInputRef} type="file" accept="video/*" onChange={onPickVideo} className="hidden" />
+      <input ref={videoInputRef} type="file" accept=".mp4,.mov,.webm,video/mp4,video/quicktime,video/webm" onChange={onPickVideo} className="hidden" />
       <input
         ref={fileInputRef}
         type="file"
@@ -535,6 +609,39 @@ export const LessonEditor = forwardRef<LessonEditorHandle, LessonEditorProps>((
         className="hidden"
         accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.mp4,.mov,.mp3,.wav,.zip"
       />
+
+      {/* Embed-link dialog — replaces the native window.prompt. */}
+      <Modal
+        isOpen={embedOpen}
+        onClose={() => setEmbedOpen(false)}
+        title={t('embed_video', { defaultValue: 'Embed video' })}
+        size="md"
+      >
+        <div className="p-5 space-y-4">
+          <Input
+            type="url"
+            label={t('embed_video_prompt', { defaultValue: 'Paste a video link (YouTube, Vimeo, …)' })}
+            value={embedUrl}
+            onChange={e => setEmbedUrl(e.target.value)}
+            placeholder="https://www.youtube.com/watch?v=…"
+            autoFocus
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                submitEmbed();
+              }
+            }}
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setEmbedOpen(false)}>
+              {t('common:cancel', { defaultValue: 'Cancel' })}
+            </Button>
+            <Button onClick={submitEmbed} disabled={!embedUrl.trim()}>
+              {t('embed_video', { defaultValue: 'Embed' })}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 });

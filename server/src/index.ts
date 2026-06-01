@@ -83,7 +83,14 @@ app.use(helmet({
       imgSrc: ["'self'", "data:", "blob:"],
       fontSrc: ["'self'"],
       connectSrc: ["'self'", "ws:", "wss:"],
-      frameSrc: ["'none'"],
+      // Allow embedding lecture videos from common providers (the rest of
+      // the app frames nothing). Uploaded videos are same-origin via media.
+      frameSrc: [
+        "'self'",
+        "https://www.youtube.com",
+        "https://www.youtube-nocookie.com",
+        "https://player.vimeo.com",
+      ],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
     },
