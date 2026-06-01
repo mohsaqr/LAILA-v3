@@ -15,6 +15,8 @@
   "next": "Siguiente",
   "previous": "Anterior",
   "confirm": "Confirmar",
+  "confirm_permanent_warning": "Esta acción no se puede deshacer. Haz clic en eliminar de nuevo para confirmar.",
+  "confirm_final_delete": "Sí, eliminar permanentemente",
   "yes": "Sí",
   "no": "No",
   "ok": "OK",

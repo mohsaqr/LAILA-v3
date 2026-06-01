@@ -8,6 +8,7 @@ import {
   LineChart,
   Settings,
   GraduationCap,
+  Pencil,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../api/courses';
@@ -22,6 +23,7 @@ import { CollaborativeModule } from '../components/course/CollaborativeModule';
 import { CourseUpcomingAssignments } from '../components/course/CourseUpcomingAssignments';
 import { MiniCalendar } from '../components/dashboard/MiniCalendar';
 import { ModuleSection } from '../components/course/ModuleSection';
+import { CurriculumEditor } from './teach/CurriculumEditor';
 import { Modal } from '../components/common/Modal';
 import { Input } from '../components/common/Input';
 import { Avatar } from '../components/dashboard/Avatar';
@@ -44,6 +46,20 @@ export const CourseDetails = () => {
   // Activation code modal state
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [activationCode, setActivationCode] = useState('');
+
+  // Inline Edit Mode — toggles the read-only module list into the same
+  // curriculum editor used by the setup/manage content step, without leaving
+  // this page.
+  const [editMode, setEditMode] = useState(false);
+  const toggleEditMode = () => {
+    setEditMode(prev => {
+      const next = !prev;
+      // Leaving edit mode: refresh the read-only view so it reflects any
+      // changes made through the editor (which uses its own query key).
+      if (!next) queryClient.invalidateQueries({ queryKey: ['course', id] });
+      return next;
+    });
+  };
 
   // Theme colors
   const colors = {
@@ -329,17 +345,42 @@ export const CourseDetails = () => {
                     </Link>
                   )}
                   {canManage && (
-                    <Link
-                      to={`/teach/courses/${course.id}/setup?step=setting`}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all hover:-translate-y-0.5"
-                      style={{
-                        backgroundColor: isDark ? 'rgba(8,143,143,0.18)' : '#ccfbfb',
-                        color: isDark ? '#22d3d3' : '#065c5c',
-                      }}
-                    >
-                      <Settings className="w-4 h-4" strokeWidth={2.25} />
-                      {t('manage', { defaultValue: 'Manage' })}
-                    </Link>
+                    <>
+                      <button
+                        type="button"
+                        onClick={toggleEditMode}
+                        aria-pressed={editMode}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all hover:-translate-y-0.5"
+                        style={
+                          editMode
+                            ? {
+                                backgroundImage:
+                                  'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)',
+                                color: '#ffffff',
+                              }
+                            : {
+                                backgroundColor: isDark ? 'rgba(8,143,143,0.18)' : '#ccfbfb',
+                                color: isDark ? '#22d3d3' : '#065c5c',
+                              }
+                        }
+                      >
+                        <Pencil className="w-4 h-4" strokeWidth={2.25} />
+                        {editMode
+                          ? t('exit_edit_mode', { defaultValue: 'Exit Edit Mode' })
+                          : t('edit_mode', { defaultValue: 'Edit Mode' })}
+                      </button>
+                      <Link
+                        to={`/teach/courses/${course.id}/setup?step=setting`}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all hover:-translate-y-0.5"
+                        style={{
+                          backgroundColor: isDark ? 'rgba(8,143,143,0.18)' : '#ccfbfb',
+                          color: isDark ? '#22d3d3' : '#065c5c',
+                        }}
+                      >
+                        <Settings className="w-4 h-4" strokeWidth={2.25} />
+                        {t('manage', { defaultValue: 'Manage' })}
+                      </Link>
+                    </>
                   )}
                 </div>
               </div>
@@ -373,7 +414,16 @@ export const CourseDetails = () => {
         <div className="flex flex-col lg:flex-row gap-4 md:gap-8">
           {/* Main Content Column */}
           <div className="flex-1 min-w-0">
-            {course.modules && course.modules.length > 0 ? (
+            {editMode ? (
+              /* Inline editing: reuse the exact curriculum editor from the
+                 setup/manage content step. Deletions require a second
+                 confirmation click here. */
+              <CurriculumEditor
+                courseId={parseInt(id!)}
+                embedded
+                doubleConfirmDeletes
+              />
+            ) : course.modules && course.modules.length > 0 ? (
               <div className={viewMode === 'accordion' ? 'space-y-2' : 'space-y-6'}>
                 {course.modules.map((module, moduleIndex) => (
                   <div
