@@ -74,9 +74,19 @@ interface CurriculumEditorProps {
   courseId?: number;
   /** When true, hide the page-level breadcrumb + outer max-w container so the editor can be embedded inside another page (the wizard). */
   embedded?: boolean;
+  /**
+   * When true, every delete confirmation requires a second click before it
+   * fires. Used by the inline Edit Mode on the public course page; defaults
+   * to false so the setup/manage flow keeps its single-step confirmation.
+   */
+  doubleConfirmDeletes?: boolean;
 }
 
-export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: CurriculumEditorProps = {}) => {
+export const CurriculumEditor = ({
+  courseId: courseIdProp,
+  embedded = false,
+  doubleConfirmDeletes = false,
+}: CurriculumEditorProps = {}) => {
   const { t } = useTranslation('teaching');
   const { id } = useParams<{ id: string }>();
   const courseId = courseIdProp ?? parseInt(id!, 10);
@@ -1200,7 +1210,10 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
       ...module,
       assignments: assignmentsByModule[module.id] || [],
       labAssignments: labAssignmentsByModule[module.id] || [],
-      forums: forumsByModule[module.id] || [],
+      // ModuleItem (and the forum move-handlers) read forums from
+      // `module.forumThreads`; getCourseDetails delivers them as a separate
+      // top-level array, so re-attach the grouped list under that key.
+      forumThreads: forumsByModule[module.id] || [],
     }));
 
   return (
@@ -1671,6 +1684,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
         message={t('delete_module_confirm', { title: deleteModuleConfirm?.title })}
         confirmText={t('common:delete')}
         loading={deleteModuleMutation.isPending}
+        requireSecondConfirm={doubleConfirmDeletes}
       />
 
       {/* Delete Lesson Confirmation */}
@@ -1684,6 +1698,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
         message={t('delete_lesson_confirm', { title: deleteLectureConfirm?.title })}
         confirmText={t('common:delete')}
         loading={deleteLectureMutation.isPending}
+        requireSecondConfirm={doubleConfirmDeletes}
       />
 
       {/* Code Lab Modal */}
@@ -2147,6 +2162,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
         message={t('delete_code_lab_confirm', { title: deleteCodeLabConfirm?.title })}
         confirmText={t('common:delete')}
         loading={deleteCodeLabMutation.isPending}
+        requireSecondConfirm={doubleConfirmDeletes}
       />
 
       {/* Assignment Modal — three-step wizard */}
@@ -2172,6 +2188,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
         message={t('delete_assignment_confirm', { title: deleteAssignmentConfirm?.title })}
         confirmText={t('common:delete')}
         loading={deleteAssignmentMutation.isPending}
+        requireSecondConfirm={doubleConfirmDeletes}
       />
 
       {/* Forum Wizard Modal */}
@@ -2197,6 +2214,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
         message={t('delete_forum_confirm', { title: deleteForumConfirm?.title })}
         confirmText={t('common:delete')}
         loading={deleteForumMutation.isPending}
+        requireSecondConfirm={doubleConfirmDeletes}
       />
 
       {/* Quiz Wizard Modal */}
@@ -2222,6 +2240,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
         message={t('delete_quiz_confirm', { title: deleteQuizConfirm?.title })}
         confirmText={t('common:delete')}
         loading={deleteQuizMutation.isPending}
+        requireSecondConfirm={doubleConfirmDeletes}
       />
 
       {/* Delete Course Confirmation */}
@@ -2233,6 +2252,7 @@ export const CurriculumEditor = ({ courseId: courseIdProp, embedded = false }: C
         message={t('delete_course_confirm', { title: course?.title })}
         confirmText={t('common:delete')}
         loading={deleteCourseMutation.isPending}
+        requireSecondConfirm={doubleConfirmDeletes}
       />
 
     </div>

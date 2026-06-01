@@ -15,6 +15,8 @@
   "next": "Next",
   "previous": "Previous",
   "confirm": "Confirm",
+  "confirm_permanent_warning": "This action cannot be undone. Click delete again to confirm.",
+  "confirm_final_delete": "Yes, delete permanently",
   "yes": "Yes",
   "no": "No",
   "ok": "OK",

@@ -15,6 +15,8 @@
   "next": "Seuraava",
   "previous": "Edellinen",
   "confirm": "Vahvista",
+  "confirm_permanent_warning": "Tätä toimintoa ei voi peruuttaa. Vahvista napsauttamalla poista uudelleen.",
+  "confirm_final_delete": "Kyllä, poista pysyvästi",
   "yes": "Kyllä",
   "no": "Ei",
   "ok": "OK",

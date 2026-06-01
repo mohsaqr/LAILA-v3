@@ -998,6 +998,8 @@
   "total_courses": "إجمالي الدورات",
   "continue_learning": "متابعة التعلم",
   "manage": "إدارة",
+  "edit_mode": "وضع التحرير",
+  "exit_edit_mode": "إنهاء وضع التحرير",
   "catalog_hero_title": "تدريسك في لمحة",
   "catalog_hero_subtitle": "اطّلع على حال دوراتك وطلابك، ثم أنشئ ما هو جديد بضغطة واحدة.",
   "learning_analytics": "تحليلات التعلم",
