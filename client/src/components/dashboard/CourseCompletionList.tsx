@@ -23,7 +23,8 @@ interface CourseCompletionListProps {
   className?: string;
 }
 
-const STRIPE_COLORS = ['#0d9488', '#a855f7', '#f59e0b', '#ec4899', '#0ea5e9', '#10b981', '#ef4444'];
+// Single LAILA base teal — every course row uses the one brand colour.
+const STRIPE_COLORS = ['#0d9488'];
 
 /**
  * Vertical list of courses with a coloured left stripe per row, the

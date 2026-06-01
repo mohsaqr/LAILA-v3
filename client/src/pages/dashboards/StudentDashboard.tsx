@@ -184,7 +184,7 @@ export const StudentDashboard = () => {
                 icon={BookOpen}
                 label={t('common:enrolled_courses', { defaultValue: 'Enrolled Courses' })}
                 value={enrolledCount}
-                color="violet"
+                color="teal"
                 href="/courses"
               />
               <StatTile
