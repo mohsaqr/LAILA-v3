@@ -267,6 +267,25 @@ export const CourseDetails = () => {
                 </span>
               </div>
 
+              {/* Prerequisites — clickable chips linking to each required course. */}
+              {(course.prerequisites?.length ?? 0) > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                  <span className="text-xs font-medium" style={{ color: colors.textMuted }}>
+                    {t('prerequisites', { defaultValue: 'Prerequisites' })}:
+                  </span>
+                  {course.prerequisites!.map(p => (
+                    <Link
+                      key={p.prerequisiteCourseId}
+                      to={`/courses/${p.prerequisiteCourseId}`}
+                      className="text-[11px] font-medium px-2.5 py-1 rounded-full transition-all hover:-translate-y-0.5 hover:underline"
+                      style={{ backgroundColor: colors.bgPrimary, color: colors.textPrimary600 }}
+                    >
+                      {p.prerequisiteCourse?.title ?? `#${p.prerequisiteCourseId}`}
+                    </Link>
+                  ))}
+                </div>
+              )}
+
               {/* Instructor + Enroll on one line. */}
               <div className="flex flex-wrap items-center gap-3 mt-1">
                 {course.instructor && (

@@ -55,6 +55,13 @@ export interface Course {
   curriculumViewMode?: CurriculumViewMode;
   enabledLabs?: string | null;
   activationCode?: string | null;
+  /** ISO-8601 course start date+time, or null if unset. */
+  startTime?: string | null;
+  /** Courses that must be completed before enrolling in this one. */
+  prerequisites?: {
+    prerequisiteCourseId: number;
+    prerequisiteCourse?: { id: number; title: string; slug?: string; thumbnail?: string | null };
+  }[];
   instructor?: {
     id: number;
     fullname: string;

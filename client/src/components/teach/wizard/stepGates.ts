@@ -2,7 +2,7 @@ import type { CourseFormData } from '../CourseForm';
 
 export type StepId = 'setting' | 'content' | 'tutors' | 'team' | 'publish';
 
-export const STEP_ORDER: StepId[] = ['setting', 'content', 'tutors', 'team', 'publish'];
+export const STEP_ORDER: StepId[] = ['setting', 'team', 'content', 'tutors', 'publish'];
 
 export interface WizardCtx {
   /** Course id once the draft is saved; null on the create page. */

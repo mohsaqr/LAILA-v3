@@ -171,6 +171,39 @@ class PrerequisiteService {
   }
 
   /**
+   * Replace the full set of prerequisites for a course in one call (used by
+   * the course setup form's multi-select). Ownership is assumed to be checked
+   * by the caller (course service). Self-references and ids that don't exist
+   * are dropped; duplicates are collapsed.
+   */
+  async setPrerequisites(courseId: number, prerequisiteCourseIds: number[]) {
+    const unique = [...new Set(prerequisiteCourseIds)].filter(id => id !== courseId);
+
+    // Keep only ids that point at real courses.
+    const existing = unique.length
+      ? await prisma.course.findMany({
+          where: { id: { in: unique } },
+          select: { id: true },
+        })
+      : [];
+    const validIds = existing.map(c => c.id);
+
+    await prisma.$transaction([
+      prisma.coursePrerequisite.deleteMany({ where: { courseId } }),
+      ...(validIds.length
+        ? [
+            prisma.coursePrerequisite.createMany({
+              data: validIds.map(prerequisiteCourseId => ({ courseId, prerequisiteCourseId })),
+            }),
+          ]
+        : []),
+    ]);
+
+    logger.info({ courseId, count: validIds.length }, 'Prerequisites set');
+    return validIds;
+  }
+
+  /**
    * Check if a user meets prerequisites for a course
    */
   async checkPrerequisites(courseId: number, userId: number) {
