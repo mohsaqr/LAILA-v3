@@ -147,12 +147,13 @@ router.put('/threads/:threadId/lock', authenticateToken, requireInstructor, asyn
   res.json({ success: true, data: thread });
 }));
 
-// Toggle a "like" by the current user on this discussion. Idempotent via
-// the (threadId, userId) unique constraint — POSTing twice toggles off.
+// Set / switch / toggle the current user's reaction on this discussion.
+// Body: { type?: 'like' | 'support' | 'insight' | 'funny' } (defaults to
+// 'like'). Re-posting the same type toggles it off.
 router.post('/threads/:threadId/like', authenticateToken, asyncHandler(async (req, res) => {
   const threadId = parseInt(req.params.threadId);
   const user = (req as any).user;
-  const result = await forumService.toggleThreadLike(threadId, user.id);
+  const result = await forumService.toggleThreadLike(threadId, user.id, req.body?.type);
   res.json({ success: true, data: result });
 }));
 

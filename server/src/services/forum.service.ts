@@ -7,6 +7,22 @@ import { courseRoleService } from './courseRole.service.js';
 
 const logger = createLogger('forum');
 
+/** Supported reaction kinds stored in `forum_thread_likes.type`. */
+export const FORUM_REACTION_TYPES = ['like', 'support', 'insight', 'funny'] as const;
+export type ForumReactionType = (typeof FORUM_REACTION_TYPES)[number];
+
+/** Coerce arbitrary input to a valid reaction type, defaulting to 'like'. */
+const normalizeReaction = (t?: string | null): ForumReactionType =>
+  (FORUM_REACTION_TYPES as readonly string[]).includes(t ?? '') ? (t as ForumReactionType) : 'like';
+
+/** Empty per-type tally. */
+const zeroReactions = (): Record<ForumReactionType, number> => ({
+  like: 0,
+  support: 0,
+  insight: 0,
+  funny: 0,
+});
+
 /**
  * Forum and ForumThread were merged into a single flat ForumThread model
  * (see migration `forum_collapse_layers`). What used to be a Forum is now
@@ -340,7 +356,6 @@ class ForumService {
             requester: { select: { id: true, fullname: true } },
           },
         },
-        _count: { select: { likes: true } },
       },
     });
 
@@ -381,24 +396,50 @@ class ForumService {
 
     const myLikeRow = await prisma.forumThreadLike.findUnique({
       where: { threadId_userId: { threadId, userId } },
-      select: { id: true },
+      select: { type: true },
     });
+    const { reactions, total } = await this.getReactionBreakdown(threadId);
 
     return {
       ...thread,
       author: thread.isAnonymous ? null : authorMap.get(thread.authorId),
       posts: postsWithAuthors,
-      likeCount: thread._count.likes,
+      likeCount: total,
       myLike: !!myLikeRow,
+      reactions,
+      myReaction: myLikeRow ? normalizeReaction(myLikeRow.type) : null,
     };
   }
 
+  /** Per-type reaction tally for a thread plus the grand total. */
+  private async getReactionBreakdown(threadId: number) {
+    const grouped = await prisma.forumThreadLike.groupBy({
+      by: ['type'],
+      where: { threadId },
+      _count: { _all: true },
+    });
+    const reactions = zeroReactions();
+    let total = 0;
+    for (const g of grouped) {
+      const count = g._count._all;
+      reactions[normalizeReaction(g.type)] += count;
+      total += count;
+    }
+    return { reactions, total };
+  }
+
   /**
-   * Toggle a "like" from `userId` on `threadId`. The (threadId, userId)
-   * unique constraint keeps us idempotent: insert when missing, delete
-   * when present. Returns the resulting state + the updated total count.
+   * Set / switch / toggle the current user's reaction on a thread. The
+   * (threadId, userId) unique constraint means one reaction per user:
+   *   - no existing row  → create with `type`
+   *   - same type        → remove (toggle off)
+   *   - different type    → switch to `type`
+   * Returns the user's resulting reaction (or null) plus the per-type
+   * breakdown and grand total. `liked`/`likeCount` are kept for
+   * backwards compatibility with existing callers.
    */
-  async toggleThreadLike(threadId: number, userId: number) {
+  async toggleThreadLike(threadId: number, userId: number, rawType?: string) {
+    const type = normalizeReaction(rawType);
     const thread = await prisma.forumThread.findUnique({
       where: { id: threadId },
       include: { course: { select: { id: true, instructorId: true } } },
@@ -423,20 +464,23 @@ class ForumService {
 
     const existing = await prisma.forumThreadLike.findUnique({
       where: { threadId_userId: { threadId, userId } },
-      select: { id: true },
+      select: { id: true, type: true },
     });
 
-    let liked: boolean;
-    if (existing) {
+    let myReaction: ForumReactionType | null;
+    if (!existing) {
+      await prisma.forumThreadLike.create({ data: { threadId, userId, type } });
+      myReaction = type;
+    } else if (existing.type === type) {
       await prisma.forumThreadLike.delete({ where: { id: existing.id } });
-      liked = false;
+      myReaction = null;
     } else {
-      await prisma.forumThreadLike.create({ data: { threadId, userId } });
-      liked = true;
+      await prisma.forumThreadLike.update({ where: { id: existing.id }, data: { type } });
+      myReaction = type;
     }
 
-    const likeCount = await prisma.forumThreadLike.count({ where: { threadId } });
-    return { liked, likeCount };
+    const { reactions, total } = await this.getReactionBreakdown(threadId);
+    return { liked: myReaction != null, likeCount: total, myReaction, reactions };
   }
 
   async updateThread(threadId: number, userId: number, data: { title?: string; content?: string }, isAdmin = false) {

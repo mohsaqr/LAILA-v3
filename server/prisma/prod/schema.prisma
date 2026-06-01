@@ -1837,6 +1837,10 @@ model ForumThreadLike {
   id        Int         @id @default(autoincrement())
   threadId  Int         @map("thread_id")
   userId    Int         @map("user_id")
+  // Reaction kind: 'like' | 'support' | 'insight' | 'funny'. Existing rows
+  // default to 'like'. Still one reaction per user per thread (the unique
+  // constraint below); switching reactions updates this column.
+  type      String      @default("like")
   createdAt DateTime    @default(now()) @map("created_at")
   thread    ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
   user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
