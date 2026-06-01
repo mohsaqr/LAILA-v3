@@ -126,6 +126,11 @@ export const CourseCreateWizard = () => {
     { id: 'publish', label: t('teaching:wizard_step_publish', { defaultValue: 'Publish' }),     icon: Send },
   ];
 
+  // Before the course exists, only the Setting step is shown — the other
+  // tabs appear once the draft is created. After that, every tab is visible
+  // and freely navigable (see computeUnlockedSteps).
+  const visibleSteps = courseId == null ? steps.filter(s => s.id === 'setting') : steps;
+
   const goToStep = useCallback(
     (id: StepId) => {
       setActiveStep(id);
@@ -297,7 +302,7 @@ export const CourseCreateWizard = () => {
 
         <div className="mb-6 md:mb-8">
           <Stepper
-            steps={steps}
+            steps={visibleSteps}
             activeStep={activeStep}
             unlockedSteps={unlocked}
             onStepClick={handleStepChange}
