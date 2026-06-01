@@ -122,6 +122,7 @@
   "continue": "متابعة",
   "n_students": "{{count}} طالب",
   "n_modules": "{{count}} وحدة",
+  "drafts": "الدورات المسودة",
   "instructor_view": "عرض المدرس",
   "edit_mode": "وضع التحرير",
   "exit_edit_mode": "الخروج من وضع التحرير",

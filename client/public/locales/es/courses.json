@@ -122,6 +122,7 @@
   "continue": "Continuar",
   "n_students": "{{count}} estudiantes",
   "n_modules": "{{count}} módulos",
+  "drafts": "Cursos en borrador",
   "instructor_view": "Vista del Instructor",
   "edit_mode": "Modo Edición",
   "exit_edit_mode": "Salir del Modo Edición",
