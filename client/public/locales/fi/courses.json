@@ -543,6 +543,8 @@
   "curriculum": "Opetussuunnitelma",
   "quizzes": "Kokeet",
   "ai_tutors": "AI-tutorit",
+  "course_published": "Kurssi julkaistu",
+  "course_unpublished": "Kurssi siirretty luonnokseksi",
   "certificates": "Todistukset",
   "course_navigation": "Kurssin navigointi",
   "content_lecture": "Luento",

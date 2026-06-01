@@ -9,6 +9,9 @@ import {
   Settings,
   GraduationCap,
   Pencil,
+  Bot,
+  Globe,
+  FileEdit,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../api/courses';
@@ -24,6 +27,7 @@ import { CourseUpcomingAssignments } from '../components/course/CourseUpcomingAs
 import { MiniCalendar } from '../components/dashboard/MiniCalendar';
 import { ModuleSection } from '../components/course/ModuleSection';
 import { CurriculumEditor } from './teach/CurriculumEditor';
+import { TutorsStep } from '../components/teach/wizard/TutorsStep';
 import { Modal } from '../components/common/Modal';
 import { Input } from '../components/common/Input';
 import { Avatar } from '../components/dashboard/Avatar';
@@ -96,6 +100,30 @@ export const CourseDetails = () => {
     },
     onError: (error: Error) => {
       toast.error(error.message);
+    },
+  });
+
+  // Publish / unpublish toggle for the inline Edit Mode status control.
+  const publishMutation = useMutation({
+    mutationFn: () => coursesApi.publishCourse(parseInt(id!)),
+    onSuccess: () => {
+      toast.success(t('course_published', { defaultValue: 'Course published' }));
+      queryClient.invalidateQueries({ queryKey: ['course', id] });
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error ?? error?.message ?? t('common:error'));
+    },
+  });
+  const unpublishMutation = useMutation({
+    mutationFn: () => coursesApi.unpublishCourse(parseInt(id!)),
+    onSuccess: () => {
+      toast.success(t('course_unpublished', { defaultValue: 'Course moved to draft' }));
+      queryClient.invalidateQueries({ queryKey: ['course', id] });
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error ?? error?.message ?? t('common:error'));
     },
   });
 
@@ -399,6 +427,31 @@ export const CourseDetails = () => {
                         <Settings className="w-4 h-4" strokeWidth={2.25} />
                         {t('manage', { defaultValue: 'Manage' })}
                       </Link>
+                      {editMode && (() => {
+                        const isPublished = course.status === 'published';
+                        const busy = publishMutation.isPending || unpublishMutation.isPending;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => (isPublished ? unpublishMutation : publishMutation).mutate()}
+                            disabled={busy}
+                            title={isPublished
+                              ? t('course_unpublished', { defaultValue: 'Move to draft' })
+                              : t('course_published', { defaultValue: 'Publish course' })}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed"
+                            style={isPublished
+                              ? { backgroundColor: isDark ? 'rgba(16,185,129,0.18)' : '#d1fae5', color: isDark ? '#6ee7b7' : '#065f46' }
+                              : { backgroundColor: isDark ? 'rgba(245,158,11,0.18)' : '#fef3c7', color: isDark ? '#fcd34d' : '#92400e' }}
+                          >
+                            {isPublished
+                              ? <Globe className="w-4 h-4" strokeWidth={2.25} />
+                              : <FileEdit className="w-4 h-4" strokeWidth={2.25} />}
+                            {isPublished
+                              ? t('common:published', { defaultValue: 'Published' })
+                              : t('common:draft', { defaultValue: 'Draft' })}
+                          </button>
+                        );
+                      })()}
                     </>
                   )}
                 </div>
@@ -434,14 +487,26 @@ export const CourseDetails = () => {
           {/* Main Content Column */}
           <div className="flex-1 min-w-0">
             {editMode ? (
-              /* Inline editing: reuse the exact curriculum editor from the
-                 setup/manage content step. Deletions require a second
-                 confirmation click here. */
-              <CurriculumEditor
-                courseId={parseInt(id!)}
-                embedded
-                doubleConfirmDeletes
-              />
+              /* Inline editing: reuse the curriculum editor + AI tutor
+                 manager from the setup/manage steps. Deletions require a
+                 second confirmation click here. */
+              <div className="space-y-10">
+                <CurriculumEditor
+                  courseId={parseInt(id!)}
+                  embedded
+                  doubleConfirmDeletes
+                />
+                <section>
+                  <h2
+                    className="text-lg font-semibold mb-3 flex items-center gap-2"
+                    style={{ color: colors.textPrimary }}
+                  >
+                    <Bot className="w-5 h-5" style={{ color: colors.textTeal }} />
+                    {t('ai_tutors', { defaultValue: 'AI Tutors' })}
+                  </h2>
+                  <TutorsStep courseId={parseInt(id!)} />
+                </section>
+              </div>
             ) : course.modules && course.modules.length > 0 ? (
               <div className={viewMode === 'accordion' ? 'space-y-2' : 'space-y-6'}>
                 {course.modules.map((module, moduleIndex) => (
