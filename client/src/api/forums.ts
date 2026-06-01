@@ -1,6 +1,16 @@
 import apiClient from './client';
 import { ApiResponse } from '../types';
 
+/** Reaction kinds a user can leave on a discussion. */
+export type ForumReactionType = 'like' | 'support' | 'insight' | 'funny';
+
+export interface ThreadReactionResult {
+  liked: boolean;
+  likeCount: number;
+  myReaction: ForumReactionType | null;
+  reactions: Record<ForumReactionType, number>;
+}
+
 /**
  * The Forum container model was dropped (see migration
  * `forum_collapse_layers`). A "forum" is now a single discussion
@@ -31,10 +41,14 @@ export interface ForumThread {
   module?: { id: number; title: string } | null;
   _count?: { posts: number };
   replyCount?: number;
-  /** Total "likes" on the discussion. Returned by getThread. */
+  /** Total reactions on the discussion. Returned by getThread. */
   likeCount?: number;
-  /** Whether the calling user has liked. Returned by getThread. */
+  /** Whether the calling user has reacted. Returned by getThread. */
   myLike?: boolean;
+  /** The calling user's reaction kind, or null. Returned by getThread. */
+  myReaction?: ForumReactionType | null;
+  /** Per-type reaction tally. Returned by getThread. */
+  reactions?: Record<ForumReactionType, number>;
 }
 
 export interface ForumPost {
@@ -177,10 +191,17 @@ export const forumsApi = {
     return response.data.data!;
   },
 
-  /** Toggle the calling user's "like" on this discussion. */
-  toggleThreadLike: async (threadId: number): Promise<{ liked: boolean; likeCount: number }> => {
-    const response = await apiClient.post<ApiResponse<{ liked: boolean; likeCount: number }>>(
+  /**
+   * Set / switch / toggle the calling user's reaction on this discussion.
+   * Re-sending the same type toggles it off. Defaults to 'like'.
+   */
+  toggleThreadLike: async (
+    threadId: number,
+    type: ForumReactionType = 'like',
+  ): Promise<ThreadReactionResult> => {
+    const response = await apiClient.post<ApiResponse<ThreadReactionResult>>(
       `/forums/threads/${threadId}/like`,
+      { type },
     );
     return response.data.data!;
   },

@@ -8,7 +8,10 @@ import {
   PinOff,
   Lock,
   Unlock,
-  Heart,
+  ThumbsUp,
+  HelpingHand,
+  Lightbulb,
+  Laugh,
   Share2,
   Bot,
   Sparkles,
@@ -18,7 +21,7 @@ import {
   Minus,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { forumsApi, ForumPost, CreatePostInput, TutorAgent } from '../api/forums';
+import { forumsApi, ForumPost, CreatePostInput, TutorAgent, ForumReactionType } from '../api/forums';
 import { resolveFileUrl } from '../api/client';
 import { coursesApi } from '../api/courses';
 import { useAuth } from '../hooks/useAuth';
@@ -41,6 +44,20 @@ import { extractHashtags, stripHashtags } from '../utils/forumTags';
 interface ThreadedPost extends ForumPost {
   replies?: ThreadedPost[];
 }
+
+/** The reactions a user can leave on a discussion, with their icons.
+ *  "Like" is a thumbs-up (not a heart). */
+const REACTIONS: {
+  type: ForumReactionType;
+  Icon: typeof ThumbsUp;
+  labelKey: string;
+  fallback: string;
+}[] = [
+  { type: 'like', Icon: ThumbsUp, labelKey: 'reaction_like', fallback: 'Like' },
+  { type: 'support', Icon: HelpingHand, labelKey: 'reaction_support', fallback: 'Support' },
+  { type: 'insight', Icon: Lightbulb, labelKey: 'reaction_insight', fallback: 'Insight' },
+  { type: 'funny', Icon: Laugh, labelKey: 'reaction_funny', fallback: 'Funny' },
+];
 
 export const Forum = () => {
   const { courseId, forumId, threadId } = useParams<{ courseId: string; forumId: string; threadId?: string }>();
@@ -189,26 +206,49 @@ export const Forum = () => {
     onError: (error: any) => toast.error(error.response?.data?.error || t('failed_update_discussion')),
   });
 
-  // Like toggle with optimistic update.
-  const toggleLikeMutation = useMutation({
-    mutationFn: () => forumsApi.toggleThreadLike(effectiveThreadId),
-    onMutate: async () => {
+  // Reaction picker open state + outside-click close.
+  const [reactionMenuOpen, setReactionMenuOpen] = useState(false);
+  const reactionMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!reactionMenuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (reactionMenuRef.current && !reactionMenuRef.current.contains(e.target as Node)) {
+        setReactionMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [reactionMenuOpen]);
+
+  // Set / switch / toggle the current user's reaction, with optimistic update.
+  const reactMutation = useMutation({
+    mutationFn: (type: ForumReactionType) => forumsApi.toggleThreadLike(effectiveThreadId, type),
+    onMutate: async (type: ForumReactionType) => {
       await queryClient.cancelQueries({ queryKey: ['thread', effectiveThreadId] });
       const prev = queryClient.getQueryData<any>(['thread', effectiveThreadId]);
-      queryClient.setQueryData(['thread', effectiveThreadId], (old: any) =>
-        old
-          ? {
-              ...old,
-              myLike: !old.myLike,
-              likeCount: (old.likeCount ?? 0) + (old.myLike ? -1 : 1),
-            }
-          : old,
-      );
+      queryClient.setQueryData(['thread', effectiveThreadId], (old: any) => {
+        if (!old) return old;
+        const reactions: Record<string, number> = {
+          like: 0, support: 0, insight: 0, funny: 0, ...(old.reactions ?? {}),
+        };
+        const prevReaction: ForumReactionType | null = old.myReaction ?? null;
+        let next: ForumReactionType | null;
+        if (prevReaction === type) {
+          reactions[type] = Math.max(0, reactions[type] - 1);
+          next = null;
+        } else {
+          if (prevReaction) reactions[prevReaction] = Math.max(0, reactions[prevReaction] - 1);
+          reactions[type] = (reactions[type] ?? 0) + 1;
+          next = type;
+        }
+        const likeCount = Object.values(reactions).reduce((a, b) => a + b, 0);
+        return { ...old, myReaction: next, myLike: next != null, reactions, likeCount };
+      });
       return { prev };
     },
     onError: (_e, _v, ctx: any) => {
       if (ctx?.prev) queryClient.setQueryData(['thread', effectiveThreadId], ctx.prev);
-      toast.error(t('failed_to_like', { defaultValue: 'Could not save like' }));
+      toast.error(t('failed_to_like', { defaultValue: 'Could not save reaction' }));
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['thread', effectiveThreadId] });
@@ -686,7 +726,9 @@ export const Forum = () => {
           {(() => {
             const tags = extractHashtags(thread.content);
             const likeCount = (thread as any).likeCount ?? 0;
-            const myLike = !!(thread as any).myLike;
+            const myReaction: ForumReactionType | null = (thread as any).myReaction ?? null;
+            const reactionCounts: Record<string, number> = (thread as any).reactions ?? {};
+            const activeReaction = REACTIONS.find(r => r.type === myReaction);
             const authorName = thread.author
               ? thread.author.fullname
               : t('anonymous', { defaultValue: 'Anonymous' });
@@ -809,22 +851,58 @@ export const Forum = () => {
                     <MessageCircle className="w-4 h-4" />
                     <span className="tabular-nums">{totalReplies}</span>
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => user && toggleLikeMutation.mutate()}
-                    disabled={!user || toggleLikeMutation.isPending}
-                    aria-pressed={myLike}
-                    aria-label={
-                      myLike
-                        ? t('unlike_post', { defaultValue: 'Unlike' })
-                        : t('like_post', { defaultValue: 'Like' })
-                    }
-                    className="inline-flex items-center gap-1.5 hover:text-rose-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                    style={{ color: myLike ? '#e11d48' : colors.textSecondary }}
-                  >
-                    <Heart className="w-4 h-4" fill={myLike ? 'currentColor' : 'none'} />
-                    {likeCount > 0 && <span className="tabular-nums">{likeCount}</span>}
-                  </button>
+                  {/* Reactions: thumbs-up Like + Support / Insight / Funny.
+                      The trigger shows the user's current reaction; clicking
+                      opens a picker. */}
+                  <div ref={reactionMenuRef} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => user && setReactionMenuOpen(o => !o)}
+                      disabled={!user || reactMutation.isPending}
+                      aria-haspopup="true"
+                      aria-expanded={reactionMenuOpen}
+                      aria-label={t('react', { defaultValue: 'React' })}
+                      className="inline-flex items-center gap-1.5 transition-colors hover:text-teal-600 disabled:opacity-60 disabled:cursor-not-allowed"
+                      style={{ color: activeReaction ? '#0d9488' : colors.textSecondary }}
+                    >
+                      {(() => {
+                        const Icon = activeReaction ? activeReaction.Icon : ThumbsUp;
+                        return <Icon className="w-4 h-4" />;
+                      })()}
+                      {likeCount > 0 && <span className="tabular-nums">{likeCount}</span>}
+                    </button>
+
+                    {reactionMenuOpen && (
+                      <div
+                        className="absolute bottom-full left-0 mb-2 z-30 flex items-center gap-0.5 rounded-full border px-1.5 py-1 shadow-lg"
+                        style={{ backgroundColor: colors.bgCard, borderColor: colors.border }}
+                      >
+                        {REACTIONS.map(r => {
+                          const isActive = myReaction === r.type;
+                          const count = reactionCounts[r.type] ?? 0;
+                          return (
+                            <button
+                              key={r.type}
+                              type="button"
+                              onClick={() => { reactMutation.mutate(r.type); setReactionMenuOpen(false); }}
+                              title={t(r.labelKey, { defaultValue: r.fallback })}
+                              aria-label={t(r.labelKey, { defaultValue: r.fallback })}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-transform hover:scale-110"
+                              style={{
+                                color: isActive ? '#0d9488' : colors.textSecondary,
+                                backgroundColor: isActive
+                                  ? (isDark ? 'rgba(13,148,136,0.18)' : '#ccfbf1')
+                                  : 'transparent',
+                              }}
+                            >
+                              <r.Icon className="w-4 h-4" />
+                              {count > 0 && <span className="tabular-nums">{count}</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={handleShare}
