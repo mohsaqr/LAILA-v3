@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import {
   Search,
   GraduationCap,
   ChevronDown,
+  ChevronRight,
   X,
 } from 'lucide-react';
 import { coursesApi } from '../api/courses';
@@ -319,6 +321,19 @@ export const Catalog = () => {
     queryFn: categoriesApi.getCategories,
   });
 
+  // Instructor drafts — unpublished courses don't appear in the catalog grid
+  // (which is published-only), so without this an instructor can't find a
+  // course they created but haven't published (e.g. one with no modules yet).
+  const { data: myCourses } = useQuery({
+    queryKey: ['myCourses', 'catalogDrafts'],
+    queryFn: coursesApi.getMyCourses,
+    enabled: isAuthenticated && canCreateCourses,
+  });
+  const draftCourses = useMemo(
+    () => (myCourses ?? []).filter(c => c.status !== 'published'),
+    [myCourses],
+  );
+
   const { data, isLoading } = useQuery({
     queryKey: ['courses', { search, categoryIds, difficulty, page }],
     queryFn: () => coursesApi.getCourses({
@@ -399,6 +414,39 @@ export const Catalog = () => {
             createLabel={t('create_course')}
             loading={statsLoading}
           />
+        </div>
+      )}
+
+      {/* Instructor drafts — small, distinct from the course grid + the
+          Continue Learning rail. Unpublished courses live only here. */}
+      {canCreateCourses && draftCourses.length > 0 && (
+        <div className="mb-8 md:mb-10">
+          <h2
+            className="text-sm sm:text-base font-semibold mb-3"
+            style={{ color: colors.textPrimary }}
+          >
+            {t('drafts', { defaultValue: 'Draft Courses' })}
+          </h2>
+          <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700/60 overflow-hidden">
+            {draftCourses.map(c => (
+              <Link
+                key={c.id}
+                to={`/courses/${c.id}`}
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
+              >
+                <span className="flex-1 min-w-0 truncate text-sm font-medium" style={{ color: colors.textPrimary }}>
+                  {c.title}
+                </span>
+                <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                  {t('common:draft', { defaultValue: 'Draft' })}
+                </span>
+                <span className="shrink-0 text-xs tabular-nums hidden sm:inline" style={{ color: colors.textSecondary }}>
+                  {t('n_modules', { count: c._count?.modules ?? 0 })}
+                </span>
+                <ChevronRight className="w-4 h-4 shrink-0" style={{ color: colors.textSecondary }} />
+              </Link>
+            ))}
+          </div>
         </div>
       )}
 

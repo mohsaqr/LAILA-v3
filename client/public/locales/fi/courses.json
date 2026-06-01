@@ -122,6 +122,7 @@
   "continue": "Jatka",
   "n_students": "{{count}} opiskelijaa",
   "n_modules": "{{count}} moduulia",
+  "drafts": "Luonnoskurssit",
   "instructor_view": "Opettajan näkymä",
   "edit_mode": "Muokkaustila",
   "exit_edit_mode": "Poistu muokkaustilasta",

@@ -122,6 +122,7 @@
   "continue": "Continue",
   "n_students": "{{count}} students",
   "n_modules": "{{count}} modules",
+  "drafts": "Draft Courses",
   "instructor_view": "Instructor View",
   "edit_mode": "Edit Mode",
   "exit_edit_mode": "Exit Edit Mode",
