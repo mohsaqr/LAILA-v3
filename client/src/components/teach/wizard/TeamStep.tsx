@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, Search, Trash2, X } from 'lucide-react';
+import { ChevronDown, Search, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTheme } from '../../../hooks/useTheme';
 import { Avatar } from '../../dashboard/Avatar';
@@ -26,13 +26,12 @@ interface TeamStepProps {
  *  - Searchable instructor picker. Type a name → matching candidates
  *    drop down → click to add. No popup, no card grid of all 100
  *    instructors.
- *  - Live table of currently-selected members (avatar, name, email,
- *    role select, remove). Updates in real-time as the user picks.
- *  - Saves on the next step. Adds/removes/role changes accumulate
- *    locally in `pending`; the diff is flushed in a cleanup effect
- *    that fires when the user navigates away from the step (clicks
- *    Next, Back, or jumps via the stepper). React Query keeps the
- *    mutations in flight even after the component unmounts.
+ *  - Live table of the course's roles, read straight from the
+ *    ['courseRoles'] query (avatar, name, email, role select, remove).
+ *  - Each add / role-change / remove is persisted IMMEDIATELY (assign /
+ *    update / remove role) with an optimistic cache update, so changes
+ *    survive a page refresh. Every mutation invalidates the query on
+ *    settle to re-sync with the server.
  */
 export const TeamStep = ({ courseId, instructorId }: TeamStepProps) => {
   const { t } = useTranslation(['admin', 'common', 'teaching']);
@@ -50,96 +49,74 @@ export const TeamStep = ({ courseId, instructorId }: TeamStepProps) => {
     queryFn: () => usersApi.getUsers(1, 1000, undefined, 'instructor'),
   });
 
-  // ─── Pending (local) state — flushed on unmount ────────────────────────
-  type Pending = {
-    user: Pick<User, 'id' | 'fullname' | 'email' | 'avatarUrl'>;
-    role: CourseRoleType;
-    /** Existing role id from the server, if this user is already assigned. */
-    existingRoleId?: number;
-    /** Tracks the role we last knew on the server for diff purposes. */
-    serverRole?: CourseRoleType;
+  // Users already on the team — so the picker can exclude them.
+  const assignedUserIds = useMemo(
+    () => new Set(serverRoles.map(r => r.userId)),
+    [serverRoles],
+  );
+
+  // ─── Mutations — persist each change immediately (so it survives a page
+  //     refresh) with optimistic cache updates. The member list is read
+  //     straight from the ['courseRoles'] query, which each mutation
+  //     invalidates on settle. ────────────────────────────────────────────
+  const failToast = () =>
+    toast.error(t('admin:failed_to_save', { defaultValue: 'Failed to save team.' }));
+  const invalidateRoles = () =>
+    queryClient.invalidateQueries({ queryKey: ['courseRoles', courseId] });
+  const snapshot = async () => {
+    await queryClient.cancelQueries({ queryKey: ['courseRoles', courseId] });
+    return queryClient.getQueryData<CourseRole[]>(['courseRoles', courseId]);
   };
-  const [pending, setPending] = useState<Map<number, Pending>>(new Map());
-  const pendingRef = useRef(pending);
-  useEffect(() => { pendingRef.current = pending; }, [pending]);
+  const rollback = (ctx: { prev?: CourseRole[] } | undefined) => {
+    if (ctx?.prev) queryClient.setQueryData(['courseRoles', courseId], ctx.prev);
+    failToast();
+  };
 
-  // Hydrate from server on first load + whenever the server list changes.
-  // Preserve any local edits that haven't been flushed yet by overlaying
-  // the local state on top of the server roles.
-  const hydratedRef = useRef(false);
-  useEffect(() => {
-    if (hydratedRef.current && pending.size > 0) return;
-    const next = new Map<number, Pending>();
-    for (const r of serverRoles) {
-      const u = (r.user as Pick<User, 'id' | 'fullname' | 'email' | 'avatarUrl'> | undefined) ?? {
-        id: r.userId,
-        fullname: '',
-        email: '',
-        avatarUrl: null,
-      };
-      next.set(r.userId, {
-        user: u,
-        role: r.role as CourseRoleType,
-        existingRoleId: r.id,
-        serverRole: r.role as CourseRoleType,
-      });
-    }
-    setPending(next);
-    hydratedRef.current = true;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverRoles]);
-
-  // ─── Mutations (silent — no toasts on success, only on failure) ────────
   const assignMutation = useMutation({
     mutationFn: ({ userId, role }: { userId: number; role: CourseRoleType }) =>
       courseRolesApi.assignRole(courseId, userId, role, ROLE_DEFAULT_PERMISSIONS[role]),
-    onError: () => toast.error(t('admin:failed_to_save', { defaultValue: 'Failed to save team.' })),
-  });
-  const updateMutation = useMutation({
-    mutationFn: ({ roleId, role }: { roleId: number; role: CourseRoleType }) =>
-      courseRolesApi.updateRole(courseId, roleId, {
+    onMutate: async ({ userId, role }) => {
+      const prev = await snapshot();
+      const u = (usersData?.users ?? []).find(x => x.id === userId);
+      const optimistic = {
+        id: -Date.now(),
+        courseId,
+        userId,
         role,
         permissions: ROLE_DEFAULT_PERMISSIONS[role],
-      }),
-    onError: () => toast.error(t('admin:failed_to_save', { defaultValue: 'Failed to save team.' })),
-  });
-  const removeMutation = useMutation({
-    mutationFn: (roleId: number) => courseRolesApi.removeRole(courseId, roleId),
-    onError: () => toast.error(t('admin:failed_to_save', { defaultValue: 'Failed to save team.' })),
+        user: u ? { id: u.id, fullname: u.fullname, email: u.email, avatarUrl: u.avatarUrl ?? null } : undefined,
+      } as unknown as CourseRole;
+      queryClient.setQueryData<CourseRole[]>(['courseRoles', courseId], old => [optimistic, ...(old ?? [])]);
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => rollback(ctx as { prev?: CourseRole[] }),
+    onSettled: invalidateRoles,
   });
 
-  // ─── Flush diff on unmount (when the user clicks Next or jumps step) ──
-  useEffect(() => {
-    return () => {
-      const current = pendingRef.current;
-      const removed: number[] = [];
-      // For every user the server thinks is on the team, did we remove them locally?
-      for (const r of serverRoles) {
-        if (!current.has(r.userId)) removed.push(r.id);
-      }
-      const adds: Array<{ userId: number; role: CourseRoleType }> = [];
-      const updates: Array<{ roleId: number; role: CourseRoleType }> = [];
-      for (const [userId, p] of current.entries()) {
-        if (!p.existingRoleId) {
-          adds.push({ userId, role: p.role });
-        } else if (p.serverRole && p.serverRole !== p.role) {
-          updates.push({ roleId: p.existingRoleId, role: p.role });
-        }
-      }
-      // Fire all in parallel; React Query keeps them alive after unmount.
-      removed.forEach(id => removeMutation.mutate(id));
-      adds.forEach(args => assignMutation.mutate(args));
-      updates.forEach(args => updateMutation.mutate(args));
-      if (removed.length || adds.length || updates.length) {
-        // Invalidate after a tick so refetches pick up server state.
-        setTimeout(() => {
-          queryClient.invalidateQueries({ queryKey: ['courseRoles', courseId] });
-        }, 50);
-      }
-    };
-    // Intentional: only run cleanup on unmount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const updateMutation = useMutation({
+    mutationFn: ({ roleId, role }: { roleId: number; role: CourseRoleType }) =>
+      courseRolesApi.updateRole(courseId, roleId, { role, permissions: ROLE_DEFAULT_PERMISSIONS[role] }),
+    onMutate: async ({ roleId, role }) => {
+      const prev = await snapshot();
+      queryClient.setQueryData<CourseRole[]>(['courseRoles', courseId], old =>
+        (old ?? []).map(r => (r.id === roleId ? { ...r, role } : r)));
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => rollback(ctx as { prev?: CourseRole[] }),
+    onSettled: invalidateRoles,
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (roleId: number) => courseRolesApi.removeRole(courseId, roleId),
+    onMutate: async roleId => {
+      const prev = await snapshot();
+      queryClient.setQueryData<CourseRole[]>(['courseRoles', courseId], old =>
+        (old ?? []).filter(r => r.id !== roleId));
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => rollback(ctx as { prev?: CourseRole[] }),
+    onSettled: invalidateRoles,
+  });
 
   // ─── Search picker ────────────────────────────────────────────────────
   const [query, setQuery] = useState('');
@@ -163,44 +140,24 @@ export const TeamStep = ({ courseId, instructorId }: TeamStepProps) => {
     return all.filter(u => {
       if (u.id === instructorId) return false;
       if (u.isAdmin) return false;
-      if (pending.has(u.id)) return false;
+      if (assignedUserIds.has(u.id)) return false;
       if (!trimmed) return true;
       return (
         (u.fullname ?? '').toLowerCase().includes(trimmed) ||
         (u.email ?? '').toLowerCase().includes(trimmed)
       );
     });
-  }, [usersData, query, pending, instructorId]);
+  }, [usersData, query, assignedUserIds, instructorId]);
 
   const addUser = (user: User) => {
-    setPending(prev => {
-      const next = new Map(prev);
-      next.set(user.id, {
-        user: { id: user.id, fullname: user.fullname, email: user.email, avatarUrl: user.avatarUrl ?? null },
-        role: 'ta',
-      });
-      return next;
-    });
+    assignMutation.mutate({ userId: user.id, role: 'ta' });
     setQuery('');
     setOpen(false);
   };
 
-  const removeUser = (userId: number) => {
-    setPending(prev => {
-      const next = new Map(prev);
-      next.delete(userId);
-      return next;
-    });
-  };
+  const removeUser = (roleId: number) => removeMutation.mutate(roleId);
 
-  const changeRole = (userId: number, role: CourseRoleType) => {
-    setPending(prev => {
-      const next = new Map(prev);
-      const cur = next.get(userId);
-      if (cur) next.set(userId, { ...cur, role });
-      return next;
-    });
-  };
+  const changeRole = (roleId: number, role: CourseRoleType) => updateMutation.mutate({ roleId, role });
 
   // ─── Render ────────────────────────────────────────────────────────────
   const cardBg = isDark ? '#1f2937' : '#ffffff';
@@ -209,9 +166,11 @@ export const TeamStep = ({ courseId, instructorId }: TeamStepProps) => {
   const muted = isDark ? '#9ca3af' : '#6b7280';
   const dividerColor = isDark ? '#374151' : '#f3f4f6';
 
-  const members = Array.from(pending.values());
-  // Cast keeps the never-used CourseRole import live for TypeScript awareness.
-  void (null as unknown as CourseRole);
+  // Member list is the server roles directly (with optimistic updates applied
+  // to the query cache by the mutations above).
+  const members = serverRoles as Array<
+    CourseRole & { user?: Pick<User, 'id' | 'fullname' | 'email' | 'avatarUrl'> | null }
+  >;
 
   return (
     <div className="space-y-4">
@@ -296,59 +255,56 @@ export const TeamStep = ({ courseId, instructorId }: TeamStepProps) => {
               </tr>
             </thead>
             <tbody>
-              {members.map(({ user, role }) => (
-                <tr
-                  key={user.id}
-                  style={{ borderBottom: `1px solid ${dividerColor}` }}
-                  className="last:border-b-0"
-                >
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <Avatar
-                        src={user.avatarUrl ? resolveFileUrl(user.avatarUrl) : null}
-                        name={user.fullname || user.email || '?'}
-                        size="sm"
-                      />
-                      <span className="font-medium truncate" style={{ color: subtle }}>
-                        {user.fullname || '—'}
-                      </span>
-                    </div>
-                  </td>
-                  <td
-                    className="px-4 py-2.5 truncate hidden sm:table-cell"
-                    style={{ color: muted }}
+              {members.map(m => {
+                const user = m.user;
+                return (
+                  <tr
+                    key={m.id}
+                    style={{ borderBottom: `1px solid ${dividerColor}` }}
+                    className="last:border-b-0"
                   >
-                    {user.email || '—'}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <RoleSelect
-                      value={role}
-                      onChange={(next) => changeRole(user.id, next)}
-                    />
-                  </td>
-                  <td className="px-2 py-2.5 text-right">
-                    <button
-                      type="button"
-                      onClick={() => removeUser(user.id)}
-                      aria-label={t('common:remove', { defaultValue: 'Remove' })}
-                      title={t('common:remove', { defaultValue: 'Remove' })}
-                      className="inline-flex items-center justify-center w-7 h-7 rounded-md text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <Avatar
+                          src={user?.avatarUrl ? resolveFileUrl(user.avatarUrl) : null}
+                          name={user?.fullname || user?.email || '?'}
+                          size="sm"
+                        />
+                        <span className="font-medium truncate" style={{ color: subtle }}>
+                          {user?.fullname || '—'}
+                        </span>
+                      </div>
+                    </td>
+                    <td
+                      className="px-4 py-2.5 truncate hidden sm:table-cell"
+                      style={{ color: muted }}
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                      {user?.email || '—'}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <RoleSelect
+                        value={m.role as CourseRoleType}
+                        onChange={(next) => changeRole(m.id, next)}
+                      />
+                    </td>
+                    <td className="px-2 py-2.5 text-right">
+                      <button
+                        type="button"
+                        onClick={() => removeUser(m.id)}
+                        aria-label={t('common:remove', { defaultValue: 'Remove' })}
+                        title={t('common:remove', { defaultValue: 'Remove' })}
+                        className="inline-flex items-center justify-center w-7 h-7 rounded-md text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
-
-      {/* Reference unused import to satisfy strict-mode lint without
-          dropping availability for future callers. */}
-      <span aria-hidden className="hidden">
-        <X className="w-0 h-0" />
-      </span>
     </div>
   );
 };
