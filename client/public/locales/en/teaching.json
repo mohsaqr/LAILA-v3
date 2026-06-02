@@ -1242,7 +1242,7 @@
   "wizard_step_team": "Teachers",
   "wizard_step_content": "Content",
   "wizard_step_tutors": "AI Tutors",
-  "wizard_step_publish": "Publish",
+  "wizard_step_publish": "Review",
   "wizard_tutors_intro": "Attach AI tutors so students can ask questions and get guided help. You can skip this step and add tutors later.",
   "wizard_continue": "Save & Continue",
   "wizard_back": "Back",

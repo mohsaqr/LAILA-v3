@@ -123,7 +123,7 @@ export const CourseCreateWizard = () => {
     { id: 'team',    label: t('teaching:wizard_step_team',    { defaultValue: 'Teachers' }),    icon: UsersIcon },
     { id: 'content', label: t('teaching:wizard_step_content', { defaultValue: 'Content' }),     icon: Layers },
     { id: 'tutors',  label: t('teaching:wizard_step_tutors',  { defaultValue: 'AI Tutors' }),   icon: Bot },
-    { id: 'publish', label: t('teaching:wizard_step_publish', { defaultValue: 'Publish' }),     icon: Send },
+    { id: 'publish', label: t('teaching:wizard_step_publish', { defaultValue: 'Review' }),     icon: Send },
   ];
 
   // Before the course exists, only the Setting step is shown — the other
@@ -261,6 +261,22 @@ export const CourseCreateWizard = () => {
     }
   }, [activeStep, unlocked, goToStep, handleSettingContinue, t]);
 
+  // Content / AI Tutors / Team each persist their changes immediately as the
+  // user edits. The footer "Save" button on those steps re-syncs from the
+  // server and confirms the save (it does not force navigation — the stepper
+  // tabs handle that).
+  const handleSaveStep = useCallback(() => {
+    if (courseId != null) {
+      if (activeStep === 'team') {
+        queryClient.invalidateQueries({ queryKey: ['courseRoles', courseId] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+        queryClient.invalidateQueries({ queryKey: ['courseResourceCounts', courseId] });
+      }
+    }
+    toast.success(t('teaching:course_saved', { defaultValue: 'Saved' }));
+  }, [activeStep, courseId, queryClient, t]);
+
   const colors = {
     bg: isDark ? '#0b1220' : '#f8fafc',
     text: isDark ? '#f3f4f6' : '#111827',
@@ -377,23 +393,6 @@ export const CourseCreateWizard = () => {
           </button>
 
           <div className="flex items-center gap-2">
-            {(activeStep === 'team' || activeStep === 'tutors') && (
-              <button
-                type="button"
-                onClick={() => {
-                  const i = STEP_ORDER.indexOf(activeStep);
-                  const next = STEP_ORDER[i + 1];
-                  if (next) goToStep(next);
-                }}
-                className="inline-flex items-center justify-center px-5 py-2 rounded-lg text-sm font-medium transition-all"
-                style={{
-                  backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
-                  color: isDark ? '#cbd5e1' : '#374151',
-                }}
-              >
-                {t('teaching:wizard_skip', { defaultValue: 'Skip for now' })}
-              </button>
-            )}
             {activeStep === 'publish' ? (
               (() => {
                 const check = course
@@ -417,7 +416,7 @@ export const CourseCreateWizard = () => {
                   </button>
                 );
               })()
-            ) : (
+            ) : activeStep === 'setting' ? (
               <button
                 type="button"
                 onClick={handleForward}
@@ -428,9 +427,20 @@ export const CourseCreateWizard = () => {
                   color: '#ffffff',
                 }}
               >
-                {activeStep === 'setting'
-                  ? t('teaching:wizard_continue', { defaultValue: 'Save & Continue' })
-                  : t('common:next')}
+                {t('teaching:wizard_continue', { defaultValue: 'Save & Continue' })}
+              </button>
+            ) : (
+              /* Content / AI Tutors / Team — each saves on its own. */
+              <button
+                type="button"
+                onClick={handleSaveStep}
+                className="inline-flex items-center justify-center px-5 py-2 rounded-lg text-sm font-medium shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                style={{
+                  backgroundImage: 'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)',
+                  color: '#ffffff',
+                }}
+              >
+                {t('common:save', { defaultValue: 'Save' })}
               </button>
             )}
           </div>

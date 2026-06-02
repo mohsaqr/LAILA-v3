@@ -1242,7 +1242,7 @@
   "wizard_step_team": "Opettajat",
   "wizard_step_content": "Sisältö",
   "wizard_step_tutors": "Tekoälyohjaajat",
-  "wizard_step_publish": "Julkaise",
+  "wizard_step_publish": "Tarkistus",
   "wizard_tutors_intro": "Liitä tekoälyohjaajia, jotta opiskelijat saavat ohjattua apua. Voit ohittaa tämän ja lisätä myöhemmin.",
   "wizard_continue": "Tallenna & jatka",
   "wizard_back": "Takaisin",
