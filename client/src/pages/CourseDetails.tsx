@@ -9,7 +9,6 @@ import {
   Settings,
   GraduationCap,
   Pencil,
-  Bot,
   Globe,
   FileEdit,
 } from 'lucide-react';
@@ -27,7 +26,6 @@ import { CourseUpcomingAssignments } from '../components/course/CourseUpcomingAs
 import { MiniCalendar } from '../components/dashboard/MiniCalendar';
 import { ModuleSection } from '../components/course/ModuleSection';
 import { CurriculumEditor } from './teach/CurriculumEditor';
-import { TutorsStep } from '../components/teach/wizard/TutorsStep';
 import { Modal } from '../components/common/Modal';
 import { Input } from '../components/common/Input';
 import { Avatar } from '../components/dashboard/Avatar';
@@ -487,26 +485,14 @@ export const CourseDetails = () => {
           {/* Main Content Column */}
           <div className="flex-1 min-w-0">
             {editMode ? (
-              /* Inline editing: reuse the curriculum editor + AI tutor
-                 manager from the setup/manage steps. Deletions require a
-                 second confirmation click here. */
-              <div className="space-y-10">
-                <CurriculumEditor
-                  courseId={parseInt(id!)}
-                  embedded
-                  doubleConfirmDeletes
-                />
-                <section>
-                  <h2
-                    className="text-lg font-semibold mb-3 flex items-center gap-2"
-                    style={{ color: colors.textPrimary }}
-                  >
-                    <Bot className="w-5 h-5" style={{ color: colors.textTeal }} />
-                    {t('ai_tutors', { defaultValue: 'AI Tutors' })}
-                  </h2>
-                  <TutorsStep courseId={parseInt(id!)} />
-                </section>
-              </div>
+              /* Inline editing: reuse the curriculum editor from the
+                 setup/manage content step. Deletions require a second
+                 confirmation click here. */
+              <CurriculumEditor
+                courseId={parseInt(id!)}
+                embedded
+                doubleConfirmDeletes
+              />
             ) : course.modules && course.modules.length > 0 ? (
               <div className={viewMode === 'accordion' ? 'space-y-2' : 'space-y-6'}>
                 {course.modules.map((module, moduleIndex) => (
