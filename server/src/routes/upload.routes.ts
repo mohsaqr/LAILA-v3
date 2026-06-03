@@ -126,6 +126,69 @@ router.post(
   }
 );
 
+// Upload (lecture) video endpoint — instructors only. Stored in a dedicated
+// uploads/courses/videos folder, larger size cap, mp4/mov/webm only.
+const videosDir = path.join(uploadsDir, 'courses', 'videos');
+if (!fs.existsSync(videosDir)) {
+  fs.mkdirSync(videosDir, { recursive: true });
+}
+
+const videoStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, videosDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `${uuid()}${ext}`);
+  },
+});
+
+const videoFilter = (req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  const videoExts = ['.mp4', '.mov', '.webm'];
+  if (!videoExts.includes(ext)) {
+    cb(new Error('Only mp4, mov, webm video files are allowed'));
+    return;
+  }
+  const allowedMimes = allowedExtensions[ext];
+  if (!allowedMimes || !allowedMimes.includes(file.mimetype)) {
+    cb(new Error(`File type mismatch: ${ext} file with ${file.mimetype} MIME type`));
+    return;
+  }
+  cb(null, true);
+};
+
+const videoUpload = multer({
+  storage: videoStorage,
+  fileFilter: videoFilter,
+  limits: { fileSize: 200 * 1024 * 1024 }, // 200MB
+});
+
+router.post(
+  '/video',
+  authenticateToken,
+  requireInstructor,
+  videoUpload.single('file'),
+  (req: AuthRequest, res: Response) => {
+    if (!req.file) {
+      res.status(400).json({ success: false, error: 'No file uploaded' });
+      return;
+    }
+    const fileUrl = `/uploads/courses/videos/${req.file.filename}`;
+    res.json({
+      success: true,
+      data: {
+        url: fileUrl,
+        path: fileUrl,
+        originalName: req.file.originalname,
+        filename: req.file.filename,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+      },
+    });
+  }
+);
+
 // Upload image endpoint - any authenticated user (for forum posts, etc.)
 const imageFilter = (req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const ext = path.extname(file.originalname).toLowerCase();

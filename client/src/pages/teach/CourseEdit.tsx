@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Settings, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../../api/courses';
-import { Card, CardBody, CardHeader } from '../../components/common/Card';
+import { Card, CardBody } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
@@ -63,7 +63,7 @@ export const CourseEdit = () => {
 
   if (!course) {
     return (
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
         <div className="text-center">
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{t('course_not_found')}</h1>
           <p className="text-gray-600 mb-4">{t('no_description')}</p>
@@ -108,10 +108,6 @@ export const CourseEdit = () => {
       {/* Tab Content */}
       {activeTab === 'settings' ? (
         <Card>
-          <CardHeader>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{t('edit_course')}</h1>
-            <p className="text-gray-600 mt-1">{t('course_settings')}</p>
-          </CardHeader>
           <CardBody>
             <CourseForm
               initialData={course}

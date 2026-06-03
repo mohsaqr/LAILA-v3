@@ -18,11 +18,15 @@ export const buildForumBreadcrumb = (
   courseId: number | string,
   courseTitle: string,
   forumTitle?: string,
-  forumId?: number | string
+  forumId?: number | string,
+  /** Override for the "Forums" crumb's href. Students → /forums,
+   *  instructors / admins → /teach/forums. Falls back to the course-scoped
+   *  list when not supplied. */
+  forumsHref?: string,
 ): BreadcrumbItem[] => {
   const items: BreadcrumbItem[] = [
     ...buildCourseBreadcrumb(courseId, courseTitle),
-    { label: 'Forums', href: `/courses/${courseId}/forums` },
+    { label: 'Forums', href: forumsHref ?? `/courses/${courseId}/forums` },
   ];
   if (forumTitle && forumId) {
     items.push({ label: forumTitle, href: `/courses/${courseId}/forums/${forumId}` });
@@ -104,7 +108,7 @@ export const buildTeachingBreadcrumb = (
   section?: string
 ): BreadcrumbItem[] => {
   const items: BreadcrumbItem[] = [
-    { label: 'Courses', href: '/teach' },
+    { label: 'Courses', href: '/courses' },
   ];
   if (courseId && courseTitle) {
     items.push({ label: courseTitle, href: `/teach/courses/${courseId}/curriculum` });
@@ -114,6 +118,21 @@ export const buildTeachingBreadcrumb = (
   }
   return items;
 };
+
+/**
+ * Build breadcrumb for a global teaching list page (quizzes / forums /
+ * assignments / surveys) when it is pre-filtered to a single course via
+ * `?courseId=`. Renders `Courses › <Course> › <Section>`.
+ */
+export const buildTeachingListBreadcrumb = (
+  section: string,
+  courseId: number | string,
+  courseTitle: string
+): BreadcrumbItem[] => [
+  { label: 'Courses', href: '/courses' },
+  { label: courseTitle, href: `/teach/courses/${courseId}/curriculum` },
+  { label: section },
+];
 
 /**
  * Build breadcrumb for admin pages

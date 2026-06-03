@@ -99,14 +99,6 @@ export const StudentQuizList = () => {
         <Breadcrumb items={[{ label: t('quizzes') }]} />
       </div>
 
-      <div className="mb-6 md:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>
-          {t('my_quizzes')}
-        </h1>
-        <p className="mt-2" style={{ color: colors.textSecondary }}>
-          {t('view_take_quizzes')}
-        </p>
-      </div>
 
       {!quizzes || quizzes.length === 0 ? (
         <Card>

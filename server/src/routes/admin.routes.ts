@@ -6,14 +6,88 @@ import { asyncHandler } from '../middleware/error.middleware.js';
 import { AuthRequest } from '../types/index.js';
 import { chatbotRegistryService, ChatbotRegistryFilters } from '../services/chatbotRegistry.service.js';
 import { parsePaginationLimit } from '../utils/validation.js';
+import {
+  computeMonthlyEngagement,
+  computeCourseCompletion,
+} from '../utils/dashboardAggregations.js';
 
 const router = Router();
 
 // All routes require admin
 router.use(authenticateToken, requireAdmin);
 
+/**
+ * Admin dashboard data: KPI totals + month-aligned platform-wide
+ * engagement + verb breakdown + top-N courses with sample participants
+ * + recent signups + recent enrollments. One round trip for the
+ * redesigned admin landing page.
+ */
+router.get('/dashboard-overview', asyncHandler(async (_req: AuthRequest, res: Response) => {
+  const [
+    totalUsers,
+    totalCourses,
+    totalEnrollments,
+    totalActivityLogs,
+    monthly,
+    courseCompletion,
+    recentUsers,
+    recentEnrollments,
+  ] = await Promise.all([
+    prisma.user.count(),
+    prisma.course.count(),
+    prisma.enrollment.count(),
+    prisma.learningActivityLog.count(),
+    computeMonthlyEngagement(null), // platform-wide (no course filter)
+    computeCourseCompletion({ instructorId: null, limit: 10 }),
+    prisma.user.findMany({
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, fullname: true, email: true, createdAt: true },
+    }),
+    prisma.enrollment.findMany({
+      take: 5,
+      orderBy: { enrolledAt: 'desc' },
+      include: {
+        user: { select: { fullname: true } },
+        course: { select: { title: true } },
+      },
+    }),
+  ]);
+
+  res.json({
+    success: true,
+    data: {
+      kpis: { totalUsers, totalCourses, totalEnrollments, totalActivityLogs },
+      engagement: monthly.engagement,
+      activityByVerb: monthly.activityByVerb,
+      courseCompletion,
+      recentUsers,
+      recentEnrollments,
+    },
+  });
+}));
+
 // Dashboard stats
 router.get('/stats', asyncHandler(async (req: AuthRequest, res: Response) => {
+  // Build the past-7-days window (UTC, day-aligned). Index 0 is the
+  // oldest day (D-6); index 6 is today. We aggregate in JS to stay
+  // portable across SQLite (millis) and PostgreSQL (timestamps).
+  const DAYS = 7;
+  const now = new Date();
+  const startOfTodayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const windowStart = startOfTodayUtc - (DAYS - 1) * 86_400_000;
+  const dayKeys = Array.from({ length: DAYS }, (_, i) => {
+    const d = new Date(windowStart + i * 86_400_000);
+    return d.toISOString().slice(0, 10); // YYYY-MM-DD
+  });
+  const dayIndex = (d: Date | string | null) => {
+    if (!d) return -1;
+    const t = typeof d === 'string' ? new Date(d).getTime() : d.getTime();
+    if (Number.isNaN(t)) return -1;
+    const idx = Math.floor((t - windowStart) / 86_400_000);
+    return idx >= 0 && idx < DAYS ? idx : -1;
+  };
+
   const [
     totalUsers,
     activeUsers,
@@ -22,6 +96,10 @@ router.get('/stats', asyncHandler(async (req: AuthRequest, res: Response) => {
     totalEnrollments,
     totalAssignments,
     totalChatLogs,
+    courseStatusGroups,
+    signupRows,
+    enrollmentRows,
+    activityRows,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { isActive: true } }),
@@ -30,7 +108,51 @@ router.get('/stats', asyncHandler(async (req: AuthRequest, res: Response) => {
     prisma.enrollment.count(),
     prisma.assignment.count(),
     prisma.chatLog.count(),
+    prisma.course.groupBy({ by: ['status'], _count: { _all: true } }),
+    prisma.user.findMany({
+      where: { createdAt: { gte: new Date(windowStart) } },
+      select: { createdAt: true },
+    }),
+    prisma.enrollment.findMany({
+      where: { enrolledAt: { gte: new Date(windowStart) } },
+      select: { enrolledAt: true },
+    }),
+    prisma.learningActivityLog.findMany({
+      where: { timestamp: { gte: new Date(windowStart) } },
+      select: { timestamp: true },
+    }),
   ]);
+
+  const signupTrend = new Array(DAYS).fill(0);
+  for (const r of signupRows) {
+    const i = dayIndex(r.createdAt);
+    if (i >= 0) signupTrend[i] += 1;
+  }
+  const enrollmentTrend = new Array(DAYS).fill(0);
+  for (const r of enrollmentRows) {
+    const i = dayIndex(r.enrolledAt);
+    if (i >= 0) enrollmentTrend[i] += 1;
+  }
+  const activityTrend = new Array(DAYS).fill(0);
+  for (const r of activityRows) {
+    const i = dayIndex(r.timestamp);
+    if (i >= 0) activityTrend[i] += 1;
+  }
+
+  // Distribution by course status (published / draft / archived).
+  const courseDistribution: Record<string, number> = {};
+  for (const g of courseStatusGroups) {
+    courseDistribution[g.status || 'unknown'] = g._count._all;
+  }
+
+  // Δ% vs previous half-window for sparkline deltas.
+  const halfDelta = (arr: number[]) => {
+    const half = Math.floor(arr.length / 2);
+    const prev = arr.slice(0, half).reduce((a, b) => a + b, 0);
+    const curr = arr.slice(half).reduce((a, b) => a + b, 0);
+    if (prev === 0) return curr === 0 ? 0 : 100;
+    return Math.round(((curr - prev) / prev) * 100);
+  };
 
   // Recent activity
   const recentUsers = await prisma.user.findMany({
@@ -60,6 +182,16 @@ router.get('/stats', asyncHandler(async (req: AuthRequest, res: Response) => {
         totalAssignments,
         totalChatLogs,
       },
+      trends: {
+        days: dayKeys,
+        signups: signupTrend,
+        enrollments: enrollmentTrend,
+        activity: activityTrend,
+        signupsDelta: halfDelta(signupTrend),
+        enrollmentsDelta: halfDelta(enrollmentTrend),
+        activityDelta: halfDelta(activityTrend),
+      },
+      courseDistribution,
       recentUsers,
       recentEnrollments,
     },
@@ -418,25 +550,26 @@ router.get('/forum-summary', asyncHandler(async (req: AuthRequest, res: Response
   const [
     totalThreads,
     totalPosts,
-    totalForums,
     anonymousPosts,
   ] = await Promise.all([
     prisma.forumThread.count(),
     prisma.forumPost.count(),
-    prisma.forum.count(),
     prisma.forumPost.count({ where: { isAnonymous: true } }),
   ]);
+  // After the forum_collapse_layers migration each thread IS a forum,
+  // so "total forums" and "total threads" are the same number.
+  const totalForums = totalThreads;
 
-  // Posts by course
-  const byCourse = await prisma.forum.findMany({
+  // Discussions by course — top 10 with the most replies.
+  const byCourse = await prisma.forumThread.findMany({
     select: {
       id: true,
       title: true,
       courseId: true,
       course: { select: { title: true } },
-      _count: { select: { threads: true } },
+      _count: { select: { posts: true } },
     },
-    orderBy: { threads: { _count: 'desc' } },
+    orderBy: { posts: { _count: 'desc' } },
     take: 10,
   });
 
@@ -467,14 +600,7 @@ router.get('/forum-summary', asyncHandler(async (req: AuthRequest, res: Response
     take: 20,
     orderBy: { createdAt: 'desc' },
     include: {
-      forum: {
-        select: {
-          id: true,
-          title: true,
-          courseId: true,
-          course: { select: { title: true } },
-        },
-      },
+      course: { select: { id: true, title: true } },
       _count: { select: { posts: true } },
     },
   });
@@ -496,14 +622,8 @@ router.get('/forum-summary', asyncHandler(async (req: AuthRequest, res: Response
         select: {
           id: true,
           title: true,
-          forum: {
-            select: {
-              id: true,
-              title: true,
-              courseId: true,
-              course: { select: { title: true } },
-            },
-          },
+          courseId: true,
+          course: { select: { title: true } },
         },
       },
       parent: {
@@ -530,10 +650,10 @@ router.get('/forum-summary', asyncHandler(async (req: AuthRequest, res: Response
     createdAt: t.createdAt,
     authorId: t.authorId,
     authorName: threadAuthorMap.get(t.authorId)?.fullname || 'Unknown',
-    forumId: t.forum.id,
-    forumTitle: t.forum.title,
-    courseId: t.forum.courseId,
-    courseTitle: t.forum.course.title,
+    forumId: t.id,
+    forumTitle: t.title,
+    courseId: t.courseId,
+    courseTitle: t.course.title,
     postCount: t._count.posts,
   }));
 
@@ -548,21 +668,21 @@ router.get('/forum-summary', asyncHandler(async (req: AuthRequest, res: Response
     isAnonymous: p.isAnonymous,
     threadId: p.thread.id,
     threadTitle: p.thread.title,
-    forumId: p.thread.forum.id,
-    forumTitle: p.thread.forum.title,
-    courseId: p.thread.forum.courseId,
-    courseTitle: p.thread.forum.course.title,
+    forumId: p.thread.id,
+    forumTitle: p.thread.title,
+    courseId: p.thread.courseId,
+    courseTitle: p.thread.course.title,
     parentId: p.parentId,
     isReply: !!p.parentId,
   }));
 
-  // Format by course
-  const formattedByCourse = byCourse.map(f => ({
-    forumId: f.id,
-    forumTitle: f.title,
-    courseId: f.courseId,
-    courseTitle: f.course.title,
-    threadCount: f._count.threads,
+  // Format by course (each thread is a "forum" in the flat model)
+  const formattedByCourse = byCourse.map(t => ({
+    forumId: t.id,
+    forumTitle: t.title,
+    courseId: t.courseId,
+    courseTitle: t.course.title,
+    threadCount: t._count.posts,
   }));
 
   res.json({
@@ -589,11 +709,7 @@ router.get('/forum-export/csv', asyncHandler(async (req: AuthRequest, res: Respo
     include: {
       thread: {
         include: {
-          forum: {
-            include: {
-              course: { select: { id: true, title: true } },
-            },
-          },
+          course: { select: { id: true, title: true } },
         },
       },
       parent: {
@@ -663,10 +779,10 @@ router.get('/forum-export/csv', asyncHandler(async (req: AuthRequest, res: Respo
       thread?.title || '',
       thread?.authorId || '',
       threadAuthor?.fullname || '',
-      p.thread.forum.id,
-      p.thread.forum.title,
-      p.thread.forum.course.id,
-      p.thread.forum.course.title,
+      p.thread.id,
+      p.thread.title,
+      p.thread.course.id,
+      p.thread.course.title,
       p.parentId || '',
       p.parent?.authorId || '',
       parentAuthor?.fullname || '',
@@ -695,11 +811,7 @@ router.get('/forum-export/excel', asyncHandler(async (req: AuthRequest, res: Res
     include: {
       thread: {
         include: {
-          forum: {
-            include: {
-              course: { select: { id: true, title: true } },
-            },
-          },
+          course: { select: { id: true, title: true } },
         },
       },
       parent: {
@@ -716,11 +828,7 @@ router.get('/forum-export/excel', asyncHandler(async (req: AuthRequest, res: Res
   const threads = await prisma.forumThread.findMany({
     orderBy: { createdAt: 'desc' },
     include: {
-      forum: {
-        include: {
-          course: { select: { id: true, title: true } },
-        },
-      },
+      course: { select: { id: true, title: true } },
       _count: { select: { posts: true } },
     },
   });
@@ -798,10 +906,10 @@ router.get('/forum-export/excel', asyncHandler(async (req: AuthRequest, res: Res
       threadId: p.threadId,
       threadTitle: thread?.title || '',
       threadAuthor: threadAuthor?.fullname || '',
-      forumId: p.thread.forum.id,
-      forumTitle: p.thread.forum.title,
-      courseId: p.thread.forum.course.id,
-      courseTitle: p.thread.forum.course.title,
+      forumId: p.thread.id,
+      forumTitle: p.thread.title,
+      courseId: p.thread.course.id,
+      courseTitle: p.thread.course.title,
       parentPostId: p.parentId || '',
       replyingToUser: parentAuthor?.fullname || (p.parentId ? 'Unknown' : threadAuthor?.fullname || ''),
       replyType: p.parentId ? 'Reply to Post' : 'Reply to Thread',
@@ -848,10 +956,10 @@ router.get('/forum-export/excel', asyncHandler(async (req: AuthRequest, res: Res
       authorId: t.authorId,
       authorName: author?.fullname || 'Unknown',
       authorEmail: author?.email || '',
-      forumId: t.forum.id,
-      forumTitle: t.forum.title,
-      courseId: t.forum.course.id,
-      courseTitle: t.forum.course.title,
+      forumId: t.id,
+      forumTitle: t.title,
+      courseId: t.course.id,
+      courseTitle: t.course.title,
       postCount: t._count.posts,
       isPinned: t.isPinned ? 'Yes' : 'No',
       isLocked: t.isLocked ? 'Yes' : 'No',

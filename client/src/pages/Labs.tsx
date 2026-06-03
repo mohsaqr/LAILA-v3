@@ -91,20 +91,8 @@ export const Labs = () => {
           <Breadcrumb items={[{ label: t('labs_title') }]} />
         </div>
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6 md:mb-8">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3" style={{ color: colors.textPrimary }}>
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 flex items-center justify-center">
-                <FlaskConical className="w-6 h-6 text-white" />
-              </div>
-              {t('labs_title')}
-            </h1>
-            <p className="mt-2" style={{ color: colors.textSecondary }}>
-              {t('labs_description')}
-            </p>
-          </div>
-
+        {/* Header actions */}
+        <div className="flex justify-end mb-6 md:mb-8">
           {isInstructor && (
             <Button
               onClick={() => navigate('/teach/labs')}

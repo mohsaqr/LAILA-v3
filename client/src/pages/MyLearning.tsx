@@ -8,6 +8,7 @@ import { useTheme } from '../hooks/useTheme';
 import { activityLogger } from '../services/activityLogger';
 import { Card, CardBody } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
+import { Breadcrumb } from '../components/common/Breadcrumb';
 import { Enrollment } from '../types';
 
 export const MyLearning = () => {
@@ -40,8 +41,9 @@ export const MyLearning = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8" style={{ backgroundColor: colors.bg, minHeight: '100vh' }}>
-      <h1 className="text-2xl sm:text-3xl font-bold mb-6 md:mb-8" style={{ color: colors.textPrimary }}>{t('my_learning')}</h1>
-
+      <div className="mb-6">
+        <Breadcrumb items={[{ label: t('my_learning') }]} />
+      </div>
       {/* Active Courses */}
       <section className="mb-8 md:mb-12">
         <h2 className="text-lg sm:text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>{t('in_progress_title')}</h2>

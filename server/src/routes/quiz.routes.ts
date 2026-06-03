@@ -32,6 +32,7 @@ const createQuestionSchema = z.object({
   correctAnswer: z.string().min(1),
   explanation: z.string().optional(),
   points: z.number().positive().optional(),
+  shuffleOptions: z.boolean().optional(),
   orderIndex: z.number().min(0).optional(),
 });
 
@@ -304,6 +305,15 @@ router.get('/:quizId/attempts', authenticateToken, requireInstructor, asyncHandl
 
   const attempts = await quizService.getQuizAttempts(quizId, user.id, user.isAdmin);
   res.json({ success: true, data: attempts });
+}));
+
+// Per-question response statistics for a quiz (instructor view)
+router.get('/:quizId/stats', authenticateToken, requireInstructor, asyncHandler(async (req, res) => {
+  const quizId = parseInt(req.params.quizId);
+  const user = (req as any).user;
+
+  const stats = await quizService.getQuizStats(quizId, user.id, user.isAdmin);
+  res.json({ success: true, data: stats });
 }));
 
 export default router;

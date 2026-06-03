@@ -181,13 +181,6 @@ export const UsersManagement = () => {
         <Breadcrumb items={breadcrumbItems} homeHref="/admin" />
       </div>
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6 md:mb-8">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('users_management')}</h1>
-          <p className="text-gray-600 mt-1">{t('manage_user_accounts')}</p>
-        </div>
-      </div>
 
       {/* Stats */}
       {stats && (

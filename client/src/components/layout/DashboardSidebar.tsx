@@ -10,17 +10,14 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
-  Activity,
   Network,
   FlaskConical,
   MessageSquare,
   Award,
   FileQuestion,
-  BarChart3,
-  BookOpen,
-  Users,
   FileText,
-  BookMarked,
+  BarChart3,
+  Users,
   Tag,
   Bot,
   Blocks,
@@ -39,17 +36,28 @@ interface NavItem {
   disabled?: boolean;
 }
 
+interface NavSectionHeader {
+  isHeader: true;
+  label: string;
+}
+
+type NavEntry = NavItem | NavSectionHeader;
+const isHeader = (entry: NavEntry): entry is NavSectionHeader =>
+  (entry as NavSectionHeader).isHeader === true;
+
 interface DashboardSidebarProps {
   mobileOpen?: boolean;
   onMobileClose?: () => void;
   isDesktop?: boolean;
+  /** Pixels above the navbar (e.g. the test-mode banner) to offset by. */
+  topOffset?: number;
 }
 
-export const DashboardSidebar = ({ mobileOpen = false, onMobileClose, isDesktop = true }: DashboardSidebarProps) => {
+export const DashboardSidebar = ({ mobileOpen = false, onMobileClose, isDesktop = true, topOffset = 0 }: DashboardSidebarProps) => {
   const { t } = useTranslation(['navigation', 'common']);
   const location = useLocation();
   const { isDark } = useTheme();
-  const { isInstructor, isAuthenticated } = useAuth();
+  const { isInstructor, isAuthenticated, viewAsRole } = useAuth();
   // Use actual user role (not viewAsRole) to determine sidebar items
   const user = useAuthStore((state) => state.user);
   const isActualAdmin = user?.isAdmin || false;
@@ -91,54 +99,32 @@ export const DashboardSidebar = ({ mobileOpen = false, onMobileClose, isDesktop 
     { label: t('reports'), icon: BarChart3, path: '/reports' },
   ];
 
-  // Detect if we're in a course-specific context (teach or student-facing course view)
-  const teachCourseMatch = location.pathname.match(/\/teach\/courses\/(\d+)/);
-  const studentCourseMatch = null; // Never switch sidebar for student-facing course pages
-  const activeCourseId = teachCourseMatch?.[1] || studentCourseMatch?.[1] || null;
-
-  // Course-specific items for the teacher (shown when viewing a course)
-  const courseNavItems: NavItem[] = activeCourseId ? [
-    { label: t('curriculum'), icon: BookOpen, path: `/teach/courses/${activeCourseId}/curriculum` },
-    { label: t('assignments'), icon: FileText, path: `/teach/courses/${activeCourseId}/assignments` },
-    { label: t('quizzes'), icon: FileQuestion, path: `/teach/courses/${activeCourseId}/quizzes` },
-    { label: t('gradebook'), icon: ClipboardList, path: `/teach/courses/${activeCourseId}/gradebook` },
-    { label: t('forums'), icon: MessageSquare, path: `/teach/courses/${activeCourseId}/forums` },
-    { label: t('surveys'), icon: ClipboardCheck, path: `/teach/courses/${activeCourseId}/surveys` },
-    { label: t('tutors'), icon: BookMarked, path: `/teach/courses/${activeCourseId}/tutors` },
-    { label: t('certificates'), icon: Award, path: `/teach/courses/${activeCourseId}/certificates` },
-    { label: t('students'), icon: Users, path: `/teach/courses/${activeCourseId}/students` },
-    { label: t('logs'), icon: Activity, path: `/teach/courses/${activeCourseId}/logs` },
-    { label: t('analytics'), icon: Network, path: `/teach/courses/${activeCourseId}/analytics` },
-  ] : [];
-
-  // Build instructor nav items
+  // Build instructor nav items — same on every page including
+  // /teach/courses/:id/* so the sidebar doesn't shift when an
+  // instructor or admin enters course management. Per-course nav lives
+  // on the course page itself (Setup wizard tabs + Resources bar).
   const instructorNavItems: NavItem[] = [
     { label: t('dashboard'), icon: LayoutDashboard, path: '/dashboard' },
     { label: t('courses'), icon: GraduationCap, path: '/courses' },
-    // Course-specific items appear when viewing a course
-    ...courseNavItems,
-    // Global items (always shown)
-    ...(activeCourseId ? [] : [
-      { label: t('ai_tools'), icon: BrainCircuit, path: '/ai-tools' },
-      { label: t('labs'), icon: FlaskConical, path: '/labs' },
-      { label: t('lab_templates'), icon: FlaskConical, path: '/teach/labs' },
-      { label: t('quizzes'), icon: FileQuestion, path: '/teach/quizzes' },
-      { label: t('surveys'), icon: ClipboardCheck, path: '/teach/surveys' },
-      { label: t('forums'), icon: MessageSquare, path: '/forums' },
-      { label: t('certificate_templates'), icon: Award, path: '/teach/certificates' },
-      { label: t('gradebook'), icon: ClipboardList, path: '/dashboard/gradebook' },
-      { label: t('calendar'), icon: Calendar, path: '/dashboard/calendar' },
-    ]),
-    // Admin Logs + Analytics live only on the admin page (/admin/logs, /admin/analytics)
-    // Course-level Logs + Analytics are in courseNavItems above
+    { label: t('ai_tools'), icon: BrainCircuit, path: '/ai-tools' },
+    { label: t('labs'), icon: FlaskConical, path: '/labs' },
+    { label: t('lab_templates'), icon: FlaskConical, path: '/teach/labs' },
+    { label: t('quizzes'), icon: FileQuestion, path: '/teach/quizzes' },
+    { label: t('assignments'), icon: FileText, path: '/teach/assignments' },
+    { label: t('surveys'), icon: ClipboardCheck, path: '/teach/surveys' },
+    { label: t('forums'), icon: MessageSquare, path: '/teach/forums' },
+    { label: t('certificate_templates'), icon: Award, path: '/teach/certificates' },
   ];
 
-  // Admin section — same visual identity as the rest of the sidebar,
-  // only the items change. We pin these to the /admin/* namespace so
-  // entering the admin area swaps the menu without swapping the shell.
-  const onAdminPage = location.pathname === '/admin' || location.pathname.startsWith('/admin/');
+  // Admin section — appended after the instructor items for admins in
+  // their own view (not viewing-as). On /admin/* subroutes the admin
+  // section is also shown regardless of viewAs since those pages are
+  // admin-only.
+  const onAdminSubroute = location.pathname.startsWith('/admin/');
+  const showAdminSection =
+    isActualAdmin && (onAdminSubroute || !viewAsRole);
+
   const adminNavItems: NavItem[] = [
-    { label: t('admin:frontpage', { defaultValue: 'Frontpage' }), icon: LayoutDashboard, path: '/admin' },
     { label: t('admin:users', { defaultValue: 'Users' }), icon: Users, path: '/admin/settings?tab=users' },
     { label: t('admin:enrollments', { defaultValue: 'Enrollments' }), icon: GraduationCap, path: '/admin/settings?tab=enrollments' },
     { label: t('admin:categories', { defaultValue: 'Categories' }), icon: Tag, path: '/admin/settings?tab=categories' },
@@ -151,9 +137,16 @@ export const DashboardSidebar = ({ mobileOpen = false, onMobileClose, isDesktop 
     { label: t('admin:system_label', { defaultValue: 'System' }), icon: Settings, path: '/admin/settings?tab=system' },
   ];
 
-  const navItems = onAdminPage
-    ? adminNavItems
-    : (isInstructor || isActualAdmin) ? instructorNavItems : studentNavItems;
+  const baseNavItems: NavItem[] =
+    (isInstructor || isActualAdmin) ? instructorNavItems : studentNavItems;
+
+  const navItems: NavEntry[] = showAdminSection
+    ? [
+        ...baseNavItems,
+        { isHeader: true, label: t('admin:admin_section', { defaultValue: 'Admin' }) },
+        ...adminNavItems,
+      ]
+    : baseNavItems;
 
   const isActive = (path: string) => {
     if (path === '/dashboard') {
@@ -177,11 +170,6 @@ export const DashboardSidebar = ({ mobileOpen = false, onMobileClose, isDesktop 
       }
       return false;
     }
-    // /admin frontpage must be exact — otherwise it would swallow every
-    // /admin/* path and stay permanently active.
-    if (path === '/admin') {
-      return location.pathname === '/admin' && !location.search;
-    }
     return location.pathname.startsWith(path);
   };
 
@@ -201,10 +189,13 @@ export const DashboardSidebar = ({ mobileOpen = false, onMobileClose, isDesktop 
       />
 
       <aside
-        className={`fixed left-0 top-20 h-[calc(100vh-5rem)] z-40 border-r transition-transform duration-300 md:translate-x-0 ${
+        className={`fixed left-0 z-40 border-r transition-transform duration-300 md:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         style={{
+          // Sit below the navbar (5rem) plus any banner offset above it.
+          top: `calc(5rem + ${topOffset}px)`,
+          height: `calc(100vh - 5rem - ${topOffset}px)`,
           // Mobile: full labels in a 280px drawer; desktop: respect the collapsed state.
           width: isDesktop ? (isCollapsed ? '64px' : '240px') : '280px',
           backgroundColor: colors.bg,
@@ -226,11 +217,37 @@ export const DashboardSidebar = ({ mobileOpen = false, onMobileClose, isDesktop 
 
           {/* Nav Items */}
           <div className="flex-1 space-y-1 px-2 overflow-y-auto">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const active = isActive(item.path);
+            {navItems.map((entry, index) => {
               // Labels are always shown on mobile (isCollapsed only affects desktop).
               const hideLabel = isDesktop && isCollapsed;
+
+              if (isHeader(entry)) {
+                // When the sidebar is collapsed on desktop, render a slim divider
+                // instead of the section label so the icons stay aligned.
+                if (hideLabel) {
+                  return (
+                    <div
+                      key={`header-${index}`}
+                      className="my-2 mx-2 border-t"
+                      style={{ borderColor: colors.border }}
+                      aria-hidden="true"
+                    />
+                  );
+                }
+                return (
+                  <div
+                    key={`header-${index}`}
+                    className="px-3 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider"
+                    style={{ color: colors.textSecondary }}
+                  >
+                    {entry.label}
+                  </div>
+                );
+              }
+
+              const item = entry;
+              const Icon = item.icon;
+              const active = isActive(item.path);
 
               // Render disabled items as non-clickable divs
               if (item.disabled) {

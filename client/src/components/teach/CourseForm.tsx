@@ -4,8 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { ChevronDown, X, Search, HelpCircle, ImageIcon, Trash2 } from 'lucide-react';
 import { Input } from '../common/Input';
 import { Button } from '../common/Button';
-import { Course, CurriculumViewMode, Category } from '../../types';
+import { Course, CurriculumViewMode } from '../../types';
 import { categoriesApi } from '../../api/categories';
+import { coursesApi } from '../../api/courses';
 import { uploadsApi } from '../../api/uploads';
 import { resolveFileUrl } from '../../api/client';
 import { RichTextEditor } from '../forum/RichTextEditor';
@@ -18,13 +19,34 @@ export interface CourseFormData {
   thumbnail: string;
   isPublic: boolean;
   curriculumViewMode: CurriculumViewMode;
+  /** Optional — server auto-generates if empty. */
+  activationCode: string;
+  /** `datetime-local` value (local time, "YYYY-MM-DDTHH:mm"); '' when unset. */
+  startTime: string;
+  /** Course IDs that must be completed before enrolling in this course. */
+  prerequisiteIds: number[];
 }
+
+/** ISO-8601 → `datetime-local` input value in the browser's local timezone. */
+const toDateTimeLocal = (iso?: string | null): string => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
 
 interface CourseFormProps {
   initialData?: Partial<Course>;
   onSubmit: (data: CourseFormData) => Promise<void>;
   submitLabel: string;
   loading?: boolean;
+  /** Fires on every form change. Used by the wizard to render a live preview. */
+  onChange?: (data: CourseFormData) => void;
+  /** When false, the submit button is hidden — the wizard owns navigation. */
+  showSubmit?: boolean;
+  /** External per-field error messages (already translated). Wizard-driven validation. */
+  externalErrors?: Record<string, string>;
 }
 
 // ─── Info popup ───────────────────────────────────────────────────────────────
@@ -70,12 +92,16 @@ const InfoPopup = ({ text }: { text: string }) => {
 
 interface MultiSelectProps {
   label: string;
-  allCategories: Category[];
+  /** Any entity with a numeric id and a display title (categories, courses…). */
+  items: { id: number; title: string }[];
   selectedIds: number[];
   onChange: (ids: number[]) => void;
+  error?: string;
+  placeholder?: string;
+  emptyHint?: string;
 }
 
-const CategoryMultiSelect = ({ label, allCategories, selectedIds, onChange }: MultiSelectProps) => {
+const EntityMultiSelect = ({ label, items, selectedIds, onChange, error, placeholder, emptyHint }: MultiSelectProps) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -92,8 +118,8 @@ const CategoryMultiSelect = ({ label, allCategories, selectedIds, onChange }: Mu
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const selected = allCategories.filter(c => selectedIds.includes(c.id));
-  const filtered = allCategories.filter(c =>
+  const selected = items.filter(c => selectedIds.includes(c.id));
+  const filtered = items.filter(c =>
     c.title.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -122,12 +148,14 @@ const CategoryMultiSelect = ({ label, allCategories, selectedIds, onChange }: Mu
         className={`min-h-[42px] w-full px-3 py-2 flex flex-wrap items-center gap-1.5 rounded-lg border cursor-pointer transition-colors ${
           open
             ? 'border-primary-500 ring-2 ring-primary-500/20'
-            : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+            : error
+              ? 'border-red-400 dark:border-red-500'
+              : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
         } bg-white dark:bg-gray-800`}
       >
         {selected.length === 0 ? (
           <span className="text-sm text-gray-400 dark:text-gray-500 flex-1">
-            Select categories…
+            {placeholder ?? 'Select…'}
           </span>
         ) : (
           selected.map(cat => (
@@ -174,7 +202,7 @@ const CategoryMultiSelect = ({ label, allCategories, selectedIds, onChange }: Mu
           <ul className="max-h-52 overflow-y-auto py-1">
             {filtered.length === 0 ? (
               <li className="px-4 py-2 text-sm text-gray-400 dark:text-gray-500">
-                No results
+                {items.length === 0 && emptyHint ? emptyHint : 'No results'}
               </li>
             ) : (
               filtered.map(cat => {
@@ -226,6 +254,7 @@ const CategoryMultiSelect = ({ label, allCategories, selectedIds, onChange }: Mu
           )}
         </div>
       )}
+      {error && <p className="mt-1.5 text-xs text-red-500">{error}</p>}
     </div>
   );
 };
@@ -239,6 +268,7 @@ const SearchableSelect = ({
   onChange,
   placeholder = 'Select…',
   infoPopup,
+  error,
 }: {
   label?: string;
   options: { value: string; label: string }[];
@@ -246,6 +276,7 @@ const SearchableSelect = ({
   onChange: (value: string) => void;
   placeholder?: string;
   infoPopup?: string;
+  error?: string;
 }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -289,7 +320,9 @@ const SearchableSelect = ({
         className={`min-h-[42px] w-full px-3 py-2 flex items-center gap-1.5 rounded-lg border cursor-pointer transition-colors bg-white dark:bg-gray-800 ${
           open
             ? 'border-primary-500 ring-2 ring-primary-500/20'
-            : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+            : error
+              ? 'border-red-400 dark:border-red-500'
+              : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
         }`}
       >
         {selectedOption ? (
@@ -353,19 +386,38 @@ const SearchableSelect = ({
           </ul>
         </div>
       )}
+      {error && <p className="mt-1.5 text-xs text-red-500">{error}</p>}
     </div>
   );
 };
 
 // ─── Main form ────────────────────────────────────────────────────────────────
 
-export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: CourseFormProps) => {
+export const CourseForm = ({
+  initialData,
+  onSubmit,
+  submitLabel,
+  loading,
+  onChange,
+  showSubmit = true,
+  externalErrors,
+}: CourseFormProps) => {
   const { t } = useTranslation(['teaching']);
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: categoriesApi.getCategories,
   });
+
+  // Candidate courses for the prerequisites picker — the teacher's own
+  // courses, excluding the one being edited (can't require itself).
+  const { data: myCourses = [] } = useQuery({
+    queryKey: ['myCourses'],
+    queryFn: coursesApi.getMyCourses,
+  });
+  const prerequisiteOptions = myCourses
+    .filter(c => c.id !== initialData?.id)
+    .map(c => ({ id: c.id, title: c.title }));
 
   const difficultyOptions = [
     { value: 'beginner', label: 'Beginner' },
@@ -388,6 +440,9 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
     thumbnail: '',
     isPublic: true,
     curriculumViewMode: 'mini-cards',
+    activationCode: '',
+    startTime: '',
+    prerequisiteIds: [],
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [thumbnailPreview, setThumbnailPreview] = useState<string>('');
@@ -404,12 +459,29 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
         thumbnail: initialData.thumbnail || '',
         isPublic: initialData.isPublic ?? true,
         curriculumViewMode: initialData.curriculumViewMode || 'mini-cards',
+        activationCode: initialData.activationCode || '',
+        startTime: toDateTimeLocal(initialData.startTime),
+        prerequisiteIds: initialData.prerequisites?.map(p => p.prerequisiteCourseId) ?? [],
       });
       if (initialData.thumbnail) {
         setThumbnailPreview(resolveFileUrl(initialData.thumbnail));
       }
     }
   }, [initialData]);
+
+  // Capture `onChange` in a ref so the effect below only re-fires when
+  // `formData` actually changes. If we depended on `onChange` directly,
+  // every parent re-render (which creates a fresh inline callback) would
+  // re-run the effect — and any side-effect baked into the parent's
+  // callback (e.g. clearing wizard validation errors) would fire on
+  // every render instead of only when the user typed.
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+  useEffect(() => {
+    onChangeRef.current?.(formData);
+  }, [formData]);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -467,6 +539,10 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  // Merge wizard-driven external errors with the form's own internal errors.
+  // External wins so a parent's validation message never gets shadowed.
+  const mergedErrors: Record<string, string> = { ...errors, ...(externalErrors ?? {}) };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <Input
@@ -474,7 +550,7 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
         value={formData.title}
         onChange={e => handleChange('title', e.target.value)}
         placeholder={t('course_title_placeholder')}
-        error={errors.title}
+        error={mergedErrors.title}
         required
       />
 
@@ -489,12 +565,35 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
         />
       </div>
 
-      <CategoryMultiSelect
-        label={t('category')}
-        allCategories={categories}
-        selectedIds={formData.categoryIds}
-        onChange={ids => setFormData(prev => ({ ...prev, categoryIds: ids }))}
-      />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+        <EntityMultiSelect
+          label={t('category')}
+          items={categories}
+          selectedIds={formData.categoryIds}
+          onChange={ids => setFormData(prev => ({ ...prev, categoryIds: ids }))}
+          error={mergedErrors.categoryIds}
+          placeholder="Select categories…"
+        />
+
+        <div>
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('course_start_time', { defaultValue: 'Start Time' })}
+            </label>
+            <InfoPopup
+              text={t('course_start_time_help', {
+                defaultValue: 'Optional. The date and time this course officially begins.',
+              })}
+            />
+          </div>
+          <Input
+            type="datetime-local"
+            value={formData.startTime}
+            onChange={e => handleChange('startTime', e.target.value)}
+            error={mergedErrors.startTime}
+          />
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <SearchableSelect
@@ -503,6 +602,7 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
           value={formData.difficulty}
           onChange={val => handleChange('difficulty', val)}
           placeholder="Select difficulty…"
+          error={mergedErrors.difficulty}
         />
 
         <SearchableSelect
@@ -514,6 +614,16 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
           infoPopup={t('curriculum_view_mode_help')}
         />
       </div>
+
+      <EntityMultiSelect
+        label={t('prerequisites', { defaultValue: 'Prerequisites' })}
+        items={prerequisiteOptions}
+        selectedIds={formData.prerequisiteIds}
+        onChange={ids => setFormData(prev => ({ ...prev, prerequisiteIds: ids }))}
+        placeholder={t('prerequisites_placeholder', { defaultValue: 'Select courses…' })}
+        emptyHint={t('prerequisites_empty', { defaultValue: 'No other courses available.' })}
+        error={mergedErrors.prerequisiteIds}
+      />
 
       <div>
         <div className="flex items-center gap-1.5 mb-1.5">
@@ -567,24 +677,43 @@ export const CourseForm = ({ initialData, onSubmit, submitLabel, loading }: Cour
         )}
       </div>
 
-      <div className="flex items-center gap-3">
-        <input
-          type="checkbox"
-          id="isPublic"
-          checked={formData.isPublic}
-          onChange={e => handleChange('isPublic', e.target.checked)}
-          className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+      <div>
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            {t('activation_code', { defaultValue: 'Activation Code' })}
+          </label>
+          <InfoPopup
+            text={t('activation_code_help', {
+              defaultValue:
+                'Optional. 6–16 uppercase letters or digits. Leave blank to auto-generate one.',
+            })}
+          />
+        </div>
+        <Input
+          type="text"
+          value={formData.activationCode}
+          onChange={e =>
+            handleChange('activationCode', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))
+          }
+          placeholder={t('activation_code_placeholder', {
+            defaultValue: 'Auto-generate (or enter your own, e.g. SUMMER2026)',
+          })}
+          maxLength={16}
+          error={mergedErrors.activationCode}
         />
-        <label htmlFor="isPublic" className="text-sm text-gray-700">
-          {t('make_public')}
-        </label>
       </div>
 
-      <div className="flex justify-end gap-3 pt-4 border-t">
-        <Button type="submit" loading={loading}>
-          {submitLabel}
-        </Button>
-      </div>
+      {/* Public / private toggle removed — every course is public; the
+          activation code controls enrolment. The form still ships
+          `isPublic: true` by default. */}
+
+      {showSubmit && (
+        <div className="flex justify-end gap-3 pt-4 border-t">
+          <Button type="submit" loading={loading}>
+            {submitLabel}
+          </Button>
+        </div>
+      )}
     </form>
   );
 };

@@ -9,6 +9,7 @@ interface CardProps {
   hover?: boolean;
   style?: React.CSSProperties;
   variant?: CardVariant;
+  id?: string;
 }
 
 const variantColors: Record<CardVariant, {
@@ -67,12 +68,13 @@ const variantColors: Record<CardVariant, {
   },
 };
 
-export const Card = ({ children, className = '', onClick, hover = false, style, variant = 'default' }: CardProps) => {
+export const Card = ({ children, className = '', onClick, hover = false, style, variant = 'default', id }: CardProps) => {
   const { isDark } = useTheme();
   const colors = variantColors[variant];
 
   return (
     <div
+      id={id}
       className={`rounded-xl shadow-sm border ${
         hover ? 'transition-all hover:shadow-md hover:-translate-y-1 cursor-pointer' : ''
       } ${className}`}

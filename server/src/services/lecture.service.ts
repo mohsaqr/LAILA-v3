@@ -133,22 +133,27 @@ export class LectureService {
       throw new AppError('Lecture not found', 404);
     }
 
-    // Check if user has access (admin, instructor, enrolled, or free lecture)
-    if (userId && !lecture.isFree && !isAdmin) {
-      const isInstructor = lecture.module.course.instructorId === userId;
+    // Access control. Course staff (admin / owner / team) can always view.
+    if (userId && !isAdmin) {
+      const courseId = lecture.module.course.id;
+      const isOwner = lecture.module.course.instructorId === userId;
+      const moduleHidden = (lecture.module as { isPublished?: boolean }).isPublished === false;
+      const lectureHidden = lecture.isPublished === false;
 
-      if (!isInstructor) {
-        const isTeam = await courseRoleService.isTeamMember(userId, lecture.module.course.id);
+      if (moduleHidden || lectureHidden) {
+        // Content in a hidden module / unpublished lecture is invisible to
+        // students — only course staff may reach it. Treat as not found.
+        const isTeam = isOwner ? true : await courseRoleService.isTeamMember(userId, courseId);
+        if (!isOwner && !isTeam) {
+          throw new AppError('Lecture not found', 404);
+        }
+      } else if (!lecture.isFree && !isOwner) {
+        // Published, non-free lecture → must be enrolled (or team).
+        const isTeam = await courseRoleService.isTeamMember(userId, courseId);
         if (!isTeam) {
           const enrollment = await prisma.enrollment.findUnique({
-            where: {
-              userId_courseId: {
-                userId,
-                courseId: lecture.module.course.id,
-              },
-            },
+            where: { userId_courseId: { userId, courseId } },
           });
-
           if (!enrollment) {
             throw new AppError('You must be enrolled to access this lecture', 403);
           }

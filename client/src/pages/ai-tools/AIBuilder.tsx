@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
@@ -30,13 +30,13 @@ import {
   Play,
   Send,
   RefreshCw,
-  ChevronLeft,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
+import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { useTheme } from '../../hooks/useTheme';
 
 import apiClient, { resolveFileUrl } from '../../api/client';
@@ -509,31 +509,26 @@ export const AIBuilder = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-      {/* Course Context Breadcrumb */}
-      {courseContext && (
-        <Link
-          to={`/teach/courses/${courseContext.courseId}/tutors`}
-          className="inline-flex items-center gap-1 text-sm mb-4 hover:underline"
-          style={{ color: colors.textSecondary }}
-        >
-          <ChevronLeft className="w-4 h-4" />
-          {t('back_to_course_tutors')}
-        </Link>
-      )}
+      {/* Breadcrumb */}
+      <div className="mb-6">
+        <Breadcrumb
+          items={
+            courseContext
+              ? [
+                  { label: t('common:teaching', { defaultValue: 'Teaching' }), href: '/teach' },
+                  { label: t('common:course', { defaultValue: 'Course' }), href: `/teach/courses/${courseContext.courseId}/tutors` },
+                  { label: t('ai_builder') },
+                ]
+              : [
+                  { label: t('ai_tools'), href: '/ai-tools' },
+                  { label: t('ai_builder') },
+                ]
+          }
+        />
+      </div>
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6 md:mb-8">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-3" style={{ color: colors.textPrimary }}>
-            <Bot className="w-8 h-8 text-primary-600" />
-            {t('ai_builder')}
-          </h1>
-          <p className="mt-1" style={{ color: colors.textSecondary }}>
-            {courseContext
-              ? t('ai_builder_course_desc')
-              : t('ai_builder_desc')}
-          </p>
-        </div>
+      {/* Header actions */}
+      <div className="flex justify-end mb-6 md:mb-8">
         <Button onClick={() => setShowForm(true)} icon={<Plus className="w-4 h-4" />}>
           {t('new_component')}
         </Button>

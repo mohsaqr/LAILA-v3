@@ -1,4 +1,3 @@
-export { AdminFrontpage } from './AdminFrontpage';
 export { AdminSettings } from './AdminSettings';
 export { LogsDashboard } from './LogsDashboard';
 export { UsersManagement } from './UsersManagement';

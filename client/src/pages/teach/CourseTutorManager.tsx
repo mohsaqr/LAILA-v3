@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -64,9 +64,20 @@ const useDragAndDrop = (items: CourseTutor[], onReorder: (ids: number[]) => void
   return { draggedId, handleDragStart, handleDragOver, handleDragEnd };
 };
 
-export const CourseTutorManager = () => {
+interface CourseTutorManagerProps {
+  /** When set (e.g. from the wizard), use this id and skip useParams. */
+  courseId?: number;
+  /** Hide breadcrumb + outer max-w container so the page can be embedded. */
+  embedded?: boolean;
+}
+
+export const CourseTutorManager = ({
+  courseId: courseIdProp,
+  embedded = false,
+}: CourseTutorManagerProps = {}) => {
   const { t } = useTranslation(['teaching', 'common']);
-  const { id: courseId } = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>();
+  const courseId = courseIdProp != null ? String(courseIdProp) : params.id;
   const queryClient = useQueryClient();
   const { isDark } = useTheme();
   const [showAddModal, setShowAddModal] = useState(false);
@@ -118,11 +129,13 @@ export const CourseTutorManager = () => {
     enabled: !!courseId,
   });
 
-  // Fetch available tutors
+  // Fetch available tutors. The standalone page only needs this when
+  // the Add modal opens; embedded mode (the wizard step) needs it on
+  // mount because the inline picker IS the entry point.
   const { data: availableTutors } = useQuery({
     queryKey: ['availableTutors', courseId],
     queryFn: () => courseTutorApi.getAvailableTutors(parseInt(courseId!)),
-    enabled: !!courseId && showAddModal,
+    enabled: !!courseId && (showAddModal || embedded),
   });
 
   // Fetch stats
@@ -185,12 +198,16 @@ export const CourseTutorManager = () => {
   });
 
   // Sync settings state with course data
+  const courseLoadedRef = useRef(false);
   useEffect(() => {
     if (course) {
       setModuleName((course as any).collaborativeModuleName || '');
       setRoutingMode((course as any).tutorRoutingMode || 'free');
       setDefaultTutorId((course as any).defaultTutorId || null);
       setEmotionalPulseEnabled((course as any).emotionalPulseEnabled !== false);
+      // Wait until the next render so the controlled inputs settle before
+      // we let the auto-save effect see them as "user changes".
+      requestAnimationFrame(() => { courseLoadedRef.current = true; });
     }
   }, [course]);
 
@@ -202,6 +219,20 @@ export const CourseTutorManager = () => {
       defaultTutorId: routingMode === 'single' ? defaultTutorId : null,
     });
   };
+
+  // In embedded mode (the wizard's Tutors step), settings auto-save on
+  // change with a small debounce — no separate Save button. Skips the
+  // initial hydration pass via courseLoadedRef so we don't write back the
+  // values we just read from the server.
+  useEffect(() => {
+    if (!embedded) return;
+    if (!courseLoadedRef.current) return;
+    const handle = setTimeout(() => {
+      handleSaveSettings();
+    }, 600);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [embedded, moduleName, routingMode, defaultTutorId, emotionalPulseEnabled]);
 
   const { draggedId, handleDragStart, handleDragOver, handleDragEnd } = useDragAndDrop(
     tutors || [],
@@ -243,31 +274,28 @@ export const CourseTutorManager = () => {
   const breadcrumbItems = buildTeachingBreadcrumb(courseId, course?.title || 'Course', t('ai_tutors'));
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8" style={{ minHeight: '100vh' }}>
-      {/* Breadcrumb navigation */}
-      <div className="mb-6">
-        <Breadcrumb homeHref="/" items={breadcrumbItems} />
-      </div>
+    <div
+      className={embedded ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8'}
+      style={embedded ? undefined : { minHeight: '100vh' }}
+    >
+      {!embedded && (
+        <div className="mb-6">
+          <Breadcrumb homeHref="/" items={breadcrumbItems} />
+        </div>
+      )}
 
-      {/* Header */}
-      <div className="mb-6 md:mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>
-              {t('collaborative_module')}
-            </h1>
-            <p className="mt-1" style={{ color: colors.textSecondary }}>
-              {t('manage_ai_tutors_for', { course: course.title })}
-            </p>
-          </div>
+      {/* Header actions — hidden when embedded; the wizard's Tutors step
+          uses the inline picker below to add tutors. */}
+      {!embedded && (
+        <div className="flex justify-end mb-6 md:mb-8">
           <Button onClick={() => setShowAddModal(true)} icon={<Plus className="w-4 h-4" />}>
             {t('add_tutor')}
           </Button>
         </div>
-      </div>
+      )}
 
-      {/* Stats */}
-      {stats && (
+      {/* Stats — hidden when embedded; not relevant during course setup. */}
+      {!embedded && stats && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6 md:mb-8">
           <Card>
             <CardBody className="flex items-center gap-3">
@@ -281,7 +309,7 @@ export const CourseTutorManager = () => {
                 <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
                   {stats.totalTutors}
                 </p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>
+                <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                   {t('total_tutors')}
                 </p>
               </div>
@@ -300,7 +328,7 @@ export const CourseTutorManager = () => {
                 <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
                   {stats.activeTutors}
                 </p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>
+                <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                   {t('active')}
                 </p>
               </div>
@@ -319,7 +347,7 @@ export const CourseTutorManager = () => {
                 <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
                   {stats.totalConversations}
                 </p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>
+                <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                   {t('conversations')}
                 </p>
               </div>
@@ -338,7 +366,7 @@ export const CourseTutorManager = () => {
                 <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
                   {stats.totalMessages}
                 </p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>
+                <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                   {t('total_messages')}
                 </p>
               </div>
@@ -347,24 +375,98 @@ export const CourseTutorManager = () => {
         </div>
       )}
 
+      {/* Inline tutor picker (embedded only) — comes before the settings
+          card. One tap toggles a tutor into / out of the course; no
+          modal, no separate "Tutors in this course" panel. */}
+      {embedded && (
+        <Card className="mb-6">
+          <CardBody>
+            <h2 className="text-base font-semibold mb-3" style={{ color: colors.textPrimary }}>
+              {t('tutors_in_course')}
+            </h2>
+            {(availableTutors ?? []).length === 0 ? (
+              <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
+                {t('no_tutors_desc', { defaultValue: 'No tutors available yet.' })}
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {(availableTutors ?? []).map((avail) => {
+                  const courseTutor = tutors?.find(t => t.chatbotId === avail.id);
+                  const isAdded = !!courseTutor;
+                  return (
+                    <button
+                      key={avail.id}
+                      type="button"
+                      onClick={() => {
+                        if (isAdded && courseTutor) {
+                          deleteMutation.mutate(courseTutor.id);
+                        } else {
+                          batchAddMutation.mutate([avail.id]);
+                        }
+                      }}
+                      className="w-full flex items-center gap-3 p-3 rounded-lg border transition-colors"
+                      style={{
+                        backgroundColor: isAdded ? colors.bgSelected : colors.bgCard,
+                        borderColor: isAdded ? '#0d9488' : colors.border,
+                      }}
+                    >
+                      <span className="shrink-0">
+                        {isAdded ? (
+                          <CheckSquare className="w-5 h-5 text-primary-600" />
+                        ) : (
+                          <Square className="w-5 h-5" style={{ color: colors.textMuted }} />
+                        )}
+                      </span>
+                      <div
+                        className={`w-9 h-9 rounded-full flex items-center justify-center bg-gradient-to-br ${getPersonalityColor(
+                          avail.personality,
+                        )} text-white shrink-0`}
+                      >
+                        {avail.avatarUrl ? (
+                          <img src={avail.avatarUrl} alt="" className="w-full h-full rounded-full object-cover" />
+                        ) : (
+                          <Bot className="w-4 h-4" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0 text-left">
+                        <p className="text-sm font-medium truncate" style={{ color: colors.textPrimary }}>
+                          {avail.displayName}
+                        </p>
+                        {avail.description && (
+                          <p className="text-xs truncate" style={{ color: colors.textSecondary }}>
+                            {avail.description}
+                          </p>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </CardBody>
+        </Card>
+      )}
+
       {/* Module Settings */}
       <Card className="mb-6">
-        <CardHeader
-          className="cursor-pointer flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4"
-          onClick={() => setSettingsExpanded(!settingsExpanded)}
-        >
-          <div className="flex items-center gap-2">
-            <Settings className="w-5 h-5" style={{ color: colors.textPrimary600 }} />
-            <h2 className="text-lg sm:text-xl font-semibold" style={{ color: colors.textPrimary }}>
-              {t('module_settings')}
-            </h2>
-          </div>
-          <ChevronLeft
-            className={`w-5 h-5 transition-transform ${settingsExpanded ? '-rotate-90' : 'rotate-0'}`}
-            style={{ color: colors.textMuted }}
-          />
-        </CardHeader>
-        {settingsExpanded && (
+        {!embedded && (
+          <CardHeader
+            className="cursor-pointer flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4"
+            onClick={() => setSettingsExpanded(!settingsExpanded)}
+          >
+            <div className="flex items-center gap-2">
+              <Settings className="w-5 h-5" style={{ color: colors.textPrimary600 }} />
+              <h2 className="text-lg sm:text-xl font-semibold" style={{ color: colors.textPrimary }}>
+                {t('module_settings')}
+              </h2>
+            </div>
+            <ChevronLeft
+              className={`w-5 h-5 transition-transform ${settingsExpanded ? '-rotate-90' : 'rotate-0'}`}
+              style={{ color: colors.textMuted }}
+            />
+          </CardHeader>
+        )}
+        {(embedded || settingsExpanded) && (
           <CardBody className="space-y-4">
             {/* Module Name */}
             <div>
@@ -372,7 +474,7 @@ export const CourseTutorManager = () => {
                 className="block text-sm font-medium mb-1"
                 style={{ color: colors.textPrimary }}
               >
-                {t('module_name_shown')}
+                {embedded ? t('name', { defaultValue: 'Name' }) : t('module_name_shown')}
               </label>
               <input
                 type="text"
@@ -386,28 +488,47 @@ export const CourseTutorManager = () => {
                   color: colors.textPrimary,
                 }}
               />
-              <p className="text-xs mt-1" style={{ color: colors.textMuted }}>
-                {t('leave_empty_default')}
-              </p>
+              {!embedded && (
+                <p className="text-xs mt-1" style={{ color: colors.textMuted }}>
+                  {t('leave_empty_default')}
+                </p>
+              )}
             </div>
 
             {/* Routing Section */}
             <div
-              className="p-4 rounded-lg border-2 border-dashed"
-              style={{ borderColor: colors.border, backgroundColor: colors.bgHover }}
+              className={embedded
+                ? ''
+                : 'p-4 rounded-lg border-2 border-dashed'}
+              style={embedded
+                ? undefined
+                : { borderColor: colors.border, backgroundColor: colors.bgHover }}
             >
-              <div className="flex items-center gap-2 mb-3">
-                <svg className="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                </svg>
-                <h3 className="font-semibold" style={{ color: colors.textPrimary }}>
-                  {t('tutor_routing')}
-                </h3>
+              <div className="mb-3">
+                {embedded ? (
+                  <label
+                    className="block text-sm font-medium"
+                    style={{ color: colors.textPrimary }}
+                  >
+                    {t('tutor_routing')}
+                  </label>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                    <h3 className="font-semibold" style={{ color: colors.textPrimary }}>
+                      {t('tutor_routing')}
+                    </h3>
+                  </div>
+                )}
               </div>
 
-              <p className="text-sm mb-3" style={{ color: colors.textSecondary }}>
-                {t('tutor_routing_desc')}
-              </p>
+              {!embedded && (
+                <p className="text-sm mb-3" style={{ color: colors.textSecondary }}>
+                  {t('tutor_routing_desc')}
+                </p>
+              )}
 
               <div className="space-y-3">
                 {/* Free Choice Option */}
@@ -426,13 +547,13 @@ export const CourseTutorManager = () => {
                     className="mt-1"
                   />
                   <div>
-                    <p className="font-medium" style={{ color: colors.textPrimary }}>
+                    <p className={embedded ? 'text-sm font-medium' : 'font-medium'} style={{ color: colors.textPrimary }}>
                       {t('free_choice')}
                       <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
                         {t('recommended')}
                       </span>
                     </p>
-                    <p className="text-sm" style={{ color: colors.textSecondary }}>
+                    <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                       {t('free_choice_desc')}
                     </p>
                   </div>
@@ -454,8 +575,8 @@ export const CourseTutorManager = () => {
                     className="mt-1"
                   />
                   <div>
-                    <p className="font-medium" style={{ color: colors.textPrimary }}>{t('all_tutors_guided')}</p>
-                    <p className="text-sm" style={{ color: colors.textSecondary }}>
+                    <p className={embedded ? 'text-sm font-medium' : 'font-medium'} style={{ color: colors.textPrimary }}>{t('all_tutors_guided')}</p>
+                    <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                       {t('all_tutors_guided_desc')}
                     </p>
                   </div>
@@ -477,8 +598,8 @@ export const CourseTutorManager = () => {
                     className="mt-1"
                   />
                   <div className="flex-1">
-                    <p className="font-medium" style={{ color: colors.textPrimary }}>{t('single_tutor_mode')}</p>
-                    <p className="text-sm" style={{ color: colors.textSecondary }}>
+                    <p className={embedded ? 'text-sm font-medium' : 'font-medium'} style={{ color: colors.textPrimary }}>{t('single_tutor_mode')}</p>
+                    <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                       {t('single_tutor_desc')}
                     </p>
                   </div>
@@ -523,13 +644,13 @@ export const CourseTutorManager = () => {
                     className="mt-1"
                   />
                   <div>
-                    <p className="font-medium" style={{ color: colors.textPrimary }}>
+                    <p className={embedded ? 'text-sm font-medium' : 'font-medium'} style={{ color: colors.textPrimary }}>
                       {t('smart_routing_mode')}
                       <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                         {t('beta')}
                       </span>
                     </p>
-                    <p className="text-sm" style={{ color: colors.textSecondary }}>
+                    <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                       {t('smart_routing_desc')}
                     </p>
                   </div>
@@ -551,13 +672,13 @@ export const CourseTutorManager = () => {
                     className="mt-1"
                   />
                   <div>
-                    <p className="font-medium" style={{ color: colors.textPrimary }}>
+                    <p className={embedded ? 'text-sm font-medium' : 'font-medium'} style={{ color: colors.textPrimary }}>
                       {t('team_mode')}
                       <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">
                         {t('new_label')}
                       </span>
                     </p>
-                    <p className="text-sm" style={{ color: colors.textSecondary }}>
+                    <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                       {t('team_mode_desc')}
                     </p>
                   </div>
@@ -579,10 +700,10 @@ export const CourseTutorManager = () => {
                     className="mt-1"
                   />
                   <div>
-                    <p className="font-medium" style={{ color: colors.textPrimary }}>
+                    <p className={embedded ? 'text-sm font-medium' : 'font-medium'} style={{ color: colors.textPrimary }}>
                       {t('random_mode_label')}
                     </p>
-                    <p className="text-sm" style={{ color: colors.textSecondary }}>
+                    <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                       {t('random_mode_desc')}
                     </p>
                   </div>
@@ -597,10 +718,10 @@ export const CourseTutorManager = () => {
             >
               <Heart className="w-5 h-5" style={{ color: '#ec4899' }} />
               <div className="flex-1">
-                <p className="font-medium" style={{ color: colors.textPrimary }}>
+                <p className={embedded ? 'text-sm font-medium' : 'font-medium'} style={{ color: colors.textPrimary }}>
                   {t('emotional_pulse')}
                 </p>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>
+                <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
                   {t('emotional_pulse_desc')}
                 </p>
               </div>
@@ -615,21 +736,26 @@ export const CourseTutorManager = () => {
               </label>
             </div>
 
-            {/* Save Button */}
-            <div className="pt-2">
-              <Button
-                onClick={handleSaveSettings}
-                loading={updateSettingsMutation.isPending}
-                icon={<Save className="w-4 h-4" />}
-              >
-                {t('save_settings')}
-              </Button>
-            </div>
+            {/* Save Button — embedded mode auto-saves so this is hidden. */}
+            {!embedded && (
+              <div className="pt-2">
+                <Button
+                  onClick={handleSaveSettings}
+                  loading={updateSettingsMutation.isPending}
+                  icon={<Save className="w-4 h-4" />}
+                >
+                  {t('save_settings')}
+                </Button>
+              </div>
+            )}
           </CardBody>
         )}
       </Card>
 
-      {/* Tutors List */}
+      {/* Tutors List — hidden when embedded; the inline picker above
+          covers add / remove and the wizard step doesn't need the
+          per-tutor management chrome. */}
+      {!embedded && (
       <Card>
         <CardHeader>
           <h2 className="text-lg sm:text-xl font-semibold" style={{ color: colors.textPrimary }}>
@@ -751,9 +877,10 @@ export const CourseTutorManager = () => {
           )}
         </CardBody>
       </Card>
+      )}
 
-      {/* Add Tutor Modal */}
-      {showAddModal && (
+      {/* Add Tutor Modal — hidden when embedded. */}
+      {!embedded && showAddModal && (
         <AddTutorModal
           availableTutors={availableTutors || []}
           onBatchAdd={(ids) => batchAddMutation.mutate(ids)}

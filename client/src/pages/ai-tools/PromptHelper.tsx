@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Wand2, Copy, Check, Sparkles, RefreshCw } from 'lucide-react';
+import { Copy, Check, Sparkles, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { chatApi } from '../../api/chat';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { TextArea, Select } from '../../components/common/Input';
+import { Breadcrumb } from '../../components/common/Breadcrumb';
 import activityLogger from '../../services/activityLogger';
 
 const PROMPT_TEMPLATES = {
@@ -117,25 +117,17 @@ export const PromptHelper = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-      {/* Header */}
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+      {/* Breadcrumb */}
       <div className="mb-6">
-        <Link to="/ai-tools">
-          <Button variant="ghost" size="sm" icon={<ArrowLeft className="w-4 h-4" />}>
-            {t('back_to_ai_tools')}
-          </Button>
-        </Link>
+        <Breadcrumb
+          items={[
+            { label: t('ai_tools'), href: '/ai-tools' },
+            { label: t('prompt_engineering_helper') },
+          ]}
+        />
       </div>
 
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
-          <Wand2 className="w-6 h-6 text-white" />
-        </div>
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{t('prompt_engineering_helper')}</h1>
-          <p className="text-gray-600">{t('prompt_helper_desc')}</p>
-        </div>
-      </div>
 
       <div className="space-y-6">
         {/* Input Section */}

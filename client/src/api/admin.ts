@@ -2,13 +2,74 @@ import apiClient from './client';
 import { AdminStats, ApiResponse, PaginatedResponse } from '../types';
 import { getAuthToken } from '../utils/auth';
 
+export interface AdminStatsTrends {
+  days: string[];
+  signups: number[];
+  enrollments: number[];
+  activity: number[];
+  signupsDelta: number;
+  enrollmentsDelta: number;
+  activityDelta: number;
+}
+
+export interface AdminMonthlySeries {
+  counts: number[];
+  label: string;
+  year: number;
+  month: number;
+  daysShown: number;
+}
+
+export interface AdminDashboardOverview {
+  kpis: {
+    totalUsers: number;
+    totalCourses: number;
+    totalEnrollments: number;
+    totalActivityLogs: number;
+  };
+  engagement: { thisMonth: AdminMonthlySeries; lastMonth: AdminMonthlySeries };
+  activityByVerb: Record<string, number>;
+  courseCompletion: Array<{
+    courseId: number;
+    courseTitle: string;
+    completionPct: number;
+    studentCount: number;
+    participants: Array<{
+      id: number;
+      fullname: string | null;
+      avatarUrl: string | null;
+    }>;
+  }>;
+  recentUsers: Array<{
+    id: number;
+    fullname: string | null;
+    email: string | null;
+    createdAt: string;
+  }>;
+  recentEnrollments: Array<{
+    id: number;
+    enrolledAt: string;
+    user?: { fullname?: string | null; email?: string | null };
+    course?: { title?: string | null };
+  }>;
+}
+
 export const adminApi = {
   getStats: async () => {
     const response = await apiClient.get<ApiResponse<{
       stats: AdminStats;
+      trends: AdminStatsTrends;
+      courseDistribution: Record<string, number>;
       recentUsers: any[];
       recentEnrollments: any[];
     }>>('/admin/stats');
+    return response.data.data!;
+  },
+
+  getDashboardOverview: async (): Promise<AdminDashboardOverview> => {
+    const response = await apiClient.get<ApiResponse<AdminDashboardOverview>>(
+      '/admin/dashboard-overview'
+    );
     return response.data.data!;
   },
 

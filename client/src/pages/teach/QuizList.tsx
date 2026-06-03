@@ -1,142 +1,278 @@
-import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { FileQuestion, Clock, Users, ChevronRight } from 'lucide-react';
-import { useTheme } from '../../hooks/useTheme';
-import { Card, CardBody } from '../../components/common/Card';
-import { Loading } from '../../components/common/Loading';
+import { Edit, Eye, EyeOff, FileQuestion, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
-import apiClient from '../../api/client';
-
-interface QuizListItem {
-  id: number;
-  title: string;
-  courseId: number;
-  courseName: string;
-  moduleId: number | null;
-  timeLimit: number | null;
-  isPublished: boolean;
-  attemptCount: number;
-  questionCount: number;
-}
+import { buildTeachingListBreadcrumb } from '../../utils/breadcrumbs';
+import { ConfirmDialog } from '../../components/common/ConfirmDialog';
+import { DataTable, type ColumnDef } from '../../components/common/DataTable';
+import { RowMenu } from '../../components/common/RowMenu';
+import { coursesApi } from '../../api/courses';
+import { resolveFileUrl } from '../../api/client';
+import { quizzesApi, type InstructorQuiz } from '../../api/quizzes';
 
 export const QuizList = () => {
-  const { t } = useTranslation(['teaching', 'common']);
-  const { isDark } = useTheme();
+  const { t } = useTranslation(['teaching', 'common', 'navigation']);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const courseIdParam = searchParams.get('courseId');
 
-  const colors = {
-    bg: isDark ? '#111827' : '#f9fafb',
-    cardBg: isDark ? '#1f2937' : '#ffffff',
-    textPrimary: isDark ? '#f3f4f6' : '#111827',
-    textSecondary: isDark ? '#9ca3af' : '#6b7280',
-    border: isDark ? '#374151' : '#e5e7eb',
-    accent: '#088F8F',
-    warning: '#f59e0b',
-  };
+  const [deleteTarget, setDeleteTarget] = useState<InstructorQuiz | null>(null);
 
-  const { data: quizzes, isLoading } = useQuery({
+  const { data: allQuizzes = [], isLoading } = useQuery({
     queryKey: ['quizzes', 'instructor'],
-    queryFn: async () => {
-      const response = await apiClient.get<{ success: boolean; data: QuizListItem[] }>('/quizzes/instructor');
-      return response.data.data;
-    },
+    queryFn: () => quizzesApi.getInstructorQuizzes(),
   });
 
-  if (isLoading) {
-    return <Loading text={t('loading_quizzes')} />;
-  }
+  // When reached from a course's curriculum the list is scoped to that
+  // course via ?courseId= (and the breadcrumb gains a course crumb).
+  const quizzes = courseIdParam
+    ? allQuizzes.filter(q => String(q.courseId) === courseIdParam)
+    : allQuizzes;
+
+  // Owned courses feed the "Filter by course" select. Cached query —
+  // also used by TeachDashboard, so this is usually a hit.
+  const { data: myCourses = [] } = useQuery({
+    queryKey: ['my-courses'],
+    queryFn: () => coursesApi.getMyCourses(),
+  });
+
+  const togglePublishMutation = useMutation({
+    mutationFn: ({ id, isPublished }: { id: number; isPublished: boolean }) =>
+      quizzesApi.updateQuiz(id, { isPublished }),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['quizzes', 'instructor'] });
+      toast.success(
+        vars.isPublished
+          ? t('teaching:quiz_published', { defaultValue: 'Quiz published' })
+          : t('teaching:quiz_unpublished', { defaultValue: 'Quiz unpublished' }),
+      );
+    },
+    onError: () =>
+      toast.error(
+        t('teaching:failed_to_update_quiz', { defaultValue: 'Failed to update quiz' }),
+      ),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => quizzesApi.deleteQuiz(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quizzes', 'instructor'] });
+      toast.success(t('teaching:quiz_deleted'));
+      setDeleteTarget(null);
+    },
+    onError: () => toast.error(t('teaching:failed_to_delete_quiz')),
+  });
+
+  const columns: ColumnDef<InstructorQuiz>[] = [
+    {
+      id: 'title',
+      header: t('teaching:quiz_column_quiz', { defaultValue: 'Quiz' }),
+      sortAccessor: q => q.title.toLowerCase(),
+      width: '32%',
+      cell: q => (
+        <Link
+          to={`/teach/courses/${q.courseId}/quizzes/${q.id}`}
+          className="block truncate font-normal text-gray-700 dark:text-gray-200 hover:text-teal-600 dark:hover:text-teal-400"
+          title={q.title}
+        >
+          {q.title}
+        </Link>
+      ),
+    },
+    {
+      id: 'course',
+      header: t('teaching:quiz_column_course', { defaultValue: 'Course' }),
+      sortAccessor: q => q.courseName.toLowerCase(),
+      width: '30%',
+      filter: {
+        kind: 'select',
+        options: myCourses.map(c => ({
+          value: String(c.id),
+          label: c.title,
+        })),
+        predicate: (q, v) => String(q.courseId) === v,
+      },
+      cell: q => {
+        const thumb = q.courseThumbnail
+          ? resolveFileUrl(q.courseThumbnail) || q.courseThumbnail
+          : null;
+        return (
+          <div className="flex items-center gap-2 min-w-0">
+            {thumb ? (
+              <img
+                src={thumb}
+                alt=""
+                aria-hidden="true"
+                className="w-6 h-6 rounded object-cover flex-shrink-0"
+              />
+            ) : (
+              <div
+                className="w-6 h-6 rounded flex-shrink-0"
+                style={{ backgroundColor: 'rgba(8,143,143,0.18)' }}
+                aria-hidden="true"
+              />
+            )}
+            <span
+              className="truncate text-gray-600 dark:text-gray-300"
+              title={q.courseName}
+            >
+              {q.courseName}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      id: 'time',
+      header: t('teaching:quiz_column_time', { defaultValue: 'Time' }),
+      sortAccessor: q => q.timeLimit,
+      align: 'right',
+      hideOnMobile: true,
+      width: '6rem',
+      cell: q => (
+        <span className="text-gray-600 dark:text-gray-300 tabular-nums">
+          {q.timeLimit ?? '—'}
+        </span>
+      ),
+    },
+    {
+      id: 'maxAttempts',
+      header: t('teaching:quiz_column_attempts_short', { defaultValue: 'Attempts' }),
+      sortAccessor: q => q.maxAttempts,
+      align: 'right',
+      hideOnMobile: true,
+      width: '6rem',
+      cell: q => (
+        <span className="text-gray-600 dark:text-gray-300 tabular-nums">
+          {q.maxAttempts}
+        </span>
+      ),
+    },
+    {
+      id: 'participants',
+      header: t('teaching:quiz_column_participants_short', { defaultValue: 'People' }),
+      sortAccessor: q => q.participantCount,
+      align: 'right',
+      width: '5.5rem',
+      cell: q => (
+        <span className="text-gray-600 dark:text-gray-300 tabular-nums">
+          {q.participantCount}
+        </span>
+      ),
+    },
+    {
+      id: 'questions',
+      header: t('teaching:quiz_column_questions', { defaultValue: 'Questions' }),
+      sortAccessor: q => q.questionCount,
+      align: 'right',
+      width: '7rem',
+      cell: q => (
+        <span className="text-gray-600 dark:text-gray-300 tabular-nums">
+          {q.questionCount}
+        </span>
+      ),
+    },
+  ];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-      {/* Breadcrumb navigation */}
       <div className="mb-6">
-        <Breadcrumb homeHref="/" items={[{ label: t('navigation:quizzes') }]} />
+        <Breadcrumb
+          homeHref="/"
+          items={
+            courseIdParam
+              ? buildTeachingListBreadcrumb(
+                  t('navigation:quizzes'),
+                  courseIdParam,
+                  myCourses.find(c => String(c.id) === courseIdParam)?.title ||
+                    quizzes[0]?.courseName ||
+                    t('navigation:quizzes'),
+                )
+              : [{ label: t('navigation:quizzes') }]
+          }
+        />
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6 md:mb-8">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>
-            {t('quiz_manager')}
-          </h1>
-          <p className="mt-2" style={{ color: colors.textSecondary }}>
-            {t('manage_quizzes_all')}
-          </p>
-        </div>
-      </div>
+      <DataTable<InstructorQuiz>
+        rows={quizzes}
+        columns={columns}
+        rowKey={q => q.id}
+        isLoading={isLoading}
+        pageSize={20}
+        globalSearch={{
+          placeholder: t('teaching:search_quizzes_placeholder', {
+            defaultValue: 'Search by quiz or course…',
+          }),
+          predicate: (q, query) => {
+            const lower = query.toLowerCase();
+            return (
+              q.title.toLowerCase().includes(lower) ||
+              q.courseName.toLowerCase().includes(lower)
+            );
+          },
+        }}
+        empty={
+          <div className="flex items-center justify-center gap-2 py-6 text-sm text-gray-500 dark:text-gray-400">
+            <FileQuestion className="w-4 h-4" />
+            <span>{t('teaching:quizzes_appear_here')}</span>
+          </div>
+        }
+        rowActions={q => (
+          <RowMenu
+            items={[
+              {
+                key: 'edit',
+                label: t('common:edit', { defaultValue: 'Edit' }),
+                icon: <Edit className="w-3.5 h-3.5" />,
+                onClick: () =>
+                  navigate(`/teach/courses/${q.courseId}/quizzes/${q.id}`),
+              },
+              {
+                key: 'publish',
+                label: q.isPublished
+                  ? t('teaching:unpublish', { defaultValue: 'Unpublish' })
+                  : t('teaching:publish', { defaultValue: 'Publish' }),
+                icon: q.isPublished ? (
+                  <EyeOff className="w-3.5 h-3.5" />
+                ) : (
+                  <Eye className="w-3.5 h-3.5" />
+                ),
+                onClick: () =>
+                  togglePublishMutation.mutate({
+                    id: q.id,
+                    isPublished: !q.isPublished,
+                  }),
+              },
+              {
+                key: 'delete',
+                label: t('common:delete', { defaultValue: 'Delete' }),
+                icon: <Trash2 className="w-3.5 h-3.5" />,
+                onClick: () => setDeleteTarget(q),
+                destructive: true,
+              },
+            ]}
+          />
+        )}
+      />
 
-      {!quizzes || quizzes.length === 0 ? (
-        <Card>
-          <CardBody className="text-center py-12">
-            <FileQuestion className="w-12 h-12 mx-auto mb-4" style={{ color: colors.textSecondary }} />
-            <p style={{ color: colors.textSecondary }}>
-              {t('quizzes_appear_here')}
-            </p>
-          </CardBody>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {quizzes.map((quiz) => (
-            <Link
-              key={quiz.id}
-              to={`/teach/courses/${quiz.courseId}/quizzes/${quiz.id}`}
-              className="block"
-            >
-              <Card className="hover:shadow-lg transition-shadow">
-                <CardBody className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-                  <div className="flex items-center gap-4">
-                    <div
-                      className="w-12 h-12 rounded-lg flex items-center justify-center"
-                      style={{ backgroundColor: `${colors.accent}20` }}
-                    >
-                      <FileQuestion className="w-6 h-6" style={{ color: colors.accent }} />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold" style={{ color: colors.textPrimary }}>
-                          {quiz.title}
-                        </h3>
-                        <span
-                          className={`px-2 py-0.5 text-xs rounded-full ${
-                            quiz.isPublished
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                              : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-                          }`}
-                        >
-                          {quiz.isPublished ? t('published') : t('draft')}
-                        </span>
-                      </div>
-                      <p className="text-sm" style={{ color: colors.textSecondary }}>
-                        {quiz.courseName}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-                    <div className="text-center">
-                      <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>
-                        {quiz.questionCount}
-                      </p>
-                      <p className="text-xs" style={{ color: colors.textSecondary }}>
-                        {t('questions_label')}
-                      </p>
-                    </div>
-                    {quiz.timeLimit && (
-                      <div className="flex items-center gap-1" style={{ color: colors.textSecondary }}>
-                        <Clock className="w-4 h-4" />
-                        <span className="text-sm">{quiz.timeLimit} min</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-1" style={{ color: colors.textSecondary }}>
-                      <Users className="w-4 h-4" />
-                      <span className="text-sm">{quiz.attemptCount} attempts</span>
-                    </div>
-                    <ChevronRight className="w-5 h-5" style={{ color: colors.textSecondary }} />
-                  </div>
-                </CardBody>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      )}
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+        title={t('teaching:confirm_delete_quiz_title', { defaultValue: 'Delete quiz?' })}
+        message={t('teaching:confirm_delete_quiz_body', {
+          defaultValue: 'This deletes the quiz and all its questions and attempts.',
+          title: deleteTarget?.title,
+        })}
+        confirmText={t('common:delete', { defaultValue: 'Delete' })}
+        loading={deleteMutation.isPending}
+      />
     </div>
   );
 };
+

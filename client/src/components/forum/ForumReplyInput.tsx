@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Send, Bot, X, Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Heading2, ImagePlus, Link as LinkIcon, Undo, Redo, Code, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
+import { Bot, X, Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Heading2, ImagePlus, Link as LinkIcon, Undo, Redo, Code, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
@@ -298,8 +298,9 @@ export const ForumReplyInput = ({
             disabled={!value.trim() || isSubmitting || isAiLoading}
             size="sm"
           >
-            <Send size={16} />
-            {isSubmitting ? t('posting') : t('post_reply')}
+            {isSubmitting
+              ? t('posting', { defaultValue: 'Posting…' })
+              : t('submit', { defaultValue: 'Submit' })}
           </Button>
         </div>
       </div>

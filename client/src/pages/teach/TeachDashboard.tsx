@@ -29,6 +29,7 @@ import { Loading } from '../../components/common/Loading';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { EmptyState } from '../../components/common/EmptyState';
+import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { Course } from '../../types';
 
 export const TeachDashboard = () => {
@@ -119,12 +120,13 @@ export const TeachDashboard = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8" style={{ minHeight: '100vh' }}>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6 md:mb-8">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: colors.textPrimary }}>{t('teach_dashboard')}</h1>
-          <p className="mt-1" style={{ color: colors.textSecondary }}>{t('manage_assignments_and_grading')}</p>
-        </div>
+      {/* Breadcrumb */}
+      <div className="mb-6">
+        <Breadcrumb homeHref="/" items={[{ label: t('teaching') }]} />
+      </div>
+
+      {/* Header actions */}
+      <div className="flex justify-end mb-6 md:mb-8">
         <Button onClick={() => navigate('/teach/create')} icon={<Plus className="w-4 h-4" />}>
           {t('create_course')}
         </Button>

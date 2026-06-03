@@ -162,6 +162,34 @@ router.get('/:id/students', authenticateToken, requireInstructor, asyncHandler(a
   res.json({ success: true, data: students });
 }));
 
+// Course resource counts — drives the in-page Content sub-tabs and the
+// fixed Course Resources bar in the Setup wizard. One round trip, eight
+// cheap counts.
+router.get('/:id/resource-counts', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const courseId = parseInt(req.params.id);
+  const [
+    assignments,
+    quizzes,
+    forums,
+    surveys,
+    students,
+    certificates,
+    activityLogs,
+  ] = await Promise.all([
+    prisma.assignment.count({ where: { courseId } }),
+    prisma.quiz.count({ where: { courseId } }),
+    prisma.forumThread.count({ where: { courseId } }),
+    prisma.moduleSurvey.count({ where: { courseId } }),
+    prisma.enrollment.count({ where: { courseId } }),
+    prisma.certificate.count({ where: { courseId } }),
+    prisma.learningActivityLog.count({ where: { courseId } }),
+  ]);
+  res.json({
+    success: true,
+    data: { assignments, quizzes, forums, surveys, students, certificates, activityLogs },
+  });
+}));
+
 // Update course AI settings (Collaborative Module)
 router.put('/:id/ai-settings', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = parseInt(req.params.id);
@@ -214,6 +242,15 @@ router.put('/:courseId/modules/reorder', authenticateToken, requireInstructor, a
   const courseId = parseInt(req.params.courseId);
   const { moduleIds } = reorderModulesSchema.parse(req.body);
   const result = await moduleService.reorderModules(courseId, req.user!.id, moduleIds, req.user!.isAdmin);
+  res.json({ success: true, ...result });
+}));
+
+// Reorder a module's items across all types in one flat sequence.
+// Body: { items: [{ type: 'lecture' | 'codelab' | 'assignment' | 'forum' | 'quiz' | 'survey', id: number }] }
+router.put('/modules/:moduleId/reorder-items', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const moduleId = parseInt(req.params.moduleId);
+  const items = Array.isArray(req.body?.items) ? req.body.items : [];
+  const result = await moduleService.reorderModuleItems(moduleId, req.user!.id, items, req.user!.isAdmin);
   res.json({ success: true, ...result });
 }));
 

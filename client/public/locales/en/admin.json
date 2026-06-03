@@ -91,6 +91,8 @@
   "manage_enrollments": "Manage course enrollments",
   "add_enrollment": "Add Enrollment",
   "total_enrollments": "Total Enrollments",
+  "total_activity_logs": "Total Activity Logs",
+  "admin_section": "Admin",
   "active_enrollments": "Active Enrollments",
   "completed_enrollments": "Completed Enrollments",
   "last_7_days": "Last 7 Days",
@@ -804,5 +806,17 @@
   "module_tutor_desc": "AI tutor for course Q&A",
   "default_provider": "Default (platform)",
   "local_llm_note": "Local providers must be running on the server host.",
-  "module_assignment_saved": "Module routing saved"
+  "module_assignment_saved": "Module routing saved",
+  "activity_timeline": "Activity timeline",
+  "weekly_activity_timeline": "Weekly Activity Timeline",
+  "full_analytics": "Full analytics →",
+  "growth_last_7_days": "Growth — last 7 days",
+  "signups": "Signups",
+  "course_distribution": "Course distribution",
+  "llm_providers": "LLM",
+  "analytics": "Analytics",
+  "total_users": "Total users",
+  "active_users": "Active users",
+  "published_courses": "Published courses",
+  "total_enrollments": "Enrollments"
 }

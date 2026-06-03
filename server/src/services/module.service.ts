@@ -175,6 +175,46 @@ export class ModuleService {
 
     return { message: 'Modules reordered successfully' };
   }
+
+  /**
+   * Unified cross-type reorder. Accepts a flat sequence of items from a
+   * single module and rewrites every item's `orderIndex` to its position
+   * in the array, regardless of type. The client always sends the full
+   * ordered list — server normalizes positions to 0..N.
+   */
+  async reorderModuleItems(
+    moduleId: number,
+    instructorId: number,
+    items: { type: 'lecture' | 'codelab' | 'assignment' | 'forum' | 'quiz' | 'survey'; id: number }[],
+    isAdmin = false,
+  ) {
+    const module = await prisma.courseModule.findUnique({ where: { id: moduleId } });
+    if (!module) throw new Error('Module not found');
+    await this.verifyCourseOwnership(module.courseId, instructorId, isAdmin);
+
+    await prisma.$transaction(
+      items.map((item, index) => {
+        const data = { orderIndex: index };
+        switch (item.type) {
+          case 'lecture':
+            return prisma.lecture.update({ where: { id: item.id }, data });
+          case 'codelab':
+            return prisma.codeLab.update({ where: { id: item.id }, data });
+          case 'assignment':
+            return prisma.assignment.update({ where: { id: item.id }, data });
+          case 'forum':
+            return prisma.forumThread.update({ where: { id: item.id }, data });
+          case 'quiz':
+            return prisma.quiz.update({ where: { id: item.id }, data });
+          case 'survey':
+            // ModuleSurvey id (the junction row), not the surveyId.
+            return prisma.moduleSurvey.update({ where: { id: item.id }, data });
+        }
+      }),
+    );
+
+    return { message: 'Module items reordered' };
+  }
 }
 
 export const moduleService = new ModuleService();

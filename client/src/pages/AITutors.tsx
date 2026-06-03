@@ -350,7 +350,7 @@ export const AITutors = () => {
   const selectorLoading = enrollmentsLoading;
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col relative" style={{ backgroundColor: bgColor }}>
+    <div className="h-[calc(100vh-var(--chrome-top,5rem))] flex flex-col relative" style={{ backgroundColor: bgColor }}>
 
       {/* Course selection overlay — covers only this page content, not navbar/sidebar */}
       {showCourseSelector && (

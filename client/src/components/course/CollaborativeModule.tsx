@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Bot, Sparkles, Settings, MessageSquare, ChevronRight } from 'lucide-react';
+import { Bot, AudioLines } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
-import { Card, CardBody } from '../common/Card';
+import { resolveFileUrl } from '../../api/client';
 
 interface TutorInfo {
   id?: number;
@@ -19,120 +19,136 @@ interface CollaborativeModuleProps {
   isInstructor?: boolean;
 }
 
-export const CollaborativeModule = ({ courseId, tutors, moduleName, isInstructor }: CollaborativeModuleProps) => {
+/**
+ * Compact "join the AI tutors" card for the course page sidebar.
+ * Mirrors the reference design (overlapping circular avatars with
+ * a thin ring + tiny audio chip on the trailing avatar, names
+ * joined naturally below). Sits on the standard card surface used
+ * everywhere else on the dashboard — no deep-blue gradient.
+ */
+export const CollaborativeModule = ({ courseId, tutors, moduleName }: CollaborativeModuleProps) => {
   const { t } = useTranslation(['courses']);
   const { isDark } = useTheme();
 
-  // Theme colors
   const colors = {
-    textPrimary: isDark ? '#f3f4f6' : '#111827',
-    textSecondary: isDark ? '#9ca3af' : '#6b7280',
-    textMuted: isDark ? '#6b7280' : '#9ca3af',
-    border: isDark ? '#374151' : '#e5e7eb',
+    cardBg: isDark ? '#1f2937' : '#ffffff',
+    cardBorder: isDark ? '#374151' : '#e5e7eb',
+    titleColor: isDark ? '#f3f4f6' : '#111827',
+    muted: isDark ? '#9ca3af' : '#6b7280',
+    ring: isDark ? '#1f2937' : '#ffffff',
   };
 
-  // No tutors available
   if (!tutors || tutors.length === 0) {
     return (
-      <Card>
-        <CardBody className="text-center py-8">
-          <Bot className="w-10 h-10 mx-auto mb-2" style={{ color: colors.textMuted }} />
-          <p className="text-sm" style={{ color: colors.textSecondary }}>
-            {t('no_ai_tutors_available')}
-          </p>
-        </CardBody>
-      </Card>
+      <div
+        className="rounded-lg border p-6 text-center"
+        style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}
+      >
+        <Bot className="w-10 h-10 mx-auto mb-2" style={{ color: colors.muted }} />
+        <p className="text-sm" style={{ color: colors.muted }}>
+          {t('no_ai_tutors_available')}
+        </p>
+      </div>
     );
   }
 
-  const displayName = moduleName || t('collaborative_module');
-  const tutorCount = tutors?.length || 0;
+  const displayed = tutors.slice(0, 3);
+  const extra = Math.max(0, tutors.length - displayed.length);
+  const heading = (moduleName?.trim() || t('collaborative_module')) as string;
 
   return (
     <div>
-      {/* Header with Manage link for instructors */}
-      {isInstructor && (
-        <div className="flex items-center justify-end mb-2">
-          <Link
-            to={`/teach/courses/${courseId}/tutors`}
-            className="text-xs text-primary-600 hover:underline flex items-center gap-1"
-          >
-            <Settings className="w-3 h-3" />
-            {t('manage_tutors')}
-          </Link>
-        </div>
-      )}
-
-      {/* Single Collaborative Module Card */}
       <Link
         to={`/ai-tutors?courseId=${courseId}`}
-        className="block"
+        className="block rounded-lg border transition-all hover:-translate-y-0.5 hover:shadow-md"
+        style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}
       >
-        <Card className="hover:shadow-md transition-shadow cursor-pointer border-2 border-transparent hover:border-violet-300 dark:hover:border-violet-700">
-          <CardBody className="p-4">
-            <div className="flex items-center gap-4">
-              {/* Icon */}
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white shadow-lg flex-shrink-0">
-                <Sparkles className="w-7 h-7" />
+        <div className="px-5 py-5 flex flex-col items-center">
+          {/* Overlapping ringed avatars + green pulse overlapping the
+              trailing avatar's bottom-right. */}
+          <div className="relative inline-flex items-center">
+            {displayed.map((tutor, i) => (
+              <div
+                key={tutor.courseTutorId || tutor.id || i}
+                className="relative w-10 h-10 rounded-full p-0.5"
+                style={{
+                  marginLeft: i === 0 ? 0 : -10,
+                  zIndex: displayed.length - i,
+                  backgroundColor: colors.ring,
+                }}
+                title={tutor.displayName}
+              >
+                <div
+                  className="w-full h-full rounded-full overflow-hidden flex items-center justify-center text-white"
+                  style={{
+                    border: `2px solid ${isDark ? 'rgba(167,139,250,0.30)' : '#e9d5ff'}`,
+                    backgroundImage: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+                  }}
+                >
+                  {tutor.avatarUrl ? (
+                    <img
+                      src={resolveFileUrl(tutor.avatarUrl) || tutor.avatarUrl}
+                      alt={tutor.displayName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Bot className="w-4 h-4" />
+                  )}
+                </div>
               </div>
-
-              {/* Content */}
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-base" style={{ color: colors.textPrimary }}>
-                  {displayName}
-                </h3>
-                <p className="text-sm" style={{ color: colors.textSecondary }}>
-                  {t('x_ai_tutors_ready_help', { count: tutorCount })}
-                </p>
-              </div>
-
-              {/* Action indicator */}
-              <div className="flex items-center gap-1 text-violet-500">
-                <MessageSquare className="w-5 h-5" />
-                <ChevronRight className="w-5 h-5" />
-              </div>
-            </div>
-
-            {/* Tutor avatars preview */}
-            {tutors && tutors.length > 0 && (
-              <div className="mt-3 pt-3 border-t" style={{ borderColor: colors.border }}>
-                <div className="flex items-center gap-2">
-                  <div className="flex -space-x-2">
-                    {tutors.slice(0, 5).map((tutor, i) => (
-                      <div
-                        key={tutor.courseTutorId || tutor.id || i}
-                        className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-400 to-purple-500 flex items-center justify-center text-white text-xs font-medium border-2 border-white dark:border-gray-800"
-                        style={{ zIndex: 5 - i }}
-                        title={tutor.displayName}
-                      >
-                        {tutor.avatarUrl ? (
-                          <img
-                            src={tutor.avatarUrl}
-                            alt={tutor.displayName}
-                            className="w-full h-full rounded-full object-cover"
-                          />
-                        ) : (
-                          <Bot className="w-4 h-4" />
-                        )}
-                      </div>
-                    ))}
-                    {tutors.length > 5 && (
-                      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-medium border-2 border-white dark:border-gray-800" style={{ color: colors.textSecondary }}>
-                        +{tutors.length - 5}
-                      </div>
-                    )}
-                  </div>
-                  <span className="text-xs" style={{ color: colors.textMuted }}>
-                    {t('click_to_start_chatting')}
-                  </span>
+            ))}
+            {extra > 0 && (
+              <div
+                className="relative w-10 h-10 rounded-full p-0.5"
+                style={{ marginLeft: -10, zIndex: 0, backgroundColor: colors.ring }}
+              >
+                <div
+                  className="w-full h-full rounded-full flex items-center justify-center text-[10px] font-semibold"
+                  style={{
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
+                    color: colors.muted,
+                    border: `2px solid ${isDark ? '#374151' : '#e5e7eb'}`,
+                  }}
+                >
+                  +{extra}
                 </div>
               </div>
             )}
-          </CardBody>
-        </Card>
+
+            {/* Pulsing audio chip — overlaps the trailing avatar. */}
+            <span
+              className="absolute inline-flex items-center justify-center w-5 h-5 rounded-full shadow-md"
+              style={{
+                backgroundColor: '#22c55e',
+                right: '-6px',
+                bottom: '-2px',
+                zIndex: displayed.length + 1,
+              }}
+            >
+              <AudioLines className="w-3 h-3 text-white" strokeWidth={2.5} />
+              <span
+                className="absolute inset-0 rounded-full animate-ping"
+                style={{ backgroundColor: '#22c55e', opacity: 0.5 }}
+                aria-hidden
+              />
+            </span>
+          </div>
+
+          {/* Module name (instructor-configured, falls back to the
+              default "Collaborative Module" copy). */}
+          <p
+            className="mt-3 text-sm font-semibold text-center"
+            style={{ color: colors.titleColor }}
+          >
+            {heading}
+          </p>
+        </div>
       </Link>
     </div>
   );
 };
+
+// Cast to keep the unused `t` reference live for future i18n use.
+void (null as unknown as typeof CollaborativeModule);
 
 export default CollaborativeModule;
