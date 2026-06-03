@@ -1,6 +1,8 @@
 {
   "loading": "Loading...",
   "save": "Save",
+  "saved": "Saved",
+  "more": "More",
   "cancel": "Cancel",
   "delete": "Delete",
   "edit": "Edit",

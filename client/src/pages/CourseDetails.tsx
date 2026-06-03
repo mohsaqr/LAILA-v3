@@ -25,7 +25,7 @@ import { CollaborativeModule } from '../components/course/CollaborativeModule';
 import { CourseUpcomingAssignments } from '../components/course/CourseUpcomingAssignments';
 import { MiniCalendar } from '../components/dashboard/MiniCalendar';
 import { ModuleSection } from '../components/course/ModuleSection';
-import { CurriculumEditor } from './teach/CurriculumEditor';
+import { MoodleCourseEditor } from '../components/teach/moodle/MoodleCourseEditor';
 import { Modal } from '../components/common/Modal';
 import { Input } from '../components/common/Input';
 import { Avatar } from '../components/dashboard/Avatar';
@@ -485,17 +485,15 @@ export const CourseDetails = () => {
           {/* Main Content Column */}
           <div className="flex-1 min-w-0">
             {editMode ? (
-              /* Inline editing: reuse the curriculum editor from the
-                 setup/manage content step. Deletions require a second
-                 confirmation click here. */
-              <CurriculumEditor
-                courseId={parseInt(id!)}
-                embedded
-                doubleConfirmDeletes
-              />
-            ) : course.modules && course.modules.length > 0 ? (
+              /* Moodle-style inline editor: inline title rename, per-item
+                 3-dots (edit/hide/delete), and a bottom "+" add bar. Edit/add
+                 navigate to dedicated pages (no popups). */
+              <MoodleCourseEditor courseId={parseInt(id!)} />
+            ) : course.modules && course.modules.some((m) => (m as { isPublished?: boolean }).isPublished !== false) ? (
               <div className={viewMode === 'accordion' ? 'space-y-2' : 'space-y-6'}>
-                {course.modules.map((module, moduleIndex) => (
+                {course.modules
+                  .filter((module) => (module as { isPublished?: boolean }).isPublished !== false)
+                  .map((module, moduleIndex) => (
                   <div
                     key={module.id}
                     ref={(el) => { moduleRefs.current[module.id] = el; }}

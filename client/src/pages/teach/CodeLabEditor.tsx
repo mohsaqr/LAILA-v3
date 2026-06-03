@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Save, Plus, FlaskConical, Eye, EyeOff } from 'lucide-react';
+import { Save, Plus, FlaskConical, Eye, EyeOff, Beaker, Network, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { codeLabsApi } from '../../api/codeLabs';
 import { coursesApi } from '../../api/courses';
+import { customLabsApi } from '../../api/customLabs';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
@@ -20,9 +21,10 @@ import activityLogger from '../../services/activityLogger';
 
 export const CodeLabEditor = () => {
   const { t } = useTranslation('teaching');
-  const { id, codeLabId } = useParams<{ id: string; codeLabId: string }>();
+  const { id, codeLabId, moduleId } = useParams<{ id: string; codeLabId?: string; moduleId?: string }>();
   const courseId = parseInt(id!, 10);
-  const labId = parseInt(codeLabId!, 10);
+  const isNew = !codeLabId;
+  const labId = codeLabId ? parseInt(codeLabId, 10) : NaN;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -37,7 +39,7 @@ export const CodeLabEditor = () => {
   const { data: codeLab, isLoading } = useQuery({
     queryKey: ['codeLab', labId],
     queryFn: () => codeLabsApi.getCodeLabById(labId),
-    enabled: !!labId,
+    enabled: !isNew && !!labId,
   });
 
   // Query for course data (for context)
@@ -111,6 +113,58 @@ export const CodeLabEditor = () => {
     onError: () => toast.error(t('failed_to_reorder_blocks')),
   });
 
+  const createMutation = useMutation({
+    mutationFn: () =>
+      codeLabsApi.createCodeLab({ moduleId: Number(moduleId), title: formData.title.trim(), description: formData.description }),
+    onSuccess: (created: { id: number }) => {
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+      toast.success(t('code_lab_created', { defaultValue: 'Code lab created' }));
+      navigate(`/teach/courses/${courseId}/code-labs/${created.id}`, { replace: true });
+    },
+    onError: () => toast.error(t('failed_to_save_code_lab')),
+  });
+
+  // ─── Create-mode: pick blank / template / interactive lab ────────────────
+  const [createTab, setCreateTab] = useState<'create' | 'templates' | 'interactive'>('create');
+  const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
+  const [selectedInteractive, setSelectedInteractive] = useState<string | null>(null);
+
+  const { data: availableLabs } = useQuery({
+    queryKey: ['availableLabs'],
+    queryFn: () => customLabsApi.getLabs(),
+    enabled: isNew,
+  });
+
+  const backToCourse = () => navigate(`/courses/${courseId}`);
+
+  const assignTemplateMutation = useMutation({
+    mutationFn: (labId: number) => customLabsApi.assignToCourse(labId, { courseId, moduleId: Number(moduleId), enableAssignment: false }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+      toast.success(t('lab_template_added', { defaultValue: 'Lab template added' }));
+      backToCourse();
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.error ?? t('failed_to_add_lab_template', { defaultValue: 'Failed to add lab template' })),
+  });
+
+  const addInteractiveMutation = useMutation({
+    mutationFn: (key: string) => {
+      const mod = course?.modules?.find(m => m.id === Number(moduleId));
+      const existing = (mod as { interactiveLabs?: string } | undefined)?.interactiveLabs
+        ? (mod as { interactiveLabs?: string }).interactiveLabs!.split(',').map(s => s.trim()).filter(Boolean)
+        : [];
+      const next = Array.from(new Set([...existing, key])).join(',');
+      return coursesApi.updateModule(Number(moduleId), { interactiveLabs: next } as never);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      toast.success(t('lab_template_added', { defaultValue: 'Lab added' }));
+      backToCourse();
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.error ?? t('common:error', { defaultValue: 'Something went wrong' })),
+  });
+
   const handleSave = () => {
     if (!formData.title.trim()) {
       toast.error(t('title_required'));
@@ -159,6 +213,184 @@ export const CodeLabEditor = () => {
     setFormData(prev => ({ ...prev, isPublished: newPublished }));
     updateCodeLabMutation.mutate({ ...formData, isPublished: newPublished });
   };
+
+  if (isNew) {
+    const tabs: { key: typeof createTab; label: string; icon: typeof FlaskConical }[] = [
+      { key: 'create', label: t('create_new', { defaultValue: 'Create New' }), icon: FlaskConical },
+      { key: 'templates', label: t('from_templates', { defaultValue: 'From Templates' }), icon: Beaker },
+      { key: 'interactive', label: t('interactive_labs', { defaultValue: 'Interactive Labs' }), icon: Network },
+    ];
+    const interactiveLabs = [
+      { key: 'tna', label: t('interactive_lab_tna', { defaultValue: 'TNA' }), description: t('interactive_lab_tna_desc', { defaultValue: 'Transition Network Analysis — analyze learning sequences and behaviour patterns' }) },
+      { key: 'sna', label: t('interactive_lab_sna', { defaultValue: 'SNA' }), description: t('interactive_lab_sna_desc', { defaultValue: 'Social Network Analysis — explore connections and influence within a group' }) },
+    ];
+
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+        <div className="mb-6">
+          <Breadcrumb
+            items={[
+              { label: t('navigation:courses', { defaultValue: 'Courses' }), href: '/courses' },
+              { label: course?.title || t('course'), href: `/courses/${courseId}` },
+              { label: t('new_code_lab', { defaultValue: 'New code lab' }) },
+            ]}
+          />
+        </div>
+        <Card>
+          {/* Tab row */}
+          <div className="flex items-center gap-1 border-b border-gray-200 dark:border-gray-700 px-2">
+            {tabs.map(({ key, label, icon: Icon }) => {
+              const active = createTab === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setCreateTab(key)}
+                  className={`inline-flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                    active
+                      ? 'border-teal-500 text-teal-600 dark:text-teal-300'
+                      : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {label}
+                  {key === 'templates' && availableLabs && availableLabs.length > 0 && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">{availableLabs.length}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <CardBody className="space-y-4">
+            {createTab === 'create' && (
+              <>
+                <Input
+                  label={t('code_lab_title')}
+                  value={formData.title}
+                  onChange={e => handleChange('title', e.target.value)}
+                  placeholder={t('code_lab_title_placeholder')}
+                  required
+                />
+                <TextArea
+                  label={t('common:description', { defaultValue: 'Description' })}
+                  value={formData.description}
+                  onChange={e => handleChange('description', e.target.value)}
+                />
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    icon={<Save className="w-4 h-4" />}
+                    loading={createMutation.isPending}
+                    onClick={() => {
+                      if (!formData.title.trim()) { toast.error(t('title_required')); return; }
+                      createMutation.mutate();
+                    }}
+                  >
+                    {t('create', { defaultValue: 'Create' })}
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {createTab === 'templates' && (
+              <>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {t('select_lab_template_description', { defaultValue: 'Select a lab template to add to this module. Students will be able to access the lab and its code templates.' })}
+                </p>
+                <div className="space-y-2 max-h-[420px] overflow-y-auto">
+                  {(availableLabs ?? []).map(lab => {
+                    const isSelected = selectedTemplate === lab.id;
+                    const count = (lab as { _count?: { templates?: number } })._count?.templates ?? lab.templates?.length ?? 0;
+                    return (
+                      <div
+                        key={lab.id}
+                        onClick={() => setSelectedTemplate(isSelected ? null : lab.id)}
+                        className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                          isSelected ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <Beaker className={`w-4 h-4 ${isSelected ? 'text-teal-500' : 'text-gray-400'}`} />
+                              <span className="font-medium text-gray-900 dark:text-white">{lab.name}</span>
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">{lab.labType}</span>
+                            </div>
+                            {lab.description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 ml-6">{lab.description}</p>}
+                            <div className="text-xs text-gray-400 dark:text-gray-500 mt-1 ml-6">{t('n_templates', { count, defaultValue: '{{count}} templates' })}</div>
+                          </div>
+                          {isSelected && <div className="w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center shrink-0"><Check className="w-3 h-3 text-white" /></div>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {(availableLabs ?? []).length === 0 && (
+                    <p className="text-sm text-gray-400 py-6 text-center">{t('no_lab_templates', { defaultValue: 'No lab templates available.' })}</p>
+                  )}
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    icon={<Plus className="w-4 h-4" />}
+                    disabled={!selectedTemplate}
+                    loading={assignTemplateMutation.isPending}
+                    onClick={() => selectedTemplate && assignTemplateMutation.mutate(selectedTemplate)}
+                  >
+                    {t('add_to_module', { defaultValue: 'Add to module' })}
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {createTab === 'interactive' && (
+              <>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {t('select_lab_template_description', { defaultValue: 'Add an interactive analysis lab to this module.' })}
+                </p>
+                <div className="space-y-2">
+                  {interactiveLabs.map(lab => {
+                    const isSelected = selectedInteractive === lab.key;
+                    return (
+                      <div
+                        key={lab.key}
+                        onClick={() => setSelectedInteractive(isSelected ? null : lab.key)}
+                        className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                          isSelected ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <Network className={`w-4 h-4 ${isSelected ? 'text-teal-500' : 'text-violet-500'}`} />
+                              <span className="font-medium text-gray-900 dark:text-white">{lab.label}</span>
+                            </div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 ml-6">{lab.description}</p>
+                          </div>
+                          {isSelected && <div className="w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center shrink-0"><Check className="w-3 h-3 text-white" /></div>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    icon={<Plus className="w-4 h-4" />}
+                    disabled={!selectedInteractive}
+                    loading={addInteractiveMutation.isPending}
+                    onClick={() => selectedInteractive && addInteractiveMutation.mutate(selectedInteractive)}
+                  >
+                    {t('add_to_module', { defaultValue: 'Add to module' })}
+                  </Button>
+                </div>
+              </>
+            )}
+          </CardBody>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return <Loading fullScreen text={t('loading_code_lab')} />;
@@ -210,9 +442,7 @@ export const CodeLabEditor = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
+      <div className="space-y-6">
           {/* Code Lab Title */}
           <Card>
             <CardHeader>
@@ -286,60 +516,6 @@ export const CodeLabEditor = () => {
               )}
             </CardBody>
           </Card>
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Info */}
-          <Card>
-            <CardHeader>
-              <h2 className="font-semibold text-gray-900">{t('code_lab_info')}</h2>
-            </CardHeader>
-            <CardBody className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">{t('course')}</span>
-                <span className="font-medium text-gray-900">{course?.title || t('loading')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">{t('blocks_count')}</span>
-                <span className="font-medium text-gray-900">{blocks.length}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">{t('status')}</span>
-                <span className={`font-medium ${formData.isPublished ? 'text-green-600' : 'text-amber-600'}`}>
-                  {formData.isPublished ? t('published') : t('draft')}
-                </span>
-              </div>
-            </CardBody>
-          </Card>
-
-          {/* Tips */}
-          <Card>
-            <CardHeader>
-              <h2 className="font-semibold text-gray-900">{t('tips')}</h2>
-            </CardHeader>
-            <CardBody>
-              <ul className="space-y-3 text-sm text-gray-600">
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-500 mt-0.5">•</span>
-                  <span>{t('tip_focus_concept')}</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-500 mt-0.5">•</span>
-                  <span>{t('tip_clear_instructions')}</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-500 mt-0.5">•</span>
-                  <span>{t('tip_starter_code')}</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-500 mt-0.5">•</span>
-                  <span>{t('tip_blocks_order')}</span>
-                </li>
-              </ul>
-            </CardBody>
-          </Card>
-        </div>
       </div>
 
       {/* Delete Block Confirmation */}

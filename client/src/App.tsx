@@ -100,6 +100,8 @@ import {
   SurveyResponses,
   CourseTutorManager,
   QuizEditor,
+  AssignmentEditor,
+  ForumEditor,
   QuizList,
   AssignmentList,
   TeachForumList,
@@ -748,6 +750,44 @@ function App() {
               <QuizEditor />
             </ProtectedRoute>
           }
+        />
+        <Route
+          path="/teach/courses/:id/assignments/:assignmentId/edit"
+          element={
+            <ProtectedRoute requireInstructor>
+              <AssignmentEditor />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teach/courses/:id/forums/:forumId/edit"
+          element={
+            <ProtectedRoute requireInstructor>
+              <ForumEditor />
+            </ProtectedRoute>
+          }
+        />
+        {/* Create routes — open an empty editor; the item is only written to
+            the DB when the user clicks Create/Save. */}
+        <Route
+          path="/teach/courses/:id/modules/:moduleId/lessons/new"
+          element={<ProtectedRoute requireInstructor><LectureEditor /></ProtectedRoute>}
+        />
+        <Route
+          path="/teach/courses/:id/modules/:moduleId/code-labs/new"
+          element={<ProtectedRoute requireInstructor><CodeLabEditor /></ProtectedRoute>}
+        />
+        <Route
+          path="/teach/courses/:id/modules/:moduleId/quizzes/new"
+          element={<ProtectedRoute requireInstructor><QuizEditor /></ProtectedRoute>}
+        />
+        <Route
+          path="/teach/courses/:id/modules/:moduleId/assignments/new"
+          element={<ProtectedRoute requireInstructor><AssignmentEditor /></ProtectedRoute>}
+        />
+        <Route
+          path="/teach/courses/:id/modules/:moduleId/forums/new"
+          element={<ProtectedRoute requireInstructor><ForumEditor /></ProtectedRoute>}
         />
         <Route
           path="/teach/courses/:id/assignments"

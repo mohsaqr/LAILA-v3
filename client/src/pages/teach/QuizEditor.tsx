@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { quizzesApi, Quiz, QuizQuestion, CreateQuestionInput } from '../../api/quizzes';
+import { coursesApi } from '../../api/courses';
+import { Input } from '../../components/common/Input';
 import { useTheme } from '../../hooks/useTheme';
 import { Card, CardBody } from '../../components/common/Card';
 import { Loading } from '../../components/common/Loading';
@@ -30,12 +32,14 @@ import activityLogger from '../../services/activityLogger';
 
 export const QuizEditor = () => {
   const { t } = useTranslation(['teaching', 'common', 'navigation']);
-  const { id: courseId, quizId } = useParams<{ id: string; quizId: string }>();
+  const { id: courseId, quizId, moduleId } = useParams<{ id: string; quizId?: string; moduleId?: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const parsedQuizId = parseInt(quizId!, 10);
+  const isNew = !quizId;
+  const parsedQuizId = quizId ? parseInt(quizId, 10) : NaN;
   const { isDark } = useTheme();
 
+  const [newTitle, setNewTitle] = useState('');
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [settingsDescription, setSettingsDescription] = useState('');
   const [settingsInstructions, setSettingsInstructions] = useState('');
@@ -61,6 +65,25 @@ export const QuizEditor = () => {
   const { data: quiz, isLoading, error } = useQuery({
     queryKey: ['quiz', parsedQuizId],
     queryFn: () => quizzesApi.getQuiz(parsedQuizId),
+    enabled: !isNew && !!parsedQuizId,
+  });
+
+  const { data: course } = useQuery({
+    queryKey: ['course', courseId],
+    queryFn: () => coursesApi.getCourseById(parseInt(courseId!, 10)),
+    enabled: !!courseId,
+  });
+
+  // Create mode — quiz is created only when the user clicks Create.
+  const createQuizMutation = useMutation({
+    mutationFn: () =>
+      quizzesApi.createQuiz(parseInt(courseId!, 10), { moduleId: moduleId ? Number(moduleId) : undefined, title: newTitle.trim() } as never),
+    onSuccess: (created: { id: number }) => {
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+      toast.success(t('quiz_created', { defaultValue: 'Quiz created' }));
+      navigate(`/teach/courses/${courseId}/quizzes/${created.id}`, { replace: true });
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error || t('failed_to_update_quiz')),
   });
 
   // Per-question response analytics for the Overview tab.
@@ -166,6 +189,48 @@ export const QuizEditor = () => {
     [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
     reorderQuestionsMutation.mutate(reordered.map(q => q.id));
   };
+
+  if (isNew) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+        <div className="mb-6">
+          <Breadcrumb
+            items={[
+              { label: t('navigation:courses', { defaultValue: 'Courses' }), href: '/courses' },
+              { label: course?.title || t('course', { defaultValue: 'Course' }), href: `/courses/${courseId}` },
+              { label: t('new_quiz', { defaultValue: 'New quiz' }) },
+            ]}
+          />
+        </div>
+        <Card>
+          <CardBody className="space-y-4">
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                icon={<Save className="w-4 h-4" />}
+                loading={createQuizMutation.isPending}
+                onClick={() => {
+                  if (!newTitle.trim()) { toast.error(t('title_required', { defaultValue: 'Title is required' })); return; }
+                  createQuizMutation.mutate();
+                }}
+              >
+                {t('create', { defaultValue: 'Create' })}
+              </Button>
+            </div>
+            <Input
+              label={t('quiz_title', { defaultValue: 'Quiz title' })}
+              value={newTitle}
+              onChange={e => setNewTitle(e.target.value)}
+              required
+            />
+            <p className="text-sm" style={{ color: colors.textSecondary }}>
+              {t('quiz_create_hint', { defaultValue: 'Create the quiz, then add questions and settings.' })}
+            </p>
+          </CardBody>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return <Loading text={t('loading_quiz')} />;

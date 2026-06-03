@@ -1,6 +1,8 @@
 {
   "loading": "Ladataan...",
   "save": "Tallenna",
+  "saved": "Tallennettu",
+  "more": "Lisää",
   "cancel": "Peruuta",
   "delete": "Poista",
   "edit": "Muokkaa",

@@ -14,6 +14,8 @@ export { SurveyManager } from './SurveyManager';
 export { SurveyResponses } from './SurveyResponses';
 export { CourseTutorManager } from './CourseTutorManager';
 export { QuizEditor } from './QuizEditor';
+export { AssignmentEditor } from './AssignmentEditor';
+export { ForumEditor } from './ForumEditor';
 export { QuizManager } from './QuizManager';
 export { QuizList } from './QuizList';
 export { TeachForumList } from './TeachForumList';
