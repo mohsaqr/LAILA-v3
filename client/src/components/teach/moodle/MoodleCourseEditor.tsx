@@ -17,6 +17,9 @@ import { customLabsApi } from '../../../api/customLabs';
 import { surveysApi } from '../../../api/surveys';
 import { Loading } from '../../common/Loading';
 import { ConfirmDialog } from '../../common/ConfirmDialog';
+import { Modal } from '../../common/Modal';
+import { Button } from '../../common/Button';
+import { SearchableSelect } from '../../common/SearchableSelect';
 
 type ItemType = 'lecture' | 'codelab' | 'assignment' | 'quiz' | 'forum' | 'survey' | 'lab' | 'interactive';
 
@@ -111,6 +114,28 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
 
   const onError = () => toast.error(t('common:error', { defaultValue: 'Something went wrong' }));
 
+  // ─── Survey picker popup — attach one of the instructor's own surveys ─────
+  const [surveyPickerModule, setSurveyPickerModule] = useState<number | null>(null);
+  const [pickedSurveyId, setPickedSurveyId] = useState('');
+  const closeSurveyPicker = () => { setSurveyPickerModule(null); setPickedSurveyId(''); };
+
+  const { data: mySurveys } = useQuery({
+    queryKey: ['surveys', 'mine'],
+    queryFn: () => surveysApi.getSurveys(),
+    enabled: surveyPickerModule != null,
+  });
+
+  const surveyAdd = useMutation({
+    mutationFn: ({ moduleId, surveyId }: { moduleId: number; surveyId: number }) =>
+      surveysApi.addSurveyToModule(courseId, moduleId, surveyId),
+    onSuccess: () => {
+      refresh();
+      toast.success(t('survey_added', { defaultValue: 'Survey added' }));
+      closeSurveyPicker();
+    },
+    onError,
+  });
+
   // Rename an item's title.
   const renameItem = (item: EditorItem, title: string) => {
     const data = { title };
@@ -174,7 +199,9 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
       case 'quiz': navigate(`${base}/quizzes/new`); break;
       case 'assignment': navigate(`${base}/assignments/new`); break;
       case 'forum': navigate(`${base}/forums/new`); break;
-      case 'survey': navigate(`/teach/surveys?courseId=${courseId}`); break;
+      // Surveys can't be created blank here — pick one the instructor already
+      // made and attach it to the module via a popup.
+      case 'survey': setSurveyPickerModule(moduleId); break;
     }
   };
 
@@ -263,6 +290,63 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
         confirmText={t('common:delete', { defaultValue: 'Delete' })}
         requireSecondConfirm
       />
+
+      <Modal
+        isOpen={surveyPickerModule != null}
+        onClose={closeSurveyPicker}
+        title={t('add_survey_title', { defaultValue: 'Add a survey' })}
+      >
+        {(() => {
+          const attachedIds = new Set<number>(
+            ((details?.course?.modules?.find((m: { id: number }) => m.id === surveyPickerModule) as { moduleSurveys?: { survey?: { id?: number } }[] } | undefined)?.moduleSurveys ?? [])
+              .map(ms => ms.survey?.id)
+              .filter((x): x is number => typeof x === 'number'),
+          );
+          const options = (mySurveys ?? [])
+            .filter(s => !attachedIds.has(s.id))
+            .map(s => ({ value: String(s.id), label: s.title }));
+
+          if (options.length === 0) {
+            return (
+              <div className="text-center py-6 space-y-3">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {t('no_surveys_create', { defaultValue: 'You have no surveys to add. Create one first.' })}
+                </p>
+                <Button
+                  variant="secondary"
+                  onClick={() => { closeSurveyPicker(); navigate(`/teach/surveys?courseId=${courseId}`); }}
+                >
+                  {t('create_survey_link', { defaultValue: 'Go to surveys' })}
+                </Button>
+              </div>
+            );
+          }
+
+          return (
+            <div className="space-y-4">
+              <SearchableSelect
+                label={t('select_survey', { defaultValue: 'Select a survey' })}
+                value={pickedSurveyId}
+                onChange={setPickedSurveyId}
+                options={options}
+              />
+              <div className="flex justify-end gap-2">
+                <Button variant="secondary" onClick={closeSurveyPicker}>
+                  {t('common:cancel', { defaultValue: 'Cancel' })}
+                </Button>
+                <Button
+                  disabled={!pickedSurveyId}
+                  loading={surveyAdd.isPending}
+                  onClick={() => surveyPickerModule != null && pickedSurveyId &&
+                    surveyAdd.mutate({ moduleId: surveyPickerModule, surveyId: Number(pickedSurveyId) })}
+                >
+                  {t('common:add', { defaultValue: 'Add' })}
+                </Button>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
     </div>
   );
 };

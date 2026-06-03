@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Save, Plus, FlaskConical, Eye, EyeOff, Beaker, Network, Check } from 'lucide-react';
+import { Save, Plus, FlaskConical, Beaker, Network, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { codeLabsApi } from '../../api/codeLabs';
 import { coursesApi } from '../../api/courses';
 import { customLabsApi } from '../../api/customLabs';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
+import { Toggle } from '../../components/common/Toggle';
 import { Loading } from '../../components/common/Loading';
 import { Input, TextArea } from '../../components/common/Input';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -115,7 +116,7 @@ export const CodeLabEditor = () => {
 
   const createMutation = useMutation({
     mutationFn: () =>
-      codeLabsApi.createCodeLab({ moduleId: Number(moduleId), title: formData.title.trim(), description: formData.description }),
+      codeLabsApi.createCodeLab({ moduleId: Number(moduleId), title: formData.title.trim(), description: formData.description, isPublished: formData.isPublished } as never),
     onSuccess: (created: { id: number }) => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('code_lab_created', { defaultValue: 'Code lab created' }));
@@ -128,6 +129,17 @@ export const CodeLabEditor = () => {
   const [createTab, setCreateTab] = useState<'create' | 'templates' | 'interactive'>('create');
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
   const [selectedInteractive, setSelectedInteractive] = useState<string | null>(null);
+  // Assignment mode for a selected lab template — optionally turns the lab
+  // into a graded assignment (prompt / points / due date / grace period).
+  const [labAssignmentForm, setLabAssignmentForm] = useState({
+    enableAssignment: false,
+    prompt: '',
+    points: 100,
+    dueDate: '',
+    gracePeriodDeadline: '',
+  });
+  const setLabAssignment = <K extends keyof typeof labAssignmentForm>(key: K, value: (typeof labAssignmentForm)[K]) =>
+    setLabAssignmentForm(prev => ({ ...prev, [key]: value }));
 
   const { data: availableLabs } = useQuery({
     queryKey: ['availableLabs'],
@@ -138,7 +150,16 @@ export const CodeLabEditor = () => {
   const backToCourse = () => navigate(`/courses/${courseId}`);
 
   const assignTemplateMutation = useMutation({
-    mutationFn: (labId: number) => customLabsApi.assignToCourse(labId, { courseId, moduleId: Number(moduleId), enableAssignment: false }),
+    mutationFn: (labId: number) =>
+      customLabsApi.assignToCourse(labId, {
+        courseId,
+        moduleId: Number(moduleId),
+        enableAssignment: labAssignmentForm.enableAssignment,
+        prompt: labAssignmentForm.enableAssignment ? labAssignmentForm.prompt : undefined,
+        points: labAssignmentForm.enableAssignment ? labAssignmentForm.points : undefined,
+        dueDate: labAssignmentForm.enableAssignment && labAssignmentForm.dueDate ? labAssignmentForm.dueDate + ':00.000Z' : undefined,
+        gracePeriodDeadline: labAssignmentForm.enableAssignment && labAssignmentForm.gracePeriodDeadline ? labAssignmentForm.gracePeriodDeadline + ':00.000Z' : undefined,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('lab_template_added', { defaultValue: 'Lab template added' }));
@@ -277,9 +298,14 @@ export const CodeLabEditor = () => {
                   value={formData.description}
                   onChange={e => handleChange('description', e.target.value)}
                 />
-                <div className="flex justify-end">
+                <div className="flex items-center justify-between gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
+                  <Toggle
+                    checked={formData.isPublished}
+                    onChange={v => handleChange('isPublished', v)}
+                    onLabel={t('common:published', { defaultValue: 'Published' })}
+                    offLabel={t('common:draft', { defaultValue: 'Draft' })}
+                  />
                   <Button
-                    size="sm"
                     icon={<Save className="w-4 h-4" />}
                     loading={createMutation.isPending}
                     onClick={() => {
@@ -329,6 +355,50 @@ export const CodeLabEditor = () => {
                     <p className="text-sm text-gray-400 py-6 text-center">{t('no_lab_templates', { defaultValue: 'No lab templates available.' })}</p>
                   )}
                 </div>
+
+                {/* Assignment mode — shown after a template is selected. Optionally
+                    turns the lab into a graded assignment for students. */}
+                {selectedTemplate && (
+                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
+                    <Toggle
+                      checked={labAssignmentForm.enableAssignment}
+                      onChange={v => setLabAssignment('enableAssignment', v)}
+                      label={t('enable_assignment_mode', { defaultValue: 'Enable assignment mode' })}
+                    />
+                    {labAssignmentForm.enableAssignment && (
+                      <div className="space-y-3">
+                        <TextArea
+                          label={t('lab_instructions', { defaultValue: 'Instructions for students' })}
+                          value={labAssignmentForm.prompt}
+                          onChange={e => setLabAssignment('prompt', e.target.value)}
+                          rows={5}
+                        />
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <Input
+                            type="number"
+                            label={t('points', { defaultValue: 'Points' })}
+                            value={String(labAssignmentForm.points)}
+                            onChange={e => setLabAssignment('points', Number(e.target.value))}
+                            min={0}
+                          />
+                          <Input
+                            type="datetime-local"
+                            label={t('due_date', { defaultValue: 'Due date' })}
+                            value={labAssignmentForm.dueDate}
+                            onChange={e => setLabAssignment('dueDate', e.target.value)}
+                          />
+                          <Input
+                            type="datetime-local"
+                            label={t('grace_period_deadline', { defaultValue: 'Grace period deadline' })}
+                            value={labAssignmentForm.gracePeriodDeadline}
+                            onChange={e => setLabAssignment('gracePeriodDeadline', e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex justify-end">
                   <Button
                     size="sm"
@@ -420,28 +490,6 @@ export const CodeLabEditor = () => {
         <Breadcrumb homeHref="/" items={breadcrumbItems} />
       </div>
 
-      {/* Header */}
-      <div className="flex items-center justify-end mb-6">
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={togglePublish}
-            icon={formData.isPublished ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-          >
-            {formData.isPublished ? t('unpublish') : t('publish')}
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleSave}
-            loading={updateCodeLabMutation.isPending}
-            icon={<Save className="w-4 h-4" />}
-          >
-            {t('save')}
-          </Button>
-        </div>
-      </div>
-
       <div className="space-y-6">
           {/* Code Lab Title */}
           <Card>
@@ -466,6 +514,21 @@ export const CodeLabEditor = () => {
                 placeholder={t('code_lab_description_placeholder')}
                 rows={3}
               />
+              <div className="flex items-center justify-between gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
+                <Toggle
+                  checked={formData.isPublished}
+                  onChange={togglePublish}
+                  onLabel={t('common:published', { defaultValue: 'Published' })}
+                  offLabel={t('common:draft', { defaultValue: 'Draft' })}
+                />
+                <Button
+                  onClick={handleSave}
+                  loading={updateCodeLabMutation.isPending}
+                  icon={<Save className="w-4 h-4" />}
+                >
+                  {t('save')}
+                </Button>
+              </div>
             </CardBody>
           </Card>
 

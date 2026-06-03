@@ -30,7 +30,7 @@ export const SearchableSelect = ({ label, value, onChange, options, className }:
 
   return (
     <div className={className} ref={ref}>
-      {label && <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 block mb-1">{label}</span>}
+      {label && <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{label}</span>}
       <div className="relative">
         <button
           type="button"

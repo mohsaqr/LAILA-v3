@@ -6,8 +6,6 @@ import {
   Plus,
   Save,
   AlertCircle,
-  Eye,
-  EyeOff,
   Sparkles,
   Pencil,
   ListChecks,
@@ -23,6 +21,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { Card, CardBody } from '../../components/common/Card';
 import { Loading } from '../../components/common/Loading';
 import { Button } from '../../components/common/Button';
+import { Toggle } from '../../components/common/Toggle';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { MCQGenerator } from '../../components/teaching/MCQGenerator';
 import { RichTextEditor } from '../../components/forum/RichTextEditor';
@@ -40,6 +39,7 @@ export const QuizEditor = () => {
   const { isDark } = useTheme();
 
   const [newTitle, setNewTitle] = useState('');
+  const [newPublished, setNewPublished] = useState(false);
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [settingsDescription, setSettingsDescription] = useState('');
   const [settingsInstructions, setSettingsInstructions] = useState('');
@@ -77,7 +77,7 @@ export const QuizEditor = () => {
   // Create mode — quiz is created only when the user clicks Create.
   const createQuizMutation = useMutation({
     mutationFn: () =>
-      quizzesApi.createQuiz(parseInt(courseId!, 10), { moduleId: moduleId ? Number(moduleId) : undefined, title: newTitle.trim() } as never),
+      quizzesApi.createQuiz(parseInt(courseId!, 10), { moduleId: moduleId ? Number(moduleId) : undefined, title: newTitle.trim(), isPublished: newPublished } as never),
     onSuccess: (created: { id: number }) => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('quiz_created', { defaultValue: 'Quiz created' }));
@@ -204,9 +204,23 @@ export const QuizEditor = () => {
         </div>
         <Card>
           <CardBody className="space-y-4">
-            <div className="flex justify-end">
+            <Input
+              label={t('quiz_title', { defaultValue: 'Quiz title' })}
+              value={newTitle}
+              onChange={e => setNewTitle(e.target.value)}
+              required
+            />
+            <p className="text-sm" style={{ color: colors.textSecondary }}>
+              {t('quiz_create_hint', { defaultValue: 'Create the quiz, then add questions and settings.' })}
+            </p>
+            <div className="flex items-center justify-between gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
+              <Toggle
+                checked={newPublished}
+                onChange={setNewPublished}
+                onLabel={t('common:published', { defaultValue: 'Published' })}
+                offLabel={t('common:draft', { defaultValue: 'Draft' })}
+              />
               <Button
-                size="sm"
                 icon={<Save className="w-4 h-4" />}
                 loading={createQuizMutation.isPending}
                 onClick={() => {
@@ -217,15 +231,6 @@ export const QuizEditor = () => {
                 {t('create', { defaultValue: 'Create' })}
               </Button>
             </div>
-            <Input
-              label={t('quiz_title', { defaultValue: 'Quiz title' })}
-              value={newTitle}
-              onChange={e => setNewTitle(e.target.value)}
-              required
-            />
-            <p className="text-sm" style={{ color: colors.textSecondary }}>
-              {t('quiz_create_hint', { defaultValue: 'Create the quiz, then add questions and settings.' })}
-            </p>
           </CardBody>
         </Card>
       </div>
@@ -304,17 +309,14 @@ export const QuizEditor = () => {
                 ))}
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap lg:flex-shrink-0">
-                <span
-                  className={`inline-flex items-center justify-center gap-1.5 w-28 text-xs font-medium px-2.5 py-1 rounded-full ${
-                    quiz.isPublished
-                      ? 'bg-green-500/10 text-green-600 dark:text-green-400'
-                      : 'bg-gray-500/10 text-gray-500 dark:text-gray-400'
-                  }`}
-                >
-                  {quiz.isPublished ? <Eye size={13} /> : <EyeOff size={13} />}
-                  {quiz.isPublished ? t('published') : t('draft')}
-                </span>
+              <div className="flex items-center gap-3 flex-wrap lg:flex-shrink-0">
+                <Toggle
+                  checked={!!quiz.isPublished}
+                  onChange={() => !togglePublishMutation.isPending && togglePublishMutation.mutate()}
+                  disabled={togglePublishMutation.isPending}
+                  onLabel={t('published')}
+                  offLabel={t('draft')}
+                />
                 <Button
                   variant="secondary"
                   size="sm"
@@ -327,16 +329,6 @@ export const QuizEditor = () => {
                   }}
                 >
                   <Pencil size={16} />
-                </Button>
-                <Button
-                  variant={quiz.isPublished ? 'secondary' : 'primary'}
-                  size="sm"
-                  aria-label={quiz.isPublished ? t('unpublish') : t('publish')}
-                  title={quiz.isPublished ? t('unpublish') : t('publish')}
-                  onClick={() => togglePublishMutation.mutate()}
-                  disabled={togglePublishMutation.isPending}
-                >
-                  {quiz.isPublished ? <EyeOff size={16} /> : <Eye size={16} />}
                 </Button>
               </div>
             </div>

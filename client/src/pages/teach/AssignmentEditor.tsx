@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Save, Eye, EyeOff } from 'lucide-react';
+import { Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { assignmentsApi } from '../../api/assignments';
 import { coursesApi } from '../../api/courses';
@@ -13,6 +13,7 @@ import { Input } from '../../components/common/Input';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { RichTextEditor } from '../../components/forum/RichTextEditor';
 import { SearchableSelect } from '../../components/common/SearchableSelect';
+import { Toggle } from '../../components/common/Toggle';
 
 /** ISO → datetime-local value. */
 const toLocal = (iso?: string | null) => {
@@ -142,22 +143,6 @@ export const AssignmentEditor = () => {
 
       <Card>
         <CardBody className="space-y-5">
-          <div className="flex items-center justify-end gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={form.isPublished ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-              onClick={() => set('isPublished', !form.isPublished)}
-            >
-              {form.isPublished
-                ? t('common:published', { defaultValue: 'Published' })
-                : t('common:draft', { defaultValue: 'Draft' })}
-            </Button>
-            <Button size="sm" icon={<Save className="w-4 h-4" />} onClick={handleSave} loading={createMutation.isPending || updateMutation.isPending}>
-              {isNew ? t('common:create', { defaultValue: 'Create' }) : t('common:save', { defaultValue: 'Save' })}
-            </Button>
-          </div>
-
           <Input
             label={t('assignment_title', { defaultValue: 'Assignment title' })}
             value={form.title}
@@ -206,6 +191,18 @@ export const AssignmentEditor = () => {
               value={form.gracePeriodDeadline}
               onChange={e => set('gracePeriodDeadline', e.target.value)}
             />
+          </div>
+
+          <div className="flex items-center justify-between gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
+            <Toggle
+              checked={form.isPublished}
+              onChange={v => set('isPublished', v)}
+              onLabel={t('common:published', { defaultValue: 'Published' })}
+              offLabel={t('common:draft', { defaultValue: 'Draft' })}
+            />
+            <Button icon={<Save className="w-4 h-4" />} onClick={handleSave} loading={createMutation.isPending || updateMutation.isPending}>
+              {isNew ? t('common:create', { defaultValue: 'Create' }) : t('common:save', { defaultValue: 'Save' })}
+            </Button>
           </div>
         </CardBody>
       </Card>

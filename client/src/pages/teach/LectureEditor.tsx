@@ -12,6 +12,7 @@ import { SearchableSelect } from '../../components/common/SearchableSelect';
 import { Card, CardBody } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
+import { Toggle } from '../../components/common/Toggle';
 import { useTheme } from '../../hooks/useTheme';
 import { LessonEditor } from '../../components/teach/lesson-editor';
 import activityLogger from '../../services/activityLogger';
@@ -36,6 +37,7 @@ export const LectureEditor = () => {
   const [title, setTitle] = useState('');
   const [duration, setDuration] = useState(0);
   const [contentType, setContentType] = useState<'text' | 'video' | 'mixed'>('mixed');
+  const [isPublished, setIsPublished] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -63,10 +65,11 @@ export const LectureEditor = () => {
     if (!lecture) return;
     setTitle(lecture.title ?? '');
     setDuration(lecture.duration ?? 0);
+    setIsPublished((lecture as { isPublished?: boolean }).isPublished ?? false);
   }, [lecture]);
 
   const updateMutation = useMutation({
-    mutationFn: (data: { title?: string; duration?: number; contentType?: string }) =>
+    mutationFn: (data: { title?: string; duration?: number; contentType?: string; isPublished?: boolean }) =>
       coursesApi.updateLecture(lecId, data as never),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lecture', lecId] });
@@ -115,7 +118,7 @@ export const LectureEditor = () => {
   // ─── Create mode — nothing is written until "Create" is clicked ──────────
   const createMutation = useMutation({
     mutationFn: () =>
-      coursesApi.createLecture(Number(moduleId), { title: title.trim(), contentType, duration, isFree: false } as never),
+      coursesApi.createLecture(Number(moduleId), { title: title.trim(), contentType, duration, isFree: false, isPublished } as never),
     onSuccess: (created: { id: number }) => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       queryClient.invalidateQueries({ queryKey: ['course', courseId] });
@@ -139,19 +142,6 @@ export const LectureEditor = () => {
         </div>
         <Card>
           <CardBody className="space-y-5">
-            <div className="flex justify-end">
-              <Button
-                size="sm"
-                icon={<Save className="w-4 h-4" />}
-                loading={createMutation.isPending}
-                onClick={() => {
-                  if (!title.trim()) { toast.error(t('title_required', { defaultValue: 'Title is required' })); return; }
-                  createMutation.mutate();
-                }}
-              >
-                {t('common:create', { defaultValue: 'Create' })}
-              </Button>
-            </div>
             <Input
               label={t('lesson_title', { defaultValue: 'Lesson title' })}
               value={title}
@@ -176,6 +166,24 @@ export const LectureEditor = () => {
                 onChange={e => setDuration(parseInt(e.target.value) || 0)}
                 min={0}
               />
+            </div>
+            <div className="flex items-center justify-between gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
+              <Toggle
+                checked={isPublished}
+                onChange={setIsPublished}
+                onLabel={t('common:published', { defaultValue: 'Published' })}
+                offLabel={t('common:draft', { defaultValue: 'Draft' })}
+              />
+              <Button
+                icon={<Save className="w-4 h-4" />}
+                loading={createMutation.isPending}
+                onClick={() => {
+                  if (!title.trim()) { toast.error(t('title_required', { defaultValue: 'Title is required' })); return; }
+                  createMutation.mutate();
+                }}
+              >
+                {t('common:create', { defaultValue: 'Create' })}
+              </Button>
             </div>
           </CardBody>
         </Card>
@@ -267,6 +275,15 @@ export const LectureEditor = () => {
           />
           <span>{t('min', { defaultValue: 'min' })}</span>
         </div>
+
+        {/* Publish / draft */}
+        <Toggle
+          checked={isPublished}
+          onChange={v => { setIsPublished(v); updateMutation.mutate({ isPublished: v }); }}
+          onLabel={t('common:published', { defaultValue: 'Published' })}
+          offLabel={t('common:draft', { defaultValue: 'Draft' })}
+          className="shrink-0"
+        />
 
         <div className="relative shrink-0">
           <button
