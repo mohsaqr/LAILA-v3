@@ -49,9 +49,11 @@ interface DashboardSidebarProps {
   mobileOpen?: boolean;
   onMobileClose?: () => void;
   isDesktop?: boolean;
+  /** Pixels above the navbar (e.g. the test-mode banner) to offset by. */
+  topOffset?: number;
 }
 
-export const DashboardSidebar = ({ mobileOpen = false, onMobileClose, isDesktop = true }: DashboardSidebarProps) => {
+export const DashboardSidebar = ({ mobileOpen = false, onMobileClose, isDesktop = true, topOffset = 0 }: DashboardSidebarProps) => {
   const { t } = useTranslation(['navigation', 'common']);
   const location = useLocation();
   const { isDark } = useTheme();
@@ -187,10 +189,13 @@ export const DashboardSidebar = ({ mobileOpen = false, onMobileClose, isDesktop 
       />
 
       <aside
-        className={`fixed left-0 top-20 h-[calc(100vh-5rem)] z-40 border-r transition-transform duration-300 md:translate-x-0 ${
+        className={`fixed left-0 z-40 border-r transition-transform duration-300 md:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         style={{
+          // Sit below the navbar (5rem) plus any banner offset above it.
+          top: `calc(5rem + ${topOffset}px)`,
+          height: `calc(100vh - 5rem - ${topOffset}px)`,
           // Mobile: full labels in a 280px drawer; desktop: respect the collapsed state.
           width: isDesktop ? (isCollapsed ? '64px' : '240px') : '280px',
           backgroundColor: colors.bg,

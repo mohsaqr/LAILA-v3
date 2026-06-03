@@ -78,15 +78,25 @@ export const Layout = () => {
 
   const sidebarWidth = showSidebar && isDesktop ? (sidebarCollapsed ? 64 : 240) : 0;
 
+  // Test-mode banner height — the navbar and fixed sidebar are offset by this
+  // so nothing is clipped behind the navbar while the banner is shown.
+  const BANNER_HEIGHT = 40;
+  const bannerVisible = isActualAdmin && isViewingAs;
+  const bannerOffset = bannerVisible ? BANNER_HEIGHT : 0;
+
   return (
     <div
       className="min-h-screen"
       style={{ backgroundColor: isDark ? '#111827' : '#f9fafb' }}
     >
       <SkipLinks />
-      {/* Test Mode Banner */}
-      {isActualAdmin && isViewingAs && (
-        <div className="bg-amber-500 text-white px-4 py-2 text-center text-sm font-medium flex items-center justify-center gap-2">
+      {/* Test Mode Banner — sticky above the navbar so the fixed navbar and
+          sidebar stay aligned (offset by the banner's height). */}
+      {bannerVisible && (
+        <div
+          className="sticky top-0 z-[60] bg-amber-500 text-white px-4 text-center text-sm font-medium flex items-center justify-center gap-2"
+          style={{ height: BANNER_HEIGHT }}
+        >
           <Eye className="w-4 h-4" />
           <span>
             Test Mode: Viewing as {viewAsRole === 'instructor' ? 'Instructor' : 'Student'}
@@ -101,6 +111,7 @@ export const Layout = () => {
         </div>
       )}
       <Navbar
+        topOffset={bannerOffset}
         onMenuClick={showSidebar && !isDesktop ? () => setMobileSidebarOpen(v => !v) : undefined}
       />
       {showSidebar && (
@@ -108,12 +119,19 @@ export const Layout = () => {
           mobileOpen={mobileSidebarOpen}
           onMobileClose={() => setMobileSidebarOpen(false)}
           isDesktop={isDesktop}
+          topOffset={bannerOffset}
         />
       )}
       <main
         id="main-content"
         className="flex-1 transition-all duration-300"
-        style={{ marginLeft: sidebarWidth }}
+        style={{
+          marginLeft: sidebarWidth,
+          // Total fixed top chrome (navbar + optional test-mode banner). Full-height
+          // pages use this via h-[calc(100vh-var(--chrome-top))] so they fill the
+          // viewport exactly without an empty gap.
+          ['--chrome-top' as string]: `calc(5rem + ${bannerOffset}px)`,
+        }}
       >
         <Outlet />
       </main>

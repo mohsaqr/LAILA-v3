@@ -22,11 +22,13 @@ import { supportedLanguages, SupportedLanguage } from '../../i18n/config';
 import { resolveFileUrl } from '../../api/client';
 
 interface NavbarProps {
+  /** Pixels to push the sticky navbar down by (e.g. for the test-mode banner). */
+  topOffset?: number;
   /** When provided, a hamburger button appears on the left (mobile only) that calls this on click. */
   onMenuClick?: () => void;
 }
 
-export const Navbar = ({ onMenuClick }: NavbarProps = {}) => {
+export const Navbar = ({ onMenuClick, topOffset = 0 }: NavbarProps = {}) => {
   const { t } = useTranslation(['navigation', 'common']);
   const { user, isAuthenticated, isActualAdmin, isActualInstructor, viewAsRole, setViewAs, isViewingAs, logout } = useAuth();
   const { isDark } = useTheme();
@@ -94,8 +96,9 @@ export const Navbar = ({ onMenuClick }: NavbarProps = {}) => {
   return (
     <nav
       id="main-navigation"
-      className="shadow-sm border-b sticky top-0 z-50"
+      className="shadow-sm border-b sticky z-50"
       style={{
+        top: topOffset,
         backgroundColor: isDark ? '#1f2937' : '#ffffff',
         borderColor: isDark ? '#374151' : '#f3f4f6',
       }}
