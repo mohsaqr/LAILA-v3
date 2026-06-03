@@ -25,6 +25,7 @@ import { CollaborativeModule } from '../components/course/CollaborativeModule';
 import { CourseUpcomingAssignments } from '../components/course/CourseUpcomingAssignments';
 import { MiniCalendar } from '../components/dashboard/MiniCalendar';
 import { ModuleSection } from '../components/course/ModuleSection';
+import { CourseStartCountdown } from '../components/course/CourseStartCountdown';
 import { MoodleCourseEditor } from '../components/teach/moodle/MoodleCourseEditor';
 import { Modal } from '../components/common/Modal';
 import { Input } from '../components/common/Input';
@@ -39,7 +40,7 @@ import { TrackedContent } from '../components/common/TrackedContent';
 export const CourseDetails = () => {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
-  const { isAuthenticated, user, isActualAdmin } = useAuth();
+  const { isAuthenticated, user, isActualAdmin, viewAsRole } = useAuth();
   const { isDark } = useTheme();
   const { t } = useTranslation(['courses', 'common']);
   const track = useTracker('course');
@@ -53,6 +54,7 @@ export const CourseDetails = () => {
   // curriculum editor used by the setup/manage content step, without leaving
   // this page.
   const [editMode, setEditMode] = useState(false);
+  const [startReached, setStartReached] = useState(false);
   const toggleEditMode = () => {
     setEditMode(prev => {
       const next = !prev;
@@ -181,6 +183,14 @@ export const CourseDetails = () => {
 
   // Get the view mode from course settings, default to 'mini-cards'
   const viewMode: CurriculumViewMode = (course as any).curriculumViewMode || 'mini-cards';
+
+  // Course hasn't started yet → students see a countdown instead of content.
+  // Course staff keep access to manage the content, but when they preview the
+  // course "as a student" (viewAsRole) they see the countdown too.
+  const previewingAsStudent = viewAsRole === 'student';
+  const startMs = course.startTime ? new Date(course.startTime).getTime() : null;
+  const notStarted =
+    startMs != null && startMs > Date.now() && !startReached && (!canManage || previewingAsStudent);
 
   // Flatten this course's published assignments and build the calendar
   // bucket so the sidebar can show upcoming items + a small month view.
@@ -484,7 +494,12 @@ export const CourseDetails = () => {
         <div className="flex flex-col lg:flex-row gap-4 md:gap-8">
           {/* Main Content Column */}
           <div className="flex-1 min-w-0">
-            {editMode ? (
+            {notStarted ? (
+              <CourseStartCountdown
+                startTime={course.startTime!}
+                onElapsed={() => setStartReached(true)}
+              />
+            ) : editMode ? (
               /* Moodle-style inline editor: inline title rename, per-item
                  3-dots (edit/hide/delete), and a bottom "+" add bar. Edit/add
                  navigate to dedicated pages (no popups). */
