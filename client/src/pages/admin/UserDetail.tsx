@@ -70,7 +70,7 @@ export const UserDetail = () => {
   const deleteUserMutation = useMutation({
     mutationFn: () => userManagementApi.deleteUser(userId),
     onSuccess: () => {
-      navigate('/admin/users');
+      navigate('/admin/settings?tab=users');
     },
   });
 
@@ -116,7 +116,7 @@ export const UserDetail = () => {
 
   const breadcrumbItems = [
     { label: t('admin'), href: '/admin' },
-    { label: t('users'), href: '/admin/users' },
+    { label: t('users'), href: '/admin/settings?tab=users' },
     { label: user?.fullname || t('user_details') },
   ];
 
@@ -129,7 +129,7 @@ export const UserDetail = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
         <div className="text-center py-12">
           <p className="text-red-500">{t('user_not_found_error')}</p>
-          <Link to="/admin/users">
+          <Link to="/admin/settings?tab=users">
             <Button variant="outline" className="mt-4">
               {t('back_to_users')}
             </Button>

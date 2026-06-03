@@ -2677,10 +2677,13 @@ export class CustomLabService {
   /**
    * Check if user can access a lab (public, owns it, or assigned to their course)
    */
-  private async canAccessLab(labId: number, userId: number, isAdmin = false) {
+  private async canAccessLab(labId: number, userId: number, isAdmin = false, isInstructor = false) {
     const lab = await prisma.customLab.findUnique({
       where: { id: labId },
       include: {
+        creator: {
+          select: { isAdmin: true },
+        },
         assignments: {
           include: {
             course: {
@@ -2707,6 +2710,9 @@ export class CustomLabService {
 
     // Public labs can be accessed
     if (lab.isPublic) return lab;
+
+    // Admin-created labs are shared templates — any instructor can access them
+    if (isInstructor && lab.creator.isAdmin) return lab;
 
     // Check if user is enrolled in any course that has this lab assigned
     const hasAccess = lab.assignments.some(
@@ -2746,6 +2752,12 @@ export class CustomLabService {
         { createdBy: userId },
       ],
     };
+
+    // Admin-created labs act as shared templates: visible to every instructor
+    // (and admin) regardless of the public flag.
+    if (isInstructor || isAdmin) {
+      where.OR.push({ creator: { isAdmin: true } });
+    }
 
     // For non-instructors, also include labs assigned to their enrolled courses
     if (!isInstructor && !isAdmin) {
@@ -2837,8 +2849,8 @@ export class CustomLabService {
   /**
    * Get a lab by ID with all its templates
    */
-  async getLabById(labId: number, userId: number, isAdmin = false) {
-    await this.canAccessLab(labId, userId, isAdmin);
+  async getLabById(labId: number, userId: number, isAdmin = false, isInstructor = false) {
+    await this.canAccessLab(labId, userId, isAdmin, isInstructor);
 
     const lab = await prisma.customLab.findUnique({
       where: { id: labId },
