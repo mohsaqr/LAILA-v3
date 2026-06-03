@@ -137,9 +137,7 @@ import {
 import {
   AdminSettings,
   LogsDashboard,
-  UsersManagement,
   UserDetail,
-  EnrollmentsManagement,
   BatchEnrollment,
   ChatbotRegistry,
   Dashboard as AdminDashboard_Analytics,
@@ -1026,26 +1024,10 @@ function App() {
           }
         />
         <Route
-          path="/admin/users"
-          element={
-            <ProtectedRoute requireAdmin>
-              <UsersManagement />
-            </ProtectedRoute>
-          }
-        />
-        <Route
           path="/admin/users/:id"
           element={
             <ProtectedRoute requireAdmin>
               <UserDetail />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/enrollments"
-          element={
-            <ProtectedRoute requireAdmin>
-              <EnrollmentsManagement />
             </ProtectedRoute>
           }
         />

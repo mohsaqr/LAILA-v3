@@ -268,7 +268,7 @@ export const AdminDashboard = () => {
                 <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>
                   {t('common:recent_signups', { defaultValue: 'Recent signups' })}
                 </span>
-                <Link to="/admin/users" className="text-xs font-medium" style={{ color: '#0d9488' }}>
+                <Link to="/admin/settings?tab=users" className="text-xs font-medium" style={{ color: '#0d9488' }}>
                   {t('common:view_all', { defaultValue: 'View all' })}
                 </Link>
               </div>
@@ -314,7 +314,7 @@ export const AdminDashboard = () => {
                 <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>
                   {t('common:recent_enrollments', { defaultValue: 'Recent enrollments' })}
                 </span>
-                <Link to="/admin/enrollments" className="text-xs font-medium" style={{ color: '#0d9488' }}>
+                <Link to="/admin/settings?tab=enrollments" className="text-xs font-medium" style={{ color: '#0d9488' }}>
                   {t('common:view_all', { defaultValue: 'View all' })}
                 </Link>
               </div>

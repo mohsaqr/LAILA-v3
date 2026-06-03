@@ -1,8 +1,6 @@
 export { AdminSettings } from './AdminSettings';
 export { LogsDashboard } from './LogsDashboard';
-export { UsersManagement } from './UsersManagement';
 export { UserDetail } from './UserDetail';
-export { EnrollmentsManagement } from './EnrollmentsManagement';
 export { BatchEnrollment } from './BatchEnrollment';
 export { ChatbotRegistry } from './ChatbotRegistry';
 export { Dashboard } from './Dashboard';

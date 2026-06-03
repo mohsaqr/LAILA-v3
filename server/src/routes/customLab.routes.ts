@@ -87,7 +87,7 @@ router.get('/my-labs', authenticateToken, requireInstructor, asyncHandler(async 
 // Get lab by ID
 router.get('/:id', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = parseInt(req.params.id);
-  const lab = await customLabService.getLabById(id, req.user!.id, req.user!.isAdmin);
+  const lab = await customLabService.getLabById(id, req.user!.id, req.user!.isAdmin, req.user!.isInstructor);
   res.json({ success: true, data: lab });
 }));
 
