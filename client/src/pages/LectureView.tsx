@@ -251,6 +251,7 @@ export const LectureView = () => {
                       html={section.content}
                       courseId={parseInt(courseId!)}
                       lectureId={parseInt(lectureId!)}
+                      sectionId={section.id}
                     />
                   </div>
                 ) : (
@@ -402,7 +403,7 @@ export const LectureView = () => {
                 }}
               >
                 <Pencil className="w-4 h-4" strokeWidth={2.25} />
-                {t('edit_mode', { defaultValue: 'Edit Mode' })}
+                {t('edit_mode', { defaultValue: 'Edit' })}
               </button>
             )}
           </div>

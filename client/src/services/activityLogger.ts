@@ -6,7 +6,10 @@ export type ActivityVerb =
   | 'enrolled' | 'unenrolled' | 'viewed' | 'started' | 'completed'
   | 'progressed' | 'submitted' | 'unsubmitted' | 'interacted'
   | 'downloaded' | 'selected' | 'designed'
-  | 'created' | 'updated' | 'deleted';
+  | 'created' | 'updated' | 'deleted'
+  // xAPI Video Profile verbs — surfaced directly for lesson video tracking.
+  // `progressed` (above) stays reserved for the periodic watch heartbeat.
+  | 'initialized' | 'played' | 'paused' | 'seeked' | 'abandoned' | 'terminated';
 
 export type ObjectType =
   | 'course' | 'module' | 'lecture' | 'section' | 'video'

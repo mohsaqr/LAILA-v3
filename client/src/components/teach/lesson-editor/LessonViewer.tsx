@@ -15,6 +15,7 @@ interface LessonViewerProps {
   /** Lecture context so embedded media (video) can attribute watch logs. */
   courseId?: number;
   lectureId?: number;
+  sectionId?: number;
 }
 
 /**
@@ -24,7 +25,7 @@ interface LessonViewerProps {
  * the editor (sans edit affordances; the node views check
  * `editor.isEditable`).
  */
-export const LessonViewer = ({ html, courseId, lectureId }: LessonViewerProps) => {
+export const LessonViewer = ({ html, courseId, lectureId, sectionId }: LessonViewerProps) => {
   const editor = useEditor({
     editable: false,
     extensions: [
@@ -55,7 +56,7 @@ export const LessonViewer = ({ html, courseId, lectureId }: LessonViewerProps) =
   if (!editor) return null;
 
   return (
-    <LessonMediaContext.Provider value={{ courseId, lectureId }}>
+    <LessonMediaContext.Provider value={{ courseId, lectureId, sectionId }}>
       <EditorContent
         editor={editor}
         className="prose prose-sm dark:prose-invert max-w-none"

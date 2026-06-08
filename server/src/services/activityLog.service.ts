@@ -14,7 +14,9 @@ export type ActivityVerb =
   | 'downloaded' | 'submitted' | 'unsubmitted' | 'graded' | 'messaged' | 'received'
   | 'cleared' | 'interacted' | 'expressed' | 'selected' | 'switched'
   | 'designed'
-  | 'created' | 'updated' | 'deleted';
+  | 'created' | 'updated' | 'deleted'
+  // xAPI Video Profile verbs for lesson video tracking.
+  | 'initialized' | 'played' | 'abandoned' | 'terminated';
 
 export type ObjectType =
   | 'course' | 'module' | 'lecture' | 'section' | 'video'
