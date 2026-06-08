@@ -164,7 +164,7 @@ const VERB_META: Record<VerbKey, Omit<VerbMeta, 'iri'>> = {
   played:                { display: 'played',                 actionSubtype: 'video.played',                verb: 'played' },
   paused:                { display: 'paused',                 actionSubtype: 'video.paused',                verb: 'paused' },
   seeked:                { display: 'seeked',                 actionSubtype: 'video.seeked',                verb: 'seeked' },
-  playback_rate_changed: { display: 'playback-rate-changed',  actionSubtype: 'video.playback_rate_changed', verb: 'interacted' },
+  playback_rate_changed: { display: 'playback-rate-changed',  actionSubtype: 'video.playback_rate_changed', verb: 'playback-rate-changed' },
   completed:             { display: 'completed',              actionSubtype: 'video.completed',             verb: 'completed' },
   abandoned:             { display: 'abandoned',              actionSubtype: 'video.abandoned',             verb: 'abandoned' },
   terminated:            { display: 'terminated',             actionSubtype: 'video.terminated',            verb: 'terminated' },

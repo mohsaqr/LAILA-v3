@@ -16,7 +16,7 @@ export type ActivityVerb =
   | 'designed'
   | 'created' | 'updated' | 'deleted'
   // xAPI Video Profile verbs for lesson video tracking.
-  | 'initialized' | 'played' | 'abandoned' | 'terminated';
+  | 'initialized' | 'played' | 'abandoned' | 'terminated' | 'playback-rate-changed';
 
 export type ObjectType =
   | 'course' | 'module' | 'lecture' | 'section' | 'video'

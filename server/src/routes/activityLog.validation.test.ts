@@ -14,6 +14,7 @@ const validVerbs = [
   'designed',
   // xAPI Video Profile verbs for lesson video tracking.
   'initialized', 'played', 'paused', 'seeked', 'abandoned', 'terminated',
+  'playback-rate-changed',
 ] as const;
 
 const validObjectTypes = [

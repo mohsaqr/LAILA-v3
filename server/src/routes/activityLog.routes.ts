@@ -16,6 +16,7 @@ const validVerbs = [
   // xAPI Video Profile verbs for lesson video tracking (see client
   // services/videoXapi.ts). `progressed` stays the watch-progress heartbeat.
   'initialized', 'played', 'paused', 'seeked', 'abandoned', 'terminated',
+  'playback-rate-changed',
 ] as const;
 
 const validObjectTypes = [
