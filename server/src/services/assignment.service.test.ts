@@ -32,6 +32,9 @@ vi.mock('../utils/prisma.js', () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
+    courseRole: {
+      findUnique: vi.fn(),
+    },
   },
 }));
 

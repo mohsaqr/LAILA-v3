@@ -64,6 +64,7 @@ interface ModuleItemProps {
   onAddLecture: (module: CourseModule) => void;
   onEditLecture: (lecture: Lecture) => void;
   onDeleteLecture: (lecture: Lecture) => void;
+  onDuplicateLecture?: (lecture: Lecture) => void;
   onToggleLecturePublish?: (lecture: Lecture) => void;
   onMoveLectureUp: (lecture: Lecture, module: CourseModule) => void;
   onMoveLectureDown: (lecture: Lecture, module: CourseModule) => void;
@@ -118,6 +119,7 @@ export const ModuleItem = ({
   onAddLecture,
   onEditLecture,
   onDeleteLecture,
+  onDuplicateLecture,
   onToggleLecturePublish,
   onMoveLectureUp: _onMoveLectureUp,
   onMoveLectureDown: _onMoveLectureDown,
@@ -566,6 +568,7 @@ export const ModuleItem = ({
                       isLast={isLastInFlat}
                       onEdit={onEditLecture}
                       onDelete={onDeleteLecture}
+                      onDuplicate={onDuplicateLecture}
                       onTogglePublish={onToggleLecturePublish}
                       onMoveUp={handleMoveUp}
                       onMoveDown={handleMoveDown}

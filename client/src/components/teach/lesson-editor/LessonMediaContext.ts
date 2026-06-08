@@ -9,6 +9,8 @@ import { createContext } from 'react';
 export interface LessonMediaContextValue {
   courseId?: number;
   lectureId?: number;
+  /** Section that owns this lesson HTML, so video watch logs attribute to it. */
+  sectionId?: number;
 }
 
 export const LessonMediaContext = createContext<LessonMediaContextValue>({});

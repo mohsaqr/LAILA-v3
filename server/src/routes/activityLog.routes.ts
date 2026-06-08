@@ -13,6 +13,10 @@ const validVerbs = [
   'enrolled', 'unenrolled', 'viewed', 'started', 'completed', 'progressed',
   'submitted', 'unsubmitted', 'interacted', 'downloaded', 'selected',
   'designed', 'created', 'updated', 'deleted',
+  // xAPI Video Profile verbs for lesson video tracking (see client
+  // services/videoXapi.ts). `progressed` stays the watch-progress heartbeat.
+  'initialized', 'played', 'paused', 'seeked', 'abandoned', 'terminated',
+  'playback-rate-changed',
 ] as const;
 
 const validObjectTypes = [

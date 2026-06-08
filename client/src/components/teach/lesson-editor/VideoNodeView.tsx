@@ -3,7 +3,13 @@ import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import { Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { resolveFileUrl } from '../../../api/client';
-import { activityLogger } from '../../../services/activityLogger';
+import {
+  trackUploadedVideo,
+  trackYouTubeEmbed,
+  isYouTubeEmbed,
+  withJsApi,
+  type VideoXapiContext,
+} from '../../../services/videoXapi';
 import { LessonMediaContext } from './LessonMediaContext';
 
 /** Filename (without uuid noise) for a friendlier log title. */
@@ -21,52 +27,48 @@ const titleFromSrc = (src: string) => {
  * YouTube/Vimeo (mode 'embed'). Used by both the editor and the
  * read-only LessonViewer.
  *
- * When viewed (not editable), an uploaded video logs a `progressed`
- * activity every 30 seconds it is actually playing, plus a `completed`
- * event when it ends, so watch time lands in the activity logs.
+ * When viewed (not editable), watch activity is captured via the xAPI Video
+ * Profile (`services/videoXapi.ts`, dependency-free):
+ * initialized / played / paused / seeked / playback-rate-changed / completed
+ * / abandoned / terminated, plus a coarse `progressed` heartbeat every 30s.
+ * Uploaded videos use native media events; embedded YouTube videos are driven
+ * directly over the YouTube IFrame API. Non-YouTube embeds (e.g. Vimeo) stay
+ * plain iframes — the IFrame API can't reach them.
  */
 export const VideoNodeView = ({ node, deleteNode, editor }: NodeViewProps) => {
   const { t } = useTranslation(['teaching', 'common']);
-  const { courseId, lectureId } = useContext(LessonMediaContext);
+  const { courseId, lectureId, sectionId } = useContext(LessonMediaContext);
   const editable = editor?.isEditable ?? true;
   const mode = (node.attrs.mode as string) || 'file';
   const src = node.attrs.src as string;
   const videoRef = useRef<HTMLVideoElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const isYouTube = mode === 'embed' && isYouTubeEmbed(src);
+  // YouTube embeds need `enablejsapi=1` so the IFrame API can attach.
+  const iframeSrc = isYouTube ? withJsApi(src) : src;
 
-  // Watch tracking — uploaded videos only, and only when read-only (a
-  // student watching, not an instructor editing). Cross-origin embeds
-  // (YouTube/Vimeo) can't be tracked from a plain iframe.
+  // Watch tracking — only when read-only (a student watching, not an
+  // instructor editing) and only when we know which lecture this is (so
+  // instructor previews without context don't generate logs).
   useEffect(() => {
-    if (editable || mode === 'embed') return;
-    const el = videoRef.current;
-    if (!el) return;
+    if (editable || lectureId == null) return;
 
-    const baseLog = (verb: 'progressed' | 'completed', subtype: string) =>
-      activityLogger.log({
-        verb,
-        objectType: 'video',
-        objectTitle: titleFromSrc(src),
-        courseId,
-        lectureId,
-        duration: Number.isFinite(el.duration) ? Math.round(el.duration) : undefined,
-        progress: el.duration ? Math.round((el.currentTime / el.duration) * 100) : undefined,
-        actionSubtype: subtype,
-        extensions: { position: Math.round(el.currentTime), src },
-      });
-
-    // Fire every 30s, but only count time while the video is actually playing.
-    const interval = setInterval(() => {
-      if (!el.paused && !el.ended) baseLog('progressed', 'video.watch_tick');
-    }, 30000);
-
-    const onEnded = () => baseLog('completed', 'video.completed');
-    el.addEventListener('ended', onEnded);
-
-    return () => {
-      clearInterval(interval);
-      el.removeEventListener('ended', onEnded);
+    const ctx: VideoXapiContext = {
+      courseId,
+      lectureId,
+      sectionId,
+      title: titleFromSrc(src),
+      src,
+      mode: mode === 'embed' ? 'embed' : 'file',
     };
-  }, [editable, mode, src, courseId, lectureId]);
+
+    if (mode === 'embed') {
+      if (!isYouTube || !iframeRef.current) return;
+      return trackYouTubeEmbed(iframeRef.current, ctx);
+    }
+    if (!videoRef.current) return;
+    return trackUploadedVideo(videoRef.current, ctx);
+  }, [editable, mode, src, courseId, lectureId, sectionId, isYouTube]);
 
   return (
     <NodeViewWrapper as="div" className="my-3 relative group/video max-w-xl mx-auto" data-drag-handle>
@@ -76,7 +78,8 @@ export const VideoNodeView = ({ node, deleteNode, editor }: NodeViewProps) => {
         <div className="relative w-full overflow-hidden rounded-lg bg-black" style={{ paddingBottom: '56.25%' }}>
           {mode === 'embed' ? (
             <iframe
-              src={src}
+              ref={iframeRef}
+              src={iframeSrc}
               title={t('block_video', { defaultValue: 'Video' })}
               className="absolute inset-0 w-full h-full"
               style={{ border: 0 }}

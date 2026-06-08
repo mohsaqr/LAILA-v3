@@ -200,25 +200,26 @@ export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStude
   return (
     <Card className="overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-100 px-6 py-4">
-        <div className="flex items-center gap-4">
+      <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-500/10 dark:to-orange-500/10 border-b border-amber-100 dark:border-amber-500/20 px-4 sm:px-6 py-4">
+        <div className="flex items-center gap-3 sm:gap-4">
           {section.chatbotImageUrl ? (
             <img
               src={section.chatbotImageUrl}
-              alt="Chatbot avatar"
-              className="w-14 h-14 rounded-full object-cover shadow-md"
+              alt={section.chatbotTitle || t('ai_teaching_assistant')}
+              className="w-14 h-14 rounded-full object-cover shadow-md flex-shrink-0"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
           ) : (
-            <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center shadow-md">
-              <MessageCircle className="w-7 h-7 text-amber-600" />
+            <div className="w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center shadow-md flex-shrink-0">
+              <MessageCircle className="w-7 h-7 text-amber-600 dark:text-amber-400" />
             </div>
           )}
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
               {section.chatbotTitle || t('ai_teaching_assistant')}
             </h3>
             {section.chatbotIntro && (
-              <p className="text-sm text-gray-600 mt-0.5">{section.chatbotIntro}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-2">{section.chatbotIntro}</p>
             )}
           </div>
           {history.length > 0 && (
@@ -227,7 +228,9 @@ export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStude
               size="sm"
               onClick={handleClearConversation}
               disabled={clearConversationMutation.isPending}
-              className="text-gray-500 hover:text-red-500"
+              aria-label={t('clear_conversation')}
+              title={t('clear_conversation')}
+              className="flex-shrink-0 text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400"
             >
               <Trash2 className="w-4 h-4" />
             </Button>
@@ -237,13 +240,13 @@ export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStude
 
       {/* Messages */}
       <CardBody className="p-0">
-        <div className="h-80 overflow-y-auto p-4 space-y-4 bg-gray-50">
+        <div className="h-80 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900/40">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
-              <Loader2 className="w-6 h-6 text-amber-500 animate-spin" />
+              <Loader2 className="w-6 h-6 text-amber-500 dark:text-amber-400 animate-spin" />
             </div>
           ) : displayMessages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-gray-500">
+            <div className="flex flex-col items-center justify-center h-full text-gray-500 dark:text-gray-400">
               <MessageCircle className="w-10 h-10 mb-2 opacity-50" />
               <p className="text-sm">{t('start_conversation')}</p>
             </div>
@@ -258,10 +261,10 @@ export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStude
                     className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${
                       msg.role === 'user'
                         ? 'bg-primary-600 text-white rounded-br-md'
-                        : 'bg-white shadow-sm border border-gray-100 rounded-bl-md'
+                        : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm border border-gray-100 dark:border-gray-700 rounded-bl-md'
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                    <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
                   </div>
                 </div>
               ))}
@@ -269,11 +272,11 @@ export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStude
               {/* Typing indicator when sending */}
               {sendMessageMutation.isPending && (
                 <div className="flex justify-start">
-                  <div className="bg-white shadow-sm border border-gray-100 rounded-2xl rounded-bl-md px-4 py-3">
+                  <div className="bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 rounded-2xl rounded-bl-md px-4 py-3">
                     <div className="flex items-center gap-1">
-                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      <span className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                     </div>
                   </div>
                 </div>
@@ -285,7 +288,7 @@ export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStude
         </div>
 
         {/* Input */}
-        <form onSubmit={handleSubmit} className="border-t border-gray-200 p-4 bg-white">
+        <form onSubmit={handleSubmit} className="border-t border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-800">
           <div className="flex items-center gap-3">
             <input
               ref={inputRef}
@@ -293,13 +296,15 @@ export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStude
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder={t('type_your_message')}
+              aria-label={t('type_your_message')}
               disabled={sendMessageMutation.isPending}
-              className="flex-1 px-4 py-2.5 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 min-w-0 px-4 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <button
               type="submit"
               disabled={!message.trim() || sendMessageMutation.isPending}
-              className="p-2.5 bg-amber-500 text-white rounded-full hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label={t('common:send', { defaultValue: 'Send' })}
+              className="flex-shrink-0 p-2.5 bg-amber-500 text-white rounded-full hover:bg-amber-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {sendMessageMutation.isPending ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -309,7 +314,7 @@ export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStude
             </button>
           </div>
           {sendMessageMutation.isError && (
-            <p className="mt-2 text-sm text-red-500">
+            <p className="mt-2 text-sm text-red-500 dark:text-red-400">
               {t('failed_to_send_message')}
             </p>
           )}

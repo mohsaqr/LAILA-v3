@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronRight, FileText, PlayCircle, Layers, FlaskConical, FileQuestion, ClipboardList, MessageSquare, Bot, Network, ListChecks } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileText, PlayCircle, Layers, FlaskConical, FileQuestion, ClipboardList, MessageSquare, Bot, Network, ListChecks, Folder, Link as LinkIcon, MonitorPlay, FileUp, Image as ImageIcon } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { ContentCard, ContentType, ContentCardSize } from './ContentCard';
 import type { CourseModule, Lecture, CodeLab, Assignment, Survey, ModuleSurvey, ModuleQuiz, CurriculumViewMode } from '../../types';
@@ -54,6 +54,11 @@ const iconMap: Record<ContentType, React.ElementType> = {
   ai: FileText,
   interactive_lab: Network,
   survey: ListChecks,
+  folder: Folder,
+  url: LinkIcon,
+  embed: MonitorPlay,
+  file: FileUp,
+  image: ImageIcon,
 };
 
 // Color mapping for list view
@@ -69,6 +74,11 @@ const colorMap: Record<ContentType, { bg: string; bgDark: string; text: string; 
   ai: { bg: 'bg-teal-50', bgDark: 'rgba(20, 184, 166, 0.15)', text: '#0d9488', textDark: '#5eead4' },
   interactive_lab: { bg: 'bg-violet-50', bgDark: 'rgba(139, 92, 246, 0.15)', text: '#7c3aed', textDark: '#c4b5fd' },
   survey: { bg: 'bg-rose-50', bgDark: 'rgba(244, 63, 94, 0.15)', text: '#e11d48', textDark: '#fb7185' },
+  folder: { bg: 'bg-amber-50', bgDark: 'rgba(245, 158, 11, 0.15)', text: '#d97706', textDark: '#fcd34d' },
+  url: { bg: 'bg-sky-50', bgDark: 'rgba(2, 132, 199, 0.15)', text: '#0284c7', textDark: '#7dd3fc' },
+  embed: { bg: 'bg-violet-50', bgDark: 'rgba(139, 92, 246, 0.15)', text: '#7c3aed', textDark: '#c4b5fd' },
+  file: { bg: 'bg-teal-50', bgDark: 'rgba(13, 148, 136, 0.15)', text: '#0d9488', textDark: '#5eead4' },
+  image: { bg: 'bg-cyan-50', bgDark: 'rgba(8, 145, 178, 0.15)', text: '#0891b2', textDark: '#67e8f9' },
 };
 
 export const ModuleSection = ({
@@ -117,8 +127,14 @@ export const ModuleSection = ({
     publishedForums.length > 0 ||
     publishedSurveys.length > 0;
 
+  // Resource kinds derived server-side (getCourseById) for media-as-section
+  // lectures, so each shows its own icon instead of the generic lesson one.
+  const RESOURCE_KINDS: ContentType[] = ['folder', 'url', 'embed', 'video', 'file', 'image'];
+
   // Helper to determine lecture content type
   const getLectureContentType = (lecture: Lecture): ContentType => {
+    const kind = (lecture as { resourceKind?: string }).resourceKind;
+    if (kind && RESOURCE_KINDS.includes(kind as ContentType)) return kind as ContentType;
     if (lecture.contentType === 'video') return 'video';
     if (lecture.contentType === 'mixed') return 'mixed';
     return 'lecture';
@@ -134,6 +150,7 @@ export const ModuleSection = ({
       id: lecture.id,
       type: getLectureContentType(lecture),
       title: lecture.title,
+      subtitle: (lecture as { description?: string }).description || undefined,
       metadata: lecture.duration ? t('x_min', { count: lecture.duration }) : undefined,
       href: `/courses/${courseId}/lectures/${lecture.id}`,
       isFree: lecture.isFree,
@@ -170,6 +187,7 @@ export const ModuleSection = ({
       id: assignment.id,
       type: (assignment.submissionType === 'ai_agent' ? 'ai_agent' : 'assignment') as ContentType,
       title: assignment.title,
+      subtitle: (assignment as { description?: string }).description || undefined,
       metadata: assignment.dueDate
         ? t('due_date_short', { date: new Date(assignment.dueDate).toLocaleDateString(undefined, { timeZone: 'UTC' }) })
         : t('x_pts', { count: assignment.points }),
@@ -251,9 +269,8 @@ export const ModuleSection = ({
     const content = (
       <div
         className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors ${
-          canAccess ? 'hover:bg-opacity-50 cursor-pointer' : 'opacity-50 cursor-not-allowed'
+          canAccess ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/60' : 'opacity-50 cursor-not-allowed'
         }`}
-        style={{ backgroundColor: canAccess && isDark ? colors.bgHover : 'transparent' }}
       >
         <div
           className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${!isDark ? colorConfig.bg : ''}`}
@@ -265,8 +282,9 @@ export const ModuleSection = ({
           />
         </div>
         <span
-          className="flex-1 text-sm font-medium truncate"
+          className="flex-1 min-w-0 text-sm font-medium truncate"
           style={{ color: colors.textPrimary }}
+          title={item.title}
         >
           {item.title}
         </span>
@@ -283,12 +301,16 @@ export const ModuleSection = ({
 
     if (canAccess) {
       return (
-        <Link key={`${item.type}-${item.id}`} to={item.href}>
+        <Link
+          key={`${item.type}-${item.id}`}
+          to={item.href}
+          className="block rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800"
+        >
           {content}
         </Link>
       );
     }
-    return <div key={`${item.type}-${item.id}`}>{content}</div>;
+    return <div key={`${item.type}-${item.id}`} aria-disabled="true">{content}</div>;
   };
 
   // Render accordion item
@@ -299,18 +321,18 @@ export const ModuleSection = ({
 
     const content = (
       <div
-        className={`flex items-center gap-3 px-3 py-2 transition-colors ${
-          canAccess ? 'hover:bg-opacity-50 cursor-pointer' : 'opacity-50 cursor-not-allowed'
+        className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+          canAccess ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/60' : 'opacity-50 cursor-not-allowed'
         }`}
-        style={{ backgroundColor: canAccess && isDark ? colors.bgHover : 'transparent' }}
       >
         <Icon
           className="w-4 h-4 flex-shrink-0"
           style={{ color: isDark ? colorConfig.textDark : colorConfig.text }}
         />
         <span
-          className="text-sm truncate"
+          className="text-sm truncate min-w-0"
           style={{ color: colors.textPrimary }}
+          title={item.title}
         >
           {item.title}
         </span>
@@ -319,12 +341,16 @@ export const ModuleSection = ({
 
     if (canAccess) {
       return (
-        <Link key={`${item.type}-${item.id}`} to={item.href}>
+        <Link
+          key={`${item.type}-${item.id}`}
+          to={item.href}
+          className="block rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800"
+        >
           {content}
         </Link>
       );
     }
-    return <div key={`${item.type}-${item.id}`}>{content}</div>;
+    return <div key={`${item.type}-${item.id}`} aria-disabled="true">{content}</div>;
   };
 
   // Accordion view mode
@@ -333,7 +359,8 @@ export const ModuleSection = ({
       <section id={`module-${module.id}`}>
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors"
+          aria-expanded={isExpanded}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
           style={{
             backgroundColor: colors.bgCard,
             border: `1px solid ${colors.border}`,

@@ -20,8 +20,10 @@ const createQuizSchema = z.object({
   shuffleQuestions: z.boolean().optional(),
   shuffleOptions: z.boolean().optional(),
   showResults: z.enum(['after_submit', 'after_due_date', 'never']).optional(),
+  isPublished: z.boolean().optional(),
   dueDate: z.string().datetime().optional(),
-  availableFrom: z.string().datetime().optional(),
+  availableFrom: z.string().datetime().optional().nullable(),
+  availableUntil: z.string().datetime().optional().nullable(),
   moduleId: z.number().positive().optional(),
 });
 

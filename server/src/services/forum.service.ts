@@ -4,6 +4,7 @@ import { createLogger } from '../utils/logger.js';
 import { chatService } from './chat.service.js';
 import { notificationService } from './notification.service.js';
 import { courseRoleService } from './courseRole.service.js';
+import { assertWithinAvailability } from '../utils/availability.js';
 
 const logger = createLogger('forum');
 
@@ -43,6 +44,8 @@ export interface CreateForumInput {
   orderIndex?: number;
   moduleId?: number;
   isAnonymous?: boolean;
+  availableFrom?: string | null;
+  availableUntil?: string | null;
 }
 
 export interface UpdateForumInput {
@@ -263,6 +266,8 @@ class ForumService {
         allowAnonymous: data.allowAnonymous ?? false,
         orderIndex: data.orderIndex ?? 0,
         isAnonymous: data.isAnonymous ?? false,
+        availableFrom: data.availableFrom ? new Date(data.availableFrom) : null,
+        availableUntil: data.availableUntil ? new Date(data.availableUntil) : null,
       },
     });
 
@@ -369,6 +374,8 @@ class ForumService {
           where: { userId_courseId: { userId, courseId: thread.courseId } },
         });
         if (!enrollment) throw new AppError('Not enrolled in this course', 403);
+        // Enrolled non-staff student: enforce the instructor-scheduled window.
+        assertWithinAvailability(thread, 'Forum');
       }
     }
     if (!thread.isPublished && !isAdmin && !isCourseInstructor) {

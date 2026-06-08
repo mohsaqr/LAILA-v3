@@ -406,6 +406,8 @@ model CourseModule {
   label          String?
   orderIndex     Int             @default(0) @map("order_index")
   isPublished    Boolean         @default(false) @map("is_published")
+  availableFrom  DateTime?       @map("available_from")
+  availableUntil DateTime?       @map("available_until")
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
   interactiveLabs String?         @map("interactive_labs")
@@ -427,6 +429,7 @@ model Lecture {
   id             Int                    @id @default(autoincrement())
   moduleId       Int                    @map("module_id")
   title          String
+  description    String?
   content        String?
   contentType    String                 @default("text") @map("content_type")
   videoUrl       String?                @map("video_url")
@@ -434,6 +437,8 @@ model Lecture {
   orderIndex     Int                    @default(0) @map("order_index")
   isPublished    Boolean                @default(false) @map("is_published")
   isFree         Boolean                @default(false) @map("is_free")
+  availableFrom  DateTime?              @map("available_from")
+  availableUntil DateTime?              @map("available_until")
   createdAt      DateTime               @default(now()) @map("created_at")
   updatedAt      DateTime               @updatedAt @map("updated_at")
   assignments    Assignment[]
@@ -530,6 +535,8 @@ model CodeLab {
   description String?
   orderIndex  Int          @default(0) @map("order_index")
   isPublished Boolean      @default(false) @map("is_published")
+  availableFrom  DateTime? @map("available_from")
+  availableUntil DateTime? @map("available_until")
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
   blocks      CodeBlock[]
@@ -600,6 +607,8 @@ model Assignment {
   allowedFileTypes      String?                @map("allowed_file_types")
   dueDate               DateTime?              @map("due_date")
   gracePeriodDeadline   DateTime?              @map("grace_period_deadline")
+  availableFrom         DateTime?              @map("available_from")
+  availableUntil        DateTime?              @map("available_until")
   points                Int                    @default(100)
   weight                Float?                 @default(1.0)
   isPublished           Boolean                @default(false) @map("is_published")
@@ -1726,6 +1735,7 @@ model Quiz {
   isPublished      Boolean        @default(false) @map("is_published")
   dueDate          DateTime?      @map("due_date")
   availableFrom    DateTime?      @map("available_from")
+  availableUntil   DateTime?      @map("available_until")
   orderIndex       Int            @default(0) @map("order_index")
   createdAt        DateTime       @default(now()) @map("created_at")
   updatedAt        DateTime       @updatedAt @map("updated_at")
@@ -1809,6 +1819,8 @@ model ForumThread {
   moduleId       Int?          @map("module_id")
   description    String?
   isPublished    Boolean       @default(true) @map("is_published")
+  availableFrom  DateTime?     @map("available_from")
+  availableUntil DateTime?     @map("available_until")
   allowAnonymous Boolean       @default(false) @map("allow_anonymous")
   orderIndex     Int           @default(0) @map("order_index")
   // Existing thread fields:

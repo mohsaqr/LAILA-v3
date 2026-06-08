@@ -291,8 +291,12 @@ export interface Lecture {
   id: number;
   moduleId: number;
   title: string;
+  description?: string | null;
   content: string | null;
   contentType: 'text' | 'video' | 'mixed';
+  /** Server-derived resource kind for the curriculum icon (folder/url/embed/
+   *  video/file/image) on media-as-section lectures; absent for plain lessons. */
+  resourceKind?: string | null;
   videoUrl: string | null;
   duration: number | null;
   orderIndex: number;

@@ -6,8 +6,12 @@ import TextAlign from '@tiptap/extension-text-align';
 import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import { FileNode } from './FileNodeExtension';
+import { FolderNode } from './FolderNodeExtension';
 import { ChatbotNode } from './ChatbotNodeExtension';
 import { VideoNode } from './VideoNodeExtension';
+import { McqNode } from './McqNodeExtension';
+import { UrlNode } from './UrlNodeExtension';
+import { EmbedNode } from './EmbedNodeExtension';
 import { LessonMediaContext } from './LessonMediaContext';
 
 interface LessonViewerProps {
@@ -15,6 +19,7 @@ interface LessonViewerProps {
   /** Lecture context so embedded media (video) can attribute watch logs. */
   courseId?: number;
   lectureId?: number;
+  sectionId?: number;
 }
 
 /**
@@ -24,7 +29,7 @@ interface LessonViewerProps {
  * the editor (sans edit affordances; the node views check
  * `editor.isEditable`).
  */
-export const LessonViewer = ({ html, courseId, lectureId }: LessonViewerProps) => {
+export const LessonViewer = ({ html, courseId, lectureId, sectionId }: LessonViewerProps) => {
   const editor = useEditor({
     editable: false,
     extensions: [
@@ -37,8 +42,12 @@ export const LessonViewer = ({ html, courseId, lectureId }: LessonViewerProps) =
         HTMLAttributes: { class: 'text-cyan-600 underline' },
       }),
       FileNode,
+      FolderNode,
       ChatbotNode,
       VideoNode,
+      McqNode,
+      UrlNode,
+      EmbedNode,
     ],
     content: html,
   });
@@ -55,7 +64,7 @@ export const LessonViewer = ({ html, courseId, lectureId }: LessonViewerProps) =
   if (!editor) return null;
 
   return (
-    <LessonMediaContext.Provider value={{ courseId, lectureId }}>
+    <LessonMediaContext.Provider value={{ courseId, lectureId, sectionId }}>
       <EditorContent
         editor={editor}
         className="prose prose-sm dark:prose-invert max-w-none"

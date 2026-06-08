@@ -181,6 +181,11 @@ export const coursesApi = {
     return response.data;
   },
 
+  duplicateLecture: async (lectureId: number) => {
+    const response = await apiClient.post<ApiResponse<Lecture>>(`/courses/lectures/${lectureId}/duplicate`);
+    return response.data.data!;
+  },
+
   reorderLectures: async (moduleId: number, lectureIds: number[]) => {
     const response = await apiClient.put<ApiResponse<{ message: string }>>(
       `/courses/modules/${moduleId}/lectures/reorder`,

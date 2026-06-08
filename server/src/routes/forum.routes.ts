@@ -22,6 +22,8 @@ const createForumSchema = z.object({
   orderIndex: z.number().min(0).optional(),
   moduleId: z.number().positive().optional(),
   isAnonymous: z.boolean().optional(),
+  availableFrom: z.string().datetime().optional().nullable(),
+  availableUntil: z.string().datetime().optional().nullable(),
 });
 
 const updateForumSchema = z.object({

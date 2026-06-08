@@ -313,7 +313,7 @@ export const CourseDetails = () => {
                     <Link
                       key={p.prerequisiteCourseId}
                       to={`/courses/${p.prerequisiteCourseId}`}
-                      className="text-[11px] font-medium px-2.5 py-1 rounded-full transition-all hover:-translate-y-0.5 hover:underline"
+                      className="text-[11px] font-medium px-2.5 py-1 rounded-full transition-all hover:-translate-y-0.5 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800"
                       style={{ backgroundColor: colors.bgPrimary, color: colors.textPrimary600 }}
                     >
                       {p.prerequisiteCourse?.title ?? `#${p.prerequisiteCourseId}`}
@@ -351,7 +351,7 @@ export const CourseDetails = () => {
                       type="button"
                       onClick={handleEnrollClick}
                       disabled={enrollMutation.isPending}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800 disabled:opacity-60 disabled:cursor-not-allowed"
                       style={{
                         backgroundImage:
                           'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)',
@@ -374,7 +374,7 @@ export const CourseDetails = () => {
                           courseId: parseInt(id!),
                         })
                       }
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800"
                       style={{
                         backgroundImage:
                           'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)',
@@ -388,7 +388,7 @@ export const CourseDetails = () => {
                   {!isAuthenticated && (
                     <Link
                       to="/login"
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800"
                       style={{
                         backgroundImage:
                           'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)',
@@ -405,7 +405,7 @@ export const CourseDetails = () => {
                         type="button"
                         onClick={toggleEditMode}
                         aria-pressed={editMode}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all hover:-translate-y-0.5"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800"
                         style={
                           editMode
                             ? {
@@ -426,7 +426,7 @@ export const CourseDetails = () => {
                       </button>
                       <Link
                         to={`/teach/courses/${course.id}/setup?step=setting`}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all hover:-translate-y-0.5"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800"
                         style={{
                           backgroundColor: isDark ? 'rgba(8,143,143,0.18)' : '#ccfbfb',
                           color: isDark ? '#22d3d3' : '#065c5c',
@@ -446,7 +446,7 @@ export const CourseDetails = () => {
                             title={isPublished
                               ? t('course_unpublished', { defaultValue: 'Move to draft' })
                               : t('course_published', { defaultValue: 'Publish course' })}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed"
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800 disabled:opacity-60 disabled:cursor-not-allowed"
                             style={isPublished
                               ? { backgroundColor: isDark ? 'rgba(16,185,129,0.18)' : '#d1fae5', color: isDark ? '#6ee7b7' : '#065f46' }
                               : { backgroundColor: isDark ? 'rgba(245,158,11,0.18)' : '#fef3c7', color: isDark ? '#fcd34d' : '#92400e' }}
@@ -479,9 +479,10 @@ export const CourseDetails = () => {
                     src={thumbnail}
                     alt={course.title}
                     className="w-full h-full object-cover"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
                   />
                 ) : (
-                  <GraduationCap className="w-12 h-12 text-white/80" />
+                  <GraduationCap className="w-12 h-12 text-white/80" aria-hidden="true" />
                 )}
               </div>
             </div>

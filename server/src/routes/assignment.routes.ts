@@ -41,7 +41,7 @@ router.get('/instructor', authenticateToken, requireInstructor, asyncHandler(asy
 // Get assignment by ID
 router.get('/:id', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = parseInt(req.params.id);
-  const assignment = await assignmentService.getAssignmentById(id, req.user!.id);
+  const assignment = await assignmentService.getAssignmentById(id, req.user!.id, req.user!.isInstructor, req.user!.isAdmin);
   res.json({ success: true, data: assignment });
 }));
 

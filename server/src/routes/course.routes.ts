@@ -293,6 +293,13 @@ router.delete('/lectures/:lectureId', authenticateToken, requireInstructor, asyn
   res.json({ success: true, ...result });
 }));
 
+// Duplicate lecture (deep copy: sections + attachments) into the same module
+router.post('/lectures/:lectureId/duplicate', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const lectureId = parseInt(req.params.lectureId);
+  const lecture = await lectureService.duplicateLecture(lectureId, req.user!.id, req.user!.isAdmin);
+  res.status(201).json({ success: true, data: lecture });
+}));
+
 // Reorder lectures
 router.put('/modules/:moduleId/lectures/reorder', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
   const moduleId = parseInt(req.params.moduleId);

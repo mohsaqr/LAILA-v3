@@ -11,10 +11,10 @@ import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { SearchableSelect } from '../../components/common/SearchableSelect';
 import { Card, CardBody } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
-import { Input } from '../../components/common/Input';
+import { Input, TextArea } from '../../components/common/Input';
 import { Toggle } from '../../components/common/Toggle';
 import { useTheme } from '../../hooks/useTheme';
-import { LessonEditor } from '../../components/teach/lesson-editor';
+import { SectionListEditor, type SectionListEditorHandle } from '../../components/teach/lesson-editor';
 import activityLogger from '../../services/activityLogger';
 
 /**
@@ -35,13 +35,31 @@ export const LectureEditor = () => {
   const { isDark } = useTheme();
 
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [duration, setDuration] = useState(0);
   const [contentType, setContentType] = useState<'text' | 'video' | 'mixed'>('mixed');
   const [isPublished, setIsPublished] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<SectionListEditorHandle>(null);
+
+  // Flush the editor's autosave, confirm, and return to the course.
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await editorRef.current?.flush();
+      await queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+      toast.success(t('common:saved', { defaultValue: 'Saved' }));
+      navigate(`/courses/${courseId}`);
+    } catch {
+      toast.error(t('common:error', { defaultValue: 'Something went wrong' }));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const { data: lecture, isLoading } = useQuery({
     queryKey: ['lecture', lecId],
@@ -64,12 +82,13 @@ export const LectureEditor = () => {
   useEffect(() => {
     if (!lecture) return;
     setTitle(lecture.title ?? '');
+    setDescription((lecture as { description?: string }).description ?? '');
     setDuration(lecture.duration ?? 0);
     setIsPublished((lecture as { isPublished?: boolean }).isPublished ?? false);
   }, [lecture]);
 
   const updateMutation = useMutation({
-    mutationFn: (data: { title?: string; duration?: number; contentType?: string; isPublished?: boolean }) =>
+    mutationFn: (data: { title?: string; description?: string; duration?: number; contentType?: string; isPublished?: boolean }) =>
       coursesApi.updateLecture(lecId, data as never),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lecture', lecId] });
@@ -115,10 +134,16 @@ export const LectureEditor = () => {
     updateMutation.mutate({ duration: value });
   };
 
+  const commitDescription = () => {
+    const next = description.trim();
+    if (next === ((lecture as { description?: string })?.description ?? '')) return;
+    updateMutation.mutate({ description: next });
+  };
+
   // ─── Create mode — nothing is written until "Create" is clicked ──────────
   const createMutation = useMutation({
     mutationFn: () =>
-      coursesApi.createLecture(Number(moduleId), { title: title.trim(), contentType, duration, isFree: false, isPublished } as never),
+      coursesApi.createLecture(Number(moduleId), { title: title.trim(), description: description.trim() || undefined, contentType, duration, isFree: false, isPublished } as never),
     onSuccess: (created: { id: number }) => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       queryClient.invalidateQueries({ queryKey: ['course', courseId] });
@@ -147,6 +172,13 @@ export const LectureEditor = () => {
               value={title}
               onChange={e => setTitle(e.target.value)}
               required
+            />
+            <TextArea
+              label={t('description', { defaultValue: 'Description' })}
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              rows={2}
+              placeholder={t('description_placeholder', { defaultValue: 'Add a short description (shown on the course page)…' })}
             />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <SearchableSelect
@@ -237,7 +269,7 @@ export const LectureEditor = () => {
           <button
             type="button"
             onClick={() => setEditingTitle(true)}
-            className="flex-1 min-w-[200px] text-left text-2xl sm:text-3xl font-bold leading-tight truncate"
+            className="flex-1 min-w-[200px] text-left text-2xl sm:text-3xl font-bold leading-tight truncate rounded px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 hover:opacity-80 transition-opacity"
             style={{ color: titleColor }}
             title={t('common:edit', { defaultValue: 'Edit' })}
           >
@@ -270,7 +302,8 @@ export const LectureEditor = () => {
             value={duration}
             onChange={e => setDuration(parseInt(e.target.value) || 0)}
             onBlur={() => commitDuration(duration)}
-            className="w-12 bg-transparent outline-none text-right tabular-nums"
+            aria-label={t('duration_minutes', { defaultValue: 'Duration (minutes)' })}
+            className="w-12 bg-transparent outline-none text-right tabular-nums rounded focus-visible:ring-2 focus-visible:ring-teal-400"
             style={{ color: subtle }}
           />
           <span>{t('min', { defaultValue: 'min' })}</span>
@@ -285,12 +318,23 @@ export const LectureEditor = () => {
           className="shrink-0"
         />
 
+        <Button
+          icon={<Save className="w-4 h-4" />}
+          loading={saving}
+          onClick={handleSave}
+          className="shrink-0"
+        >
+          {t('common:save', { defaultValue: 'Save' })}
+        </Button>
+
         <div className="relative shrink-0">
           <button
             type="button"
             onClick={() => setMenuOpen(o => !o)}
             aria-label={t('common:more_options', { defaultValue: 'More options' })}
-            className="inline-flex items-center justify-center w-8 h-8 rounded-lg transition-colors"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            className="inline-flex items-center justify-center w-8 h-8 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
             style={{ color: muted }}
           >
             <MoreHorizontal className="w-4 h-4" />
@@ -308,7 +352,7 @@ export const LectureEditor = () => {
                 <button
                   type="button"
                   onClick={() => { setDeleteOpen(true); setMenuOpen(false); }}
-                  className="w-full text-left px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 text-red-600 dark:text-red-400 inline-flex items-center gap-2"
+                  className="w-full text-left px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 focus:outline-none focus-visible:bg-black/5 dark:focus-visible:bg-white/5 text-red-600 dark:text-red-400 inline-flex items-center gap-2"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   {t('teaching:delete_lesson', { defaultValue: 'Delete lesson' })}
@@ -319,9 +363,24 @@ export const LectureEditor = () => {
         </div>
       </div>
 
+      {/* Lesson description — shown under the lesson on the course front page. */}
+      <textarea
+        value={description}
+        onChange={e => setDescription(e.target.value)}
+        onBlur={commitDescription}
+        rows={2}
+        placeholder={t('description_placeholder', { defaultValue: 'Add a short description (shown on the course page)…' })}
+        className="w-full mb-4 px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-teal-400 resize-none"
+        style={{
+          backgroundColor: isDark ? '#1f2937' : '#ffffff',
+          borderColor: isDark ? '#374151' : '#e5e7eb',
+          color: isDark ? '#f3f4f6' : '#111827',
+        }}
+      />
+
       {/* Same rich-text editor as the student page (read-only there) — bold/
           italic/lists/links + image / video / chatbot / video embed. */}
-      <LessonEditor lectureId={lecId} initialSections={lecture.sections ?? []} />
+      <SectionListEditor ref={editorRef} lectureId={lecId} initialSections={lecture.sections ?? []} courseId={courseId} legacyContent={(lecture as { content?: string }).content ?? ''} />
 
       <ConfirmDialog
         isOpen={deleteOpen}

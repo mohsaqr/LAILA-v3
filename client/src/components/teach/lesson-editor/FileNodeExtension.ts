@@ -10,6 +10,7 @@ declare module '@tiptap/core' {
         fileName: string;
         fileType?: string;
         fileSize?: number;
+        description?: string;
       }) => ReturnType;
     };
   }
@@ -33,6 +34,7 @@ export const FileNode = Node.create({
       fileName: { default: '' },
       fileType: { default: '' },
       fileSize: { default: 0, parseHTML: el => parseInt(el.getAttribute('data-size') ?? '0', 10) },
+      description: { default: '', parseHTML: el => el.getAttribute('data-description') ?? '' },
     };
   },
 
@@ -47,6 +49,7 @@ export const FileNode = Node.create({
             fileName: node.getAttribute('data-name') ?? '',
             fileType: node.getAttribute('data-type') ?? '',
             fileSize: parseInt(node.getAttribute('data-size') ?? '0', 10),
+            description: node.getAttribute('data-description') ?? '',
           };
         },
       },
@@ -63,6 +66,7 @@ export const FileNode = Node.create({
           'data-name': node.attrs.fileName,
           'data-type': node.attrs.fileType,
           'data-size': String(node.attrs.fileSize ?? 0),
+          'data-description': node.attrs.description ?? '',
         },
       ),
     ];

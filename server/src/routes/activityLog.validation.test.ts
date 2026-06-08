@@ -12,6 +12,9 @@ const validVerbs = [
   'enrolled', 'unenrolled', 'viewed', 'started', 'completed', 'progressed',
   'submitted', 'unsubmitted', 'interacted', 'downloaded', 'selected',
   'designed',
+  // xAPI Video Profile verbs for lesson video tracking.
+  'initialized', 'played', 'paused', 'seeked', 'abandoned', 'terminated',
+  'playback-rate-changed',
 ] as const;
 
 const validObjectTypes = [
@@ -76,7 +79,9 @@ describe('Activity Log Zod Validation', () => {
   });
 
   it('should reject removed/consolidated verbs', () => {
-    for (const verb of ['messaged', 'cleared', 'expressed', 'switched', 'received', 'paused', 'resumed', 'seeked', 'scrolled', 'graded']) {
+    // Note: 'paused'/'seeked' were re-introduced as xAPI Video Profile verbs
+    // for lesson video tracking, so they're no longer rejected.
+    for (const verb of ['messaged', 'cleared', 'expressed', 'switched', 'received', 'resumed', 'scrolled', 'graded']) {
       const result = logActivitySchema.safeParse({ verb, objectType: 'course' });
       expect(result.success, `Expected verb '${verb}' to be rejected`).toBe(false);
     }
