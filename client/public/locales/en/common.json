@@ -28,6 +28,9 @@
   "update": "Update",
   "refresh": "Refresh",
   "download": "Download",
+  "open": "Open",
+  "link": "Link",
+  "file": "File",
   "share": "Share",
   "upload": "Upload",
   "export": "Export",
@@ -99,7 +102,6 @@
   "courses": "Courses",
   "settings": "Settings",
   "dashboard": "Dashboard",
-
   "status_draft": "Draft",
   "status_published": "Published",
   "status_archived": "Archived",
@@ -110,12 +112,10 @@
   "status_completed": "Completed",
   "status_pending": "Pending",
   "status_not_started": "Not Started",
-
   "theme_dark": "Dark",
   "theme_light": "Light",
   "theme_label": "Theme: {{theme}}",
   "theme_aria_label": "Current theme: {{theme}}. Click to switch.",
-
   "emotion_productive": "Productive",
   "emotion_stimulated": "Stimulated",
   "emotion_frustrated": "Frustrated",
@@ -125,10 +125,8 @@
   "emotion_quitting": "Quitting",
   "how_are_you_feeling": "How are you feeling?",
   "thanks_for_sharing": "Thanks for sharing!",
-
   "skip_to_main_content": "Skip to main content",
   "skip_to_navigation": "Skip to navigation",
-
   "something_went_wrong": "Something went wrong",
   "error_boundary_message": "We're sorry, but something unexpected happened. Please try refreshing the page or go back to the home page.",
   "try_again": "Try Again",
@@ -141,7 +139,6 @@
   "generate": "Generate",
   "generating": "Generating...",
   "rows": "rows",
-  "dashboard": "Dashboard",
   "continue_learning": "Continue learning",
   "up_next": "Up next",
   "view_all": "View all",
@@ -171,7 +168,6 @@
   "nothing_in_progress": "Nothing in progress yet",
   "you_have_x_deadlines_this_week": "You have {{count}} deadline{{plural}} this week.",
   "active_courses": "Active courses",
-  "completed": "Completed",
   "this_week": "This week",
   "student_engagement_30d": "Student engagement — last 30 days",
   "events": "events",
@@ -203,5 +199,7 @@
   "view_full_calendar": "View full calendar",
   "continue": "Continue",
   "clear_all": "Clear all",
-  "showing_range": "Showing {{from}}–{{to}} of {{total}}"
+  "showing_range": "Showing {{from}}–{{to}} of {{total}}",
+  "visible": "Visible",
+  "change": "Change"
 }

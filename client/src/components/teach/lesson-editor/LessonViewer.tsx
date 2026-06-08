@@ -6,8 +6,12 @@ import TextAlign from '@tiptap/extension-text-align';
 import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import { FileNode } from './FileNodeExtension';
+import { FolderNode } from './FolderNodeExtension';
 import { ChatbotNode } from './ChatbotNodeExtension';
 import { VideoNode } from './VideoNodeExtension';
+import { McqNode } from './McqNodeExtension';
+import { UrlNode } from './UrlNodeExtension';
+import { EmbedNode } from './EmbedNodeExtension';
 import { LessonMediaContext } from './LessonMediaContext';
 
 interface LessonViewerProps {
@@ -38,8 +42,12 @@ export const LessonViewer = ({ html, courseId, lectureId, sectionId }: LessonVie
         HTMLAttributes: { class: 'text-cyan-600 underline' },
       }),
       FileNode,
+      FolderNode,
       ChatbotNode,
       VideoNode,
+      McqNode,
+      UrlNode,
+      EmbedNode,
     ],
     content: html,
   });

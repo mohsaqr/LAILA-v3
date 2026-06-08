@@ -6,11 +6,39 @@ import { CourseFilters } from '../types/index.js';
 import { learningAnalyticsService } from './learningAnalytics.service.js';
 import { courseRoleService } from './courseRole.service.js';
 import { prerequisiteService } from './prerequisite.service.js';
+import { availabilityWindowWhere } from '../utils/availability.js';
 
 // Context for system event logging
 export interface SystemEventContext {
   actorId?: number;
   ipAddress?: string;
+}
+
+const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'];
+
+/**
+ * Derive a lecture's resource kind from its sections so the curriculum can show
+ * a distinct icon (folder/url/embed/video/file/image) instead of the generic
+ * lesson icon. A "media-as-section" resource is exactly ONE section: a `file`
+ * section (→ image vs file by type), or a text section holding a single marker
+ * node. Multi-section lectures and plain pages return null (generic icon).
+ */
+function lectureResourceKind(
+  sections?: { type?: string | null; content?: string | null; fileType?: string | null }[],
+): string | null {
+  if (!sections || sections.length !== 1) return null;
+  const s = sections[0];
+  if (s.type === 'file') {
+    const ft = (s.fileType ?? '').toLowerCase();
+    const ext = ft.includes('/') ? ft.split('/').pop() ?? '' : ft.replace(/^\./, '');
+    return ft.startsWith('image/') || IMAGE_EXTS.includes(ext) ? 'image' : 'file';
+  }
+  const content = s.content ?? '';
+  if (content.includes('<lecture-folder')) return 'folder';
+  if (content.includes('<lecture-url')) return 'url';
+  if (content.includes('<lecture-embed')) return 'embed';
+  if (content.includes('<lecture-video')) return 'video';
+  return null;
 }
 
 export class CourseService {
@@ -93,24 +121,34 @@ export class CourseService {
         },
         categories: { include: { category: true } },
         modules: {
-          where: includeUnpublished ? {} : { isPublished: true },
+          where: includeUnpublished ? {} : { isPublished: true, ...availabilityWindowWhere() },
           orderBy: { orderIndex: 'asc' },
           include: {
             lectures: {
-              where: includeUnpublished ? {} : { isPublished: true },
+              where: includeUnpublished ? {} : { isPublished: true, ...availabilityWindowWhere() },
               orderBy: { orderIndex: 'asc' },
               select: {
                 id: true,
                 title: true,
+                description: true,
                 contentType: true,
                 duration: true,
                 orderIndex: true,
                 isPublished: true,
                 isFree: true,
+                // Minimal section info to derive the resource kind (folder/url/
+                // embed/video/file/image) for the curriculum icon. Section
+                // `content` is used only to detect the marker node server-side
+                // and is stripped before the response (never shipped to the
+                // public page).
+                sections: {
+                  orderBy: { order: 'asc' },
+                  select: { type: true, content: true, fileType: true },
+                },
               },
             },
             codeLabs: {
-              where: includeUnpublished ? {} : { isPublished: true },
+              where: includeUnpublished ? {} : { isPublished: true, ...availabilityWindowWhere() },
               orderBy: { orderIndex: 'asc' },
               select: {
                 id: true,
@@ -122,13 +160,14 @@ export class CourseService {
             },
             assignments: {
               where: {
-                ...(includeUnpublished ? {} : { isPublished: true }),
+                ...(includeUnpublished ? {} : { isPublished: true, ...availabilityWindowWhere() }),
                 lectureId: null, // exclude lecture-level assignments
               },
               orderBy: { createdAt: 'asc' },
               select: {
                 id: true,
                 title: true,
+                description: true,
                 points: true,
                 dueDate: true,
                 gracePeriodDeadline: true,
@@ -147,7 +186,7 @@ export class CourseService {
               },
             },
             quizzes: {
-              where: includeUnpublished ? {} : { isPublished: true },
+              where: includeUnpublished ? {} : { isPublished: true, ...availabilityWindowWhere() },
               orderBy: { createdAt: 'asc' },
               select: {
                 id: true,
@@ -159,7 +198,7 @@ export class CourseService {
               },
             },
             forumThreads: {
-              where: includeUnpublished ? {} : { isPublished: true },
+              where: includeUnpublished ? {} : { isPublished: true, ...availabilityWindowWhere() },
               orderBy: [{ isPinned: 'desc' }, { orderIndex: 'asc' }],
               select: {
                 id: true,
@@ -193,6 +232,15 @@ export class CourseService {
 
     if (!course) {
       throw new AppError('Course not found', 404);
+    }
+
+    // Derive a lightweight `resourceKind` per lecture for the curriculum icon,
+    // then strip section `content` so the public page never receives it.
+    for (const m of course.modules as any[]) {
+      for (const l of (m.lectures ?? []) as any[]) {
+        l.resourceKind = lectureResourceKind(l.sections);
+        delete l.sections;
+      }
     }
 
     // Prerequisites live in a relation-less table; fetch + attach so the
@@ -258,7 +306,7 @@ export class CourseService {
             lectures: {
               orderBy: { orderIndex: 'asc' },
               select: {
-                id: true, title: true, contentType: true, duration: true,
+                id: true, title: true, description: true, contentType: true, duration: true,
                 orderIndex: true, isPublished: true, isFree: true,
                 sections: {
                   orderBy: { order: 'asc' },
@@ -390,15 +438,16 @@ export class CourseService {
         },
         categories: { include: { category: true } },
         modules: {
-          where: { isPublished: true },
+          where: { isPublished: true, ...availabilityWindowWhere() },
           orderBy: { orderIndex: 'asc' },
           include: {
             lectures: {
-              where: { isPublished: true },
+              where: { isPublished: true, ...availabilityWindowWhere() },
               orderBy: { orderIndex: 'asc' },
               select: {
                 id: true,
                 title: true,
+                description: true,
                 contentType: true,
                 duration: true,
                 isFree: true,

@@ -17,8 +17,10 @@ export interface CreateQuizInput {
   shuffleQuestions?: boolean;
   shuffleOptions?: boolean;
   showResults?: string;
+  isPublished?: boolean;
   dueDate?: string;
-  availableFrom?: string;
+  availableFrom?: string | null;
+  availableUntil?: string | null;
   moduleId?: number;
 }
 
@@ -64,10 +66,12 @@ export class QuizService {
     const where: any = { courseId };
     if (!isInstructor && !isAdmin) {
       where.isPublished = true;
-      // Only show available quizzes
-      where.OR = [
-        { availableFrom: null },
-        { availableFrom: { lte: new Date() } },
+      // Only show quizzes whose availability window is currently open
+      // (from <= now <= until, with null = unbounded on each side).
+      const now = new Date();
+      where.AND = [
+        { OR: [{ availableFrom: null }, { availableFrom: { lte: now } }] },
+        { OR: [{ availableUntil: null }, { availableUntil: { gte: now } }] },
       ];
     }
 
@@ -170,13 +174,14 @@ export class QuizService {
     const courseMap = new Map(enrollments.map(e => [e.courseId, e.course.title]));
 
     // Get all published quizzes for enrolled courses
+    const now = new Date();
     const quizzes = await prisma.quiz.findMany({
       where: {
         courseId: { in: courseIds },
         isPublished: true,
-        OR: [
-          { availableFrom: null },
-          { availableFrom: { lte: new Date() } },
+        AND: [
+          { OR: [{ availableFrom: null }, { availableFrom: { lte: now } }] },
+          { OR: [{ availableUntil: null }, { availableUntil: { gte: now } }] },
         ],
       },
       orderBy: [{ courseId: 'asc' }, { createdAt: 'asc' }],
@@ -299,8 +304,10 @@ export class QuizService {
         shuffleQuestions: data.shuffleQuestions ?? false,
         shuffleOptions: data.shuffleOptions ?? false,
         showResults: data.showResults ?? 'after_submit',
+        isPublished: data.isPublished ?? false,
         dueDate: data.dueDate ? new Date(data.dueDate) : null,
         availableFrom: data.availableFrom ? new Date(data.availableFrom) : null,
+        availableUntil: data.availableUntil ? new Date(data.availableUntil) : null,
       },
       include: {
         module: { select: { id: true, title: true } },
@@ -340,6 +347,7 @@ export class QuizService {
         isPublished: data.isPublished,
         dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
         availableFrom: data.availableFrom ? new Date(data.availableFrom) : undefined,
+        availableUntil: data.availableUntil ? new Date(data.availableUntil) : undefined,
         moduleId: data.moduleId,
       },
     });
@@ -555,6 +563,9 @@ export class QuizService {
     // Check if available
     if (quiz.availableFrom && new Date() < quiz.availableFrom) {
       throw new AppError('Quiz is not yet available', 400);
+    }
+    if (quiz.availableUntil && new Date() > quiz.availableUntil) {
+      throw new AppError('Quiz is no longer available', 400);
     }
     if (quiz.dueDate && new Date() > quiz.dueDate) {
       throw new AppError('Quiz due date has passed', 400);

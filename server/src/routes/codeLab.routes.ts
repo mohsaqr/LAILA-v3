@@ -13,6 +13,8 @@ const createCodeLabSchema = z.object({
   title: z.string().min(1).max(255),
   description: z.string().optional(),
   isPublished: z.boolean().optional(),
+  availableFrom: z.string().datetime().optional().nullable(),
+  availableUntil: z.string().datetime().optional().nullable(),
 });
 
 const updateCodeLabSchema = z.object({
@@ -61,7 +63,7 @@ router.post('/', authenticateToken, requireInstructor, asyncHandler(async (req: 
   const codeLab = await codeLabService.createCodeLab(
     data.moduleId,
     req.user!.id,
-    { title: data.title, description: data.description, isPublished: data.isPublished },
+    { title: data.title, description: data.description, isPublished: data.isPublished, availableFrom: data.availableFrom, availableUntil: data.availableUntil },
     req.user!.isAdmin
   );
   res.status(201).json({ success: true, data: codeLab });

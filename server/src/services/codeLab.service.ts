@@ -1,12 +1,15 @@
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { courseRoleService } from './courseRole.service.js';
+import { assertWithinAvailability } from '../utils/availability.js';
 
 // Types for input data
 interface CreateCodeLabInput {
   title: string;
   description?: string;
   isPublished?: boolean;
+  availableFrom?: string | null;
+  availableUntil?: string | null;
 }
 
 interface UpdateCodeLabInput {
@@ -195,18 +198,29 @@ export class CodeLabService {
         return codeLab;
       }
 
-      // For regular users, check enrollment
-      const enrollment = await prisma.enrollment.findUnique({
-        where: {
-          userId_courseId: {
-            userId,
-            courseId: codeLab.module.course.id,
-          },
-        },
-      });
+      const courseId = codeLab.module.course.id;
 
-      if (!enrollment) {
-        throw new AppError('You must be enrolled to access this Code Lab', 403);
+      // Course owners and team members bypass enrollment + the availability window.
+      const isOwner = codeLab.module.course.instructorId === userId;
+      const isTeam = isOwner ? true : await courseRoleService.isTeamMember(userId, courseId);
+
+      if (!isOwner && !isTeam) {
+        // For regular students, check enrollment
+        const enrollment = await prisma.enrollment.findUnique({
+          where: {
+            userId_courseId: {
+              userId,
+              courseId,
+            },
+          },
+        });
+
+        if (!enrollment) {
+          throw new AppError('You must be enrolled to access this Code Lab', 403);
+        }
+
+        // Enrolled non-staff student: enforce the instructor-scheduled window.
+        assertWithinAvailability(codeLab, 'Code Lab');
       }
     }
 
@@ -232,6 +246,8 @@ export class CodeLabService {
         title: data.title,
         description: data.description,
         isPublished: data.isPublished ?? false,
+        availableFrom: data.availableFrom ? new Date(data.availableFrom) : null,
+        availableUntil: data.availableUntil ? new Date(data.availableUntil) : null,
         orderIndex: (maxOrder?.orderIndex ?? -1) + 1,
       },
       include: {

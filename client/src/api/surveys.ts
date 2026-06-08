@@ -150,4 +150,43 @@ export const surveysApi = {
     const response = await apiClient.delete<ApiResponse<Survey>>(`/surveys/module/${moduleId}/${surveyId}`);
     return response.data.data!;
   },
+
+  // =============================================================================
+  // POLL — a single-question multiple-choice vote built on the survey backend.
+  // A poll is just a one-`single_choice`-question survey attached to a module;
+  // results come back through the standard survey analytics (optionCounts), so
+  // no new model/migration is needed.
+  // =============================================================================
+
+  /**
+   * Create a quick poll: a one-question (single_choice) survey, publish it, add
+   * the choices, and attach it to a module so students see it on the course
+   * page. Returns the created survey.
+   */
+  createPoll: async (params: {
+    courseId: number;
+    moduleId: number;
+    title: string;
+    description?: string;
+    question: string;
+    options: string[];
+    isPublished?: boolean;
+    isAnonymous?: boolean;
+  }): Promise<Survey> => {
+    const survey = await surveysApi.createSurvey({
+      title: params.title,
+      description: params.description,
+      isPublished: params.isPublished ?? true,
+      isAnonymous: params.isAnonymous ?? false,
+    });
+    await surveysApi.addQuestion(survey.id, {
+      questionText: params.question,
+      questionType: 'single_choice',
+      options: params.options,
+      isRequired: true,
+      orderIndex: 0,
+    });
+    await surveysApi.addSurveyToModule(params.courseId, params.moduleId, survey.id);
+    return survey;
+  },
 };

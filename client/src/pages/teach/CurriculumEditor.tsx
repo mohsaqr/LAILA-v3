@@ -342,6 +342,15 @@ export const CurriculumEditor = ({
     onError: () => toast.error(t('failed_to_delete_lesson')),
   });
 
+  const duplicateLectureMutation = useMutation({
+    mutationFn: (id: number) => coursesApi.duplicateLecture(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+      toast.success(t('lesson_duplicated', { defaultValue: 'Lesson duplicated' }));
+    },
+    onError: () => toast.error(t('failed_to_duplicate_lesson', { defaultValue: 'Failed to duplicate lesson' })),
+  });
+
   const publishMutation = useMutation({
     mutationFn: () => coursesApi.publishCourse(courseId),
     onSuccess: () => {
@@ -1478,6 +1487,7 @@ export const CurriculumEditor = ({
                   onAddLecture={openAddLectureModal}
                   onEditLecture={openEditLectureModal}
                   onDeleteLecture={setDeleteLectureConfirm}
+                  onDuplicateLecture={(l) => duplicateLectureMutation.mutate(l.id)}
                   onToggleLecturePublish={(l) => toggleLecturePublishMutation.mutate({ id: l.id, isPublished: !l.isPublished })}
                   onMoveLectureUp={handleMoveLectureUp}
                   onMoveLectureDown={handleMoveLectureDown}
@@ -1662,6 +1672,7 @@ export const CurriculumEditor = ({
         isOpen={lectureModal.isOpen}
         isEdit={!!lectureModal.lecture}
         courseTitle={course?.title || ''}
+        courseId={courseId}
         lectureId={lectureModal.activeLectureId ?? null}
         initialSections={lectureModal.lecture?.sections ?? []}
         form={lectureForm as LessonWizardFormData}

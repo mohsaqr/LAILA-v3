@@ -12,10 +12,15 @@ import {
   Bot,
   Network,
   ListChecks,
+  Folder,
+  Link as LinkIcon,
+  MonitorPlay,
+  FileUp,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 
-export type ContentType = 'lecture' | 'video' | 'mixed' | 'lab' | 'quiz' | 'assignment' | 'forum' | 'ai' | 'ai_agent' | 'interactive_lab' | 'survey';
+export type ContentType = 'lecture' | 'video' | 'mixed' | 'lab' | 'quiz' | 'assignment' | 'forum' | 'ai' | 'ai_agent' | 'interactive_lab' | 'survey' | 'folder' | 'url' | 'embed' | 'file' | 'image';
 export type ContentCardSize = 'mini' | 'icon' | 'normal';
 
 interface ContentCardProps {
@@ -150,12 +155,62 @@ const contentConfigBase: Record<ContentType, {
     borderLight: '#fecdd3',
     borderDark: 'rgba(244, 63, 94, 0.3)',
   },
+  folder: {
+    icon: Folder,
+    labelKey: 'content_folder',
+    bgLight: 'bg-amber-50',
+    bgDark: 'rgba(245, 158, 11, 0.15)',
+    textLight: '#d97706',
+    textDark: '#fcd34d',
+    borderLight: '#fde68a',
+    borderDark: 'rgba(245, 158, 11, 0.3)',
+  },
+  url: {
+    icon: LinkIcon,
+    labelKey: 'content_url',
+    bgLight: 'bg-sky-50',
+    bgDark: 'rgba(2, 132, 199, 0.15)',
+    textLight: '#0284c7',
+    textDark: '#7dd3fc',
+    borderLight: '#bae6fd',
+    borderDark: 'rgba(2, 132, 199, 0.3)',
+  },
+  embed: {
+    icon: MonitorPlay,
+    labelKey: 'content_embed',
+    bgLight: 'bg-violet-50',
+    bgDark: 'rgba(139, 92, 246, 0.15)',
+    textLight: '#7c3aed',
+    textDark: '#c4b5fd',
+    borderLight: '#ddd6fe',
+    borderDark: 'rgba(139, 92, 246, 0.3)',
+  },
+  file: {
+    icon: FileUp,
+    labelKey: 'content_file',
+    bgLight: 'bg-teal-50',
+    bgDark: 'rgba(13, 148, 136, 0.15)',
+    textLight: '#0d9488',
+    textDark: '#5eead4',
+    borderLight: '#99f6e4',
+    borderDark: 'rgba(13, 148, 136, 0.3)',
+  },
+  image: {
+    icon: ImageIcon,
+    labelKey: 'content_image',
+    bgLight: 'bg-cyan-50',
+    bgDark: 'rgba(8, 145, 178, 0.15)',
+    textLight: '#0891b2',
+    textDark: '#67e8f9',
+    borderLight: '#a5f3fc',
+    borderDark: 'rgba(8, 145, 178, 0.3)',
+  },
 };
 
 export const ContentCard = ({
   type,
   title,
-  subtitle: _subtitle,
+  subtitle,
   metadata,
   href,
   onClick,
@@ -185,17 +240,26 @@ export const ContentCard = ({
   const iconSize = 18;
   const iconContainerSize = 36;
 
+  // Shared focus-visible ring for clickable cards (keyboard accessibility).
+  const focusRing =
+    'focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900';
+
   // Mini size: Compact cards with icon + title
   if (size === 'mini') {
+    const interactive = !disabled && !href;
     const miniContent = (
       <div
-        className={`p-3 rounded-lg border transition-all flex flex-col items-center text-center ${
+        className={`p-3 rounded-lg border transition-all flex flex-col items-center text-center ${focusRing} ${
           disabled
             ? 'opacity-50 cursor-not-allowed'
             : 'hover:shadow-md hover:-translate-y-0.5 cursor-pointer'
         }`}
         style={{ ...cardStyles, width: '140px', minHeight: '100px' }}
-        onClick={!disabled && !href ? onClick : undefined}
+        onClick={interactive ? onClick : undefined}
+        onKeyDown={interactive ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } } : undefined}
+        role={interactive ? 'button' : undefined}
+        tabIndex={interactive ? 0 : undefined}
+        aria-disabled={disabled || undefined}
         title={title}
       >
         <div
@@ -205,31 +269,44 @@ export const ContentCard = ({
           <Icon style={{ ...iconTextStyle, width: iconSize, height: iconSize }} />
         </div>
         <span
-          className="text-sm font-medium leading-snug line-clamp-3 flex-1"
+          className="text-sm font-medium leading-snug line-clamp-3 break-words w-full"
           style={{ color: isDark ? '#f3f4f6' : '#111827' }}
         >
           {title}
         </span>
+        {subtitle && (
+          <span
+            className="text-[11px] leading-snug line-clamp-2 mt-1 break-words w-full"
+            style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
+          >
+            {subtitle}
+          </span>
+        )}
       </div>
     );
 
     if (href && !disabled) {
-      return <Link to={href}>{miniContent}</Link>;
+      return <Link to={href} className={`block rounded-lg ${focusRing}`}>{miniContent}</Link>;
     }
     return miniContent;
   }
 
   // Icon size: Icon above title, clean minimal style
   if (size === 'icon') {
+    const interactive = !disabled && !href;
     const iconContent = (
       <div
-        className={`p-3 rounded-lg border transition-all flex flex-col items-center justify-center text-center ${
+        className={`p-3 rounded-lg border transition-all flex flex-col items-center justify-center text-center ${focusRing} ${
           disabled
             ? 'opacity-50 cursor-not-allowed'
             : 'hover:shadow-md hover:-translate-y-0.5 cursor-pointer'
         }`}
         style={{ ...cardStyles, minWidth: '80px', minHeight: '80px' }}
-        onClick={!disabled && !href ? onClick : undefined}
+        onClick={interactive ? onClick : undefined}
+        onKeyDown={interactive ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } } : undefined}
+        role={interactive ? 'button' : undefined}
+        tabIndex={interactive ? 0 : undefined}
+        aria-disabled={disabled || undefined}
         title={title}
       >
         <div
@@ -239,7 +316,7 @@ export const ContentCard = ({
           <Icon style={{ ...iconTextStyle, width: iconSize, height: iconSize }} />
         </div>
         <span
-          className="text-xs font-medium leading-tight line-clamp-2"
+          className="text-xs font-medium leading-tight line-clamp-2 break-words w-full"
           style={{ color: isDark ? '#f3f4f6' : '#111827' }}
         >
           {title}
@@ -248,21 +325,27 @@ export const ContentCard = ({
     );
 
     if (href && !disabled) {
-      return <Link to={href}>{iconContent}</Link>;
+      return <Link to={href} className={`block rounded-lg ${focusRing}`}>{iconContent}</Link>;
     }
     return iconContent;
   }
 
   // Normal size: Original layout
+  const interactiveNormal = !disabled && !href;
   const cardContent = (
     <div
-      className={`p-3 rounded-lg border transition-all ${
+      className={`p-3 rounded-lg border transition-all ${focusRing} ${
         disabled
           ? 'opacity-50 cursor-not-allowed'
           : 'hover:shadow-md hover:-translate-y-0.5 cursor-pointer'
       }`}
       style={cardStyles}
-      onClick={!disabled && !href ? onClick : undefined}
+      onClick={interactiveNormal ? onClick : undefined}
+      onKeyDown={interactiveNormal ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } } : undefined}
+      role={interactiveNormal ? 'button' : undefined}
+      tabIndex={interactiveNormal ? 0 : undefined}
+      aria-disabled={disabled || undefined}
+      title={title}
     >
       {/* Icon */}
       <div
@@ -282,21 +365,30 @@ export const ContentCard = ({
         {title}
       </h3>
 
+      {/* Optional one/two-line description */}
+      {subtitle && (
+        <p
+          className="text-xs line-clamp-2 mb-1"
+          style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
+        >
+          {subtitle}
+        </p>
+      )}
+
       {/* Footer: label + metadata */}
       <div className="flex items-center justify-between gap-2 mt-2">
         <span
-          className="text-[10px] font-medium px-1.5 py-0.5 rounded"
+          className={`text-[10px] font-medium px-1.5 py-0.5 rounded flex-shrink-0 ${!isDark ? config.bgLight : ''}`}
           style={{
             backgroundColor: isDark ? config.bgDark : undefined,
             color: isDark ? config.textDark : config.textLight,
           }}
-          {...(!isDark && { className: `text-[10px] font-medium px-1.5 py-0.5 rounded ${config.bgLight}` })}
         >
           {label}
         </span>
         {metadata && (
           <span
-            className="text-[10px] truncate"
+            className="text-[10px] truncate min-w-0"
             style={{ color: isDark ? '#6b7280' : '#9ca3af' }}
           >
             {metadata}
@@ -307,7 +399,7 @@ export const ContentCard = ({
   );
 
   if (href && !disabled) {
-    return <Link to={href}>{cardContent}</Link>;
+    return <Link to={href} className={`block rounded-lg ${focusRing}`}>{cardContent}</Link>;
   }
 
   return cardContent;

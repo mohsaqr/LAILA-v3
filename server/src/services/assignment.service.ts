@@ -6,6 +6,7 @@ import { emailService } from './email.service.js';
 import { notificationService } from './notification.service.js';
 import { assignmentLogger } from '../utils/logger.js';
 import { courseRoleService } from './courseRole.service.js';
+import { assertWithinAvailability } from '../utils/availability.js';
 
 // Context for event logging
 export interface EventContext {
@@ -116,7 +117,7 @@ export class AssignmentService {
     }));
   }
 
-  async getAssignmentById(assignmentId: number, userId?: number) {
+  async getAssignmentById(assignmentId: number, userId?: number, isInstructor = false, isAdmin = false) {
     const assignment = await prisma.assignment.findUnique({
       where: { id: assignmentId },
       include: {
@@ -134,6 +135,17 @@ export class AssignmentService {
 
     if (!assignment) {
       throw new AppError('Assignment not found', 404);
+    }
+
+    // Non-staff enrolled students are gated by the instructor-scheduled
+    // availability window; owners / admins / global instructors / team members
+    // bypass it entirely.
+    if (userId && !isAdmin && !isInstructor) {
+      const isOwner = assignment.course.instructorId === userId;
+      const isTeam = isOwner ? true : await courseRoleService.isTeamMember(userId, assignment.course.id);
+      if (!isOwner && !isTeam) {
+        assertWithinAvailability(assignment, 'Assignment');
+      }
     }
 
     // Include user's submission if they have one

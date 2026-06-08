@@ -15,8 +15,9 @@ import { Breadcrumb } from '../components/common/Breadcrumb';
 import { Loading } from '../components/common/Loading';
 import { LectureAIHelper } from '../components/lecture';
 import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStudent';
+import { FileCard } from '../components/course/FileCard';
 import { AssignmentSectionStudent } from '../components/course/AssignmentSectionStudent';
-import { LessonViewer, LessonEditor, type LessonEditorHandle } from '../components/teach/lesson-editor';
+import { LessonViewer, SectionListEditor, type SectionListEditorHandle } from '../components/teach/lesson-editor';
 import { marked } from 'marked';
 import { sanitizeHtml, isHtmlContent } from '../utils/sanitize';
 import { TrackedContent } from '../components/common/TrackedContent';
@@ -42,7 +43,7 @@ export const LectureView = () => {
   // Inline Edit Mode (instructors / course team / admins only).
   const [editMode, setEditMode] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
-  const editorRef = useRef<LessonEditorHandle>(null);
+  const editorRef = useRef<SectionListEditorHandle>(null);
 
 
   // Theme colors
@@ -229,10 +230,14 @@ export const LectureView = () => {
         // the node renders instead of being stripped by sanitize/markdown.
         const containsLessonNodes =
           section.content?.includes('<lecture-file') ||
+          section.content?.includes('<lecture-folder') ||
           section.content?.includes('<lecture-chatbot') ||
-          section.content?.includes('<lecture-video');
+          section.content?.includes('<lecture-video') ||
+          section.content?.includes('<lecture-mcq') ||
+          section.content?.includes('<lecture-url') ||
+          section.content?.includes('<lecture-embed');
         return (
-          <div key={section.id} className="mb-8">
+          <div key={section.id} className="mb-6">
             {section.title && (
               <div className="flex items-center gap-2 mb-4">
                 {section.type === 'ai-generated' && <Sparkles className="w-5 h-5" style={{ color: colors.textTeal }} />}
@@ -270,14 +275,12 @@ export const LectureView = () => {
       case 'file': {
         if (!section.fileUrl) {
           return (
-            <div key={section.id} className="mb-8 p-4 rounded-lg text-center" style={{ backgroundColor: colors.bgHover }}>
+            <div key={section.id} className="mb-6 p-4 rounded-lg text-center" style={{ backgroundColor: colors.bgHover }}>
               <Upload className="w-8 h-8 mx-auto mb-2" style={{ color: colors.textMuted }} />
               <p style={{ color: colors.textSecondary }}>{t('no_file_uploaded')}</p>
             </div>
           );
         }
-        const isImage = section.fileType?.startsWith('image/');
-        const isPdf = section.fileType === 'application/pdf';
         const handleFileDownload = async (e: React.MouseEvent) => {
           e.preventDefault();
           activityLogger.logFileDownloaded(section.id, section.fileName || undefined, parseInt(lectureId!), parseInt(courseId!)).catch(() => {});
@@ -299,45 +302,27 @@ export const LectureView = () => {
         };
 
         return (
-          <div key={section.id} className="mb-8">
+          <div key={section.id} className="mb-6">
             {section.title && (
               <h2 className="text-lg sm:text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>
                 {section.title}
               </h2>
             )}
-            {isImage ? (
-              <img src={resolveFileUrl(section.fileUrl)} alt={section.fileName || ''} className="max-w-full rounded-lg" />
-            ) : isPdf ? (
-              <div>
-                <iframe src={resolveFileUrl(section.fileUrl)} className="w-full h-[600px] rounded-lg border" title={section.fileName || 'PDF'} style={{ borderColor: colors.border }} />
-                <a href={resolveFileUrl(section.fileUrl)} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-2 text-primary-600 hover:underline" onClick={handleFileDownload}>
-                  <Download className="w-4 h-4" /> Download {section.fileName}
-                </a>
-              </div>
-            ) : (
-              <a
-                href={resolveFileUrl(section.fileUrl)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 p-4 rounded-lg transition-colors"
-                style={{ backgroundColor: colors.bgHover }}
-                onClick={handleFileDownload}
-              >
-                <FileText className="w-8 h-8" style={{ color: colors.textMuted }} />
-                <div className="flex-1">
-                  <p className="font-medium" style={{ color: colors.textPrimary }}>{section.fileName}</p>
-                  {section.fileSize && <p className="text-sm" style={{ color: colors.textSecondary }}>{(section.fileSize / 1024).toFixed(1)} KB</p>}
-                </div>
-                <Download className="w-5 h-5" style={{ color: colors.textMuted }} />
-              </a>
-            )}
+            <FileCard
+              fileName={section.fileName || 'file'}
+              fileType={section.fileType}
+              url={resolveFileUrl(section.fileUrl)}
+              fileSize={section.fileSize}
+              description={section.content || undefined}
+              onDownload={handleFileDownload}
+            />
           </div>
         );
       }
 
       case 'chatbot':
         return (
-          <div key={section.id} className="mb-8">
+          <div key={section.id} className="mb-6">
             {section.title && (
               <h2 className="text-lg sm:text-xl font-semibold mb-4" style={{ color: colors.textPrimary }}>
                 {section.title}
@@ -352,7 +337,7 @@ export const LectureView = () => {
 
       case 'assignment':
         return (
-          <div key={section.id} className="mb-8">
+          <div key={section.id} className="mb-6">
             <AssignmentSectionStudent
               section={section}
               courseId={parseInt(courseId!)}
@@ -396,7 +381,7 @@ export const LectureView = () => {
               <button
                 type="button"
                 onClick={() => setEditMode(true)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all hover:-translate-y-0.5 flex-shrink-0"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all hover:-translate-y-0.5 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
                 style={{
                   backgroundColor: isDark ? 'rgba(8,143,143,0.18)' : '#ccfbfb',
                   color: isDark ? '#22d3d3' : '#065c5c',
@@ -414,10 +399,12 @@ export const LectureView = () => {
                  tools + image / video / chatbot). It autosaves; the Save
                  button flushes the final state and returns to view mode. */
               <div>
-                <LessonEditor
+                <SectionListEditor
                   ref={editorRef}
                   lectureId={lecture.id}
                   initialSections={lecture.sections ?? []}
+                  courseId={parseInt(courseId!)}
+                  legacyContent={(lecture as { content?: string }).content ?? ''}
                 />
                 <div className="mt-4 flex justify-end gap-2">
                   <button
@@ -446,7 +433,7 @@ export const LectureView = () => {
             {/* Video content */}
             {lecture.videoUrl && (
               <div className="mb-8 aspect-video bg-black rounded-lg overflow-hidden">
-                <iframe src={lecture.videoUrl} className="w-full h-full" allowFullScreen />
+                <iframe src={lecture.videoUrl} title={lecture.title} className="w-full h-full" allowFullScreen />
               </div>
             )}
 
@@ -473,7 +460,8 @@ export const LectureView = () => {
                     <a
                       key={att.id}
                       href={resolveFileUrl(att.fileUrl)}
-                      className="flex items-center gap-3 p-3 rounded-lg transition-colors"
+                      aria-label={`${t('common:download', { defaultValue: 'Download' })} ${att.fileName}`}
+                      className="flex items-center gap-3 p-3 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
                       style={{ backgroundColor: colors.bgHover }}
                       onClick={async (e) => {
                         e.preventDefault();
@@ -495,9 +483,9 @@ export const LectureView = () => {
                         }
                       }}
                     >
-                      <FileText className="w-5 h-5" style={{ color: colors.textMuted }} />
-                      <span className="flex-1 text-sm" style={{ color: colors.textSecondary }}>{att.fileName}</span>
-                      <Download className="w-4 h-4" style={{ color: colors.textMuted }} />
+                      <FileText className="w-5 h-5 flex-shrink-0" style={{ color: colors.textMuted }} />
+                      <span className="flex-1 min-w-0 text-sm truncate" style={{ color: colors.textSecondary }} title={att.fileName}>{att.fileName}</span>
+                      <Download className="w-4 h-4 flex-shrink-0" style={{ color: colors.textMuted }} aria-hidden="true" />
                     </a>
                   ))}
                 </div>
@@ -547,14 +535,14 @@ export const LectureView = () => {
           {prevLecture ? (
             <Link
               to={`/courses/${courseId}/lectures/${prevLecture.id}`}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
+              className="flex items-center gap-2 min-w-0 px-4 py-2 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
               style={{ backgroundColor: colors.bgCard, border: `1px solid ${colors.border}`, color: colors.textPrimary }}
               onClick={() => track('previous_lecture', { verb: 'interacted', objectType: 'lecture', courseId: parseInt(courseId!), payload: { fromLectureId: parseInt(lectureId!), toLectureId: prevLecture.id } })}
             >
-              <ChevronLeft className="w-4 h-4" />
-              <div className="text-left">
+              <ChevronLeft className="w-4 h-4 flex-shrink-0" />
+              <div className="text-left min-w-0">
                 <p className="text-xs" style={{ color: colors.textSecondary }}>{t('previous_lecture')}</p>
-                <p className="text-sm font-medium truncate max-w-[200px]">{prevLecture.title}</p>
+                <p className="text-sm font-medium truncate max-w-[140px] sm:max-w-[200px]">{prevLecture.title}</p>
               </div>
             </Link>
           ) : (
@@ -564,20 +552,20 @@ export const LectureView = () => {
           {nextLecture ? (
             <Link
               to={`/courses/${courseId}/lectures/${nextLecture.id}`}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
+              className="flex items-center gap-2 min-w-0 px-4 py-2 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
               style={{ backgroundColor: colors.bgCard, border: `1px solid ${colors.border}`, color: colors.textPrimary }}
               onClick={() => track('next_lecture', { verb: 'interacted', objectType: 'lecture', courseId: parseInt(courseId!), payload: { fromLectureId: parseInt(lectureId!), toLectureId: nextLecture.id } })}
             >
-              <div className="text-right">
+              <div className="text-right min-w-0">
                 <p className="text-xs" style={{ color: colors.textSecondary }}>{t('next_lecture')}</p>
-                <p className="text-sm font-medium truncate max-w-[200px]">{nextLecture.title}</p>
+                <p className="text-sm font-medium truncate max-w-[140px] sm:max-w-[200px]">{nextLecture.title}</p>
               </div>
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-4 h-4 flex-shrink-0" />
             </Link>
           ) : (
             <Link
               to={`/courses/${courseId}`}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
               style={{ backgroundColor: colors.bgPrimaryLight, color: colors.textPrimary600 }}
               onClick={() => track('back_to_course', { verb: 'interacted', objectType: 'course', courseId: parseInt(courseId!) })}
             >

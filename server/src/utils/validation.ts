@@ -95,6 +95,8 @@ export const createModuleSchema = z.object({
   orderIndex: z.number().int().min(0).optional(),
   isPublished: z.boolean().optional(),
   interactiveLabs: z.string().optional().nullable(),
+  availableFrom: z.string().datetime().optional().nullable(),
+  availableUntil: z.string().datetime().optional().nullable(),
 });
 
 export const updateModuleSchema = createModuleSchema.partial();
@@ -106,6 +108,7 @@ export const reorderModulesSchema = z.object({
 // Lecture validation schemas
 export const createLectureSchema = z.object({
   title: z.string().min(2, 'Title must be at least 2 characters'),
+  description: z.string().optional(),
   content: z.string().optional(),
   contentType: z.enum(['text', 'video', 'mixed']).optional(),
   videoUrl: z.preprocess(
@@ -116,6 +119,8 @@ export const createLectureSchema = z.object({
   orderIndex: z.number().int().min(0).optional(),
   isPublished: z.boolean().optional(),
   isFree: z.boolean().optional(),
+  availableFrom: z.string().datetime().optional().nullable(),
+  availableUntil: z.string().datetime().optional().nullable(),
 });
 
 export const updateLectureSchema = createLectureSchema.partial();
@@ -133,7 +138,7 @@ export const createSectionSchema = z.object({
   // Chatbot fields
   chatbotTitle: z.string().optional(),
   chatbotIntro: z.string().optional(),
-  chatbotImageUrl: z.string().url().optional().nullable(),
+  chatbotImageUrl: z.string().optional().nullable(),
   chatbotSystemPrompt: z.string().optional(),
   chatbotWelcome: z.string().optional(),
   // Assignment fields
@@ -154,7 +159,7 @@ export const updateSectionSchema = z.object({
   // Chatbot fields
   chatbotTitle: z.string().optional(),
   chatbotIntro: z.string().optional(),
-  chatbotImageUrl: z.string().url().optional().nullable(),
+  chatbotImageUrl: z.string().optional().nullable(),
   chatbotSystemPrompt: z.string().optional(),
   chatbotWelcome: z.string().optional(),
   // Assignment fields
@@ -188,6 +193,8 @@ export const createAssignmentSchema = z.object({
   allowedFileTypes: z.string().optional(),
   dueDate: z.string().datetime().optional().nullable(),
   gracePeriodDeadline: z.string().datetime().optional().nullable(),
+  availableFrom: z.string().datetime().optional().nullable(),
+  availableUntil: z.string().datetime().optional().nullable(),
   points: z.number().int().min(0).max(1000).optional(),
   weight: z.number().min(0).max(10).optional(),
   isPublished: z.boolean().optional(),

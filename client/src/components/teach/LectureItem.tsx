@@ -4,6 +4,7 @@ import {
   ChevronUp,
   ChevronDown,
   Edit2,
+  Copy,
   Eye,
   EyeOff,
   FileText,
@@ -18,6 +19,7 @@ interface LectureItemProps {
   isLast: boolean;
   onEdit: (lecture: Lecture) => void;
   onDelete: (lecture: Lecture) => void;
+  onDuplicate?: (lecture: Lecture) => void;
   onTogglePublish?: (lecture: Lecture) => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
@@ -25,6 +27,41 @@ interface LectureItemProps {
   onEditAssignment?: (assignment: Assignment) => void;
   onDeleteAssignment?: (assignment: Assignment) => void;
 }
+
+/**
+ * Small inline action icon with an immediate, custom hover tooltip (rendered
+ * below the icon so it isn't clipped by the row). `hover` sets the hover
+ * background tint so each action reads at a glance (edit=neutral,
+ * duplicate=blue, publish=green/amber, delete=red).
+ */
+const IconBtn = ({
+  onClick,
+  title,
+  hover,
+  children,
+}: {
+  onClick: (e: React.MouseEvent) => void;
+  title: string;
+  hover: string;
+  children: React.ReactNode;
+}) => (
+  <span className="relative group/iconbtn">
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={title}
+      className={`p-1.5 rounded transition-colors ${hover}`}
+    >
+      {children}
+    </button>
+    <span
+      role="tooltip"
+      className="pointer-events-none absolute left-1/2 top-full z-50 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover/iconbtn:opacity-100 dark:bg-gray-700"
+    >
+      {title}
+    </span>
+  </span>
+);
 
 /**
  * Every lesson reads the same regardless of contentType (text / video /
@@ -54,6 +91,7 @@ export const LectureItem = ({
   isLast,
   onEdit,
   onDelete,
+  onDuplicate,
   onTogglePublish,
   onMoveUp,
   onMoveDown,
@@ -125,34 +163,43 @@ export const LectureItem = ({
       </div>
 
       {/* Action buttons */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5">
+        <IconBtn
+          onClick={(e) => { e.stopPropagation(); onEdit(lecture); }}
+          title={t('edit_lesson_details')}
+          hover="hover:bg-gray-200 dark:hover:bg-gray-700"
+        >
+          <Edit2 className="w-4 h-4 text-gray-500" />
+        </IconBtn>
+        {onDuplicate && (
+          <IconBtn
+            onClick={(e) => { e.stopPropagation(); onDuplicate(lecture); }}
+            title={t('duplicate_lesson', { defaultValue: 'Duplicate' })}
+            hover="hover:bg-blue-100 dark:hover:bg-blue-900/30"
+          >
+            <Copy className="w-4 h-4 text-blue-500" />
+          </IconBtn>
+        )}
         {onTogglePublish && (
-          <button
+          <IconBtn
             onClick={(e) => { e.stopPropagation(); onTogglePublish(lecture); }}
-            className={`p-1.5 rounded transition-colors ${lecture.isPublished ? 'hover:bg-green-100' : 'hover:bg-amber-100'}`}
             title={lecture.isPublished ? t('unpublish_lesson') : t('publish_lesson')}
+            hover={lecture.isPublished ? 'hover:bg-green-100 dark:hover:bg-green-900/30' : 'hover:bg-amber-100 dark:hover:bg-amber-900/30'}
           >
             {lecture.isPublished ? (
               <Eye className="w-4 h-4 text-green-500" />
             ) : (
               <EyeOff className="w-4 h-4 text-amber-500" />
             )}
-          </button>
+          </IconBtn>
         )}
-        <button
-          onClick={(e) => { e.stopPropagation(); onEdit(lecture); }}
-          className="p-1.5 rounded hover:bg-gray-200 transition-colors"
-          title={t('edit_lesson_details')}
-        >
-          <Edit2 className="w-4 h-4 text-gray-500" />
-        </button>
-        <button
+        <IconBtn
           onClick={(e) => { e.stopPropagation(); onDelete(lecture); }}
-          className="p-1.5 rounded hover:bg-red-100 transition-colors"
           title={t('delete_lesson')}
+          hover="hover:bg-red-100 dark:hover:bg-red-900/30"
         >
           <Trash2 className="w-4 h-4 text-red-500" />
-        </button>
+        </IconBtn>
       </div>
       </div>
     </div>

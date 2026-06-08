@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { BookOpen, Check, FileText, Layers, Video, X } from 'lucide-react';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { Button } from '../common/Button';
-import { LessonEditor } from './lesson-editor';
+import { SectionListEditor } from './lesson-editor';
 import type { LectureSection } from '../../types';
 
 export type LessonContentType = 'text' | 'video' | 'mixed';
@@ -19,6 +19,8 @@ interface LessonWizardModalProps {
   isOpen: boolean;
   isEdit: boolean;
   courseTitle: string;
+  /** Course context so the embed-agent picker can list this course's tutors. */
+  courseId?: number;
   /** When set the wizard skips its create call and goes straight to the
    *  content editor on Step 2. Drives autosave inside LessonEditor. */
   lectureId: number | null;
@@ -55,6 +57,7 @@ export const LessonWizardModal = ({
   isOpen,
   isEdit,
   courseTitle,
+  courseId,
   lectureId,
   initialSections,
   form,
@@ -271,9 +274,10 @@ export const LessonWizardModal = ({
             {step === 2 && (
               <div className="space-y-3">
                 {lectureId ? (
-                  <LessonEditor
+                  <SectionListEditor
                     lectureId={lectureId}
                     initialSections={initialSections}
+                    courseId={courseId}
                   />
                 ) : (
                   <p className="text-sm text-amber-600 dark:text-amber-400 italic">

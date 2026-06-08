@@ -20,12 +20,19 @@ declare module '@tiptap/core' {
  * `<lecture-chatbot>` tag carrying the chatbot's display config as
  * data-* attributes.
  */
-export const ChatbotNode = Node.create({
+export const ChatbotNode = Node.create<{ courseId: number | null }>({
   name: 'lectureChatbot',
   group: 'block',
   atom: true,
   draggable: true,
   selectable: true,
+
+  // courseId lets the in-editor picker also list this course's own AI
+  // tutors (not just global chatbots). Configured per-editor via
+  // ChatbotNode.configure({ courseId }); null in the read-only viewer.
+  addOptions() {
+    return { courseId: null };
+  },
 
   addAttributes() {
     return {
