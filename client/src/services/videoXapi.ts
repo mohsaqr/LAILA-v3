@@ -1,41 +1,41 @@
 /**
- * Video activity tracking built on the xAPI Video Profile, via the
- * `xapi-youtube` package (github:hanieas/xapi-youtube).
+ * Video activity tracking modelled on the xAPI Video Profile, with NO external
+ * dependency. Both lesson video kinds are tracked over their native event
+ * surface and funnelled into our own `activityLogger` (the same batch pipeline
+ * the rest of the app uses):
  *
- * The package is a browser library that wires the YouTube IFrame API to the
- * xAPI Video Profile and emits statements (initialized / played / paused /
- * seeked / playback-rate-changed / completed / abandoned / terminated).
- * Upstream it posts those statements straight to an LRS; here we shim its
- * `ADL.XAPIWrapper.sendStatement` so every statement is funnelled into our
- * own `activityLogger` instead — the same batch pipeline the rest of the app
- * uses.
+ *   - {@link trackYouTubeEmbed}  — embedded YouTube videos, via the YouTube
+ *     IFrame API (`YT.Player` state/rate events + a light poll for seeks).
+ *   - {@link trackUploadedVideo} — uploaded HTML5 `<video>` files, via native
+ *     media events.
  *
- * Two entry points, one for each lesson video kind:
- *   - {@link trackYouTubeEmbed}  — embedded YouTube videos, driven by the
- *     package's own statement engine over the YouTube IFrame API.
- *   - {@link trackUploadedVideo} — uploaded HTML5 `<video>` files. The package
- *     only understands YouTube, so we reproduce the exact same Video Profile
- *     event model over native media events, reusing the package's vocabulary.
+ * Both emit the same Video-Profile verb vocabulary (initialized / played /
+ * paused / seeked / playback-rate-changed / completed / terminated / abandoned)
+ * plus a coarse `progressed` heartbeat every 30s of real playback — preserving
+ * the exact `activityLogger.log({ verb, … })` shape the analytics / TNA
+ * pipeline already consumes.
  *
- * Both also emit a coarse `video.watch_tick` (`progressed`) every 30s of real
- * playback, preserving the "how far did the student get" signal we already had.
+ * (Previously this wrapped the unmaintained `xapi-youtube` GitHub package, which
+ * bundled ADL's 2016 xAPIWrapper. That dependency has been removed in favour of
+ * driving the YouTube IFrame API directly.)
  */
-import 'xapi-youtube/videoprofile';
-import 'xapi-youtube';
 import { activityLogger, type ActivityVerb } from './activityLogger';
 
 // ---------------------------------------------------------------------------
-// Minimal typings for the globals the package and the YouTube IFrame API set.
+// Minimal typings for the YouTube IFrame API globals.
 // ---------------------------------------------------------------------------
 
 interface YTPlayer {
   getCurrentTime(): number;
   getDuration(): number;
   getPlayerState(): number;
+  getPlaybackRate(): number;
   destroy(): void;
 }
 
-interface YTStateEvent {
+/** `onStateChange` carries a player-state number in `data`; `onPlaybackRateChange`
+ *  carries the new rate. */
+interface YTValueEvent {
   data: number;
   target: YTPlayer;
 }
@@ -43,8 +43,8 @@ interface YTStateEvent {
 interface YTPlayerOptions {
   events: {
     onReady?: (event: { target: YTPlayer }) => void;
-    onStateChange?: (event: YTStateEvent) => void;
-    onPlaybackRateChange?: (event: YTStateEvent) => void;
+    onStateChange?: (event: YTValueEvent) => void;
+    onPlaybackRateChange?: (event: YTValueEvent) => void;
   };
 }
 
@@ -52,47 +52,15 @@ interface YTNamespace {
   Player: new (el: HTMLElement | string, opts: YTPlayerOptions) => YTPlayer;
 }
 
-/** A raw xAPI statement as produced by the package's statement engine. */
-interface XapiStatement {
-  verb: { id: string; display: Record<string, string> };
-  result?: { duration?: string; completion?: boolean; extensions?: Record<string, unknown> };
-  object?: { _laila?: StatementHook } & Record<string, unknown>;
-}
-
-interface XapiEngine {
-  changeConfig(cfg: { actor: object; object: object; context: object }): void;
-  onStateChange(event: YTStateEvent): void;
-  onPlaybackRateChange(event: YTStateEvent): void;
-}
-
-/** Per-tracker hook smuggled through the statement's `object` so the single
- *  global `sendStatement` shim can route a statement back to its tracker. */
-interface StatementHook {
-  onStatement(stmt: XapiStatement): void;
-}
-
-interface VideoProfileEntry {
-  '@id': string;
-  prefLabel?: Record<string, string>;
-}
-
-interface ADLNamespace {
-  videoprofile?: {
-    verbs: Record<string, VideoProfileEntry>;
-    references: Record<string, VideoProfileEntry>;
-  };
-  XAPIWrapper?: { lrs: { endpoint: string; auth: string }; sendStatement(stmt: XapiStatement): void };
-}
-
 declare global {
   interface Window {
     YT?: YTNamespace;
     onYouTubeIframeAPIReady?: () => void;
-    ADL?: ADLNamespace;
-    XAPIYoutubeStatements?: new () => XapiEngine;
-    player?: YTPlayer;
   }
 }
+
+/** YouTube IFrame API player states (YT.PlayerState.*). */
+const YT_STATE = { ENDED: 0, PLAYING: 1, PAUSED: 2 } as const;
 
 // ---------------------------------------------------------------------------
 // Context + verb vocabulary
@@ -118,18 +86,16 @@ type VerbKey =
   | 'terminated';
 
 interface VerbMeta {
-  /** Canonical xAPI Video Profile verb IRI. */
-  iri: string;
-  /** Human-readable verb, as the package displays it. */
-  display: string;
   /** Fine-grained subtype stored on the log row (`video.*`). */
   actionSubtype: string;
-  /** Coarse verb from the 10-verb taxonomy the TNA pipeline understands. */
+  /** Human-readable verb display, mirrored into the log extensions. */
+  display: string;
+  /** Coarse verb from the taxonomy the TNA pipeline understands. */
   verb: ActivityVerb;
 }
 
-/** Fallback IRIs (used if the profile object isn't available for any reason). */
-const FALLBACK_IRI: Record<VerbKey, string> = {
+/** Canonical xAPI Video-Profile verb IRIs (kept on the log row for provenance). */
+const VERB_IRI: Record<VerbKey, string> = {
   initialized: 'http://adlnet.gov/expapi/verbs/initialized',
   played: 'https://w3id.org/xapi/video/verbs/played',
   paused: 'https://w3id.org/xapi/video/verbs/paused',
@@ -140,26 +106,10 @@ const FALLBACK_IRI: Record<VerbKey, string> = {
   abandoned: 'https://w3id.org/xapi/adl/verbs/abandoned',
 };
 
-const profile = () => (typeof window !== 'undefined' ? window.ADL?.videoprofile : undefined);
-
-const iriFor = (key: VerbKey): string => {
-  const p = profile();
-  switch (key) {
-    case 'played': return p?.verbs.played?.['@id'] ?? FALLBACK_IRI.played;
-    case 'paused': return p?.verbs.paused?.['@id'] ?? FALLBACK_IRI.paused;
-    case 'seeked': return p?.verbs.seeked?.['@id'] ?? FALLBACK_IRI.seeked;
-    case 'playback_rate_changed': return p?.references.interacted?.['@id'] ?? FALLBACK_IRI.playback_rate_changed;
-    case 'initialized': return p?.references.initialized?.['@id'] ?? FALLBACK_IRI.initialized;
-    case 'completed': return p?.references.completed?.['@id'] ?? FALLBACK_IRI.completed;
-    case 'terminated': return p?.references.terminated?.['@id'] ?? FALLBACK_IRI.terminated;
-    case 'abandoned': return p?.references.abandoned?.['@id'] ?? FALLBACK_IRI.abandoned;
-  }
-};
-
 // The `verb` here is the xAPI Video Profile verb itself — surfaced directly in
 // the activity log's Verb column. `progressed` is reserved for the periodic
 // watch heartbeat (see emitTick), which is the "how far did they get" signal.
-const VERB_META: Record<VerbKey, Omit<VerbMeta, 'iri'>> = {
+const VERB_META: Record<VerbKey, VerbMeta> = {
   initialized:           { display: 'initialized',            actionSubtype: 'video.initialized',           verb: 'initialized' },
   played:                { display: 'played',                 actionSubtype: 'video.played',                verb: 'played' },
   paused:                { display: 'paused',                 actionSubtype: 'video.paused',                verb: 'paused' },
@@ -168,20 +118,6 @@ const VERB_META: Record<VerbKey, Omit<VerbMeta, 'iri'>> = {
   completed:             { display: 'completed',              actionSubtype: 'video.completed',             verb: 'completed' },
   abandoned:             { display: 'abandoned',              actionSubtype: 'video.abandoned',             verb: 'abandoned' },
   terminated:            { display: 'terminated',             actionSubtype: 'video.terminated',            verb: 'terminated' },
-};
-
-/** Reverse lookup: verb IRI → our verb key. Built lazily so it reflects the
- *  loaded profile, falling back to the static IRIs. */
-let iriToKeyCache: Map<string, VerbKey> | null = null;
-const keyForIri = (iri: string): VerbKey | undefined => {
-  if (!iriToKeyCache) {
-    iriToKeyCache = new Map();
-    (Object.keys(VERB_META) as VerbKey[]).forEach(k => {
-      iriToKeyCache!.set(iriFor(k), k);
-      iriToKeyCache!.set(FALLBACK_IRI[k], k);
-    });
-  }
-  return iriToKeyCache.get(iri);
 };
 
 // ---------------------------------------------------------------------------
@@ -200,15 +136,6 @@ interface EventData {
   completion?: boolean;
 }
 
-/** Parse the package's `"PT12.34S"` ISO-8601 duration into whole seconds. */
-const parseISOSeconds = (iso?: string): number | undefined => {
-  if (!iso) return undefined;
-  const m = /PT([\d.]+)S/.exec(iso);
-  if (!m) return undefined;
-  const n = Number(m[1]);
-  return Number.isFinite(n) ? Math.round(n) : undefined;
-};
-
 const emit = (key: VerbKey, ctx: VideoXapiContext, data: EventData = {}): void => {
   const meta = VERB_META[key];
   activityLogger.log({
@@ -224,7 +151,7 @@ const emit = (key: VerbKey, ctx: VideoXapiContext, data: EventData = {}): void =
     success: key === 'completed' ? true : undefined,
     actionSubtype: meta.actionSubtype,
     extensions: {
-      xapiVerb: iriFor(key),
+      xapiVerb: VERB_IRI[key],
       xapiVerbDisplay: meta.display,
       mode: ctx.mode,
       src: ctx.src,
@@ -265,30 +192,10 @@ export const withJsApi = (src: string): string => {
 };
 
 const WATCH_TICK_MS = 30000;
-
-// ---------------------------------------------------------------------------
-// xAPIWrapper shim — installed once, routes every package statement to us.
-// ---------------------------------------------------------------------------
-
-let bridgeInstalled = false;
-const ensureBridge = (): void => {
-  if (bridgeInstalled || typeof window === 'undefined') return;
-  const adl = (window.ADL = window.ADL || {});
-  adl.XAPIWrapper = {
-    // Present only so the package never trips over a missing LRS config; we
-    // never actually POST here (its abandoned/terminated path is bypassed —
-    // see trackYouTubeEmbed, which registers its own exit handler).
-    lrs: { endpoint: '', auth: '' },
-    sendStatement(stmt: XapiStatement) {
-      try {
-        stmt?.object?._laila?.onStatement(stmt);
-      } catch {
-        /* never let a logging hiccup bubble into playback */
-      }
-    },
-  };
-  bridgeInstalled = true;
-};
+/** YouTube has no native "seeked" event; a poll flags a playhead jump larger
+ *  than playback could account for between samples as a seek. */
+const SEEK_POLL_MS = 500;
+const SEEK_THRESHOLD_S = 2;
 
 // ---------------------------------------------------------------------------
 // YouTube IFrame API loader (shared, loaded at most once)
@@ -318,32 +225,48 @@ const loadYouTubeApi = (): Promise<YTNamespace | null> => {
 };
 
 // ---------------------------------------------------------------------------
-// Public: embedded YouTube videos (driven by the package's engine)
+// Shared watch-time accounting (wall-clock seconds actually spent playing).
+// ---------------------------------------------------------------------------
+
+const makeWatchClock = () => {
+  let watchedMs = 0;
+  let lastPlayStart: number | null = null;
+  return {
+    /** Mark playback as started/resumed now. */
+    start(): void {
+      if (lastPlayStart == null) lastPlayStart = Date.now();
+    },
+    /** Fold the in-flight interval into the total and stop the clock. */
+    accrue(): void {
+      if (lastPlayStart != null) {
+        watchedMs += Date.now() - lastPlayStart;
+        lastPlayStart = null;
+      }
+    },
+    /** Total watched seconds, including any in-flight interval. */
+    seconds(): number {
+      return Math.round((watchedMs + (lastPlayStart != null ? Date.now() - lastPlayStart : 0)) / 1000);
+    },
+  };
+};
+
+// ---------------------------------------------------------------------------
+// Public: embedded YouTube videos (YouTube IFrame API, no external deps)
 // ---------------------------------------------------------------------------
 
 export function trackYouTubeEmbed(iframe: HTMLIFrameElement, ctx: VideoXapiContext): () => void {
-  ensureBridge();
-  const Engine = window.XAPIYoutubeStatements;
-  if (!Engine) return () => {};
-
   let disposed = false;
   let player: YTPlayer | null = null;
   let started = false;
   let completed = false;
-  let tick: ReturnType<typeof setInterval> | null = null;
+  let poll: ReturnType<typeof setInterval> | null = null;
 
-  // Watch time = wall-clock seconds the video actually spent playing, NOT the
-  // video's total length and NOT the playhead position.
-  let watchedMs = 0;
-  let lastPlayStart: number | null = null;
-  const accrue = (): void => {
-    if (lastPlayStart != null) {
-      watchedMs += Date.now() - lastPlayStart;
-      lastPlayStart = null;
-    }
-  };
-  const watchedSeconds = (): number =>
-    Math.round((watchedMs + (lastPlayStart != null ? Date.now() - lastPlayStart : 0)) / 1000);
+  const clock = makeWatchClock();
+
+  // Seek detection / heartbeat bookkeeping, advanced by the poll.
+  let expectedPos = 0;      // where the playhead should be if no one seeked
+  let lastSampleWall = Date.now();
+  let sincePlayTickMs = 0;  // real playing time accumulated toward a watch tick
 
   const currentPosition = (): number | undefined =>
     player ? Math.round(player.getCurrentTime()) : undefined;
@@ -353,52 +276,51 @@ export function trackYouTubeEmbed(iframe: HTMLIFrameElement, ctx: VideoXapiConte
   };
   const progressPct = (pos?: number): number | undefined => {
     const d = player?.getDuration();
-    if (!d || !pos) return undefined;
+    if (!d || pos == null) return undefined;
     return Math.min(100, Math.round((pos / d) * 100));
   };
+  const playbackRate = (): number | undefined => {
+    const r = player?.getPlaybackRate();
+    return typeof r === 'number' && Number.isFinite(r) ? r : undefined;
+  };
 
-  // Each statement the engine produces lands here via the global shim.
-  const onStatement = (stmt: XapiStatement): void => {
-    const key = keyForIri(stmt.verb?.id);
-    if (!key) return;
-    const ext = stmt.result?.extensions ?? {};
-    const isoPos =
-      (ext['resultExt:resumed'] as string | undefined) ??
-      (ext['resultExt:paused'] as string | undefined) ??
-      (ext['resultExt:seeked'] as string | undefined);
-    const position = parseISOSeconds(isoPos) ?? currentPosition();
-    const speed = typeof ext['resultExt:speed'] === 'number' ? (ext['resultExt:speed'] as number) : undefined;
-    if (key === 'played') {
-      started = true;
-      lastPlayStart = Date.now();
-    }
-    if (key === 'paused' || key === 'completed') accrue();
-    if (key === 'completed') completed = true;
+  const fire = (key: VerbKey, extra: Partial<EventData> = {}): void => {
+    const position = extra.position ?? currentPosition();
     emit(key, ctx, {
       position,
-      speed,
-      duration: watchedSeconds(),
-      videoLength: parseISOSeconds(stmt.result?.duration) ?? totalLength(),
+      duration: clock.seconds(),
+      videoLength: totalLength(),
       progress: key === 'completed' ? 100 : progressPct(position),
-      completion: stmt.result?.completion,
+      ...extra,
     });
   };
 
-  const engine = new Engine();
-  // Smuggle the per-tracker hook through `object` so the single global
-  // `sendStatement` shim can hand the statement back to *this* tracker.
-  engine.changeConfig({ actor: {}, context: {}, object: { _laila: { onStatement } } });
+  const syncBaseline = (): void => {
+    expectedPos = player ? player.getCurrentTime() : 0;
+    lastSampleWall = Date.now();
+  };
+
+  const onState = (state: number): void => {
+    if (state === YT_STATE.PLAYING) {
+      started = true;
+      clock.start();
+      syncBaseline();
+      fire('played');
+    } else if (state === YT_STATE.PAUSED) {
+      if (completed) return;
+      clock.accrue();
+      fire('paused');
+    } else if (state === YT_STATE.ENDED) {
+      clock.accrue();
+      completed = true;
+      fire('completed', { progress: 100, completion: true });
+    }
+  };
 
   const onExit = (): void => {
     if (!started) return;
-    accrue();
-    const position = currentPosition();
-    emit(completed ? 'terminated' : 'abandoned', ctx, {
-      position,
-      duration: watchedSeconds(),
-      videoLength: totalLength(),
-      progress: progressPct(position),
-    });
+    clock.accrue();
+    fire(completed ? 'terminated' : 'abandoned');
   };
   window.addEventListener('beforeunload', onExit);
 
@@ -406,28 +328,37 @@ export function trackYouTubeEmbed(iframe: HTMLIFrameElement, ctx: VideoXapiConte
     if (disposed || !YT) return;
     player = new YT.Player(iframe, {
       events: {
-        onStateChange: event => {
-          // The engine reads the *global* `player`; point it at ours first.
-          window.player = event.target;
-          engine.onStateChange(event);
-        },
-        onPlaybackRateChange: event => {
-          window.player = event.target;
-          engine.onPlaybackRateChange(event);
-        },
         onReady: () => {
-          tick = setInterval(() => {
-            // 1 === YT.PlayerState.PLAYING
-            if (player?.getPlayerState() === 1) {
-              const position = currentPosition();
+          fire('initialized', { position: 0, duration: 0 });
+          poll = setInterval(() => {
+            if (!player || player.getPlayerState() !== YT_STATE.PLAYING) return;
+            const now = Date.now();
+            const cur = player.getCurrentTime();
+            const rate = player.getPlaybackRate?.() || 1;
+            const expected = expectedPos + ((now - lastSampleWall) / 1000) * rate;
+            if (Math.abs(cur - expected) > SEEK_THRESHOLD_S) {
+              fire('seeked', { position: Math.round(cur) });
+            }
+            // Watch-tick heartbeat: ~30s of real playing time.
+            sincePlayTickMs += now - lastSampleWall;
+            if (sincePlayTickMs >= WATCH_TICK_MS) {
+              sincePlayTickMs = 0;
               emitTick(ctx, {
-                position,
-                duration: watchedSeconds(),
+                position: Math.round(cur),
+                duration: clock.seconds(),
                 videoLength: totalLength(),
-                progress: progressPct(position),
+                progress: progressPct(Math.round(cur)),
               });
             }
-          }, WATCH_TICK_MS);
+            expectedPos = cur;
+            lastSampleWall = now;
+          }, SEEK_POLL_MS);
+        },
+        onStateChange: event => onState(event.data),
+        onPlaybackRateChange: event => {
+          // YouTube passes the new rate as `data`; fall back to a getter.
+          const speed = typeof event.data === 'number' ? event.data : playbackRate();
+          fire('playback_rate_changed', { speed, progress: undefined });
         },
       },
     });
@@ -435,7 +366,7 @@ export function trackYouTubeEmbed(iframe: HTMLIFrameElement, ctx: VideoXapiConte
 
   return () => {
     disposed = true;
-    if (tick) clearInterval(tick);
+    if (poll) clearInterval(poll);
     window.removeEventListener('beforeunload', onExit);
     onExit(); // SPA navigation away counts as abandoned/terminated too.
     try {
@@ -455,18 +386,7 @@ export function trackUploadedVideo(el: HTMLVideoElement, ctx: VideoXapiContext):
   let completed = false;
   let initialized = false;
 
-  // Watch time = wall-clock seconds actually spent playing, NOT the file's
-  // total length and NOT the playhead position.
-  let watchedMs = 0;
-  let lastPlayStart: number | null = null;
-  const accrue = (): void => {
-    if (lastPlayStart != null) {
-      watchedMs += Date.now() - lastPlayStart;
-      lastPlayStart = null;
-    }
-  };
-  const watchedSeconds = (): number =>
-    Math.round((watchedMs + (lastPlayStart != null ? Date.now() - lastPlayStart : 0)) / 1000);
+  const clock = makeWatchClock();
 
   const videoLength = (): number | undefined =>
     Number.isFinite(el.duration) ? Math.round(el.duration) : undefined;
@@ -481,33 +401,33 @@ export function trackUploadedVideo(el: HTMLVideoElement, ctx: VideoXapiContext):
   };
   const onPlay = (): void => {
     started = true;
-    lastPlayStart = Date.now();
-    emit('played', ctx, { position: position(), duration: watchedSeconds(), videoLength: videoLength(), progress: progress() });
+    clock.start();
+    emit('played', ctx, { position: position(), duration: clock.seconds(), videoLength: videoLength(), progress: progress() });
   };
   const onPause = (): void => {
     // Native `pause` also fires while seeking and right before `ended`; the
     // Video Profile treats those separately, so suppress them here.
     if (el.ended || el.seeking) return;
-    accrue();
-    emit('paused', ctx, { position: position(), duration: watchedSeconds(), videoLength: videoLength(), progress: progress() });
+    clock.accrue();
+    emit('paused', ctx, { position: position(), duration: clock.seconds(), videoLength: videoLength(), progress: progress() });
   };
   const onSeeked = (): void => {
-    emit('seeked', ctx, { position: position(), duration: watchedSeconds(), videoLength: videoLength(), progress: progress() });
+    emit('seeked', ctx, { position: position(), duration: clock.seconds(), videoLength: videoLength(), progress: progress() });
   };
   const onRateChange = (): void => {
-    emit('playback_rate_changed', ctx, { position: position(), duration: watchedSeconds(), speed: el.playbackRate });
+    emit('playback_rate_changed', ctx, { position: position(), duration: clock.seconds(), speed: el.playbackRate });
   };
   const onEnded = (): void => {
-    accrue();
+    clock.accrue();
     completed = true;
-    emit('completed', ctx, { position: position(), duration: watchedSeconds(), videoLength: videoLength(), progress: 100, completion: true });
+    emit('completed', ctx, { position: position(), duration: clock.seconds(), videoLength: videoLength(), progress: 100, completion: true });
   };
   const onExit = (): void => {
     if (!started) return;
-    accrue();
+    clock.accrue();
     emit(completed ? 'terminated' : 'abandoned', ctx, {
       position: position(),
-      duration: watchedSeconds(),
+      duration: clock.seconds(),
       videoLength: videoLength(),
       progress: progress(),
     });
@@ -515,7 +435,7 @@ export function trackUploadedVideo(el: HTMLVideoElement, ctx: VideoXapiContext):
 
   const tick = setInterval(() => {
     if (!el.paused && !el.ended) {
-      emitTick(ctx, { position: position(), duration: watchedSeconds(), videoLength: videoLength(), progress: progress() });
+      emitTick(ctx, { position: position(), duration: clock.seconds(), videoLength: videoLength(), progress: progress() });
     }
   }, WATCH_TICK_MS);
 

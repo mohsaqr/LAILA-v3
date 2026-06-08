@@ -28,12 +28,12 @@ const titleFromSrc = (src: string) => {
  * read-only LessonViewer.
  *
  * When viewed (not editable), watch activity is captured via the xAPI Video
- * Profile (`services/videoXapi.ts`, built on the `xapi-youtube` package):
+ * Profile (`services/videoXapi.ts`, dependency-free):
  * initialized / played / paused / seeked / playback-rate-changed / completed
  * / abandoned / terminated, plus a coarse `progressed` heartbeat every 30s.
  * Uploaded videos use native media events; embedded YouTube videos are driven
- * by the package's engine over the YouTube IFrame API. Non-YouTube embeds
- * (e.g. Vimeo) stay plain iframes — the IFrame API can't reach them.
+ * directly over the YouTube IFrame API. Non-YouTube embeds (e.g. Vimeo) stay
+ * plain iframes — the IFrame API can't reach them.
  */
 export const VideoNodeView = ({ node, deleteNode, editor }: NodeViewProps) => {
   const { t } = useTranslation(['teaching', 'common']);
