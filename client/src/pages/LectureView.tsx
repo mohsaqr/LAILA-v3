@@ -18,6 +18,7 @@ import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStuden
 import { FileCard } from '../components/course/FileCard';
 import { AssignmentSectionStudent } from '../components/course/AssignmentSectionStudent';
 import { LessonViewer, SectionListEditor, type SectionListEditorHandle } from '../components/teach/lesson-editor';
+import { safeEmbedSrc } from '../components/teach/lesson-editor/EmbedNodeView';
 import { marked } from 'marked';
 import { sanitizeHtml, isHtmlContent } from '../utils/sanitize';
 import { TrackedContent } from '../components/common/TrackedContent';
@@ -430,10 +431,19 @@ export const LectureView = () => {
               </div>
             ) : (
             <>
-            {/* Video content */}
-            {lecture.videoUrl && (
+            {/* Video content — run the stored URL through the same scheme
+                allow-list the embed nodes use, so a non-http(s) videoUrl
+                (javascript:/data:) can't reach a student's iframe. */}
+            {lecture.videoUrl && safeEmbedSrc(lecture.videoUrl) && (
               <div className="mb-8 aspect-video bg-black rounded-lg overflow-hidden">
-                <iframe src={lecture.videoUrl} title={lecture.title} className="w-full h-full" allowFullScreen />
+                <iframe
+                  src={safeEmbedSrc(lecture.videoUrl)}
+                  title={lecture.title}
+                  className="w-full h-full"
+                  sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-presentation"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
               </div>
             )}
 

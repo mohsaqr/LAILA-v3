@@ -19,6 +19,17 @@ vi.mock('../utils/prisma.js', () => ({
     enrollment: {
       findUnique: vi.fn(),
     },
+    courseRole: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+    },
+    lecture: { update: vi.fn() },
+    codeLab: { update: vi.fn() },
+    assignment: { update: vi.fn() },
+    forumThread: { update: vi.fn() },
+    quiz: { update: vi.fn() },
+    moduleSurvey: { update: vi.fn() },
+    $transaction: vi.fn().mockResolvedValue([]),
   },
 }));
 
@@ -285,6 +296,54 @@ describe('ModuleService', () => {
 
       await expect(moduleService.reorderModules(1, 999, [1, 2])).rejects.toThrow(AppError);
       await expect(moduleService.reorderModules(1, 999, [1, 2])).rejects.toThrow('Not authorized');
+    });
+  });
+
+  describe('reorderModuleItems', () => {
+    beforeEach(() => {
+      vi.mocked(prisma.courseModule.findUnique).mockResolvedValue({ id: 5, courseId: 10 } as any);
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({ id: 10, instructorId: 1 } as any);
+    });
+
+    it('skips items with an unknown type or missing id instead of crashing', async () => {
+      const items = [
+        { type: 'lecture', id: 1 },
+        { type: 'bogus', id: 2 },          // unknown type
+        { type: 'quiz' },                  // missing id
+      ] as any;
+
+      const result = await moduleService.reorderModuleItems(5, 1, items);
+
+      expect(result).toEqual({ message: 'Module items reordered' });
+      // Only the valid lecture op is built...
+      expect(prisma.lecture.update).toHaveBeenCalledTimes(1);
+      expect(prisma.lecture.update).toHaveBeenCalledWith({ where: { id: 1 }, data: { orderIndex: 0 } });
+      // ...the malformed entries never reach Prisma.
+      expect(prisma.quiz.update).not.toHaveBeenCalled();
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('reorders each known item type to its array position', async () => {
+      const items = [
+        { type: 'quiz', id: 11 },
+        { type: 'forum', id: 12 },
+        { type: 'survey', id: 13 },
+      ] as any;
+
+      await moduleService.reorderModuleItems(5, 1, items);
+
+      expect(prisma.quiz.update).toHaveBeenCalledWith({ where: { id: 11 }, data: { orderIndex: 0 } });
+      expect(prisma.forumThread.update).toHaveBeenCalledWith({ where: { id: 12 }, data: { orderIndex: 1 } });
+      expect(prisma.moduleSurvey.update).toHaveBeenCalledWith({ where: { id: 13 }, data: { orderIndex: 2 } });
+    });
+
+    it('coerces a numeric-string id instead of silently dropping it', async () => {
+      const items = [{ type: 'lecture', id: '5' }] as any;
+
+      await moduleService.reorderModuleItems(5, 1, items);
+
+      // '5' -> 5, so the reorder actually happens (not a silent no-op).
+      expect(prisma.lecture.update).toHaveBeenCalledWith({ where: { id: 5 }, data: { orderIndex: 0 } });
     });
   });
 });

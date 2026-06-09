@@ -1,7 +1,7 @@
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { courseRoleService } from './courseRole.service.js';
-import { assertWithinAvailability } from '../utils/availability.js';
+import { assertWithinAvailability, availabilityWindowWhere } from '../utils/availability.js';
 
 // Types for input data
 interface CreateCodeLabInput {
@@ -133,8 +133,9 @@ export class CodeLabService {
     }
 
     // Check authorization: admins and instructors have access, students need enrollment
+    let isTeam = false;
     if (userId && !isAdmin && !isInstructor) {
-      const isTeam = await courseRoleService.isTeamMember(userId, module.course.id);
+      isTeam = await courseRoleService.isTeamMember(userId, module.course.id);
       if (!isTeam) {
         const enrollment = await prisma.enrollment.findUnique({
           where: {
@@ -148,8 +149,16 @@ export class CodeLabService {
       }
     }
 
+    // Students only see published, in-window labs; staff (admin/instructor/
+    // team) see drafts too. Mirrors getModuleForums and getCodeLabById, which
+    // otherwise this list-view bypassed entirely (leaking draft/staged labs).
+    const canViewUnpublished = isAdmin || isInstructor || isTeam;
+
     const codeLabs = await prisma.codeLab.findMany({
-      where: { moduleId },
+      where: {
+        moduleId,
+        ...(canViewUnpublished ? {} : { isPublished: true, ...availabilityWindowWhere() }),
+      },
       orderBy: { orderIndex: 'asc' },
       include: {
         blocks: {

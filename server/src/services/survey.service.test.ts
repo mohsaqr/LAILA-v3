@@ -163,3 +163,62 @@ describe('SurveyService - Module Surveys', () => {
     });
   });
 });
+
+describe('SurveyService - Responses', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('submitResponse', () => {
+    const publishedSurvey = {
+      id: 1,
+      isPublished: true,
+      isAnonymous: false,
+      questions: [{ id: 10, isRequired: false }],
+    };
+
+    it('rejects an answer for a question that is not part of the survey', async () => {
+      prismaMock.survey.findUnique.mockResolvedValue(publishedSurvey as any);
+      prismaMock.surveyResponse.findFirst.mockResolvedValue(null);
+
+      await expect(
+        surveyService.submitResponse(1, 5, { answers: [{ questionId: 999, answerValue: 'x' }] } as any),
+      ).rejects.toThrow(AppError);
+      expect(prismaMock.surveyResponse.create).not.toHaveBeenCalled();
+    });
+
+    it('creates a response when every answered question belongs to the survey', async () => {
+      prismaMock.survey.findUnique.mockResolvedValue(publishedSurvey as any);
+      prismaMock.surveyResponse.findFirst.mockResolvedValue(null);
+      prismaMock.surveyResponse.create.mockResolvedValue({ id: 1, answers: [] } as any);
+
+      const res = await surveyService.submitResponse(1, 5, { answers: [{ questionId: 10, answerValue: 'A' }] } as any);
+
+      expect(res).toBeDefined();
+      expect(prismaMock.surveyResponse.create).toHaveBeenCalled();
+    });
+  });
+
+  describe('getResponses', () => {
+    it('does not throw when a multiple_choice answer is a non-JSON legacy string', async () => {
+      prismaMock.survey.findUnique.mockResolvedValue({
+        id: 1,
+        createdById: 5,
+        isAnonymous: false,
+        questions: [{ id: 10, questionText: 'Q', questionType: 'multiple_choice', options: '["A","B"]' }],
+      } as any);
+      prismaMock.surveyResponse.findMany.mockResolvedValue([
+        {
+          id: 1,
+          answers: [
+            { questionId: 10, answerValue: 'A', question: { id: 10, questionText: 'Q', questionType: 'multiple_choice' } },
+          ],
+        },
+      ] as any);
+
+      // 'A' is a bare legacy string, not a JSON array — must degrade instead of
+      // 500-ing the whole analytics endpoint.
+      await expect(surveyService.getResponses(1, 5)).resolves.toBeDefined();
+    });
+  });
+});

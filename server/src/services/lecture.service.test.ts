@@ -24,6 +24,11 @@ vi.mock('../utils/prisma.js', () => ({
       findUnique: vi.fn(),
       delete: vi.fn(),
     },
+    courseRole: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+    },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -713,6 +718,86 @@ describe('LectureService', () => {
 
       await expect(lectureService.deleteAttachment(1, 10, false)).rejects.toThrow(AppError);
       await expect(lectureService.deleteAttachment(1, 10, false)).rejects.toThrow('Not authorized');
+    });
+  });
+
+  describe('duplicateLecture', () => {
+    const buildSource = () => ({
+      id: 1,
+      title: 'Lecture 1',
+      description: 'desc',
+      content: '',
+      contentType: 'text',
+      videoUrl: null,
+      duration: null,
+      isFree: false,
+      moduleId: 3,
+      module: { course: { id: 10, instructorId: 1 } },
+      sections: [
+        {
+          type: 'assignment',
+          assignmentId: 7,
+          title: 'A',
+          content: '',
+          fileName: null, fileUrl: null, fileType: null, fileSize: null,
+          order: 0,
+          chatbotTitle: null, chatbotIntro: null, chatbotImageUrl: null,
+          chatbotSystemPrompt: null, chatbotWelcome: null,
+          showDeadline: true, showPoints: true,
+          assignment: {
+            id: 7, courseId: 10, moduleId: 3, title: 'A', description: null,
+            instructions: null, submissionType: 'text', maxFileSize: null,
+            allowedFileTypes: null, dueDate: null, gracePeriodDeadline: null,
+            availableFrom: null, availableUntil: null, points: 100, weight: 1,
+            isPublished: true, aiAssisted: false, aiPrompt: null,
+            agentRequirements: null, reflectionRequirement: null,
+            postSurveyId: null, postSurveyRequired: false, orderIndex: 0,
+          },
+        },
+      ],
+      attachments: [],
+    });
+
+    it('deep-copies the assignment so the duplicate does not share the original row', async () => {
+      vi.mocked(prisma.lecture.findUnique).mockResolvedValue(buildSource() as any);
+      vi.mocked(prisma.lecture.findFirst).mockResolvedValue({ orderIndex: 5 } as any);
+
+      const txAssignmentCreate = vi.fn().mockResolvedValue({ id: 99 });
+      const txLectureCreate = vi.fn().mockResolvedValue({ id: 2, sections: [], attachments: [] });
+      vi.mocked(prisma.$transaction).mockImplementation((cb: any) =>
+        cb({ assignment: { create: txAssignmentCreate }, lecture: { create: txLectureCreate } }),
+      );
+
+      await lectureService.duplicateLecture(1, 1);
+
+      // A fresh Assignment row was created for the copy...
+      expect(txAssignmentCreate).toHaveBeenCalledTimes(1);
+      // ...and the copied section points at the NEW id (99), not the shared 7.
+      const lectureArg = txLectureCreate.mock.calls[0][0];
+      const copiedSection = lectureArg.data.sections.create[0];
+      expect(copiedSection.assignmentId).toBe(99);
+      expect(copiedSection.assignmentId).not.toBe(7);
+    });
+
+    it('deep-copies an assignment even when the section type drifted away from "assignment"', async () => {
+      // A section whose type was changed to 'text' but still carries a real
+      // assignment must not lose or share its link in the copy.
+      const source = buildSource();
+      source.sections[0].type = 'text';
+      vi.mocked(prisma.lecture.findUnique).mockResolvedValue(source as any);
+      vi.mocked(prisma.lecture.findFirst).mockResolvedValue({ orderIndex: 5 } as any);
+
+      const txAssignmentCreate = vi.fn().mockResolvedValue({ id: 99 });
+      const txLectureCreate = vi.fn().mockResolvedValue({ id: 2, sections: [], attachments: [] });
+      vi.mocked(prisma.$transaction).mockImplementation((cb: any) =>
+        cb({ assignment: { create: txAssignmentCreate }, lecture: { create: txLectureCreate } }),
+      );
+
+      await lectureService.duplicateLecture(1, 1);
+
+      expect(txAssignmentCreate).toHaveBeenCalledTimes(1);
+      const copiedSection = txLectureCreate.mock.calls[0][0].data.sections.create[0];
+      expect(copiedSection.assignmentId).toBe(99);
     });
   });
 });

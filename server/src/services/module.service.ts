@@ -192,26 +192,40 @@ export class ModuleService {
     if (!module) throw new Error('Module not found');
     await this.verifyCourseOwnership(module.courseId, instructorId, isAdmin);
 
-    await prisma.$transaction(
-      items.map((item, index) => {
+    // Build one update op per item at its array position. Skip items with an
+    // unknown type or a non-integer id (e.g. a malformed request or client/
+    // server type drift) so a single bad entry can't inject `undefined` into
+    // the transaction array or hit Prisma with `where: { id: undefined }`,
+    // both of which would surface as an opaque 500. Well-formed clients are
+    // unaffected — index alignment is preserved by mapping over the originals.
+    const ops = items
+      .map((item, index) => {
+        // Coerce numeric-string ids (a JSON body may carry "5") and skip
+        // anything that still isn't a positive integer.
+        const id = Number(item.id);
+        if (!Number.isInteger(id)) return null;
         const data = { orderIndex: index };
         switch (item.type) {
           case 'lecture':
-            return prisma.lecture.update({ where: { id: item.id }, data });
+            return prisma.lecture.update({ where: { id }, data });
           case 'codelab':
-            return prisma.codeLab.update({ where: { id: item.id }, data });
+            return prisma.codeLab.update({ where: { id }, data });
           case 'assignment':
-            return prisma.assignment.update({ where: { id: item.id }, data });
+            return prisma.assignment.update({ where: { id }, data });
           case 'forum':
-            return prisma.forumThread.update({ where: { id: item.id }, data });
+            return prisma.forumThread.update({ where: { id }, data });
           case 'quiz':
-            return prisma.quiz.update({ where: { id: item.id }, data });
+            return prisma.quiz.update({ where: { id }, data });
           case 'survey':
             // ModuleSurvey id (the junction row), not the surveyId.
-            return prisma.moduleSurvey.update({ where: { id: item.id }, data });
+            return prisma.moduleSurvey.update({ where: { id }, data });
+          default:
+            return null;
         }
-      }),
-    );
+      })
+      .filter((op): op is NonNullable<typeof op> => op !== null);
+
+    await prisma.$transaction(ops);
 
     return { message: 'Module items reordered' };
   }

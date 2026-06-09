@@ -2,7 +2,10 @@ const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'];
 
 /** Extension from a filename ("a.pdf" → "pdf") or a mime/bare type. */
 export const extOf = (fileName?: string | null, fileType?: string | null): string => {
-  const fromName = fileName && fileName.includes('.') ? fileName.split('.').pop() ?? '' : '';
+  // Strip any query string / fragment first so a URL-like name ("a.png?v=2")
+  // yields "png", not "png?v=2".
+  const cleanName = (fileName ?? '').split(/[?#]/)[0];
+  const fromName = cleanName.includes('.') ? cleanName.split('.').pop() ?? '' : '';
   if (fromName) return fromName.toLowerCase();
   const ft = (fileType ?? '').toLowerCase();
   if (ft.includes('/')) return ft.split('/').pop() ?? '';

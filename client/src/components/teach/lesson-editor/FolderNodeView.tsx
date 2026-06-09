@@ -91,7 +91,7 @@ export const FolderNodeView = ({ node, deleteNode, editor }: NodeViewProps) => {
               files.map((f, i) => (
                 <FileCard
                   key={`${f.fileUrl}-${i}`}
-                  fileName={f.fileName}
+                  fileName={f.fileName ?? ''}
                   fileType={f.fileType ?? ''}
                   fileSize={f.fileSize ?? 0}
                   url={resolveFileUrl(f.fileUrl)}

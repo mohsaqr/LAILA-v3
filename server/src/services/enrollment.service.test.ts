@@ -25,6 +25,10 @@ vi.mock('../utils/prisma.js', () => ({
     lecture: {
       findUnique: vi.fn(),
     },
+    courseRole: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+    },
     $transaction: vi.fn((callback: any) => callback({
       enrollment: {
         update: vi.fn(),
@@ -73,6 +77,8 @@ describe('EnrollmentService', () => {
   beforeEach(() => {
     enrollmentService = new EnrollmentService();
     vi.clearAllMocks();
+    // Instructor enrollment lookups query team roles; default to none.
+    vi.mocked(prisma.courseRole.findMany).mockResolvedValue([] as any);
   });
 
   afterEach(() => {
@@ -462,16 +468,46 @@ describe('EnrollmentService', () => {
       expect(prisma.lectureProgress.upsert).toHaveBeenCalled();
     });
 
-    it('should skip tracking for admin users', async () => {
-      vi.mocked(prisma.user.findUnique).mockResolvedValue({
-        isAdmin: true,
-        isInstructor: false,
+    it('should track progress for enrolled admins (no admin skip)', async () => {
+      // Admins/instructors who self-enroll now get real progress tracking,
+      // same as students (enrollment.service: "all users ... can track
+      // progress if enrolled"). No early admin/instructor skip anymore.
+      const mockEnrollmentBasic = { id: 1, userId: 1, courseId: 1 };
+      const mockEnrollmentWithCourse = {
+        id: 1,
+        userId: 1,
+        courseId: 1,
+        course: {
+          modules: [
+            { isPublished: true, lectures: [{ id: 5, isPublished: true }] },
+          ],
+        },
+        lectureProgress: [],
+      };
+
+      vi.mocked(prisma.enrollment.findUnique)
+        .mockResolvedValueOnce(mockEnrollmentBasic as any)
+        .mockResolvedValueOnce(mockEnrollmentWithCourse as any);
+
+      vi.mocked(prisma.lecture.findUnique).mockResolvedValue({
+        id: 5,
+        moduleId: 2,
+        module: { courseId: 1 },
       } as any);
+
+      vi.mocked(prisma.lectureProgress.upsert).mockResolvedValue({
+        enrollmentId: 1,
+        lectureId: 5,
+        isCompleted: true,
+        completedAt: new Date(),
+      } as any);
+
+      vi.mocked(prisma.enrollment.update).mockResolvedValue({} as any);
 
       const result = await enrollmentService.markLectureComplete(1, 1, 5);
 
-      expect((result as any).message).toContain('admin/instructor');
-      expect(prisma.lectureProgress.upsert).not.toHaveBeenCalled();
+      expect((result as any).isCompleted).toBe(true);
+      expect(prisma.lectureProgress.upsert).toHaveBeenCalled();
     });
 
     it('should throw error if not enrolled', async () => {

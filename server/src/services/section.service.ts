@@ -223,9 +223,18 @@ export class SectionService {
     });
 
     if (section?.type === 'assignment' && section.assignmentId) {
-      await prisma.assignment.delete({
-        where: { id: section.assignmentId },
+      // Only hard-delete the Assignment if no other section still references
+      // it. Lecture duplication can produce sections that share one Assignment
+      // row; deleting it while another section points at it would cascade-
+      // delete that section's student submissions and orphan its FK.
+      const stillReferenced = await prisma.lectureSection.count({
+        where: { assignmentId: section.assignmentId },
       });
+      if (stillReferenced === 0) {
+        await prisma.assignment.delete({
+          where: { id: section.assignmentId },
+        });
+      }
     }
 
     return { message: 'Section deleted successfully' };

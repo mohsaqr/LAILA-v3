@@ -466,6 +466,9 @@ class ForumService {
           where: { userId_courseId: { userId, courseId: thread.courseId } },
         });
         if (!enrollment) throw new AppError('Not enrolled in this course', 403);
+        // Reacting is a write — honor the same availability window as reads
+        // (getThread) and the post-write paths (createPost/createAiPost).
+        assertWithinAvailability(thread, 'Forum');
       }
     }
 
@@ -673,6 +676,10 @@ class ForumService {
         where: { userId_courseId: { userId, courseId: thread.courseId } },
       });
       if (!enrollment) throw new AppError('Not enrolled in this course', 403);
+      // Writes must honor the same instructor-scheduled window that getThread
+      // enforces on reads — otherwise a student can post to a not-yet-open or
+      // already-closed thread by guessing the threadId.
+      assertWithinAvailability(thread, 'Forum');
     }
 
     let parentPostInfo: { id: number; authorId: number; authorName: string; content: string } | null = null;
@@ -1010,6 +1017,9 @@ class ForumService {
           where: { userId_courseId: { userId: requestingUserId, courseId: thread.courseId } },
         });
         if (!enrollment) throw new AppError('Not enrolled in this course', 403);
+        // Don't let a student trigger a paid AI reply on a thread outside its
+        // availability window, consistent with getThread/createPost.
+        assertWithinAvailability(thread, 'Forum');
       }
     }
 

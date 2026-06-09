@@ -236,7 +236,8 @@ describe('Tutor Routes', () => {
         expect.any(Object),
         undefined, // collaborativeSettings
         undefined, // courseId
-        undefined  // emotionalPulse
+        undefined, // emotionalPulse
+        { model: undefined, provider: 'openai' } // llm config
       );
     });
 
@@ -292,7 +293,8 @@ describe('Tutor Routes', () => {
         expect.any(Object),
         { style: 'parallel', maxAgents: 3 },
         undefined, // courseId
-        undefined  // emotionalPulse
+        undefined, // emotionalPulse
+        { model: undefined, provider: 'openai' } // llm config
       );
     });
 
@@ -315,7 +317,8 @@ describe('Tutor Routes', () => {
         expect.any(Object),
         undefined,
         4, // courseId
-        undefined  // emotionalPulse
+        undefined, // emotionalPulse
+        { model: undefined, provider: 'openai' } // llm config
       );
     });
 
@@ -339,7 +342,8 @@ describe('Tutor Routes', () => {
         expect.objectContaining({ deviceType: 'mobile' }),
         undefined,
         undefined, // courseId
-        undefined  // emotionalPulse
+        undefined, // emotionalPulse
+        { model: undefined, provider: 'openai' } // llm config
       );
     });
 
@@ -363,7 +367,8 @@ describe('Tutor Routes', () => {
         expect.objectContaining({ deviceType: 'tablet' }),
         undefined,
         undefined, // courseId
-        undefined  // emotionalPulse
+        undefined, // emotionalPulse
+        { model: undefined, provider: 'openai' } // llm config
       );
     });
 
@@ -387,7 +392,8 @@ describe('Tutor Routes', () => {
         expect.objectContaining({ deviceType: 'desktop' }),
         undefined,
         undefined, // courseId
-        undefined  // emotionalPulse
+        undefined, // emotionalPulse
+        { model: undefined, provider: 'openai' } // llm config
       );
     });
   });
