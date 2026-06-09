@@ -15,8 +15,14 @@ vi.mock('../utils/prisma.js', () => ({
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
+      count: vi.fn(),
     },
     assignment: {
+      findMany: vi.fn(),
+      delete: vi.fn(),
+    },
+    courseRole: {
+      findUnique: vi.fn(),
       findMany: vi.fn(),
     },
   },
@@ -302,6 +308,33 @@ describe('SectionService', () => {
 
       await expect(sectionService.deleteSection(1, 999)).rejects.toThrow(AppError);
       await expect(sectionService.deleteSection(1, 999)).rejects.toThrow('Not authorized');
+    });
+
+    it('should NOT delete a shared assignment when another section still references it', async () => {
+      // A duplicated lecture can leave two sections pointing at one Assignment.
+      // Deleting one section must not cascade-delete the shared assignment (and
+      // its student submissions).
+      const assignmentSection = { ...mockSection, type: 'assignment', assignmentId: 7 };
+      vi.mocked(prisma.lectureSection.findUnique).mockResolvedValue(assignmentSection as any);
+      vi.mocked(prisma.lectureSection.delete).mockResolvedValue(assignmentSection as any);
+      vi.mocked(prisma.lectureSection.count).mockResolvedValue(1); // another section still refs it
+
+      const result = await sectionService.deleteSection(1, 1);
+
+      expect(result.message).toBe('Section deleted successfully');
+      expect(prisma.assignment.delete).not.toHaveBeenCalled();
+    });
+
+    it('should delete the assignment when this is the only section referencing it', async () => {
+      const assignmentSection = { ...mockSection, type: 'assignment', assignmentId: 7 };
+      vi.mocked(prisma.lectureSection.findUnique).mockResolvedValue(assignmentSection as any);
+      vi.mocked(prisma.lectureSection.delete).mockResolvedValue(assignmentSection as any);
+      vi.mocked(prisma.lectureSection.count).mockResolvedValue(0); // no remaining refs
+      vi.mocked(prisma.assignment.delete).mockResolvedValue({ id: 7 } as any);
+
+      await sectionService.deleteSection(1, 1);
+
+      expect(prisma.assignment.delete).toHaveBeenCalledWith({ where: { id: 7 } });
     });
   });
 

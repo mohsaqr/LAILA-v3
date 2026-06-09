@@ -108,6 +108,10 @@ export class CourseService {
   }
 
   async getCourseById(id: number, includeUnpublished = false) {
+    if (!Number.isInteger(id)) {
+      throw new AppError('Course not found', 404);
+    }
+
     const where: any = { id };
     if (!includeUnpublished) {
       where.status = 'published';
@@ -178,6 +182,11 @@ export class CourseService {
               },
             },
             labAssignments: {
+              // Labs have no draft/availability state today (CustomLab has no
+              // isPublished/availableFrom columns), so there is nothing to gate
+              // here yet — but if such a flag is ever added, mirror the
+              // isPublished + availabilityWindowWhere() gate used by the
+              // sibling relations so staged labs don't leak to students.
               where: { assignmentId: null },
               include: {
                 lab: {
@@ -210,6 +219,11 @@ export class CourseService {
               },
             },
             moduleSurveys: {
+              // The junction row has no publish flag of its own, so gate on the
+              // related survey's isPublished. Without this, draft surveys'
+              // title/description/question-count leak to students on the public
+              // page (every sibling relation above is already gated).
+              where: includeUnpublished ? {} : { survey: { isPublished: true } },
               include: {
                 survey: {
                   select: {
@@ -255,6 +269,12 @@ export class CourseService {
    * Instructors can only see their own unpublished courses.
    */
   async getCourseByIdWithOwnerCheck(id: number, userId?: number, isAdmin = false, isInstructor = false) {
+    // A non-numeric route param (parseInt('abc') === NaN) would otherwise hit
+    // Prisma with `id: NaN` and surface as an opaque 500 instead of a 404.
+    if (!Number.isInteger(id)) {
+      throw new AppError('Course not found', 404);
+    }
+
     // First, get the course without status filter to check ownership
     const course = await prisma.course.findUnique({
       where: { id },

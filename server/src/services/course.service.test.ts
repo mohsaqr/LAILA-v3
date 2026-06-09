@@ -17,6 +17,20 @@ vi.mock('../utils/prisma.js', () => ({
     enrollment: {
       findMany: vi.fn(),
     },
+    courseRole: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+    },
+    coursePrerequisite: {
+      findMany: vi.fn(),
+    },
+    courseCategory: {
+      createMany: vi.fn(),
+      deleteMany: vi.fn(),
+    },
+    survey: {
+      findMany: vi.fn(),
+    },
   },
 }));
 
@@ -69,6 +83,12 @@ describe('CourseService', () => {
   beforeEach(() => {
     courseService = new CourseService();
     vi.clearAllMocks();
+    // Safe defaults for the secondary lookups getCourseById now performs
+    // (prerequisites + surveys). Tests that assert on them override these.
+    vi.mocked(prisma.coursePrerequisite.findMany).mockResolvedValue([] as any);
+    vi.mocked(prisma.survey.findMany).mockResolvedValue([] as any);
+    vi.mocked(prisma.course.findMany).mockResolvedValue([] as any);
+    vi.mocked(prisma.courseRole.findMany).mockResolvedValue([] as any);
   });
 
   afterEach(() => {
@@ -213,6 +233,14 @@ describe('CourseService', () => {
   // ===========================================================================
 
   describe('getCourseByIdWithOwnerCheck', () => {
+    it('should throw 404 (not 500) for a non-numeric id', async () => {
+      // The route does parseInt(req.params.id); 'abc' -> NaN must not reach
+      // Prisma as { id: NaN } (which surfaces as an opaque 500).
+      await expect(courseService.getCourseByIdWithOwnerCheck(NaN)).rejects.toThrow(AppError);
+      await expect(courseService.getCourseByIdWithOwnerCheck(NaN)).rejects.toThrow('Course not found');
+      expect(prisma.course.findUnique).not.toHaveBeenCalled();
+    });
+
     it('should allow admin to see unpublished course', async () => {
       const draftCourse = { ...mockCourse, status: 'draft' };
       vi.mocked(prisma.course.findUnique).mockResolvedValue(draftCourse as any);
@@ -572,14 +600,15 @@ describe('CourseService', () => {
       );
     });
 
-    it('should filter by instructorId even for admin', async () => {
+    it('should return every course for admin (no instructorId filter)', async () => {
+      // Admins see all courses regardless of ownership (admin dashboard scope).
       vi.mocked(prisma.course.findMany).mockResolvedValue([mockCourse] as any);
 
       await courseService.getInstructorCourses(99, true);
 
       expect(prisma.course.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { instructorId: 99 },
+          where: {},
         })
       );
     });

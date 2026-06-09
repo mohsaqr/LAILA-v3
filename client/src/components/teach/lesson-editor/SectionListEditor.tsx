@@ -7,6 +7,7 @@ import { marked } from 'marked';
 import { coursesApi } from '../../../api/courses';
 import apiClient from '../../../api/client';
 import { toEmbedUrl } from '../../../utils/embed';
+import { safeEmbedSrc } from './EmbedNodeView';
 import { uploadWithProgress } from '../../../utils/upload';
 import { getCourseTutors } from '../../../api/courseTutor';
 import { ConfirmDialog } from '../../common/ConfirmDialog';
@@ -223,9 +224,13 @@ export const SectionListEditor = forwardRef<SectionListEditorHandle, SectionList
   const submitVideoEmbed = async () => {
     const raw = videoUrl.trim();
     if (!raw) return;
+    // Only persist http(s) embeds (safeEmbedSrc rejects javascript:/data:),
+    // matching MoodleCourseEditor's authoring guard.
+    const safe = safeEmbedSrc(toEmbedUrl(raw));
+    if (!safe) { toast.error(t('common:error', { defaultValue: 'Something went wrong' })); return; }
     setBusy(true);
     try {
-      await createAndAppend({ type: 'text', title: '', content: `<lecture-video data-src="${toEmbedUrl(raw)}" data-mode="embed"></lecture-video>` });
+      await createAndAppend({ type: 'text', title: '', content: `<lecture-video data-src="${safe}" data-mode="embed"></lecture-video>` });
       setVideoOpen(false); setVideoUrl('');
     } catch { toast.error(t('common:error', { defaultValue: 'Something went wrong' })); }
     finally { setBusy(false); }

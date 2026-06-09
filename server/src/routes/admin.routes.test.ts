@@ -12,6 +12,7 @@ vi.mock('../utils/prisma.js', () => ({
     course: {
       count: vi.fn(),
       findMany: vi.fn(),
+      groupBy: vi.fn(),
     },
     enrollment: {
       count: vi.fn(),
@@ -19,6 +20,9 @@ vi.mock('../utils/prisma.js', () => ({
     },
     assignment: {
       count: vi.fn(),
+    },
+    learningActivityLog: {
+      findMany: vi.fn(),
     },
     chatLog: {
       count: vi.fn(),
@@ -122,6 +126,9 @@ describe('Admin Routes', () => {
       vi.mocked(prisma.enrollment.findMany).mockResolvedValue([
         { user: { fullname: 'User 1' }, course: { title: 'Course 1' } },
       ] as any);
+      // Stats also pulls a course-status breakdown + recent activity feed.
+      vi.mocked(prisma.course.groupBy).mockResolvedValue([] as any);
+      vi.mocked(prisma.learningActivityLog.findMany).mockResolvedValue([] as any);
 
       const response = await request(app)
         .get('/api/admin/stats')

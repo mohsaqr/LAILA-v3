@@ -65,6 +65,19 @@ export const errorHandler = (
     }
   }
 
+  // Prisma rejected the query arguments — most commonly a NaN id from
+  // parseInt() on a non-numeric route param. Surface a clean 400 instead of an
+  // opaque 500 that leaks the query in non-production. This is the layer-level
+  // backstop for every id-taking endpoint (individual services may still guard
+  // explicitly to return a more specific 404).
+  if (err instanceof Prisma.PrismaClientValidationError) {
+    res.status(400).json({
+      success: false,
+      error: 'Invalid request',
+    });
+    return;
+  }
+
   // Custom AppError
   if (err instanceof AppError) {
     res.status(err.statusCode).json({

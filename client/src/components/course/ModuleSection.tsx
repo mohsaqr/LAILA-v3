@@ -116,7 +116,10 @@ export const ModuleSection = ({
   const publishedQuizzes = quizzes.filter(q => q.isPublished);
   const publishedAssignments = assignments.filter(a => a.isPublished);
   const publishedForums = forums.filter(f => f.isPublished);
-  const publishedSurveys = surveys.filter(s => s.isPublished);
+  // Survey items may arrive as a bare Survey or as a ModuleSurvey junction
+  // ({ survey: {...} }); the publish flag lives on the inner survey for the
+  // latter (mirrors the id/title/href resolution below).
+  const publishedSurveys = surveys.filter((s: any) => s.survey?.isPublished ?? s.isPublished);
 
   // Check if module has any content
   const hasContent =

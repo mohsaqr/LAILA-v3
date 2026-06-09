@@ -7,6 +7,7 @@ import {
   UpdateSurveyQuestionInput,
   SubmitSurveyResponseInput,
 } from '../utils/validation.js';
+import { safeJsonArray } from '../utils/json.js';
 
 export class SurveyService {
   // =============================================================================
@@ -78,7 +79,7 @@ export class SurveyService {
     // Parse options from JSON for each question
     const questionsWithParsedOptions = survey.questions.map(q => ({
       ...q,
-      options: q.options ? JSON.parse(q.options) : null,
+      options: q.options ? safeJsonArray(q.options) : null,
     }));
 
     return { ...survey, questions: questionsWithParsedOptions };
@@ -212,7 +213,7 @@ export class SurveyService {
 
     return {
       ...question,
-      options: question.options ? JSON.parse(question.options) : null,
+      options: question.options ? safeJsonArray(question.options) : null,
     };
   }
 
@@ -253,7 +254,7 @@ export class SurveyService {
 
     return {
       ...updated,
-      options: updated.options ? JSON.parse(updated.options) : null,
+      options: updated.options ? safeJsonArray(updated.options) : null,
     };
   }
 
@@ -361,6 +362,18 @@ export class SurveyService {
       throw new AppError('Please answer all required questions', 400);
     }
 
+    // Reject answers for questions that don't belong to this survey. The Zod
+    // schema only enforces a positive int, so a foreign/non-existent id would
+    // otherwise be silently mis-attributed or raise a raw Prisma FK error (500).
+    const validQuestionIds = new Set(survey.questions.map(q => q.id));
+    const foreignQuestionIds = answeredQuestionIds.filter(
+      id => !validQuestionIds.has(id)
+    );
+
+    if (foreignQuestionIds.length > 0) {
+      throw new AppError('Submission contains a question that is not part of this survey', 400);
+    }
+
     // Create response with answers
     const response = await prisma.surveyResponse.create({
       data: {
@@ -462,7 +475,7 @@ export class SurveyService {
       answers: r.answers.map(a => ({
         ...a,
         answerValue: a.question.questionType === 'multiple_choice'
-          ? JSON.parse(a.answerValue)
+          ? safeJsonArray(a.answerValue)
           : a.answerValue,
       })),
     }));
@@ -484,13 +497,13 @@ export class SurveyService {
       }
 
       // For choice questions, count responses per option
-      const options = q.options ? JSON.parse(q.options) : [];
+      const options = safeJsonArray(q.options);
       const optionCounts: Record<string, number> = {};
       options.forEach((opt: string) => (optionCounts[opt] = 0));
 
       questionAnswers.forEach(a => {
         if (q.questionType === 'multiple_choice') {
-          const selected = JSON.parse(a.answerValue) as string[];
+          const selected = safeJsonArray(a.answerValue);
           selected.forEach(s => {
             if (optionCounts[s] !== undefined) optionCounts[s]++;
           });

@@ -188,19 +188,30 @@ class PrerequisiteService {
       : [];
     const validIds = existing.map(c => c.id);
 
+    // Drop any prerequisite that would create a cycle (e.g. A requires B while
+    // B already transitively requires A). Without this, the setup form can
+    // plant a reciprocal cycle that a later addPrerequisite/checkPrerequisites
+    // call would detonate.
+    const safeIds: number[] = [];
+    const adjacencyCache = new Map<number, number[]>();
+    for (const prereqId of validIds) {
+      const wouldCycle = await this.checkCircularDependency(courseId, prereqId, new Set(), adjacencyCache);
+      if (!wouldCycle) safeIds.push(prereqId);
+    }
+
     await prisma.$transaction([
       prisma.coursePrerequisite.deleteMany({ where: { courseId } }),
-      ...(validIds.length
+      ...(safeIds.length
         ? [
             prisma.coursePrerequisite.createMany({
-              data: validIds.map(prerequisiteCourseId => ({ courseId, prerequisiteCourseId })),
+              data: safeIds.map(prerequisiteCourseId => ({ courseId, prerequisiteCourseId })),
             }),
           ]
         : []),
     ]);
 
-    logger.info({ courseId, count: validIds.length }, 'Prerequisites set');
-    return validIds;
+    logger.info({ courseId, count: safeIds.length }, 'Prerequisites set');
+    return safeIds;
   }
 
   /**
@@ -293,20 +304,42 @@ class PrerequisiteService {
   /**
    * Check for circular dependencies
    */
-  private async checkCircularDependency(courseId: number, newPrereqId: number): Promise<boolean> {
-    // Get all prerequisites of the new prerequisite course
-    const prereqsOfNew = await prisma.coursePrerequisite.findMany({
-      where: { courseId: newPrereqId },
-    });
+  private async checkCircularDependency(
+    courseId: number,
+    newPrereqId: number,
+    visited: Set<number> = new Set(),
+    // Per-call adjacency cache (course -> its prerequisite course ids). Shared
+    // across the prereq walks of one setPrerequisites call so a node touched by
+    // several candidates is fetched once instead of re-queried per walk.
+    cache: Map<number, number[]> = new Map(),
+  ): Promise<boolean> {
+    // Guard against pre-existing cyclic data: never expand the same course
+    // twice, otherwise a cycle that does not pass through courseId (e.g.
+    // B -> C -> B) would recurse until the stack overflows.
+    if (visited.has(newPrereqId)) {
+      return false;
+    }
+    visited.add(newPrereqId);
+
+    // Get all prerequisites of the new prerequisite course (cached per call).
+    let prereqIds = cache.get(newPrereqId);
+    if (!prereqIds) {
+      const rows = await prisma.coursePrerequisite.findMany({
+        where: { courseId: newPrereqId },
+        select: { prerequisiteCourseId: true },
+      });
+      prereqIds = rows.map(r => r.prerequisiteCourseId);
+      cache.set(newPrereqId, prereqIds);
+    }
 
     // If new prereq has courseId as its prereq, it's circular
-    if (prereqsOfNew.some(p => p.prerequisiteCourseId === courseId)) {
+    if (prereqIds.includes(courseId)) {
       return true;
     }
 
     // Recursively check
-    for (const prereq of prereqsOfNew) {
-      const isCircular = await this.checkCircularDependency(courseId, prereq.prerequisiteCourseId);
+    for (const prereqId of prereqIds) {
+      const isCircular = await this.checkCircularDependency(courseId, prereqId, visited, cache);
       if (isCircular) return true;
     }
 

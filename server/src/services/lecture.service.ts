@@ -290,7 +290,7 @@ export class LectureService {
       where: { id: lectureId },
       include: {
         module: { include: { course: true } },
-        sections: { orderBy: { order: 'asc' } },
+        sections: { orderBy: { order: 'asc' }, include: { assignment: true } },
         attachments: true,
       },
     });
@@ -313,51 +313,102 @@ export class LectureService {
       select: { orderIndex: true },
     });
 
-    const copy = await prisma.lecture.create({
-      data: {
-        moduleId: source.moduleId,
-        title: `${source.title} (copy)`,
-        description: source.description,
-        content: source.content,
-        contentType: source.contentType,
-        videoUrl: source.videoUrl,
-        duration: source.duration,
-        orderIndex: (maxOrder?.orderIndex ?? -1) + 1,
-        isPublished: false,
-        isFree: source.isFree,
-        sections: {
-          create: source.sections.map(s => ({
-            title: s.title,
-            type: s.type,
-            content: s.content,
-            fileName: s.fileName,
-            fileUrl: s.fileUrl,
-            fileType: s.fileType,
-            fileSize: s.fileSize,
-            order: s.order,
-            chatbotTitle: s.chatbotTitle,
-            chatbotIntro: s.chatbotIntro,
-            chatbotImageUrl: s.chatbotImageUrl,
-            chatbotSystemPrompt: s.chatbotSystemPrompt,
-            chatbotWelcome: s.chatbotWelcome,
-            assignmentId: s.assignmentId,
-            showDeadline: s.showDeadline,
-            showPoints: s.showPoints,
-          })),
+    // Deep-copy any Assignment attached to a section so the duplicate owns its
+    // own rows. Sharing a single Assignment across two lectures lets edits or a
+    // section deletion on the copy corrupt the original's student submissions.
+    // The whole copy (assignment clones + lecture) is one transaction so a
+    // failure leaves no orphan rows behind.
+    const copy = await prisma.$transaction(async (tx) => {
+      const assignmentIdMap = new Map<number, number>();
+      for (const s of source.sections) {
+        // Clone for any section that carries a real Assignment row, regardless
+        // of section type — a section whose type drifted away from 'assignment'
+        // can still hold a valid assignmentId we must not share or drop.
+        if (!s.assignment || assignmentIdMap.has(s.assignment.id)) {
+          continue;
+        }
+        const a = s.assignment;
+        const clone = await tx.assignment.create({
+          data: {
+            courseId: a.courseId,
+            moduleId: a.moduleId,
+            title: a.title,
+            description: a.description,
+            instructions: a.instructions,
+            submissionType: a.submissionType,
+            maxFileSize: a.maxFileSize,
+            allowedFileTypes: a.allowedFileTypes,
+            dueDate: a.dueDate,
+            gracePeriodDeadline: a.gracePeriodDeadline,
+            availableFrom: a.availableFrom,
+            availableUntil: a.availableUntil,
+            points: a.points,
+            weight: a.weight,
+            isPublished: false,
+            aiAssisted: a.aiAssisted,
+            aiPrompt: a.aiPrompt,
+            agentRequirements: a.agentRequirements,
+            reflectionRequirement: a.reflectionRequirement,
+            postSurveyId: a.postSurveyId,
+            postSurveyRequired: a.postSurveyRequired,
+            orderIndex: a.orderIndex,
+          },
+        });
+        assignmentIdMap.set(a.id, clone.id);
+      }
+
+      return tx.lecture.create({
+        data: {
+          moduleId: source.moduleId,
+          title: `${source.title} (copy)`,
+          description: source.description,
+          content: source.content,
+          contentType: source.contentType,
+          videoUrl: source.videoUrl,
+          duration: source.duration,
+          orderIndex: (maxOrder?.orderIndex ?? -1) + 1,
+          isPublished: false,
+          isFree: source.isFree,
+          sections: {
+            create: source.sections.map(s => ({
+              title: s.title,
+              type: s.type,
+              content: s.content,
+              fileName: s.fileName,
+              fileUrl: s.fileUrl,
+              fileType: s.fileType,
+              fileSize: s.fileSize,
+              order: s.order,
+              chatbotTitle: s.chatbotTitle,
+              chatbotIntro: s.chatbotIntro,
+              chatbotImageUrl: s.chatbotImageUrl,
+              chatbotSystemPrompt: s.chatbotSystemPrompt,
+              chatbotWelcome: s.chatbotWelcome,
+              // Prefer the freshly-cloned id; fall back to the original id if
+              // (somehow) no clone was made, so a duplicate never silently
+              // loses its assignment link. The deleteSection ref-count guard
+              // keeps a fallback-shared row from being cascade-deleted.
+              assignmentId: s.assignmentId != null
+                ? (assignmentIdMap.get(s.assignmentId) ?? s.assignmentId)
+                : null,
+              showDeadline: s.showDeadline,
+              showPoints: s.showPoints,
+            })),
+          },
+          attachments: {
+            create: source.attachments.map(a => ({
+              fileName: a.fileName,
+              fileUrl: a.fileUrl,
+              fileType: a.fileType,
+              fileSize: a.fileSize,
+            })),
+          },
         },
-        attachments: {
-          create: source.attachments.map(a => ({
-            fileName: a.fileName,
-            fileUrl: a.fileUrl,
-            fileType: a.fileType,
-            fileSize: a.fileSize,
-          })),
+        include: {
+          attachments: true,
+          sections: { orderBy: { order: 'asc' } },
         },
-      },
-      include: {
-        attachments: true,
-        sections: { orderBy: { order: 'asc' } },
-      },
+      });
     });
 
     return copy;

@@ -11,6 +11,7 @@ import {
   type VideoXapiContext,
 } from '../../../services/videoXapi';
 import { LessonMediaContext } from './LessonMediaContext';
+import { safeEmbedSrc } from './EmbedNodeView';
 
 /** Filename (without uuid noise) for a friendlier log title. */
 const titleFromSrc = (src: string) => {
@@ -44,8 +45,15 @@ export const VideoNodeView = ({ node, deleteNode, editor }: NodeViewProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const isYouTube = mode === 'embed' && isYouTubeEmbed(src);
+  // VideoNodeView is the shared render path for lecture-video nodes, so the
+  // http(s) scheme allow-list must live here (not only at the authoring call
+  // sites) to keep a javascript:/data: src out of a student's iframe. Empty
+  // means the stored URL was rejected -> render a fallback instead. (No
+  // sandbox here, unlike EmbedNodeView, because the YouTube IFrame API used
+  // for watch tracking attaches to this iframe.)
+  const safeSrc = mode === 'embed' ? safeEmbedSrc(src) : src;
   // YouTube embeds need `enablejsapi=1` so the IFrame API can attach.
-  const iframeSrc = isYouTube ? withJsApi(src) : src;
+  const iframeSrc = isYouTube ? withJsApi(safeSrc) : safeSrc;
 
   // Watch tracking — only when read-only (a student watching, not an
   // instructor editing) and only when we know which lecture this is (so
@@ -77,15 +85,21 @@ export const VideoNodeView = ({ node, deleteNode, editor }: NodeViewProps) => {
             they take the whole content width at a consistent, reasonable size. */}
         <div className="relative w-full overflow-hidden rounded-lg bg-black" style={{ paddingBottom: '56.25%' }}>
           {mode === 'embed' ? (
-            <iframe
-              ref={iframeRef}
-              src={iframeSrc}
-              title={t('block_video', { defaultValue: 'Video' })}
-              className="absolute inset-0 w-full h-full"
-              style={{ border: 0 }}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-            />
+            safeSrc ? (
+              <iframe
+                ref={iframeRef}
+                src={iframeSrc}
+                title={t('block_video', { defaultValue: 'Video' })}
+                className="absolute inset-0 w-full h-full"
+                style={{ border: 0 }}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center px-4 text-center text-sm text-white/80">
+                {t('invalid_embed_url', { defaultValue: 'This embed URL is not allowed.' })}
+              </div>
+            )
           ) : (
             <video
               ref={videoRef}

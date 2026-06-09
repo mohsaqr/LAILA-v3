@@ -13,6 +13,7 @@ import { useTheme } from '../../../hooks/useTheme';
 import { coursesApi } from '../../../api/courses';
 import apiClient from '../../../api/client';
 import { toEmbedUrl } from '../../../utils/embed';
+import { safeEmbedSrc } from '../lesson-editor/EmbedNodeView';
 import { uploadWithProgress } from '../../../utils/upload';
 import { previewKind } from '../../../utils/filePreview';
 import { getCourseTutors } from '../../../api/courseTutor';
@@ -110,11 +111,14 @@ const detectLectureSubKind = (lecture: { sections?: { type?: string; content?: s
   if (section.type === 'file') {
     return previewKind(undefined, section.fileType) === 'image' ? 'image' : 'file';
   }
-  const content = section.content ?? '';
-  if (content.includes('<lecture-folder')) return 'folder';
-  if (content.includes('<lecture-url')) return 'url';
-  if (content.includes('<lecture-embed')) return 'embed';
-  if (content.includes('<lecture-video')) return 'video';
+  // Anchor to the leading node: every genuine resource marker is generated as
+  // the first node of the section content. A plain Page whose prose merely
+  // mentions the literal text "<lecture-url" elsewhere must not be mislabeled.
+  const content = (section.content ?? '').trimStart();
+  if (content.startsWith('<lecture-folder')) return 'folder';
+  if (content.startsWith('<lecture-url')) return 'url';
+  if (content.startsWith('<lecture-embed')) return 'embed';
+  if (content.startsWith('<lecture-video')) return 'video';
   return undefined;
 };
 
@@ -226,14 +230,21 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
   const addAgentMutation = useMutation({
     mutationFn: async ({ moduleId, agent }: { moduleId: number; agent: { displayName: string; description: string; systemPrompt: string; welcome: string; imageUrl?: string | null } }) => {
       const lecture = await coursesApi.createLecture(moduleId, { title: agent.displayName, contentType: 'text', isPublished: true } as never);
-      await coursesApi.createSection(lecture.id, {
-        type: 'chatbot',
-        chatbotTitle: agent.displayName,
-        chatbotIntro: agent.description,
-        chatbotSystemPrompt: agent.systemPrompt,
-        chatbotWelcome: agent.welcome,
-        ...(agent.imageUrl ? { chatbotImageUrl: agent.imageUrl } : {}),
-      });
+      try {
+        await coursesApi.createSection(lecture.id, {
+          type: 'chatbot',
+          chatbotTitle: agent.displayName,
+          chatbotIntro: agent.description,
+          chatbotSystemPrompt: agent.systemPrompt,
+          chatbotWelcome: agent.welcome,
+          ...(agent.imageUrl ? { chatbotImageUrl: agent.imageUrl } : {}),
+        });
+      } catch (err) {
+        // Roll back the just-created lecture so a failed section doesn't leave
+        // an empty stray lecture (which students would open to a blank page).
+        await coursesApi.deleteLecture(lecture.id).catch(() => {});
+        throw err;
+      }
     },
     onSuccess: () => { refresh(); toast.success(t('agent_added', { defaultValue: 'AI agent added' })); closeAgentPicker(); },
     onError,
@@ -338,7 +349,11 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
   };
   const setVideoEmbed = () => {
     const raw = videoUrl.trim();
-    if (raw) setVideoExtra({ src: toEmbedUrl(raw), mode: 'embed' });
+    if (!raw) return;
+    // Only accept http(s) embeds (safeEmbedSrc rejects javascript:/data: and
+    // other schemes), so a pasted non-http URL can't reach a student's iframe.
+    const safe = safeEmbedSrc(toEmbedUrl(raw));
+    if (safe) setVideoExtra({ src: safe, mode: 'embed' });
   };
 
   // Finalize: create the chosen resource type with the captured meta + media.
@@ -383,12 +398,19 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
           if (ready.length === 0) { setBusy(false); return; }
           // One File item per uploaded file. With a single file we honor the
           // typed title; with several we use each file's own name.
+          let created = 0;
           for (let i = 0; i < ready.length; i++) {
             const f = ready[i];
             const title = ready.length === 1 ? p.title : f.name;
             await createMediaLecture(moduleId, title, { type: 'file', fileName: f.name, fileUrl: f.fileUrl!, fileType: f.fileType ?? '', fileSize: f.fileSize ?? 0, content: ready.length === 1 ? p.description : undefined }, lectureMeta);
+            created++;
+            // Drop the just-created file from the batch so that if a later file
+            // in this loop throws, re-clicking Create only retries the ones
+            // that never got created (no duplicate lectures). Match by object
+            // identity, not fileUrl — two staged entries can share a fileUrl.
+            setFileBatch(b => b.filter(it => it !== f));
           }
-          refresh(); toast.success(t('files_added', { defaultValue: '{{count}} file(s) added', count: ready.length })); setBusy(false); setAddModal(null); return;
+          refresh(); toast.success(t('files_added', { defaultValue: '{{count}} file(s) added', count: created })); setBusy(false); setAddModal(null); return;
         }
         case 'folder': {
           // ONE grouped item: all staged files become a single <lecture-folder>
@@ -834,13 +856,18 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
         // drop the files that haven't finished (submitAdd keeps only `done`).
         const fileUploading = fileBatch.some(f => f.status === 'uploading');
         const folderUploading = folderBatch.some(f => f.status === 'uploading');
+        // A failed upload must block Create too — otherwise it is silently
+        // dropped (submitAdd only keeps 'done' files) under a success toast.
+        // The user can remove the failed row to proceed.
+        const fileError = fileBatch.some(f => f.status === 'error');
+        const folderError = folderBatch.some(f => f.status === 'error');
         const fileReadyCount = fileBatch.filter(f => f.status === 'done').length;
         const folderReadyCount = folderBatch.filter(f => f.status === 'done').length;
         const pollOptsValid = pollOptions.map(o => o.trim()).filter(Boolean).length >= 2;
         const bodyValid =
           type === 'video' ? !!videoExtra
-          : type === 'file' ? (fileReadyCount > 0 && !fileUploading)
-          : type === 'folder' ? (folderReadyCount > 0 && !folderUploading)
+          : type === 'file' ? (fileReadyCount > 0 && !fileUploading && !fileError)
+          : type === 'folder' ? (folderReadyCount > 0 && !folderUploading && !folderError)
           : type === 'url' ? !!urlValue.trim()
           : type === 'embed' ? !!embedUrl.trim()
           : type === 'poll' ? (!!pollQuestion.trim() && pollOptsValid)

@@ -35,6 +35,12 @@ vi.mock('../utils/prisma.js', () => ({
     courseRole: {
       findUnique: vi.fn(),
     },
+    quiz: {
+      findMany: vi.fn(),
+    },
+    quizAttempt: {
+      findMany: vi.fn(),
+    },
   },
 }));
 
@@ -79,6 +85,10 @@ describe('AssignmentService', () => {
   beforeEach(() => {
     assignmentService = new AssignmentService();
     vi.clearAllMocks();
+    // Gradebooks now also pull quizzes + quiz attempts; default to none so
+    // assignment-focused tests are unaffected. Quiz-specific tests override.
+    vi.mocked(prisma.quiz.findMany).mockResolvedValue([] as any);
+    vi.mocked(prisma.quizAttempt.findMany).mockResolvedValue([] as any);
   });
 
   afterEach(() => {
@@ -917,16 +927,18 @@ describe('AssignmentService', () => {
       expect(hw2.mySubmission).toBeNull();
     });
 
-    it('should execute exactly 3 queries', async () => {
+    it('should batch its queries (no N+1 per assignment/quiz)', async () => {
       vi.mocked(prisma.enrollment.findMany).mockResolvedValue(mockEnrollments as any);
       vi.mocked(prisma.assignment.findMany).mockResolvedValue(mockAssignments as any);
       vi.mocked(prisma.assignmentSubmission.findMany).mockResolvedValue(mockSubmissions as any);
 
       await assignmentService.getStudentGradebook(1);
 
+      // One query per collection, regardless of how many assignments/quizzes.
       expect(prisma.enrollment.findMany).toHaveBeenCalledTimes(1);
       expect(prisma.assignment.findMany).toHaveBeenCalledTimes(1);
       expect(prisma.assignmentSubmission.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.quiz.findMany).toHaveBeenCalledTimes(1);
     });
 
     it('should query only active and completed enrollments', async () => {
