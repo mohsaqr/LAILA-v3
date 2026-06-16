@@ -145,7 +145,7 @@ router.get('/', authenticateToken, asyncHandler(async (req: AuthRequest, res: Re
     startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
     endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
     page: req.query.page ? parseInt(req.query.page as string) : 1,
-    limit: req.query.limit ? Math.min(parseInt(req.query.limit as string), 100) : 50,
+    limit: req.query.limit ? Math.min(parseInt(req.query.limit as string), 200) : 50,
     search: req.query.search as string | undefined,
     sortBy: req.query.sortBy as string | undefined,
     sortOrder: (req.query.sortOrder as 'asc' | 'desc') || 'desc',

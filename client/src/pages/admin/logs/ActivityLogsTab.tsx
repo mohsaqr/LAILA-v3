@@ -81,6 +81,16 @@ export const ActivityLogsTab = ({
   const { isDark } = useTheme();
   const [details, setDetails] = useState<ActivityLog | null>(null);
 
+  // Backend-driven table state. Page is 1-based; the server slices each page.
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<{ column: string | null; dir: 'asc' | 'desc' | null }>({
+    column: 'timestamp',
+    dir: 'desc',
+  });
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [search, setSearch] = useState('');
+
   const c = {
     bgBlue: isDark ? 'rgba(59,130,246,0.2)' : '#dbeafe',
     bgGreen: isDark ? 'rgba(34,197,94,0.2)' : '#dcfce7',
@@ -92,18 +102,48 @@ export const ActivityLogsTab = ({
     txPurple: isDark ? '#c4b5fd' : '#7c3aed',
   };
 
-  // Single big fetch — DataTable does client-side filter / sort / page.
+  // Map DataTable column ids → server-side sortable fields.
+  const sortFieldByColumn: Record<string, string> = {
+    timestamp: 'timestamp',
+    user: 'userFullname',
+    verb: 'verb',
+    objectType: 'objectType',
+    object: 'objectTitle',
+    course: 'courseTitle',
+    progress: 'progress',
+    duration: 'duration',
+  };
+
+  // Resolve the active filters into server query params. Column filters layer
+  // on top of any fixed course / initial user the page was opened with.
+  const sortBy =
+    sort.column && sort.dir ? sortFieldByColumn[sort.column] ?? 'timestamp' : 'timestamp';
+  const sortOrder: 'asc' | 'desc' = sort.dir ?? 'desc';
+  const userIdParam = columnFilters.user ? parseInt(columnFilters.user) : initialUserId;
+  const courseIdParam =
+    fixedCourseId ?? (columnFilters.course ? parseInt(columnFilters.course) : undefined);
+
+  // One request per page — the server filters, sorts, and paginates.
   const { data: logsData, isLoading } = useQuery({
-    queryKey: ['activityLogs', 'all', fixedCourseId ?? null, initialUserId ?? null],
+    queryKey: [
+      'activityLogs',
+      'paged',
+      { page, sortBy, sortOrder, search, userIdParam, courseIdParam, verb: columnFilters.verb, objectType: columnFilters.objectType },
+    ],
     queryFn: () =>
       activityLogApi.getLogs({
-        page: 1,
-        limit: 1000,
-        sortBy: 'timestamp',
-        sortOrder: 'desc',
-        ...(fixedCourseId ? { courseId: fixedCourseId } : {}),
-        ...(initialUserId ? { userId: initialUserId } : {}),
+        page,
+        limit: PAGE_SIZE,
+        sortBy,
+        sortOrder,
+        ...(search ? { search } : {}),
+        ...(userIdParam ? { userId: userIdParam } : {}),
+        ...(courseIdParam ? { courseId: courseIdParam } : {}),
+        ...(columnFilters.verb ? { verb: columnFilters.verb } : {}),
+        ...(columnFilters.objectType ? { objectType: columnFilters.objectType } : {}),
       }),
+    // Keep the current page visible while the next one loads (no flash of empty).
+    placeholderData: prev => prev,
   });
 
   const { data: filterOptions } = useQuery({
@@ -119,6 +159,7 @@ export const ActivityLogsTab = ({
   });
 
   const logs: ActivityLog[] = logsData?.logs ?? [];
+  const totalLogs: number = logsData?.pagination?.total ?? 0;
 
   const handleExport = async () => {
     setExportStatus('loading');
@@ -353,7 +394,26 @@ export const ActivityLogsTab = ({
         columns={columns}
         rowKey={l => l.id}
         isLoading={isLoading}
-        pageSize={20}
+        pageSize={PAGE_SIZE}
+        serverMode={{
+          page,
+          totalRows: totalLogs,
+          onPageChange: setPage,
+          sort: { column: sort.column, dir: sort.dir },
+          onSortChange: (column, dir) => {
+            setSort({ column, dir });
+            setPage(1);
+          },
+          filters: columnFilters,
+          onFiltersChange: f => {
+            setColumnFilters(f);
+            setPage(1);
+          },
+          onSearchChange: q => {
+            setSearch(q);
+            setPage(1);
+          },
+        }}
         globalSearch={{
           placeholder: t('search_user_object_course'),
           predicate: (l, q) => {
