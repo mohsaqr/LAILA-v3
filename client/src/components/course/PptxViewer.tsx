@@ -9,6 +9,8 @@ interface PptxViewerProps {
   fileName: string;
   /** Optional click handler for the download action (e.g. activity logging). */
   onDownload?: (e: React.MouseEvent) => void;
+  /** Optional click handler for the "open in new tab" action (e.g. activity logging). */
+  onOpenNewTab?: (e: React.MouseEvent) => void;
 }
 
 /**
@@ -33,7 +35,7 @@ const isPrivateHost = (host: string): boolean =>
  * on a publicly reachable URL (e.g. local development), the viewer cannot load,
  * so we fall back to a clear notice plus a download action.
  */
-export const PptxViewer = ({ url, fileName, onDownload }: PptxViewerProps) => {
+export const PptxViewer = ({ url, fileName, onDownload, onOpenNewTab }: PptxViewerProps) => {
   const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
   const [errored, setErrored] = useState(false);
@@ -82,6 +84,7 @@ export const PptxViewer = ({ url, fileName, onDownload }: PptxViewerProps) => {
             href={viewerSrc}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={onOpenNewTab}
             aria-label={t('common:open_in_new_tab', { defaultValue: 'Open in new tab' })}
             className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >

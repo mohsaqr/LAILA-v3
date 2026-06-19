@@ -70,6 +70,8 @@ interface FileCardProps {
   description?: string | null;
   /** Optional click handler (e.g. activity logging); falls back to the link. */
   onDownload?: (e: React.MouseEvent) => void;
+  /** Optional click handler for the inline "View" action (opens in a new tab). */
+  onView?: (e: React.MouseEvent) => void;
 }
 
 /**
@@ -78,7 +80,7 @@ interface FileCardProps {
  * button. Shared by the in-lesson file node and standalone file sections so
  * every file looks the same.
  */
-export const FileCard = ({ fileName, fileType, url, fileSize, description, onDownload }: FileCardProps) => {
+export const FileCard = ({ fileName, fileType, url, fileSize, description, onDownload, onView }: FileCardProps) => {
   const { t } = useTranslation(['courses', 'common']);
   const { isDark } = useTheme();
   const ext = extOf(fileName, fileType);
@@ -116,6 +118,7 @@ export const FileCard = ({ fileName, fileType, url, fileSize, description, onDow
           href={url}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={onView}
           aria-label={`${t('common:view', { defaultValue: 'View' })}${fileName ? ` ${fileName}` : ''}`}
           className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 transition-colors"
         >

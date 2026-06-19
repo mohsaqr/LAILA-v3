@@ -17,7 +17,8 @@ import { LectureAIHelper } from '../components/lecture';
 import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStudent';
 import { FileCard } from '../components/course/FileCard';
 import { PptxViewer } from '../components/course/PptxViewer';
-import { isOfficePresentation } from '../utils/filePreview';
+import { DocumentActivityTracker } from '../components/course/DocumentActivityTracker';
+import { isOfficePresentation, previewKind } from '../utils/filePreview';
 import { AssignmentSectionStudent } from '../components/course/AssignmentSectionStudent';
 import { LessonViewer, SectionListEditor, type SectionListEditorHandle } from '../components/teach/lesson-editor';
 import { marked } from 'marked';
@@ -304,6 +305,49 @@ export const LectureView = () => {
         };
 
         const isPresentation = isOfficePresentation(section.fileName, section.fileType);
+        const isPdf = previewKind(section.fileName, section.fileType) === 'pdf';
+        const docKind: 'powerpoint' | 'pdf' | null = isPresentation ? 'powerpoint' : isPdf ? 'pdf' : null;
+
+        // Log an interaction with the presentation/PDF viewer. Course, lecture
+        // and section titles are enriched server-side from the IDs.
+        const logViewerAction = (actionSubtype: string, verb: 'interacted' | 'viewed' = 'interacted') => {
+          activityLogger.log({
+            verb,
+            objectType: 'file',
+            objectId: section.id,
+            objectTitle: section.fileName || undefined,
+            courseId: parseInt(courseId!),
+            moduleId: lecture?.moduleId,
+            lectureId: parseInt(lectureId!),
+            sectionId: section.id,
+            actionSubtype,
+            extensions: { kind: docKind, fileName: section.fileName ?? undefined, fileType: section.fileType ?? undefined },
+          }).catch(() => {});
+        };
+
+        const viewer = isPresentation ? (
+          <>
+            <PptxViewer
+              fileName={section.fileName || 'presentation'}
+              url={resolveFileUrl(section.fileUrl)}
+              onDownload={handleFileDownload}
+              onOpenNewTab={() => logViewerAction('presentation.open_new_tab')}
+            />
+            {section.content && (
+              <p className="mt-2 text-sm" style={{ color: colors.textSecondary }}>{section.content}</p>
+            )}
+          </>
+        ) : (
+          <FileCard
+            fileName={section.fileName || 'file'}
+            fileType={section.fileType}
+            url={resolveFileUrl(section.fileUrl)}
+            fileSize={section.fileSize}
+            description={section.content || undefined}
+            onDownload={handleFileDownload}
+            onView={isPdf ? () => logViewerAction('presentation.open_new_tab') : undefined}
+          />
+        );
 
         return (
           <div key={section.id} className="mb-6">
@@ -312,26 +356,22 @@ export const LectureView = () => {
                 {section.title}
               </h2>
             )}
-            {isPresentation ? (
-              <>
-                <PptxViewer
-                  fileName={section.fileName || 'presentation'}
-                  url={resolveFileUrl(section.fileUrl)}
-                  onDownload={handleFileDownload}
-                />
-                {section.content && (
-                  <p className="mt-2 text-sm" style={{ color: colors.textSecondary }}>{section.content}</p>
-                )}
-              </>
+            {docKind ? (
+              <DocumentActivityTracker
+                ctx={{
+                  courseId: parseInt(courseId!),
+                  moduleId: lecture?.moduleId,
+                  lectureId: parseInt(lectureId!),
+                  sectionId: section.id,
+                  fileName: section.fileName || (isPresentation ? 'presentation' : 'document'),
+                  fileType: section.fileType,
+                  kind: docKind,
+                }}
+              >
+                {viewer}
+              </DocumentActivityTracker>
             ) : (
-              <FileCard
-                fileName={section.fileName || 'file'}
-                fileType={section.fileType}
-                url={resolveFileUrl(section.fileUrl)}
-                fileSize={section.fileSize}
-                description={section.content || undefined}
-                onDownload={handleFileDownload}
-              />
+              viewer
             )}
           </div>
         );
