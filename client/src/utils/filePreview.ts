@@ -1,4 +1,5 @@
 const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'];
+const PRESENTATION_EXTS = ['ppt', 'pptx'];
 
 /** Extension from a filename ("a.pdf" → "pdf") or a mime/bare type. */
 export const extOf = (fileName?: string | null, fileType?: string | null): string => {
@@ -23,4 +24,21 @@ export const previewKind = (
   if (mime.startsWith('image/') || IMAGE_EXTS.includes(ext)) return 'image';
   if (mime === 'application/pdf' || ext === 'pdf') return 'pdf';
   return null;
+};
+
+/**
+ * Whether a file is a PowerPoint presentation (.ppt/.pptx). These get an
+ * inline slide viewer in the lecture page rather than a plain download card.
+ */
+export const isOfficePresentation = (
+  fileName?: string | null,
+  fileType?: string | null,
+): boolean => {
+  const mime = (fileType ?? '').toLowerCase();
+  const ext = extOf(fileName, fileType);
+  return (
+    PRESENTATION_EXTS.includes(ext) ||
+    mime.includes('presentationml') ||
+    mime === 'application/vnd.ms-powerpoint'
+  );
 };

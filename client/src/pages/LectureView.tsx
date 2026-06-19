@@ -16,6 +16,8 @@ import { Loading } from '../components/common/Loading';
 import { LectureAIHelper } from '../components/lecture';
 import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStudent';
 import { FileCard } from '../components/course/FileCard';
+import { PptxViewer } from '../components/course/PptxViewer';
+import { isOfficePresentation } from '../utils/filePreview';
 import { AssignmentSectionStudent } from '../components/course/AssignmentSectionStudent';
 import { LessonViewer, SectionListEditor, type SectionListEditorHandle } from '../components/teach/lesson-editor';
 import { marked } from 'marked';
@@ -301,6 +303,8 @@ export const LectureView = () => {
           }
         };
 
+        const isPresentation = isOfficePresentation(section.fileName, section.fileType);
+
         return (
           <div key={section.id} className="mb-6">
             {section.title && (
@@ -308,14 +312,27 @@ export const LectureView = () => {
                 {section.title}
               </h2>
             )}
-            <FileCard
-              fileName={section.fileName || 'file'}
-              fileType={section.fileType}
-              url={resolveFileUrl(section.fileUrl)}
-              fileSize={section.fileSize}
-              description={section.content || undefined}
-              onDownload={handleFileDownload}
-            />
+            {isPresentation ? (
+              <>
+                <PptxViewer
+                  fileName={section.fileName || 'presentation'}
+                  url={resolveFileUrl(section.fileUrl)}
+                  onDownload={handleFileDownload}
+                />
+                {section.content && (
+                  <p className="mt-2 text-sm" style={{ color: colors.textSecondary }}>{section.content}</p>
+                )}
+              </>
+            ) : (
+              <FileCard
+                fileName={section.fileName || 'file'}
+                fileType={section.fileType}
+                url={resolveFileUrl(section.fileUrl)}
+                fileSize={section.fileSize}
+                description={section.content || undefined}
+                onDownload={handleFileDownload}
+              />
+            )}
           </div>
         );
       }

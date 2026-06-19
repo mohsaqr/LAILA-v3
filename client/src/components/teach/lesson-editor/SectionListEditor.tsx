@@ -192,6 +192,11 @@ export const SectionListEditor = forwardRef<SectionListEditorHandle, SectionList
   const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; e.target.value = '';
     if (!file) return;
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB — must match the server multer limit
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error(t('file_too_large', { name: file.name, limit: '50 MB' }));
+      return;
+    }
     setBusy(true); setProgress(0);
     try {
       const url = await upload('/api/uploads/file', file);
