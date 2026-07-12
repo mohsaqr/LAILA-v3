@@ -106,6 +106,10 @@ LAILA-v3/
 ### Prerequisites
 - Node.js 18+
 - At least one AI provider API key (OpenAI, Anthropic, Gemini, or local Ollama)
+- Optional: **LibreOffice + poppler** for inline PowerPoint lecture rendering
+  (`sudo apt-get install -y libreoffice poppler-utils fonts-liberation`, or
+  `brew install libreoffice poppler`). Without them, `.pptx` sections fall back to a
+  download link. For exact fonts, install the fonts your decks use or embed them in the file.
 
 ### Installation
 

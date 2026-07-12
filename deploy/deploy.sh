@@ -206,6 +206,19 @@ else
     warn "Certbot not found — SSL setup will be skipped."
 fi
 
+# LibreOffice + poppler (optional) — used to render PowerPoint lecture files as
+# per-slide images. Without them, .pptx sections fall back to a download link.
+if command -v soffice &>/dev/null || command -v libreoffice &>/dev/null; then
+    ok "LibreOffice found (PowerPoint slide rendering enabled)"
+else
+    warn "LibreOffice not found — PowerPoint slides won't render inline."
+    warn "  Install with: sudo apt-get install -y libreoffice poppler-utils fonts-liberation"
+fi
+if ! command -v pdftoppm &>/dev/null; then
+    warn "poppler (pdftoppm) not found — required for PowerPoint slide rendering."
+    warn "  Install with: sudo apt-get install -y poppler-utils"
+fi
+
 # ---------------------------------------------------------------------------
 # 2. Gather configuration
 # ---------------------------------------------------------------------------

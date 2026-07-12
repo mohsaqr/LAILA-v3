@@ -331,8 +331,14 @@ export const LectureView = () => {
             <PptxViewer
               fileName={section.fileName || 'presentation'}
               url={resolveFileUrl(section.fileUrl)}
+              sectionId={section.id}
               onDownload={handleFileDownload}
-              onOpenNewTab={() => logViewerAction('presentation.open_new_tab')}
+              tracking={{
+                courseId: parseInt(courseId!),
+                moduleId: lecture?.moduleId,
+                lectureId: parseInt(lectureId!),
+                fileType: section.fileType,
+              }}
             />
             {section.content && (
               <p className="mt-2 text-sm" style={{ color: colors.textSecondary }}>{section.content}</p>
@@ -357,14 +363,15 @@ export const LectureView = () => {
                 {section.title}
               </h2>
             )}
-            {docKind ? (
+            {/* PDFs are tracked by the wrapper; presentations self-track inside PptxViewer. */}
+            {isPdf && docKind ? (
               <DocumentActivityTracker
                 ctx={{
                   courseId: parseInt(courseId!),
                   moduleId: lecture?.moduleId,
                   lectureId: parseInt(lectureId!),
                   sectionId: section.id,
-                  fileName: section.fileName || (isPresentation ? 'presentation' : 'document'),
+                  fileName: section.fileName || 'document',
                   fileType: section.fileType,
                   kind: docKind,
                 }}
