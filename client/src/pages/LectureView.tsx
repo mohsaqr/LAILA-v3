@@ -16,6 +16,9 @@ import { Loading } from '../components/common/Loading';
 import { LectureAIHelper } from '../components/lecture';
 import { ChatbotSectionStudent } from '../components/course/ChatbotSectionStudent';
 import { FileCard } from '../components/course/FileCard';
+import { PptxViewer } from '../components/course/PptxViewer';
+import { DocumentActivityTracker } from '../components/course/DocumentActivityTracker';
+import { isOfficePresentation, previewKind } from '../utils/filePreview';
 import { AssignmentSectionStudent } from '../components/course/AssignmentSectionStudent';
 import { LessonViewer, SectionListEditor, type SectionListEditorHandle } from '../components/teach/lesson-editor';
 import { safeEmbedSrc } from '../components/teach/lesson-editor/EmbedNodeView';
@@ -302,6 +305,57 @@ export const LectureView = () => {
           }
         };
 
+        const isPresentation = isOfficePresentation(section.fileName, section.fileType);
+        const isPdf = previewKind(section.fileName, section.fileType) === 'pdf';
+        const docKind: 'powerpoint' | 'pdf' | null = isPresentation ? 'powerpoint' : isPdf ? 'pdf' : null;
+
+        // Log an interaction with the presentation/PDF viewer. Course, lecture
+        // and section titles are enriched server-side from the IDs.
+        const logViewerAction = (actionSubtype: string, verb: 'interacted' | 'viewed' = 'interacted') => {
+          activityLogger.log({
+            verb,
+            objectType: 'file',
+            objectId: section.id,
+            objectTitle: section.fileName || undefined,
+            courseId: parseInt(courseId!),
+            moduleId: lecture?.moduleId,
+            lectureId: parseInt(lectureId!),
+            sectionId: section.id,
+            actionSubtype,
+            extensions: { kind: docKind, fileName: section.fileName ?? undefined, fileType: section.fileType ?? undefined },
+          }).catch(() => {});
+        };
+
+        const viewer = isPresentation ? (
+          <>
+            <PptxViewer
+              fileName={section.fileName || 'presentation'}
+              url={resolveFileUrl(section.fileUrl)}
+              sectionId={section.id}
+              onDownload={handleFileDownload}
+              tracking={{
+                courseId: parseInt(courseId!),
+                moduleId: lecture?.moduleId,
+                lectureId: parseInt(lectureId!),
+                fileType: section.fileType,
+              }}
+            />
+            {section.content && (
+              <p className="mt-2 text-sm" style={{ color: colors.textSecondary }}>{section.content}</p>
+            )}
+          </>
+        ) : (
+          <FileCard
+            fileName={section.fileName || 'file'}
+            fileType={section.fileType}
+            url={resolveFileUrl(section.fileUrl)}
+            fileSize={section.fileSize}
+            description={section.content || undefined}
+            onDownload={handleFileDownload}
+            onView={isPdf ? () => logViewerAction('presentation.open_new_tab') : undefined}
+          />
+        );
+
         return (
           <div key={section.id} className="mb-6">
             {section.title && (
@@ -309,14 +363,24 @@ export const LectureView = () => {
                 {section.title}
               </h2>
             )}
-            <FileCard
-              fileName={section.fileName || 'file'}
-              fileType={section.fileType}
-              url={resolveFileUrl(section.fileUrl)}
-              fileSize={section.fileSize}
-              description={section.content || undefined}
-              onDownload={handleFileDownload}
-            />
+            {/* PDFs are tracked by the wrapper; presentations self-track inside PptxViewer. */}
+            {isPdf && docKind ? (
+              <DocumentActivityTracker
+                ctx={{
+                  courseId: parseInt(courseId!),
+                  moduleId: lecture?.moduleId,
+                  lectureId: parseInt(lectureId!),
+                  sectionId: section.id,
+                  fileName: section.fileName || 'document',
+                  fileType: section.fileType,
+                  kind: docKind,
+                }}
+              >
+                {viewer}
+              </DocumentActivityTracker>
+            ) : (
+              viewer
+            )}
           </div>
         );
       }

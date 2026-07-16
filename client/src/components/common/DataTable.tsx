@@ -78,6 +78,25 @@ export interface DataTableProps<T> {
   rowActions?: (row: T) => React.ReactNode;
   /** Optional row click handler — when set the row gets a pointer cursor. */
   onRowClick?: (row: T) => void;
+  /**
+   * Opt into backend-driven pagination/sort/filter/search. When provided,
+   * the table renders `rows` verbatim (the caller fetches one page at a time),
+   * reports state changes via the callbacks, and uses `totalRows` for the
+   * footer/page math instead of `rows.length`. Omit it to keep the default
+   * client-side behaviour used by every other list. `filters`/`onFiltersChange`
+   * keys are column `id`s; `search`/`sort` carry the raw query the caller maps
+   * to its API params.
+   */
+  serverMode?: {
+    page: number;
+    totalRows: number;
+    onPageChange: (page: number) => void;
+    sort: { column: string | null; dir: SortDir };
+    onSortChange: (column: string | null, dir: SortDir) => void;
+    filters: Record<string, string>;
+    onFiltersChange: (filters: Record<string, string>) => void;
+    onSearchChange: (query: string) => void;
+  };
 }
 
 /**
@@ -99,28 +118,67 @@ export function DataTable<T>({
   empty,
   rowActions,
   onRowClick,
+  serverMode,
 }: DataTableProps<T>) {
   const { t } = useTranslation(['common']);
   const { isDark } = useTheme();
 
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
-  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
-  const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<SortDir>(null);
-  const [page, setPage] = useState(1);
+  const [internalFilters, setInternalFilters] = useState<Record<string, string>>({});
+  const [internalSortColumn, setInternalSortColumn] = useState<string | null>(null);
+  const [internalSortDir, setInternalSortDir] = useState<SortDir>(null);
+  const [internalPage, setInternalPage] = useState(1);
   const [filterOpen, setFilterOpen] = useState(false);
 
-  // Debounce global search.
+  // Effective state — read from the caller in server mode, from local state
+  // otherwise. Mutations route to the matching sink so the rest of the
+  // component is agnostic to which mode is active.
+  const page = serverMode ? serverMode.page : internalPage;
+  const setPage = (next: number | ((p: number) => number)) => {
+    const value = typeof next === 'function' ? next(page) : next;
+    if (serverMode) serverMode.onPageChange(value);
+    else setInternalPage(value);
+  };
+
+  const columnFilters = serverMode ? serverMode.filters : internalFilters;
+  const setColumnFilters = (
+    next: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>),
+  ) => {
+    const value = typeof next === 'function' ? next(columnFilters) : next;
+    if (serverMode) serverMode.onFiltersChange(value);
+    else setInternalFilters(value);
+  };
+
+  const sortColumn = serverMode ? serverMode.sort.column : internalSortColumn;
+  const sortDir = serverMode ? serverMode.sort.dir : internalSortDir;
+  const setSort = (column: string | null, dir: SortDir) => {
+    if (serverMode) serverMode.onSortChange(column, dir);
+    else {
+      setInternalSortColumn(column);
+      setInternalSortDir(dir);
+    }
+  };
+
+  // Debounce global search. In server mode the caller owns the query and is
+  // responsible for resetting the page; client mode resets here.
   useEffect(() => {
     const id = setTimeout(() => {
-      setSearch(searchInput.trim());
-      setPage(1);
+      const trimmed = searchInput.trim();
+      if (serverMode) serverMode.onSearchChange(trimmed);
+      else {
+        setSearch(trimmed);
+        setInternalPage(1);
+      }
     }, 300);
     return () => clearTimeout(id);
+    // serverMode callbacks are read via closure at flush time; re-running on
+    // identity changes would restart the debounce on every parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput]);
 
   const filteredRows = useMemo(() => {
+    if (serverMode) return rows;
     let result = rows;
     if (globalSearch && search) {
       result = result.filter(r => globalSearch.predicate(r, search));
@@ -131,9 +189,10 @@ export function DataTable<T>({
       result = result.filter(r => col.filter!.predicate(r, f));
     }
     return result;
-  }, [rows, search, columnFilters, columns, globalSearch]);
+  }, [rows, search, columnFilters, columns, globalSearch, serverMode]);
 
   const sortedRows = useMemo(() => {
+    if (serverMode) return rows;
     if (!sortColumn || !sortDir) return filteredRows;
     const col = columns.find(c => c.id === sortColumn);
     if (!col?.sortAccessor) return filteredRows;
@@ -156,20 +215,22 @@ export function DataTable<T>({
       return sortDir === 'asc' ? cmp : -cmp;
     });
     return next;
-  }, [filteredRows, sortColumn, sortDir, columns]);
+  }, [filteredRows, sortColumn, sortDir, columns, rows, serverMode]);
 
-  const total = sortedRows.length;
+  const total = serverMode ? serverMode.totalRows : sortedRows.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   // Clamp current page when row count shrinks below it (e.g. after delete
   // or filter). Has to live in an effect so it survives React's batching.
+  // In server mode the caller owns page validity.
   useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-  }, [page, totalPages]);
+    if (!serverMode && page > totalPages) setInternalPage(totalPages);
+  }, [page, totalPages, serverMode]);
 
   const rangeStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const rangeEnd = Math.min(total, page * pageSize);
-  const pageRows = sortedRows.slice(rangeStart - 1, rangeEnd);
+  // Server mode hands us exactly one page of rows; client mode slices locally.
+  const pageRows = serverMode ? rows : sortedRows.slice(rangeStart - 1, rangeEnd);
   const pageNumbers = getPageNumbers(page, totalPages);
 
   const headerColor = isDark ? '#9ca3af' : '#6b7280';
@@ -180,17 +241,15 @@ export function DataTable<T>({
 
   const toggleSort = (colId: string) => {
     if (sortColumn !== colId) {
-      setSortColumn(colId);
-      setSortDir('asc');
+      setSort(colId, 'asc');
       return;
     }
     if (sortDir === 'asc') {
-      setSortDir('desc');
+      setSort(colId, 'desc');
       return;
     }
     if (sortDir === 'desc') {
-      setSortColumn(null);
-      setSortDir(null);
+      setSort(null, null);
     }
   };
 

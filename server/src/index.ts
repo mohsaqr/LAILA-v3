@@ -52,10 +52,11 @@ import forumRoutes from './routes/forum.routes.js';
 import certificateRoutes from './routes/certificate.routes.js';
 import categoryRoutes from './routes/category.routes.js';
 import meRoutes from './routes/me.routes.js';
+import presentationRoutes from './routes/presentation.routes.js';
 
 // Import middleware
 import { errorHandler } from './middleware/error.middleware.js';
-import { authLimiter, uploadLimiter, apiLimiter, llmLimiter } from './middleware/rateLimit.middleware.js';
+import { authLimiter, uploadLimiter, apiLimiter, llmLimiter, presentationLimiter } from './middleware/rateLimit.middleware.js';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -174,6 +175,7 @@ app.use('/api/forums', forumRoutes);
 app.use('/api/certificates', certificateRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/me', meRoutes);
+app.use('/api/presentations', presentationLimiter, presentationRoutes);
 
 // Health check with comprehensive status
 app.get('/api/health', async (req, res) => {

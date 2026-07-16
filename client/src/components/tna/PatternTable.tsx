@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 
 interface Pattern {
@@ -19,9 +19,20 @@ interface PatternTableProps {
 
 type SortKey = 'frequency' | 'support' | 'lift' | 'proportion';
 
+// Soft tinted pill: translucent fill + raw-color text + faint inset border.
+// Uses color-mix so it works with any colorMap value and adapts to light/dark.
+function chipStyle(color: string): CSSProperties {
+  const c = color || '#888';
+  return {
+    background: `color-mix(in srgb, ${c} 14%, transparent)`,
+    color: c,
+    boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${c} 32%, transparent)`,
+  };
+}
+
 export const PatternTable = ({ patterns, colorMap }: PatternTableProps) => {
   const { t } = useTranslation(['admin']);
-  const [sortBy, setSortBy] = useState<SortKey>('frequency');
+  const [sortBy, setSortBy] = useState<SortKey>('support');
   const [sortAsc, setSortAsc] = useState(false);
   const [maxRows, setMaxRows] = useState(20);
 
@@ -38,65 +49,73 @@ export const PatternTable = ({ patterns, colorMap }: PatternTableProps) => {
   };
 
   const displayed = sorted.slice(0, maxRows);
+  const maxSupport = Math.max(...displayed.map(p => p.support), 1e-9);
 
-  const columns: { key: SortKey; label: string; format: (v: number) => string }[] = [
-    { key: 'frequency', label: t('pattern_frequency'), format: v => String(v) },
-    { key: 'support', label: t('pattern_support'), format: v => v.toFixed(3) },
-    { key: 'lift', label: t('pattern_lift'), format: v => v.toFixed(2) },
-    { key: 'proportion', label: t('pattern_proportion'), format: v => (v * 100).toFixed(1) + '%' },
+  const sortKeys: { key: SortKey; label: string }[] = [
+    { key: 'support', label: t('pattern_support') },
+    { key: 'frequency', label: t('pattern_frequency') },
+    { key: 'lift', label: t('pattern_lift') },
   ];
 
   return (
     <div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-200 dark:border-gray-700">
-              <th className="text-left py-2 px-3 font-medium text-gray-600 dark:text-gray-300">
-                {t('pattern')}
-              </th>
-              {columns.map(col => (
-                <th key={col.key}
-                  className="text-right py-2 px-3 font-medium text-gray-600 dark:text-gray-300 cursor-pointer hover:text-gray-900 dark:hover:text-white select-none whitespace-nowrap"
-                  onClick={() => handleSort(col.key)}>
-                  {col.label}
-                  {sortBy === col.key && <span className="ml-1">{sortAsc ? '\u25B2' : '\u25BC'}</span>}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {displayed.map((p, idx) => {
-              const states = p.pattern.split('->');
-              return (
-                <tr key={idx}
-                  className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                  <td className="py-1.5 px-3">
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {states.map((state, si) => (
-                        <span key={si} className="flex items-center gap-1">
-                          {si > 0 && <span className="text-gray-400 text-xs">&rarr;</span>}
-                          <span
-                            className="inline-block px-2 py-0.5 rounded-full text-xs font-medium text-white"
-                            style={{ backgroundColor: colorMap[state] ?? '#888' }}
-                          >
-                            {state}
-                          </span>
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  {columns.map(col => (
-                    <td key={col.key} className="text-right py-1.5 px-3 tabular-nums text-gray-600 dark:text-gray-400">
-                      {col.format(p[col.key])}
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {/* Sort control */}
+      <div className="flex items-center gap-1 mb-3">
+        {sortKeys.map(s => (
+          <button key={s.key}
+            onClick={() => handleSort(s.key)}
+            className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+              sortBy === s.key
+                ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100'
+                : 'text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}>
+            {s.label}{sortBy === s.key ? (sortAsc ? ' ↑' : ' ↓') : ''}
+          </button>
+        ))}
       </div>
+
+      {/* Stacked rows — sequence on its own scrollable line so long patterns
+          never push the bar/count off-screen in a narrow column. */}
+      <div>
+        {displayed.map((p, idx) => {
+          const states = p.pattern.split('->');
+          const firstColor = colorMap[states[0]] ?? '#888';
+          const barPct = Math.max(2, (p.support / maxSupport) * 100);
+          const tip = `${t('pattern_support')}: ${(p.support * 100).toFixed(1)}% · ${t('pattern_lift')}: ${p.lift.toFixed(2)}× · ${t('pattern_proportion')}: ${(p.proportion * 100).toFixed(1)}%`;
+          return (
+            <div key={idx}
+              title={tip}
+              className="py-2.5 border-t first:border-t-0 border-gray-100 dark:border-gray-800">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-5 shrink-0 text-center text-xs font-semibold tabular-nums text-gray-400 dark:text-gray-500">{idx + 1}</span>
+                <span className="flex-1 min-w-0 flex items-center justify-start gap-1.5 overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
+                  {states.map((state, si) => (
+                    <span key={si} className="flex items-center gap-1.5 shrink-0">
+                      {si > 0 && <span className="shrink-0 text-gray-300 dark:text-gray-600 text-[15px] font-semibold leading-none">→</span>}
+                      <span
+                        className="inline-block rounded-full px-3 py-1 text-[13px] font-semibold leading-tight"
+                        style={chipStyle(colorMap[state] ?? '#888')}
+                      >
+                        {state}
+                      </span>
+                    </span>
+                  ))}
+                </span>
+                <span className="shrink-0 tabular-nums font-semibold text-gray-800 dark:text-gray-100">{p.frequency.toLocaleString()}</span>
+              </div>
+              <div className="flex items-center gap-2 pl-7">
+                <div className="flex-1 h-2 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700/60">
+                  <div className="h-full rounded-full" style={{ width: `${barPct}%`, background: firstColor }} />
+                </div>
+                <span className="w-11 shrink-0 text-right tabular-nums text-[13px] font-medium text-gray-600 dark:text-gray-300">
+                  {(p.support * 100).toFixed(1)}%
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
       {sorted.length > maxRows && (
         <button
           onClick={() => setMaxRows(prev => prev + 20)}

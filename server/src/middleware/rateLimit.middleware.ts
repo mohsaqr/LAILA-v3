@@ -61,6 +61,22 @@ export const llmLimiter = rateLimit({
 });
 
 /**
+ * Rate limiter for presentation slide conversion/status polling.
+ * The heavy conversion is deduped in the service, so this mainly bounds the
+ * ~2s client poll while still allowing normal viewing.
+ */
+export const presentationLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60, // 60 requests per minute
+  message: {
+    success: false,
+    error: 'Too many presentation requests. Please slow down.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
  * Rate limiter for forum AI agent requests.
  * Strict limits to prevent abuse of AI tutor features in forums.
  */

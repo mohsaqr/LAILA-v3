@@ -160,7 +160,10 @@ export const Settings = () => {
   });
 
   const handleLanguageChange = (newLanguage: SupportedLanguage) => {
-    setLanguage(newLanguage);
+    // Settings persists via updateLanguageMutation below (toast + cache
+    // invalidation), so skip the store's own fire-and-forget save to avoid a
+    // duplicate request.
+    setLanguage(newLanguage, false);
     track('language_changed', { verb: 'updated', objectType: 'settings', payload: { language: newLanguage } });
     if (user) {
       updateLanguageMutation.mutate(newLanguage);
