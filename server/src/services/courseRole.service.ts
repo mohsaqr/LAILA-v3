@@ -344,6 +344,27 @@ export class CourseRoleService {
     return !!role;
   }
 
+  // Permission-aware gates for MUTATIONS. Prefer these over isTeamMember when
+  // guarding a write: isTeamMember is true for ANY role (including a bare TA),
+  // whereas these enforce the granular per-role permission model. Each folds in
+  // admin and — via hasPermission — the course owner, so a single call replaces
+  // the old owner||team||admin guard while correctly denying under-privileged
+  // roles (e.g. a TA has grade + view_analytics but NOT edit_content).
+  async canEditContent(userId: number, courseId: number, isAdmin = false): Promise<boolean> {
+    if (isAdmin) return true;
+    return this.hasPermission(userId, courseId, 'edit_content');
+  }
+
+  async canGrade(userId: number, courseId: number, isAdmin = false): Promise<boolean> {
+    if (isAdmin) return true;
+    return this.hasPermission(userId, courseId, 'grade');
+  }
+
+  async canManageStudents(userId: number, courseId: number, isAdmin = false): Promise<boolean> {
+    if (isAdmin) return true;
+    return this.hasPermission(userId, courseId, 'manage_students');
+  }
+
   // Check if user can manage course roles (instructor, admin, or team member with manage_students)
   async canManageRoles(userId: number, courseId: number, isAdmin: boolean) {
     if (isAdmin) return true;

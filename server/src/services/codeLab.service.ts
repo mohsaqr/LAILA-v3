@@ -52,11 +52,8 @@ export class CodeLabService {
       throw new AppError('Module not found', 404);
     }
 
-    if (module.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, module.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, module.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     return module;
@@ -79,11 +76,8 @@ export class CodeLabService {
       throw new AppError('Code Lab not found', 404);
     }
 
-    if (codeLab.module.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, codeLab.module.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, codeLab.module.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     return codeLab;
@@ -110,11 +104,8 @@ export class CodeLabService {
       throw new AppError('Code Block not found', 404);
     }
 
-    if (block.codeLab.module.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, block.codeLab.module.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, block.codeLab.module.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     return block;

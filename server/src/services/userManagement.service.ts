@@ -239,6 +239,16 @@ export class UserManagementService {
     }
     if (typeof data.isConfirmed === 'boolean') updateData.isConfirmed = data.isConfirmed;
 
+    // isAdmin/isInstructor are baked into the JWT, so a role change must bump
+    // tokenVersion — otherwise a demoted admin keeps elevated access until the
+    // (30-day) token expires. The affected user simply re-logs-in.
+    const rolesChanged =
+      (updateData.isInstructor !== undefined && updateData.isInstructor !== user.isInstructor) ||
+      (updateData.isAdmin !== undefined && updateData.isAdmin !== user.isAdmin);
+    if (rolesChanged) {
+      updateData.tokenVersion = { increment: 1 };
+    }
+
     const updated = await prisma.user.update({
       where: { id },
       data: updateData,
@@ -253,8 +263,8 @@ export class UserManagementService {
       },
     });
 
-    // Invalidate user status cache if isActive or password was changed
-    if (data.isActive !== undefined || data.password) {
+    // Invalidate user status cache if isActive, password, or role was changed
+    if (data.isActive !== undefined || data.password || rolesChanged) {
       invalidateUserStatusCache(id);
     }
 
@@ -301,11 +311,18 @@ export class UserManagementService {
       }
     }
 
+    const nextIsAdmin = roles.isAdmin ?? user.isAdmin;
+    const nextIsInstructor = roles.isInstructor ?? user.isInstructor;
+    const rolesChanged = nextIsAdmin !== user.isAdmin || nextIsInstructor !== user.isInstructor;
+
     const updated = await prisma.user.update({
       where: { id },
       data: {
-        isAdmin: roles.isAdmin ?? user.isAdmin,
-        isInstructor: roles.isInstructor ?? user.isInstructor,
+        isAdmin: nextIsAdmin,
+        isInstructor: nextIsInstructor,
+        // Roles live in the JWT; bump tokenVersion so the change is enforced on
+        // the target's next request instead of after token expiry.
+        ...(rolesChanged ? { tokenVersion: { increment: 1 } } : {}),
       },
       select: {
         id: true,
@@ -315,6 +332,11 @@ export class UserManagementService {
         isInstructor: true,
       },
     });
+
+    // Drop the cached status so the bumped tokenVersion is re-read immediately.
+    if (rolesChanged) {
+      invalidateUserStatusCache(id);
+    }
 
     // Create audit log
     await adminAuditService.log({

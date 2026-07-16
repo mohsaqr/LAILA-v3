@@ -284,11 +284,8 @@ export class QuizService {
   async createQuiz(courseId: number, instructorId: number, data: CreateQuizInput, isAdmin = false) {
     const course = await prisma.course.findUnique({ where: { id: courseId } });
     if (!course) throw new AppError('Course not found', 404);
-    if (course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, courseId);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, courseId, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     const quiz = await prisma.quiz.create({
@@ -325,11 +322,8 @@ export class QuizService {
     });
 
     if (!quiz) throw new AppError('Quiz not found', 404);
-    if (quiz.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, quiz.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, quiz.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     const updated = await prisma.quiz.update({
@@ -362,11 +356,8 @@ export class QuizService {
     });
 
     if (!quiz) throw new AppError('Quiz not found', 404);
-    if (quiz.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, quiz.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, quiz.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     await prisma.quiz.delete({ where: { id: quizId } });
@@ -385,11 +376,8 @@ export class QuizService {
     });
 
     if (!quiz) throw new AppError('Quiz not found', 404);
-    if (quiz.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, quiz.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, quiz.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     const question = await prisma.quizQuestion.create({
@@ -419,11 +407,8 @@ export class QuizService {
     });
 
     if (!question) throw new AppError('Question not found', 404);
-    if (question.quiz.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, question.quiz.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, question.quiz.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     const updated = await prisma.quizQuestion.update({
@@ -453,11 +438,8 @@ export class QuizService {
     });
 
     if (!question) throw new AppError('Question not found', 404);
-    if (question.quiz.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, question.quiz.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, question.quiz.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     await prisma.quizQuestion.delete({ where: { id: questionId } });
@@ -471,11 +453,8 @@ export class QuizService {
     });
 
     if (!quiz) throw new AppError('Quiz not found', 404);
-    if (quiz.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, quiz.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, quiz.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     // Update each question's order
@@ -506,11 +485,8 @@ export class QuizService {
     });
 
     if (!quiz) throw new AppError('Quiz not found', 404);
-    if (quiz.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, quiz.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, quiz.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     // Get the starting order index

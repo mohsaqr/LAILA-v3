@@ -1,12 +1,65 @@
 import { Router, Response } from 'express';
 import { activityLogService, LogActivityInput } from '../services/activityLog.service.js';
-import { authenticateToken, optionalAuth, requireAdmin } from '../middleware/auth.middleware.js';
-import { asyncHandler } from '../middleware/error.middleware.js';
-import { AuthRequest } from '../types/index.js';
+import { authenticateToken } from '../middleware/auth.middleware.js';
+import { asyncHandler, AppError } from '../middleware/error.middleware.js';
+import { AuthRequest, UserPayload } from '../types/index.js';
+import { courseRoleService } from '../services/courseRole.service.js';
 import { z } from 'zod';
 import prisma from '../utils/prisma.js';
 
 const router = Router();
+
+/**
+ * Resolve which activity-log data this caller may read.
+ *
+ * The activity trail is per-user xAPI data, so every read/export endpoint must
+ * be scoped. This mirrors the policy already enforced inline by /tna-sequences:
+ *   - Admin: unrestricted (any user, any course, or platform-wide aggregates).
+ *   - Instructor: must scope to a course they own or hold `view_analytics` in;
+ *     may query any student within that course.
+ *   - Student: must scope to an enrolled course and is forced to their own id,
+ *     regardless of the userId they asked for.
+ *
+ * Returns the effective { courseId, userId } to feed into the service filters,
+ * or throws AppError(403) when the requested scope is not permitted.
+ */
+async function resolveActivityLogScope(
+  user: UserPayload,
+  requestedCourseId: number | undefined,
+  requestedUserId: number | undefined,
+): Promise<{ courseId: number | undefined; userId: number | undefined }> {
+  if (user.isAdmin) {
+    return { courseId: requestedCourseId, userId: requestedUserId };
+  }
+
+  if (!requestedCourseId) {
+    throw new AppError('Course ID is required', 403);
+  }
+
+  if (user.isInstructor) {
+    const owns = await prisma.course.findFirst({
+      where: { id: requestedCourseId, instructorId: user.id },
+      select: { id: true },
+    });
+    if (!owns) {
+      const canView = await courseRoleService.hasPermission(user.id, requestedCourseId, 'view_analytics');
+      if (!canView) {
+        throw new AppError('Access denied to this course', 403);
+      }
+    }
+    return { courseId: requestedCourseId, userId: requestedUserId };
+  }
+
+  // Student: must be enrolled, and only ever sees their own trail.
+  const enrollment = await prisma.enrollment.findFirst({
+    where: { courseId: requestedCourseId, userId: user.id },
+    select: { id: true },
+  });
+  if (!enrollment) {
+    throw new AppError('Access denied to this course', 403);
+  }
+  return { courseId: requestedCourseId, userId: user.id };
+}
 
 // Valid verbs and object types
 const validVerbs = [
@@ -136,9 +189,15 @@ router.post('/batch', authenticateToken, asyncHandler(async (req: AuthRequest, r
  * Query logs with filters, search, and sorting
  */
 router.get('/', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const scope = await resolveActivityLogScope(
+    req.user!,
+    req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    req.query.userId ? parseInt(req.query.userId as string) : undefined,
+  );
+
   const filters = {
-    userId: req.query.userId ? parseInt(req.query.userId as string) : undefined,
-    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    userId: scope.userId,
+    courseId: scope.courseId,
     verb: req.query.verb as string | undefined,
     objectType: req.query.objectType as string | undefined,
     actionSubtype: req.query.actionSubtype as string | undefined,
@@ -160,8 +219,15 @@ router.get('/', authenticateToken, asyncHandler(async (req: AuthRequest, res: Re
  * Get aggregated statistics
  */
 router.get('/stats', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const scope = await resolveActivityLogScope(
+    req.user!,
+    req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    undefined,
+  );
+
   const filters = {
-    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    courseId: scope.courseId,
+    userId: scope.userId,
     startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
     endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
   };
@@ -189,9 +255,15 @@ router.get('/filter-options', authenticateToken, asyncHandler(async (req: AuthRe
  * Get summary stats (total, unique users, unique sessions, avg per user)
  */
 router.get('/summary', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const scope = await resolveActivityLogScope(
+    req.user!,
+    req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    req.query.userId ? parseInt(req.query.userId as string) : undefined,
+  );
+
   const filters = {
-    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
-    userId: req.query.userId ? parseInt(req.query.userId as string) : undefined,
+    courseId: scope.courseId,
+    userId: scope.userId,
     startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
     endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
   };
@@ -205,9 +277,15 @@ router.get('/summary', authenticateToken, asyncHandler(async (req: AuthRequest, 
  * Get activity counts grouped by day-of-week and hour
  */
 router.get('/hourly-counts', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const scope = await resolveActivityLogScope(
+    req.user!,
+    req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    req.query.userId ? parseInt(req.query.userId as string) : undefined,
+  );
+
   const filters = {
-    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
-    userId: req.query.userId ? parseInt(req.query.userId as string) : undefined,
+    courseId: scope.courseId,
+    userId: scope.userId,
     startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
     endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
   };
@@ -222,9 +300,15 @@ router.get('/hourly-counts', authenticateToken, asyncHandler(async (req: AuthReq
  * Get top N most visited resources/activities
  */
 router.get('/top-resources', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const scope = await resolveActivityLogScope(
+    req.user!,
+    req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    req.query.userId ? parseInt(req.query.userId as string) : undefined,
+  );
+
   const filters = {
-    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
-    userId: req.query.userId ? parseInt(req.query.userId as string) : undefined,
+    courseId: scope.courseId,
+    userId: scope.userId,
     startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
     endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
     limit: req.query.limit ? parseInt(req.query.limit as string) : 10,
@@ -239,9 +323,15 @@ router.get('/top-resources', authenticateToken, asyncHandler(async (req: AuthReq
  * Get daily activity counts grouped by verb
  */
 router.get('/daily-counts', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const scope = await resolveActivityLogScope(
+    req.user!,
+    req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    req.query.userId ? parseInt(req.query.userId as string) : undefined,
+  );
+
   const filters = {
-    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
-    userId: req.query.userId ? parseInt(req.query.userId as string) : undefined,
+    courseId: scope.courseId,
+    userId: scope.userId,
     startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
     endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
   };
@@ -256,9 +346,15 @@ router.get('/daily-counts', authenticateToken, asyncHandler(async (req: AuthRequ
  * Export logs as CSV or JSON
  */
 router.get('/export', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const scope = await resolveActivityLogScope(
+    req.user!,
+    req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    req.query.userId ? parseInt(req.query.userId as string) : undefined,
+  );
+
   const filters = {
-    userId: req.query.userId ? parseInt(req.query.userId as string) : undefined,
-    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    userId: scope.userId,
+    courseId: scope.courseId,
     verb: req.query.verb as string | undefined,
     objectType: req.query.objectType as string | undefined,
     startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
@@ -286,9 +382,15 @@ router.get('/export', authenticateToken, asyncHandler(async (req: AuthRequest, r
  * Export logs as Excel file with multiple sheets
  */
 router.get('/export/excel', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const scope = await resolveActivityLogScope(
+    req.user!,
+    req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    req.query.userId ? parseInt(req.query.userId as string) : undefined,
+  );
+
   const filters = {
-    userId: req.query.userId ? parseInt(req.query.userId as string) : undefined,
-    courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    userId: scope.userId,
+    courseId: scope.courseId,
     verb: req.query.verb as string | undefined,
     objectType: req.query.objectType as string | undefined,
     startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,

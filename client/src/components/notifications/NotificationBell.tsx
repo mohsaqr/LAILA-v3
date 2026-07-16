@@ -158,7 +158,7 @@ export const NotificationBell = () => {
 
     if (!user?.id) return;
 
-    const socket = connectSocket(user.id);
+    const socket = connectSocket();
     socket.on('notification:new', () => {
       fetchUnreadCount();
     });

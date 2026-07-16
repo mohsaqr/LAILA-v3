@@ -183,21 +183,28 @@ class ForumService {
   }
 
   async getForums(courseId: number, userId: number, isInstructor = false, isAdmin = false) {
-    // Access check
-    if (!isAdmin && !isInstructor) {
-      const isTeam = await courseRoleService.isTeamMember(userId, courseId);
-      if (!isTeam) {
-        const enrollment = await prisma.enrollment.findUnique({
-          where: { userId_courseId: { userId, courseId } },
-        });
-        if (!enrollment) throw new AppError('Not enrolled in this course', 403);
-      }
+    // Access check. A bare global-instructor flag must NOT grant access to a
+    // course's forum — access requires admin, course owner, a team role, or
+    // enrollment.
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+      select: { instructorId: true },
+    });
+    const isCourseInstructor = course?.instructorId === userId;
+    const isTeam = !isAdmin && !isCourseInstructor
+      ? await courseRoleService.isTeamMember(userId, courseId)
+      : false;
+    if (!isAdmin && !isCourseInstructor && !isTeam) {
+      const enrollment = await prisma.enrollment.findUnique({
+        where: { userId_courseId: { userId, courseId } },
+      });
+      if (!enrollment) throw new AppError('Not enrolled in this course', 403);
     }
 
     const threads = await prisma.forumThread.findMany({
       where: {
         courseId,
-        ...(isAdmin || isInstructor ? {} : { isPublished: true }),
+        ...(isAdmin || isCourseInstructor || isTeam ? {} : { isPublished: true }),
       },
       include: replyCountInclude,
       orderBy: [{ isPinned: 'desc' }, { orderIndex: 'asc' }, { createdAt: 'desc' }],
@@ -215,10 +222,12 @@ class ForumService {
     if (!moduleRow) throw new AppError('Module not found', 404);
 
     const isCourseInstructor = moduleRow.course.instructorId === userId;
-    const isTeamMember = !isAdmin && !isCourseInstructor && !isInstructor
+    // A bare global-instructor flag must NOT grant access to this course's
+    // forum — access requires admin, course owner, a team role, or enrollment.
+    const isTeamMember = !isAdmin && !isCourseInstructor
       ? await courseRoleService.isTeamMember(userId, moduleRow.course.id)
       : false;
-    if (!isAdmin && !isCourseInstructor && !isInstructor && !isTeamMember) {
+    if (!isAdmin && !isCourseInstructor && !isTeamMember) {
       const enrollment = await prisma.enrollment.findUnique({
         where: { userId_courseId: { userId, courseId: moduleRow.course.id } },
       });
@@ -228,7 +237,7 @@ class ForumService {
     const threads = await prisma.forumThread.findMany({
       where: {
         moduleId,
-        ...(isAdmin || isCourseInstructor || isInstructor || isTeamMember ? {} : { isPublished: true }),
+        ...(isAdmin || isCourseInstructor || isTeamMember ? {} : { isPublished: true }),
       },
       include: replyCountInclude,
       orderBy: [{ isPinned: 'desc' }, { orderIndex: 'asc' }],
@@ -240,9 +249,8 @@ class ForumService {
   async createForum(courseId: number, instructorId: number, data: CreateForumInput, isAdmin = false) {
     const course = await prisma.course.findUnique({ where: { id: courseId } });
     if (!course) throw new AppError('Course not found', 404);
-    if (course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, courseId);
-      if (!isTeam) throw new AppError('Not authorized', 403);
+    if (!(await courseRoleService.canEditContent(instructorId, courseId, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     if (data.moduleId) {
@@ -293,9 +301,8 @@ class ForumService {
       include: { course: true },
     });
     if (!thread) throw new AppError('Forum not found', 404);
-    if (thread.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, thread.courseId);
-      if (!isTeam) throw new AppError('Not authorized', 403);
+    if (!(await courseRoleService.canEditContent(instructorId, thread.courseId, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     const updated = await prisma.forumThread.update({
@@ -323,9 +330,8 @@ class ForumService {
       include: { course: true, _count: { select: { posts: true } } },
     });
     if (!thread) throw new AppError('Forum not found', 404);
-    if (thread.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, thread.courseId);
-      if (!isTeam) throw new AppError('Not authorized', 403);
+    if (!(await courseRoleService.canEditContent(instructorId, thread.courseId, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     await prisma.forumThread.delete({ where: { id: threadId } });
@@ -367,7 +373,9 @@ class ForumService {
     if (!thread) throw new AppError('Thread not found', 404);
 
     const isCourseInstructor = thread.course.instructorId === userId;
-    if (!isAdmin && !isCourseInstructor && !isInstructor) {
+    // A bare global-instructor flag must NOT grant access to this course's
+    // forum — access requires admin, course owner, a team role, or enrollment.
+    if (!isAdmin && !isCourseInstructor) {
       const isTeam = await courseRoleService.isTeamMember(userId, thread.courseId);
       if (!isTeam) {
         const enrollment = await prisma.enrollment.findUnique({
@@ -500,13 +508,11 @@ class ForumService {
     });
 
     if (!thread) throw new AppError('Thread not found', 404);
-    const isTeamForThread = !isAdmin && thread.course.instructorId !== userId
-      ? await courseRoleService.isTeamMember(userId, thread.courseId)
-      : false;
-    if (thread.isLocked && !isAdmin && thread.course.instructorId !== userId && !isTeamForThread) {
+    const canModerateThread = await courseRoleService.canEditContent(userId, thread.courseId, isAdmin);
+    if (thread.isLocked && !canModerateThread) {
       throw new AppError('Thread is locked', 400);
     }
-    if (thread.authorId !== userId && !isAdmin && thread.course.instructorId !== userId && !isTeamForThread) {
+    if (thread.authorId !== userId && !canModerateThread) {
       throw new AppError('Not authorized', 403);
     }
 
@@ -543,9 +549,8 @@ class ForumService {
     });
 
     if (!thread) throw new AppError('Thread not found', 404);
-    if (thread.authorId !== userId && !isAdmin && thread.course.instructorId !== userId) {
-      const isTeam = await courseRoleService.isTeamMember(userId, thread.courseId);
-      if (!isTeam) throw new AppError('Not authorized', 403);
+    if (thread.authorId !== userId && !(await courseRoleService.canEditContent(userId, thread.courseId, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     const user = await prisma.user.findUnique({
@@ -583,9 +588,8 @@ class ForumService {
       include: { course: true },
     });
     if (!thread) throw new AppError('Thread not found', 404);
-    if (!isAdmin && thread.course.instructorId !== userId) {
-      const isTeam = await courseRoleService.isTeamMember(userId, thread.courseId);
-      if (!isTeam) throw new AppError('Not authorized', 403);
+    if (!(await courseRoleService.canEditContent(userId, thread.courseId, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     const updated = await prisma.forumThread.update({
@@ -617,9 +621,8 @@ class ForumService {
       include: { course: true },
     });
     if (!thread) throw new AppError('Thread not found', 404);
-    if (!isAdmin && thread.course.instructorId !== userId) {
-      const isTeam = await courseRoleService.isTeamMember(userId, thread.courseId);
-      if (!isTeam) throw new AppError('Not authorized', 403);
+    if (!(await courseRoleService.canEditContent(userId, thread.courseId, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     const updated = await prisma.forumThread.update({
@@ -782,13 +785,11 @@ class ForumService {
     });
 
     if (!post) throw new AppError('Post not found', 404);
-    const isTeamForPostUpdate = !isAdmin && post.thread.course.instructorId !== userId
-      ? await courseRoleService.isTeamMember(userId, post.thread.courseId)
-      : false;
-    if (post.thread.isLocked && !isAdmin && post.thread.course.instructorId !== userId && !isTeamForPostUpdate) {
+    const canModeratePost = await courseRoleService.canEditContent(userId, post.thread.courseId, isAdmin);
+    if (post.thread.isLocked && !canModeratePost) {
       throw new AppError('Thread is locked', 400);
     }
-    if (post.authorId !== userId && !isAdmin && post.thread.course.instructorId !== userId && !isTeamForPostUpdate) {
+    if (post.authorId !== userId && !canModeratePost) {
       throw new AppError('Not authorized', 403);
     }
 
@@ -829,9 +830,8 @@ class ForumService {
     });
 
     if (!post) throw new AppError('Post not found', 404);
-    if (post.authorId !== userId && !isAdmin && post.thread.course.instructorId !== userId) {
-      const isTeam = await courseRoleService.isTeamMember(userId, post.thread.courseId);
-      if (!isTeam) throw new AppError('Not authorized', 403);
+    if (post.authorId !== userId && !(await courseRoleService.canEditContent(userId, post.thread.courseId, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     const user = await prisma.user.findUnique({

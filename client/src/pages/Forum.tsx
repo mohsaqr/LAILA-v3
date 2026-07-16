@@ -61,7 +61,7 @@ const REACTIONS: {
 
 export const Forum = () => {
   const { courseId, forumId, threadId } = useParams<{ courseId: string; forumId: string; threadId?: string }>();
-  const { user } = useAuth();
+  const { user, viewAsRole } = useAuth();
   const { t } = useTranslation(['courses', 'common']);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -282,8 +282,10 @@ export const Forum = () => {
     }
   };
 
-  // Check if user is instructor/admin for this course
-  const isInstructor = user?.isInstructor || user?.isAdmin || false;
+  // Check if user is instructor/admin for this course. Suppressed while
+  // previewing as a student so moderation controls don't leak into the preview.
+  // (The server independently enforces moderation permissions.)
+  const isInstructor = viewAsRole !== 'student' && (user?.isInstructor || user?.isAdmin || false);
 
   // (formatDate removed — `formatRelative` from utils/relativeTime is
   // used everywhere on this page now.)

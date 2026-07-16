@@ -19,16 +19,16 @@ router.get('/', authenticateToken, asyncHandler(async (req: AuthRequest, res: Re
   res.json({ success: true, data: chatbots });
 }));
 
-// Get chatbot by name (authenticated - protects system prompts)
+// Get chatbot by name (authenticated - system prompt stripped for non-owners)
 router.get('/name/:name', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const chatbot = await chatbotService.getChatbotByName(req.params.name);
+  const chatbot = await chatbotService.getChatbotByName(req.params.name, req.user!.id, req.user!.isAdmin);
   res.json({ success: true, data: chatbot });
 }));
 
-// Get chatbot by ID (authenticated - protects system prompts)
+// Get chatbot by ID (authenticated - system prompt stripped for non-owners)
 router.get('/:id', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = parseInt(req.params.id);
-  const chatbot = await chatbotService.getChatbotById(id);
+  const chatbot = await chatbotService.getChatbotById(id, req.user!.id, req.user!.isAdmin);
   res.json({ success: true, data: chatbot });
 }));
 

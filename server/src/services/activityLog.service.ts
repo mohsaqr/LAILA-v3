@@ -338,9 +338,10 @@ class ActivityLogService {
   /**
    * Get aggregated statistics
    */
-  async getStats(filters?: { courseId?: number; startDate?: Date; endDate?: Date }) {
+  async getStats(filters?: { courseId?: number; userId?: number; startDate?: Date; endDate?: Date }) {
     const where: Prisma.LearningActivityLogWhereInput = {};
     if (filters?.courseId) where.courseId = filters.courseId;
+    if (filters?.userId) where.userId = filters.userId;
     if (filters?.startDate || filters?.endDate) {
       where.timestamp = {};
       if (filters?.startDate) where.timestamp.gte = filters.startDate;

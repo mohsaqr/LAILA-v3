@@ -226,7 +226,10 @@ export const chatMessageSchema = z.object({
   sessionId: z.string().optional(),
   context: z.string().optional(),
   model: z.string().optional(),
-  systemPrompt: z.string().optional(),
+  // Free-form persona used by the in-app AI tools (dataset generator, prompt
+  // helper, bias research, lab assistant). Capped to bound abuse of the shared
+  // LLM keys. Ignored whenever a chatbotId is supplied (see below).
+  systemPrompt: z.string().max(20000).optional(),
   // Server-resolved persona: when present, the chatbot's stored system prompt
   // is used and any caller-supplied systemPrompt is ignored.
   chatbotId: z.number().int().positive().optional(),

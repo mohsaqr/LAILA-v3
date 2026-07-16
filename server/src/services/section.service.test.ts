@@ -25,6 +25,9 @@ vi.mock('../utils/prisma.js', () => ({
       findUnique: vi.fn(),
       findMany: vi.fn(),
     },
+    course: {
+      findUnique: vi.fn(),
+    },
   },
 }));
 
@@ -72,6 +75,9 @@ describe('SectionService', () => {
   beforeEach(() => {
     sectionService = new SectionService();
     vi.clearAllMocks();
+    // Ownership resolution now flows through courseRoleService.canEditContent ->
+    // hasPermission -> prisma.course.findUnique. Course owner in these fixtures is id 1.
+    vi.mocked(prisma.course.findUnique).mockResolvedValue({ id: 1, instructorId: 1 } as any);
   });
 
   afterEach(() => {

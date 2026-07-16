@@ -174,7 +174,10 @@ export const CourseDetails = () => {
   const isCourseInstructor = user?.id === course.instructorId;
   const showInstructorControls = isCourseInstructor || isTeamMember;
   const hasAccess = isEnrolled || isActualAdmin || isCourseInstructor || isTeamMember;
-  const canManage = showInstructorControls || isActualAdmin;
+  // Staff can manage — UNLESS they're previewing the course as a student, in
+  // which case the management surface (edit toggle, Manage link, publish) must
+  // be hidden so the preview is faithful.
+  const canManage = (showInstructorControls || isActualAdmin) && viewAsRole !== 'student';
   const thumbnail = course.thumbnail
     ? resolveFileUrl(course.thumbnail) || course.thumbnail
     : null;
@@ -564,7 +567,7 @@ export const CourseDetails = () => {
                   courseId={parseInt(id!)}
                   tutors={(course as any).tutors}
                   moduleName={(course as any).collaborativeModuleName}
-                  isInstructor={showInstructorControls || isActualAdmin}
+                  isInstructor={canManage}
                 />
               </div>
             </div>

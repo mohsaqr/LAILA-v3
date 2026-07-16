@@ -115,17 +115,40 @@ export const authenticateToken = async (
   }
 };
 
-export const optionalAuth = (
+export const optionalAuth = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction
-): void => {
+): Promise<void> => {
   const authHeader = req.headers.authorization;
   const token = authHeader?.split(' ')[1];
 
   if (token) {
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as UserPayload;
+
+      // Honour token invalidation and deactivation here too: a revoked or
+      // deactivated user's token must NOT populate req.user on optional-auth
+      // routes (otherwise a logged-out/demoted user still reads as themselves).
+      // On any mismatch we simply proceed anonymously rather than erroring.
+      if (decoded.tokenVersion !== undefined) {
+        let cachedStatus = getCachedUserStatus(decoded.id);
+        if (!cachedStatus) {
+          const user = await prisma.user.findUnique({
+            where: { id: decoded.id },
+            select: { tokenVersion: true, isActive: true },
+          });
+          if (user) {
+            cachedStatus = { tokenVersion: user.tokenVersion, isActive: user.isActive, cachedAt: Date.now() };
+            setCachedUserStatus(decoded.id, { tokenVersion: user.tokenVersion, isActive: user.isActive });
+          }
+        }
+        if (!cachedStatus || !cachedStatus.isActive || cachedStatus.tokenVersion !== decoded.tokenVersion) {
+          next();
+          return;
+        }
+      }
+
       req.user = decoded;
     } catch {
       // Token invalid, but continue without user

@@ -624,11 +624,8 @@ export class CourseService {
       throw new AppError('Course not found', 404);
     }
 
-    if (course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, courseId);
-      if (!isTeam) {
-        throw new AppError('Not authorized to update this course', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, courseId, isAdmin))) {
+      throw new AppError('Not authorized to update this course', 403);
     }
 
     // Store previous values for logging
@@ -708,11 +705,8 @@ export class CourseService {
       throw new AppError('Course not found', 404);
     }
 
-    if (course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, courseId);
-      if (!isTeam) {
-        throw new AppError('Not authorized to delete this course', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, courseId, isAdmin))) {
+      throw new AppError('Not authorized to delete this course', 403);
     }
 
     await prisma.course.delete({
@@ -753,11 +747,8 @@ export class CourseService {
       throw new AppError('Course not found', 404);
     }
 
-    if (course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, courseId);
-      if (!isTeam) {
-        throw new AppError('Not authorized to publish this course', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, courseId, isAdmin))) {
+      throw new AppError('Not authorized to publish this course', 403);
     }
 
     // Check if course has content
@@ -804,11 +795,8 @@ export class CourseService {
       throw new AppError('Course not found', 404);
     }
 
-    if (course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, courseId);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, courseId, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     const updated = await prisma.course.update({
@@ -921,11 +909,8 @@ export class CourseService {
       throw new AppError('Course not found', 404);
     }
 
-    if (course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, courseId);
-      if (!isTeam) {
-        throw new AppError('Not authorized to update this course', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, courseId, isAdmin))) {
+      throw new AppError('Not authorized to update this course', 403);
     }
 
     // Store previous values for logging

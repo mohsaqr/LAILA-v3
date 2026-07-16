@@ -145,6 +145,26 @@ export class EmotionalPulseService {
   // GET STATS (Instructor/Admin)
   // =============================================================================
 
+  /**
+   * Build a Prisma OR filter that restricts pulses to a single course's
+   * resources. Pulses carry no courseId column — each references a course
+   * tutor chatbot (agentId) or a lesson/assignment (contextId) — so course
+   * scoping means resolving those id sets and matching on them. An empty id
+   * set yields `{ in: [] }`, which correctly matches nothing.
+   */
+  private async buildCourseScope(courseId: number) {
+    const [tutors, lectures, assignments] = await Promise.all([
+      prisma.courseTutor.findMany({ where: { courseId }, select: { chatbotId: true } }),
+      prisma.lecture.findMany({ where: { module: { courseId } }, select: { id: true } }),
+      prisma.assignment.findMany({ where: { courseId }, select: { id: true } }),
+    ]);
+    return [
+      { context: 'chatbot', agentId: { in: tutors.map((t) => t.chatbotId) } },
+      { context: 'lesson', contextId: { in: lectures.map((l) => l.id) } },
+      { context: 'assignment', contextId: { in: assignments.map((a) => a.id) } },
+    ];
+  }
+
   async getStats(options?: {
     courseId?: number;
     contextId?: number;
@@ -153,11 +173,23 @@ export class EmotionalPulseService {
     startDate?: Date;
     endDate?: Date;
   }, userId?: number, isAdmin = false) {
-    // If courseId is provided, verify ownership
-    if (options?.courseId && userId) {
-      await this.verifyCourseOwnership(options.courseId, userId, isAdmin);
-    }
     const where: any = {};
+
+    // Non-admins may only see aggregates for a course they own — never the
+    // platform-wide default. Admins may omit courseId for a global view.
+    if (!isAdmin) {
+      if (!options?.courseId || !userId) {
+        throw new AppError('A courseId is required to view emotional pulse stats', 403);
+      }
+      await this.verifyCourseOwnership(options.courseId, userId, false);
+    }
+
+    // Whenever a course is named (by anyone), actually restrict the query to
+    // that course's pulses — ownership was verified above but the filter is a
+    // separate obligation.
+    if (options?.courseId) {
+      where.OR = await this.buildCourseScope(options.courseId);
+    }
 
     if (options?.context) {
       where.context = options.context;
@@ -255,10 +287,6 @@ export class EmotionalPulseService {
     courseId?: number;
     days?: number;
   }, userId?: number, isAdmin = false) {
-    // If courseId is provided, verify ownership
-    if (options?.courseId && userId) {
-      await this.verifyCourseOwnership(options.courseId, userId, isAdmin);
-    }
     const days = options?.days || 7;
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
@@ -266,6 +294,17 @@ export class EmotionalPulseService {
     const where: any = {
       createdAt: { gte: startDate },
     };
+
+    // Non-admins may only see a course they own; admins may go platform-wide.
+    if (!isAdmin) {
+      if (!options?.courseId || !userId) {
+        throw new AppError('A courseId is required to view emotional pulse timeline', 403);
+      }
+      await this.verifyCourseOwnership(options.courseId, userId, false);
+    }
+    if (options?.courseId) {
+      where.OR = await this.buildCourseScope(options.courseId);
+    }
 
     if (options?.context) {
       where.context = options.context;

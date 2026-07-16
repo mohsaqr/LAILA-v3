@@ -25,6 +25,10 @@ vi.mock('../utils/prisma.js', () => ({
 vi.mock('./courseRole.service.js', () => ({
   courseRoleService: {
     isTeamMember: vi.fn(),
+    // Mutation guards now route through canEditContent (folds in owner+admin).
+    canEditContent: vi.fn().mockResolvedValue(true),
+    canGrade: vi.fn().mockResolvedValue(true),
+    canManageStudents: vi.fn().mockResolvedValue(true),
   },
 }));
 

@@ -13,11 +13,8 @@ export class ModuleService {
       throw new AppError('Course not found', 404);
     }
 
-    if (course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     return course;
@@ -116,11 +113,8 @@ export class ModuleService {
       throw new AppError('Module not found', 404);
     }
 
-    if (module.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, module.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, module.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     const updated = await prisma.courseModule.update({
@@ -146,11 +140,8 @@ export class ModuleService {
       throw new AppError('Module not found', 404);
     }
 
-    if (module.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, module.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, module.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     await prisma.courseModule.delete({

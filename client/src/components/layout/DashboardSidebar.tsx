@@ -136,8 +136,11 @@ export const DashboardSidebar = ({ mobileOpen = false, onMobileClose, isDesktop 
     { label: t('admin:system_label', { defaultValue: 'System' }), icon: Settings, path: '/admin/settings?tab=system' },
   ];
 
+  // `isInstructor` is already the effective (viewAs-aware) role; an admin
+  // previewing as a student must also drop to the student nav, so exclude the
+  // actual-admin shortcut while previewing as a student.
   const baseNavItems: NavItem[] =
-    (isInstructor || isActualAdmin) ? instructorNavItems : studentNavItems;
+    (viewAsRole !== 'student' && (isInstructor || isActualAdmin)) ? instructorNavItems : studentNavItems;
 
   const navItems: NavEntry[] = showAdminSection
     ? [

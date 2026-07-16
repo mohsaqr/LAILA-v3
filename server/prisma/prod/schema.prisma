@@ -61,6 +61,7 @@ model VerificationCode {
   userId    Int      @map("user_id")
   code      String
   expiresAt DateTime @map("expires_at")
+  attempts  Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
