@@ -108,7 +108,6 @@ export const DashboardSidebar = ({ mobileOpen = false, onMobileClose, isDesktop 
     { label: t('courses'), icon: GraduationCap, path: '/courses' },
     { label: t('ai_tools'), icon: BrainCircuit, path: '/ai-tools' },
     { label: t('labs'), icon: FlaskConical, path: '/labs' },
-    { label: t('lab_templates'), icon: FlaskConical, path: '/teach/labs' },
     { label: t('quizzes'), icon: FileQuestion, path: '/teach/quizzes' },
     { label: t('assignments'), icon: FileText, path: '/teach/assignments' },
     { label: t('surveys'), icon: ClipboardCheck, path: '/teach/surveys' },

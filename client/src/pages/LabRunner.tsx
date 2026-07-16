@@ -1,10 +1,9 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import {
   RefreshCw,
-  HelpCircle,
   Loader2,
   AlertTriangle,
   ArrowLeft,
@@ -16,7 +15,7 @@ import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { customLabsApi } from '../api/customLabs';
 import { assignmentsApi } from '../api/assignments';
-import { LabCodeEditor, LabOutput, LabTemplates, LabAssignmentPanel } from '../components/labs';
+import { LabAssignmentPanel } from '../components/labs';
 import { ReportItem } from '../components/labs/LabAssignmentPanel';
 import { Button } from '../components/common/Button';
 import { Card, CardBody } from '../components/common/Card';
@@ -25,6 +24,13 @@ import { useLabWebR } from '../hooks/useLabWebR';
 import { useLabPyodide } from '../hooks/useLabPyodide';
 import { useTheme } from '../hooks/useTheme';
 import { LabTemplate } from '../types';
+import { isPythonLab } from '../utils/labType';
+import { useAuthStore } from '../store/authStore';
+import { LabNotebook } from '../components/labs/notebook/LabNotebook';
+import { LabSettingsHeader } from '../components/labs/notebook/LabSettingsHeader';
+import { LabAIPanel, AICellContext } from '../components/labs/notebook/LabAIPanel';
+import { templateToCell, cellPatchToTemplate, LabCellPatch, LabCell } from '../components/labs/authoring/cell';
+import type { OutputItem as NotebookOutputItem } from '../components/labs/LabOutput';
 import { activityLogger } from '../services/activityLogger';
 import { useTracker } from '../services/tracker';
 
@@ -48,7 +54,9 @@ interface LabHookResult {
   reset: () => Promise<void>;
 }
 
-export const isPythonLab = (labType: string) => labType.startsWith('python');
+// Re-exported for existing consumers; the predicate itself now lives in utils
+// so authoring pages can use it without pulling in the webR/Pyodide runtime.
+export { isPythonLab };
 
 // Shared lab runner UI — receives hook result as props
 export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPanelClose }: { lab: any; hook: LabHookResult; courseId: number | null; hideSubmit?: boolean; openPanel?: boolean; onPanelClose?: () => void }) => {
@@ -87,14 +95,101 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
   });
   const hasSubmitted = existingSubmission?.status === 'submitted';
 
-  const defaultCode = isPythonLab(lab.labType)
-    ? '# Enter your Python code here\n'
-    : '# Enter your R code here\n';
+  /** Last cell the user ran — drives report capture and submission context. */
+  const [lastRun, setLastRun] = useState<{ cellId: number; title: string; code: string } | null>(null);
+  const [hasAnyOutput, setHasAnyOutput] = useState(false);
 
-  const [code, setCode] = useState(defaultCode);
-  const [outputs, setOutputs] = useState<OutputItem[]>([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
-  const selectedTemplate = (lab.templates ?? []).find((t: LabTemplate) => t.id === selectedTemplateId) ?? null;
+  // ─── In-place authoring (owner / admin only) ────────────────────────────
+  // Subscribing to user AND viewAsRole keeps this reactive: switching to
+  // "view as student" must strip author powers, including on your own lab.
+  const currentUser = useAuthStore(s => s.user);
+  useAuthStore(s => s.viewAsRole);
+  const { isAdmin, isInstructor } = useAuthStore(s => s.getEffectiveRole)();
+  const canEditLab =
+    !!currentUser && (isAdmin || (isInstructor && lab.createdBy === currentUser.id));
+
+  const sortedTemplates: LabTemplate[] = [...(lab.templates ?? [])].sort(
+    (a: LabTemplate, b: LabTemplate) => a.orderIndex - b.orderIndex
+  );
+  const notebookCells: LabCell[] = sortedTemplates.map(templateToCell);
+
+  // AI assistant (attached per lab by the instructor)
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiContext, setAiContext] = useState<AICellContext | null>(null);
+
+  // The lab query is keyed by the raw string route param (['lab', '20']), so a
+  // number key here would never match and the list would silently not refresh.
+  // Matching on the prefix covers both callers regardless of id type.
+  const invalidateLab = () => {
+    queryClient.invalidateQueries({ queryKey: ['lab'] });
+    queryClient.invalidateQueries({ queryKey: ['myLabs'] });
+  };
+
+  const addTemplateMutation = useMutation({
+    // The server inserts at the position atomically — no client-side reorder,
+    // no race against a stale template snapshot.
+    mutationFn: ({ position, cellType }: { position: number; cellType: 'code' | 'markdown' }) =>
+      customLabsApi.addTemplate(lab.id, {
+        title: cellType === 'markdown' ? 'Text' : 'New cell',
+        description: cellType === 'markdown' ? 'Write your content here…' : '',
+        code: cellType === 'markdown'
+          ? ''
+          : isPythonLab(lab.labType) ? '# Enter Python code here\n' : '# Enter R code here\n',
+        position,
+        cellType,
+      }),
+    onSuccess: () => {
+      invalidateLab();
+      toast.success('Cell added');
+    },
+    onError: (e: Error) => toast.error(e.message || 'Failed to add cell'),
+  });
+
+  const updateTemplateMutation = useMutation({
+    mutationFn: ({ templateId, patch }: { templateId: number; patch: LabCellPatch }) =>
+      customLabsApi.updateTemplate(lab.id, templateId, cellPatchToTemplate(patch)),
+    onSuccess: () => {
+      invalidateLab();
+      toast.success('Cell saved');
+    },
+    onError: (e: Error) => toast.error(e.message || 'Failed to save cell'),
+  });
+
+  const duplicateTemplateMutation = useMutation({
+    mutationFn: (templateId: number) => {
+      const source = sortedTemplates.find((t: LabTemplate) => t.id === templateId);
+      if (!source) throw new Error('Cell not found');
+      const at = sortedTemplates.findIndex((t: LabTemplate) => t.id === templateId);
+      return customLabsApi.addTemplate(lab.id, {
+        title: `${source.title} (copy)`,
+        description: source.description ?? '',
+        code: source.code,
+        locked: source.locked ?? false,
+        cellType: source.cellType ?? 'code',
+        position: at + 1,
+      });
+    },
+    onSuccess: () => {
+      invalidateLab();
+      toast.success('Cell duplicated');
+    },
+    onError: (e: Error) => toast.error(e.message || 'Failed to duplicate cell'),
+  });
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: (templateId: number) => customLabsApi.deleteTemplate(lab.id, templateId),
+    onSuccess: () => {
+      invalidateLab();
+      toast.success('Cell deleted');
+    },
+    onError: (e: Error) => toast.error(e.message || 'Failed to delete cell'),
+  });
+
+  const reorderTemplatesMutation = useMutation({
+    mutationFn: (ids: number[]) => customLabsApi.reorderTemplates(lab.id, ids),
+    onSuccess: invalidateLab,
+    onError: (e: Error) => toast.error(e.message || 'Failed to reorder'),
+  });
 
   const {
     isReady,
@@ -132,9 +227,10 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
 
   // Reset state when lab changes (e.g. navigating between labs)
   useEffect(() => {
-    setCode(defaultCode);
-    setOutputs([]);
-    setSelectedTemplateId(null);
+    setLastRun(null);
+    setHasAnyOutput(false);
+    setAiOpen(false);
+    setAiContext(null);
     setReportItems([]);
     setSessionEvents([]);
     setVisitedTemplates([]);
@@ -143,55 +239,47 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lab.id]);
 
-  // Auto-select first template on load
-  useEffect(() => {
-    const templates = lab.templates;
-    if (templates && templates.length > 0 && selectedTemplateId === null) {
-      const first = [...templates].sort((a, b) => a.orderIndex - b.orderIndex)[0];
-      setCode(first.code);
-      setSelectedTemplateId(first.id);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lab.templates]);
-
-  const handleSelectTemplate = useCallback((template: LabTemplate) => {
-    setCode(template.code);
-    setSelectedTemplateId(template.id);
-    setOutputs([]);
-    logSession('Template selected: ' + template.title);
-    track('template_selected', { verb: 'selected', objectType: 'lab', objectId: lab.id, objectTitle: `${lab.name}: ${template.title}`, courseId: courseId ?? undefined, payload: { templateName: template.title, templateId: template.id } });
-  }, [logSession, lab.id, lab.name, courseId, track]);
-
-  const handleRunCode = useCallback(async () => {
-    if (!isReady || isExecuting) return;
-    const templateTitle = selectedTemplate?.title || 'Code';
-    logSession('Code executed: ' + templateTitle);
-    setVisitedTemplates(prev => [...new Set([...prev, templateTitle])]);
-    const result = await executeCode(code);
-    if (result.success) {
-      setOutputs(result.outputs);
-    } else {
-      setOutputs([
-        ...result.outputs,
-        ...(result.error ? [{ type: 'stderr' as const, content: result.error }] : []),
-      ]);
-    }
-    track('code_executed', { verb: 'interacted', objectType: 'lab', objectId: lab.id, objectTitle: `${lab.name}: code executed`, courseId: courseId ?? undefined, success: result.success, payload: { templateTitle, codeLength: code.length, outputCount: result.outputs.length } });
-  }, [code, isReady, isExecuting, executeCode, selectedTemplate, logSession, lab.id, lab.name, courseId, track]);
-
   const handleResetSession = useCallback(async () => {
     track('session_reset', { verb: 'interacted', objectType: 'lab', courseId: courseId ?? undefined });
-    setOutputs([]);
+    setLastRun(null);
+    setHasAnyOutput(false);
     await resetRuntime();
   }, [resetRuntime, track, courseId]);
 
-  const handleClearOutputs = useCallback(() => {
-    track('output_cleared', { verb: 'interacted', objectType: 'lab', courseId: courseId ?? undefined });
-    setOutputs([]);
-  }, [track, courseId]);
+  // Bookkeeping after each notebook cell run: activity log + submission context.
+  const handleCellRun = useCallback(
+    (cell: LabCell, cellCode: string, result: { success: boolean; outputs: NotebookOutputItem[] }) => {
+      logSession('Code executed: ' + cell.title);
+      setVisitedTemplates(prev => [...new Set([...prev, cell.title])]);
+      setLastRun({ cellId: cell.id, title: cell.title, code: cellCode });
+      if (result.outputs.length > 0) setHasAnyOutput(true);
+      track('code_executed', { verb: 'interacted', objectType: 'lab', objectId: lab.id, objectTitle: `${lab.name}: code executed`, courseId: courseId ?? undefined, success: result.success, payload: { templateTitle: cell.title, codeLength: cellCode.length, outputCount: result.outputs.length } });
+    },
+    [logSession, lab.id, lab.name, courseId, track]
+  );
+
+  const handleAskAI = useCallback(
+    (cell: LabCell, cellCode: string, error: string | null, output?: string) => {
+      setAiContext({ cell, code: cellCode, error, output });
+      setAiOpen(true);
+    },
+    []
+  );
+
+  // Referential stability matters: NotebookCell is memoized, and a fresh
+  // runtime object every render would defeat it via runOne's deps.
+  const notebookRuntime = useMemo(
+    () => ({ isReady, isExecuting, executeCode, reset: handleResetSession }),
+    [isReady, isExecuting, executeCode, handleResetSession]
+  );
 
   const handleAddToReport = useCallback(async () => {
-    const el = outputAreaRef.current;
+    // Capture just the output of the last-run cell — a full-notebook screenshot
+    // is oversized and mislabelled.
+    const el = lastRun
+      ? outputAreaRef.current?.querySelector<HTMLElement>(`[data-cell-output="${lastRun.cellId}"]`) ??
+        outputAreaRef.current
+      : outputAreaRef.current;
     if (!el || isCapturing) return;
     setIsCapturing(true);
     try {
@@ -203,12 +291,13 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
       });
       const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
       const now = Date.now();
-      const label = selectedTemplate?.title || 'Code Output';
+      const label = lastRun?.title || 'Code Output';
+      const capturedCode = lastRun?.code ?? '';
       // Use code content as key so same code recaptures (overwrites), different code adds new entry
-      const key = `${label}-${(code || '').trim()}`;
+      const key = `${label}-${capturedCode.trim()}`;
       setReportItems(prev => {
         const filtered = prev.filter(r => r.key !== key);
-        return [...filtered, { key, label, dataUrl, timestamp: now, code }];
+        return [...filtered, { key, label, dataUrl, timestamp: now, code: capturedCode }];
       });
       logSession('Snapshot added: ' + label);
       track('report_captured', { verb: 'interacted', objectType: 'lab', courseId: courseId ?? undefined });
@@ -219,7 +308,7 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
     } finally {
       setIsCapturing(false);
     }
-  }, [selectedTemplate, isCapturing, logSession, code]);
+  }, [lastRun, isCapturing, logSession, track, courseId]);
 
   const getLoadingMessage = () => {
     if (isPythonLab(lab.labType)) {
@@ -251,49 +340,6 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
                   ]
             }
           />
-        </div>
-
-        {/* Header actions */}
-        <div className="flex justify-end mb-6">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2 text-sm">
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  isReady
-                    ? 'bg-emerald-500'
-                    : runtimeLoading
-                    ? 'bg-amber-500 animate-pulse'
-                    : 'bg-red-500'
-                }`}
-              />
-              <span style={{ color: colors.textSecondary }}>
-                {isReady
-                  ? `${langLabel} ready`
-                  : runtimeLoading
-                  ? loadingStatus
-                  : runtimeError || `${langLabel} error`}
-              </span>
-            </div>
-
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleResetSession}
-              disabled={runtimeLoading}
-              icon={<RefreshCw className="w-4 h-4" />}
-            >
-              {t('reset_session')}
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={<HelpCircle className="w-4 h-4" />}
-            >
-              {t('common:help')}
-            </Button>
-
-          </div>
         </div>
 
         {/* Loading State */}
@@ -350,93 +396,73 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
           </Card>
         )}
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6" ref={labContentRef}>
-          <div className="lg:col-span-1">
-            <LabTemplates
-              templates={lab.templates || []}
-              selectedTemplateId={selectedTemplateId}
-              onSelectTemplate={handleSelectTemplate}
-            />
+        {/* Lab identity + settings, on the page itself */}
+        <LabSettingsHeader lab={lab} canEdit={canEditLab} />
 
-            <Card className="mt-6">
-              <CardBody className="p-4">
-                <h3 className="font-medium mb-3" style={{ color: colors.textPrimary }}>
-                  {t('lab_tips')}
-                </h3>
-                <ul className="text-sm space-y-2" style={{ color: colors.textSecondary }}>
-                  <li>- Press <kbd className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-xs font-mono">Ctrl+Enter</kbd> to run code</li>
-                  <li>- Click a template to load it into the editor</li>
-                  <li>- Plots will appear in the output section</li>
-                  <li>- Variables persist between runs</li>
-                  <li>- Use Reset Session to clear all state</li>
-                </ul>
-              </CardBody>
-            </Card>
-          </div>
-
-          <div className="lg:col-span-3 space-y-6">
-            {selectedTemplate?.description && (
-              <div
-                className="rounded-lg border p-5"
-                style={{ backgroundColor: colors.cardBg, borderColor: colors.border }}
-              >
-                <h2 className="text-base font-semibold mb-3" style={{ color: colors.textPrimary }}>
-                  {selectedTemplate.title}
-                </h2>
-                <div
-                  className="text-sm leading-relaxed whitespace-pre-line"
-                  style={{ color: colors.textSecondary }}
-                >
-                  {selectedTemplate.description}
-                </div>
-              </div>
-            )}
-
-            <LabCodeEditor
-              code={code}
-              onChange={setCode}
-              onRun={handleRunCode}
-              isExecuting={isExecuting}
-              isReady={isReady}
-            />
-
-            <LabOutput
-              outputs={outputs}
-              onClear={handleClearOutputs}
-              labId={lab.id}
-              code={code}
-              templateTitle={selectedTemplate?.title}
+        {/* Notebook — the single unified lab surface */}
+        <div ref={labContentRef}>
+          <div ref={outputAreaRef}>
+            <LabNotebook
+              key={lab.id}
+              cells={notebookCells}
               language={isPythonLab(lab.labType) ? 'python' : 'r'}
-              outputRef={outputAreaRef}
+              canEdit={canEditLab}
+              runtime={notebookRuntime}
+              runtimeStatus={loadingStatus}
+              onSaveCell={(cellId, patch) =>
+                updateTemplateMutation.mutate({ templateId: cellId, patch })
+              }
+              onAddCell={(position, cellType) => addTemplateMutation.mutate({ position, cellType })}
+              onDuplicateCell={cell => duplicateTemplateMutation.mutate(cell.id)}
+              onDeleteCell={cell => deleteTemplateMutation.mutate(cell.id)}
+              onReorder={ids => reorderTemplatesMutation.mutate(ids)}
+              onCellRun={handleCellRun}
+              onAskAI={lab.aiChatbotId ? handleAskAI : undefined}
+              isMutating={
+                addTemplateMutation.isPending ||
+                duplicateTemplateMutation.isPending ||
+                deleteTemplateMutation.isPending ||
+                reorderTemplatesMutation.isPending
+              }
             />
-
-            {/* Add to Report button (only when lab is linked to an assignment) */}
-            {outputs.length > 0 && assignmentConfig?.assignment && (() => {
-              const currentKey = `${selectedTemplate?.title || 'Code Output'}-${(code || '').trim()}`;
-              const isCaptured = reportItems.some(r => r.key === currentKey);
-              return (
-                <button
-                  onClick={handleAddToReport}
-                  disabled={isCapturing}
-                  className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                    isCaptured
-                      ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700'
-                      : 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border-dashed border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:border-indigo-400'
-                  }`}
-                >
-                  {isCapturing ? <Loader2 className="w-4 h-4 animate-spin" />
-                    : isCaptured ? <CheckCircle className="w-4 h-4" />
-                    : <Camera className="w-4 h-4" />}
-                  {isCapturing ? 'Capturing...'
-                    : isCaptured ? `Captured (${reportItems.length}) — click to recapture`
-                    : `Add this output to report${reportItems.length > 0 ? ` (${reportItems.length})` : ''}`}
-                </button>
-              );
-            })()}
           </div>
+
+          {/* Add to Report (only when lab is linked to an assignment) */}
+          {hasAnyOutput && assignmentConfig?.assignment && (() => {
+            const currentKey = `${lastRun?.title || 'Code Output'}-${(lastRun?.code ?? '').trim()}`;
+            const isCaptured = reportItems.some(r => r.key === currentKey);
+            return (
+              <button
+                onClick={handleAddToReport}
+                disabled={isCapturing || !lastRun}
+                className={`mt-4 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                  isCaptured
+                    ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700'
+                    : 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 border-dashed border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:border-indigo-400'
+                }`}
+              >
+                {isCapturing ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : isCaptured ? <CheckCircle className="w-4 h-4" />
+                  : <Camera className="w-4 h-4" />}
+                {isCapturing ? 'Capturing...'
+                  : isCaptured ? `Captured (${reportItems.length}) — click to recapture`
+                  : `Add this output to report${reportItems.length > 0 ? ` (${reportItems.length})` : ''}`}
+              </button>
+            );
+          })()}
         </div>
       </div>
+
+      {lab.aiChatbotId != null && (
+        <LabAIPanel
+          chatbotId={lab.aiChatbotId}
+          labName={lab.name}
+          language={isPythonLab(lab.labType) ? 'python' : 'r'}
+          cellContext={aiContext}
+          isOpen={aiOpen}
+          onClose={() => setAiOpen(false)}
+        />
+      )}
 
       {assignmentConfig?.assignment && !hideSubmit && !hasSubmitted && (
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 pb-6 flex justify-end">
@@ -458,12 +484,12 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
           labContentRef={labContentRef}
           labId={lab.id}
           courseId={courseId ?? 0}
-          hasActiveAnalysis={outputs.length > 0}
-          activeAnalysisKey={selectedTemplate?.title || 'Code Output'}
+          hasActiveAnalysis={hasAnyOutput}
+          activeAnalysisKey={lastRun?.title || 'Code Output'}
           visitedAnalyses={visitedTemplates}
           sessionConfig={{
             labType: isPythonLab(lab.labType) ? 'python' : 'r',
-            datasetName: selectedTemplate?.title || lab.name,
+            datasetName: lastRun?.title || lab.name,
           }}
           sessionEvents={sessionEvents}
           reportItems={reportItems}
@@ -471,7 +497,7 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
           courseNumericId={courseId ?? 0}
           assignmentId={assignmentConfig.assignment.id}
           courseName={assignmentConfig.course?.title}
-          code={code}
+          code={lastRun?.code ?? ''}
           onSubmitted={() => {
             setAssignmentPanelOpen(false);
             queryClient.invalidateQueries({ queryKey: ['mySubmission', assignmentConfig!.assignment!.id] });
@@ -479,6 +505,7 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
           }}
         />
       )}
+
     </div>
   );
 };

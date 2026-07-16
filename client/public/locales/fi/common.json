@@ -207,5 +207,6 @@
   "view_full_calendar": "Näytä koko kalenteri",
   "continue": "Jatka",
   "clear_all": "Tyhjennä kaikki",
-  "showing_range": "Näytetään {{from}}–{{to}} / {{total}}"
+  "showing_range": "Näytetään {{from}}–{{to}} / {{total}}",
+  "duplicate": "Monista"
 }

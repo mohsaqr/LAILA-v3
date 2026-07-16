@@ -19,18 +19,36 @@ const queryClient = new QueryClient({
   },
 });
 
-// Register service worker for PWA
+// Register the PWA service worker in production only.
+//
+// In dev the SW caches hashed module URLs that Vite re-generates on every
+// restart, so it serves stale JS (new components silently don't appear) and
+// can fail navigations outright. Skipping registration is not enough: an SW
+// installed by an earlier session stays active until it is unregistered, so
+// dev must actively tear down any existing registration and its caches.
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('/sw.js')
-      .then((registration) => {
-        console.log('SW registered:', registration.scope);
-      })
-      .catch((error) => {
-        console.log('SW registration failed:', error);
+  if (import.meta.env.PROD) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then(registration => {
+          console.log('SW registered:', registration.scope);
+        })
+        .catch(error => {
+          console.log('SW registration failed:', error);
+        });
+    });
+  } else {
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+      registrations.forEach(registration => {
+        registration.unregister();
+        console.log('[dev] Unregistered stale service worker:', registration.scope);
       });
-  });
+    });
+    if ('caches' in window) {
+      caches.keys().then(keys => keys.forEach(key => caches.delete(key)));
+    }
+  }
 }
 
 // Loading fallback for i18n

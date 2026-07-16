@@ -63,6 +63,11 @@ export const customLabsApi = {
   },
 
   // Templates
+  duplicateLab: async (id: number) => {
+    const response = await apiClient.post<ApiResponse<CustomLab>>(`/labs/${id}/duplicate`);
+    return response.data.data!;
+  },
+
   addTemplate: async (labId: number, data: CreateLabTemplateData) => {
     const response = await apiClient.post<ApiResponse<LabTemplate>>(
       `/labs/${labId}/templates`,

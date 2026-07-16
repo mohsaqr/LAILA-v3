@@ -202,5 +202,6 @@
   "clear_all": "Clear all",
   "showing_range": "Showing {{from}}–{{to}} of {{total}}",
   "visible": "Visible",
-  "change": "Change"
+  "change": "Change",
+  "duplicate": "Duplicate"
 }

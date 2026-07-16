@@ -107,6 +107,7 @@ const OBJECT_OVERRIDES: Record<string, string> = {
   course_tutor_conversation: 'AI_engaged',
   emotional_pulse: 'expressed',
   lab: 'practiced',
+  code_lab: 'practiced',
   forum: 'interacted',
   survey: 'expressed',
   certificate: 'regulated',
@@ -167,6 +168,10 @@ const DEFAULT_INTERPRETATIONS: Record<string, string> = {
   'interacted:lab': 'practiced',
   'selected:lab': 'practiced',
   'submitted:lab': 'assessment',
+  'viewed:code_lab': 'learning',
+  'started:code_lab': 'learning',
+  'interacted:code_lab': 'practiced',
+  'submitted:code_lab': 'assessment',
 
   // interacted – forum participation
   'interacted:forum': 'interacted',

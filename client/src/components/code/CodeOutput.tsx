@@ -9,15 +9,21 @@ interface CodeOutputProps {
   outputs: OutputItem[];
   isExecuting?: boolean;
   error?: string | null;
+  language?: 'r' | 'python';
 }
 
-export const CodeOutput = ({ outputs, isExecuting, error }: CodeOutputProps) => {
+/** Runtimes emit bare base64 for plots; browsers need a data URI. */
+const plotSrc = (content: string) =>
+  content.startsWith('data:') ? content : `data:image/png;base64,${content}`;
+
+export const CodeOutput = ({ outputs, isExecuting, error, language = 'r' }: CodeOutputProps) => {
+  const langLabel = language === 'python' ? 'Python' : 'R';
   if (isExecuting) {
     return (
       <div className="bg-gray-900 rounded-lg p-4 font-mono text-sm">
         <div className="flex items-center gap-2 text-gray-400">
           <div className="animate-spin w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full" />
-          <span>Executing R code...</span>
+          <span>{`Executing ${langLabel} code...`}</span>
         </div>
       </div>
     );
@@ -52,7 +58,7 @@ export const CodeOutput = ({ outputs, isExecuting, error }: CodeOutputProps) => 
             return (
               <div key={index} className="bg-white rounded p-2">
                 <img
-                  src={output.content}
+                  src={plotSrc(output.content)}
                   alt={`Plot ${index + 1}`}
                   className="max-w-full h-auto"
                 />

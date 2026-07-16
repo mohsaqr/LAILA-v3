@@ -111,6 +111,9 @@ export interface ChatRequest {
   model?: string;
   provider?: string;
   systemPrompt?: string;
+  /** When set, the chatbot's stored system prompt is used server-side and any
+   *  caller-supplied systemPrompt is ignored. */
+  chatbotId?: number;
   conversationHistory?: ChatMessage[]; // Previous messages for context
   temperature?: number;
 }

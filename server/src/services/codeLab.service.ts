@@ -17,19 +17,25 @@ interface UpdateCodeLabInput {
   description?: string;
   isPublished?: boolean;
   orderIndex?: number;
+  aiChatbotId?: number | null;
 }
 
 interface CreateCodeBlockInput {
   title: string;
   instructions?: string;
   starterCode?: string;
+  locked?: boolean;
+  /** Insert so the cell lands at this position in the current order. */
+  position?: number;
+  cellType?: 'code' | 'markdown';
 }
 
 interface UpdateCodeBlockInput {
   title?: string;
   instructions?: string;
   starterCode?: string;
-  orderIndex?: number;
+  locked?: boolean;
+  cellType?: 'code' | 'markdown';
 }
 
 export class CodeLabService {
@@ -275,6 +281,13 @@ export class CodeLabService {
   async updateCodeLab(codeLabId: number, instructorId: number, data: UpdateCodeLabInput, isAdmin = false) {
     await this.verifyCodeLabOwnership(codeLabId, instructorId, isAdmin);
 
+    if (data.aiChatbotId != null) {
+      const bot = await prisma.chatbot.findUnique({ where: { id: data.aiChatbotId }, select: { isActive: true } });
+      if (!bot || !bot.isActive) {
+        throw new AppError('AI assistant not found or inactive', 400);
+      }
+    }
+
     const updated = await prisma.codeLab.update({
       where: { id: codeLabId },
       data,
@@ -336,14 +349,27 @@ export class CodeLabService {
       select: { orderIndex: true },
     });
 
-    const block = await prisma.codeBlock.create({
-      data: {
-        codeLabId,
-        title: data.title,
-        instructions: data.instructions,
-        starterCode: data.starterCode,
-        orderIndex: (maxOrder?.orderIndex ?? -1) + 1,
-      },
+    const appendIndex = (maxOrder?.orderIndex ?? -1) + 1;
+    const position = data.position != null ? Math.max(0, Math.min(data.position, appendIndex)) : null;
+
+    const block = await prisma.$transaction(async tx => {
+      if (position != null) {
+        await tx.codeBlock.updateMany({
+          where: { codeLabId, orderIndex: { gte: position } },
+          data: { orderIndex: { increment: 1 } },
+        });
+      }
+      return tx.codeBlock.create({
+        data: {
+          codeLabId,
+          title: data.title,
+          instructions: data.instructions,
+          starterCode: data.starterCode,
+          orderIndex: position ?? appendIndex,
+          locked: data.locked ?? false,
+          cellType: data.cellType ?? 'code',
+        },
+      });
     });
 
     return block;
@@ -382,7 +408,23 @@ export class CodeLabService {
   async reorderCodeBlocks(codeLabId: number, instructorId: number, blockIds: number[], isAdmin = false) {
     await this.verifyCodeLabOwnership(codeLabId, instructorId, isAdmin);
 
-    await Promise.all(
+    // Must be exactly a permutation of this lab's block ids — foreign ids,
+    // duplicates, or omissions could corrupt another lab's ordering.
+    const existing = await prisma.codeBlock.findMany({
+      where: { codeLabId },
+      select: { id: true },
+    });
+    const existingIds = new Set(existing.map(b => b.id));
+    const submitted = new Set(blockIds);
+    if (
+      submitted.size !== blockIds.length ||
+      submitted.size !== existingIds.size ||
+      blockIds.some(id => !existingIds.has(id))
+    ) {
+      throw new AppError('Block id list must match the lab\'s blocks exactly', 400);
+    }
+
+    await prisma.$transaction(
       blockIds.map((id, index) =>
         prisma.codeBlock.update({
           where: { id },

@@ -72,7 +72,6 @@ import { DashboardCalendar } from './pages/DashboardCalendar';
 import { CodeLabPage } from './pages/CodeLabPage';
 import { Labs } from './pages/Labs';
 import { LabRunner } from './pages/LabRunner';
-import { LabManager } from './pages/teach/LabManager';
 import { QuizView } from './pages/QuizView';
 import { QuizResults } from './pages/QuizResults';
 import { Forum } from './pages/Forum';
@@ -894,15 +893,8 @@ function App() {
           }
         />
 
-        {/* Lab Management (Instructor) */}
-        <Route
-          path="/teach/labs"
-          element={
-            <ProtectedRoute requireInstructor>
-              <LabManager />
-            </ProtectedRoute>
-          }
-        />
+        {/* Lab management moved onto the labs catalog + lab pages */}
+        <Route path="/teach/labs" element={<Navigate to="/labs" replace />} />
 
         {/* Quiz List (Instructor - all quizzes) */}
         <Route

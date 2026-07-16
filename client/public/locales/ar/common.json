@@ -207,5 +207,6 @@
   "view_full_calendar": "عرض التقويم الكامل",
   "continue": "متابعة",
   "clear_all": "مسح الكل",
-  "showing_range": "عرض {{from}}–{{to}} من {{total}}"
+  "showing_range": "عرض {{from}}–{{to}} من {{total}}",
+  "duplicate": "تكرار"
 }

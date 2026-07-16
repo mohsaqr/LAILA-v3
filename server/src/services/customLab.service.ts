@@ -16,6 +16,7 @@ interface UpdateCustomLabInput {
   labType?: string;
   config?: string;
   isPublic?: boolean;
+  aiChatbotId?: number | null;
 }
 
 interface CreateLabTemplateInput {
@@ -23,13 +24,18 @@ interface CreateLabTemplateInput {
   description?: string;
   code: string;
   orderIndex?: number;
+  locked?: boolean;
+  /** Insert so the cell lands at this position in the current order. */
+  position?: number;
+  cellType?: 'code' | 'markdown';
 }
 
 interface UpdateLabTemplateInput {
   title?: string;
   description?: string;
   code?: string;
-  orderIndex?: number;
+  locked?: boolean;
+  cellType?: 'code' | 'markdown';
 }
 
 interface LabFilters {
@@ -2931,6 +2937,13 @@ export class CustomLabService {
   async updateLab(labId: number, userId: number, data: UpdateCustomLabInput, isAdmin = false) {
     await this.verifyLabOwnership(labId, userId, isAdmin);
 
+    if (data.aiChatbotId != null) {
+      const bot = await prisma.chatbot.findUnique({ where: { id: data.aiChatbotId }, select: { isActive: true } });
+      if (!bot || !bot.isActive) {
+        throw new AppError('AI assistant not found or inactive', 400);
+      }
+    }
+
     const updated = await prisma.customLab.update({
       where: { id: labId },
       data,
@@ -2977,14 +2990,29 @@ export class CustomLabService {
       select: { orderIndex: true },
     });
 
-    const template = await prisma.labTemplate.create({
-      data: {
-        labId,
-        title: data.title,
-        description: data.description,
-        code: data.code,
-        orderIndex: data.orderIndex ?? (maxOrder?.orderIndex ?? -1) + 1,
-      },
+    const appendIndex = (maxOrder?.orderIndex ?? -1) + 1;
+    const position = data.position != null ? Math.max(0, Math.min(data.position, appendIndex)) : null;
+
+    const template = await prisma.$transaction(async tx => {
+      if (position != null) {
+        // Shift everything at/after the insertion point so the new cell lands
+        // exactly where the author clicked — atomically, no client reorder.
+        await tx.labTemplate.updateMany({
+          where: { labId, orderIndex: { gte: position } },
+          data: { orderIndex: { increment: 1 } },
+        });
+      }
+      return tx.labTemplate.create({
+        data: {
+          labId,
+          title: data.title,
+          description: data.description,
+          code: data.code,
+          orderIndex: position ?? data.orderIndex ?? appendIndex,
+          locked: data.locked ?? false,
+          cellType: data.cellType ?? 'code',
+        },
+      });
     });
 
     return template;
@@ -3036,12 +3064,75 @@ export class CustomLabService {
   }
 
   /**
+   * Duplicate a lab with all of its cells. The copy is private and owned by
+   * the caller.
+   */
+  async duplicateLab(labId: number, userId: number, isAdmin = false) {
+    await this.verifyLabOwnership(labId, userId, isAdmin);
+
+    const source = await prisma.customLab.findUnique({
+      where: { id: labId },
+      include: { templates: { orderBy: { orderIndex: 'asc' } } },
+    });
+    if (!source) {
+      throw new AppError('Lab not found', 404);
+    }
+
+    const copy = await prisma.$transaction(async tx => {
+      const lab = await tx.customLab.create({
+        data: {
+          name: `${source.name} (copy)`,
+          description: source.description,
+          labType: source.labType,
+          config: source.config,
+          aiChatbotId: source.aiChatbotId,
+          isPublic: false,
+          createdBy: userId,
+        },
+      });
+      if (source.templates.length > 0) {
+        await tx.labTemplate.createMany({
+          data: source.templates.map(tpl => ({
+            labId: lab.id,
+            title: tpl.title,
+            description: tpl.description,
+            code: tpl.code,
+            orderIndex: tpl.orderIndex,
+            locked: tpl.locked,
+            cellType: tpl.cellType,
+          })),
+        });
+      }
+      return lab;
+    });
+
+    return copy;
+  }
+
+  /**
    * Reorder templates within a lab
    */
   async reorderTemplates(labId: number, userId: number, templateIds: number[], isAdmin = false) {
     await this.verifyLabOwnership(labId, userId, isAdmin);
 
-    await Promise.all(
+    // The submitted list must be exactly a permutation of this lab's template
+    // ids — anything else (foreign ids, duplicates, omissions) could corrupt
+    // this or another instructor's lab ordering.
+    const existing = await prisma.labTemplate.findMany({
+      where: { labId },
+      select: { id: true },
+    });
+    const existingIds = new Set(existing.map(t => t.id));
+    const submitted = new Set(templateIds);
+    if (
+      submitted.size !== templateIds.length ||
+      submitted.size !== existingIds.size ||
+      templateIds.some(id => !existingIds.has(id))
+    ) {
+      throw new AppError('Template id list must match the lab\'s templates exactly', 400);
+    }
+
+    await prisma.$transaction(
       templateIds.map((id, index) =>
         prisma.labTemplate.update({
           where: { id },
@@ -3093,6 +3184,16 @@ export class CustomLabService {
 
     if (course.instructorId !== userId && !isAdmin) {
       throw new AppError('Not authorized to modify this course', 403);
+    }
+
+    // The DB enforces one assignment per (lab, course); fail fast with a
+    // friendly message instead of a unique-constraint 500.
+    const existing = await prisma.labAssignment.findFirst({
+      where: { labId, courseId },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new AppError('This lab is already assigned to that course', 409);
     }
 
     // Create Assignment + LabAssignment atomically

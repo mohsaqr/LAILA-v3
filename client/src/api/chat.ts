@@ -9,6 +9,9 @@ interface ChatRequest {
   model?: string;
   provider?: string;
   systemPrompt?: string;
+  /** Server-side persona: the chatbot's stored prompt is used, never sent to the client. */
+  chatbotId?: number;
+  conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
 }
 
 export const chatApi = {

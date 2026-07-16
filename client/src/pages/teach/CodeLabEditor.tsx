@@ -1,10 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Save, Plus, FlaskConical, Beaker, Network, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { codeLabsApi } from '../../api/codeLabs';
+import { chatbotsApi } from '../../api/chat';
+import { useWebR } from '../../hooks/useWebR';
+import { LabNotebook } from '../../components/labs/notebook/LabNotebook';
+import { blockToCell, cellPatchToBlock } from '../../components/labs/authoring/cell';
+import type { CodeBlock } from '../../types';
 import { coursesApi } from '../../api/courses';
 import { customLabsApi } from '../../api/customLabs';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
@@ -12,9 +17,6 @@ import { Button } from '../../components/common/Button';
 import { Toggle } from '../../components/common/Toggle';
 import { Loading } from '../../components/common/Loading';
 import { Input, TextArea } from '../../components/common/Input';
-import { EmptyState } from '../../components/common/EmptyState';
-import { ConfirmDialog } from '../../components/common/ConfirmDialog';
-import { CodeBlockEditor } from '../../components/teach/CodeBlockEditor';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { UpdateCodeBlockData } from '../../types';
@@ -33,8 +35,8 @@ export const CodeLabEditor = () => {
     title: '',
     description: '',
     isPublished: false,
+    aiChatbotId: null as number | null,
   });
-  const [deleteBlockConfirm, setDeleteBlockConfirm] = useState<number | null>(null);
 
   // Query for code lab data
   const { data: codeLab, isLoading } = useQuery({
@@ -62,6 +64,7 @@ export const CodeLabEditor = () => {
         title: codeLab.title || '',
         description: codeLab.description || '',
         isPublished: codeLab.isPublished || false,
+        aiChatbotId: codeLab.aiChatbotId ?? null,
       });
     }
   }, [codeLab]);
@@ -78,20 +81,12 @@ export const CodeLabEditor = () => {
     onError: () => toast.error(t('failed_to_save_code_lab')),
   });
 
-  const createBlockMutation = useMutation({
-    mutationFn: () => codeLabsApi.createCodeBlock(labId, { title: 'New Code Block' }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['codeLab', labId] });
-      toast.success(t('code_block_added'));
-    },
-    onError: () => toast.error(t('failed_to_add_code_block')),
-  });
-
   const updateBlockMutation = useMutation({
     mutationFn: ({ blockId, data }: { blockId: number; data: UpdateCodeBlockData }) =>
       codeLabsApi.updateCodeBlock(labId, blockId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['codeLab', labId] });
+      toast.success(t('code_block_saved', { defaultValue: 'Cell saved' }));
     },
     onError: () => toast.error(t('failed_to_update_code_block')),
   });
@@ -101,7 +96,6 @@ export const CodeLabEditor = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['codeLab', labId] });
       toast.success(t('code_block_deleted'));
-      setDeleteBlockConfirm(null);
     },
     onError: () => toast.error(t('failed_to_delete_code_block')),
   });
@@ -116,7 +110,12 @@ export const CodeLabEditor = () => {
 
   const createMutation = useMutation({
     mutationFn: () =>
-      codeLabsApi.createCodeLab({ moduleId: Number(moduleId), title: formData.title.trim(), description: formData.description, isPublished: formData.isPublished } as never),
+      codeLabsApi.createCodeLab({
+        moduleId: Number(moduleId),
+        title: formData.title.trim(),
+        description: formData.description,
+        isPublished: formData.isPublished,
+      }),
     onSuccess: (created: { id: number }) => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('code_lab_created', { defaultValue: 'Code lab created' }));
@@ -198,39 +197,57 @@ export const CodeLabEditor = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleUpdateBlock = (blockId: number, data: UpdateCodeBlockData) => {
-    updateBlockMutation.mutate({ blockId, data });
-  };
+  const handleUpdateBlock = useCallback(
+    (blockId: number, data: UpdateCodeBlockData) => {
+      updateBlockMutation.mutate({ blockId, data });
+    },
+    [updateBlockMutation]
+  );
 
-  const handleDeleteBlock = (blockId: number) => {
-    setDeleteBlockConfirm(blockId);
-  };
+  const webR = useWebR();
 
-  const handleMoveBlock = (blockId: number, direction: 'up' | 'down') => {
-    if (!codeLab?.blocks) return;
+  const { data: chatbots = [] } = useQuery({
+    queryKey: ['chatbots'],
+    queryFn: () => chatbotsApi.getChatbots(),
+  });
 
-    const blocks = [...codeLab.blocks].sort((a, b) => a.orderIndex - b.orderIndex);
-    const currentIndex = blocks.findIndex(b => b.id === blockId);
+  const addBlockMutation = useMutation({
+    mutationFn: ({ position, cellType }: { position: number; cellType: 'code' | 'markdown' }) =>
+      codeLabsApi.createCodeBlock(labId, {
+        title: cellType === 'markdown' ? 'Text' : 'New Code Block',
+        instructions: cellType === 'markdown' ? 'Write your content here…' : undefined,
+        position,
+        cellType,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['codeLab', labId] });
+      toast.success(t('code_block_created', { defaultValue: 'Cell added' }));
+    },
+    onError: () => toast.error(t('failed_to_create_code_block')),
+  });
 
-    if (direction === 'up' && currentIndex > 0) {
-      const newOrder = [...blocks];
-      [newOrder[currentIndex - 1], newOrder[currentIndex]] = [
-        newOrder[currentIndex],
-        newOrder[currentIndex - 1],
-      ];
-      reorderBlocksMutation.mutate(newOrder.map(b => b.id));
-    } else if (direction === 'down' && currentIndex < blocks.length - 1) {
-      const newOrder = [...blocks];
-      [newOrder[currentIndex], newOrder[currentIndex + 1]] = [
-        newOrder[currentIndex + 1],
-        newOrder[currentIndex],
-      ];
-      reorderBlocksMutation.mutate(newOrder.map(b => b.id));
-    }
-  };
+  const duplicateBlockMutation = useMutation({
+    mutationFn: (block: CodeBlock) => {
+      const sortedIds = [...(codeLab?.blocks ?? [])]
+        .sort((a, b) => a.orderIndex - b.orderIndex)
+        .map(b => b.id);
+      return codeLabsApi.createCodeBlock(labId, {
+        title: `${block.title} (copy)`,
+        instructions: block.instructions ?? '',
+        starterCode: block.starterCode ?? '',
+        locked: block.locked ?? false,
+        cellType: block.cellType ?? 'code',
+        position: sortedIds.indexOf(block.id) + 1,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['codeLab', labId] });
+      toast.success(t('code_block_duplicated', { defaultValue: 'Cell duplicated' }));
+    },
+    onError: () => toast.error(t('failed_to_create_code_block')),
+  });
 
-  const togglePublish = () => {
-    const newPublished = !formData.isPublished;
+  const togglePublish = (newPublished: boolean) => {
     setFormData(prev => ({ ...prev, isPublished: newPublished }));
     updateCodeLabMutation.mutate({ ...formData, isPublished: newPublished });
   };
@@ -514,6 +531,37 @@ export const CodeLabEditor = () => {
                 placeholder={t('code_lab_description_placeholder')}
                 rows={3}
               />
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-800 dark:text-gray-100">
+                  {t('ai_assistant', { defaultValue: 'AI Assistant' })}
+                </label>
+                <select
+                  value={formData.aiChatbotId ?? ''}
+                  onChange={e =>
+                    setFormData(prev => ({
+                      ...prev,
+                      aiChatbotId: e.target.value ? Number(e.target.value) : null,
+                    }))
+                  }
+                  className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="">
+                    {t('ai_assistant_default', { defaultValue: 'Default tutor (generic)' })}
+                  </option>
+                  {chatbots
+                    .filter((cb: { isActive: boolean }) => cb.isActive)
+                    .map((cb: { id: number; displayName: string }) => (
+                      <option key={cb.id} value={cb.id}>
+                        {cb.displayName}
+                      </option>
+                    ))}
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  {t('ai_assistant_hint', {
+                    defaultValue: 'Students get an "Ask AI" helper in this lab, driven by the chosen agent.',
+                  })}
+                </p>
+              </div>
               <div className="flex items-center justify-between gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
                 <Toggle
                   checked={formData.isPublished}
@@ -532,65 +580,45 @@ export const CodeLabEditor = () => {
             </CardBody>
           </Card>
 
-          {/* Code Blocks */}
+          {/* Code Blocks — the unified lab notebook */}
           <Card>
-            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            <CardHeader>
               <div>
                 <h2 className="text-lg sm:text-xl font-semibold text-gray-900">{t('code_blocks')}</h2>
                 <p className="text-sm text-gray-500">
                   {t('code_blocks_description')}
                 </p>
               </div>
-              <Button
-                size="sm"
-                onClick={() => createBlockMutation.mutate()}
-                loading={createBlockMutation.isPending}
-                icon={<Plus className="w-4 h-4" />}
-              >
-                {t('add_block')}
-              </Button>
             </CardHeader>
             <CardBody>
-              {blocks.length > 0 ? (
-                <div className="space-y-4">
-                  {blocks.map((block, index) => (
-                    <CodeBlockEditor
-                      key={block.id}
-                      block={block}
-                      index={index}
-                      totalBlocks={blocks.length}
-                      onUpdate={handleUpdateBlock}
-                      onDelete={handleDeleteBlock}
-                      onMoveUp={(id) => handleMoveBlock(id, 'up')}
-                      onMoveDown={(id) => handleMoveBlock(id, 'down')}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <EmptyState
-                  icon={FlaskConical}
-                  title={t('no_code_blocks_yet')}
-                  description={t('no_code_blocks_description')}
-                  action={{
-                    label: t('add_code_block'),
-                    onClick: () => createBlockMutation.mutate(),
-                  }}
-                />
-              )}
+              <LabNotebook
+                cells={blocks.map(blockToCell)}
+                language="r"
+                canEdit
+                runtime={{
+                  isReady: webR.isReady,
+                  isExecuting: webR.isExecuting,
+                  executeCode: webR.executeCode,
+                }}
+                onSaveCell={(cellId, patch) => handleUpdateBlock(cellId, cellPatchToBlock(patch))}
+                onAddCell={(position, cellType) => addBlockMutation.mutate({ position, cellType })}
+                isMutating={
+                  addBlockMutation.isPending ||
+                  duplicateBlockMutation.isPending ||
+                  deleteBlockMutation.isPending ||
+                  reorderBlocksMutation.isPending
+                }
+                onDuplicateCell={cell => {
+                  const block = blocks.find(b => b.id === cell.id);
+                  if (block) duplicateBlockMutation.mutate(block);
+                }}
+                onDeleteCell={cell => deleteBlockMutation.mutate(cell.id)}
+                onReorder={ids => reorderBlocksMutation.mutate(ids)}
+              />
             </CardBody>
           </Card>
       </div>
 
-      {/* Delete Block Confirmation */}
-      <ConfirmDialog
-        isOpen={deleteBlockConfirm !== null}
-        onClose={() => setDeleteBlockConfirm(null)}
-        onConfirm={() => deleteBlockConfirm && deleteBlockMutation.mutate(deleteBlockConfirm)}
-        title={t('delete_code_block')}
-        message={t('delete_code_block_confirm')}
-        confirmText={t('common:delete')}
-        loading={deleteBlockMutation.isPending}
-      />
     </div>
   );
 };

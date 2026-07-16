@@ -227,6 +227,13 @@ export const chatMessageSchema = z.object({
   context: z.string().optional(),
   model: z.string().optional(),
   systemPrompt: z.string().optional(),
+  // Server-resolved persona: when present, the chatbot's stored system prompt
+  // is used and any caller-supplied systemPrompt is ignored.
+  chatbotId: z.number().int().positive().optional(),
+  conversationHistory: z
+    .array(z.object({ role: z.enum(['user', 'assistant']), content: z.string() }))
+    .max(40)
+    .optional(),
 });
 
 // Chatbot validation schemas

@@ -123,6 +123,7 @@ export type { ForumThread as Forum, ForumThread } from '../api/forums';
 
 // Code Lab types
 export interface CodeLab {
+  aiChatbotId?: number | null;
   id: number;
   moduleId: number;
   title: string;
@@ -145,12 +146,15 @@ export interface CodeLab {
 }
 
 export interface CodeBlock {
+  cellType: 'code' | 'markdown';
   id: number;
   codeLabId: number;
   title: string;
   instructions: string | null;
   starterCode: string | null;
   orderIndex: number;
+  /** Students may run a locked cell but not edit its code. */
+  locked: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -163,6 +167,7 @@ export interface CreateCodeLabData {
 }
 
 export interface UpdateCodeLabData {
+  aiChatbotId?: number | null;
   title?: string;
   description?: string;
   isPublished?: boolean;
@@ -170,16 +175,22 @@ export interface UpdateCodeLabData {
 }
 
 export interface CreateCodeBlockData {
+  cellType?: 'code' | 'markdown';
+  /** Insert so the cell lands at this position in the current order. */
+  position?: number;
   title: string;
   instructions?: string;
   starterCode?: string;
+  locked?: boolean;
 }
 
 export interface UpdateCodeBlockData {
+  cellType?: 'code' | 'markdown';
   title?: string;
   instructions?: string;
   starterCode?: string;
   orderIndex?: number;
+  locked?: boolean;
 }
 
 // Custom Lab types
@@ -191,6 +202,7 @@ export interface LabType {
 }
 
 export interface LabTemplate {
+  cellType: 'code' | 'markdown';
   id: number;
   labId: number;
   title: string;
@@ -198,6 +210,8 @@ export interface LabTemplate {
   content: string | null;
   code: string;
   orderIndex: number;
+  /** Students may run a locked cell but not edit its code. */
+  locked: boolean;
 }
 
 export interface LabAssignment {
@@ -230,6 +244,8 @@ export interface CustomLab {
   description: string | null;
   labType: string;
   config: string | null;
+  /** Chatbot available as the lab's AI assistant, if any. */
+  aiChatbotId: number | null;
   createdBy: number;
   isPublic: boolean;
   createdAt: string;
@@ -256,6 +272,7 @@ export interface CreateCustomLabData {
 }
 
 export interface UpdateCustomLabData {
+  aiChatbotId?: number | null;
   name?: string;
   description?: string;
   labType?: string;
@@ -264,17 +281,23 @@ export interface UpdateCustomLabData {
 }
 
 export interface CreateLabTemplateData {
+  cellType?: 'code' | 'markdown';
+  /** Insert so the cell lands at this position in the current order. */
+  position?: number;
   title: string;
   description?: string;
   code: string;
   orderIndex?: number;
+  locked?: boolean;
 }
 
 export interface UpdateLabTemplateData {
+  cellType?: 'code' | 'markdown';
   title?: string;
   description?: string;
   code?: string;
   orderIndex?: number;
+  locked?: boolean;
 }
 
 export interface AssignLabData {

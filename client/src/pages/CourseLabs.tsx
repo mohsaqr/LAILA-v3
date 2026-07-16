@@ -6,8 +6,10 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { Network, Users, ArrowRight } from 'lucide-react';
+import { Network, Users, ArrowRight, FlaskConical, Code, Sparkles, ClipboardCheck } from 'lucide-react';
 import { coursesApi } from '../api/courses';
+import { customLabsApi } from '../api/customLabs';
+import { LabAssignment } from '../types';
 import { useTheme } from '../hooks/useTheme';
 import { Breadcrumb } from '../components/common/Breadcrumb';
 import { buildCourseBreadcrumb } from '../utils/breadcrumbs';
@@ -21,6 +23,14 @@ export const CourseLabs = () => {
   const { data: course } = useQuery({
     queryKey: ['course', courseId],
     queryFn: () => coursesApi.getCourseById(parseInt(courseId!)),
+    enabled: !!courseId,
+  });
+
+  // Labs assigned to this course (previously invisible on this page — they
+  // only appeared inline in modules, so this tab looked empty).
+  const { data: assignedLabs = [] } = useQuery({
+    queryKey: ['courseLabs', courseId],
+    queryFn: () => customLabsApi.getLabsForCourse(parseInt(courseId!)),
     enabled: !!courseId,
   });
 
@@ -70,7 +80,63 @@ export const CourseLabs = () => {
           {t('course_interactive_labs_desc')}
         </p>
 
-        {/* Lab Cards */}
+        {/* Assigned course labs (notebooks) */}
+        {assignedLabs.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-lg font-bold mb-3 flex items-center gap-2 text-gray-900 dark:text-gray-100">
+              <FlaskConical className="w-5 h-5 text-emerald-500" />
+              {t('course_labs_heading', { defaultValue: 'Course labs' })}
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+              {assignedLabs.map((la: LabAssignment) => (
+                <button
+                  key={la.id}
+                  onClick={() => navigate(`/labs/${la.labId}?courseId=${courseId}`)}
+                  className="text-left bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md transition-all overflow-hidden group"
+                >
+                  <div className="h-1.5 bg-gradient-to-r from-emerald-500 to-teal-600" />
+                  <div className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 flex items-center justify-center">
+                        <Code className="w-6 h-6 text-white" />
+                      </div>
+                      {la.assignmentId != null && (
+                        <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                          <ClipboardCheck className="w-3 h-3" />
+                          {t('graded', { defaultValue: 'Graded' })}
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                      {la.lab?.name}
+                    </h3>
+                    {la.lab?.description && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 line-clamp-2">
+                        {la.lab.description}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between">
+                      {la.lab?.aiChatbotId != null ? (
+                        <span className="flex items-center gap-1 text-xs text-violet-500">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          AI
+                        </span>
+                      ) : (
+                        <span />
+                      )}
+                      <span className="inline-flex items-center gap-1 text-sm font-medium bg-gradient-to-r from-emerald-500 to-teal-600 bg-clip-text text-transparent">
+                        {t('open_lab')}
+                        <ArrowRight className="w-4 h-4 text-gray-400 group-hover:translate-x-0.5 transition-transform" />
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Interactive exercise cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
           {labs.map(lab => {
             const Icon = lab.icon;
