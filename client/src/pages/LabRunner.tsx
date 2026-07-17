@@ -30,6 +30,7 @@ import { LabNotebook } from '../components/labs/notebook/LabNotebook';
 import { LabSettingsHeader } from '../components/labs/notebook/LabSettingsHeader';
 import { LabAIPanel, AICellContext } from '../components/labs/notebook/LabAIPanel';
 import { templateToCell, cellPatchToTemplate, LabCellPatch, LabCell } from '../components/labs/authoring/cell';
+import { detectRPackages } from '../utils/detectRPackages';
 import type { OutputItem as NotebookOutputItem } from '../components/labs/LabOutput';
 import { activityLogger } from '../services/activityLogger';
 import { useTracker } from '../services/tracker';
@@ -48,6 +49,8 @@ interface LabHookResult {
   isExecuting: boolean;
   isInstallingPackages: boolean;
   packagesInstalled: boolean;
+  /** Requested packages with no webR binary (R labs only). */
+  failedPackages?: string[];
   loadingStatus: string;
   error: string | null;
   executeCode: (code: string) => Promise<{ success: boolean; outputs: OutputItem[]; error?: string }>;
@@ -143,6 +146,16 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
       toast.success('Cell added');
     },
     onError: (e: Error) => toast.error(e.message || 'Failed to add cell'),
+  });
+
+  const importMutation = useMutation({
+    mutationFn: (content: string) => customLabsApi.importRmd(lab.id, content),
+    onSuccess: () => {
+      invalidateLab();
+      toast.success(t('teaching:rmd_cells_imported', { defaultValue: 'Imported cells from the file' }));
+    },
+    onError: (e: Error) =>
+      toast.error(e.message || t('teaching:rmd_import_failed', { defaultValue: 'Failed to import R Markdown' })),
   });
 
   const updateTemplateMutation = useMutation({
@@ -269,8 +282,15 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
   // Referential stability matters: NotebookCell is memoized, and a fresh
   // runtime object every render would defeat it via runOne's deps.
   const notebookRuntime = useMemo(
-    () => ({ isReady, isExecuting, executeCode, reset: handleResetSession }),
-    [isReady, isExecuting, executeCode, handleResetSession]
+    // Not "ready" to run until package installation finishes, so the first
+    // library() cell can't race the installer.
+    () => ({
+      isReady: isReady && !isInstallingPackages,
+      isExecuting: isExecuting || isInstallingPackages,
+      executeCode,
+      reset: handleResetSession,
+    }),
+    [isReady, isInstallingPackages, isExecuting, executeCode, handleResetSession]
   );
 
   const handleAddToReport = useCallback(async () => {
@@ -399,6 +419,17 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
         {/* Lab identity + settings, on the page itself */}
         <LabSettingsHeader lab={lab} canEdit={canEditLab} />
 
+        {/* Packages the notebook asked for that webR has no binary for. */}
+        {hook.failedPackages && hook.failedPackages.length > 0 && (
+          <div className="mb-4 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+            {t('courses:packages_unavailable', {
+              defaultValue:
+                "These packages aren't available in the browser R and couldn't be installed: {{list}}. Cells that use them may error.",
+              list: hook.failedPackages.join(', '),
+            })}
+          </div>
+        )}
+
         {/* Notebook — the single unified lab surface */}
         <div ref={labContentRef}>
           <div ref={outputAreaRef}>
@@ -413,6 +444,8 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
                 updateTemplateMutation.mutate({ templateId: cellId, patch })
               }
               onAddCell={(position, cellType) => addTemplateMutation.mutate({ position, cellType })}
+              onImport={isPythonLab(lab.labType) ? undefined : content => importMutation.mutate(content)}
+              isImporting={importMutation.isPending}
               onDuplicateCell={cell => duplicateTemplateMutation.mutate(cell.id)}
               onDeleteCell={cell => deleteTemplateMutation.mutate(cell.id)}
               onReorder={ids => reorderTemplatesMutation.mutate(ids)}
@@ -514,7 +547,13 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
 const RLabRunnerContent = ({ lab }: { lab: any }) => {
   const [searchParams] = useSearchParams();
   const courseId = searchParams.get('courseId');
-  const hook = useLabWebR(lab.labType);
+  // Install exactly the packages this notebook loads, on top of the lab-type
+  // base set — so imported notebooks get their dependencies automatically.
+  const detectedPackages = useMemo(
+    () => detectRPackages((lab.templates ?? []).map((t: any) => t.code ?? '')),
+    [lab.templates]
+  );
+  const hook = useLabWebR(lab.labType, detectedPackages);
   return <LabRunnerUI lab={lab} hook={hook} courseId={courseId ? Number(courseId) : null} />;
 };
 

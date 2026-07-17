@@ -10,8 +10,12 @@ const router = Router();
 
 /** Route params must be numeric ids; anything else is a 400, not a Prisma NaN. */
 const parseId = (value: string): number => {
+  // Digits-only: reject "1evil" / "1.5" that parseInt would coerce to 1.
+  if (!/^\d+$/.test(value)) {
+    throw new AppError('Invalid id', 400);
+  }
   const id = parseInt(value, 10);
-  if (Number.isNaN(id)) {
+  if (!Number.isSafeInteger(id) || id <= 0) {
     throw new AppError('Invalid id', 400);
   }
   return id;
@@ -25,6 +29,17 @@ const createCodeLabSchema = z.object({
   isPublished: z.boolean().optional(),
   availableFrom: z.string().datetime().optional().nullable(),
   availableUntil: z.string().datetime().optional().nullable(),
+});
+
+const importRmdSchema = z.object({
+  moduleId: z.number().int().positive(),
+  title: z.string().max(255).optional(),
+  // Cap the upload to keep a pasted/oversized file from stalling the parser.
+  content: z.string().min(1).max(500_000),
+});
+
+const importRmdCellsSchema = z.object({
+  content: z.string().min(1).max(500_000),
 });
 
 const updateCodeLabSchema = z.object({
@@ -83,6 +98,27 @@ router.post('/', authenticateToken, requireInstructor, asyncHandler(async (req: 
     req.user!.isAdmin
   );
   res.status(201).json({ success: true, data: codeLab });
+}));
+
+// Import an .Rmd file as a new code lab (R chunks -> code cells, text -> markdown cells)
+router.post('/import', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const data = importRmdSchema.parse(req.body);
+  const codeLab = await codeLabService.importRmd(
+    data.moduleId,
+    req.user!.id,
+    data.content,
+    data.title,
+    req.user!.isAdmin
+  );
+  res.status(201).json({ success: true, data: codeLab });
+}));
+
+// Import an .Rmd/.qmd into an existing code lab (append its cells)
+router.post('/:id/import', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const id = parseId(req.params.id);
+  const { content } = importRmdCellsSchema.parse(req.body);
+  const codeLab = await codeLabService.importRmdIntoLab(id, req.user!.id, content, req.user!.isAdmin);
+  res.json({ success: true, data: codeLab });
 }));
 
 // Update code lab

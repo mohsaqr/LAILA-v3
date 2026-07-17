@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Save, Plus, FlaskConical, Beaker, Network, Check } from 'lucide-react';
+import { Save, Plus, FlaskConical, Beaker, Network, Check, Upload, FileCode } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { codeLabsApi } from '../../api/codeLabs';
 import { chatbotsApi } from '../../api/chat';
@@ -19,6 +19,7 @@ import { Loading } from '../../components/common/Loading';
 import { Input, TextArea } from '../../components/common/Input';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
+import { detectRPackages } from '../../utils/detectRPackages';
 import { UpdateCodeBlockData } from '../../types';
 import activityLogger from '../../services/activityLogger';
 
@@ -124,8 +125,36 @@ export const CodeLabEditor = () => {
     onError: () => toast.error(t('failed_to_save_code_lab')),
   });
 
-  // ─── Create-mode: pick blank / template / interactive lab ────────────────
-  const [createTab, setCreateTab] = useState<'create' | 'templates' | 'interactive'>('create');
+  // ─── Create-mode: pick blank / template / interactive lab / import .Rmd ───
+  const [createTab, setCreateTab] = useState<'create' | 'templates' | 'interactive' | 'import'>('create');
+  const [rmdContent, setRmdContent] = useState('');
+  const [rmdFileName, setRmdFileName] = useState('');
+
+  const importRmdMutation = useMutation({
+    mutationFn: () =>
+      codeLabsApi.importRmd(
+        Number(moduleId),
+        rmdContent,
+        formData.title.trim() || rmdFileName.replace(/\.(rmd|qmd|md)$/i, '') || undefined
+      ),
+    onSuccess: (created: { id: number }) => {
+      queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
+      toast.success(t('rmd_imported', { defaultValue: 'R Markdown imported as a code lab' }));
+      navigate(`/teach/courses/${courseId}/code-labs/${created.id}`, { replace: true });
+    },
+    onError: () => toast.error(t('rmd_import_failed', { defaultValue: 'Failed to import R Markdown' })),
+  });
+
+  const handleRmdFile = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      setRmdContent(text);
+      setRmdFileName(file.name);
+    } catch {
+      toast.error(t('rmd_read_failed', { defaultValue: "Couldn't read that file" }));
+    }
+  };
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
   const [selectedInteractive, setSelectedInteractive] = useState<string | null>(null);
   // Assignment mode for a selected lab template — optionally turns the lab
@@ -204,7 +233,12 @@ export const CodeLabEditor = () => {
     [updateBlockMutation]
   );
 
-  const webR = useWebR();
+  // Install exactly the packages this notebook loads (its library() calls).
+  const detectedPackages = useMemo(
+    () => detectRPackages((codeLab?.blocks ?? []).map(b => b.starterCode ?? '')),
+    [codeLab?.blocks]
+  );
+  const webR = useWebR(detectedPackages);
 
   const { data: chatbots = [] } = useQuery({
     queryKey: ['chatbots'],
@@ -224,6 +258,15 @@ export const CodeLabEditor = () => {
       toast.success(t('code_block_created', { defaultValue: 'Cell added' }));
     },
     onError: () => toast.error(t('failed_to_create_code_block')),
+  });
+
+  const importIntoLabMutation = useMutation({
+    mutationFn: (content: string) => codeLabsApi.importRmdIntoLab(labId, content),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['codeLab', labId] });
+      toast.success(t('rmd_cells_imported', { defaultValue: 'Imported cells from the file' }));
+    },
+    onError: () => toast.error(t('rmd_import_failed', { defaultValue: 'Failed to import R Markdown' })),
   });
 
   const duplicateBlockMutation = useMutation({
@@ -257,6 +300,7 @@ export const CodeLabEditor = () => {
       { key: 'create', label: t('create_new', { defaultValue: 'Create New' }), icon: FlaskConical },
       { key: 'templates', label: t('from_templates', { defaultValue: 'From Templates' }), icon: Beaker },
       { key: 'interactive', label: t('interactive_labs', { defaultValue: 'Interactive Labs' }), icon: Network },
+      { key: 'import', label: t('import_rmd', { defaultValue: 'Import .Rmd' }), icon: Upload },
     ];
     const interactiveLabs = [
       { key: 'tna', label: t('interactive_lab_tna', { defaultValue: 'TNA' }), description: t('interactive_lab_tna_desc', { defaultValue: 'Transition Network Analysis — analyze learning sequences and behaviour patterns' }) },
@@ -334,6 +378,59 @@ export const CodeLabEditor = () => {
                   </Button>
                 </div>
               </>
+            )}
+
+            {createTab === 'import' && (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {t('import_rmd_desc', {
+                    defaultValue:
+                      'Upload an R Markdown (.Rmd) or Quarto (.qmd) file. Each ```{r} chunk becomes a runnable R cell; the text between chunks becomes notes.',
+                  })}
+                </p>
+
+                <label className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 px-4 py-8 cursor-pointer hover:border-teal-400 hover:bg-teal-50/40 dark:hover:bg-teal-900/10 transition-colors">
+                  <input
+                    type="file"
+                    accept=".Rmd,.rmd,.qmd,.md,text/markdown"
+                    className="hidden"
+                    onChange={e => void handleRmdFile(e.target.files?.[0])}
+                  />
+                  {rmdFileName ? (
+                    <span className="inline-flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+                      <FileCode className="w-4 h-4 text-teal-500" />
+                      {rmdFileName}
+                    </span>
+                  ) : (
+                    <>
+                      <Upload className="w-6 h-6 text-gray-400" />
+                      <span className="text-sm text-gray-600 dark:text-gray-300">
+                        {t('import_rmd_pick', { defaultValue: 'Choose an .Rmd file' })}
+                      </span>
+                    </>
+                  )}
+                </label>
+
+                <Input
+                  label={t('code_lab_title')}
+                  value={formData.title}
+                  onChange={e => handleChange('title', e.target.value)}
+                  placeholder={t('import_rmd_title_placeholder', {
+                    defaultValue: 'Optional — defaults to the file title or name',
+                  })}
+                />
+
+                <div className="flex items-center justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
+                  <Button
+                    icon={<Upload className="w-4 h-4" />}
+                    loading={importRmdMutation.isPending}
+                    disabled={!rmdContent || importRmdMutation.isPending}
+                    onClick={() => importRmdMutation.mutate()}
+                  >
+                    {t('import', { defaultValue: 'Import' })}
+                  </Button>
+                </div>
+              </div>
             )}
 
             {createTab === 'templates' && (
@@ -580,6 +677,17 @@ export const CodeLabEditor = () => {
             </CardBody>
           </Card>
 
+          {/* Packages the notebook asked for that webR has no binary for. */}
+          {webR.failedPackages.length > 0 && (
+            <div className="mb-4 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+              {t('courses:packages_unavailable', {
+                defaultValue:
+                  "These packages aren't available in the browser R and couldn't be installed: {{list}}. Cells that use them may error.",
+                list: webR.failedPackages.join(', '),
+              })}
+            </div>
+          )}
+
           {/* Code Blocks — the unified lab notebook */}
           <Card>
             <CardHeader>
@@ -596,12 +704,14 @@ export const CodeLabEditor = () => {
                 language="r"
                 canEdit
                 runtime={{
-                  isReady: webR.isReady,
-                  isExecuting: webR.isExecuting,
+                  isReady: webR.isReady && !webR.isInstallingPackages,
+                  isExecuting: webR.isExecuting || webR.isInstallingPackages,
                   executeCode: webR.executeCode,
                 }}
                 onSaveCell={(cellId, patch) => handleUpdateBlock(cellId, cellPatchToBlock(patch))}
                 onAddCell={(position, cellType) => addBlockMutation.mutate({ position, cellType })}
+                onImport={content => importIntoLabMutation.mutate(content)}
+                isImporting={importIntoLabMutation.isPending}
                 isMutating={
                   addBlockMutation.isPending ||
                   duplicateBlockMutation.isPending ||

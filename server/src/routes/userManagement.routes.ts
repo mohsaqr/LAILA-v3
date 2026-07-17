@@ -4,8 +4,10 @@ import { authenticateToken, requireAdmin } from '../middleware/auth.middleware.j
 import { asyncHandler } from '../middleware/error.middleware.js';
 import {
   adminUpdateUserSchema,
+  adminCreateUserSchema,
   updateUserRolesSchema,
   createEnrollmentSchema,
+  bulkEnrollSchema,
   parsePaginationLimit,
 } from '../utils/validation.js';
 import { AuthRequest } from '../types/index.js';
@@ -36,6 +38,30 @@ router.get('/users', asyncHandler(async (req: AuthRequest, res: Response) => {
 router.get('/users/stats', asyncHandler(async (req: AuthRequest, res: Response) => {
   const stats = await userManagementService.getUserStats();
   res.json({ success: true, data: stats });
+}));
+
+// Create a user (admin)
+router.post('/users', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const data = adminCreateUserSchema.parse(req.body);
+  const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip;
+  const user = await userManagementService.createUser(data, {
+    adminId: req.user!.id,
+    adminEmail: req.user!.email,
+    ipAddress,
+  });
+  res.status(201).json({ success: true, data: user });
+}));
+
+// Bulk enroll / unenroll selected users in a course
+router.post('/users/bulk-enroll', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { userIds, courseId, action } = bulkEnrollSchema.parse(req.body);
+  const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip;
+  const result = await userManagementService.bulkEnroll(userIds, courseId, action, {
+    adminId: req.user!.id,
+    adminEmail: req.user!.email,
+    ipAddress,
+  });
+  res.json({ success: true, data: result });
 }));
 
 // Get user by ID

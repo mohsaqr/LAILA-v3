@@ -10,8 +10,12 @@ const router = Router();
 
 /** Route params must be numeric ids; anything else is a 400, not a Prisma NaN. */
 const parseId = (value: string): number => {
+  // Digits-only: reject "1evil" / "1.5" that parseInt would coerce to 1.
+  if (!/^\d+$/.test(value)) {
+    throw new AppError('Invalid id', 400);
+  }
   const id = parseInt(value, 10);
-  if (Number.isNaN(id)) {
+  if (!Number.isSafeInteger(id) || id <= 0) {
     throw new AppError('Invalid id', 400);
   }
   return id;
@@ -46,6 +50,10 @@ const createTemplateSchema = z.object({
   orderIndex: z.number().int().min(0).optional(),
   locked: z.boolean().optional(),
   position: z.number().int().min(0).optional(),
+});
+
+const importRmdCellsSchema = z.object({
+  content: z.string().min(1).max(500_000),
 });
 
 const updateTemplateSchema = z.object({
@@ -165,6 +173,14 @@ router.post('/:id/templates', authenticateToken, requireInstructor, asyncHandler
   const data = createTemplateSchema.parse(req.body);
   const template = await customLabService.addTemplate(labId, req.user!.id, data, req.user!.isAdmin);
   res.status(201).json({ success: true, data: template });
+}));
+
+// Import an .Rmd/.qmd into an existing lab (append its cells)
+router.post('/:id/import', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const labId = parseId(req.params.id);
+  const { content } = importRmdCellsSchema.parse(req.body);
+  const lab = await customLabService.importRmd(labId, req.user!.id, content, req.user!.isAdmin);
+  res.json({ success: true, data: lab });
 }));
 
 // Update template

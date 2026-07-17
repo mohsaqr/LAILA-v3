@@ -396,6 +396,20 @@ export const updateUserRolesSchema = z.object({
   isInstructor: z.boolean().optional(),
 });
 
+export const adminCreateUserSchema = z.object({
+  fullname: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().email(),
+  password: strongPasswordSchema,
+  role: z.enum(['admin', 'instructor', 'student']),
+  isActive: z.boolean().optional(),
+});
+
+export const bulkEnrollSchema = z.object({
+  userIds: z.array(z.number().int().positive()).min(1).max(1000),
+  courseId: z.number().int().positive(),
+  action: z.enum(['enroll', 'unenroll']),
+});
+
 export const createEnrollmentSchema = z.object({
   userId: z.number().int().positive(),
   courseId: z.number().int().positive(),

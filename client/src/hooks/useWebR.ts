@@ -17,19 +17,32 @@ interface UseWebRReturn {
   isReady: boolean;
   isLoading: boolean;
   isExecuting: boolean;
+  isInstallingPackages: boolean;
+  /** Requested packages with no webR binary that failed to install. */
+  failedPackages: string[];
+  loadingStatus: string;
   error: string | null;
   executeCode: (code: string) => Promise<ExecutionResult>;
   reset: () => Promise<void>;
 }
 
-export const useWebR = (): UseWebRReturn => {
+export const useWebR = (
+  /** Packages detected from the notebook's own library() calls. */
+  extraPackages: string[] = []
+): UseWebRReturn => {
   const [isReady, setIsReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [isInstallingPackages, setIsInstallingPackages] = useState(false);
+  const [failedPackages, setFailedPackages] = useState<string[]>([]);
+  const [loadingStatus, setLoadingStatus] = useState('Initializing R...');
   const [error, setError] = useState<string | null>(null);
 
   const webRRef = useRef<WebR | null>(null);
   const initializingRef = useRef(false);
+  // Packages already installed in the CURRENT session; cleared on reset (a
+  // reset builds a fresh webR, so everything must be reinstalled).
+  const installedRef = useRef<Set<string>>(new Set());
 
   // Initialize WebR
   const initWebR = useCallback(async () => {
@@ -59,6 +72,7 @@ export const useWebR = (): UseWebRReturn => {
 
       webRRef.current = webR;
       setIsReady(true);
+      setLoadingStatus('Ready');
       debug.webr('[WebR] Ready to execute R code');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to initialize WebR';
@@ -82,6 +96,53 @@ export const useWebR = (): UseWebRReturn => {
       }
     };
   }, [initWebR]);
+
+  // Install exactly the packages the notebook loads, once webR is ready and the
+  // (async-loaded) package list is known. Re-runs if the list grows; only ever
+  // installs what's missing. webR's binary installer only has packages with a
+  // WASM build — the rest are reported via failedPackages.
+  useEffect(() => {
+    const webR = webRRef.current;
+    if (!webR || !isReady) return;
+    const missing = [...new Set(extraPackages)].filter(p => !installedRef.current.has(p));
+    if (missing.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      setIsInstallingPackages(true);
+      const installed: string[] = [];
+      const failed: string[] = [];
+      for (const pkg of missing) {
+        if (cancelled) return;
+        installedRef.current.add(pkg); // mark attempted so we don't retry in a loop
+        setLoadingStatus(`Installing ${pkg}...`);
+        try {
+          await webR.installPackages([pkg], { quiet: true });
+          installed.push(pkg);
+        } catch (installErr) {
+          failed.push(pkg);
+          debug.webr(`[WebR] Warning: could not install ${pkg}:`, installErr);
+        }
+      }
+      if (installed.length > 0) {
+        setLoadingStatus('Loading packages...');
+        await webR.evalRVoid(
+          `suppressWarnings(suppressMessages({ ${installed
+            .map(p => `tryCatch(library(${p}, quietly = TRUE), error = function(e) NULL)`)
+            .join('; ')} }))`
+        );
+      }
+      if (!cancelled) {
+        if (failed.length > 0) setFailedPackages(prev => [...new Set([...prev, ...failed])]);
+        setIsInstallingPackages(false);
+        setLoadingStatus('Ready');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [extraPackages, isReady]);
 
   // Execute R code
   const executeCode = useCallback(async (code: string): Promise<ExecutionResult> => {
@@ -149,6 +210,9 @@ export const useWebR = (): UseWebRReturn => {
       webRRef.current.close();
       webRRef.current = null;
     }
+    // Fresh session — nothing is installed anymore, so allow reinstalls.
+    installedRef.current = new Set();
+    setFailedPackages([]);
     setIsReady(false);
     setError(null);
     await initWebR();
@@ -158,6 +222,9 @@ export const useWebR = (): UseWebRReturn => {
     isReady,
     isLoading,
     isExecuting,
+    isInstallingPackages,
+    failedPackages,
+    loadingStatus,
     error,
     executeCode,
     reset,

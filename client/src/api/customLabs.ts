@@ -76,6 +76,15 @@ export const customLabsApi = {
     return response.data.data!;
   },
 
+  // Import an .Rmd/.qmd file into an existing custom lab, appending its cells.
+  importRmd: async (labId: number, content: string) => {
+    const response = await apiClient.post<ApiResponse<CustomLab>>(
+      `/labs/${labId}/import`,
+      { content }
+    );
+    return response.data.data!;
+  },
+
   updateTemplate: async (labId: number, templateId: number, data: UpdateLabTemplateData) => {
     const response = await apiClient.put<ApiResponse<LabTemplate>>(
       `/labs/${labId}/templates/${templateId}`,

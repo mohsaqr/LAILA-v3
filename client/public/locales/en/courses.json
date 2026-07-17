@@ -1058,6 +1058,7 @@
   "run_all": "Run all",
   "reset_session_hint": "Clear all variables and outputs",
   "runtime_ready": "ready",
+  "packages_unavailable": "These packages aren't available in the browser R and couldn't be installed: {{list}}. Cells that use them may error.",
   "runtime_loading": "Starting runtime…",
   "cell_count": "{{count}} cells",
   "no_cells_yet": "This lab has no cells yet.",

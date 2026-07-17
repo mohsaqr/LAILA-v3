@@ -1055,6 +1055,7 @@
   "run_all": "Ejecutar todo",
   "reset_session_hint": "Borrar todas las variables y salidas",
   "runtime_ready": "listo",
+  "packages_unavailable": "Estos paquetes no están disponibles en el R del navegador y no se pudieron instalar: {{list}}. Las celdas que los usan pueden fallar.",
   "runtime_loading": "Iniciando el entorno…",
   "cell_count": "{{count}} celdas",
   "no_cells_yet": "Este laboratorio aún no tiene celdas.",

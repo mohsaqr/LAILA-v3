@@ -1055,6 +1055,7 @@
   "run_all": "Aja kaikki",
   "reset_session_hint": "Tyhjennä kaikki muuttujat ja tulosteet",
   "runtime_ready": "valmis",
+  "packages_unavailable": "Nämä paketit eivät ole saatavilla selaimen R:ssä, eikä niitä voitu asentaa: {{list}}. Niitä käyttävät solut voivat antaa virheen.",
   "runtime_loading": "Käynnistetään ajoympäristöä…",
   "cell_count": "{{count}} solua",
   "no_cells_yet": "Tässä labrassa ei ole vielä soluja.",

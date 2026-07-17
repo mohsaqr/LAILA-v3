@@ -2,6 +2,7 @@ import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { courseRoleService } from './courseRole.service.js';
 import { assertWithinAvailability, availabilityWindowWhere } from '../utils/availability.js';
+import { parseRmd, cellTitle } from '../utils/rmdParser.js';
 
 // Types for input data
 interface CreateCodeLabInput {
@@ -264,6 +265,110 @@ export class CodeLabService {
     });
 
     return codeLab;
+  }
+
+  /**
+   * Import an R Markdown (.Rmd) file as a new code lab. Prose between chunks
+   * becomes markdown cells; each ```{r} chunk becomes an editable R code cell.
+   * Lab + cells are created together so a failure leaves nothing half-imported.
+   */
+  async importRmd(
+    moduleId: number,
+    instructorId: number,
+    content: string,
+    title: string | undefined,
+    isAdmin = false
+  ) {
+    await this.verifyModuleOwnership(moduleId, instructorId, isAdmin);
+
+    const parsed = parseRmd(content);
+    const labTitle =
+      (title?.trim() || parsed.title?.trim() || 'Imported R Notebook').slice(0, 255);
+
+    if (parsed.cells.length === 0) {
+      throw new AppError('No content found in the R Markdown file', 400);
+    }
+
+    const codeLabId = await prisma.$transaction(async tx => {
+      // Read the max order INSIDE the transaction so a concurrent create can't
+      // read the same value and collide on orderIndex.
+      const maxOrder = await tx.codeLab.findFirst({
+        where: { moduleId },
+        orderBy: { orderIndex: 'desc' },
+        select: { orderIndex: true },
+      });
+
+      const lab = await tx.codeLab.create({
+        data: {
+          moduleId,
+          title: labTitle,
+          isPublished: false,
+          orderIndex: (maxOrder?.orderIndex ?? -1) + 1,
+        },
+      });
+
+      await tx.codeBlock.createMany({
+        data: parsed.cells.map((cell, index) => ({
+          codeLabId: lab.id,
+          title: cellTitle(cell),
+          instructions: cell.type === 'markdown' ? cell.content : null,
+          starterCode: cell.type === 'code' ? cell.content : null,
+          orderIndex: index,
+          locked: false,
+          cellType: cell.type,
+        })),
+      });
+
+      return lab.id;
+    });
+
+    // Return the full lab (with ordered blocks) like the other create paths.
+    return prisma.codeLab.findUnique({
+      where: { id: codeLabId },
+      include: { blocks: { orderBy: { orderIndex: 'asc' } } },
+    });
+  }
+
+  /**
+   * Import an .Rmd/.qmd file into an EXISTING code lab, appending its cells
+   * after any current ones. Same parse as importRmd; used by the notebook's
+   * in-editor "Import" button.
+   */
+  async importRmdIntoLab(codeLabId: number, instructorId: number, content: string, isAdmin = false) {
+    await this.verifyCodeLabOwnership(codeLabId, instructorId, isAdmin);
+
+    const parsed = parseRmd(content);
+    if (parsed.cells.length === 0) {
+      throw new AppError('No content found in the R Markdown file', 400);
+    }
+
+    // Read the append offset and insert in one transaction so a concurrent
+    // import into the same lab can't reuse the same orderIndex range.
+    await prisma.$transaction(async tx => {
+      const maxOrder = await tx.codeBlock.findFirst({
+        where: { codeLabId },
+        orderBy: { orderIndex: 'desc' },
+        select: { orderIndex: true },
+      });
+      const base = (maxOrder?.orderIndex ?? -1) + 1;
+
+      await tx.codeBlock.createMany({
+        data: parsed.cells.map((cell, i) => ({
+          codeLabId,
+          title: cellTitle(cell),
+          instructions: cell.type === 'markdown' ? cell.content : null,
+          starterCode: cell.type === 'code' ? cell.content : null,
+          orderIndex: base + i,
+          locked: false,
+          cellType: cell.type,
+        })),
+      });
+    });
+
+    return prisma.codeLab.findUnique({
+      where: { id: codeLabId },
+      include: { blocks: { orderBy: { orderIndex: 'asc' } } },
+    });
   }
 
   /**

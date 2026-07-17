@@ -62,6 +62,21 @@ export const userManagementApi = {
     return response.data.data!;
   },
 
+  // Create user (admin)
+  createUser: async (data: {
+    fullname: string;
+    email: string;
+    password: string;
+    role: 'admin' | 'instructor' | 'student';
+    isActive?: boolean;
+  }) => {
+    const response = await apiClient.post<ApiResponse<ManagedUser>>(
+      '/user-management/users',
+      data
+    );
+    return response.data.data!;
+  },
+
   // Update user
   updateUser: async (id: number, data: UpdateUserData) => {
     const response = await apiClient.put<ApiResponse<ManagedUser>>(
@@ -114,5 +129,23 @@ export const userManagementApi = {
       `/user-management/users/${userId}/enrollments/${enrollmentId}`
     );
     return response.data;
+  },
+
+  // Bulk enroll / unenroll selected users in a course
+  bulkEnroll: async (
+    userIds: number[],
+    courseId: number,
+    action: 'enroll' | 'unenroll'
+  ) => {
+    const response = await apiClient.post<ApiResponse<{
+      action: 'enroll' | 'unenroll';
+      courseId: number;
+      courseTitle: string;
+      total: number;
+      changed: number;
+      skipped: number;
+      errors: Array<{ userId: number; error: string }>;
+    }>>('/user-management/users/bulk-enroll', { userIds, courseId, action });
+    return response.data.data!;
   },
 };

@@ -10,6 +10,7 @@ import { Loading } from '../components/common/Loading';
 import { LabNotebook } from '../components/labs/notebook/LabNotebook';
 import { LabAIPanel, AICellContext } from '../components/labs/notebook/LabAIPanel';
 import { blockToCell, LabCell } from '../components/labs/authoring/cell';
+import { detectRPackages } from '../utils/detectRPackages';
 import activityLogger from '../services/activityLogger';
 
 export const CodeLabPage = () => {
@@ -21,20 +22,28 @@ export const CodeLabPage = () => {
   const [aiOpen, setAiOpen] = useState(false);
   const [aiContext, setAiContext] = useState<AICellContext | null>(null);
 
-  const {
-    isReady: isWebRReady,
-    isLoading: isWebRLoading,
-    isExecuting,
-    error: webRError,
-    executeCode,
-    reset: resetWebR,
-  } = useWebR();
-
   const { data: codeLab, isLoading, error } = useQuery({
     queryKey: ['codeLab', labId],
     queryFn: () => codeLabsApi.getCodeLabById(labId),
     enabled: !!labId,
   });
+
+  // Install exactly the packages this notebook loads (its library() calls).
+  const detectedPackages = useMemo(
+    () => detectRPackages((codeLab?.blocks ?? []).map(b => b.starterCode ?? '')),
+    [codeLab?.blocks]
+  );
+
+  const {
+    isReady: isWebRReady,
+    isLoading: isWebRLoading,
+    isExecuting,
+    isInstallingPackages,
+    error: webRError,
+    failedPackages,
+    executeCode,
+    reset: resetWebR,
+  } = useWebR(detectedPackages);
 
   // Log page view
   const parsedCourseId = courseId ? parseInt(courseId, 10) : undefined;
@@ -75,12 +84,12 @@ export const CodeLabPage = () => {
 
   const notebookRuntime = useMemo(
     () => ({
-      isReady: isWebRReady,
-      isExecuting: isExecuting || isWebRLoading,
+      isReady: isWebRReady && !isInstallingPackages,
+      isExecuting: isExecuting || isWebRLoading || isInstallingPackages,
       executeCode,
       reset: resetWebR,
     }),
-    [isWebRReady, isExecuting, isWebRLoading, executeCode, resetWebR]
+    [isWebRReady, isExecuting, isWebRLoading, isInstallingPackages, executeCode, resetWebR]
   );
 
   if (isLoading) {
@@ -136,6 +145,16 @@ export const CodeLabPage = () => {
       {webRError && (
         <div className="mb-6 rounded-xl border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 p-4 text-sm text-red-700 dark:text-red-300">
           {webRError}
+        </div>
+      )}
+
+      {failedPackages.length > 0 && (
+        <div className="mb-6 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 text-sm text-amber-800 dark:text-amber-200">
+          {t('courses:packages_unavailable', {
+            defaultValue:
+              "These packages aren't available in the browser R and couldn't be installed: {{list}}. Cells that use them may error.",
+            list: failedPackages.join(', '),
+          })}
         </div>
       )}
 

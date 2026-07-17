@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Type, PlayCircle, RotateCcw, Loader2, CircleDot } from 'lucide-react';
+import { Plus, Type, PlayCircle, RotateCcw, Loader2, CircleDot, Upload } from 'lucide-react';
 import { NotebookCell, CellRunState } from './NotebookCell';
 import { ConfirmDialog } from '../../common/ConfirmDialog';
 import { CodeLanguage } from '../authoring/CodeEditorField';
@@ -38,6 +38,10 @@ export interface LabNotebookProps {
   onAskAI?: (cell: LabCell, code: string, error: string | null, output?: string) => void;
   /** True while an add/duplicate/delete/reorder is in flight — disables structural actions. */
   isMutating?: boolean;
+  /** Import an .Rmd/.qmd file's cells into this lab. Receives the file text. */
+  onImport?: (content: string, fileName: string) => void | Promise<void>;
+  /** True while an import is in flight. */
+  isImporting?: boolean;
 }
 
 /**
@@ -59,9 +63,22 @@ export const LabNotebook = ({
   onCellRun,
   onAskAI,
   isMutating = false,
+  onImport,
+  isImporting = false,
 }: LabNotebookProps) => {
   const { t } = useTranslation(['courses', 'teaching', 'common']);
   const sorted = [...cells].sort((a, b) => a.orderIndex - b.orderIndex);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleImportFile = async (file: File | undefined) => {
+    if (!file || !onImport) return;
+    try {
+      const text = await file.text();
+      await onImport(text, file.name);
+    } finally {
+      if (importInputRef.current) importInputRef.current.value = '';
+    }
+  };
 
   // Students' code edits are local-only; authors' drafts persist on blur via
   // NotebookCell. Either way the draft is the source of truth for Run.
@@ -224,6 +241,32 @@ export const LabNotebook = ({
             {t('courses:cell_count', { count: sorted.length, defaultValue: '{{count}} cells' })}
           </span>
           <span className="flex-1" />
+          {canEdit && onImport && (
+            <>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".Rmd,.rmd,.qmd,.md,text/markdown"
+                className="hidden"
+                onChange={e => void handleImportFile(e.target.files?.[0])}
+              />
+              <button
+                onClick={() => importInputRef.current?.click()}
+                disabled={isImporting}
+                title={t('teaching:import_rmd_desc', {
+                  defaultValue: 'Import an R Markdown / Quarto file as cells',
+                })}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 text-xs font-medium transition-colors"
+              >
+                {isImporting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Upload className="w-3.5 h-3.5" />
+                )}
+                {t('teaching:import_rmd', { defaultValue: 'Import .Rmd / .qmd' })}
+              </button>
+            </>
+          )}
           <button
             onClick={runAll}
             disabled={!runtime.isReady || runtime.isExecuting || runningAll || sorted.length === 0}
@@ -274,6 +317,16 @@ export const LabNotebook = ({
                 <Type className="w-4 h-4" />
                 {t('teaching:add_text_cell', { defaultValue: 'Text' })}
               </button>
+              {onImport && (
+                <button
+                  onClick={() => importInputRef.current?.click()}
+                  disabled={isImporting}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 text-sm font-medium"
+                >
+                  {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  {t('teaching:import_rmd', { defaultValue: 'Import .Rmd / .qmd' })}
+                </button>
+              )}
             </div>
           )}
         </div>

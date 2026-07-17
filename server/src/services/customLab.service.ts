@@ -1,5 +1,6 @@
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
+import { parseRmd, cellTitle } from '../utils/rmdParser.js';
 
 // Types for input data
 interface CreateCustomLabInput {
@@ -2980,6 +2981,56 @@ export class CustomLabService {
   /**
    * Add a template to a lab
    */
+  /**
+   * Import an .Rmd/.qmd file into an EXISTING custom lab, appending its cells
+   * (```{r} chunks -> code cells, text -> markdown cells) after any current
+   * ones. Dropped into a typed lab (e.g. 'tna'), the runtime already has the
+   * packages, so the imported notebook runs.
+   */
+  async importRmd(labId: number, userId: number, content: string, isAdmin = false) {
+    const lab = await this.verifyLabOwnership(labId, userId, isAdmin);
+
+    // R Markdown / Quarto R chunks are R code — refuse to drop them into a
+    // Python lab, where the runtime would try to run them as Python.
+    if (lab.labType?.startsWith('python')) {
+      throw new AppError('R Markdown import is only available for R labs', 400);
+    }
+
+    const parsed = parseRmd(content);
+    if (parsed.cells.length === 0) {
+      throw new AppError('No content found in the R Markdown file', 400);
+    }
+
+    // Read the append offset and insert in one transaction so a concurrent
+    // import into the same lab can't reuse the same orderIndex range.
+    await prisma.$transaction(async tx => {
+      const maxOrder = await tx.labTemplate.findFirst({
+        where: { labId },
+        orderBy: { orderIndex: 'desc' },
+        select: { orderIndex: true },
+      });
+      const base = (maxOrder?.orderIndex ?? -1) + 1;
+
+      await tx.labTemplate.createMany({
+        data: parsed.cells.map((cell, i) => ({
+          labId,
+          title: cellTitle(cell),
+          // `code` is a non-null column, so markdown cells get '' rather than null.
+          description: cell.type === 'markdown' ? cell.content : '',
+          code: cell.type === 'code' ? cell.content : '',
+          orderIndex: base + i,
+          locked: false,
+          cellType: cell.type,
+        })),
+      });
+    });
+
+    return prisma.customLab.findUnique({
+      where: { id: labId },
+      include: { templates: { orderBy: { orderIndex: 'asc' } } },
+    });
+  }
+
   async addTemplate(labId: number, userId: number, data: CreateLabTemplateInput, isAdmin = false) {
     await this.verifyLabOwnership(labId, userId, isAdmin);
 

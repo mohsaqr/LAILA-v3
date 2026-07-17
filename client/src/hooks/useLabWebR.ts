@@ -19,6 +19,8 @@ interface UseLabWebRReturn {
   isExecuting: boolean;
   isInstallingPackages: boolean;
   packagesInstalled: boolean;
+  /** Packages that were requested but have no webR binary and failed to install. */
+  failedPackages: string[];
   loadingStatus: string;
   error: string | null;
   executeCode: (code: string) => Promise<ExecutionResult>;
@@ -443,69 +445,73 @@ plot_adjacency <- function(g, main = "Adjacency Matrix") {
 }
 `;
 
-export const useLabWebR = (labType: string = 'custom'): UseLabWebRReturn => {
+export const useLabWebR = (
+  labType: string = 'custom',
+  /** Extra packages detected from the notebook's own library() calls. */
+  extraPackages: string[] = []
+): UseLabWebRReturn => {
   const [isReady, setIsReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isExecuting, setIsExecuting] = useState(false);
   const [isInstallingPackages, setIsInstallingPackages] = useState(false);
   const [packagesInstalled, setPackagesInstalled] = useState(false);
+  const [failedPackages, setFailedPackages] = useState<string[]>([]);
   const [loadingStatus, setLoadingStatus] = useState('Initializing WebR...');
   const [error, setError] = useState<string | null>(null);
 
   const webRRef = useRef<WebR | null>(null);
   const initializingRef = useRef(false);
   const currentLabTypeRef = useRef(labType);
+  // Packages already installed in the CURRENT session; cleared on reset.
+  const installedRef = useRef<Set<string>>(new Set());
 
   // Get packages for this lab type
   const getPackagesForLabType = useCallback((type: string): string[] => {
     return LAB_PACKAGES[type] || LAB_PACKAGES.custom;
   }, []);
 
-  // Install packages for the lab type
-  const installPackages = useCallback(async (webR: WebR, type: string) => {
-    const packages = getPackagesForLabType(type);
-
-    if (packages.length === 0) {
-      return true;
-    }
+  // Install the lab-type base packages plus whatever the notebook itself
+  // loads (detected `library()` calls), so an imported notebook gets exactly
+  // the packages it needs without hardcoding a per-lab list.
+  const installList = useCallback(async (webR: WebR, requested: string[]) => {
+    const missing = [...new Set(requested)].filter(p => !installedRef.current.has(p));
+    if (missing.length === 0) return;
 
     setIsInstallingPackages(true);
-    const installedPackages: string[] = [];
+    const installed: string[] = [];
+    const failed: string[] = [];
 
     try {
-      for (const pkg of packages) {
+      for (const pkg of missing) {
+        installedRef.current.add(pkg); // mark attempted so we never retry in a loop
         setLoadingStatus(`Installing ${pkg}...`);
         debug.webr(`[Lab WebR] Installing package: ${pkg}`);
 
         try {
           await webR.installPackages([pkg], { quiet: true });
-          installedPackages.push(pkg);
+          installed.push(pkg);
           debug.webr(`[Lab WebR] Successfully installed: ${pkg}`);
         } catch (installErr) {
+          failed.push(pkg);
           debug.webr(`[Lab WebR] Warning: Could not install ${pkg}:`, installErr);
         }
       }
 
-      // Load packages
-      setLoadingStatus('Loading packages...');
-      const loadScript = `
-        suppressWarnings(suppressMessages({
-          ${installedPackages.map(pkg =>
-            `tryCatch(library(${pkg}, quietly = TRUE), error = function(e) NULL)`
-          ).join('\n          ')}
-        }))
-      `;
-      await webR.evalRVoid(loadScript);
+      if (installed.length > 0) {
+        setLoadingStatus('Loading packages...');
+        await webR.evalRVoid(
+          `suppressWarnings(suppressMessages({ ${installed
+            .map(pkg => `tryCatch(library(${pkg}, quietly = TRUE), error = function(e) NULL)`)
+            .join('\n          ')} }))`
+        );
+      }
 
+      if (failed.length > 0) setFailedPackages(prev => [...new Set([...prev, ...failed])]);
       setPackagesInstalled(true);
-      return true;
-    } catch (err) {
-      debug.error('[Lab WebR] Package installation error:', err);
-      throw err;
     } finally {
       setIsInstallingPackages(false);
     }
-  }, [getPackagesForLabType]);
+  }, []);
 
   // Initialize WebR
   const initWebR = useCallback(async () => {
@@ -534,8 +540,10 @@ export const useLabWebR = (labType: string = 'custom'): UseLabWebRReturn => {
 
       webRRef.current = webR;
 
-      // Install packages for this lab type
-      await installPackages(webR, labType);
+      // Install the lab-type base packages. Notebook-detected packages install
+      // separately (see the effect below) so a changing package list never
+      // re-runs init and tears down the session.
+      await installList(webR, getPackagesForLabType(labType));
 
       // Install helper functions
       setLoadingStatus('Setting up environment...');
@@ -560,9 +568,10 @@ export const useLabWebR = (labType: string = 'custom'): UseLabWebRReturn => {
       setIsLoading(false);
       initializingRef.current = false;
     }
-  }, [labType, installPackages]);
+  }, [labType, installList, getPackagesForLabType]);
 
-  // Initialize on mount
+  // Initialize on mount (and only when labType changes — NOT when the detected
+  // package list changes, which must not tear down the running session).
   useEffect(() => {
     currentLabTypeRef.current = labType;
     initWebR();
@@ -574,6 +583,20 @@ export const useLabWebR = (labType: string = 'custom'): UseLabWebRReturn => {
       }
     };
   }, [initWebR, labType]);
+
+  // Install notebook-detected packages once the session is ready, without
+  // reinitializing it. Only installs what isn't already present.
+  useEffect(() => {
+    const webR = webRRef.current;
+    if (!webR || !isReady || extraPackages.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      if (!cancelled) await installList(webR, extraPackages);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [extraPackages, isReady, installList]);
 
   // Parse output for plots
   const parseOutput = (output: string): WebROutput[] => {
@@ -716,6 +739,9 @@ export const useLabWebR = (labType: string = 'custom'): UseLabWebRReturn => {
       webRRef.current.close();
       webRRef.current = null;
     }
+    // Fresh session — nothing is installed anymore, so allow reinstalls.
+    installedRef.current = new Set();
+    setFailedPackages([]);
     setIsReady(false);
     setPackagesInstalled(false);
     setError(null);
@@ -729,6 +755,7 @@ export const useLabWebR = (labType: string = 'custom'): UseLabWebRReturn => {
     isExecuting,
     isInstallingPackages,
     packagesInstalled,
+    failedPackages,
     loadingStatus,
     error,
     executeCode,
