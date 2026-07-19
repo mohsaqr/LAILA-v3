@@ -198,6 +198,7 @@
   "code_lab": "Laboratorio de código",
   "upload_file": "Subir archivo",
   "file_name": "Nombre del archivo",
+  "file_name_placeholder": "Nombre del archivo",
   "file_uploaded": "Archivo subido exitosamente",
   "file_uploaded_ready": "Archivo subido — listo para guardar",
   "click_name_to_rename": "Haz clic en el nombre para renombrar",

@@ -22,6 +22,8 @@ interface SectionCardProps {
   onDropRow: () => void;
   onDragEnd: () => void;
   onTitleCommit: (title: string) => void;
+  /** Commit a file section's display name (stored in section.fileName). */
+  onFileNameCommit: (fileName: string) => void;
   /** Commit a file section's description (stored in section.content). */
   onFileDescCommit: (description: string) => void;
   onRequestDelete: () => void;
@@ -37,17 +39,26 @@ interface SectionCardProps {
 export const SectionCard = ({
   section, index, courseId, isFirst, isLast, onMoveUp, onMoveDown,
   isDragging, onDragStart, onDragOverRow, onDropRow, onDragEnd,
-  onTitleCommit, onFileDescCommit, onRequestDelete, registerFlush,
+  onTitleCommit, onFileNameCommit, onFileDescCommit, onRequestDelete, registerFlush,
 }: SectionCardProps) => {
   const { t } = useTranslation(['teaching', 'common']);
   const { isDark } = useTheme();
   const [title, setTitle] = useState(section.title ?? '');
+  const [fileName, setFileName] = useState(section.fileName ?? '');
   const [fileDesc, setFileDesc] = useState(section.content ?? '');
   const [armed, setArmed] = useState(false);
 
   // Keep local fields in sync if the section changes externally.
   useEffect(() => { setTitle(section.title ?? ''); }, [section.title]);
+  useEffect(() => { setFileName(section.fileName ?? ''); }, [section.fileName]);
   useEffect(() => { setFileDesc(section.content ?? ''); }, [section.content]);
+
+  // Commit the file's display name; blank falls back to the current name.
+  const commitFileName = () => {
+    const next = fileName.trim();
+    if (!next) { setFileName(section.fileName ?? ''); return; }
+    if (next !== section.fileName) onFileNameCommit(next);
+  };
 
   const colors = {
     cardBg: isDark ? '#111827' : '#ffffff',
@@ -87,11 +98,21 @@ export const SectionCard = ({
       return (
         <div className="space-y-2">
           <FileCard
-            fileName={section.fileName || 'file'}
+            fileName={fileName || 'file'}
             fileType={section.fileType}
             url={section.fileUrl ? resolveFileUrl(section.fileUrl) : '#'}
             fileSize={section.fileSize}
             description={fileDesc || undefined}
+          />
+          <input
+            value={fileName}
+            onChange={e => setFileName(e.target.value)}
+            onBlur={commitFileName}
+            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+            placeholder={t('file_name_placeholder', { defaultValue: 'File name' })}
+            aria-label={t('file_name', { defaultValue: 'File name' })}
+            className="w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-teal-400 font-medium"
+            style={{ backgroundColor: isDark ? '#1f2937' : '#ffffff', borderColor: colors.border, color: colors.titleColor }}
           />
           <textarea
             value={fileDesc}

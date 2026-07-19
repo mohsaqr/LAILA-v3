@@ -135,6 +135,13 @@ export const SectionListEditor = forwardRef<SectionListEditorHandle, SectionList
     onError: () => toast.error(t('common:error', { defaultValue: 'Something went wrong' })),
   });
 
+  // Persist a file section's display name (stored in the section `fileName` field).
+  const fileNameMutation = useMutation({
+    mutationFn: ({ id, fileName }: { id: number; fileName: string }) => coursesApi.updateSection(id, { fileName }),
+    onSuccess: invalidate,
+    onError: () => toast.error(t('common:error', { defaultValue: 'Something went wrong' })),
+  });
+
   // Persist a file section's description (stored in the section `content` field).
   const fileDescMutation = useMutation({
     mutationFn: ({ id, content }: { id: number; content: string }) => coursesApi.updateSection(id, { content }),
@@ -160,6 +167,10 @@ export const SectionListEditor = forwardRef<SectionListEditorHandle, SectionList
   const commitTitle = (id: number, title: string) => {
     setSections(prev => prev.map(s => (s.id === id ? { ...s, title } : s)));
     titleMutation.mutate({ id, title });
+  };
+  const commitFileName = (id: number, fileName: string) => {
+    setSections(prev => prev.map(s => (s.id === id ? { ...s, fileName } : s)));
+    fileNameMutation.mutate({ id, fileName });
   };
   const commitFileDesc = (id: number, content: string) => {
     setSections(prev => prev.map(s => (s.id === id ? { ...s, content } : s)));
@@ -297,6 +308,7 @@ export const SectionListEditor = forwardRef<SectionListEditorHandle, SectionList
           onDropRow={() => dropItem(index)}
           onDragEnd={() => setDragIndex(null)}
           onTitleCommit={(title) => commitTitle(section.id, title)}
+          onFileNameCommit={(name) => commitFileName(section.id, name)}
           onFileDescCommit={(desc) => commitFileDesc(section.id, desc)}
           onRequestDelete={() => setDeleteTarget(section)}
           registerFlush={makeRegister(section.id)}

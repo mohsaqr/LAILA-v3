@@ -198,6 +198,7 @@
   "code_lab": "Koodilaboratorio",
   "upload_file": "Lähetä tiedosto",
   "file_name": "Tiedoston nimi",
+  "file_name_placeholder": "Tiedoston nimi",
   "file_uploaded": "Tiedosto ladattu onnistuneesti",
   "file_uploaded_ready": "Tiedosto ladattu — valmis tallennettavaksi",
   "click_name_to_rename": "Napsauta nimeä nimetäksesi uudelleen",
