@@ -2,6 +2,7 @@ import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { chatService } from './chat.service.js';
 import { courseRoleService } from './courseRole.service.js';
+import { presentationService } from './presentation.service.js';
 
 export interface CreateSectionData {
   type: 'text' | 'file' | 'ai-generated' | 'chatbot' | 'assignment';
@@ -175,6 +176,11 @@ export class SectionService {
       },
     });
 
+    // Pre-render PowerPoint slides in the background so students hit a warm
+    // cache instead of triggering (and waiting on) a cold conversion on first
+    // view. Fire-and-forget — never blocks or fails the create.
+    void presentationService.warm(section.id);
+
     return section;
   }
 
@@ -206,6 +212,12 @@ export class SectionService {
         assignment: section.type === 'assignment' ? true : false,
       },
     });
+
+    // A changed file (e.g. a re-uploaded deck) gets a new cache key, so warm it
+    // in the background too. No-op for non-presentation files or unchanged ones.
+    if (data.fileUrl !== undefined) {
+      void presentationService.warm(updated.id);
+    }
 
     return updated;
   }

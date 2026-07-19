@@ -141,6 +141,44 @@ export class PresentationService {
     const pptxPath = this.resolvePptxPath(section.fileUrl);
     if (!existsSync(pptxPath)) throw new AppError('Presentation file not found', 404);
 
+    // Don't block the request on the (slow) conversion — the client polls.
+    return this.ensureConversion(pptxPath);
+  }
+
+  /**
+   * Eagerly render a section's presentation (if it is one) so the disk cache is
+   * `ready` before any student opens the lecture. Fire-and-forget: never throws
+   * and reuses the same cache + in-flight dedupe as `getSlides`. Intended to be
+   * called (unawaited) when an instructor creates/updates a file section, so the
+   * authoring instructor "pays" for the conversion instead of the first student.
+   */
+  async warm(sectionId: number): Promise<void> {
+    try {
+      const section = await prisma.lectureSection.findUnique({
+        where: { id: sectionId },
+        select: { fileName: true, fileType: true, fileUrl: true },
+      });
+      if (!section?.fileUrl) return;
+      if (!isPresentationFile(section.fileName, section.fileType)) return;
+
+      const pptxPath = this.resolvePptxPath(section.fileUrl);
+      if (!existsSync(pptxPath)) return;
+
+      // Kicks off conversion (fire-and-forget) if not already ready/in-flight.
+      await this.ensureConversion(pptxPath);
+    } catch (err) {
+      // Best effort — a warm failure just means the first viewer falls back to
+      // the existing lazy path; never surface it to the caller's request.
+      console.warn('[presentation] Warm failed:', err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  /**
+   * Return the cached manifest for a resolved pptx path, or kick off (and cache)
+   * the conversion if it isn't ready yet. Shared by `getSlides` (lazy, at view
+   * time) and `warm` (eager, at author time). Does not block on the conversion.
+   */
+  private async ensureConversion(pptxPath: string): Promise<SlideManifest> {
     const base = this.cacheBase(pptxPath);
     const cacheDir = path.join(SLIDES_DIR, base);
     const manifestPath = path.join(cacheDir, 'manifest.json');
@@ -158,7 +196,6 @@ export class PresentationService {
 
     const job = this.convert(pptxPath, cacheDir, base).finally(() => this.inFlight.delete(base));
     this.inFlight.set(base, job);
-    // Don't block the request on the (slow) conversion — the client polls.
     return { status: 'processing' };
   }
 

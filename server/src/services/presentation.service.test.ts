@@ -73,6 +73,48 @@ describe('PresentationService.getSlides', () => {
   });
 });
 
+// warm() is the eager, author-time pre-render. It must never throw (it's called
+// fire-and-forget from section create/update) and must skip the access check and
+// any conversion when there's nothing to render.
+describe('PresentationService.warm', () => {
+  let service: PresentationService;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    service = new PresentationService();
+  });
+
+  const inFlightSize = (s: PresentationService) =>
+    (s as unknown as { inFlight: Map<string, unknown> }).inFlight.size;
+
+  it('no-ops (no throw) when the section does not exist', async () => {
+    vi.mocked(prisma.lectureSection.findUnique).mockResolvedValue(null as never);
+    await expect(service.warm(1)).resolves.toBeUndefined();
+    expect(inFlightSize(service)).toBe(0);
+  });
+
+  it('no-ops for a non-presentation file', async () => {
+    vi.mocked(prisma.lectureSection.findUnique).mockResolvedValue(
+      mockSection({ fileName: 'notes.pdf', fileType: 'application/pdf' }) as never,
+    );
+    await expect(service.warm(1)).resolves.toBeUndefined();
+    expect(inFlightSize(service)).toBe(0);
+  });
+
+  it('no-ops when the presentation file is missing on disk', async () => {
+    vi.mocked(prisma.lectureSection.findUnique).mockResolvedValue(mockSection() as never);
+    await expect(service.warm(1)).resolves.toBeUndefined();
+    expect(inFlightSize(service)).toBe(0);
+  });
+
+  it('does not perform an access check (never touches enrollment/team lookups)', async () => {
+    vi.mocked(prisma.lectureSection.findUnique).mockResolvedValue(mockSection() as never);
+    await service.warm(1);
+    expect(prisma.enrollment.findUnique).not.toHaveBeenCalled();
+    expect(courseRoleService.isTeamMember).not.toHaveBeenCalled();
+  });
+});
+
 // A stale `failed` manifest must auto-retry (so installing the binaries / fixing
 // config recovers without manually clearing the cache); a recent one must not.
 describe('PresentationService failed-manifest retry', () => {
