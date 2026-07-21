@@ -323,6 +323,8 @@
   "slide_render_failed": "This presentation could not be displayed inline",
   "slide_prev": "Previous slide",
   "slide_next": "Next slide",
+  "slide_fullscreen": "Full screen",
+  "slide_exit_fullscreen": "Exit full screen",
   "slide_counter": "{{current}} / {{total}}",
   "slide_of": "Slide {{current}} of {{total}}",
   "save_draft": "Save Draft",

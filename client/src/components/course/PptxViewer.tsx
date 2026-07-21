@@ -7,6 +7,8 @@ import {
   ChevronRight,
   AlertTriangle,
   Loader2,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { resolveFileUrl } from '../../api/client';
@@ -160,6 +162,13 @@ const usePptxTracking = (
     [flushDwell, log, startDwell, visit],
   );
 
+  const notifyFullscreen = useCallback(
+    (entered: boolean) => {
+      log('interacted', 'presentation.fullscreen', {}, { entered, slide: state.current.current });
+    },
+    [log],
+  );
+
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -190,7 +199,64 @@ const usePptxTracking = (
     };
   }, [activate, flushDwell, startDwell, stopDwell]);
 
-  return { ref, visibleRef, notifyNavigate, activate };
+  return { ref, visibleRef, notifyNavigate, notifyFullscreen, activate };
+};
+
+/**
+ * Cross-browser fullscreen for a single element. Safari still ships only the
+ * webkit-prefixed API, so both spellings are probed. `supported` is resolved on
+ * mount so the toggle can be hidden where fullscreen is unavailable (e.g. iOS
+ * Safari, which exposes no element fullscreen at all).
+ */
+const useFullscreen = (ref: React.RefObject<HTMLElement>, onChange?: (active: boolean) => void) => {
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [supported, setSupported] = useState(false);
+  const changeRef = useRef(onChange);
+  changeRef.current = onChange;
+
+  useEffect(() => {
+    const el = ref.current as (HTMLElement & { webkitRequestFullscreen?: () => void }) | null;
+    const doc = document as Document & { webkitFullscreenEnabled?: boolean };
+    setSupported(Boolean(doc.fullscreenEnabled ?? doc.webkitFullscreenEnabled) && Boolean(el?.requestFullscreen || el?.webkitRequestFullscreen));
+  }, [ref]);
+
+  useEffect(() => {
+    const onFsChange = () => {
+      const doc = document as Document & { webkitFullscreenElement?: Element | null };
+      const active = (doc.fullscreenElement ?? doc.webkitFullscreenElement) === ref.current;
+      setIsFullscreen((prev) => {
+        if (prev !== active) changeRef.current?.(active);
+        return active;
+      });
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    document.addEventListener('webkitfullscreenchange', onFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFsChange);
+      document.removeEventListener('webkitfullscreenchange', onFsChange);
+    };
+  }, [ref]);
+
+  const toggle = useCallback(() => {
+    const doc = document as Document & {
+      webkitFullscreenElement?: Element | null;
+      webkitExitFullscreen?: () => void;
+    };
+    const el = ref.current as (HTMLElement & { webkitRequestFullscreen?: () => void }) | null;
+    if (!el) return;
+
+    if ((doc.fullscreenElement ?? doc.webkitFullscreenElement) === el) {
+      if (doc.exitFullscreen) void doc.exitFullscreen();
+      else doc.webkitExitFullscreen?.();
+    } else if (el.requestFullscreen) {
+      // Rejects when the gesture isn't trusted — nothing to recover, stay inline.
+      void el.requestFullscreen().catch(() => {});
+    } else {
+      el.webkitRequestFullscreen?.();
+    }
+  }, [ref]);
+
+  return { isFullscreen, supported, toggle };
 };
 
 /**
@@ -209,7 +275,13 @@ export const PptxViewer = ({ url, fileName, sectionId, onDownload, tracking }: P
   const [current, setCurrent] = useState(0);
 
   const total = manifest?.images?.length ?? 0;
-  const { ref, visibleRef, notifyNavigate, activate } = usePptxTracking(sectionId, fileName, total, tracking);
+  const { ref, visibleRef, notifyNavigate, notifyFullscreen, activate } = usePptxTracking(
+    sectionId,
+    fileName,
+    total,
+    tracking,
+  );
+  const { isFullscreen, supported: fsSupported, toggle: toggleFullscreen } = useFullscreen(ref, notifyFullscreen);
 
   // Load the slide manifest, polling while the server is still converting.
   useEffect(() => {
@@ -266,18 +338,30 @@ export const PptxViewer = ({ url, fileName, sectionId, onDownload, tracking }: P
   useEffect(() => {
     if (status !== 'ready') return;
     const onKey = (e: KeyboardEvent) => {
-      if (!visibleRef.current) return;
+      if (!visibleRef.current && !isFullscreen) return;
+      // The lecture page has comment boxes and a section chatbot — never steal
+      // keys from a field the user is typing in.
+      const target = e.target as HTMLElement | null;
+      if (
+        target?.isContentEditable ||
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName ?? '')
+      ) {
+        return;
+      }
       if (e.key === 'ArrowRight' || e.key === 'PageDown') {
         e.preventDefault();
         goTo(current + 1, 'next');
       } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
         e.preventDefault();
         goTo(current - 1, 'prev');
+      } else if ((e.key === 'f' || e.key === 'F') && fsSupported && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        toggleFullscreen();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [status, current, goTo, visibleRef]);
+  }, [status, current, goTo, visibleRef, isFullscreen, fsSupported, toggleFullscreen]);
 
   // ---- theme tokens for the chrome ----
   const border = isDark ? '#374151' : '#e5e7eb';
@@ -294,10 +378,18 @@ export const PptxViewer = ({ url, fileName, sectionId, onDownload, tracking }: P
   const nextSrc = manifest?.images && current + 1 < total ? resolveFileUrl(manifest.images[current + 1]) : null;
 
   return (
-    <div ref={ref} className="rounded-xl border overflow-hidden" style={{ borderColor: border }}>
+    <div
+      ref={ref}
+      className={
+        isFullscreen
+          ? 'w-screen h-screen flex flex-col overflow-hidden'
+          : 'rounded-xl border overflow-hidden'
+      }
+      style={{ borderColor: border, backgroundColor: isFullscreen ? '#000' : undefined }}
+    >
       {/* Toolbar */}
       <div
-        className="flex items-center gap-3 px-3.5 py-2.5 border-b"
+        className="shrink-0 flex items-center gap-3 px-3.5 py-2.5 border-b"
         style={{ backgroundColor: headerBg, borderColor: border }}
       >
         <span
@@ -315,6 +407,29 @@ export const PptxViewer = ({ url, fileName, sectionId, onDownload, tracking }: P
             {t('courses:presentation', { defaultValue: 'Presentation' })}
           </div>
         </div>
+        {fsSupported && status === 'ready' && (
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            aria-label={
+              isFullscreen
+                ? t('courses:slide_exit_fullscreen', { defaultValue: 'Exit full screen' })
+                : t('courses:slide_fullscreen', { defaultValue: 'Full screen' })
+            }
+            title={
+              isFullscreen
+                ? t('courses:slide_exit_fullscreen', { defaultValue: 'Exit full screen' })
+                : t('courses:slide_fullscreen', { defaultValue: 'Full screen' })
+            }
+            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          >
+            {isFullscreen ? (
+              <Minimize2 className="w-4 h-4" aria-hidden="true" />
+            ) : (
+              <Maximize2 className="w-4 h-4" aria-hidden="true" />
+            )}
+          </button>
+        )}
         <a
           href={url}
           download={fileName || undefined}
@@ -361,10 +476,23 @@ export const PptxViewer = ({ url, fileName, sectionId, onDownload, tracking }: P
 
       {status === 'ready' && manifest?.images && (
         <>
-          <div className="p-3 sm:p-4" style={{ backgroundColor: bodyBg }}>
+          <div
+            className={
+              isFullscreen
+                ? 'flex-1 min-h-0 flex items-center justify-center p-2 sm:p-4'
+                : 'p-3 sm:p-4'
+            }
+            style={{ backgroundColor: isFullscreen ? '#000' : bodyBg }}
+          >
             <div
-              className="mx-auto max-w-4xl bg-white shadow-sm rounded-lg overflow-hidden"
-              style={{ aspectRatio: aspect }}
+              className={
+                isFullscreen
+                  ? 'flex items-center justify-center max-w-full max-h-full'
+                  : 'mx-auto max-w-4xl bg-white shadow-sm rounded-lg overflow-hidden'
+              }
+              // Inline, the box holds the slide's shape while the image loads. In
+              // fullscreen the image letterboxes itself against black instead.
+              style={isFullscreen ? undefined : { aspectRatio: aspect }}
             >
               <img
                 src={resolveFileUrl(manifest.images[current])}
@@ -373,7 +501,11 @@ export const PptxViewer = ({ url, fileName, sectionId, onDownload, tracking }: P
                   current: current + 1,
                   total,
                 })}
-                className="w-full h-full object-contain"
+                className={
+                  isFullscreen
+                    ? 'max-w-full max-h-full w-auto h-auto object-contain'
+                    : 'w-full h-full object-contain'
+                }
                 draggable={false}
               />
             </div>
@@ -383,7 +515,7 @@ export const PptxViewer = ({ url, fileName, sectionId, onDownload, tracking }: P
 
           {/* Navigation */}
           <div
-            className="flex items-center justify-center gap-4 px-3.5 py-2.5 border-t"
+            className="shrink-0 flex items-center justify-center gap-4 px-3.5 py-2.5 border-t"
             style={{ backgroundColor: headerBg, borderColor: border }}
           >
             <button

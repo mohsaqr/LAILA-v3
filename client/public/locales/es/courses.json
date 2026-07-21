@@ -324,6 +324,8 @@
   "slide_render_failed": "Esta presentación no se pudo mostrar de forma integrada",
   "slide_prev": "Diapositiva anterior",
   "slide_next": "Diapositiva siguiente",
+  "slide_fullscreen": "Pantalla completa",
+  "slide_exit_fullscreen": "Salir de pantalla completa",
   "slide_counter": "{{current}} / {{total}}",
   "slide_of": "Diapositiva {{current}} de {{total}}",
   "save_draft": "Guardar Borrador",
