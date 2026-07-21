@@ -149,9 +149,48 @@ describe('PresentationService failed-manifest retry', () => {
 
   it('reports failed while the retry cooldown is active', async () => {
     fs.mkdirSync(cacheDir, { recursive: true });
-    fs.writeFileSync(manifestPath, JSON.stringify({ status: 'failed', failedAt: Date.now() }));
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        status: 'failed',
+        error: 'timeout',
+        errorMessage: 'poppler (pdftoppm) exceeded its 120s time limit',
+        errorDetail: { stage: 'pdftoppm', timedOut: true },
+        failedAt: Date.now(),
+      }),
+    );
     const res = await new PresentationService().getSlides(1, { id: 1, isAdmin: true });
     expect(res.status).toBe('failed');
+  });
+
+  it('re-runs a legacy failure that carries no diagnostics', async () => {
+    fs.mkdirSync(cacheDir, { recursive: true });
+    // Written by a build that recorded only a status — returning it verbatim
+    // would report `failed` with no reason, so it must be retried instead.
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({ status: 'failed', error: 'conversion_failed', failedAt: Date.now() }),
+    );
+    const service = new PresentationService();
+    const res = await service.getSlides(1, { id: 1, isAdmin: true });
+    expect(res.status).toBe('processing');
+    // Drain the fire-and-forget retry (fails fast under the bogus SOFFICE_BIN).
+    await (service as unknown as { inFlight: Map<string, Promise<unknown>> }).inFlight
+      .get(base)
+      ?.catch(() => {});
+  });
+
+  it('attaches a reason when an old manifest recorded none', async () => {
+    fs.mkdirSync(cacheDir, { recursive: true });
+    fs.writeFileSync(manifestPath, JSON.stringify({ status: 'failed', failedAt: Date.now() }));
+    const service = new PresentationService();
+    const manifest = await (
+      service as unknown as {
+        readManifest: (p: string, b: string) => Promise<{ error?: string; errorMessage?: string }>;
+      }
+    ).readManifest(manifestPath, base);
+    expect(manifest.error).toBe('conversion_failed');
+    expect(manifest.errorMessage).toMatch(/retried/i);
   });
 
   it('surfaces the recorded failure reason during the cooldown', async () => {

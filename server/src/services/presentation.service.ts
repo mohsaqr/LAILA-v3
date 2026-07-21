@@ -262,7 +262,14 @@ export class PresentationService {
     if (cached?.status === 'ready' && cached.images) return cached;
     // A prior failure is retried after a cooldown (so installing the binaries or
     // fixing config recovers automatically); within the window, report failed.
-    if (cached?.status === 'failed' && Date.now() - (cached.failedAt ?? 0) < RETRY_COOLDOWN_MS) {
+    // A failure recorded before diagnostics existed carries no `errorDetail` —
+    // returning it would report a bare `failed` with nothing to act on, so it is
+    // treated as stale and re-run once to capture the real reason.
+    if (
+      cached?.status === 'failed' &&
+      cached.errorDetail &&
+      Date.now() - (cached.failedAt ?? 0) < RETRY_COOLDOWN_MS
+    ) {
       // Report *why* it failed — this branch previously dropped the reason,
       // leaving the client with a bare `failed` and nothing to act on.
       return cached;
@@ -319,6 +326,14 @@ export class PresentationService {
         manifest.images = manifest.images.map((name) =>
           name.startsWith('/uploads/') ? name : `/uploads/slides/${base}/${name}`,
         );
+      }
+      // A failure must never reach a caller without a reason attached, even if
+      // it was recorded by an older build that only stored a status.
+      if (manifest.status === 'failed' && !manifest.errorMessage) {
+        manifest.error ??= 'conversion_failed';
+        manifest.errorMessage =
+          `The conversion failed previously (${manifest.error}) and was recorded before ` +
+          'detailed diagnostics existed. It will be retried on the next request.';
       }
       return manifest;
     } catch {
