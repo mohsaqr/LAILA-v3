@@ -154,6 +154,47 @@ describe('PresentationService failed-manifest retry', () => {
     expect(res.status).toBe('failed');
   });
 
+  it('surfaces the recorded failure reason during the cooldown', async () => {
+    fs.mkdirSync(cacheDir, { recursive: true });
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        status: 'failed',
+        error: 'timeout',
+        errorMessage: 'poppler (pdftoppm) exceeded its 120s time limit',
+        errorDetail: { stage: 'pdftoppm', timedOut: true, durationMs: 120_004, command: '/usr/bin/pdftoppm' },
+        failedAt: Date.now(),
+      }),
+    );
+    const res = await new PresentationService().getSlides(1, { id: 1, isAdmin: true });
+    expect(res.status).toBe('failed');
+    expect(res.error).toBe('timeout');
+    expect(res.errorMessage).toContain('120s');
+    expect(res.errorDetail?.stage).toBe('pdftoppm');
+    expect(res.errorDetail?.timedOut).toBe(true);
+  });
+
+  it('hides raw diagnostics from enrolled students', async () => {
+    fs.mkdirSync(cacheDir, { recursive: true });
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        status: 'failed',
+        error: 'timeout',
+        errorMessage: 'poppler (pdftoppm) exceeded its 120s time limit',
+        errorDetail: { stage: 'pdftoppm', command: '/usr/bin/pdftoppm', stderr: 'sensitive path detail' },
+        failedAt: Date.now(),
+      }),
+    );
+    vi.mocked(prisma.enrollment.findUnique).mockResolvedValue({ id: 1 } as never);
+    // Not the instructor (instructorId is 1), not an admin — an enrolled student.
+    const res = await new PresentationService().getSlides(1, { id: 99, isAdmin: false });
+    expect(res.status).toBe('failed');
+    expect(res.error).toBe('timeout');
+    expect(res.errorMessage).toContain('120s'); // friendly reason still shown
+    expect(res.errorDetail).toBeUndefined(); // raw diagnostics stripped
+  });
+
   it('retries (processing) once the cooldown has elapsed', async () => {
     fs.mkdirSync(cacheDir, { recursive: true });
     fs.writeFileSync(manifestPath, JSON.stringify({ status: 'failed', failedAt: Date.now() - 120_000 }));

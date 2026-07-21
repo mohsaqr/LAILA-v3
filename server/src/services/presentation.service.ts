@@ -12,10 +12,18 @@ const execFileAsync = promisify(execFile);
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
 const SLIDES_DIR = path.join(UPLOADS_DIR, 'slides');
 
-// Bound conversion cost.
-const RENDER_DPI = '150';
-const MAX_SLIDES = 300;
-const CONVERT_TIMEOUT_MS = 120_000;
+/** Positive integer from env, or the fallback when unset/invalid. */
+const envInt = (name: string, fallback: number): number => {
+  const parsed = Number.parseInt(process.env[name] ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+// Bound conversion cost. Overridable per-deployment: a large deck on a small
+// server can legitimately need more than the default two minutes, and dropping
+// the DPI is the cheapest way to bring a slow render back under the limit.
+const RENDER_DPI = String(envInt('PRESENTATION_RENDER_DPI', 150));
+const MAX_SLIDES = envInt('PRESENTATION_MAX_SLIDES', 300);
+const CONVERT_TIMEOUT_MS = envInt('PRESENTATION_CONVERT_TIMEOUT_MS', 120_000);
 // After a failed conversion, wait this long before auto-retrying (so a genuinely
 // broken deck doesn't respawn the binaries on every view, but installing the
 // binaries / fixing config self-heals on the next visit).
@@ -25,6 +33,41 @@ const RETRY_COOLDOWN_MS = 60_000;
 // server process runs with a minimal PATH (systemd, pm2, launchd, …).
 const EXTRA_PATHS = ['/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin'];
 
+/** Machine-readable reason a conversion failed. */
+export type SlideErrorCode =
+  | 'timeout'
+  | 'binary_missing'
+  | 'no_pdf'
+  | 'no_slides'
+  | 'source_missing'
+  | 'conversion_failed';
+
+/**
+ * Full diagnostic for a failed conversion. Returned only to instructors/admins
+ * — it carries absolute paths and raw binary stderr, which students shouldn't
+ * see.
+ */
+export interface SlideFailureDetail {
+  /** Which pipeline step failed. */
+  stage: 'libreoffice' | 'pdftoppm' | 'collect';
+  /** Absolute path of the binary that was invoked. */
+  command?: string;
+  /** Exit code, when the binary ran and exited non-zero. */
+  exitCode?: number | string;
+  /** Signal that killed the process (SIGTERM = our own timeout). */
+  signal?: string;
+  /** True when the step was killed by our timeout rather than failing itself. */
+  timedOut?: boolean;
+  /** The timeout the step was given, in ms. */
+  timeoutMs?: number;
+  /** Wall-clock ms the step consumed before succeeding or failing. */
+  durationMs?: number;
+  /** Truncated stderr from the binary. */
+  stderr?: string;
+  /** Per-step wall-clock timings recorded before the failure. */
+  timings?: Record<string, number>;
+}
+
 export interface SlideManifest {
   status: 'ready' | 'processing' | 'failed';
   slideCount?: number;
@@ -33,9 +76,34 @@ export interface SlideManifest {
   /** Pixel dimensions of the rendered slides (for the client aspect box). */
   width?: number;
   height?: number;
-  error?: string;
+  /** Machine-readable failure reason. */
+  error?: SlideErrorCode | string;
+  /** Human-readable, actionable description of the failure. */
+  errorMessage?: string;
+  /** Full diagnostic; stripped for non-privileged viewers. */
+  errorDetail?: SlideFailureDetail;
   /** Epoch ms of the last failure, used to throttle auto-retries. */
   failedAt?: number;
+}
+
+/** Truncate binary output so a runaway log can't bloat the manifest/response. */
+const trimOutput = (text?: string | null): string | undefined => {
+  if (!text) return undefined;
+  const clean = text.trim();
+  if (!clean) return undefined;
+  return clean.length > 2000 ? `${clean.slice(0, 2000)}… (truncated)` : clean;
+};
+
+/** A conversion step failure carrying its classification and diagnostics. */
+class ConversionError extends Error {
+  constructor(
+    readonly code: SlideErrorCode,
+    message: string,
+    readonly detail: SlideFailureDetail,
+  ) {
+    super(message);
+    this.name = 'ConversionError';
+  }
 }
 
 interface AccessUser {
@@ -132,7 +200,7 @@ export class PresentationService {
     });
     if (!section) throw new AppError('Section not found', 404);
 
-    await this.assertAccess(section.lecture.module.course, user);
+    const privileged = await this.assertAccess(section.lecture.module.course, user);
 
     if (!isPresentationFile(section.fileName, section.fileType) || !section.fileUrl) {
       throw new AppError('This section is not a PowerPoint presentation', 400);
@@ -142,7 +210,14 @@ export class PresentationService {
     if (!existsSync(pptxPath)) throw new AppError('Presentation file not found', 404);
 
     // Don't block the request on the (slow) conversion — the client polls.
-    return this.ensureConversion(pptxPath);
+    const manifest = await this.ensureConversion(pptxPath);
+
+    // Students see the friendly reason but not absolute paths or raw stderr.
+    if (!privileged && manifest.errorDetail) {
+      const { errorDetail: _detail, ...rest } = manifest;
+      return rest;
+    }
+    return manifest;
   }
 
   /**
@@ -188,7 +263,9 @@ export class PresentationService {
     // A prior failure is retried after a cooldown (so installing the binaries or
     // fixing config recovers automatically); within the window, report failed.
     if (cached?.status === 'failed' && Date.now() - (cached.failedAt ?? 0) < RETRY_COOLDOWN_MS) {
-      return { status: 'failed' };
+      // Report *why* it failed — this branch previously dropped the reason,
+      // leaving the client with a bare `failed` and nothing to act on.
+      return cached;
     }
 
     // Conversion already running for this deck.
@@ -199,17 +276,22 @@ export class PresentationService {
     return { status: 'processing' };
   }
 
+  /**
+   * Throws unless the user may view the deck. Resolves to `true` for those who
+   * can act on a conversion failure (admins, the instructor, course team) —
+   * enrolled students get access but not the raw diagnostics.
+   */
   private async assertAccess(
     course: { id: number; instructorId: number },
     user: AccessUser,
-  ): Promise<void> {
-    if (user.isAdmin) return;
-    if (course.instructorId === user.id) return;
-    if (await courseRoleService.isTeamMember(user.id, course.id)) return;
+  ): Promise<boolean> {
+    if (user.isAdmin) return true;
+    if (course.instructorId === user.id) return true;
+    if (await courseRoleService.isTeamMember(user.id, course.id)) return true;
     const enrollment = await prisma.enrollment.findUnique({
       where: { userId_courseId: { userId: user.id, courseId: course.id } },
     });
-    if (enrollment) return;
+    if (enrollment) return false;
     throw new AppError('Not authorized to view this presentation', 403);
   }
 
@@ -245,6 +327,70 @@ export class PresentationService {
   }
 
   /**
+   * Run one conversion binary, classifying any failure into a `ConversionError`
+   * that carries enough detail to tell a timeout apart from a missing binary or
+   * a genuine crash. Returns the step's wall-clock duration in ms.
+   */
+  private async runStep(
+    stage: 'libreoffice' | 'pdftoppm',
+    bin: string,
+    args: string[],
+    timeoutMs: number,
+    timings: Record<string, number>,
+  ): Promise<number> {
+    const startedAt = Date.now();
+    try {
+      await execFileAsync(bin, args, {
+        timeout: timeoutMs,
+        env: execEnv(),
+        maxBuffer: 10 * 1024 * 1024,
+      });
+      const durationMs = Date.now() - startedAt;
+      timings[stage] = durationMs;
+      return durationMs;
+    } catch (err) {
+      const e = err as NodeJS.ErrnoException & {
+        killed?: boolean;
+        signal?: string;
+        stderr?: string;
+        code?: number | string;
+      };
+      const durationMs = Date.now() - startedAt;
+      timings[stage] = durationMs;
+
+      // execFile enforces `timeout` by killing the child with SIGTERM, so a
+      // SIGTERM kill is indistinguishable from our own timeout firing.
+      const timedOut = e.signal === 'SIGTERM' || Boolean(e.killed) || e.code === 'ETIMEDOUT';
+      const missing = e.code === 'ENOENT';
+      const code: SlideErrorCode = missing
+        ? 'binary_missing'
+        : timedOut
+          ? 'timeout'
+          : 'conversion_failed';
+
+      const label = stage === 'libreoffice' ? 'LibreOffice (soffice)' : 'poppler (pdftoppm)';
+      const seconds = Math.round(durationMs / 1000);
+      const message = missing
+        ? `${label} was not found at "${bin}". Install it with \`apt-get install -y libreoffice poppler-utils fonts-liberation\`, or set ${stage === 'libreoffice' ? 'SOFFICE_BIN' : 'PDFTOPPM_BIN'}.`
+        : timedOut
+          ? `${label} exceeded its ${Math.round(timeoutMs / 1000)}s time limit (killed after ${seconds}s). Large decks can need more time than this on smaller servers — raise PRESENTATION_CONVERT_TIMEOUT_MS or lower PRESENTATION_RENDER_DPI.`
+          : `${label} failed after ${seconds}s with exit code ${String(e.code ?? 'unknown')}.`;
+
+      throw new ConversionError(code, message, {
+        stage,
+        command: bin,
+        exitCode: typeof e.code === 'number' || typeof e.code === 'string' ? e.code : undefined,
+        signal: e.signal,
+        timedOut,
+        timeoutMs,
+        durationMs,
+        stderr: trimOutput(e.stderr),
+        timings: { ...timings },
+      });
+    }
+  }
+
+  /**
    * soffice → PDF → pdftoppm → per-slide PNGs. Writes a `ready` manifest on
    * success or a terminal `failed` manifest otherwise (so we don't respawn the
    * binaries on every view). Never throws — the caller only awaits for dedupe.
@@ -252,6 +398,7 @@ export class PresentationService {
   private async convert(pptxPath: string, cacheDir: string, base: string): Promise<SlideManifest> {
     const tmpDir = path.join(cacheDir, '.tmp');
     const manifestPath = path.join(cacheDir, 'manifest.json');
+    const timings: Record<string, number> = {};
     try {
       // Start from a clean cache dir so a retry can't mix with stale output.
       await fs.rm(cacheDir, { recursive: true, force: true });
@@ -259,8 +406,10 @@ export class PresentationService {
 
       // 1) PowerPoint → PDF. A unique UserInstallation profile lets concurrent
       //    conversions run without colliding on soffice's shared profile.
-      await execFileAsync(
-        resolveSofficeBin(),
+      const sofficeBin = resolveSofficeBin();
+      await this.runStep(
+        'libreoffice',
+        sofficeBin,
         [
           '--headless',
           `-env:UserInstallation=file://${path.join(tmpDir, 'profile')}`,
@@ -270,23 +419,39 @@ export class PresentationService {
           tmpDir,
           pptxPath,
         ],
-        { timeout: CONVERT_TIMEOUT_MS, env: execEnv() },
+        CONVERT_TIMEOUT_MS,
+        timings,
       );
       const pdfPath = path.join(tmpDir, `${path.parse(pptxPath).name}.pdf`);
-      if (!existsSync(pdfPath)) throw new Error('LibreOffice did not produce a PDF');
+      if (!existsSync(pdfPath)) {
+        throw new ConversionError(
+          'no_pdf',
+          'LibreOffice exited successfully but produced no PDF. This usually means the deck is corrupt, password-protected, or LibreOffice lacks a writable HOME/profile directory.',
+          { stage: 'libreoffice', command: sofficeBin, durationMs: timings.libreoffice, timings: { ...timings } },
+        );
+      }
 
       // 2) PDF → per-page PNGs (written as page-1.png / page-01.png / …).
-      await execFileAsync(
-        resolvePdftoppmBin(),
+      const pdftoppmBin = resolvePdftoppmBin();
+      await this.runStep(
+        'pdftoppm',
+        pdftoppmBin,
         ['-png', '-r', RENDER_DPI, pdfPath, path.join(tmpDir, 'page')],
-        { timeout: CONVERT_TIMEOUT_MS, env: execEnv() },
+        CONVERT_TIMEOUT_MS,
+        timings,
       );
 
       const pages = (await fs.readdir(tmpDir))
         .filter((f) => /^page-\d+\.png$/.test(f))
         .sort((a, b) => pageNum(a) - pageNum(b))
         .slice(0, MAX_SLIDES);
-      if (pages.length === 0) throw new Error('No slides were rendered');
+      if (pages.length === 0) {
+        throw new ConversionError(
+          'no_slides',
+          'The PDF rendered but produced no page images. Check free disk space in the uploads directory.',
+          { stage: 'collect', command: pdftoppmBin, timings: { ...timings } },
+        );
+      }
 
       // 3) Normalize to slide-1.png … slide-N.png in the cache dir.
       const images: string[] = [];
@@ -308,17 +473,27 @@ export class PresentationService {
       await fs.writeFile(manifestPath, JSON.stringify(manifest));
       return manifest;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      // ENOENT on the binary → surface an actionable hint in the server log.
-      if (/ENOENT/.test(message)) {
-        console.warn(
-          '[presentation] Conversion failed: soffice/pdftoppm not found. ' +
-            'Install with `apt-get install -y libreoffice poppler-utils` (or set SOFFICE_BIN/PDFTOPPM_BIN).',
-        );
-      } else {
-        console.warn('[presentation] Conversion failed:', message);
-      }
-      const failed: SlideManifest = { status: 'failed', error: 'conversion_failed', failedAt: Date.now() };
+      const conv =
+        err instanceof ConversionError
+          ? err
+          : new ConversionError(
+              'conversion_failed',
+              err instanceof Error ? err.message : String(err),
+              { stage: 'collect', timings: { ...timings } },
+            );
+
+      console.warn(
+        `[presentation] Conversion failed (${conv.code}) for ${path.basename(pptxPath)}: ${conv.message}` +
+          (conv.detail.stderr ? `\n[presentation] stderr: ${conv.detail.stderr}` : ''),
+      );
+
+      const failed: SlideManifest = {
+        status: 'failed',
+        error: conv.code,
+        errorMessage: conv.message,
+        errorDetail: conv.detail,
+        failedAt: Date.now(),
+      };
       try {
         await fs.mkdir(cacheDir, { recursive: true });
         await fs.rm(tmpDir, { recursive: true, force: true });
