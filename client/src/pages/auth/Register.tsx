@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BrainCircuit, Mail, Lock, User, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, ShieldCheck, Inbox } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
@@ -158,15 +158,17 @@ export const Register = () => {
         <div className="rounded-2xl shadow-xl p-8" style={{ backgroundColor: colors.bgCard }}>
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 mb-4">
-              <div className="w-12 h-12 gradient-bg rounded-xl flex items-center justify-center">
-                {step === 'register' ? (
-                  <BrainCircuit className="w-7 h-7 text-white" />
-                ) : (
-                  <ShieldCheck className="w-7 h-7 text-white" />
-                )}
+            {step === 'register' ? (
+              <div className="flex justify-center mb-4">
+                <img src="/icons/logo.webp" alt="LAILA" className="h-28 w-auto" />
               </div>
-            </div>
+            ) : (
+              <div className="inline-flex items-center gap-2 mb-4">
+                <div className="w-12 h-12 gradient-bg rounded-xl flex items-center justify-center">
+                  <ShieldCheck className="w-7 h-7 text-white" />
+                </div>
+              </div>
+            )}
             {step === 'register' ? (
               <>
                 <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{t('register_title')}</h1>
@@ -280,6 +282,18 @@ export const Register = () => {
                       }}
                     />
                   ))}
+                </div>
+
+                {/* Spam-folder reminder */}
+                <div
+                  className="flex items-start gap-3 rounded-xl px-4 py-3 text-sm"
+                  style={{
+                    backgroundColor: isDark ? 'rgba(8, 143, 143, 0.12)' : '#e6f6f6',
+                    color: colors.textSecondary,
+                  }}
+                >
+                  <Inbox className="w-5 h-5 shrink-0 mt-0.5" style={{ color: colors.linkColor }} />
+                  <p className="leading-relaxed">{t('check_spam_folder')}</p>
                 </div>
 
                 <Button
