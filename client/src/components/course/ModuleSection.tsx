@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronRight, FileText, PlayCircle, Layers, FlaskConical, FileQuestion, ClipboardList, MessageSquare, Bot, Network, ListChecks, Folder, Link as LinkIcon, MonitorPlay, FileUp, Image as ImageIcon } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileText, PlayCircle, Layers, FlaskConical, FileQuestion, ClipboardList, MessageSquare, Bot, Network, ListChecks, Folder, Link as LinkIcon, MonitorPlay, FileUp, Image as ImageIcon, EyeOff } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { ContentCard, ContentType, ContentCardSize } from './ContentCard';
 import type { CourseModule, Lecture, CodeLab, Assignment, Survey, ModuleSurvey, ModuleQuiz, CurriculumViewMode } from '../../types';
@@ -26,6 +26,11 @@ interface ModuleSectionProps {
   labAssignments?: LabAssignmentItem[];
   hasAccess: boolean;
   viewMode?: CurriculumViewMode;
+  /** Course staff (admin/instructor/team) preview: show unpublished items with
+   *  a "Hidden" tag instead of filtering them out. Students never get this. */
+  showHidden?: boolean;
+  /** This whole module is unpublished (staff preview) — tag the header too. */
+  moduleHidden?: boolean;
 }
 
 // Content item interface for unified handling
@@ -39,6 +44,8 @@ interface ContentItem {
   isFree?: boolean;
   /** Sort key. Items with the same orderIndex tie-break by id. */
   orderIndex: number;
+  /** Unpublished item, surfaced only to course staff with a "Hidden" tag. */
+  hidden?: boolean;
 }
 
 // Icon mapping for list/accordion views
@@ -94,6 +101,8 @@ export const ModuleSection = ({
   labAssignments = [],
   hasAccess,
   viewMode = 'mini-cards',
+  showHidden = false,
+  moduleHidden = false,
 }: ModuleSectionProps) => {
   const { t } = useTranslation(['courses']);
   const { isDark } = useTheme();
@@ -110,16 +119,20 @@ export const ModuleSection = ({
     bgHover: isDark ? '#374151' : '#f9fafb',
   };
 
-  // Filter published items
-  const publishedLectures = lectures.filter(l => l.isPublished);
-  const publishedLabs = codeLabs.filter(l => l.isPublished);
-  const publishedQuizzes = quizzes.filter(q => q.isPublished);
-  const publishedAssignments = assignments.filter(a => a.isPublished);
-  const publishedForums = forums.filter(f => f.isPublished);
+  // Only published items are visible to students. Course staff previewing the
+  // page (showHidden) also see unpublished items, tagged "Hidden" below.
+  const keepPublished = <T,>(arr: T[], isPub: (x: T) => boolean) =>
+    showHidden ? arr : arr.filter(isPub);
+  const publishedLectures = keepPublished(lectures, l => !!l.isPublished);
+  const publishedLabs = keepPublished(codeLabs, l => !!l.isPublished);
+  const publishedQuizzes = keepPublished(quizzes, q => !!q.isPublished);
+  const publishedAssignments = keepPublished(assignments, a => !!a.isPublished);
+  const publishedForums = keepPublished(forums, f => !!f.isPublished);
   // Survey items may arrive as a bare Survey or as a ModuleSurvey junction
   // ({ survey: {...} }); the publish flag lives on the inner survey for the
   // latter (mirrors the id/title/href resolution below).
-  const publishedSurveys = surveys.filter((s: any) => s.survey?.isPublished ?? s.isPublished);
+  const surveyIsPublished = (s: any) => s.survey?.isPublished ?? s.isPublished;
+  const publishedSurveys = keepPublished(surveys, surveyIsPublished);
 
   // Check if module has any content
   const hasContent =
@@ -158,6 +171,7 @@ export const ModuleSection = ({
       href: `/courses/${courseId}/lectures/${lecture.id}`,
       isFree: lecture.isFree,
       orderIndex: lecture.orderIndex ?? 0,
+      hidden: !lecture.isPublished,
     })),
     ...publishedLabs.map(lab => ({
       id: lab.id,
@@ -166,6 +180,7 @@ export const ModuleSection = ({
       subtitle: lab.description || undefined,
       href: `/courses/${courseId}/code-labs/${lab.id}`,
       orderIndex: lab.orderIndex ?? 0,
+      hidden: !lab.isPublished,
     })),
     ...labAssignments.map(la => ({
       id: la.id,
@@ -185,6 +200,7 @@ export const ModuleSection = ({
       metadata: quiz._count?.questions ? t('x_questions', { count: quiz._count.questions }) : undefined,
       href: `/courses/${courseId}/quizzes/${quiz.id}`,
       orderIndex: (quiz as any).orderIndex ?? 0,
+      hidden: !quiz.isPublished,
     })),
     ...publishedAssignments.map(assignment => ({
       id: assignment.id,
@@ -198,6 +214,7 @@ export const ModuleSection = ({
         ? `/courses/${courseId}/agent-assignments/${assignment.id}`
         : `/courses/${courseId}/assignments/${assignment.id}`,
       orderIndex: (assignment as any).orderIndex ?? 0,
+      hidden: !assignment.isPublished,
     })),
     ...publishedForums.map(forum => ({
       id: forum.id,
@@ -209,6 +226,7 @@ export const ModuleSection = ({
         : undefined,
       href: `/courses/${courseId}/forums/${forum.id}`,
       orderIndex: forum.orderIndex ?? 0,
+      hidden: !forum.isPublished,
     })),
     ...publishedSurveys.map((s: any) => ({
       id: s.survey?.id ?? s.id,
@@ -220,6 +238,7 @@ export const ModuleSection = ({
         : undefined,
       href: `/surveys/${s.survey?.id ?? s.id}?moduleId=${module.id}&courseId=${courseId}`,
       orderIndex: s.orderIndex ?? 0,
+      hidden: !surveyIsPublished(s),
     })),
     ...(module.interactiveLabs
       ? module.interactiveLabs.split(',').map((key: string) => key.trim()).filter(Boolean)
@@ -263,6 +282,20 @@ export const ModuleSection = ({
     }
   };
 
+  // Amber "Hidden" pill for unpublished items (course-staff preview only).
+  const hiddenBadge = (
+    <span
+      className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded flex-shrink-0"
+      style={{
+        backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7',
+        color: isDark ? '#fcd34d' : '#b45309',
+      }}
+    >
+      <EyeOff className="w-3 h-3" />
+      {t('hidden', { defaultValue: 'Hidden' })}
+    </span>
+  );
+
   // Render list item
   const renderListItem = (item: ContentItem) => {
     const Icon = iconMap[item.type];
@@ -291,6 +324,7 @@ export const ModuleSection = ({
         >
           {item.title}
         </span>
+        {item.hidden && hiddenBadge}
         {item.metadata && (
           <span
             className="text-xs flex-shrink-0"
@@ -339,6 +373,7 @@ export const ModuleSection = ({
         >
           {item.title}
         </span>
+        {item.hidden && hiddenBadge}
       </div>
     );
 
@@ -386,6 +421,7 @@ export const ModuleSection = ({
           >
             {module.title}
           </span>
+          {moduleHidden && hiddenBadge}
         </button>
 
         {isExpanded && hasContent && (
@@ -434,12 +470,15 @@ export const ModuleSection = ({
             {moduleIndex + 1}
           </div>
           <div className="flex-1 min-w-0">
-            <h2
-              className="text-lg sm:text-xl font-semibold truncate"
-              style={{ color: colors.textPrimary }}
-            >
-              {module.title}
-            </h2>
+            <div className="flex items-center gap-2 min-w-0">
+              <h2
+                className="text-lg sm:text-xl font-semibold truncate"
+                style={{ color: colors.textPrimary }}
+              >
+                {module.title}
+              </h2>
+              {moduleHidden && hiddenBadge}
+            </div>
             {module.description && viewMode !== 'mini-cards' && (
               <p
                 className="text-sm mt-1 line-clamp-2"
@@ -473,6 +512,7 @@ export const ModuleSection = ({
                     href={canAccess ? item.href : undefined}
                     disabled={!canAccess}
                     size={getCardSize()}
+                    hidden={item.hidden}
                   />
                 );
               })}

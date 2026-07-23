@@ -188,6 +188,9 @@ export const CourseDetails = () => {
   // Course staff keep access to manage the content, but when they preview the
   // course "as a student" (viewAsRole) they see the countdown too.
   const previewingAsStudent = viewAsRole === 'student';
+  // Course staff see unpublished modules/items in the non-edit view (tagged
+  // "Hidden"), unless they are deliberately previewing the page as a student.
+  const showHidden = canManage && !previewingAsStudent;
   const startMs = course.startTime ? new Date(course.startTime).getTime() : null;
   const notStarted =
     startMs != null && startMs > Date.now() && !startReached && (!canManage || previewingAsStudent);
@@ -505,10 +508,10 @@ export const CourseDetails = () => {
                  3-dots (edit/hide/delete), and a bottom "+" add bar. Edit/add
                  navigate to dedicated pages (no popups). */
               <MoodleCourseEditor courseId={parseInt(id!)} />
-            ) : course.modules && course.modules.some((m) => (m as { isPublished?: boolean }).isPublished !== false) ? (
+            ) : course.modules && course.modules.some((m) => showHidden || (m as { isPublished?: boolean }).isPublished !== false) ? (
               <div className={viewMode === 'accordion' ? 'space-y-2' : 'space-y-6'}>
                 {course.modules
-                  .filter((module) => (module as { isPublished?: boolean }).isPublished !== false)
+                  .filter((module) => showHidden || (module as { isPublished?: boolean }).isPublished !== false)
                   .map((module, moduleIndex) => (
                   <div
                     key={module.id}
@@ -527,6 +530,8 @@ export const CourseDetails = () => {
                       labAssignments={(module as any).labAssignments}
                       hasAccess={hasAccess}
                       viewMode={viewMode}
+                      showHidden={showHidden}
+                      moduleHidden={showHidden && (module as { isPublished?: boolean }).isPublished === false}
                     />
                   </div>
                 ))}

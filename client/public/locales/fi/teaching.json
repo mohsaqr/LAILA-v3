@@ -16,6 +16,8 @@
   "add_url_title": "Lisää linkki",
   "add_page_title": "Lisää sivu",
   "add_embed_title": "Lisää upotus",
+  "edit_url_title": "Muokkaa linkkiä",
+  "edit_embed_title": "Muokkaa upotusta",
   "add_poll_title": "Lisää kysely",
   "add_image_title": "Lisää kuva",
   "url_title": "Linkin otsikko",

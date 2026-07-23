@@ -255,7 +255,9 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
   // the same modal shell with the shared meta fields + a type-specific body.
   type AddType = 'lecture' | 'codelab' | 'assignment' | 'quiz' | 'forum' | 'video' | 'file'
     | 'folder' | 'url' | 'page' | 'embed' | 'poll';
-  const [addModal, setAddModal] = useState<{ moduleId: number; type: AddType } | null>(null);
+  // `editing` set → the modal updates an existing lecture in place (URL/embed
+  // resources) instead of creating a new one.
+  const [addModal, setAddModal] = useState<{ moduleId: number; type: AddType; editing?: { lectureId: number; sectionId: number } } | null>(null);
   const [meta, setMeta] = useState<ResourceMeta>(emptyResourceMeta());
   const [busy, setBusy] = useState(false);          // create/upload in flight
   const [progress, setProgress] = useState<number | null>(null);
@@ -283,6 +285,55 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
     setAddModal({ moduleId, type });
   };
   const closeAdd = () => { if (!busy) setAddModal(null); };
+
+  // Read the data-* attributes off a lecture-resource marker node.
+  const parseMarker = (content: string, tag: string): Record<string, string> => {
+    const el = new DOMParser().parseFromString(content ?? '', 'text/html').querySelector(tag);
+    const attrs: Record<string, string> = {};
+    if (el) for (const a of Array.from(el.attributes)) attrs[a.name] = a.value;
+    return attrs;
+  };
+  // ISO timestamp → a `datetime-local`-friendly string in local time.
+  const isoToLocalInput = (iso: string): string => {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  // Re-open the add modal pre-filled to EDIT an existing URL/embed resource
+  // (the same fields as when adding, but saving updates in place).
+  const openEdit = async (item: EditorItem) => {
+    const kind = item.subKind;
+    if (kind !== 'url' && kind !== 'embed') return;
+    try {
+      const lec = await coursesApi.getLectureById(item.id) as any;
+      const section = (lec.sections ?? [])[0];
+      if (!section) { onError(); return; }
+      setFileBatch([]); setFolderBatch([]); setVideoExtra(null); setVideoUrl(''); setBusy(false); setProgress(null);
+      setPageBody(''); setPollQuestion(''); setPollOptions(['', '']); setImageOnly(false);
+      setMeta({
+        title: lec.title ?? '',
+        description: lec.description ?? '',
+        isPublished: !!lec.isPublished,
+        scheduleAvailability: !!(lec.availableFrom || lec.availableUntil),
+        availableFrom: lec.availableFrom ? isoToLocalInput(lec.availableFrom) : '',
+        availableUntil: lec.availableUntil ? isoToLocalInput(lec.availableUntil) : '',
+      });
+      if (kind === 'url') {
+        const a = parseMarker(section.content ?? '', 'lecture-url');
+        setUrlValue(a['data-url'] ?? '');
+        setUrlNewTab((a['data-newtab'] ?? 'true') !== 'false');
+        setEmbedUrl(''); setEmbedHeight(480);
+      } else {
+        const a = parseMarker(section.content ?? '', 'lecture-embed');
+        setEmbedUrl(a['data-src'] ?? '');
+        setEmbedHeight(Math.max(160, Math.min(1200, parseInt(a['data-height'] ?? '', 10) || 480)));
+        setUrlValue(''); setUrlNewTab(true);
+      }
+      setAddModal({ moduleId: lec.moduleId, type: kind, editing: { lectureId: item.id, sectionId: section.id } });
+    } catch { onError(); }
+  };
 
   // Create a lecture whose single section is the given media, carrying the
   // shared meta (description / visibility / availability) on the lecture.
@@ -426,6 +477,11 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
           const raw = urlValue.trim();
           if (!raw) { setBusy(false); return; }
           const content = `<lecture-url data-url="${escapeAttr(raw)}" data-title="${escapeAttr(p.title)}" data-newtab="${urlNewTab ? 'true' : 'false'}"></lecture-url>`;
+          if (addModal.editing) {
+            await coursesApi.updateLecture(addModal.editing.lectureId, { title: p.title, ...lectureMeta } as never);
+            await coursesApi.updateSection(addModal.editing.sectionId, { content });
+            refresh(); toast.success(t('common:saved', { defaultValue: 'Saved' })); setBusy(false); setAddModal(null); return;
+          }
           await createMediaLecture(moduleId, p.title, { type: 'text', content }, lectureMeta);
           refresh(); toast.success(t('url_added', { defaultValue: 'Link added' })); setBusy(false); setAddModal(null); return;
         }
@@ -438,6 +494,11 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
           const raw = embedUrl.trim();
           if (!raw) { setBusy(false); return; }
           const content = `<lecture-embed data-src="${escapeAttr(raw)}" data-height="${embedHeight}"></lecture-embed>`;
+          if (addModal.editing) {
+            await coursesApi.updateLecture(addModal.editing.lectureId, { title: p.title, ...lectureMeta } as never);
+            await coursesApi.updateSection(addModal.editing.sectionId, { content });
+            refresh(); toast.success(t('common:saved', { defaultValue: 'Saved' })); setBusy(false); setAddModal(null); return;
+          }
           await createMediaLecture(moduleId, p.title, { type: 'text', content }, lectureMeta);
           refresh(); toast.success(t('embed_added', { defaultValue: 'Embed added' })); setBusy(false); setAddModal(null); return;
         }
@@ -512,7 +573,12 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
   // Open the dedicated editor page for an item.
   const editItem = (item: EditorItem) => {
     switch (item.type) {
-      case 'lecture': navigate(`/teach/courses/${courseId}/lectures/${item.id}`); break;
+      case 'lecture':
+        // URL / embed resources edit in place via the same modal used to add
+        // them (they carry no editable prose, so the section page would be a
+        // dead end). Every other lecture opens the full section editor.
+        if (item.subKind === 'url' || item.subKind === 'embed') { void openEdit(item); break; }
+        navigate(`/teach/courses/${courseId}/lectures/${item.id}`); break;
       case 'codelab': navigate(`/teach/courses/${courseId}/code-labs/${item.id}`); break;
       case 'quiz': navigate(`/teach/courses/${courseId}/quizzes/${item.id}`); break;
       case 'assignment': navigate(`/teach/courses/${courseId}/assignments/${item.id}/edit`); break;
@@ -846,7 +912,12 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
           page: t('page_title_label', { defaultValue: 'Page title' }),
           poll: t('poll_title_label', { defaultValue: 'Poll title' }),
         };
-        const { type } = addModal;
+        const { type, editing } = addModal;
+        const modalTitle = editing
+          ? (type === 'url'
+              ? t('edit_url_title', { defaultValue: 'Edit link' })
+              : t('edit_embed_title', { defaultValue: 'Edit embed' }))
+          : titles[type];
         // Match the server's per-type minimum title length so we never fire a
         // request that 400s: assignment min 3, lecture-backed types min 2.
         const lectureBacked = type === 'lecture' || type === 'video' || type === 'file' || type === 'folder' || type === 'url' || type === 'page' || type === 'embed';
@@ -881,12 +952,13 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
           <AddResourceModal
             isOpen
             onClose={closeAdd}
-            title={titles[type]}
+            title={modalTitle}
             meta={meta}
             onMetaChange={setMeta}
             onCreate={submitAdd}
             canCreate={canCreate}
             busy={busy}
+            createLabel={editing ? t('common:save', { defaultValue: 'Save' }) : undefined}
             titleLabel={titleLabels[type]}
           >
             {type === 'file' && (

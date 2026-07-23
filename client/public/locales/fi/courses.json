@@ -563,6 +563,7 @@
   "ai_tutors": "AI-tutorit",
   "course_published": "Kurssi julkaistu",
   "course_unpublished": "Kurssi siirretty luonnokseksi",
+  "hidden": "Piilotettu",
   "certificates": "Todistukset",
   "course_navigation": "Kurssin navigointi",
   "content_lecture": "Luento",

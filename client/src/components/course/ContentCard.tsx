@@ -17,6 +17,7 @@ import {
   MonitorPlay,
   FileUp,
   Image as ImageIcon,
+  EyeOff,
 } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 
@@ -32,6 +33,8 @@ interface ContentCardProps {
   onClick?: () => void;
   disabled?: boolean;
   size?: ContentCardSize;
+  /** Marks an unpublished item — only shown to course staff, with a badge. */
+  hidden?: boolean;
 }
 
 // Config without labels - labels added in component with translations
@@ -216,12 +219,27 @@ export const ContentCard = ({
   onClick,
   disabled = false,
   size = 'normal',
+  hidden = false,
 }: ContentCardProps) => {
   const { t } = useTranslation(['courses']);
   const { isDark } = useTheme();
   const config = contentConfigBase[type];
   const Icon = config.icon;
   const label = t(config.labelKey);
+
+  // Small "Hidden" badge for unpublished items (course staff only).
+  const hiddenBadge = hidden ? (
+    <span
+      className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded flex-shrink-0"
+      style={{
+        backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7',
+        color: isDark ? '#fcd34d' : '#b45309',
+      }}
+    >
+      <EyeOff className="w-3 h-3" />
+      {t('hidden', { defaultValue: 'Hidden' })}
+    </span>
+  ) : null;
 
   const cardStyles: React.CSSProperties = {
     backgroundColor: isDark ? '#1f2937' : '#ffffff',
@@ -282,6 +300,7 @@ export const ContentCard = ({
             {subtitle}
           </span>
         )}
+        {hiddenBadge && <div className="mt-1.5">{hiddenBadge}</div>}
       </div>
     );
 
@@ -321,6 +340,7 @@ export const ContentCard = ({
         >
           {title}
         </span>
+        {hiddenBadge && <div className="mt-1.5">{hiddenBadge}</div>}
       </div>
     );
 
@@ -377,14 +397,17 @@ export const ContentCard = ({
 
       {/* Footer: label + metadata */}
       <div className="flex items-center justify-between gap-2 mt-2">
-        <span
-          className={`text-[10px] font-medium px-1.5 py-0.5 rounded flex-shrink-0 ${!isDark ? config.bgLight : ''}`}
-          style={{
-            backgroundColor: isDark ? config.bgDark : undefined,
-            color: isDark ? config.textDark : config.textLight,
-          }}
-        >
-          {label}
+        <span className="flex items-center gap-1.5 min-w-0">
+          <span
+            className={`text-[10px] font-medium px-1.5 py-0.5 rounded flex-shrink-0 ${!isDark ? config.bgLight : ''}`}
+            style={{
+              backgroundColor: isDark ? config.bgDark : undefined,
+              color: isDark ? config.textDark : config.textLight,
+            }}
+          >
+            {label}
+          </span>
+          {hiddenBadge}
         </span>
         {metadata && (
           <span

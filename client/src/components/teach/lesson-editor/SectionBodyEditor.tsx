@@ -16,9 +16,12 @@ import toast from 'react-hot-toast';
 import { useTheme } from '../../../hooks/useTheme';
 import { coursesApi } from '../../../api/courses';
 import { FileNode } from './FileNodeExtension';
+import { FolderNode } from './FolderNodeExtension';
 import { ChatbotNode } from './ChatbotNodeExtension';
 import { VideoNode } from './VideoNodeExtension';
 import { McqNode } from './McqNodeExtension';
+import { UrlNode } from './UrlNodeExtension';
+import { EmbedNode } from './EmbedNodeExtension';
 
 interface SectionBodyEditorProps {
   /** The section this editor edits. Always a real, already-created id. */
@@ -81,9 +84,12 @@ export const SectionBodyEditor = ({ sectionId, initialContent, courseId, registe
       Link.configure({ openOnClick: false, HTMLAttributes: { class: 'text-cyan-600 underline' } }),
       Placeholder.configure({ placeholder: t('lesson_empty_placeholder', { defaultValue: 'Write here…' }) }),
       FileNode,
+      FolderNode,
       ChatbotNode.configure({ courseId: courseId ?? null }),
       VideoNode,
       McqNode,
+      UrlNode,
+      EmbedNode,
     ],
     content: initialContent,
     editorProps: { attributes: { class: 'focus:outline-none' } },

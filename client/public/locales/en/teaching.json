@@ -1438,6 +1438,8 @@
   "add_url_title": "Add a link",
   "add_page_title": "Add a page",
   "add_embed_title": "Add an embed",
+  "edit_url_title": "Edit link",
+  "edit_embed_title": "Edit embed",
   "add_poll_title": "Add a poll",
   "add_image_title": "Add an image",
   "url_title": "Link title",
