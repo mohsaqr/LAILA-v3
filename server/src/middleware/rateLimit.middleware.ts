@@ -16,6 +16,33 @@ export const authLimiter = rateLimit({
 });
 
 /**
+ * Rate limiter for signup attempts that carry a course code.
+ *
+ * A course activation code is only 8 characters from a 32-symbol alphabet, and
+ * unlike an invitation code it is meant to be short enough to read out in a
+ * lecture theatre. That makes it the one guessable secret on the register form,
+ * so the code path gets a budget of its own on top of authLimiter's five
+ * requests a minute: an attacker willing to wait out the minute window still
+ * only gets ten guesses an hour per IP.
+ *
+ * `skip` is what keeps this from punishing everyone else — a registration with
+ * no course code is not counted at all, so ordinary signup is unaffected. Note
+ * this middleware must be mounted AFTER the JSON body parser, which index.ts
+ * installs globally before any route.
+ */
+export const courseCodeLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  message: {
+    success: false,
+    error: 'Too many course code attempts. Please try again later.',
+  },
+  skip: (req) => !req.body?.courseCode,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
  * Rate limiter for file upload routes.
  * Moderate limits to prevent abuse while allowing normal usage.
  */

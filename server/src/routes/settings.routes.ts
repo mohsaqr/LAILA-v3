@@ -3,7 +3,8 @@ import { settingsService } from '../services/settings.service.js';
 import { mcqGenerationService } from '../services/mcqGeneration.service.js';
 import { authenticateToken, requireAdmin } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
-import { updateApiConfigSchema } from '../utils/validation.js';
+import { registrationPolicyService } from '../services/registrationPolicy.service.js';
+import { updateApiConfigSchema, updateRegistrationPolicySchema } from '../utils/validation.js';
 import { AuthRequest } from '../types/index.js';
 import { z } from 'zod';
 
@@ -19,6 +20,23 @@ router.get('/', asyncHandler(async (req: AuthRequest, res: Response) => {
   const settings = await settingsService.getSystemSettings();
   res.json({ success: true, data: settings });
 }));
+
+// ============= REGISTRATION POLICY =============
+// Registered before the '/:key' routes below, which would otherwise swallow
+// '/registration' as a plain setting key.
+
+router.get('/registration', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const policy = await registrationPolicyService.getPolicy();
+  res.json({ success: true, data: policy });
+}));
+
+router.put('/registration', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const data = updateRegistrationPolicySchema.parse(req.body);
+  const policy = await registrationPolicyService.updatePolicy(data);
+  res.json({ success: true, data: policy });
+}));
+
+// ============= SINGLE SETTING =============
 
 // Get single setting
 router.get('/:key', asyncHandler(async (req: AuthRequest, res: Response) => {

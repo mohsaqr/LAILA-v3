@@ -4,12 +4,15 @@ import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { adminAuditService } from './adminAudit.service.js';
 import { invalidateUserStatusCache } from '../middleware/auth.middleware.js';
+import { DEFAULT_USER_STATUS, type UserStatus } from '../utils/userStatus.js';
 
 export interface UserFilters {
   search?: string;
   isAdmin?: boolean;
   isInstructor?: boolean;
   isActive?: boolean;
+  /** Registration lifecycle — `pending_approval` drives the approval queue. */
+  status?: UserStatus;
   role?: 'admin' | 'instructor' | 'student';
 }
 
@@ -29,8 +32,23 @@ export interface AuditContext {
   ipAddress?: string;
 }
 
-export type BulkUserAction = 'activate' | 'deactivate' | 'confirm' | 'setRole' | 'delete';
+export type BulkUserAction =
+  | 'activate'
+  | 'deactivate'
+  | 'confirm'
+  | 'setRole'
+  | 'delete'
+  // Approval-queue verdicts. These move User.status, which is orthogonal to
+  // the isActive that activate/deactivate move — see utils/userStatus.ts.
+  | 'approve'
+  | 'reject';
 export type BulkUserRole = 'student' | 'instructor' | 'admin';
+
+/**
+ * Actions an admin may apply to their OWN account without risking locking
+ * themselves out. Everything else skips self — see bulkUpdate.
+ */
+const SELF_SAFE_ACTIONS = new Set<BulkUserAction>(['activate', 'confirm']);
 
 export interface BulkUserOutcome {
   action: BulkUserAction;
@@ -91,6 +109,9 @@ export class UserManagementService {
     if (typeof filters?.isActive === 'boolean') {
       where.isActive = filters.isActive;
     }
+    if (filters?.status) {
+      where.status = filters.status;
+    }
 
     // Role filter
     if (filters?.role) {
@@ -116,6 +137,7 @@ export class UserManagementService {
           isInstructor: true,
           isActive: true,
           isConfirmed: true,
+          status: true,
           createdAt: true,
           lastLogin: true,
           _count: {
@@ -831,7 +853,14 @@ export class UserManagementService {
       async tx => {
         const targets = await tx.user.findMany({
           where: { id: { in: uniqueIds } },
-          select: { id: true, isAdmin: true, isInstructor: true, isActive: true, isConfirmed: true },
+          select: {
+            id: true,
+            isAdmin: true,
+            isInstructor: true,
+            isActive: true,
+            isConfirmed: true,
+            status: true,
+          },
         });
         const byId = new Map(targets.map(u => [u.id, u]));
 
@@ -847,7 +876,12 @@ export class UserManagementService {
             : new Map<number, string>();
 
         // Admins who can still sign in. Decremented as the batch consumes them.
-        let activeAdmins = await tx.user.count({ where: { isAdmin: true, isActive: true } });
+        // Only admins who could actually sign in count. An admin still sitting
+        // in the approval queue (or rejected) cannot, so counting them would
+        // let the batch remove the last genuinely usable one.
+        let activeAdmins = await tx.user.count({
+          where: { isAdmin: true, isActive: true, status: DEFAULT_USER_STATUS },
+        });
         const changed: number[] = [];
 
         for (const id of uniqueIds) {
@@ -855,7 +889,7 @@ export class UserManagementService {
           if (!user) continue;
 
           // An admin may not lock themselves out part-way through their own batch.
-          if (id === context.adminId && action !== 'activate' && action !== 'confirm') {
+          if (id === context.adminId && !SELF_SAFE_ACTIONS.has(action)) {
             skippedDetail.push({ userId: id, reason: 'Cannot apply this action to your own account' });
             continue;
           }
@@ -865,11 +899,21 @@ export class UserManagementService {
             (action === 'activate' && user.isActive) ||
             (action === 'deactivate' && !user.isActive) ||
             (action === 'confirm' && user.isConfirmed) ||
+            (action === 'approve' && user.status === DEFAULT_USER_STATUS) ||
+            (action === 'reject' && user.status === 'rejected') ||
             (action === 'setRole' &&
               user.isAdmin === nextIsAdmin &&
               user.isInstructor === nextIsInstructor);
           if (noop) {
             skippedDetail.push({ userId: id, reason: 'Already in that state' });
+            continue;
+          }
+
+          // Only someone actually in the queue can be approved or rejected;
+          // a verdict on an established account would silently change its
+          // lifecycle state out from under it.
+          if ((action === 'approve' || action === 'reject') && user.status !== 'pending_approval') {
+            skippedDetail.push({ userId: id, reason: 'Not awaiting approval' });
             continue;
           }
 
@@ -921,6 +965,12 @@ export class UserManagementService {
                   tokenVersion: { increment: 1 },
                 },
               });
+              break;
+            case 'approve':
+              await tx.user.updateMany({ where, data: { status: DEFAULT_USER_STATUS } });
+              break;
+            case 'reject':
+              await tx.user.updateMany({ where, data: { status: 'rejected' } });
               break;
             case 'delete':
               await tx.user.deleteMany({ where });

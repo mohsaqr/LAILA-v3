@@ -142,7 +142,16 @@ export class SettingsService {
 
   // Seed default settings
   async seedDefaultSettings() {
+    // The registration.* defaults live with the policy engine that reads them,
+    // so there is exactly one place that states what "no policy configured"
+    // means. Imported lazily because that engine reads settings through this
+    // service — a static import would make the two modules circular.
+    const { REGISTRATION_DEFAULT_SETTINGS } = await import('./registrationPolicy.service.js');
+
     const defaultSettings = [
+      // Registration policy (supersedes the never-read allow_registration /
+      // require_email_confirmation flags that used to be seeded here).
+      ...REGISTRATION_DEFAULT_SETTINGS,
       {
         settingKey: 'site_name',
         settingValue: 'LAILA LMS',
@@ -154,18 +163,6 @@ export class SettingsService {
         settingValue: 'openai',
         settingType: 'string',
         description: 'Default AI provider (openai or gemini)',
-      },
-      {
-        settingKey: 'allow_registration',
-        settingValue: 'true',
-        settingType: 'boolean',
-        description: 'Allow new user registrations',
-      },
-      {
-        settingKey: 'require_email_confirmation',
-        settingValue: 'false',
-        settingType: 'boolean',
-        description: 'Require email confirmation for new accounts',
       },
       {
         settingKey: 'max_file_upload_size',

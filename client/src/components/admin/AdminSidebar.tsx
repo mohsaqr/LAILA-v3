@@ -12,6 +12,8 @@ import {
   Network,
   Tag,
   FileQuestion,
+  UserPlus,
+  Ticket,
 } from 'lucide-react';
 
 interface AdminSidebarProps {
@@ -47,6 +49,8 @@ export const AdminSidebar = ({ className = '', onNavigate }: AdminSidebarProps) 
       items: [
         { path: '/admin/settings?tab=users', label: t('users'), icon: Users },
         { path: '/admin/settings?tab=enrollments', label: t('enrollments'), icon: GraduationCap },
+        { path: '/admin/settings?tab=registration', label: t('registration'), icon: UserPlus },
+        { path: '/admin/settings?tab=invitations', label: t('invitations'), icon: Ticket },
       ],
     },
     {

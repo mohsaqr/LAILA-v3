@@ -42,8 +42,16 @@ export const useAuth = () => {
     return response;
   };
 
-  const register = async (fullname: string, email: string, password: string) => {
-    const response = await authApi.register({ fullname, email, password });
+  const register = async (
+    fullname: string,
+    email: string,
+    password: string,
+    // Sponsorship, all optional and all independent of one another: an
+    // invitation link OR an invitation code (never both — the server rejects
+    // that), plus, orthogonally, a teacher's course code.
+    sponsorship?: { inviteToken?: string; inviteCode?: string; courseCode?: string }
+  ) => {
+    const response = await authApi.register({ fullname, email, password, ...sponsorship });
     // Returns email only — user must verify code before getting a token
     return response;
   };

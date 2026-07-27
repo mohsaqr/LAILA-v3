@@ -7,7 +7,7 @@ export interface AuditLogInput {
   adminId: number;
   adminEmail?: string;
   action: string;
-  targetType: 'user' | 'enrollment' | 'course_role' | 'batch_enrollment';
+  targetType: 'user' | 'enrollment' | 'course_role' | 'batch_enrollment' | 'invitation';
   targetId: number;
   previousValues?: Record<string, unknown>;
   newValues?: Record<string, unknown>;

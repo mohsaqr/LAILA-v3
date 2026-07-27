@@ -16,6 +16,13 @@ model User {
   isConfirmed                 Boolean                   @default(false) @map("is_confirmed")
   isInstructor                Boolean                   @default(false) @map("is_instructor")
   isActive                    Boolean                   @default(true) @map("is_active")
+  // Registration lifecycle: active | pending_approval | rejected. ORTHOGONAL to
+  // isActive — isActive=false means "an admin switched this account off", while
+  // status=pending_approval means "this applicant has never been let in yet".
+  // Conflating them would hand a waiting applicant the deactivated-account error
+  // and file them in the wrong admin bucket. Defaults to "active" so every row
+  // that predates the approval queue keeps working untouched.
+  status                      String                    @default("active") @map("status")
   avatarUrl                   String?                   @map("avatar_url")
   tokenVersion                Int                       @default(0) @map("token_version")
   failedLoginAttempts         Int                       @default(0) @map("failed_login_attempts")
@@ -53,8 +60,49 @@ model User {
   verificationCodes           VerificationCode[]
   datasets                    UserDataset[]
   oidcAuthCodes               OidcAuthCode[]
+  sentInvitations             Invitation[]              @relation("SentInvitations")
 
+  @@index([status])
   @@map("users")
+}
+
+// An admin-issued invitation: permission for one named person (or, when email
+// is null, whoever holds the link) to register even while the platform is not
+// open to the public.
+//
+// TWO REDEMPTION FORMS, ONE ROW. `token` is the long random string carried in a
+// shareable URL. `codeDigest` backs the short human-readable code someone can
+// type in or read out loud. Only the HMAC DIGEST of that code is ever stored —
+// the plaintext is returned exactly once, at creation, and is unrecoverable
+// afterwards. `codeHint` keeps the last four characters so an admin can
+// recognise a code in a list without the list itself becoming redeemable.
+//
+// REUSE is bounded by maxUses/useCount (incremented by a single conditional
+// UPDATE, so two simultaneous redemptions cannot both win) and by expiresAt.
+// revokedAt is a separate tombstone from expiresAt because "an admin withdrew
+// this" and "this aged out" are different answers to give the person holding
+// the link, and the admin list shows them as distinct statuses.
+model Invitation {
+  id          Int       @id @default(autoincrement())
+  email       String? // null ⇒ open shareable link, redeemable by any address
+  role        String    @default("student")
+  courseId    Int?      @map("course_id") // optional auto-enroll target
+  token       String    @unique
+  codeDigest  String?   @unique @map("code_digest") // HMAC-SHA256 of the normalized code
+  codeHint    String?   @map("code_hint") // last 4 normalized chars; safe to display
+  invitedById Int       @map("invited_by_id")
+  maxUses     Int       @default(1) @map("max_uses")
+  useCount    Int       @default(0) @map("use_count")
+  expiresAt   DateTime? @map("expires_at")
+  acceptedAt  DateTime? @map("accepted_at")
+  revokedAt   DateTime? @map("revoked_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  invitedBy   User      @relation("SentInvitations", fields: [invitedById], references: [id], onDelete: Cascade)
+  course      Course?   @relation(fields: [courseId], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([invitedById])
+  @@map("invitations")
 }
 
 // One-time authorization code for the OIDC provider (see routes/oidc.routes.ts).
@@ -377,7 +425,15 @@ model Course {
   defaultTutorId             Int?                  @map("default_tutor_id")
   curriculumViewMode         String                @default("mini-cards") @map("curriculum_view_mode")
   enabledLabs                String?               @map("enabled_labs")
-  activationCode             String?               @map("activation_code")
+  // UNIQUE because signup resolves a typed-in code to a course WITHOUT knowing
+  // which course — a global code -> course lookup, the inverse of
+  // enrollment.service.enroll(), which only asks "does this code match the
+  // course you already named?". Stored uppercase (createCourse uppercases and
+  // 20260727153257_add_course_code_signup normalised the existing rows), so callers must
+  // uppercase before looking up. NULL stays allowed — Postgres permits many
+  // NULLs under a unique index — and the unique index also serves the lookup,
+  // so no separate plain index is needed.
+  activationCode             String?               @unique @map("activation_code")
   startTime                  DateTime?             @map("start_time")
   assignments                Assignment[]
   batchEnrollmentJobs        BatchEnrollmentJob[]
@@ -395,6 +451,7 @@ model Course {
   moduleSurveys              ModuleSurvey[]
   certificates               Certificate[]
   tutorSessions              TutorSession[]
+  invitations                Invitation[]
 
   @@index([instructorId])
   @@index([status])
@@ -423,27 +480,27 @@ model CourseCategory {
 }
 
 model CourseModule {
-  id             Int             @id @default(autoincrement())
-  courseId       Int             @map("course_id")
-  title          String
-  description    String?
-  label          String?
-  orderIndex     Int             @default(0) @map("order_index")
-  isPublished    Boolean         @default(false) @map("is_published")
-  availableFrom  DateTime?       @map("available_from")
-  availableUntil DateTime?       @map("available_until")
-  createdAt      DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
-  interactiveLabs String?         @map("interactive_labs")
+  id              Int              @id @default(autoincrement())
+  courseId        Int              @map("course_id")
+  title           String
+  description     String?
+  label           String?
+  orderIndex      Int              @default(0) @map("order_index")
+  isPublished     Boolean          @default(false) @map("is_published")
+  availableFrom   DateTime?        @map("available_from")
+  availableUntil  DateTime?        @map("available_until")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  interactiveLabs String?          @map("interactive_labs")
   assignments     Assignment[]
   codeLabs        CodeLab[]
-  course          Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course          Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
   forumThreads    ForumThread[]
   labAssignments  LabAssignment[]
   lectures        Lecture[]
-  moduleSurveys    ModuleSurvey[]
-  quizzes          Quiz[]
-  surveyResponses  SurveyResponse[]
+  moduleSurveys   ModuleSurvey[]
+  quizzes         Quiz[]
+  surveyResponses SurveyResponse[]
 
   @@index([courseId])
   @@map("course_modules")
@@ -553,21 +610,21 @@ model LectureExplainPost {
 }
 
 model CodeLab {
-  id          Int          @id @default(autoincrement())
-  moduleId    Int          @map("module_id")
-  title       String
-  description String?
-  orderIndex  Int          @default(0) @map("order_index")
-  isPublished Boolean      @default(false) @map("is_published")
-  availableFrom  DateTime? @map("available_from")
-  availableUntil DateTime? @map("available_until")
+  id             Int          @id @default(autoincrement())
+  moduleId       Int          @map("module_id")
+  title          String
+  description    String?
+  orderIndex     Int          @default(0) @map("order_index")
+  isPublished    Boolean      @default(false) @map("is_published")
+  availableFrom  DateTime?    @map("available_from")
+  availableUntil DateTime?    @map("available_until")
   /// Optional AI assistant available to students in this lab.
-  aiChatbotId Int?         @map("ai_chatbot_id")
-  aiChatbot   Chatbot?     @relation("CodeLabAiChatbot", fields: [aiChatbotId], references: [id], onDelete: SetNull)
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
-  blocks      CodeBlock[]
-  module      CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  aiChatbotId    Int?         @map("ai_chatbot_id")
+  aiChatbot      Chatbot?     @relation("CodeLabAiChatbot", fields: [aiChatbotId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  blocks         CodeBlock[]
+  module         CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   @@index([moduleId])
   @@map("code_labs")
@@ -1452,7 +1509,7 @@ model PromptBlockCategory {
 model TutorSession {
   id            Int                 @id @default(autoincrement())
   userId        Int                 @map("user_id")
-  courseId       Int?                @map("course_id")
+  courseId      Int?                @map("course_id")
   mode          String              @default("manual")
   activeAgentId Int?                @map("active_agent_id")
   createdAt     DateTime            @default(now()) @map("created_at")
@@ -1547,14 +1604,14 @@ model TutorInteractionLog {
 }
 
 model Survey {
-  id          Int              @id @default(autoincrement())
-  title       String
-  description String?
-  createdById Int              @map("created_by_id")
-  isPublished Boolean          @default(false) @map("is_published")
-  isAnonymous Boolean          @default(false) @map("is_anonymous")
-  createdAt   DateTime         @default(now()) @map("created_at")
-  updatedAt   DateTime         @updatedAt @map("updated_at")
+  id            Int              @id @default(autoincrement())
+  title         String
+  description   String?
+  createdById   Int              @map("created_by_id")
+  isPublished   Boolean          @default(false) @map("is_published")
+  isAnonymous   Boolean          @default(false) @map("is_anonymous")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
   assignments   Assignment[]     @relation("PostAssignmentSurvey")
   moduleSurveys ModuleSurvey[]
   questions     SurveyQuestion[]
@@ -1751,10 +1808,10 @@ model LabAssignment {
   lab          CustomLab     @relation(fields: [labId], references: [id], onDelete: Cascade)
   assignment   Assignment?   @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
 
+  @@unique([labId, courseId])
   @@index([labId])
   @@index([courseId])
   @@index([moduleId])
-  @@unique([labId, courseId])
   @@map("lab_assignments")
 }
 
@@ -1790,20 +1847,20 @@ model Quiz {
 }
 
 model QuizQuestion {
-  id            Int          @id @default(autoincrement())
-  quizId        Int          @map("quiz_id")
-  questionType  String       @map("question_type")
-  questionText  String       @map("question_text")
-  options       String?
-  correctAnswer String       @map("correct_answer")
-  explanation   String?
-  points        Float        @default(1)
-  shuffleOptions Boolean     @default(false) @map("shuffle_options")
-  orderIndex    Int          @default(0) @map("order_index")
-  createdAt     DateTime     @default(now()) @map("created_at")
-  updatedAt     DateTime     @updatedAt @map("updated_at")
-  answers       QuizAnswer[]
-  quiz          Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  id             Int          @id @default(autoincrement())
+  quizId         Int          @map("quiz_id")
+  questionType   String       @map("question_type")
+  questionText   String       @map("question_text")
+  options        String?
+  correctAnswer  String       @map("correct_answer")
+  explanation    String?
+  points         Float        @default(1)
+  shuffleOptions Boolean      @default(false) @map("shuffle_options")
+  orderIndex     Int          @default(0) @map("order_index")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  answers        QuizAnswer[]
+  quiz           Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
 
   @@index([quizId])
   @@map("quiz_questions")
@@ -1850,32 +1907,32 @@ model QuizAnswer {
 }
 
 model ForumThread {
-  id             Int           @id @default(autoincrement())
+  id             Int               @id @default(autoincrement())
   // Promoted from the dropped Forum model — each thread is now an
   // independent discussion attached directly to a course (and
   // optionally a module).
-  courseId       Int           @map("course_id")
-  moduleId       Int?          @map("module_id")
+  courseId       Int               @map("course_id")
+  moduleId       Int?              @map("module_id")
   description    String?
-  isPublished    Boolean       @default(true) @map("is_published")
-  availableFrom  DateTime?     @map("available_from")
-  availableUntil DateTime?     @map("available_until")
-  allowAnonymous Boolean       @default(false) @map("allow_anonymous")
-  orderIndex     Int           @default(0) @map("order_index")
+  isPublished    Boolean           @default(true) @map("is_published")
+  availableFrom  DateTime?         @map("available_from")
+  availableUntil DateTime?         @map("available_until")
+  allowAnonymous Boolean           @default(false) @map("allow_anonymous")
+  orderIndex     Int               @default(0) @map("order_index")
   // Existing thread fields:
-  authorId       Int           @map("author_id")
+  authorId       Int               @map("author_id")
   title          String
   content        String
-  isPinned       Boolean       @default(false) @map("is_pinned")
-  isLocked       Boolean       @default(false) @map("is_locked")
-  isAnonymous    Boolean       @default(false) @map("is_anonymous")
-  viewCount      Int           @default(0) @map("view_count")
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
+  isPinned       Boolean           @default(false) @map("is_pinned")
+  isLocked       Boolean           @default(false) @map("is_locked")
+  isAnonymous    Boolean           @default(false) @map("is_anonymous")
+  viewCount      Int               @default(0) @map("view_count")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
   posts          ForumPost[]
   likes          ForumThreadLike[]
-  course         Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  module         CourseModule? @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  course         Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  module         CourseModule?     @relation(fields: [moduleId], references: [id], onDelete: SetNull)
 
   @@index([courseId])
   @@index([moduleId])

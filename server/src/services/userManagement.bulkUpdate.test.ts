@@ -47,6 +47,7 @@ type MockUser = {
   isInstructor: boolean;
   isActive: boolean;
   isConfirmed: boolean;
+  status: string;
 };
 
 const user = (id: number, over: Partial<MockUser> = {}): MockUser => ({
@@ -55,6 +56,7 @@ const user = (id: number, over: Partial<MockUser> = {}): MockUser => ({
   isInstructor: false,
   isActive: true,
   isConfirmed: true,
+  status: 'active',
   ...over,
 });
 
@@ -321,6 +323,118 @@ describe('UserManagementService.bulkUpdate', () => {
       await service.bulkUpdate([1], 'activate', {}, ADMIN_CONTEXT);
 
       expect(mocks.tx.course.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('approval queue', () => {
+    const pending = (id: number, over = {}) => user(id, { status: 'pending_approval', ...over });
+
+    it('approves everyone in the queue in one statement', async () => {
+      mocks.tx.user.findMany.mockResolvedValue([pending(1), pending(2)]);
+
+      const result = await service.bulkUpdate([1, 2], 'approve', {}, ADMIN_CONTEXT);
+
+      expect(result.changed).toBe(2);
+      expect(mocks.tx.user.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: [1, 2] } },
+        data: { status: 'active' },
+      });
+    });
+
+    it('rejects everyone in the queue in one statement', async () => {
+      mocks.tx.user.findMany.mockResolvedValue([pending(1)]);
+
+      const result = await service.bulkUpdate([1], 'reject', {}, ADMIN_CONTEXT);
+
+      expect(result.changed).toBe(1);
+      expect(mocks.tx.user.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: [1] } },
+        data: { status: 'rejected' },
+      });
+    });
+
+    // A verdict on an established account would silently rewrite its lifecycle.
+    it('refuses to approve an account that was never in the queue', async () => {
+      mocks.tx.user.findMany.mockResolvedValue([user(1, { status: 'rejected' })]);
+
+      const result = await service.bulkUpdate([1], 'approve', {}, ADMIN_CONTEXT);
+
+      expect(result.changed).toBe(0);
+      expect(result.skippedDetail).toEqual([{ userId: 1, reason: 'Not awaiting approval' }]);
+      expect(mocks.tx.user.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('refuses to reject an already-active account', async () => {
+      mocks.tx.user.findMany.mockResolvedValue([user(1)]);
+
+      const result = await service.bulkUpdate([1], 'reject', {}, ADMIN_CONTEXT);
+
+      expect(result.changed).toBe(0);
+      expect(result.skippedDetail).toEqual([{ userId: 1, reason: 'Not awaiting approval' }]);
+    });
+
+    it('reports approving an already-active account as a no-op', async () => {
+      mocks.tx.user.findMany.mockResolvedValue([user(1)]);
+
+      const result = await service.bulkUpdate([1], 'approve', {}, ADMIN_CONTEXT);
+
+      expect(result.skippedDetail).toEqual([{ userId: 1, reason: 'Already in that state' }]);
+    });
+
+    it('applies verdicts to only the queued members of a mixed selection', async () => {
+      mocks.tx.user.findMany.mockResolvedValue([pending(1), user(2), pending(3)]);
+
+      const result = await service.bulkUpdate([1, 2, 3], 'approve', {}, ADMIN_CONTEXT);
+
+      expect(result.changed).toBe(2);
+      expect(mocks.tx.user.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: [1, 3] } },
+        data: { status: 'active' },
+      });
+    });
+
+    it('will not let an admin rule on their own application', async () => {
+      mocks.tx.user.findMany.mockResolvedValue([pending(99)]);
+
+      const result = await service.bulkUpdate([99], 'approve', {}, ADMIN_CONTEXT);
+
+      expect(result.changed).toBe(0);
+      expect(result.skippedDetail[0].reason).toBe('Cannot apply this action to your own account');
+    });
+
+    it('drops the cached status so a rejection takes effect at once', async () => {
+      mocks.tx.user.findMany.mockResolvedValue([pending(1)]);
+
+      await service.bulkUpdate([1], 'reject', {}, ADMIN_CONTEXT);
+
+      expect(mocks.invalidateUserStatusCache).toHaveBeenCalledWith(1);
+    });
+
+    it('audits each verdict against its own user', async () => {
+      mocks.tx.user.findMany.mockResolvedValue([pending(1), pending(2)]);
+
+      await service.bulkUpdate([1, 2], 'approve', {}, ADMIN_CONTEXT);
+
+      const rows = mocks.logMany.mock.calls[0][0];
+      expect(rows).toHaveLength(2);
+      expect(rows[0]).toMatchObject({ action: 'bulk_user_approve', targetType: 'user', targetId: 1 });
+    });
+  });
+
+  describe('last-admin counter excludes unusable admins', () => {
+    // An admin stuck in the queue cannot sign in, so counting them would let
+    // the batch strip the last admin who actually can.
+    it('counts only admins whose status lets them log in', async () => {
+      mocks.tx.user.findMany.mockResolvedValue([user(1, { isAdmin: true })]);
+      mocks.tx.user.count.mockResolvedValue(1);
+
+      const result = await service.bulkUpdate([1], 'deactivate', {}, ADMIN_CONTEXT);
+
+      expect(mocks.tx.user.count).toHaveBeenCalledWith({
+        where: { isAdmin: true, isActive: true, status: 'active' },
+      });
+      expect(result.changed).toBe(0);
+      expect(result.skippedDetail[0].reason).toBe('Would leave no active admin');
     });
   });
 

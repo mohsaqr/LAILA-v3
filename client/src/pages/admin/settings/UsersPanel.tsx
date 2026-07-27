@@ -32,8 +32,23 @@ interface AdminUser {
   isAdmin: boolean;
   isInstructor: boolean;
   isActive?: boolean;
+  /** Registration lifecycle: active | pending_approval | rejected. */
+  status?: string;
   createdAt?: string;
 }
+
+/**
+ * One label per row, because `status` and `isActive` are orthogonal gates and
+ * an account can fail either. The lifecycle verdict wins when both apply — a
+ * rejected applicant is not usefully described as "Active".
+ */
+type RowState = 'pending' | 'rejected' | 'active' | 'inactive';
+
+const stateOf = (u: AdminUser): RowState => {
+  if (u.status === 'pending_approval') return 'pending';
+  if (u.status === 'rejected') return 'rejected';
+  return u.isActive !== false ? 'active' : 'inactive';
+};
 
 const roleOf = (u: AdminUser): Role =>
   u.isAdmin ? 'admin' : u.isInstructor ? 'instructor' : 'student';
@@ -200,6 +215,12 @@ export const UsersPanel = () => {
 
   const handleBulkConfirm = () => runBulk('confirm');
 
+  // Approve/Reject only make sense for accounts actually in the queue, so the
+  // buttons stay hidden unless the selection contains at least one.
+  const selectionHasPending = users.some(
+    u => selected.has(u.id) && stateOf(u) === 'pending',
+  );
+
   const handleBulkDelete = async () => {
     await runBulk('delete');
     setBulkDeleteOpen(false);
@@ -335,27 +356,39 @@ export const UsersPanel = () => {
     {
       id: 'status',
       header: t('common:status'),
-      sortAccessor: u => (u.isActive !== false ? 'active' : 'inactive'),
-      width: '7rem',
+      sortAccessor: u => stateOf(u),
+      width: '8rem',
       hideOnMobile: true,
       filter: {
         kind: 'select',
         options: [
           { value: 'active', label: t('status_active') },
           { value: 'inactive', label: t('status_inactive') },
+          { value: 'pending', label: t('status_pending_approval') },
+          { value: 'rejected', label: t('status_rejected') },
         ],
-        predicate: (u, v) => (u.isActive !== false ? 'active' : 'inactive') === v,
+        predicate: (u, v) => stateOf(u) === v,
       },
-      cell: u =>
-        u.isActive !== false ? (
-          <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300">
-            {t('status_active')}
+      cell: u => {
+        const state = stateOf(u);
+        const style: Record<RowState, string> = {
+          active: 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+          pending: 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
+          rejected: 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300',
+          inactive: 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400',
+        };
+        const label: Record<RowState, string> = {
+          active: t('status_active'),
+          pending: t('status_pending_approval'),
+          rejected: t('status_rejected'),
+          inactive: t('status_inactive'),
+        };
+        return (
+          <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${style[state]}`}>
+            {label[state]}
           </span>
-        ) : (
-          <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
-            {t('status_inactive')}
-          </span>
-        ),
+        );
+      },
     },
     {
       id: 'joined',
@@ -429,6 +462,26 @@ export const UsersPanel = () => {
                 >
                   {t('deactivate')}
                 </Button>
+                {selectionHasPending && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      disabled={bulkPending}
+                      onClick={() => runBulk('approve')}
+                    >
+                      {t('approve')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={bulkPending}
+                      onClick={() => runBulk('reject')}
+                    >
+                      {t('reject')}
+                    </Button>
+                  </>
+                )}
                 <Button
                   size="sm"
                   variant="secondary"

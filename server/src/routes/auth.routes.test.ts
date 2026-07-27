@@ -89,6 +89,9 @@ describe('Auth Routes', () => {
       const mockResult = {
         email: 'test@uef.fi',
         message: 'Verification code sent',
+        verificationRequired: true,
+        approvalRequired: false,
+        courseTitle: null,
       };
       vi.mocked(authService.register).mockResolvedValue(mockResult);
 
@@ -120,6 +123,72 @@ describe('Auth Routes', () => {
 
       expect(response.body.success).toBe(false);
       expect(response.body.error).toContain('Email already registered');
+    });
+
+    it('passes an invitation token through to the service', async () => {
+      vi.mocked(authService.register).mockResolvedValue({
+        email: 'test@uef.fi',
+        message: 'Verification code sent',
+        verificationRequired: true,
+        approvalRequired: false,
+        courseTitle: null,
+      });
+
+      await request(app)
+        .post('/api/auth/register')
+        .send({ ...validRegistration, inviteToken: 'tok_abc' })
+        .expect(201);
+
+      expect(authService.register).toHaveBeenCalledWith(
+        expect.objectContaining({ inviteToken: 'tok_abc' }),
+        expect.anything()
+      );
+    });
+
+    it('passes an invitation code through to the service', async () => {
+      vi.mocked(authService.register).mockResolvedValue({
+        email: 'test@uef.fi',
+        message: 'Verification code sent',
+        verificationRequired: true,
+        approvalRequired: false,
+        courseTitle: null,
+      });
+
+      await request(app)
+        .post('/api/auth/register')
+        .send({ ...validRegistration, inviteCode: 'ABCD-EFGH-JKLM' })
+        .expect(201);
+
+      expect(authService.register).toHaveBeenCalledWith(
+        expect.objectContaining({ inviteCode: 'ABCD-EFGH-JKLM' }),
+        expect.anything()
+      );
+    });
+
+    it('returns 422 when a token and a code are supplied together', async () => {
+      const response = await request(app)
+        .post('/api/auth/register')
+        .send({ ...validRegistration, inviteToken: 'tok_abc', inviteCode: 'ABCD-EFGH-JKLM' })
+        .expect(422);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.details).toBeDefined();
+      // Rejected by the schema, so the service is never reached at all.
+      expect(authService.register).not.toHaveBeenCalled();
+    });
+
+    it('surfaces an unusable invitation as a 403, never a silent open signup', async () => {
+      vi.mocked(authService.register).mockRejectedValue(
+        new AppError('That invitation has expired.', 403)
+      );
+
+      const response = await request(app)
+        .post('/api/auth/register')
+        .send({ ...validRegistration, inviteToken: 'tok_expired' })
+        .expect(403);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toMatch(/expired/i);
     });
 
     it('should return 422 for missing fullname', async () => {

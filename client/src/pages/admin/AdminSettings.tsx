@@ -12,8 +12,18 @@ import { LLMPanel } from './settings/LLMPanel';
 import { SystemPanel } from './settings/SystemPanel';
 import { MCQGenerationPanel } from './settings/MCQGenerationPanel';
 import { CategoriesPanel } from './settings/CategoriesPanel';
+import { RegistrationPanel } from './settings/RegistrationPanel';
+import { InvitationsPanel } from './settings/InvitationsPanel';
 
-type SettingsTab = 'users' | 'enrollments' | 'llm' | 'mcq' | 'system' | 'categories';
+type SettingsTab =
+  | 'users'
+  | 'enrollments'
+  | 'registration'
+  | 'invitations'
+  | 'llm'
+  | 'mcq'
+  | 'system'
+  | 'categories';
 
 export const AdminSettings = () => {
   const { t } = useTranslation(['admin', 'common']);
@@ -35,6 +45,8 @@ export const AdminSettings = () => {
   const TAB_TITLES: Record<SettingsTab, { title: string; description: string }> = {
     users: { title: t('users'), description: t('manage_users_permissions') },
     enrollments: { title: t('enrollments'), description: t('course_enrollments_batch') },
+    registration: { title: t('registration'), description: t('registration_policy_desc') },
+    invitations: { title: t('invitations'), description: t('invitations_desc') },
     llm: { title: t('llm_providers'), description: t('ai_provider_config') },
     mcq: { title: t('mcq_generation'), description: t('mcq_generation_config') },
     system: { title: t('system_settings'), description: t('general_system_config') },
@@ -47,6 +59,10 @@ export const AdminSettings = () => {
         return <UsersPanel />;
       case 'enrollments':
         return <EnrollmentsPanel />;
+      case 'registration':
+        return <RegistrationPanel />;
+      case 'invitations':
+        return <InvitationsPanel />;
       case 'llm':
         return <LLMPanel />;
       case 'mcq':

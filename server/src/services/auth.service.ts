@@ -8,6 +8,20 @@ import { learningAnalyticsService, AuthEventData } from './learningAnalytics.ser
 import { authLogger } from '../utils/logger.js';
 import { userService } from './user.service.js';
 import { emailService } from './email.service.js';
+import { asRegistrationRole, registrationPolicyService } from './registrationPolicy.service.js';
+import { invitationService, type InvitationRecord } from './invitation.service.js';
+import {
+  resolveCourseCodeForSignup,
+  enrollSignupCourse,
+  type SignupCourse,
+} from './courseCodeSignup.service.js';
+import { notificationService } from './notification.service.js';
+import {
+  DEFAULT_USER_STATUS,
+  USER_STATUS_FAILURE_REASONS,
+  USER_STATUS_LOGIN_ERRORS,
+  type UserStatus,
+} from '../utils/userStatus.js';
 import crypto from 'crypto';
 
 // Context for auth logging
@@ -22,8 +36,71 @@ export interface AuthContext {
   sessionId?: string;
 }
 
+/** The shape register() hands back to its caller. */
+const NEW_USER_SELECT = {
+  id: true,
+  fullname: true,
+  email: true,
+  isAdmin: true,
+  isInstructor: true,
+  avatarUrl: true,
+  tokenVersion: true,
+  createdAt: true,
+} as const;
+
 export class AuthService {
   async register(data: RegisterInput, context?: AuthContext) {
+    // Invitation gate, FIRST — an invitation changes what the policy is allowed
+    // to conclude, so it has to be settled before the policy is consulted.
+    //
+    // resolveForRegistration throws when an invitation was offered but is not
+    // usable. That hard failure is the whole point: falling back to open signup
+    // on a bad token would turn one mistyped character into an unintended
+    // public registration on a site the admin deliberately closed.
+    const invitation = await invitationService.resolveForRegistration({
+      token: data.inviteToken,
+      code: data.inviteCode,
+      email: data.email,
+    });
+
+    // Course-code gate, SECOND, and for exactly the same reason as the
+    // invitation above: a supplied-but-unresolvable code must hard-fail rather
+    // than fall through to a plain signup. A learner who typed their teacher's
+    // code and got an ordinary account instead would have no way to tell that
+    // the course they came here for is missing.
+    //
+    // A code and an invitation may both be present. They are not in conflict:
+    // the invitation governs the role, the course code governs enrolment. See
+    // registerSchema and RegistrationSponsorship.
+    const sponsorCourse: SignupCourse | null = data.courseCode
+      ? await resolveCourseCodeForSignup(data.courseCode)
+      : null;
+
+    // Registration policy gate. The admin-configured posture (mode + email
+    // domain lists) is the single authority on whether this signup may happen
+    // at all — see services/registrationPolicy.service.ts. Evaluated before any
+    // writes so that a rejected signup touches nothing, not even a stale
+    // unverified row.
+    //
+    // A resolved course code is passed as sponsorship: it satisfies invite_only
+    // and stands in for the approval, but it deliberately does NOT waive email
+    // verification. Proving the mailbox is the applicant's own work, and no
+    // teacher's code can vouch for an address nobody has shown they own.
+    const decision = await registrationPolicyService.evaluate(
+      data.email,
+      invitation ? { role: asRegistrationRole(invitation.role) } : null,
+      sponsorCourse !== null
+    );
+    if (!decision.allowed) {
+      throw new AppError(decision.reason || 'Registration is not available.', 403);
+    }
+    // Approval and email verification are INDEPENDENT gates and both may
+    // apply. The account is created as pending_approval and still receives its
+    // code: proving the mailbox is the applicant's own work and can happen
+    // while they wait, whereas an admin reviewing an unverified address would
+    // be approving something nobody has shown they own. Verification therefore
+    // runs first, approval second — login enforces both regardless of order.
+
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
       where: { email: data.email },
@@ -40,40 +117,41 @@ export class AuthService {
     // Hash password
     const passwordHash = await bcrypt.hash(data.password, 10);
 
-    // Create user (unconfirmed until code verification)
-    const user = await prisma.user.create({
-      data: {
-        fullname: data.fullname,
-        email: data.email,
-        passwordHash,
-        isConfirmed: false,
-      },
-      select: {
-        id: true,
-        fullname: true,
-        email: true,
-        isAdmin: true,
-        isInstructor: true,
-        avatarUrl: true,
-        tokenVersion: true,
-        createdAt: true,
-      },
-    });
+    // Create user (unconfirmed until code verification, unless the policy has
+    // email verification switched off). `decision.role` is authoritative: for
+    // an invited signup it came from the invitation, never from the client.
+    const newUser = {
+      fullname: data.fullname,
+      email: data.email,
+      passwordHash,
+      isConfirmed: !decision.requiresEmailVerification,
+      isInstructor: decision.role === 'instructor',
+      status: decision.requiresApproval ? 'pending_approval' : DEFAULT_USER_STATUS,
+    };
 
-    // Generate 6-digit verification code
-    const code = crypto.randomInt(100000, 999999).toString();
-    const expiresAt = new Date(Date.now() + 2 * 60 * 1000); // 10 minutes
+    // A transaction is only opened when something has to happen ATOMICALLY with
+    // the insert — spending an invitation, or delivering a promised enrolment.
+    // An ordinary public signup still takes the plain single-statement path.
+    const user = invitation || sponsorCourse
+      ? await this.createSponsoredUser(invitation, sponsorCourse, newUser)
+      : await prisma.user.create({ data: newUser, select: NEW_USER_SELECT });
 
-    // Delete any existing codes for this user, then create new one
-    await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
-    await prisma.verificationCode.create({
-      data: { userId: user.id, code, expiresAt },
-    });
+    if (decision.requiresEmailVerification) {
+      // Generate 6-digit verification code
+      const code = crypto.randomInt(100000, 999999).toString();
+      const expiresAt = new Date(Date.now() + 2 * 60 * 1000); // 10 minutes
 
-    // Send verification email (non-blocking)
-    emailService.sendVerificationCode(user.email, code, user.fullname).catch((err) => {
-      authLogger.warn({ err, email: user.email }, 'Failed to send verification email');
-    });
+      // Delete any existing codes for this user, then create new one
+      await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+      await prisma.verificationCode.create({
+        data: { userId: user.id, code, expiresAt },
+      });
+
+      // Send verification email (non-blocking)
+      emailService.sendVerificationCode(user.email, code, user.fullname).catch((err) => {
+        authLogger.warn({ err, email: user.email }, 'Failed to send verification email');
+      });
+    }
 
     // Log registration event
     try {
@@ -93,8 +171,113 @@ export class AuthService {
       authLogger.warn({ err: error, userId: user.id }, 'Failed to log registration event');
     }
 
-    // Return email only — no token until verified
-    return { email: user.email, message: 'Verification code sent' };
+    // Tell the admins someone is waiting. Non-blocking and best-effort, like
+    // the verification email above: a notification failure must never cost the
+    // applicant their account.
+    if (decision.requiresApproval) {
+      this.notifyAdminsOfPendingRegistration(user.id, user.fullname, user.email).catch(err => {
+        authLogger.warn({ err, userId: user.id }, 'Failed to notify admins of pending registration');
+      });
+    }
+
+    // Return email only — no token until verified. When the policy waives
+    // verification the account is already usable, so the client sends the
+    // learner straight to the sign-in screen instead of the code step.
+    return {
+      email: user.email,
+      verificationRequired: decision.requiresEmailVerification,
+      approvalRequired: decision.requiresApproval,
+      // The ONE course detail that ever reaches an unauthenticated caller, and
+      // only after they successfully redeemed the code: the title of the course
+      // they are now in, so they can confirm they landed in the right place.
+      // Never the id, the instructor, or anything a probe could mine.
+      courseTitle: sponsorCourse?.title ?? null,
+      message: decision.requiresApproval
+        ? 'Your registration is awaiting administrator approval.'
+        : decision.requiresEmailVerification
+          ? 'Verification code sent'
+          : 'Account created. You can sign in now.',
+    };
+  }
+
+  /**
+   * Create an account that somebody vouched for: spend the invitation (if
+   * there is one), create the user, and enrol them into every course the
+   * sponsorship promised — all in ONE transaction.
+   *
+   * The transaction is what makes the use budget honest in both directions. If
+   * the user insert fails, the consumed use rolls back, so a transient error
+   * cannot burn someone's single-use invitation and leave them with nothing. If
+   * the consume loses a race, nothing is created, so two people cannot share
+   * one use.
+   *
+   * It is equally what makes a course code honest: a failed enrolment rolls the
+   * account back, so a learner never ends up holding an account that quietly
+   * lacks the course they signed up for. Either both exist or neither does.
+   *
+   * consume() runs FIRST because it is the operation that can legitimately
+   * fail on a race; doing it before the expensive insert keeps the losing
+   * request short.
+   */
+  private async createSponsoredUser(
+    invitation: InvitationRecord | null,
+    sponsorCourse: SignupCourse | null,
+    newUser: {
+      fullname: string;
+      email: string;
+      passwordHash: string;
+      isConfirmed: boolean;
+      isInstructor: boolean;
+      status: string;
+    }
+  ) {
+    return prisma.$transaction(async tx => {
+      if (invitation) {
+        const consumed = await invitationService.consume(invitation.id, tx);
+        if (!consumed) {
+          throw new AppError('That invitation is no longer valid.', 403);
+        }
+      }
+
+      const user = await tx.user.create({ data: newUser, select: NEW_USER_SELECT });
+
+      // Auto-enrol. A Set because an invitation and a course code can name the
+      // SAME course, and enrolling twice would trip the (userId, courseId)
+      // unique constraint and roll the whole signup back over nothing.
+      const courseIds = new Set<number>();
+      if (invitation?.courseId != null) courseIds.add(invitation.courseId);
+      if (sponsorCourse) courseIds.add(sponsorCourse.id);
+
+      for (const courseId of courseIds) {
+        await enrollSignupCourse(tx, user.id, courseId);
+      }
+
+      return user;
+    });
+  }
+
+  /** Fan a pending-registration notice out to every admin who can act on it. */
+  private async notifyAdminsOfPendingRegistration(
+    userId: number,
+    fullname: string,
+    email: string
+  ): Promise<void> {
+    const admins = await prisma.user.findMany({
+      where: { isAdmin: true, isActive: true, status: DEFAULT_USER_STATUS },
+      select: { id: true },
+    });
+    await Promise.all(
+      admins.map(admin =>
+        notificationService.create({
+          userId: admin.id,
+          type: 'account_approval',
+          title: 'Registration awaiting approval',
+          message: `${fullname} (${email}) is waiting for review.`,
+          link: '/admin/settings?tab=users',
+          data: { pendingUserId: userId },
+        })
+      )
+    );
   }
 
   async verifyCode(email: string, code: string) {
@@ -223,6 +406,32 @@ export class AuthService {
 
     if (!user.isConfirmed) {
       throw new AppError('Your account is not verified. Please sign up again and complete the verification.', 403);
+    }
+
+    // Approval gate. Checked between verification and deactivation so each of
+    // the three answers a distinct question and reports a distinct reason —
+    // an applicant still in the queue must not be told "deactivated".
+    const statusError = USER_STATUS_LOGIN_ERRORS[user.status as UserStatus];
+    if (statusError) {
+      try {
+        await learningAnalyticsService.logAuthEvent({
+          userId: user.id,
+          userEmail: user.email,
+          eventType: 'login_failure',
+          failureReason:
+            USER_STATUS_FAILURE_REASONS[user.status as UserStatus] ?? 'account_status_blocked',
+          sessionId: context?.sessionId,
+          userAgent: context?.userAgent,
+          deviceType: context?.deviceType,
+          browserName: context?.browserName,
+          browserVersion: context?.browserVersion,
+          osName: context?.osName,
+          osVersion: context?.osVersion,
+        }, context?.ipAddress);
+      } catch (error) {
+        authLogger.warn({ err: error, email: data.email }, 'Failed to log login failure event');
+      }
+      throw new AppError(statusError, 403);
     }
 
     if (!user.isActive) {

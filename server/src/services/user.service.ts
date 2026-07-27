@@ -35,6 +35,8 @@ export class UserService {
           isInstructor: true,
           isActive: true,
           isConfirmed: true,
+          // Drives the approval queue in the admin users table.
+          status: true,
           createdAt: true,
           lastLogin: true,
           _count: {

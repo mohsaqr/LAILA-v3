@@ -11,7 +11,12 @@ export type NotificationType =
   | 'announcement'
   | 'forum_reply'
   | 'enrollment'
-  | 'certificate';
+  | 'certificate'
+  // Admin-facing: a registration is waiting in the approval queue. Deliberately
+  // has no NotificationPreference column — isTypeEnabled falls through to its
+  // `default: true`, so this needs no schema change, and the approval queue is
+  // not something an admin should be able to silence by accident.
+  | 'account_approval';
 
 export interface CreateNotificationInput {
   userId: number;

@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import { REGISTRATION_DEFAULT_SETTINGS } from '../src/services/registrationPolicy.service.js';
 
 const prisma = new PrismaClient();
 
@@ -471,9 +472,12 @@ What you DON'T do:
   const settings = [
     { settingKey: 'site_name', settingValue: 'LAILA LMS', settingType: 'string', description: 'The name of the platform' },
     { settingKey: 'default_ai_provider', settingValue: 'openai', settingType: 'string', description: 'Default AI provider (openai or gemini)' },
-    { settingKey: 'allow_registration', settingValue: 'true', settingType: 'boolean', description: 'Allow new user registrations' },
-    { settingKey: 'require_email_confirmation', settingValue: 'false', settingType: 'boolean', description: 'Require email confirmation for new accounts' },
     { settingKey: 'max_file_upload_size', settingValue: '10', settingType: 'number', description: 'Maximum file upload size in MB' },
+    // Registration policy — see services/registrationPolicy.service.ts. These
+    // defaults reproduce open registration with emailed verification, which is
+    // what LAILA has always done. (They supersede the never-read
+    // allow_registration / require_email_confirmation flags seeded here before.)
+    ...REGISTRATION_DEFAULT_SETTINGS,
   ];
 
   for (const setting of settings) {

@@ -563,6 +563,11 @@ export class CourseService {
     const { categoryIds, prerequisiteIds, activationCode: providedCode, ...courseData } = data;
 
     // Use the user-supplied code (uppercased) if non-empty, otherwise auto-generate.
+    // Uppercasing is load-bearing, not cosmetic: activation_code is UNIQUE
+    // across all courses so that signup can resolve a code to a course
+    // (courseCodeSignup.service), and the index is on the stored value. An
+    // instructor who picks a code another course already holds gets a 409 from
+    // the P2002 branch of error.middleware.
     const activationCode =
       providedCode && providedCode.trim().length > 0
         ? providedCode.trim().toUpperCase()
@@ -641,7 +646,8 @@ export class CourseService {
 
     // Only touch activationCode when the caller actually sent something
     // non-empty; an empty string means "leave it as is" so we don't wipe
-    // the existing code.
+    // the existing code. Uppercased to match the UNIQUE index — see
+    // createCourse above.
     const updateData: typeof courseData & { activationCode?: string } = { ...courseData };
     if (typeof activationCode === 'string' && activationCode.trim().length > 0) {
       updateData.activationCode = activationCode.trim().toUpperCase();

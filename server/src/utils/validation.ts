@@ -29,10 +29,30 @@ const strongPasswordSchema = z.string()
   .regex(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain at least one special character');
 
 // Auth validation schemas
+//
+// An applicant may redeem an invitation in exactly one of two forms: the long
+// token from a shareable link, or the short code they were given to type in.
+// Both at once is rejected rather than silently preferring one, because the
+// two could name different invitations and picking one would hand the
+// applicant a role or a course they did not expect.
+//
+// `courseCode` is a THIRD, independent thing and is deliberately allowed
+// alongside an invitation: an invitation is an admin saying "you may have an
+// account", a course code is a teacher saying "you may join my course". Someone
+// can legitimately have both, and they govern different outcomes (role vs.
+// enrolment), so there is nothing to disambiguate.
 export const registerSchema = z.object({
   fullname: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
   password: strongPasswordSchema,
+  inviteToken: z.string().min(1).max(255).optional(),
+  inviteCode: z.string().min(1).max(64).optional(),
+  // Size guard only. courseCodeSignup.service owns the real validation and
+  // hard-fails anything that does not resolve to a joinable course.
+  courseCode: z.string().min(1).max(32).optional(),
+}).refine(data => !(data.inviteToken && data.inviteCode), {
+  message: 'Provide either an invitation link or an invitation code, not both',
+  path: ['inviteCode'],
 });
 
 // Password update validation schema
@@ -273,6 +293,66 @@ export const updateApiConfigSchema = z.object({
   configurationData: z.string().optional(),
 });
 
+// Registration policy validation schemas (see services/registrationPolicy.service.ts).
+// A domain pattern is an exact domain (uef.fi) or a wildcard (*.edu).
+const DOMAIN_LABEL = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/i;
+
+const domainPatternSchema = z
+  .string()
+  .trim()
+  .min(3, 'A domain must be at least 3 characters')
+  .max(253, 'A domain may not exceed 253 characters')
+  .refine(value => {
+    const isWildcard = value.startsWith('*.');
+    const labels = (isWildcard ? value.slice(2) : value).split('.');
+    // A wildcard already names its scope ("*.edu"); a plain pattern must be a
+    // full domain ("uef.fi"), never a bare TLD.
+    if (labels.length < (isWildcard ? 1 : 2)) return false;
+    return labels.every(label => DOMAIN_LABEL.test(label));
+  }, 'Use a domain like uef.fi or a wildcard like *.edu');
+
+const domainListSchema = z.array(domainPatternSchema).max(200);
+
+export const updateRegistrationPolicySchema = z.object({
+  mode: z.enum(['open', 'approval', 'invite_only', 'closed']).optional(),
+  emailVerification: z.boolean().optional(),
+  allowedEmailDomains: domainListSchema.optional(),
+  blockedEmailDomains: domainListSchema.optional(),
+  autoApproveDomains: domainListSchema.optional(),
+  // 'admin' is intentionally absent: self-service signup never grants it.
+  defaultRole: z.enum(['student', 'instructor']).optional(),
+});
+
+export type UpdateRegistrationPolicyInput = z.infer<typeof updateRegistrationPolicySchema>;
+
+// Invitation validation schemas
+//
+// `role` here matches updateRegistrationPolicySchema's: 'admin' is absent for
+// the same reason — an invitation is redeemed by self-service registration,
+// and self-service registration never grants admin.
+//
+// `expiresInDays: null` is meaningfully different from omitting the field:
+// null means "never expires", omitted means "use the default window".
+const invitationRoleSchema = z.enum(['student', 'instructor']);
+
+export const createInvitationSchema = z.object({
+  email: z.string().email('Invalid email address').optional(),
+  role: invitationRoleSchema.optional(),
+  courseId: z.number().int().positive().optional(),
+  maxUses: z.number().int().min(1).max(1000).optional(),
+  expiresInDays: z.number().int().min(1).max(365).nullable().optional(),
+});
+
+export const bulkInvitationSchema = z.object({
+  emails: z.array(z.string().email('Invalid email address')).min(1).max(500),
+  role: invitationRoleSchema.optional(),
+  courseId: z.number().int().positive().optional(),
+  expiresInDays: z.number().int().min(1).max(365).nullable().optional(),
+});
+
+export type CreateInvitationInput = z.infer<typeof createInvitationSchema>;
+export type BulkInvitationInput = z.infer<typeof bulkInvitationSchema>;
+
 // Announcement validation schemas
 export const createAnnouncementSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
@@ -412,7 +492,15 @@ export const bulkEnrollSchema = z.object({
 export const bulkUserActionSchema = z
   .object({
     userIds: z.array(z.number().int().positive()).min(1).max(1000),
-    action: z.enum(['activate', 'deactivate', 'confirm', 'setRole', 'delete']),
+    action: z.enum([
+      'activate',
+      'deactivate',
+      'confirm',
+      'setRole',
+      'delete',
+      'approve',
+      'reject',
+    ]),
     role: z.enum(['student', 'instructor', 'admin']).optional(),
   })
   .refine(v => v.action !== 'setRole' || !!v.role, {

@@ -26,6 +26,30 @@ vi.mock('../utils/prisma.js', () => ({
       create: vi.fn(),
       deleteMany: vi.fn(),
     },
+    // register() consults the registration policy, which is stored here.
+    systemSetting: {
+      findUnique: vi.fn(),
+      upsert: vi.fn(),
+    },
+    // An invited signup resolves + consumes an invitation and may enrol the
+    // new account, all inside one $transaction.
+    invitation: {
+      findUnique: vi.fn(),
+      updateMany: vi.fn(),
+      fields: { maxUses: { modelName: 'Invitation', name: 'maxUses', typeName: 'Int' } },
+    },
+    enrollment: {
+      create: vi.fn(),
+    },
+    // A signup carrying a course code resolves it GLOBALLY, code -> course,
+    // which is why courses.activation_code is unique.
+    course: {
+      findUnique: vi.fn(),
+    },
+    adminAuditLog: {
+      create: vi.fn(),
+    },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -67,6 +91,7 @@ vi.mock('./email.service.js', () => ({
 import prisma from '../utils/prisma.js';
 import bcrypt from 'bcryptjs';
 import { generateToken } from '../middleware/auth.middleware.js';
+import { resetInvitationSecretCache } from './invitation.service.js';
 
 describe('AuthService', () => {
   let authService: AuthService;
@@ -74,6 +99,13 @@ describe('AuthService', () => {
   beforeEach(() => {
     authService = new AuthService();
     vi.clearAllMocks();
+    // No stored registration policy -> the defaults, i.e. open registration
+    // with an emailed code, which is what these tests assert.
+    vi.mocked(prisma.systemSetting.findUnique).mockResolvedValue(null);
+    // Run transaction callbacks against the same mocked client.
+    vi.mocked(prisma.$transaction).mockImplementation((async (fn: any) => fn(prisma)) as any);
+    process.env.SESSION_SECRET = 'test-session-secret';
+    resetInvitationSecretCache();
   });
 
   afterEach(() => {
@@ -164,6 +196,556 @@ describe('AuthService', () => {
       expect(result.email).toBe('test@example.com');
       expect(result.message).toBe('Verification code sent');
     });
+
+    // The registration policy gate (services/registrationPolicy.service.ts).
+    it('should refuse to register when the policy is closed', async () => {
+      vi.mocked(prisma.systemSetting.findUnique).mockImplementation((async (args: any) =>
+        args.where.settingKey === 'registration.mode'
+          ? { settingKey: 'registration.mode', settingValue: 'closed' }
+          : null) as any);
+
+      await expect(authService.register(validRegistration)).rejects.toThrow(/closed/i);
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('should refuse to register an email outside the allowed domains', async () => {
+      vi.mocked(prisma.systemSetting.findUnique).mockImplementation((async (args: any) =>
+        args.where.settingKey === 'registration.allowedEmailDomains'
+          ? { settingKey: 'registration.allowedEmailDomains', settingValue: '["uef.fi"]' }
+          : null) as any);
+
+      await expect(authService.register(validRegistration)).rejects.toThrow(/approved email domains/i);
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('should skip the verification code when the policy waives verification', async () => {
+      vi.mocked(prisma.systemSetting.findUnique).mockImplementation((async (args: any) =>
+        args.where.settingKey === 'registration.emailVerification'
+          ? { settingKey: 'registration.emailVerification', settingValue: 'false' }
+          : null) as any);
+      vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.user.create).mockResolvedValue({
+        id: 1,
+        fullname: 'Test User',
+        email: 'test@example.com',
+        isAdmin: false,
+        isInstructor: false,
+        tokenVersion: 0,
+        createdAt: new Date(),
+      } as any);
+
+      const result = await authService.register(validRegistration);
+
+      expect(result.verificationRequired).toBe(false);
+      expect(prisma.verificationCode.create).not.toHaveBeenCalled();
+      expect(vi.mocked(prisma.user.create).mock.calls[0][0]).toMatchObject({
+        data: { isConfirmed: true, isInstructor: false },
+      });
+    });
+
+    it('should grant the configured default role', async () => {
+      vi.mocked(prisma.systemSetting.findUnique).mockImplementation((async (args: any) =>
+        args.where.settingKey === 'registration.defaultRole'
+          ? { settingKey: 'registration.defaultRole', settingValue: 'instructor' }
+          : null) as any);
+      vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.user.create).mockResolvedValue({
+        id: 1,
+        fullname: 'Test User',
+        email: 'test@example.com',
+        isAdmin: false,
+        isInstructor: true,
+        tokenVersion: 0,
+        createdAt: new Date(),
+      } as any);
+      vi.mocked(prisma.verificationCode.deleteMany).mockResolvedValue({ count: 0 });
+      vi.mocked(prisma.verificationCode.create).mockResolvedValue({} as any);
+
+      await authService.register(validRegistration);
+
+      expect(vi.mocked(prisma.user.create).mock.calls[0][0]).toMatchObject({
+        data: { isInstructor: true },
+      });
+    });
+  });
+
+  // ===========================================================================
+  // Invited registration (services/invitation.service.ts)
+  // ===========================================================================
+
+  describe('register with an invitation', () => {
+    const validRegistration = {
+      fullname: 'Test User',
+      email: 'test@example.com',
+      password: 'StrongPass123!',
+    };
+
+    /** A usable invitation row as invitation.service selects it. */
+    const invitation = (overrides: Record<string, unknown> = {}) => ({
+      id: 5,
+      email: null,
+      role: 'student',
+      courseId: null,
+      token: 'tok_abc',
+      codeHint: 'WXYZ',
+      invitedById: 1,
+      maxUses: 1,
+      useCount: 0,
+      expiresAt: null,
+      acceptedAt: null,
+      revokedAt: null,
+      createdAt: new Date(),
+      ...overrides,
+    });
+
+    const createdUser = (overrides: Record<string, unknown> = {}) => ({
+      id: 1,
+      fullname: 'Test User',
+      email: 'test@example.com',
+      isAdmin: false,
+      isInstructor: false,
+      tokenVersion: 0,
+      createdAt: new Date(),
+      ...overrides,
+    });
+
+    /** Put the platform in invite_only mode. */
+    const inviteOnlyPolicy = () => {
+      vi.mocked(prisma.systemSetting.findUnique).mockImplementation((async (args: any) =>
+        args.where.settingKey === 'registration.mode'
+          ? { settingKey: 'registration.mode', settingValue: 'invite_only' }
+          : null) as any);
+    };
+
+    beforeEach(() => {
+      vi.mocked(prisma.verificationCode.deleteMany).mockResolvedValue({ count: 0 });
+      vi.mocked(prisma.verificationCode.create).mockResolvedValue({} as any);
+      vi.mocked(prisma.invitation.updateMany).mockResolvedValue({ count: 1 } as any);
+    });
+
+    it('lets a valid invitation through an invite_only platform', async () => {
+      inviteOnlyPolicy();
+      vi.mocked(prisma.invitation.findUnique).mockResolvedValue(invitation() as any);
+      vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.user.create).mockResolvedValue(createdUser() as any);
+
+      const result = await authService.register({ ...validRegistration, inviteToken: 'tok_abc' });
+
+      expect(result.email).toBe('test@example.com');
+      expect(prisma.user.create).toHaveBeenCalled();
+    });
+
+    it('hard-fails an invalid token instead of falling back to open signup', async () => {
+      // Platform is OPEN, so a silent fallback would succeed — and that is
+      // exactly the bug this asserts against.
+      vi.mocked(prisma.invitation.findUnique).mockResolvedValue(null);
+
+      await expect(
+        authService.register({ ...validRegistration, inviteToken: 'typo' })
+      ).rejects.toThrow(AppError);
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('hard-fails an expired invitation', async () => {
+      vi.mocked(prisma.invitation.findUnique).mockResolvedValue(
+        invitation({ expiresAt: new Date(Date.now() - 1000) }) as any
+      );
+
+      await expect(
+        authService.register({ ...validRegistration, inviteToken: 'tok_abc' })
+      ).rejects.toThrow(/expired/i);
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('hard-fails an invitation issued to a different email address', async () => {
+      vi.mocked(prisma.invitation.findUnique).mockResolvedValue(
+        invitation({ email: 'someone.else@example.com' }) as any
+      );
+
+      await expect(
+        authService.register({ ...validRegistration, inviteToken: 'tok_abc' })
+      ).rejects.toThrow(/different email/i);
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a token and a code supplied together', async () => {
+      await expect(
+        authService.register({ ...validRegistration, inviteToken: 't', inviteCode: 'c' })
+      ).rejects.toThrow(/not both/i);
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('takes the new account role from the invitation, not from the client', async () => {
+      vi.mocked(prisma.invitation.findUnique).mockResolvedValue(
+        invitation({ role: 'instructor' }) as any
+      );
+      vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.user.create).mockResolvedValue(createdUser({ isInstructor: true }) as any);
+
+      // The client asks for admin; only the invitation's role is consulted.
+      await authService.register({
+        ...validRegistration,
+        inviteToken: 'tok_abc',
+        role: 'admin',
+      } as any);
+
+      const written = (vi.mocked(prisma.user.create).mock.calls[0][0] as any).data;
+      expect(written.isInstructor).toBe(true);
+      expect(written).not.toHaveProperty('isAdmin');
+      expect(written).not.toHaveProperty('role');
+    });
+
+    it('bypasses the domain allow-list for an invited account', async () => {
+      vi.mocked(prisma.systemSetting.findUnique).mockImplementation((async (args: any) =>
+        args.where.settingKey === 'registration.allowedEmailDomains'
+          ? { settingKey: 'registration.allowedEmailDomains', settingValue: '["uef.fi"]' }
+          : null) as any);
+      vi.mocked(prisma.invitation.findUnique).mockResolvedValue(invitation() as any);
+      vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.user.create).mockResolvedValue(createdUser() as any);
+
+      await authService.register({ ...validRegistration, inviteToken: 'tok_abc' });
+
+      expect(prisma.user.create).toHaveBeenCalled();
+    });
+
+    it('skips the approval queue — an invitation is the approval', async () => {
+      vi.mocked(prisma.systemSetting.findUnique).mockImplementation((async (args: any) =>
+        args.where.settingKey === 'registration.mode'
+          ? { settingKey: 'registration.mode', settingValue: 'approval' }
+          : null) as any);
+      vi.mocked(prisma.invitation.findUnique).mockResolvedValue(invitation() as any);
+      vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.user.create).mockResolvedValue(createdUser() as any);
+
+      const result = await authService.register({ ...validRegistration, inviteToken: 'tok_abc' });
+
+      expect(result.approvalRequired).toBe(false);
+      expect((vi.mocked(prisma.user.create).mock.calls[0][0] as any).data.status).toBe('active');
+    });
+
+    it('consumes the invitation and creates the user in one transaction', async () => {
+      vi.mocked(prisma.invitation.findUnique).mockResolvedValue(invitation() as any);
+      vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.user.create).mockResolvedValue(createdUser() as any);
+
+      await authService.register({ ...validRegistration, inviteToken: 'tok_abc' });
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.invitation.updateMany).toHaveBeenCalledTimes(1);
+      const consume = (vi.mocked(prisma.invitation.updateMany).mock.calls[0][0] as any);
+      expect(consume.where.id).toBe(5);
+      expect(consume.data.useCount).toEqual({ increment: 1 });
+    });
+
+    it('creates nothing when the invitation loses the race to be consumed', async () => {
+      vi.mocked(prisma.invitation.findUnique).mockResolvedValue(invitation() as any);
+      vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+      // Another registration got there first between validation and consume.
+      vi.mocked(prisma.invitation.updateMany).mockResolvedValue({ count: 0 } as any);
+
+      await expect(
+        authService.register({ ...validRegistration, inviteToken: 'tok_abc' })
+      ).rejects.toThrow(/no longer valid/i);
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('enrols the new account in the invitation course, inside the transaction', async () => {
+      vi.mocked(prisma.invitation.findUnique).mockResolvedValue(invitation({ courseId: 12 }) as any);
+      vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.user.create).mockResolvedValue(createdUser() as any);
+      vi.mocked(prisma.enrollment.create).mockResolvedValue({} as any);
+
+      await authService.register({ ...validRegistration, inviteToken: 'tok_abc' });
+
+      expect(prisma.enrollment.create).toHaveBeenCalledWith({
+        data: { userId: 1, courseId: 12 },
+      });
+    });
+
+    it('does not enrol anyone when the invitation names no course', async () => {
+      vi.mocked(prisma.invitation.findUnique).mockResolvedValue(invitation() as any);
+      vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.user.create).mockResolvedValue(createdUser() as any);
+
+      await authService.register({ ...validRegistration, inviteToken: 'tok_abc' });
+
+      expect(prisma.enrollment.create).not.toHaveBeenCalled();
+    });
+
+    it('opens no transaction at all for an ordinary uninvited signup', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.user.create).mockResolvedValue(createdUser() as any);
+
+      await authService.register(validRegistration);
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.invitation.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
+  // ===========================================================================
+  // Signup with a teacher's course code (services/courseCodeSignup.service.ts)
+  // ===========================================================================
+
+  describe('register with a course code', () => {
+    const validRegistration = {
+      fullname: 'Test User',
+      email: 'test@example.com',
+      password: 'StrongPass123!',
+    };
+
+    const createdUser = (overrides: Record<string, unknown> = {}) => ({
+      id: 1,
+      fullname: 'Test User',
+      email: 'test@example.com',
+      isAdmin: false,
+      isInstructor: false,
+      tokenVersion: 0,
+      createdAt: new Date(),
+      ...overrides,
+    });
+
+    /**
+     * A DISTINCT transaction client, so "did this happen in the transaction?"
+     * is a real question the tests can answer rather than an assumption. A
+     * write that lands on the base client would survive a rollback; a write
+     * that lands here would not.
+     */
+    let tx: {
+      user: { create: ReturnType<typeof vi.fn> };
+      enrollment: { create: ReturnType<typeof vi.fn> };
+      invitation: { updateMany: ReturnType<typeof vi.fn> };
+    };
+
+    /** Answer the code -> course lookup with a published course. */
+    const courseFor = (overrides: Record<string, unknown> = {}) =>
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({
+        id: 7,
+        title: 'Learning Analytics',
+        status: 'published',
+        ...overrides,
+      } as any);
+
+    /** Put the platform in one registration mode. */
+    const policyMode = (mode: string) => {
+      vi.mocked(prisma.systemSetting.findUnique).mockImplementation((async (args: any) =>
+        args.where.settingKey === 'registration.mode'
+          ? { settingKey: 'registration.mode', settingValue: mode }
+          : null) as any);
+    };
+
+    beforeEach(() => {
+      vi.mocked(prisma.verificationCode.deleteMany).mockResolvedValue({ count: 0 });
+      vi.mocked(prisma.verificationCode.create).mockResolvedValue({} as any);
+      vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+
+      tx = {
+        user: { create: vi.fn().mockResolvedValue(createdUser()) },
+        enrollment: { create: vi.fn().mockResolvedValue({}) },
+        invitation: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+      };
+      vi.mocked(prisma.$transaction).mockImplementation((async (fn: any) => fn(tx)) as any);
+    });
+
+    it('enrols the new account in the course the code names', async () => {
+      courseFor();
+
+      const result = await authService.register({ ...validRegistration, courseCode: 'ABC12345' });
+
+      expect(tx.enrollment.create).toHaveBeenCalledWith({
+        data: { userId: 1, courseId: 7 },
+      });
+      // The one course detail an unauthenticated caller ever gets back.
+      expect(result.courseTitle).toBe('Learning Analytics');
+    });
+
+    it('creates the account and the enrolment in ONE transaction', async () => {
+      courseFor();
+
+      await authService.register({ ...validRegistration, courseCode: 'ABC12345' });
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      // Both writes went to the transaction client, so a rollback takes both.
+      expect(tx.user.create).toHaveBeenCalledTimes(1);
+      expect(tx.enrollment.create).toHaveBeenCalledTimes(1);
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      expect(prisma.enrollment.create).not.toHaveBeenCalled();
+    });
+
+    it('creates no user when the enrolment fails', async () => {
+      courseFor();
+      tx.enrollment.create.mockRejectedValue(new Error('enrolment exploded'));
+
+      await expect(
+        authService.register({ ...validRegistration, courseCode: 'ABC12345' })
+      ).rejects.toThrow(/enrolment exploded/);
+
+      // The only user insert was issued inside the transaction that just
+      // aborted; nothing was written outside it that could survive.
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('hard-fails an unknown code instead of falling through to a plain signup', async () => {
+      // The platform is OPEN, so a silent fallback would happily create an
+      // account with no course attached — the exact bug this guards.
+      vi.mocked(prisma.course.findUnique).mockResolvedValue(null);
+
+      await expect(
+        authService.register({ ...validRegistration, courseCode: 'NOSUCH12' })
+      ).rejects.toThrow(/not valid/i);
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      expect(tx.user.create).not.toHaveBeenCalled();
+    });
+
+    it('matches codes case-insensitively by uppercasing before the lookup', async () => {
+      courseFor();
+
+      await authService.register({ ...validRegistration, courseCode: '  abc12345 ' });
+
+      expect(vi.mocked(prisma.course.findUnique).mock.calls[0][0]).toMatchObject({
+        where: { activationCode: 'ABC12345' },
+      });
+    });
+
+    it('gives an unpublished course the same answer as an unknown code', async () => {
+      courseFor({ status: 'draft' });
+
+      // Identical message, so a probe cannot tell "no such code" from
+      // "that course exists but is not open".
+      await expect(
+        authService.register({ ...validRegistration, courseCode: 'ABC12345' })
+      ).rejects.toThrow(/not valid/i);
+      expect(tx.user.create).not.toHaveBeenCalled();
+    });
+
+    it('satisfies invite_only — the teacher who issued the code is the sponsor', async () => {
+      policyMode('invite_only');
+      courseFor();
+
+      const result = await authService.register({ ...validRegistration, courseCode: 'ABC12345' });
+
+      expect(result.email).toBe('test@example.com');
+      expect(tx.user.create).toHaveBeenCalled();
+    });
+
+    it('skips the approval queue — teacher sponsorship IS the approval', async () => {
+      policyMode('approval');
+      courseFor();
+
+      const result = await authService.register({ ...validRegistration, courseCode: 'ABC12345' });
+
+      expect(result.approvalRequired).toBe(false);
+      expect(tx.user.create.mock.calls[0][0].data.status).toBe('active');
+    });
+
+    it('does NOT waive email verification', async () => {
+      courseFor();
+
+      const result = await authService.register({ ...validRegistration, courseCode: 'ABC12345' });
+
+      // A teacher can vouch for a person; nobody can vouch for a mailbox
+      // whose owner has not proved they read it.
+      expect(result.verificationRequired).toBe(true);
+      expect(tx.user.create.mock.calls[0][0].data.isConfirmed).toBe(false);
+      expect(prisma.verificationCode.create).toHaveBeenCalled();
+    });
+
+    it('cannot reopen a closed platform', async () => {
+      policyMode('closed');
+      courseFor();
+
+      await expect(
+        authService.register({ ...validRegistration, courseCode: 'ABC12345' })
+      ).rejects.toThrow(/closed/i);
+      expect(tx.user.create).not.toHaveBeenCalled();
+    });
+
+    it('does not override the administrator\'s blocked-domain list', async () => {
+      // A teacher may decide who joins their course; only an admin decides who
+      // may hold an account here at all.
+      vi.mocked(prisma.systemSetting.findUnique).mockImplementation((async (args: any) =>
+        args.where.settingKey === 'registration.blockedEmailDomains'
+          ? { settingKey: 'registration.blockedEmailDomains', settingValue: '["example.com"]' }
+          : null) as any);
+      courseFor();
+
+      await expect(
+        authService.register({ ...validRegistration, courseCode: 'ABC12345' })
+      ).rejects.toThrow(/not permitted/i);
+      expect(tx.user.create).not.toHaveBeenCalled();
+    });
+
+    it('accepts an invitation and a course code together: invitation names the role, code names the course', async () => {
+      vi.mocked(prisma.invitation.findUnique).mockResolvedValue({
+        id: 5,
+        email: null,
+        role: 'instructor',
+        courseId: null,
+        token: 'tok_abc',
+        codeHint: 'WXYZ',
+        invitedById: 1,
+        maxUses: 1,
+        useCount: 0,
+        expiresAt: null,
+        acceptedAt: null,
+        revokedAt: null,
+        createdAt: new Date(),
+      } as any);
+      courseFor();
+      tx.user.create.mockResolvedValue(createdUser({ isInstructor: true }));
+
+      await authService.register({
+        ...validRegistration,
+        inviteToken: 'tok_abc',
+        courseCode: 'ABC12345',
+      });
+
+      expect(tx.user.create.mock.calls[0][0].data.isInstructor).toBe(true);
+      expect(tx.invitation.updateMany).toHaveBeenCalledTimes(1);
+      expect(tx.enrollment.create).toHaveBeenCalledWith({
+        data: { userId: 1, courseId: 7 },
+      });
+    });
+
+    it('enrols only once when the invitation and the code name the same course', async () => {
+      vi.mocked(prisma.invitation.findUnique).mockResolvedValue({
+        id: 5,
+        email: null,
+        role: 'student',
+        courseId: 7,
+        token: 'tok_abc',
+        codeHint: 'WXYZ',
+        invitedById: 1,
+        maxUses: 1,
+        useCount: 0,
+        expiresAt: null,
+        acceptedAt: null,
+        revokedAt: null,
+        createdAt: new Date(),
+      } as any);
+      courseFor();
+
+      await authService.register({
+        ...validRegistration,
+        inviteToken: 'tok_abc',
+        courseCode: 'ABC12345',
+      });
+
+      // Two enrolments would trip the (userId, courseId) unique constraint and
+      // roll the whole signup back over nothing.
+      expect(tx.enrollment.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not look a course up at all when no code was supplied', async () => {
+      vi.mocked(prisma.user.create).mockResolvedValue(createdUser() as any);
+
+      await authService.register(validRegistration);
+
+      expect(prisma.course.findUnique).not.toHaveBeenCalled();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
   });
 
   describe('login', () => {
@@ -239,6 +821,56 @@ describe('AuthService', () => {
 
       await expect(authService.login(validLogin)).rejects.toThrow(AppError);
       await expect(authService.login(validLogin)).rejects.toThrow('Account is deactivated');
+    });
+
+    // status and isActive are separate gates; an applicant still in the queue
+    // must not be told their account was "deactivated".
+    it('should throw a distinct error for an account awaiting approval', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        ...mockUser,
+        status: 'pending_approval',
+      } as any);
+
+      await expect(authService.login(validLogin)).rejects.toThrow(AppError);
+      await expect(authService.login(validLogin)).rejects.toThrow(
+        'Your account is awaiting administrator approval'
+      );
+    });
+
+    it('should throw a distinct error for a rejected account', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        ...mockUser,
+        status: 'rejected',
+      } as any);
+
+      await expect(authService.login(validLogin)).rejects.toThrow(
+        /registration request was declined/
+      );
+    });
+
+    it('lets an approved account through the status gate', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        ...mockUser,
+        status: 'active',
+      } as any);
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+      vi.mocked(prisma.user.update).mockResolvedValue(mockUser as any);
+
+      await expect(authService.login(validLogin)).resolves.toBeDefined();
+    });
+
+    // The queue is checked before deactivation, so a pending account reports
+    // pending even if it is also inactive.
+    it('reports pending rather than deactivated when both apply', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        ...mockUser,
+        status: 'pending_approval',
+        isActive: false,
+      } as any);
+
+      await expect(authService.login(validLogin)).rejects.toThrow(
+        'Your account is awaiting administrator approval'
+      );
     });
 
     it('should throw error for locked account', async () => {

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Mail, Lock, User, Eye, EyeOff, ShieldCheck, Inbox } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, ShieldCheck, Inbox, Ticket, GraduationCap } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
@@ -32,6 +32,21 @@ export const Register = () => {
   const { isDark } = useTheme();
   const { language: currentLanguage, setLanguage } = useLanguageStore();
   const navigate = useNavigate();
+
+  // Invitation. An invitation link lands here as ?invite=<token>; anyone given
+  // a short code instead types it into the field below. They are mutually
+  // exclusive — the server rejects both at once — so arriving by link hides
+  // the code field entirely rather than offering a second, conflicting input.
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get('invite') || '';
+  const [inviteCode, setInviteCode] = useState('');
+
+  // Course code. A teacher can share /register?code=ABCD1234 as a direct join
+  // link, so the parameter only SEEDS the field — it stays editable, because
+  // someone who followed a stale link needs to be able to correct it without
+  // hunting for a clean URL. Unlike the invitation token this is not a secret
+  // the client must hide; it is the same code the teacher reads out in class.
+  const [courseCode, setCourseCode] = useState(() => searchParams.get('code') || '');
 
   // Theme colors
   const colors = {
@@ -68,7 +83,30 @@ export const Register = () => {
     setIsLoading(true);
 
     try {
-      const result = await register(fullname, email, password);
+      const trimmedInvite = inviteCode.trim();
+      const trimmedCourseCode = courseCode.trim();
+      const result = await register(fullname, email, password, {
+        // Invitation: link token wins over a typed code; the server rejects
+        // both at once, so only one is ever sent.
+        ...(inviteToken ? { inviteToken } : trimmedInvite ? { inviteCode: trimmedInvite } : {}),
+        // Course code is independent of the invitation and may accompany it.
+        ...(trimmedCourseCode ? { courseCode: trimmedCourseCode } : {}),
+      });
+
+      // The server confirms the course by title. Surfacing it matters: a code
+      // that does not resolve is a hard error, so seeing the right title is how
+      // the learner knows they joined the class they meant to.
+      if (result.courseTitle) {
+        toast.success(t('joined_course', { course: result.courseTitle }));
+      }
+
+      // The registration policy can waive email verification, in which case the
+      // account is already usable and there is no code step to show.
+      if (result.verificationRequired === false) {
+        toast.success(t('account_created'));
+        navigate('/login');
+        return;
+      }
       setVerifyEmail(result.email);
       setStep('verify');
       toast.success(t('verification_code_sent'));
@@ -242,6 +280,64 @@ export const Register = () => {
                     className="pl-11"
                     required
                   />
+                </div>
+
+                {/* Invitation. An arriving link already carries its token, so
+                    say so and stop; otherwise offer the code field. */}
+                {inviteToken ? (
+                  <div
+                    className="flex items-start gap-3 rounded-xl px-4 py-3 text-sm"
+                    style={{
+                      backgroundColor: isDark ? 'rgba(8, 143, 143, 0.12)' : '#e6f6f6',
+                      color: colors.textSecondary,
+                    }}
+                  >
+                    <Ticket className="w-5 h-5 shrink-0 mt-0.5" style={{ color: colors.linkColor }} />
+                    <p className="leading-relaxed">{t('invite_link_detected')}</p>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Ticket
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5"
+                      style={{ color: colors.textMuted }}
+                    />
+                    <Input
+                      type="text"
+                      dir="ltr"
+                      autoComplete="off"
+                      placeholder={t('invite_code_placeholder')}
+                      value={inviteCode}
+                      onChange={(e) => setInviteCode(e.target.value)}
+                      className="pl-11"
+                    />
+                    <p className="mt-1 text-xs" style={{ color: colors.textMuted }}>
+                      {t('invite_code_optional')}
+                    </p>
+                  </div>
+                )}
+
+                {/* Course code. Independent of the invitation above — a learner
+                    may have one, the other, or both. Always offered, even when
+                    an invitation link is in play, because the invitation says
+                    "you may have an account" while this says "you are in my
+                    class". A ?code= link pre-fills it. */}
+                <div className="relative">
+                  <GraduationCap
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5"
+                    style={{ color: colors.textMuted }}
+                  />
+                  <Input
+                    type="text"
+                    dir="ltr"
+                    autoComplete="off"
+                    placeholder={t('course_code_placeholder')}
+                    value={courseCode}
+                    onChange={(e) => setCourseCode(e.target.value)}
+                    className="pl-11"
+                  />
+                  <p className="mt-1 text-xs" style={{ color: colors.textMuted }}>
+                    {t('course_code_optional')}
+                  </p>
                 </div>
 
                 <Button type="submit" className="w-full" loading={isLoading}>

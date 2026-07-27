@@ -6,6 +6,7 @@ import { v4 as uuid } from 'uuid';
 import { authService, AuthContext } from '../services/auth.service.js';
 import { authenticateToken } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
+import { courseCodeLimiter } from '../middleware/rateLimit.middleware.js';
 import { registerSchema, loginSchema, updateProfileSchema } from '../utils/validation.js';
 import { AuthRequest } from '../types/index.js';
 import prisma from '../utils/prisma.js';
@@ -66,8 +67,17 @@ function getAuthContext(req: Request): AuthContext {
   };
 }
 
-// Register
-router.post('/register', asyncHandler(async (req, res: Response) => {
+// Register.
+//
+// courseCodeLimiter sits in front of the handler and, thanks to its `skip`,
+// only counts attempts that actually carry a course code — a short, guessable
+// secret deserves a tighter budget than authLimiter's general one, and an
+// ordinary signup should not pay for it. See rateLimit.middleware.ts.
+//
+// There is deliberately NO endpoint that looks a course code up on its own,
+// for the same reason invitation.routes.ts has none: it would be an oracle for
+// enumerating codes. A code is only ever redeemed as part of a full signup.
+router.post('/register', courseCodeLimiter, asyncHandler(async (req, res: Response) => {
   const data = registerSchema.parse(req.body);
   const context = getAuthContext(req);
   const result = await authService.register(data, context);

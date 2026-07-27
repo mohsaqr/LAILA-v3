@@ -8,7 +8,14 @@ import {
   UpdateUserData,
 } from '../types';
 
-export type BulkUserAction = 'activate' | 'deactivate' | 'confirm' | 'setRole' | 'delete';
+export type BulkUserAction =
+  | 'activate'
+  | 'deactivate'
+  | 'confirm'
+  | 'setRole'
+  | 'delete'
+  | 'approve'
+  | 'reject';
 export type BulkUserRole = 'student' | 'instructor' | 'admin';
 
 export interface BulkUserOutcome {
