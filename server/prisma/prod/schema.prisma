@@ -52,8 +52,28 @@ model User {
   userSubmissions             UserSubmission[]
   verificationCodes           VerificationCode[]
   datasets                    UserDataset[]
+  oidcAuthCodes               OidcAuthCode[]
 
   @@map("users")
+}
+
+// One-time authorization code for the OIDC provider (see routes/oidc.routes.ts).
+// LAILA acts as the identity provider; chatoyon is the only relying party today.
+// The code is the @id so redeeming it is an atomic single-use delete: a racing
+// second redemption hits P2025 rather than replaying the login.
+model OidcAuthCode {
+  code          String   @id
+  userId        Int      @map("user_id")
+  clientId      String   @map("client_id")
+  redirectUri   String   @map("redirect_uri")
+  nonce         String?
+  codeChallenge String   @map("code_challenge")
+  expiresAt     DateTime @map("expires_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("oidc_auth_codes")
 }
 
 model VerificationCode {

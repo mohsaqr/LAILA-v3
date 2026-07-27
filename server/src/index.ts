@@ -53,6 +53,7 @@ import certificateRoutes from './routes/certificate.routes.js';
 import categoryRoutes from './routes/category.routes.js';
 import meRoutes from './routes/me.routes.js';
 import presentationRoutes from './routes/presentation.routes.js';
+import oidcRoutes, { discoveryRouter as oidcDiscoveryRouter } from './routes/oidc.routes.js';
 
 // Import middleware
 import { errorHandler } from './middleware/error.middleware.js';
@@ -176,6 +177,13 @@ app.use('/api/certificates', certificateRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/me', meRoutes);
 app.use('/api/presentations', presentationLimiter, presentationRoutes);
+
+// OIDC provider (LAILA as identity provider). Discovery is mounted at the
+// issuer root because RFC 8414 fixes its path; everything else lives under
+// /api/oidc. Both 404 unless OIDC_ISSUER + OIDC_PRIVATE_KEY are configured.
+// Mounted before the SPA catch-all so /.well-known is not swallowed by it.
+app.use('/', oidcDiscoveryRouter);
+app.use('/api/oidc', oidcRoutes);
 
 // Health check with comprehensive status
 app.get('/api/health', async (req, res) => {

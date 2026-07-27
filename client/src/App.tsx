@@ -55,6 +55,7 @@ import { RequireEnrollment } from './components/layout/RequireEnrollment';
 import { Login } from './pages/auth/Login';
 import { Register } from './pages/auth/Register';
 import { ForgotPassword } from './pages/auth/ForgotPassword';
+import { OidcAuthorize } from './pages/auth/OidcAuthorize';
 
 // Main pages
 import { DashboardRouter } from './pages/dashboards';
@@ -198,6 +199,11 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      {/* OIDC authorization step. Deliberately outside <Layout> — it is a
+          machine-driven hop between two applications, not a place to browse.
+          It handles its own unauthenticated case rather than using
+          ProtectedRoute, so the OIDC query parameters survive the login. */}
+      <Route path="/oidc/authorize" element={<OidcAuthorize />} />
       <Route
         path="/verify/:verificationCode"
         element={

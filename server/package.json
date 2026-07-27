@@ -4,6 +4,8 @@
   "description": "LAILA LMS Backend - Node.js/Express API",
   "main": "dist/index.js",
   "scripts": {
+    "oidc:keys": "node scripts/generate-oidc-keys.mjs",
+    "oidc:smoke": "node --env-file=.env scripts/oidc-smoke-test.mjs",
     "dev": "npm run setup:local && nodemon --legacy-watch --watch src --ext ts,json --exec 'tsx src/index.ts'",
     "setup:local": "bash scripts/setup-local-db.sh",
     "build": "tsc",
