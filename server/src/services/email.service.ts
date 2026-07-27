@@ -17,7 +17,9 @@ interface NotificationPayload {
   data: Record<string, any>;
 }
 
-class EmailService {
+// Exported so tests can construct instances under different SMTP env
+// configurations; application code should use the `emailService` singleton below.
+export class EmailService {
   private transporter: nodemailer.Transporter | null = null;
   private isConfigured = false;
 
@@ -26,14 +28,19 @@ class EmailService {
   }
 
   private initializeTransporter() {
-    // Check if email is configured
     const smtpHost = process.env.SMTP_HOST;
     const smtpPort = process.env.SMTP_PORT;
     const smtpUser = process.env.SMTP_USER;
     const smtpPass = process.env.SMTP_PASS;
 
-    if (!smtpHost || !smtpUser || !smtpPass) {
-      emailLogger.warn('Email service not configured - SMTP credentials missing');
+    // Only the host is mandatory. Credentials are optional so an internal or
+    // institutional relay that authenticates by IP still works — such a relay
+    // used to be treated as "not configured", and its mail silently vanished.
+    if (!smtpHost) {
+      emailLogger.warn(
+        'SMTP_HOST is not set — emails are written to the server log instead of sent. ' +
+          'Verification codes stay readable there, so registration still completes.'
+      );
       return;
     }
 
@@ -41,18 +48,16 @@ class EmailService {
       this.transporter = nodemailer.createTransport({
         host: smtpHost,
         port: parseInt(smtpPort || '587'),
-        secure: smtpPort === '465', // true for 465, false for other ports
-        auth: {
-          user: smtpUser,
-          pass: smtpPass,
-        },
+        // An explicit SMTP_SECURE wins; otherwise infer from the conventional
+        // implicit-TLS port. Inference alone is wrong for relays on e.g. 8465.
+        secure: process.env.SMTP_SECURE ? process.env.SMTP_SECURE === '1' : smtpPort === '465',
+        auth: smtpUser ? { user: smtpUser, pass: smtpPass } : undefined,
       });
 
       this.isConfigured = true;
-      console.log('=== SMTP CONFIG ===');
-      console.log(`Host: ${smtpHost}, Port: ${smtpPort || '587'}, Secure: ${smtpPort === '465'}, User: ${smtpUser}`);
-      console.log('=== END SMTP CONFIG ===');
-      emailLogger.info('Email service initialized');
+      // Host and port only. This previously printed SMTP_USER to stdout, which
+      // put a credential into every log aggregator downstream.
+      emailLogger.info({ host: smtpHost, port: smtpPort || '587' }, 'Email service initialized');
     } catch (error) {
       emailLogger.error({ err: error }, 'Failed to initialize email service');
     }
@@ -60,7 +65,17 @@ class EmailService {
 
   async sendEmail(options: EmailOptions): Promise<boolean> {
     if (!this.isConfigured || !this.transporter) {
-      emailLogger.debug({ to: options.to, subject: options.subject }, 'Email service not configured - skipping send');
+      // Fall back to the log rather than dropping the message.
+      //
+      // register() creates the account unconfirmed and emails a 6-digit code.
+      // Returning false here used to strand that account permanently: no SMTP
+      // meant no code, and no other way to obtain one. Logging it keeps local,
+      // offline and misconfigured deployments usable — the operator reads the
+      // code from the server output. Mirrors chatoyon's mailer fallback.
+      emailLogger.warn(
+        { to: options.to, subject: options.subject, body: options.text },
+        'No SMTP configured — logging the message instead of sending it'
+      );
       return false;
     }
 
