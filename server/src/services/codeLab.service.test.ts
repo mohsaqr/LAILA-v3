@@ -9,6 +9,11 @@ vi.mock('../utils/prisma.js', () => ({
     },
     codeLab: {
       findMany: vi.fn(),
+      findUnique: vi.fn(),
+    },
+    codeBlock: {
+      findMany: vi.fn(),
+      update: vi.fn(),
     },
     enrollment: {
       findUnique: vi.fn(),
@@ -20,6 +25,10 @@ vi.mock('../utils/prisma.js', () => ({
 vi.mock('./courseRole.service.js', () => ({
   courseRoleService: {
     isTeamMember: vi.fn(),
+    // Mutation guards now route through canEditContent (folds in owner+admin).
+    canEditContent: vi.fn().mockResolvedValue(true),
+    canGrade: vi.fn().mockResolvedValue(true),
+    canManageStudents: vi.fn().mockResolvedValue(true),
   },
 }));
 
@@ -65,5 +74,49 @@ describe('CodeLabService - getCodeLabsForModule publish/availability gate', () =
 
     const call = vi.mocked(prisma.codeLab.findMany).mock.calls[0][0] as any;
     expect(call.where.isPublished).toBeUndefined();
+  });
+});
+
+describe('CodeLabService - reorderCodeBlocks id validation', () => {
+  const asAdmin = true; // skips the ownership walk so the test isolates validation
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.codeLab.findUnique).mockResolvedValue({
+      id: 7,
+      module: { course: { id: 1, instructorId: 1 } },
+    } as any);
+    vi.mocked(prisma.codeBlock.findMany).mockResolvedValue([
+      { id: 1 },
+      { id: 2 },
+      { id: 3 },
+    ] as any);
+  });
+
+  it('rejects ids belonging to another lab', async () => {
+    await expect(
+      codeLabService.reorderCodeBlocks(7, 1, [1, 2, 999], asAdmin)
+    ).rejects.toThrow(/must match/);
+  });
+
+  it('rejects duplicate ids', async () => {
+    await expect(
+      codeLabService.reorderCodeBlocks(7, 1, [1, 2, 2], asAdmin)
+    ).rejects.toThrow(/must match/);
+  });
+
+  it('rejects omissions (partial lists)', async () => {
+    await expect(
+      codeLabService.reorderCodeBlocks(7, 1, [1, 2], asAdmin)
+    ).rejects.toThrow(/must match/);
+  });
+
+  it('accepts an exact permutation', async () => {
+    const tx = vi.fn().mockResolvedValue([]);
+    (prisma as any).$transaction = tx;
+    await expect(
+      codeLabService.reorderCodeBlocks(7, 1, [3, 1, 2], asAdmin)
+    ).resolves.toMatchObject({ message: expect.stringContaining('reordered') });
+    expect(tx).toHaveBeenCalledTimes(1);
   });
 });

@@ -15,6 +15,7 @@ vi.mock('../services/auth.service.js', () => ({
     getProfile: vi.fn(),
     updatePassword: vi.fn(),
     logLogout: vi.fn(),
+    revokeTokens: vi.fn().mockResolvedValue(undefined),
   },
 }));
 

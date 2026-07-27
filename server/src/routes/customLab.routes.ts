@@ -4,8 +4,22 @@ import { authenticateToken, requireInstructor, optionalAuth } from '../middlewar
 import { asyncHandler } from '../middleware/error.middleware.js';
 import { AuthRequest } from '../types/index.js';
 import { z } from 'zod';
+import { AppError } from '../middleware/error.middleware.js';
 
 const router = Router();
+
+/** Route params must be numeric ids; anything else is a 400, not a Prisma NaN. */
+const parseId = (value: string): number => {
+  // Digits-only: reject "1evil" / "1.5" that parseInt would coerce to 1.
+  if (!/^\d+$/.test(value)) {
+    throw new AppError('Invalid id', 400);
+  }
+  const id = parseInt(value, 10);
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    throw new AppError('Invalid id', 400);
+  }
+  return id;
+};
 
 // Validation schemas
 const createLabSchema = z.object({
@@ -23,20 +37,33 @@ const updateLabSchema = z.object({
   labType: z.string().min(1).optional(),
   config: z.string().optional(),
   isPublic: z.boolean().optional(),
+  aiChatbotId: z.number().int().positive().nullable().optional(),
 });
 
 const createTemplateSchema = z.object({
   title: z.string().min(1).max(255),
   description: z.string().optional(),
-  code: z.string().min(1),
+  // Markdown cells carry no code; code cells should have some, but the DB
+  // column is non-null either way, so empty string is the neutral value.
+  code: z.string(),
+  cellType: z.enum(['code', 'markdown']).optional(),
   orderIndex: z.number().int().min(0).optional(),
+  locked: z.boolean().optional(),
+  position: z.number().int().min(0).optional(),
+});
+
+const importRmdCellsSchema = z.object({
+  content: z.string().min(1).max(500_000),
 });
 
 const updateTemplateSchema = z.object({
   title: z.string().min(1).max(255).optional(),
   description: z.string().optional(),
-  code: z.string().min(1).optional(),
-  orderIndex: z.number().int().min(0).optional(),
+  code: z.string().optional(),
+  cellType: z.enum(['code', 'markdown']).optional(),
+  // orderIndex is deliberately absent: ordering changes only through the
+  // transactional reorder/position endpoints, never ad-hoc.
+  locked: z.boolean().optional(),
 });
 
 const assignLabSchema = z.object({
@@ -86,7 +113,7 @@ router.get('/my-labs', authenticateToken, requireInstructor, asyncHandler(async 
 
 // Get lab by ID
 router.get('/:id', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const id = parseInt(req.params.id);
+  const id = parseId(req.params.id);
   const lab = await customLabService.getLabById(id, req.user!.id, req.user!.isAdmin, req.user!.isInstructor);
   res.json({ success: true, data: lab });
 }));
@@ -110,7 +137,7 @@ router.post('/', authenticateToken, requireInstructor, asyncHandler(async (req: 
 
 // Update lab
 router.put('/:id', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const id = parseInt(req.params.id);
+  const id = parseId(req.params.id);
   const data = updateLabSchema.parse(req.body);
   const lab = await customLabService.updateLab(id, req.user!.id, data, req.user!.isAdmin);
   res.json({ success: true, data: lab });
@@ -118,16 +145,23 @@ router.put('/:id', authenticateToken, requireInstructor, asyncHandler(async (req
 
 // Delete lab
 router.delete('/:id', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const id = parseInt(req.params.id);
+  const id = parseId(req.params.id);
   const result = await customLabService.deleteLab(id, req.user!.id, req.user!.isAdmin);
   res.json({ success: true, ...result });
 }));
 
 // ============= LAB TEMPLATES =============
 
+// Duplicate a lab (copy with all cells; private, owned by the caller)
+router.post('/:id/duplicate', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const id = parseId(req.params.id);
+  const copy = await customLabService.duplicateLab(id, req.user!.id, req.user!.isAdmin);
+  res.status(201).json({ success: true, data: copy });
+}));
+
 // Reorder templates (must be before /:templateId routes)
 router.put('/:id/templates/reorder', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const labId = parseInt(req.params.id);
+  const labId = parseId(req.params.id);
   const { ids } = reorderSchema.parse(req.body);
   const result = await customLabService.reorderTemplates(labId, req.user!.id, ids, req.user!.isAdmin);
   res.json({ success: true, ...result });
@@ -135,15 +169,23 @@ router.put('/:id/templates/reorder', authenticateToken, requireInstructor, async
 
 // Add template to lab
 router.post('/:id/templates', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const labId = parseInt(req.params.id);
+  const labId = parseId(req.params.id);
   const data = createTemplateSchema.parse(req.body);
   const template = await customLabService.addTemplate(labId, req.user!.id, data, req.user!.isAdmin);
   res.status(201).json({ success: true, data: template });
 }));
 
+// Import an .Rmd/.qmd into an existing lab (append its cells)
+router.post('/:id/import', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const labId = parseId(req.params.id);
+  const { content } = importRmdCellsSchema.parse(req.body);
+  const lab = await customLabService.importRmd(labId, req.user!.id, content, req.user!.isAdmin);
+  res.json({ success: true, data: lab });
+}));
+
 // Update template
 router.put('/:id/templates/:templateId', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const templateId = parseInt(req.params.templateId);
+  const templateId = parseId(req.params.templateId);
   const data = updateTemplateSchema.parse(req.body);
   const template = await customLabService.updateTemplate(templateId, req.user!.id, data, req.user!.isAdmin);
   res.json({ success: true, data: template });
@@ -151,7 +193,7 @@ router.put('/:id/templates/:templateId', authenticateToken, requireInstructor, a
 
 // Delete template
 router.delete('/:id/templates/:templateId', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const templateId = parseInt(req.params.templateId);
+  const templateId = parseId(req.params.templateId);
   const result = await customLabService.deleteTemplate(templateId, req.user!.id, req.user!.isAdmin);
   res.json({ success: true, ...result });
 }));
@@ -160,7 +202,7 @@ router.delete('/:id/templates/:templateId', authenticateToken, requireInstructor
 
 // Assign lab to course
 router.post('/:id/assign', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const labId = parseInt(req.params.id);
+  const labId = parseId(req.params.id);
   const { courseId, moduleId, prompt, points, dueDate, gracePeriodDeadline, enableAssignment } = assignLabSchema.parse(req.body);
   const assignmentConfig = enableAssignment ? { prompt, points, dueDate, gracePeriodDeadline } : undefined;
   const assignment = await customLabService.assignToCourse(
@@ -176,23 +218,23 @@ router.post('/:id/assign', authenticateToken, requireInstructor, asyncHandler(as
 
 // Get lab assignment config for a course
 router.get('/:id/assignment-config/:courseId', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const labId = parseInt(req.params.id);
-  const courseId = parseInt(req.params.courseId);
+  const labId = parseId(req.params.id);
+  const courseId = parseId(req.params.courseId);
   const config = await customLabService.getLabAssignmentConfig(labId, courseId);
   res.json({ success: true, data: config });
 }));
 
 // Unassign lab from course
 router.delete('/:id/assign/:courseId', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const labId = parseInt(req.params.id);
-  const courseId = parseInt(req.params.courseId);
+  const labId = parseId(req.params.id);
+  const courseId = parseId(req.params.courseId);
   const result = await customLabService.unassignFromCourse(labId, courseId, req.user!.id, req.user!.isAdmin);
   res.json({ success: true, ...result });
 }));
 
 // Get labs for a course
 router.get('/course/:courseId', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const courseId = parseInt(req.params.courseId);
+  const courseId = parseId(req.params.courseId);
   const assignments = await customLabService.getLabsForCourse(courseId);
   res.json({ success: true, data: assignments });
 }));

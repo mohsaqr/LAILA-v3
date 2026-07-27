@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  AlertTriangle,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -73,6 +74,12 @@ export interface DataTableProps<T> {
   };
   pageSize?: number;
   isLoading?: boolean;
+  /** When true (and not loading), render a distinct error state with an
+   *  optional Retry instead of the table — so a FAILED fetch is never shown as
+   *  an empty "No results" list (which reads as "the data is gone"). */
+  error?: boolean;
+  /** Retry handler surfaced alongside the error state. */
+  onRetry?: () => void;
   empty?: React.ReactNode;
   /** Trailing cell. Typical: Edit / Publish / Delete buttons. */
   rowActions?: (row: T) => React.ReactNode;
@@ -97,6 +104,24 @@ export interface DataTableProps<T> {
     onFiltersChange: (filters: Record<string, string>) => void;
     onSearchChange: (query: string) => void;
   };
+  /**
+   * Opt into row multi-selection. The CALLER owns the selected-key set (so it
+   * can act on the selection); the table renders a leading checkbox column plus
+   * a bulk bar above the table whenever ≥1 row is selected. `isSelectable`
+   * greys out rows that can't be acted on (e.g. yourself). Omit to keep every
+   * other list unchanged.
+   */
+  selection?: {
+    selectedKeys: Set<string | number>;
+    onToggleRow: (key: string | number, row: T) => void;
+    /** Toggle every selectable row in the current filtered set. */
+    onToggleAll: (keys: (string | number)[], selectAll: boolean) => void;
+    isSelectable?: (row: T) => boolean;
+    /** Rendered above the table when ≥1 row is selected. */
+    renderBulkBar?: (selectedCount: number, clear: () => void) => React.ReactNode;
+    /** Clears the caller's selection (bulk bar ✕ and post-action reset). */
+    onClear?: () => void;
+  };
 }
 
 /**
@@ -115,10 +140,13 @@ export function DataTable<T>({
   globalSearch,
   pageSize = 20,
   isLoading,
+  error,
+  onRetry,
   empty,
   rowActions,
   onRowClick,
   serverMode,
+  selection,
 }: DataTableProps<T>) {
   const { t } = useTranslation(['common']);
   const { isDark } = useTheme();
@@ -238,6 +266,35 @@ export function DataTable<T>({
   const subtleBorderColor = isDark ? '#1f2937' : '#f3f4f6';
   const filterableColumns = columns.filter(c => c.filter);
   const anyFiltersActive = Object.values(columnFilters).some(Boolean);
+
+  // Selection: header checkbox operates over every selectable row in the
+  // current filtered set (not just the visible page), so "select all" grabs
+  // the whole result the caller can act on.
+  const selectableScope = useMemo(() => {
+    if (!selection) return [] as T[];
+    const scope = serverMode ? rows : sortedRows;
+    return selection.isSelectable ? scope.filter(selection.isSelectable) : scope;
+  }, [selection, serverMode, rows, sortedRows]);
+  const selectedCount = selection ? selection.selectedKeys.size : 0;
+  const allSelected =
+    !!selection && selectableScope.length > 0 &&
+    selectableScope.every(r => selection.selectedKeys.has(rowKey(r)));
+  const someSelected =
+    !!selection && selectableScope.some(r => selection.selectedKeys.has(rowKey(r)));
+
+  // Prune any selected key that's been filtered/searched out of the current
+  // set, so a bulk action can never touch rows the user can no longer see.
+  // Skipped in server mode, where `rows` is only the current page and the
+  // caller owns cross-page selection semantics.
+  useEffect(() => {
+    if (!selection || serverMode) return;
+    const visible = new Set(selectableScope.map(rowKey));
+    const stale = [...selection.selectedKeys].filter(k => !visible.has(k));
+    if (stale.length > 0) selection.onToggleAll(stale, false);
+    // selectableScope recomputes on any rows/filter/search change; the
+    // stale-guard makes this a no-op once nothing filtered-out remains.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectableScope]);
 
   const toggleSort = (colId: string) => {
     if (sortColumn !== colId) {
@@ -428,6 +485,13 @@ export function DataTable<T>({
           </div>
         )}
 
+        {/* Bulk-action bar — shown while any row is selected. */}
+        {selection && selectedCount > 0 && selection.renderBulkBar && (
+          <div className="mb-3">
+            {selection.renderBulkBar(selectedCount, () => selection.onClear?.())}
+          </div>
+        )}
+
         {/* Table or empty state */}
         {isLoading ? (
           <div className="space-y-2 py-4">
@@ -439,6 +503,19 @@ export function DataTable<T>({
               />
             ))}
           </div>
+        ) : error ? (
+          <EmptyState
+            icon={AlertTriangle}
+            title={t('common:load_error_title', { defaultValue: "Couldn't load data" })}
+            description={t('common:load_error_desc', {
+              defaultValue: 'Something went wrong while loading. Please try again.',
+            })}
+            action={
+              onRetry
+                ? { label: t('common:retry', { defaultValue: 'Retry' }), onClick: onRetry }
+                : undefined
+            }
+          />
         ) : total === 0 ? (
           empty ?? (
             <EmptyState
@@ -454,6 +531,22 @@ export function DataTable<T>({
                   className="border-b text-left text-xs font-semibold"
                   style={{ borderColor, color: headerColor }}
                 >
+                  {selection && (
+                    <th className="py-2 px-3" style={{ width: '2.5rem' }}>
+                      <input
+                        type="checkbox"
+                        aria-label={t('common:select_all', { defaultValue: 'Select all' })}
+                        ref={el => {
+                          if (el) el.indeterminate = !allSelected && someSelected;
+                        }}
+                        checked={allSelected}
+                        onChange={() =>
+                          selection.onToggleAll(selectableScope.map(rowKey), !allSelected)
+                        }
+                        className="accent-primary-600 cursor-pointer"
+                      />
+                    </th>
+                  )}
                   {columns.map(col => (
                     <HeaderCell
                       key={col.id}
@@ -485,6 +578,22 @@ export function DataTable<T>({
                         : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
                     }`}
                   >
+                    {selection && (
+                      <td
+                        className="py-3 px-3"
+                        style={{ width: '2.5rem' }}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          aria-label={t('common:select_row', { defaultValue: 'Select row' })}
+                          checked={selection.selectedKeys.has(rowKey(row))}
+                          disabled={selection.isSelectable ? !selection.isSelectable(row) : false}
+                          onChange={() => selection.onToggleRow(rowKey(row), row)}
+                          className="accent-primary-600 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        />
+                      </td>
+                    )}
                     {columns.map(col => (
                       <td
                         key={col.id}

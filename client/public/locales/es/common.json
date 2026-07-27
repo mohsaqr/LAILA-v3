@@ -88,6 +88,9 @@
   "title": "Título",
   "description": "Descripción",
   "status": "Estado",
+  "retry": "Reintentar",
+  "load_error_title": "No se pudieron cargar los datos",
+  "load_error_desc": "Ocurrió un error al cargar. Por favor, inténtalo de nuevo.",
   "type": "Tipo",
   "category": "Categoría",
   "tags": "Etiquetas",
@@ -207,5 +210,6 @@
   "view_full_calendar": "Ver calendario completo",
   "continue": "Continuar",
   "clear_all": "Borrar todo",
-  "showing_range": "Mostrando {{from}}–{{to}} de {{total}}"
+  "showing_range": "Mostrando {{from}}–{{to}} de {{total}}",
+  "duplicate": "Duplicar"
 }

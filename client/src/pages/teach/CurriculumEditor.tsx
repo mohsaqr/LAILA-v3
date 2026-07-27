@@ -1952,7 +1952,7 @@ export const CurriculumEditor = ({
 
               <div className="flex justify-between items-center pt-4 border-t" style={{ borderColor: isDark ? '#374151' : '#e5e7eb' }}>
                   <Link
-                    to="/teach/labs"
+                    to="/labs"
                     className="text-sm text-primary-600 dark:text-primary-400 hover:underline"
                   >
                     {t('manage_lab_templates')}
@@ -1990,7 +1990,7 @@ export const CurriculumEditor = ({
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                   {t('create_lab_templates_description')}
                 </p>
-                <Link to="/teach/labs">
+                <Link to="/labs">
                   <Button size="sm" icon={<Plus className="w-4 h-4" />}>
                     {t('create_lab_template')}
                   </Button>

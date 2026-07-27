@@ -215,6 +215,10 @@ router.post('/logout', authenticateToken, asyncHandler(async (req: AuthRequest, 
   // Log the logout event
   await authService.logLogout(req.user!.id, req.user!.email, context, sessionDuration);
 
+  // Revoke the token so it can't be replayed after logout. This ends all of
+  // the user's sessions (tokens carry no per-session id — see revokeTokens).
+  await authService.revokeTokens(req.user!.id);
+
   res.json({ success: true, message: 'Logged out successfully' });
 }));
 

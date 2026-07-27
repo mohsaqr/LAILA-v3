@@ -108,7 +108,6 @@ export const DashboardSidebar = ({ mobileOpen = false, onMobileClose, isDesktop 
     { label: t('courses'), icon: GraduationCap, path: '/courses' },
     { label: t('ai_tools'), icon: BrainCircuit, path: '/ai-tools' },
     { label: t('labs'), icon: FlaskConical, path: '/labs' },
-    { label: t('lab_templates'), icon: FlaskConical, path: '/teach/labs' },
     { label: t('quizzes'), icon: FileQuestion, path: '/teach/quizzes' },
     { label: t('assignments'), icon: FileText, path: '/teach/assignments' },
     { label: t('surveys'), icon: ClipboardCheck, path: '/teach/surveys' },
@@ -137,8 +136,11 @@ export const DashboardSidebar = ({ mobileOpen = false, onMobileClose, isDesktop 
     { label: t('admin:system_label', { defaultValue: 'System' }), icon: Settings, path: '/admin/settings?tab=system' },
   ];
 
+  // `isInstructor` is already the effective (viewAs-aware) role; an admin
+  // previewing as a student must also drop to the student nav, so exclude the
+  // actual-admin shortcut while previewing as a student.
   const baseNavItems: NavItem[] =
-    (isInstructor || isActualAdmin) ? instructorNavItems : studentNavItems;
+    (viewAsRole !== 'student' && (isInstructor || isActualAdmin)) ? instructorNavItems : studentNavItems;
 
   const navItems: NavEntry[] = showAdminSection
     ? [

@@ -907,9 +907,6 @@ class ActivityLogger {
   }
 
   // Lab management
-  async logLabManagerViewed() {
-    return this.log({ verb: 'viewed', objectType: 'lab', objectTitle: 'Lab Manager', actionSubtype: 'lab.manager_viewed' });
-  }
 
   // Course analytics
   async logCourseAnalyticsViewed(courseId: number) {

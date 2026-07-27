@@ -46,6 +46,30 @@ export const codeLabsApi = {
   },
 
   /**
+   * Import an R Markdown (.Rmd) file as a new code lab. R chunks become
+   * runnable code cells; text between chunks becomes markdown cells.
+   */
+  importRmd: async (moduleId: number, content: string, title?: string) => {
+    const response = await apiClient.post<ApiResponse<CodeLab>>('/code-labs/import', {
+      moduleId,
+      content,
+      ...(title ? { title } : {}),
+    });
+    return response.data.data!;
+  },
+
+  /**
+   * Import an .Rmd/.qmd file into an EXISTING code lab, appending its cells.
+   */
+  importRmdIntoLab: async (codeLabId: number, content: string) => {
+    const response = await apiClient.post<ApiResponse<CodeLab>>(
+      `/code-labs/${codeLabId}/import`,
+      { content }
+    );
+    return response.data.data!;
+  },
+
+  /**
    * Update a code lab
    */
   updateCodeLab: async (codeLabId: number, data: UpdateCodeLabData) => {

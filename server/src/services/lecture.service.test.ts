@@ -28,6 +28,9 @@ vi.mock('../utils/prisma.js', () => ({
       findUnique: vi.fn(),
       findMany: vi.fn(),
     },
+    course: {
+      findUnique: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
 }));
@@ -96,6 +99,9 @@ describe('LectureService', () => {
   beforeEach(() => {
     lectureService = new LectureService();
     vi.clearAllMocks();
+    // Ownership resolution now flows through courseRoleService.canEditContent ->
+    // hasPermission -> prisma.course.findUnique. Course owner in these fixtures is id 10.
+    vi.mocked(prisma.course.findUnique).mockResolvedValue({ id: 1, instructorId: 10 } as any);
   });
 
   afterEach(() => {
@@ -236,7 +242,7 @@ describe('LectureService', () => {
         },
       } as any);
 
-      const lecture = await lectureService.getLectureById(1);
+      const lecture = await lectureService.getLectureById(1, 10);
 
       expect(lecture.id).toBe(1);
       expect(lecture.title).toBe('Introduction');
@@ -715,6 +721,8 @@ describe('LectureService', () => {
         },
       };
       vi.mocked(prisma.lectureAttachment.findUnique).mockResolvedValue(differentOwnerAttachment as any);
+      // Ownership check resolves the course fresh; this course belongs to instructor 50, not caller 10.
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({ id: 1, instructorId: 50 } as any);
 
       await expect(lectureService.deleteAttachment(1, 10, false)).rejects.toThrow(AppError);
       await expect(lectureService.deleteAttachment(1, 10, false)).rejects.toThrow('Not authorized');
@@ -760,6 +768,7 @@ describe('LectureService', () => {
 
     it('deep-copies the assignment so the duplicate does not share the original row', async () => {
       vi.mocked(prisma.lecture.findUnique).mockResolvedValue(buildSource() as any);
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({ id: 10, instructorId: 1 } as any);
       vi.mocked(prisma.lecture.findFirst).mockResolvedValue({ orderIndex: 5 } as any);
 
       const txAssignmentCreate = vi.fn().mockResolvedValue({ id: 99 });
@@ -785,6 +794,7 @@ describe('LectureService', () => {
       const source = buildSource();
       source.sections[0].type = 'text';
       vi.mocked(prisma.lecture.findUnique).mockResolvedValue(source as any);
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({ id: 10, instructorId: 1 } as any);
       vi.mocked(prisma.lecture.findFirst).mockResolvedValue({ orderIndex: 5 } as any);
 
       const txAssignmentCreate = vi.fn().mockResolvedValue({ id: 99 });

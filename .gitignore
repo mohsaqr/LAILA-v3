@@ -58,6 +58,9 @@ temp/
 CLAUDE.md
 CLAUDE_SESSION_NOTES.md
 LEARNINGS.md
+HANDOFF.md
+CHANGES.md
+PERMISSIONS_REVIEW.md
 AGENT_CONTEXT.md
 ARCHITECTURE.md
 CODE_LAB_PLAN.md
@@ -68,5 +71,8 @@ TODO-collaborative-module.md
 LAILA-Technical-Report.html
 
 issues.md
+# Local debug screenshots (root-level)
+/laila-fixed.png
+/laila-home.png
 server/uploads
 backups/

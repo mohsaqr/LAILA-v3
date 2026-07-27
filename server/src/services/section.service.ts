@@ -66,11 +66,8 @@ export class SectionService {
       throw new AppError('Lecture not found', 404);
     }
 
-    if (lecture.module.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, lecture.module.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, lecture.module.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     return lecture;
@@ -94,11 +91,8 @@ export class SectionService {
       throw new AppError('Section not found', 404);
     }
 
-    if (section.lecture.module.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, section.lecture.module.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, section.lecture.module.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     return section;

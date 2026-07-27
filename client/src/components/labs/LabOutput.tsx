@@ -5,7 +5,7 @@ import { Button } from '../common/Button';
 import { useTheme } from '../../hooks/useTheme';
 import apiClient from '../../api/client';
 
-interface OutputItem {
+export interface OutputItem {
   type: 'stdout' | 'stderr' | 'plot' | 'message';
   content: string;
 }

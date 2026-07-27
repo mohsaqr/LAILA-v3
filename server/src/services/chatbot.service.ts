@@ -3,6 +3,24 @@ import { AppError } from '../middleware/error.middleware.js';
 import { CreateChatbotInput, UpdateChatbotInput } from '../utils/validation.js';
 import { chatService } from './chat.service.js';
 
+// Authoring "recipe" fields that must never leak to a viewer who can't edit
+// the bot. `systemPrompt` is the sensitive one; the others shape it and are
+// equally private. Display fields (displayName, description, welcomeMessage,
+// suggestedQuestions, avatarUrl, personality) are always safe to return.
+const CHATBOT_SECRET_FIELDS = [
+  'systemPrompt',
+  'personalityPrompt',
+  'dosRules',
+  'dontsRules',
+  'knowledgeContext',
+] as const;
+
+function stripChatbotSecrets<T extends Record<string, any>>(chatbot: T): T {
+  const clone: Record<string, any> = { ...chatbot };
+  for (const f of CHATBOT_SECRET_FIELDS) delete clone[f];
+  return clone as T;
+}
+
 export class ChatbotService {
   async getChatbots(
     includeInactive = false,
@@ -41,7 +59,7 @@ export class ChatbotService {
     });
 
     // Attach canEdit flag: admins can edit everything; instructors only their own non-system chatbots
-    return chatbots.map(c => ({
+    const withEdit = chatbots.map(c => ({
       ...c,
       canEdit: requesterIsAdmin
         ? true
@@ -49,9 +67,18 @@ export class ChatbotService {
           ? !c.isSystem && c.creatorId === requesterId
           : false,
     }));
+
+    // Students/guests never author bots, so they must never receive the prompt
+    // recipe. Admins and instructors keep full rows (the query already limits
+    // instructors to system + their own bots, both of which they legitimately
+    // embed into lessons).
+    if (requesterIsAdmin || requesterIsInstructor) {
+      return withEdit;
+    }
+    return withEdit.map(stripChatbotSecrets);
   }
 
-  async getChatbotByName(name: string) {
+  async getChatbotByName(name: string, requesterId?: number, requesterIsAdmin = false) {
     const chatbot = await prisma.chatbot.findUnique({
       where: { name },
     });
@@ -60,10 +87,12 @@ export class ChatbotService {
       throw new AppError('Chatbot not found', 404);
     }
 
-    return chatbot;
+    return this.canSeeChatbotSecrets(chatbot, requesterId, requesterIsAdmin)
+      ? chatbot
+      : stripChatbotSecrets(chatbot);
   }
 
-  async getChatbotById(id: number) {
+  async getChatbotById(id: number, requesterId?: number, requesterIsAdmin = false) {
     const chatbot = await prisma.chatbot.findUnique({
       where: { id },
     });
@@ -72,7 +101,20 @@ export class ChatbotService {
       throw new AppError('Chatbot not found', 404);
     }
 
-    return chatbot;
+    return this.canSeeChatbotSecrets(chatbot, requesterId, requesterIsAdmin)
+      ? chatbot
+      : stripChatbotSecrets(chatbot);
+  }
+
+  // Only the bot's creator or an admin may see its prompt recipe. System bots
+  // (creatorId null) are admin-only for the by-id / by-name reads.
+  private canSeeChatbotSecrets(
+    chatbot: { creatorId: number | null },
+    requesterId?: number,
+    requesterIsAdmin = false,
+  ): boolean {
+    if (requesterIsAdmin) return true;
+    return chatbot.creatorId != null && chatbot.creatorId === requesterId;
   }
 
   async createChatbot(data: CreateChatbotInput, creatorId?: number) {
@@ -169,7 +211,16 @@ export class ChatbotService {
   }
 
   async chatWithBot(botName: string, message: string, sessionId?: string, userId?: number) {
-    const chatbot = await this.getChatbotByName(botName);
+    // Fetch the raw prompt directly — the sanitizing accessors would strip
+    // systemPrompt, and the persona is needed server-side to drive the chat.
+    const chatbot = await prisma.chatbot.findUnique({
+      where: { name: botName },
+      select: { systemPrompt: true, isActive: true },
+    });
+
+    if (!chatbot) {
+      throw new AppError('Chatbot not found', 404);
+    }
 
     if (!chatbot.isActive) {
       throw new AppError('This chatbot is currently inactive', 400);

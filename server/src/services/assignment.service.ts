@@ -171,11 +171,8 @@ export class AssignmentService {
       throw new AppError('Course not found', 404);
     }
 
-    if (course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, courseId);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, courseId, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     // Validate grace period is after due date
@@ -212,11 +209,8 @@ export class AssignmentService {
       throw new AppError('Assignment not found', 404);
     }
 
-    if (assignment.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, assignment.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, assignment.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     // Validate grace period is after due date
@@ -252,11 +246,8 @@ export class AssignmentService {
       throw new AppError('Assignment not found', 404);
     }
 
-    if (assignment.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, assignment.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, assignment.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     await prisma.assignment.delete({
@@ -283,9 +274,8 @@ export class AssignmentService {
       include: { course: true },
     });
     if (!assignment) throw new AppError('Assignment not found', 404);
-    if (assignment.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, assignment.course.id);
-      if (!isTeam) throw new AppError('Not authorized', 403);
+    if (!(await courseRoleService.canEditContent(instructorId, assignment.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     return prisma.assignmentAttachment.create({
@@ -305,9 +295,8 @@ export class AssignmentService {
       include: { assignment: { include: { course: true } } },
     });
     if (!attachment) throw new AppError('Attachment not found', 404);
-    if (attachment.assignment.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, attachment.assignment.course.id);
-      if (!isTeam) throw new AppError('Not authorized', 403);
+    if (!(await courseRoleService.canEditContent(instructorId, attachment.assignment.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     return prisma.assignmentAttachment.update({
@@ -322,9 +311,8 @@ export class AssignmentService {
       include: { assignment: { include: { course: true } } },
     });
     if (!attachment) throw new AppError('Attachment not found', 404);
-    if (attachment.assignment.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, attachment.assignment.course.id);
-      if (!isTeam) throw new AppError('Not authorized', 403);
+    if (!(await courseRoleService.canEditContent(instructorId, attachment.assignment.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     await prisma.assignmentAttachment.delete({ where: { id: attachmentId } });
@@ -540,11 +528,8 @@ export class AssignmentService {
       throw new AppError('Submission not found', 404);
     }
 
-    if (submission.assignment.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, submission.assignment.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canGrade(instructorId, submission.assignment.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     if (data.grade > submission.assignment.points) {

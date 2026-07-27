@@ -3,9 +3,18 @@ import jwt from 'jsonwebtoken';
 import { AuthRequest, UserPayload } from '../types/index.js';
 import prisma from '../utils/prisma.js';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is required');
+// Read the secret lazily and cache it. A top-level read would run before
+// index.ts calls dotenv.config() (imports are hoisted), so at module-load the
+// value can be undefined; deferring to first use lets dotenv populate it first.
+let cachedJwtSecret: string | null = null;
+function jwtSecret(): string {
+  if (cachedJwtSecret) return cachedJwtSecret;
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is required');
+  }
+  cachedJwtSecret = secret;
+  return secret;
 }
 
 // =============================================================================
@@ -65,7 +74,7 @@ export const authenticateToken = async (
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as UserPayload;
+    const decoded = jwt.verify(token, jwtSecret()) as UserPayload;
 
     // Validate tokenVersion against database to support token invalidation
     if (decoded.tokenVersion !== undefined) {
@@ -115,17 +124,40 @@ export const authenticateToken = async (
   }
 };
 
-export const optionalAuth = (
+export const optionalAuth = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction
-): void => {
+): Promise<void> => {
   const authHeader = req.headers.authorization;
   const token = authHeader?.split(' ')[1];
 
   if (token) {
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as UserPayload;
+      const decoded = jwt.verify(token, jwtSecret()) as UserPayload;
+
+      // Honour token invalidation and deactivation here too: a revoked or
+      // deactivated user's token must NOT populate req.user on optional-auth
+      // routes (otherwise a logged-out/demoted user still reads as themselves).
+      // On any mismatch we simply proceed anonymously rather than erroring.
+      if (decoded.tokenVersion !== undefined) {
+        let cachedStatus = getCachedUserStatus(decoded.id);
+        if (!cachedStatus) {
+          const user = await prisma.user.findUnique({
+            where: { id: decoded.id },
+            select: { tokenVersion: true, isActive: true },
+          });
+          if (user) {
+            cachedStatus = { tokenVersion: user.tokenVersion, isActive: user.isActive, cachedAt: Date.now() };
+            setCachedUserStatus(decoded.id, { tokenVersion: user.tokenVersion, isActive: user.isActive });
+          }
+        }
+        if (!cachedStatus || !cachedStatus.isActive || cachedStatus.tokenVersion !== decoded.tokenVersion) {
+          next();
+          return;
+        }
+      }
+
       req.user = decoded;
     } catch {
       // Token invalid, but continue without user
@@ -171,12 +203,12 @@ export const requireInstructor = (
 };
 
 export const generateToken = (user: UserPayload): string => {
-  return jwt.sign(user, JWT_SECRET, { expiresIn: '30d' });
+  return jwt.sign(user, jwtSecret(), { expiresIn: '30d' });
 };
 
 export const verifyToken = (token: string): UserPayload | null => {
   try {
-    return jwt.verify(token, JWT_SECRET) as UserPayload;
+    return jwt.verify(token, jwtSecret()) as UserPayload;
   } catch {
     return null;
   }

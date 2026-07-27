@@ -2,6 +2,7 @@ import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { courseRoleService } from './courseRole.service.js';
 import { assertWithinAvailability, availabilityWindowWhere } from '../utils/availability.js';
+import { parseRmd, cellTitle } from '../utils/rmdParser.js';
 
 // Types for input data
 interface CreateCodeLabInput {
@@ -17,19 +18,25 @@ interface UpdateCodeLabInput {
   description?: string;
   isPublished?: boolean;
   orderIndex?: number;
+  aiChatbotId?: number | null;
 }
 
 interface CreateCodeBlockInput {
   title: string;
   instructions?: string;
   starterCode?: string;
+  locked?: boolean;
+  /** Insert so the cell lands at this position in the current order. */
+  position?: number;
+  cellType?: 'code' | 'markdown';
 }
 
 interface UpdateCodeBlockInput {
   title?: string;
   instructions?: string;
   starterCode?: string;
-  orderIndex?: number;
+  locked?: boolean;
+  cellType?: 'code' | 'markdown';
 }
 
 export class CodeLabService {
@@ -46,11 +53,8 @@ export class CodeLabService {
       throw new AppError('Module not found', 404);
     }
 
-    if (module.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, module.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, module.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     return module;
@@ -73,11 +77,8 @@ export class CodeLabService {
       throw new AppError('Code Lab not found', 404);
     }
 
-    if (codeLab.module.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, codeLab.module.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, codeLab.module.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     return codeLab;
@@ -104,11 +105,8 @@ export class CodeLabService {
       throw new AppError('Code Block not found', 404);
     }
 
-    if (block.codeLab.module.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, block.codeLab.module.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, block.codeLab.module.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     return block;
@@ -270,10 +268,121 @@ export class CodeLabService {
   }
 
   /**
+   * Import an R Markdown (.Rmd) file as a new code lab. Prose between chunks
+   * becomes markdown cells; each ```{r} chunk becomes an editable R code cell.
+   * Lab + cells are created together so a failure leaves nothing half-imported.
+   */
+  async importRmd(
+    moduleId: number,
+    instructorId: number,
+    content: string,
+    title: string | undefined,
+    isAdmin = false
+  ) {
+    await this.verifyModuleOwnership(moduleId, instructorId, isAdmin);
+
+    const parsed = parseRmd(content);
+    const labTitle =
+      (title?.trim() || parsed.title?.trim() || 'Imported R Notebook').slice(0, 255);
+
+    if (parsed.cells.length === 0) {
+      throw new AppError('No content found in the R Markdown file', 400);
+    }
+
+    const codeLabId = await prisma.$transaction(async tx => {
+      // Read the max order INSIDE the transaction so a concurrent create can't
+      // read the same value and collide on orderIndex.
+      const maxOrder = await tx.codeLab.findFirst({
+        where: { moduleId },
+        orderBy: { orderIndex: 'desc' },
+        select: { orderIndex: true },
+      });
+
+      const lab = await tx.codeLab.create({
+        data: {
+          moduleId,
+          title: labTitle,
+          isPublished: false,
+          orderIndex: (maxOrder?.orderIndex ?? -1) + 1,
+        },
+      });
+
+      await tx.codeBlock.createMany({
+        data: parsed.cells.map((cell, index) => ({
+          codeLabId: lab.id,
+          title: cellTitle(cell),
+          instructions: cell.type === 'markdown' ? cell.content : null,
+          starterCode: cell.type === 'code' ? cell.content : null,
+          orderIndex: index,
+          locked: false,
+          cellType: cell.type,
+        })),
+      });
+
+      return lab.id;
+    });
+
+    // Return the full lab (with ordered blocks) like the other create paths.
+    return prisma.codeLab.findUnique({
+      where: { id: codeLabId },
+      include: { blocks: { orderBy: { orderIndex: 'asc' } } },
+    });
+  }
+
+  /**
+   * Import an .Rmd/.qmd file into an EXISTING code lab, appending its cells
+   * after any current ones. Same parse as importRmd; used by the notebook's
+   * in-editor "Import" button.
+   */
+  async importRmdIntoLab(codeLabId: number, instructorId: number, content: string, isAdmin = false) {
+    await this.verifyCodeLabOwnership(codeLabId, instructorId, isAdmin);
+
+    const parsed = parseRmd(content);
+    if (parsed.cells.length === 0) {
+      throw new AppError('No content found in the R Markdown file', 400);
+    }
+
+    // Read the append offset and insert in one transaction so a concurrent
+    // import into the same lab can't reuse the same orderIndex range.
+    await prisma.$transaction(async tx => {
+      const maxOrder = await tx.codeBlock.findFirst({
+        where: { codeLabId },
+        orderBy: { orderIndex: 'desc' },
+        select: { orderIndex: true },
+      });
+      const base = (maxOrder?.orderIndex ?? -1) + 1;
+
+      await tx.codeBlock.createMany({
+        data: parsed.cells.map((cell, i) => ({
+          codeLabId,
+          title: cellTitle(cell),
+          instructions: cell.type === 'markdown' ? cell.content : null,
+          starterCode: cell.type === 'code' ? cell.content : null,
+          orderIndex: base + i,
+          locked: false,
+          cellType: cell.type,
+        })),
+      });
+    });
+
+    return prisma.codeLab.findUnique({
+      where: { id: codeLabId },
+      include: { blocks: { orderBy: { orderIndex: 'asc' } } },
+    });
+  }
+
+  /**
    * Update a code lab
    */
   async updateCodeLab(codeLabId: number, instructorId: number, data: UpdateCodeLabInput, isAdmin = false) {
     await this.verifyCodeLabOwnership(codeLabId, instructorId, isAdmin);
+
+    if (data.aiChatbotId != null) {
+      const bot = await prisma.chatbot.findUnique({ where: { id: data.aiChatbotId }, select: { isActive: true } });
+      if (!bot || !bot.isActive) {
+        throw new AppError('AI assistant not found or inactive', 400);
+      }
+    }
 
     const updated = await prisma.codeLab.update({
       where: { id: codeLabId },
@@ -336,14 +445,27 @@ export class CodeLabService {
       select: { orderIndex: true },
     });
 
-    const block = await prisma.codeBlock.create({
-      data: {
-        codeLabId,
-        title: data.title,
-        instructions: data.instructions,
-        starterCode: data.starterCode,
-        orderIndex: (maxOrder?.orderIndex ?? -1) + 1,
-      },
+    const appendIndex = (maxOrder?.orderIndex ?? -1) + 1;
+    const position = data.position != null ? Math.max(0, Math.min(data.position, appendIndex)) : null;
+
+    const block = await prisma.$transaction(async tx => {
+      if (position != null) {
+        await tx.codeBlock.updateMany({
+          where: { codeLabId, orderIndex: { gte: position } },
+          data: { orderIndex: { increment: 1 } },
+        });
+      }
+      return tx.codeBlock.create({
+        data: {
+          codeLabId,
+          title: data.title,
+          instructions: data.instructions,
+          starterCode: data.starterCode,
+          orderIndex: position ?? appendIndex,
+          locked: data.locked ?? false,
+          cellType: data.cellType ?? 'code',
+        },
+      });
     });
 
     return block;
@@ -382,7 +504,23 @@ export class CodeLabService {
   async reorderCodeBlocks(codeLabId: number, instructorId: number, blockIds: number[], isAdmin = false) {
     await this.verifyCodeLabOwnership(codeLabId, instructorId, isAdmin);
 
-    await Promise.all(
+    // Must be exactly a permutation of this lab's block ids — foreign ids,
+    // duplicates, or omissions could corrupt another lab's ordering.
+    const existing = await prisma.codeBlock.findMany({
+      where: { codeLabId },
+      select: { id: true },
+    });
+    const existingIds = new Set(existing.map(b => b.id));
+    const submitted = new Set(blockIds);
+    if (
+      submitted.size !== blockIds.length ||
+      submitted.size !== existingIds.size ||
+      blockIds.some(id => !existingIds.has(id))
+    ) {
+      throw new AppError('Block id list must match the lab\'s blocks exactly', 400);
+    }
+
+    await prisma.$transaction(
       blockIds.map((id, index) =>
         prisma.codeBlock.update({
           where: { id },

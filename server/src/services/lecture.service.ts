@@ -16,11 +16,8 @@ export class LectureService {
       throw new AppError('Module not found', 404);
     }
 
-    if (module.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, module.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, module.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     return module;
@@ -134,37 +131,43 @@ export class LectureService {
       throw new AppError('Lecture not found', 404);
     }
 
-    // Access control. Course staff (admin / owner / team) can always view.
-    if (userId && !isAdmin) {
+    // Access control. Admins always view. Everyone else — INCLUDING anonymous
+    // callers with no token — is an untrusted viewer and must clear the
+    // publish / enrollment / availability gates. Anonymous is treated as an
+    // unenrolled non-staff viewer; `isFree` published lectures stay open to
+    // them as a preview.
+    if (!isAdmin) {
       const courseId = lecture.module.course.id;
-      const isOwner = lecture.module.course.instructorId === userId;
+      const isOwner = userId != null && lecture.module.course.instructorId === userId;
       const moduleHidden = (lecture.module as { isPublished?: boolean }).isPublished === false;
       const lectureHidden = lecture.isPublished === false;
 
+      const isTeam = isOwner
+        ? true
+        : userId != null && (await courseRoleService.isTeamMember(userId, courseId));
+
       if (moduleHidden || lectureHidden) {
         // Content in a hidden module / unpublished lecture is invisible to
-        // students — only course staff may reach it. Treat as not found.
-        const isTeam = isOwner ? true : await courseRoleService.isTeamMember(userId, courseId);
+        // students and guests — only course staff may reach it. Treat as
+        // not found.
         if (!isOwner && !isTeam) {
           throw new AppError('Lecture not found', 404);
         }
-      } else if (!isOwner) {
-        // Published lecture in a visible module. Non-free content requires
-        // enrollment (or team). Enrolled non-staff students are also gated by
-        // the instructor-scheduled availability window.
-        const isTeam = await courseRoleService.isTeamMember(userId, courseId);
-        if (!isTeam) {
-          if (!lecture.isFree) {
-            const enrollment = await prisma.enrollment.findUnique({
-              where: { userId_courseId: { userId, courseId } },
-            });
-            if (!enrollment) {
-              throw new AppError('You must be enrolled to access this lecture', 403);
-            }
+      } else if (!isOwner && !isTeam) {
+        // Published lecture in a visible module, non-staff viewer. Non-free
+        // content requires enrollment; anonymous callers can never be enrolled.
+        if (!lecture.isFree) {
+          const enrollment = userId != null
+            ? await prisma.enrollment.findUnique({
+                where: { userId_courseId: { userId, courseId } },
+              })
+            : null;
+          if (!enrollment) {
+            throw new AppError('You must be enrolled to access this lecture', 403);
           }
-          // Non-staff viewer (student or guest on a free lecture): enforce window.
-          assertWithinAvailability(lecture, 'Lecture');
         }
+        // Non-staff viewer (student or guest on a free lecture): enforce window.
+        assertWithinAvailability(lecture, 'Lecture');
       }
     }
 
@@ -226,11 +229,8 @@ export class LectureService {
       throw new AppError('Lecture not found', 404);
     }
 
-    if (lecture.module.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, lecture.module.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, lecture.module.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     const updated = await prisma.lecture.update({
@@ -261,11 +261,8 @@ export class LectureService {
       throw new AppError('Lecture not found', 404);
     }
 
-    if (lecture.module.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, lecture.module.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, lecture.module.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     await prisma.lecture.delete({
@@ -299,11 +296,8 @@ export class LectureService {
       throw new AppError('Lecture not found', 404);
     }
 
-    if (source.module.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, source.module.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, source.module.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     // Place the copy right after the last lecture in the same module.
@@ -448,11 +442,8 @@ export class LectureService {
       throw new AppError('Lecture not found', 404);
     }
 
-    if (lecture.module.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, lecture.module.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, lecture.module.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     const attachment = await prisma.lectureAttachment.create({
@@ -483,11 +474,8 @@ export class LectureService {
       throw new AppError('Attachment not found', 404);
     }
 
-    if (attachment.lecture.module.course.instructorId !== instructorId && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(instructorId, attachment.lecture.module.course.id);
-      if (!isTeam) {
-        throw new AppError('Not authorized', 403);
-      }
+    if (!(await courseRoleService.canEditContent(instructorId, attachment.lecture.module.course.id, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     await prisma.lectureAttachment.delete({

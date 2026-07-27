@@ -2,20 +2,24 @@ import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Activity, Pencil, UserCheck, UserX } from 'lucide-react';
+import { Activity, KeyRound, Pencil, Trash2, UserCheck, UserPlus, UserX, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usersApi } from '../../../api/users';
 import { adminApi } from '../../../api/admin';
+import { userManagementApi } from '../../../api/userManagement';
 import { useAuthStore } from '../../../store/authStore';
 import { Button } from '../../../components/common/Button';
 import { Modal } from '../../../components/common/Modal';
+import { SearchableSelect } from '../../../components/common/SearchableSelect';
 import {
   DataTable,
   type ColumnDef,
 } from '../../../components/common/DataTable';
 import { RowMenu } from '../../../components/common/RowMenu';
+import { UserFormModal, type UserFormModalUser } from '../../../components/admin/UserFormModal';
 
 type Role = 'student' | 'instructor' | 'admin';
+type EnrollAction = 'enroll' | 'unenroll';
 
 interface AdminUser {
   id: number;
@@ -27,13 +31,6 @@ interface AdminUser {
   createdAt?: string;
 }
 
-interface EditableUser {
-  id: number;
-  fullname: string;
-  isAdmin: boolean;
-  isInstructor: boolean;
-}
-
 const roleOf = (u: AdminUser): Role =>
   u.isAdmin ? 'admin' : u.isInstructor ? 'instructor' : 'student';
 
@@ -43,10 +40,28 @@ export const UsersPanel = () => {
   const queryClient = useQueryClient();
   const currentUser = useAuthStore(state => state.user);
 
-  const [editUser, setEditUser] = useState<EditableUser | null>(null);
-  const [selectedRole, setSelectedRole] = useState<Role>('student');
+  // Multi-selection — the panel owns the set so it can act on it.
+  const [selected, setSelected] = useState<Set<number>>(new Set());
 
-  const { data, isLoading } = useQuery({
+  // Create / edit form modal.
+  const [formOpen, setFormOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<UserFormModalUser | null>(null);
+
+  // Single-row modals.
+  const [pwTarget, setPwTarget] = useState<AdminUser | null>(null);
+  const [pwValue, setPwValue] = useState('');
+  const [pwError, setPwError] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
+
+  // Bulk modals.
+  const [bulkRoleOpen, setBulkRoleOpen] = useState(false);
+  const [bulkRole, setBulkRole] = useState<Role>('student');
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [enrollAction, setEnrollAction] = useState<EnrollAction | null>(null);
+  const [enrollCourseId, setEnrollCourseId] = useState('');
+  const [bulkPending, setBulkPending] = useState(false);
+
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['users', 'all'],
     // Pull a large page so DataTable can do client-side filter/sort/page.
     queryFn: () => usersApi.getUsers(1, 1000),
@@ -54,53 +69,191 @@ export const UsersPanel = () => {
 
   const users: AdminUser[] = data?.users ?? [];
 
+  const { data: coursesData } = useQuery({
+    queryKey: ['admin', 'courses', 'enroll-picker'],
+    queryFn: () => adminApi.getCourses(1, 1000),
+    enabled: enrollAction !== null,
+  });
+
+  const courseOptions = useMemo(
+    () =>
+      (coursesData?.courses ?? []).map((c: { id: number; title: string }) => ({
+        value: String(c.id),
+        label: c.title,
+      })),
+    [coursesData],
+  );
+
+  const roles: { value: Role; label: string }[] = useMemo(
+    () => [
+      { value: 'student', label: t('role_student') },
+      { value: 'instructor', label: t('role_instructor') },
+      { value: 'admin', label: t('role_admin') },
+    ],
+    [t],
+  );
+
+  // --- Selection helpers -----------------------------------------------------
+  const clearSelection = () => setSelected(new Set());
+
+  const toggleRow = (key: number) =>
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  const toggleAll = (keys: number[], selectAll: boolean) =>
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (selectAll) keys.forEach(k => next.add(k));
+      else keys.forEach(k => next.delete(k));
+      return next;
+    });
+
+  // --- Single-row mutations --------------------------------------------------
   const toggleStatusMutation = useMutation({
     mutationFn: ({ userId, isActive }: { userId: number; isActive: boolean }) =>
-      usersApi.updateUser(userId, { isActive }),
+      userManagementApi.updateUser(userId, { isActive }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       toast.success(t('user_updated'));
     },
+    onError: (e: any) =>
+      toast.error(e?.response?.data?.error ?? t('user_update_failed')),
   });
 
-  const changeRoleMutation = useMutation({
-    mutationFn: ({
-      userId,
-      isAdmin,
-      isInstructor,
-    }: {
-      userId: number;
-      isAdmin: boolean;
-      isInstructor: boolean;
-    }) => usersApi.updateUser(userId, { isAdmin, isInstructor }),
+  const passwordMutation = useMutation({
+    mutationFn: ({ userId, password }: { userId: number; password: string }) =>
+      userManagementApi.updateUser(userId, { password }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast.success(t('user_updated'));
-      setEditUser(null);
+      toast.success(t('password_updated'));
+      setPwTarget(null);
+      setPwValue('');
+      setPwError('');
     },
+    onError: () => toast.error(t('user_update_failed')),
   });
 
-  const openEditRole = (user: AdminUser) => {
-    if (user.id === currentUser?.id) {
-      toast.error(t('cannot_change_own_role'));
-      return;
-    }
-    setSelectedRole(roleOf(user));
-    setEditUser({
-      id: user.id,
-      fullname: user.fullname,
-      isAdmin: user.isAdmin,
-      isInstructor: user.isInstructor,
-    });
+  const deleteMutation = useMutation({
+    mutationFn: (userId: number) => userManagementApi.deleteUser(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success(t('user_deleted'));
+      setDeleteTarget(null);
+    },
+    onError: () => toast.error(t('user_delete_failed')),
+  });
+
+  // --- Bulk actions ----------------------------------------------------------
+  const reportBulk = (results: PromiseSettledResult<unknown>[]) => {
+    const ok = results.filter(r => r.status === 'fulfilled').length;
+    const failed = results.length - ok;
+    const message = t('bulk_done', { ok, failed });
+    // Only a clean run is a success; surface partial/total failure honestly.
+    if (failed === 0) toast.success(message);
+    else if (ok === 0) toast.error(message);
+    else toast(message, { icon: '⚠️' });
+    queryClient.invalidateQueries({ queryKey: ['users'] });
+    clearSelection();
   };
 
-  const handleRoleSave = () => {
-    if (!editUser) return;
-    changeRoleMutation.mutate({
-      userId: editUser.id,
-      isAdmin: selectedRole === 'admin',
-      isInstructor: selectedRole === 'admin' || selectedRole === 'instructor',
+  const handleBulkRole = async () => {
+    setBulkPending(true);
+    const results = await Promise.allSettled(
+      [...selected].map(id =>
+        userManagementApi.updateUserRoles(id, {
+          isAdmin: bulkRole === 'admin',
+          isInstructor: bulkRole !== 'student',
+        }),
+      ),
+    );
+    setBulkPending(false);
+    setBulkRoleOpen(false);
+    reportBulk(results);
+  };
+
+  const handleBulkActive = async (isActive: boolean) => {
+    setBulkPending(true);
+    const results = await Promise.allSettled(
+      [...selected].map(id => userManagementApi.updateUser(id, { isActive })),
+    );
+    setBulkPending(false);
+    reportBulk(results);
+  };
+
+  const handleBulkDelete = async () => {
+    setBulkPending(true);
+    const results = await Promise.allSettled(
+      [...selected].map(id => userManagementApi.deleteUser(id)),
+    );
+    setBulkPending(false);
+    setBulkDeleteOpen(false);
+    reportBulk(results);
+  };
+
+  const handleBulkEnroll = async () => {
+    if (!enrollCourseId || !enrollAction) return;
+    setBulkPending(true);
+    try {
+      const res = await userManagementApi.bulkEnroll(
+        [...selected],
+        Number(enrollCourseId),
+        enrollAction,
+      );
+      const message = t(
+        enrollAction === 'enroll' ? 'bulk_enroll_done' : 'bulk_unenroll_done',
+        { changed: res.changed, skipped: res.skipped, course: res.courseTitle },
+      );
+      // If the server reported per-user failures, don't show a clean green toast.
+      if (res.errors.length > 0) {
+        toast(t('bulk_enroll_partial', { message, failed: res.errors.length }), {
+          icon: '⚠️',
+        });
+      } else {
+        toast.success(message);
+      }
+    } catch {
+      toast.error(t('bulk_enroll_failed'));
+    }
+    setBulkPending(false);
+    setEnrollAction(null);
+    setEnrollCourseId('');
+    queryClient.invalidateQueries({ queryKey: ['users'] });
+    clearSelection();
+  };
+
+  const openEnroll = (action: EnrollAction) => {
+    setEnrollCourseId('');
+    setEnrollAction(action);
+  };
+
+  const openCreate = () => {
+    setEditTarget(null);
+    setFormOpen(true);
+  };
+
+  const openEdit = (u: AdminUser) => {
+    setEditTarget({
+      id: u.id,
+      fullname: u.fullname,
+      email: u.email,
+      isAdmin: u.isAdmin,
+      isInstructor: u.isInstructor,
+      isActive: u.isActive,
     });
+    setFormOpen(true);
+  };
+
+  const handlePasswordSave = () => {
+    if (!pwTarget) return;
+    if (!pwValue || pwValue.length < 8) {
+      setPwError(t('error_password_min'));
+      return;
+    }
+    passwordMutation.mutate({ userId: pwTarget.id, password: pwValue });
   };
 
   const handleExport = async () => {
@@ -120,15 +273,6 @@ export const UsersPanel = () => {
       toast.error(t('export_failed'));
     }
   };
-
-  const roles: { value: Role; label: string }[] = useMemo(
-    () => [
-      { value: 'student', label: t('role_student') },
-      { value: 'instructor', label: t('role_instructor') },
-      { value: 'admin', label: t('role_admin') },
-    ],
-    [t],
-  );
 
   const columns: ColumnDef<AdminUser>[] = [
     {
@@ -179,7 +323,7 @@ export const UsersPanel = () => {
     },
     {
       id: 'status',
-      header: t('status'),
+      header: t('common:status'),
       sortAccessor: u => (u.isActive !== false ? 'active' : 'inactive'),
       width: '7rem',
       hideOnMobile: true,
@@ -224,6 +368,8 @@ export const UsersPanel = () => {
         columns={columns}
         rowKey={u => u.id}
         isLoading={isLoading}
+        error={isError}
+        onRetry={() => void refetch()}
         pageSize={15}
         globalSearch={{
           placeholder: t('search_users'),
@@ -236,67 +382,227 @@ export const UsersPanel = () => {
           },
         }}
         exportAction={{ onClick: handleExport }}
-        rowActions={u => (
-          <RowMenu
-            items={[
-              {
-                key: 'edit',
-                label: t('change_role'),
-                icon: <Pencil className="w-3.5 h-3.5" />,
-                onClick: () => openEditRole(u),
-              },
-              {
-                key: 'logs',
-                label: t('view_logs', { defaultValue: 'View Logs' }),
-                icon: <Activity className="w-3.5 h-3.5" />,
-                onClick: () => navigate(`/admin/logs?userId=${u.id}`),
-              },
-              {
-                key: 'toggle',
-                label:
-                  u.isActive !== false
-                    ? t('deactivate')
-                    : t('activate'),
-                icon:
-                  u.isActive !== false ? (
-                    <UserX className="w-3.5 h-3.5" />
-                  ) : (
-                    <UserCheck className="w-3.5 h-3.5" />
-                  ),
-                onClick: () =>
-                  toggleStatusMutation.mutate({
-                    userId: u.id,
-                    isActive: u.isActive === false,
-                  }),
-              },
-            ]}
-          />
-        )}
+        createCta={{
+          label: t('add_user'),
+          onClick: openCreate,
+          icon: <UserPlus className="w-4 h-4" />,
+        }}
+        selection={{
+          selectedKeys: selected,
+          onToggleRow: key => toggleRow(Number(key)),
+          onToggleAll: (keys, selectAll) => toggleAll(keys.map(Number), selectAll),
+          isSelectable: u => u.id !== currentUser?.id,
+          onClear: clearSelection,
+          renderBulkBar: (count, clear) => (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-2">
+              <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
+                {t('n_selected', { count })}
+              </span>
+              <div className="flex flex-wrap items-center gap-1.5 ml-auto">
+                <Button size="sm" variant="secondary" disabled={bulkPending} onClick={() => setBulkRoleOpen(true)}>
+                  {t('change_role')}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={bulkPending}
+                  onClick={() => handleBulkActive(true)}
+                >
+                  {t('activate')}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={bulkPending}
+                  onClick={() => handleBulkActive(false)}
+                >
+                  {t('deactivate')}
+                </Button>
+                <Button size="sm" variant="secondary" disabled={bulkPending} onClick={() => openEnroll('enroll')}>
+                  {t('enroll')}
+                </Button>
+                <Button size="sm" variant="secondary" disabled={bulkPending} onClick={() => openEnroll('unenroll')}>
+                  {t('unenroll')}
+                </Button>
+                <Button size="sm" variant="danger" disabled={bulkPending} onClick={() => setBulkDeleteOpen(true)}>
+                  {t('delete')}
+                </Button>
+                <button
+                  type="button"
+                  onClick={clear}
+                  aria-label={t('common:clear', { defaultValue: 'Clear' })}
+                  className="p-1.5 rounded hover:bg-indigo-100 dark:hover:bg-indigo-800/40 text-indigo-600 dark:text-indigo-300"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ),
+        }}
+        rowActions={u => {
+          const isSelf = u.id === currentUser?.id;
+          return (
+            <RowMenu
+              items={[
+                {
+                  key: 'edit',
+                  label: t('edit_user'),
+                  icon: <Pencil className="w-3.5 h-3.5" />,
+                  onClick: () => openEdit(u),
+                },
+                {
+                  key: 'password',
+                  label: t('change_password'),
+                  icon: <KeyRound className="w-3.5 h-3.5" />,
+                  onClick: () => {
+                    setPwValue('');
+                    setPwError('');
+                    setPwTarget(u);
+                  },
+                },
+                {
+                  key: 'logs',
+                  label: t('view_logs', { defaultValue: 'View Logs' }),
+                  icon: <Activity className="w-3.5 h-3.5" />,
+                  onClick: () => navigate(`/admin/logs?userId=${u.id}`),
+                },
+                {
+                  key: 'toggle',
+                  label: u.isActive !== false ? t('deactivate') : t('activate'),
+                  icon:
+                    u.isActive !== false ? (
+                      <UserX className="w-3.5 h-3.5" />
+                    ) : (
+                      <UserCheck className="w-3.5 h-3.5" />
+                    ),
+                  // You can't deactivate your own account (you're the one using it).
+                  disabled: isSelf,
+                  onClick: () => {
+                    if (isSelf) return;
+                    toggleStatusMutation.mutate({
+                      userId: u.id,
+                      isActive: u.isActive === false,
+                    });
+                  },
+                },
+                {
+                  key: 'delete',
+                  label: t('delete'),
+                  icon: <Trash2 className="w-3.5 h-3.5" />,
+                  destructive: true,
+                  disabled: isSelf,
+                  onClick: () => {
+                    if (isSelf) return;
+                    setDeleteTarget(u);
+                  },
+                },
+              ]}
+            />
+          );
+        }}
       />
 
-      {/* Change Role Modal */}
+      {/* Create / edit user form */}
+      <UserFormModal
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        user={editTarget}
+        onSaved={() => queryClient.invalidateQueries({ queryKey: ['users'] })}
+      />
+
+      {/* Change password modal */}
       <Modal
-        isOpen={!!editUser}
-        onClose={() => setEditUser(null)}
-        title={t('edit_role_title', { name: editUser?.fullname })}
+        isOpen={!!pwTarget}
+        onClose={() => setPwTarget(null)}
+        title={t('change_password')}
         size="sm"
       >
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            {t('set_new_password_for', { name: pwTarget?.fullname })}
+          </label>
+          <input
+            type="password"
+            value={pwValue}
+            onChange={e => setPwValue(e.target.value)}
+            autoComplete="new-password"
+            className={`w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-1 ${
+              pwError
+                ? 'border-red-400 dark:border-red-500'
+                : 'border-gray-200 dark:border-gray-700'
+            }`}
+          />
+          {pwError && (
+            <p className="text-xs text-red-600 dark:text-red-400">{pwError}</p>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 mt-4">
+          <Button variant="outline" size="sm" onClick={() => setPwTarget(null)}>
+            {t('common:cancel')}
+          </Button>
+          <Button
+            size="sm"
+            onClick={handlePasswordSave}
+            loading={passwordMutation.isPending}
+            disabled={passwordMutation.isPending}
+          >
+            {t('common:save')}
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Single-row delete confirm */}
+      <Modal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title={t('delete_user')}
+        size="sm"
+      >
+        <p className="text-sm text-gray-600 dark:text-gray-300">
+          {t('confirm_delete_user', { name: deleteTarget?.fullname })}
+        </p>
+        <div className="flex justify-end gap-2 mt-4">
+          <Button variant="outline" size="sm" onClick={() => setDeleteTarget(null)}>
+            {t('common:cancel')}
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+            loading={deleteMutation.isPending}
+            disabled={deleteMutation.isPending}
+          >
+            {t('delete')}
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Bulk change-role modal */}
+      <Modal
+        isOpen={bulkRoleOpen}
+        onClose={() => setBulkRoleOpen(false)}
+        title={t('change_role')}
+        size="sm"
+      >
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+          {t('n_selected', { count: selected.size })}
+        </p>
         <div className="space-y-3">
           {roles.map(({ value, label }) => (
             <label
               key={value}
               className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                selectedRole === value
+                bulkRole === value
                   ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
                   : 'border-gray-200 dark:border-gray-700'
               }`}
             >
               <input
                 type="radio"
-                name="role"
+                name="bulk-role"
                 value={value}
-                checked={selectedRole === value}
-                onChange={() => setSelectedRole(value)}
+                checked={bulkRole === value}
+                onChange={() => setBulkRole(value)}
                 className="accent-indigo-500"
               />
               <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
@@ -306,15 +612,70 @@ export const UsersPanel = () => {
           ))}
         </div>
         <div className="flex justify-end gap-2 mt-4">
-          <Button variant="outline" size="sm" onClick={() => setEditUser(null)}>
+          <Button variant="outline" size="sm" onClick={() => setBulkRoleOpen(false)}>
+            {t('common:cancel')}
+          </Button>
+          <Button size="sm" onClick={handleBulkRole} loading={bulkPending} disabled={bulkPending}>
+            {t('common:save')}
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Bulk enroll / unenroll modal */}
+      <Modal
+        isOpen={enrollAction !== null}
+        onClose={() => setEnrollAction(null)}
+        title={enrollAction === 'unenroll' ? t('unenroll') : t('enroll')}
+        size="sm"
+      >
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+          {t('n_selected', { count: selected.size })}
+        </p>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+          {t('select_course')}
+        </label>
+        <SearchableSelect
+          value={enrollCourseId}
+          onChange={setEnrollCourseId}
+          options={courseOptions}
+        />
+        <div className="flex justify-end gap-2 mt-4">
+          <Button variant="outline" size="sm" onClick={() => setEnrollAction(null)}>
             {t('common:cancel')}
           </Button>
           <Button
             size="sm"
-            onClick={handleRoleSave}
-            disabled={changeRoleMutation.isPending}
+            onClick={handleBulkEnroll}
+            loading={bulkPending}
+            disabled={bulkPending || !enrollCourseId}
           >
-            {t('common:save')}
+            {enrollAction === 'unenroll' ? t('unenroll') : t('enroll')}
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Bulk delete confirm */}
+      <Modal
+        isOpen={bulkDeleteOpen}
+        onClose={() => setBulkDeleteOpen(false)}
+        title={t('delete_user')}
+        size="sm"
+      >
+        <p className="text-sm text-gray-600 dark:text-gray-300">
+          {t('confirm_bulk_delete', { count: selected.size })}
+        </p>
+        <div className="flex justify-end gap-2 mt-4">
+          <Button variant="outline" size="sm" onClick={() => setBulkDeleteOpen(false)}>
+            {t('common:cancel')}
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={handleBulkDelete}
+            loading={bulkPending}
+            disabled={bulkPending}
+          >
+            {t('delete')}
           </Button>
         </div>
       </Modal>

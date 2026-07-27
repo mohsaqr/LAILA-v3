@@ -61,6 +61,7 @@ model VerificationCode {
   userId    Int      @map("user_id")
   code      String
   expiresAt DateTime @map("expires_at")
+  attempts  Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -330,6 +331,9 @@ model Chatbot {
   forumAiPosts       ForumPost[]         @relation("ForumAiPosts")
   tutorConversations TutorConversation[]
 
+  aiCodeLabs   CodeLab[]   @relation("CodeLabAiChatbot")
+  aiCustomLabs CustomLab[] @relation("CustomLabAiChatbot")
+
   @@map("chatbots")
 }
 
@@ -537,6 +541,9 @@ model CodeLab {
   isPublished Boolean      @default(false) @map("is_published")
   availableFrom  DateTime? @map("available_from")
   availableUntil DateTime? @map("available_until")
+  /// Optional AI assistant available to students in this lab.
+  aiChatbotId Int?         @map("ai_chatbot_id")
+  aiChatbot   Chatbot?     @relation("CodeLabAiChatbot", fields: [aiChatbotId], references: [id], onDelete: SetNull)
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
   blocks      CodeBlock[]
@@ -553,6 +560,10 @@ model CodeBlock {
   instructions String?
   starterCode  String?  @map("starter_code")
   orderIndex   Int      @default(0) @map("order_index")
+  /// Students may run a locked cell but not edit its code.
+  locked       Boolean  @default(false)
+  /// "code" (default) or "markdown" — markdown cells are prose-only content.
+  cellType     String   @default("code") @map("cell_type")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
   codeLab      CodeLab  @relation(fields: [codeLabId], references: [id], onDelete: Cascade)
@@ -1674,6 +1685,9 @@ model CustomLab {
   description String?
   labType     String          @map("lab_type")
   config      String?
+  /// Optional AI assistant available to students in this lab.
+  aiChatbotId Int?            @map("ai_chatbot_id")
+  aiChatbot   Chatbot?        @relation("CustomLabAiChatbot", fields: [aiChatbotId], references: [id], onDelete: SetNull)
   createdBy   Int             @map("created_by")
   isPublic    Boolean         @default(false) @map("is_public")
   createdAt   DateTime        @default(now()) @map("created_at")
@@ -1696,6 +1710,10 @@ model LabTemplate {
   content     String?
   code        String
   orderIndex  Int       @default(0) @map("order_index")
+  /// Students may run a locked cell but not edit its code.
+  locked      Boolean   @default(false)
+  /// "code" (default) or "markdown" — markdown cells are prose-only content.
+  cellType    String    @default("code") @map("cell_type")
   lab         CustomLab @relation(fields: [labId], references: [id], onDelete: Cascade)
 
   @@index([labId])
@@ -1716,6 +1734,7 @@ model LabAssignment {
   @@index([labId])
   @@index([courseId])
   @@index([moduleId])
+  @@unique([labId, courseId])
   @@map("lab_assignments")
 }
 

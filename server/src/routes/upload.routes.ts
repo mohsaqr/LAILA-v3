@@ -6,6 +6,7 @@ import { v4 as uuid } from 'uuid';
 import { authenticateToken, requireInstructor } from '../middleware/auth.middleware.js';
 import { AuthRequest } from '../types/index.js';
 import prisma from '../utils/prisma.js';
+import { courseRoleService } from '../services/courseRole.service.js';
 
 const router = Router();
 
@@ -433,17 +434,43 @@ router.post(
       return;
     }
 
-    // If assignmentId is provided, enforce per-assignment file constraints
+    // If assignmentId is provided, verify the caller may submit to it and then
+    // enforce per-assignment file constraints.
     const assignmentIdRaw = req.query.assignmentId;
     if (assignmentIdRaw) {
       const assignmentId = parseInt(assignmentIdRaw as string, 10);
       if (!Number.isNaN(assignmentId)) {
         const assignment = await prisma.assignment.findUnique({
           where: { id: assignmentId },
-          select: { allowedFileTypes: true, maxFileSize: true },
+          select: { allowedFileTypes: true, maxFileSize: true, courseId: true },
         });
 
         if (assignment) {
+          // Access check BEFORE keeping the file: the submitter must be enrolled
+          // in (or be staff/admin of) the assignment's course. Otherwise any
+          // authenticated user could stash files against someone else's course.
+          const userId = req.user!.id;
+          const isStaff = req.user!.isAdmin
+            || (await courseRoleService.isTeamMember(userId, assignment.courseId))
+            || !!(await prisma.course.findFirst({
+              where: { id: assignment.courseId, instructorId: userId },
+              select: { id: true },
+            }));
+          if (!isStaff) {
+            const enrollment = await prisma.enrollment.findUnique({
+              where: { userId_courseId: { userId, courseId: assignment.courseId } },
+              select: { id: true },
+            });
+            if (!enrollment) {
+              fs.unlinkSync(req.file.path);
+              res.status(403).json({
+                success: false,
+                error: 'You must be enrolled in this course to submit to this assignment.',
+              });
+              return;
+            }
+          }
+
           // Check allowed file types (comma-separated extensions like ".pdf,.docx")
           if (assignment.allowedFileTypes) {
             const ext = path.extname(req.file.originalname).toLowerCase();

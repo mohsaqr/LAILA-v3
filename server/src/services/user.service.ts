@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { UpdateUserInput } from '../utils/validation.js';
+import { invalidateUserStatusCache } from '../middleware/auth.middleware.js';
 
 export class UserService {
   async getUsers(page = 1, limit = 20, search?: string, role?: string) {
@@ -104,9 +105,19 @@ export class UserService {
     const updateData: any = {};
 
     if (data.fullname) updateData.fullname = data.fullname;
-    if (data.email) updateData.email = data.email;
+    if (data.email && data.email !== user.email) {
+      // Guard against collisions / silent account takeover via a duplicate email.
+      const existing = await prisma.user.findUnique({ where: { email: data.email } });
+      if (existing && existing.id !== id) {
+        throw new AppError('Email already in use', 400);
+      }
+      updateData.email = data.email;
+    }
     if (data.password) {
       updateData.passwordHash = await bcrypt.hash(data.password, 10);
+      // A password change must invalidate existing sessions, matching every
+      // other password path — otherwise stolen tokens survive the reset.
+      updateData.tokenVersion = { increment: 1 };
     }
 
     // Only admins can change these
@@ -128,6 +139,11 @@ export class UserService {
         isActive: true,
       },
     });
+
+    // Refresh cached status so a bumped tokenVersion / isActive takes effect now.
+    if (data.password || (isAdmin && typeof data.isActive === 'boolean')) {
+      invalidateUserStatusCache(id);
+    }
 
     return updated;
   }

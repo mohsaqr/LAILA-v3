@@ -39,7 +39,7 @@ export const LectureView = () => {
   const { t } = useTranslation(['courses', 'common']);
   const { courseId, lectureId } = useParams<{ courseId: string; lectureId: string }>();
   const { isDark } = useTheme();
-  const { user, isActualAdmin } = useAuth();
+  const { user, isActualAdmin, viewAsRole } = useAuth();
   const track = useTracker('lecture');
 
   const queryClient = useQueryClient();
@@ -115,7 +115,8 @@ export const LectureView = () => {
 
   // Who may edit this lecture inline: course instructor, course team
   // member, or an actual admin — same rule as the course "Manage" control.
-  const canManage = !!(
+  // Hidden while previewing as a student so the preview is faithful.
+  const canManage = viewAsRole !== 'student' && !!(
     isActualAdmin ||
     (course && (user?.id === course.instructorId || (course as { isTeamMember?: boolean }).isTeamMember))
   );

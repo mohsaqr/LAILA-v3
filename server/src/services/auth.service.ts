@@ -444,6 +444,11 @@ export class AuthService {
     return { email, message: 'Verification code sent' };
   }
 
+  // A 6-digit code has only ~900k possibilities; without a per-code cap it can
+  // be brute-forced within the 10-minute window. After this many wrong guesses
+  // the code is destroyed and the user must request a fresh one.
+  private static readonly MAX_CODE_ATTEMPTS = 5;
+
   async verifyResetCode(email: string, code: string) {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) throw new AppError('User not found', 404);
@@ -462,10 +467,24 @@ export class AuthService {
     }
 
     if (record.code !== code) {
+      await this.registerFailedCodeAttempt(record.id, user.id, record.attempts);
       throw new AppError('Invalid verification code', 400);
     }
 
     return { valid: true };
+  }
+
+  // Increment the failed-attempt counter for a code; once the cap is exceeded,
+  // delete every code for the user so a fresh request is required.
+  private async registerFailedCodeAttempt(recordId: number, userId: number, currentAttempts: number) {
+    if (currentAttempts + 1 >= AuthService.MAX_CODE_ATTEMPTS) {
+      await prisma.verificationCode.deleteMany({ where: { userId } });
+      throw new AppError('Too many incorrect attempts. Please request a new code.', 429);
+    }
+    await prisma.verificationCode.update({
+      where: { id: recordId },
+      data: { attempts: { increment: 1 } },
+    });
   }
 
   async resetPassword(email: string, code: string, newPassword: string) {
@@ -486,6 +505,7 @@ export class AuthService {
     }
 
     if (record.code !== code) {
+      await this.registerFailedCodeAttempt(record.id, user.id, record.attempts);
       throw new AppError('Invalid verification code', 400);
     }
 
@@ -553,6 +573,23 @@ export class AuthService {
     } catch (error) {
       authLogger.warn({ err: error, userId }, 'Failed to log logout event');
     }
+  }
+
+  /**
+   * Revoke every outstanding token for a user by bumping tokenVersion, so a
+   * logged-out (or stolen) token stops authenticating immediately instead of
+   * riding out the 30-day expiry.
+   *
+   * NOTE: tokens carry no per-session identity, so this necessarily ends ALL of
+   * the user's sessions across every device. Device-local logout would require
+   * short-lived access tokens + a refresh-token store (see report P1-5/Q5).
+   */
+  async revokeTokens(userId: number) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { tokenVersion: { increment: 1 } },
+    });
+    invalidateUserStatusCache(userId);
   }
 }
 

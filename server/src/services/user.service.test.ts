@@ -247,7 +247,11 @@ describe('UserService', () => {
       expect(bcrypt.hash).toHaveBeenCalledWith('newpassword123', 10);
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: 1 },
-        data: { passwordHash: 'hashed_password' },
+        // A password change now also bumps tokenVersion to invalidate existing sessions.
+        data: expect.objectContaining({
+          passwordHash: 'hashed_password',
+          tokenVersion: { increment: 1 },
+        }),
         select: expect.any(Object),
       });
     });

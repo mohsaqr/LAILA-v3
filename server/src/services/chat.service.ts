@@ -98,6 +98,20 @@ export class ChatService {
   async chat(request: ChatRequest, userId?: number): Promise<ChatResponse> {
     const startTime = Date.now();
 
+    // Server-side persona resolution: when a chatbotId is supplied, its stored
+    // system prompt wins — the client never needs (or gets) the prompt text.
+    if (request.chatbotId != null) {
+      const bot = await prisma.chatbot.findUnique({
+        where: { id: request.chatbotId },
+        select: { systemPrompt: true, isActive: true },
+      });
+      if (bot?.isActive) {
+        request = { ...request, systemPrompt: bot.systemPrompt };
+      } else {
+        request = { ...request, systemPrompt: undefined };
+      }
+    }
+
     // Try new LLM service first
     if (this.useNewLLMService) {
       try {

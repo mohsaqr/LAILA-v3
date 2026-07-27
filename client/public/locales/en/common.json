@@ -88,6 +88,9 @@
   "title": "Title",
   "description": "Description",
   "status": "Status",
+  "retry": "Retry",
+  "load_error_title": "Couldn't load data",
+  "load_error_desc": "Something went wrong while loading. Please try again.",
   "type": "Type",
   "category": "Category",
   "tags": "Tags",
@@ -202,5 +205,6 @@
   "clear_all": "Clear all",
   "showing_range": "Showing {{from}}–{{to}} of {{total}}",
   "visible": "Visible",
-  "change": "Change"
+  "change": "Change",
+  "duplicate": "Duplicate"
 }

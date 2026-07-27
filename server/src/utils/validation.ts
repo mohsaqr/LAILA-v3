@@ -223,7 +223,17 @@ export const chatMessageSchema = z.object({
   sessionId: z.string().optional(),
   context: z.string().optional(),
   model: z.string().optional(),
-  systemPrompt: z.string().optional(),
+  // Free-form persona used by the in-app AI tools (dataset generator, prompt
+  // helper, bias research, lab assistant). Capped to bound abuse of the shared
+  // LLM keys. Ignored whenever a chatbotId is supplied (see below).
+  systemPrompt: z.string().max(20000).optional(),
+  // Server-resolved persona: when present, the chatbot's stored system prompt
+  // is used and any caller-supplied systemPrompt is ignored.
+  chatbotId: z.number().int().positive().optional(),
+  conversationHistory: z
+    .array(z.object({ role: z.enum(['user', 'assistant']), content: z.string() }))
+    .max(40)
+    .optional(),
 });
 
 // Chatbot validation schemas
@@ -381,6 +391,20 @@ export const adminUpdateUserSchema = z.object({
 export const updateUserRolesSchema = z.object({
   isAdmin: z.boolean().optional(),
   isInstructor: z.boolean().optional(),
+});
+
+export const adminCreateUserSchema = z.object({
+  fullname: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().email(),
+  password: strongPasswordSchema,
+  role: z.enum(['admin', 'instructor', 'student']),
+  isActive: z.boolean().optional(),
+});
+
+export const bulkEnrollSchema = z.object({
+  userIds: z.array(z.number().int().positive()).min(1).max(1000),
+  courseId: z.number().int().positive(),
+  action: z.enum(['enroll', 'unenroll']),
 });
 
 export const createEnrollmentSchema = z.object({
