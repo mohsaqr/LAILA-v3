@@ -6,7 +6,11 @@ import { Activity, KeyRound, Pencil, Trash2, UserCheck, UserPlus, UserX, X } fro
 import toast from 'react-hot-toast';
 import { usersApi } from '../../../api/users';
 import { adminApi } from '../../../api/admin';
-import { userManagementApi } from '../../../api/userManagement';
+import {
+  userManagementApi,
+  type BulkUserAction,
+  type BulkUserRole,
+} from '../../../api/userManagement';
 import { useAuthStore } from '../../../store/authStore';
 import { Button } from '../../../components/common/Button';
 import { Modal } from '../../../components/common/Modal';
@@ -60,6 +64,10 @@ export const UsersPanel = () => {
   const [enrollAction, setEnrollAction] = useState<EnrollAction | null>(null);
   const [enrollCourseId, setEnrollCourseId] = useState('');
   const [bulkPending, setBulkPending] = useState(false);
+  // Per-user reasons for everything a bulk action left untouched.
+  const [skipReport, setSkipReport] = useState<
+    Array<{ userId: number; reason: string }> | null
+  >(null);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['users', 'all'],
@@ -148,50 +156,53 @@ export const UsersPanel = () => {
   });
 
   // --- Bulk actions ----------------------------------------------------------
-  const reportBulk = (results: PromiseSettledResult<unknown>[]) => {
-    const ok = results.filter(r => r.status === 'fulfilled').length;
-    const failed = results.length - ok;
-    const message = t('bulk_done', { ok, failed });
-    // Only a clean run is a success; surface partial/total failure honestly.
-    if (failed === 0) toast.success(message);
-    else if (ok === 0) toast.error(message);
-    else toast(message, { icon: '⚠️' });
-    queryClient.invalidateQueries({ queryKey: ['users'] });
-    clearSelection();
+  // One request for the whole selection. The server decides what it can apply
+  // and returns a per-user reason for everything it left alone, so the batch
+  // can no longer half-succeed silently or trip the /api rate limit.
+  const runBulk = async (action: BulkUserAction, role?: BulkUserRole) => {
+    setBulkPending(true);
+    try {
+      const outcome = await userManagementApi.bulkUpdate([...selected], action, role);
+      const untouched = outcome.skipped + outcome.errors.length;
+      const message = t('bulk_result', {
+        changed: outcome.changed,
+        skipped: untouched,
+      });
+      // Only a clean run is a success; surface partial/total failure honestly.
+      if (untouched === 0) toast.success(message);
+      else if (outcome.changed === 0) toast.error(message);
+      else toast(message, { icon: '⚠️' });
+
+      // A count alone would hide *why* — the last-admin guard, an undeletable
+      // course owner. Show the reasons rather than making the admin guess.
+      const reasons = [
+        ...outcome.skippedDetail,
+        ...outcome.errors.map(e => ({ userId: e.userId, reason: e.error })),
+      ];
+      if (reasons.length > 0) setSkipReport(reasons);
+
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      clearSelection();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error ?? t('bulk_failed'));
+    } finally {
+      setBulkPending(false);
+    }
   };
 
   const handleBulkRole = async () => {
-    setBulkPending(true);
-    const results = await Promise.allSettled(
-      [...selected].map(id =>
-        userManagementApi.updateUserRoles(id, {
-          isAdmin: bulkRole === 'admin',
-          isInstructor: bulkRole !== 'student',
-        }),
-      ),
-    );
-    setBulkPending(false);
+    await runBulk('setRole', bulkRole);
     setBulkRoleOpen(false);
-    reportBulk(results);
   };
 
-  const handleBulkActive = async (isActive: boolean) => {
-    setBulkPending(true);
-    const results = await Promise.allSettled(
-      [...selected].map(id => userManagementApi.updateUser(id, { isActive })),
-    );
-    setBulkPending(false);
-    reportBulk(results);
-  };
+  const handleBulkActive = (isActive: boolean) =>
+    runBulk(isActive ? 'activate' : 'deactivate');
+
+  const handleBulkConfirm = () => runBulk('confirm');
 
   const handleBulkDelete = async () => {
-    setBulkPending(true);
-    const results = await Promise.allSettled(
-      [...selected].map(id => userManagementApi.deleteUser(id)),
-    );
-    setBulkPending(false);
+    await runBulk('delete');
     setBulkDeleteOpen(false);
-    reportBulk(results);
   };
 
   const handleBulkEnroll = async () => {
@@ -417,6 +428,14 @@ export const UsersPanel = () => {
                   onClick={() => handleBulkActive(false)}
                 >
                   {t('deactivate')}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={bulkPending}
+                  onClick={handleBulkConfirm}
+                >
+                  {t('confirm_email')}
                 </Button>
                 <Button size="sm" variant="secondary" disabled={bulkPending} onClick={() => openEnroll('enroll')}>
                   {t('enroll')}
@@ -676,6 +695,39 @@ export const UsersPanel = () => {
             disabled={bulkPending}
           >
             {t('delete')}
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Why a bulk action left some users untouched */}
+      <Modal
+        isOpen={skipReport !== null}
+        onClose={() => setSkipReport(null)}
+        title={t('bulk_skipped_title')}
+        size="sm"
+      >
+        <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
+          {t('bulk_skipped_intro', { count: skipReport?.length ?? 0 })}
+        </p>
+        <ul className="space-y-2 max-h-72 overflow-y-auto">
+          {(skipReport ?? []).map(({ userId, reason }) => {
+            const u = users.find(x => x.id === userId);
+            return (
+              <li
+                key={userId}
+                className="text-sm rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2"
+              >
+                <p className="font-medium text-gray-800 dark:text-gray-100">
+                  {u ? u.fullname : `#${userId}`}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{reason}</p>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="flex justify-end mt-4">
+          <Button size="sm" onClick={() => setSkipReport(null)}>
+            {t('common:close', { defaultValue: 'Close' })}
           </Button>
         </div>
       </Modal>

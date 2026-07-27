@@ -8,6 +8,7 @@ import {
   updateUserRolesSchema,
   createEnrollmentSchema,
   bulkEnrollSchema,
+  bulkUserActionSchema,
   parsePaginationLimit,
 } from '../utils/validation.js';
 import { AuthRequest } from '../types/index.js';
@@ -50,6 +51,19 @@ router.post('/users', asyncHandler(async (req: AuthRequest, res: Response) => {
     ipAddress,
   });
   res.status(201).json({ success: true, data: user });
+}));
+
+// Bulk lifecycle action (activate / deactivate / confirm / setRole / delete).
+// Declared before '/users/:id' so the literal path is not captured as an id.
+router.post('/users/bulk', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { userIds, action, role } = bulkUserActionSchema.parse(req.body);
+  const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip;
+  const result = await userManagementService.bulkUpdate(userIds, action, { role }, {
+    adminId: req.user!.id,
+    adminEmail: req.user!.email,
+    ipAddress,
+  });
+  res.json({ success: true, data: result });
 }));
 
 // Bulk enroll / unenroll selected users in a course

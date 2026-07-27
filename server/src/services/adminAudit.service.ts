@@ -37,6 +37,40 @@ export class AdminAuditService {
     }
   }
 
+  /**
+   * Write one audit row per target in a single insert.
+   *
+   * Bulk admin actions still get a row PER USER rather than one row for the
+   * batch, so "what happened to user 42" stays answerable from the audit
+   * viewer's targetId filter. Callers pass a shared marker in newValues (see
+   * userManagementService.bulkUpdate) to correlate rows back into one action.
+   */
+  async logMany(inputs: AuditLogInput[]) {
+    if (inputs.length === 0) return 0;
+    try {
+      const result = await prisma.adminAuditLog.createMany({
+        data: inputs.map(input => ({
+          adminId: input.adminId,
+          adminEmail: input.adminEmail,
+          action: input.action,
+          targetType: input.targetType,
+          targetId: input.targetId,
+          previousValues: input.previousValues ? JSON.stringify(input.previousValues) : null,
+          newValues: input.newValues ? JSON.stringify(input.newValues) : null,
+          ipAddress: input.ipAddress,
+        })),
+      });
+      return result.count;
+    } catch (error) {
+      logger.error(
+        { err: error, action: inputs[0]?.action, count: inputs.length },
+        'Failed to create batch audit logs'
+      );
+      // Same posture as log(): auditing must not break the operation it records.
+      return 0;
+    }
+  }
+
   async getAuditLogs(options: {
     page?: number;
     limit?: number;

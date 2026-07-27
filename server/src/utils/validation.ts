@@ -407,6 +407,19 @@ export const bulkEnrollSchema = z.object({
   action: z.enum(['enroll', 'unenroll']),
 });
 
+// One lifecycle action applied across a selection of users. The cap matches
+// bulkEnrollSchema; the service reports per-user skips rather than failing.
+export const bulkUserActionSchema = z
+  .object({
+    userIds: z.array(z.number().int().positive()).min(1).max(1000),
+    action: z.enum(['activate', 'deactivate', 'confirm', 'setRole', 'delete']),
+    role: z.enum(['student', 'instructor', 'admin']).optional(),
+  })
+  .refine(v => v.action !== 'setRole' || !!v.role, {
+    message: 'A role is required to change roles',
+    path: ['role'],
+  });
+
 export const createEnrollmentSchema = z.object({
   userId: z.number().int().positive(),
   courseId: z.number().int().positive(),

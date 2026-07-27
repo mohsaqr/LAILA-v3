@@ -6,8 +6,20 @@ import {
   ManagedEnrollment,
   UserManagementStats,
   UpdateUserData,
-  UpdateUserRolesData,
 } from '../types';
+
+export type BulkUserAction = 'activate' | 'deactivate' | 'confirm' | 'setRole' | 'delete';
+export type BulkUserRole = 'student' | 'instructor' | 'admin';
+
+export interface BulkUserOutcome {
+  action: BulkUserAction;
+  role?: BulkUserRole;
+  total: number;
+  changed: number;
+  skipped: number;
+  skippedDetail: Array<{ userId: number; reason: string }>;
+  errors: Array<{ userId: number; error: string }>;
+}
 
 export const userManagementApi = {
   // Get all users (paginated, searchable)
@@ -94,15 +106,6 @@ export const userManagementApi = {
     return response.data;
   },
 
-  // Update user roles
-  updateUserRoles: async (id: number, roles: UpdateUserRolesData) => {
-    const response = await apiClient.put<ApiResponse<ManagedUser>>(
-      `/user-management/users/${id}/roles`,
-      roles
-    );
-    return response.data.data!;
-  },
-
   // Get user's enrollments
   getUserEnrollments: async (userId: number, page = 1, limit = 20) => {
     const response = await apiClient.get<{ success: boolean; enrollments: ManagedEnrollment[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>(
@@ -129,6 +132,16 @@ export const userManagementApi = {
       `/user-management/users/${userId}/enrollments/${enrollmentId}`
     );
     return response.data;
+  },
+
+  // Bulk lifecycle action across selected users — one request, not one per
+  // user. The server reports which users it skipped and why.
+  bulkUpdate: async (userIds: number[], action: BulkUserAction, role?: BulkUserRole) => {
+    const response = await apiClient.post<ApiResponse<BulkUserOutcome>>(
+      '/user-management/users/bulk',
+      { userIds, action, ...(role ? { role } : {}) }
+    );
+    return response.data.data!;
   },
 
   // Bulk enroll / unenroll selected users in a course
