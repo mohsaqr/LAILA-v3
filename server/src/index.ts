@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import session from 'express-session';
 import dotenv from 'dotenv';
 import path from 'path';
+import { readFileSync } from 'fs';
 import { initSocket } from './utils/socket.js';
 
 // Load environment variables
@@ -63,6 +64,20 @@ import { authLimiter, uploadLimiter, apiLimiter, llmLimiter, presentationLimiter
 const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5001;
+
+// Read the version from package.json rather than npm_package_version: that
+// variable is only set when the process is started through npm, and the
+// deployed service runs under systemd, where it is absent — which is why
+// /api/health reported a hardcoded fallback instead of the real release.
+// Resolved relative to this file, which sits one level below the package root
+// as both src/index.ts and dist/index.js.
+const APP_VERSION: string = (() => {
+  try {
+    return JSON.parse(readFileSync(path.join(__dirname, '../package.json'), 'utf8')).version;
+  } catch {
+    return 'unknown';
+  }
+})();
 
 // CORS configuration - supports multiple origins or wildcard
 const corsOrigin = process.env.CLIENT_URL || 'http://localhost:5174';
@@ -201,7 +216,7 @@ app.get('/api/health', async (req, res) => {
       status: 'healthy',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      version: process.env.npm_package_version || '3.0.0',
+      version: APP_VERSION,
       environment: process.env.NODE_ENV || 'development',
       checks: {
         database: {
