@@ -110,6 +110,19 @@ export class AuthService {
       if (existingUser.isConfirmed) {
         throw new AppError('Email already registered', 409);
       }
+      // An administrator's verdict outlives an unverified row. Deleting purely
+      // on isConfirmed let a rejected applicant clear their rejection by
+      // submitting the form a second time, and let a pending one silently
+      // restart their place in the queue.
+      if (existingUser.status === 'rejected') {
+        throw new AppError(
+          USER_STATUS_LOGIN_ERRORS.rejected ?? 'Registration is not available.',
+          403
+        );
+      }
+      if (existingUser.status === 'pending_approval') {
+        throw new AppError('Your registration is already awaiting administrator approval.', 409);
+      }
       // Unverified user — delete old record so they can re-register
       await prisma.user.delete({ where: { id: existingUser.id } });
     }
@@ -129,26 +142,40 @@ export class AuthService {
       status: decision.requiresApproval ? 'pending_approval' : DEFAULT_USER_STATUS,
     };
 
+    // The code is minted BEFORE the write so it can be stored in the same
+    // transaction as the account. Creating it afterwards meant an interruption
+    // between the two left a spent invitation and an account with no way to
+    // verify it — and the retry then failed, because the invitation was gone.
+    const verification = decision.requiresEmailVerification
+      ? {
+          code: crypto.randomInt(100000, 999999).toString(),
+          expiresAt: new Date(Date.now() + 2 * 60 * 1000),
+        }
+      : null;
+
     // A transaction is only opened when something has to happen ATOMICALLY with
     // the insert — spending an invitation, or delivering a promised enrolment.
     // An ordinary public signup still takes the plain single-statement path.
     const user = invitation || sponsorCourse
-      ? await this.createSponsoredUser(invitation, sponsorCourse, newUser)
+      ? await this.createSponsoredUser(invitation, sponsorCourse, newUser, verification)
       : await prisma.user.create({ data: newUser, select: NEW_USER_SELECT });
 
-    if (decision.requiresEmailVerification) {
-      // Generate 6-digit verification code
-      const code = crypto.randomInt(100000, 999999).toString();
-      const expiresAt = new Date(Date.now() + 2 * 60 * 1000); // 10 minutes
-
-      // Delete any existing codes for this user, then create new one
+    // The plain path writes its code after the insert. That is not atomic, but
+    // nothing irreversible was spent: if it fails the applicant has an account
+    // with no code, and "resend code" recovers it. A sponsored signup has no
+    // such fallback — its retry would need an invitation that is already
+    // consumed — so there the code is written inside the transaction instead.
+    if (verification && !invitation && !sponsorCourse) {
       await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
       await prisma.verificationCode.create({
-        data: { userId: user.id, code, expiresAt },
+        data: { userId: user.id, code: verification.code, expiresAt: verification.expiresAt },
       });
+    }
 
-      // Send verification email (non-blocking)
-      emailService.sendVerificationCode(user.email, code, user.fullname).catch((err) => {
+    if (verification) {
+      // Sending is not transactional and must not be: a mail failure should
+      // cost the applicant a resend, not their account.
+      emailService.sendVerificationCode(user.email, verification.code, user.fullname).catch(err => {
         authLogger.warn({ err, email: user.email }, 'Failed to send verification email');
       });
     }
@@ -219,6 +246,12 @@ export class AuthService {
    * fail on a race; doing it before the expensive insert keeps the losing
    * request short.
    */
+  /**
+   * Create a sponsored account and everything that must be true the moment it
+   * exists: the invitation spent, the promised enrolments in place, and the
+   * verification code stored. One transaction, so a failure anywhere leaves no
+   * half-registered user and, crucially, no invitation burned for nothing.
+   */
   private async createSponsoredUser(
     invitation: InvitationRecord | null,
     sponsorCourse: SignupCourse | null,
@@ -229,7 +262,8 @@ export class AuthService {
       isConfirmed: boolean;
       isInstructor: boolean;
       status: string;
-    }
+    },
+    verification: { code: string; expiresAt: Date } | null
   ) {
     return prisma.$transaction(async tx => {
       if (invitation) {
@@ -250,6 +284,13 @@ export class AuthService {
 
       for (const courseId of courseIds) {
         await enrollSignupCourse(tx, user.id, courseId);
+      }
+
+      if (verification) {
+        await tx.verificationCode.deleteMany({ where: { userId: user.id } });
+        await tx.verificationCode.create({
+          data: { userId: user.id, code: verification.code, expiresAt: verification.expiresAt },
+        });
       }
 
       return user;
@@ -310,10 +351,20 @@ export class AuthService {
         isInstructor: true,
         avatarUrl: true,
         tokenVersion: true,
+        status: true,
       },
     });
 
     await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+
+    // Proving you own the mailbox does not get you in on its own. Verification
+    // and approval are independent gates and this path consulted only the
+    // first, so an applicant could sign in simply by verifying their email
+    // before an administrator had approved them.
+    const statusError = USER_STATUS_LOGIN_ERRORS[confirmedUser.status as UserStatus];
+    if (statusError) {
+      return { user: confirmedUser, token: null, statusMessage: statusError };
+    }
 
     // Generate token
     const payload: UserPayload = {
@@ -326,7 +377,7 @@ export class AuthService {
     };
     const token = generateToken(payload);
 
-    return { user: confirmedUser, token };
+    return { user: confirmedUser, token, statusMessage: null };
   }
 
   async resendCode(email: string) {
@@ -738,6 +789,7 @@ export class AuthService {
         isInstructor: true,
         avatarUrl: true,
         tokenVersion: true,
+        status: true,
       },
     });
 
@@ -746,6 +798,14 @@ export class AuthService {
 
     // Invalidate user status cache
     invalidateUserStatusCache(user.id);
+
+    // Same rule as verifyCode: a password reset proves mailbox control, which
+    // is not the approval gate. Issuing a token here would let a pending or
+    // rejected applicant in through the forgot-password flow.
+    const statusError = USER_STATUS_LOGIN_ERRORS[updatedUser.status as UserStatus];
+    if (statusError) {
+      return { user: updatedUser, token: null, statusMessage: statusError };
+    }
 
     // Generate token
     const payload: UserPayload = {
@@ -758,7 +818,7 @@ export class AuthService {
     };
     const token = generateToken(payload);
 
-    return { user: updatedUser, token };
+    return { user: updatedUser, token, statusMessage: null };
   }
 
   /**

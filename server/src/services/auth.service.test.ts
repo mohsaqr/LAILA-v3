@@ -17,6 +17,9 @@ vi.mock('../utils/prisma.js', () => ({
       findUnique: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      // register() clears a stale unverified row before re-creating it.
+      delete: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
     },
     userSetting: {
       findUnique: vi.fn(),
@@ -486,6 +489,104 @@ describe('AuthService', () => {
   });
 
   // ===========================================================================
+  // Verifying an email is NOT the approval gate (regression, Codex finding #1)
+  // ===========================================================================
+
+  describe('verifyCode and the approval gate', () => {
+    const codeRow = { id: 9, userId: 1, code: '123456', expiresAt: new Date(Date.now() + 60_000) };
+
+    const confirmedAs = (status: string) => ({
+      id: 1,
+      fullname: 'Test User',
+      email: 'test@example.com',
+      isAdmin: false,
+      isInstructor: false,
+      avatarUrl: null,
+      tokenVersion: 0,
+      status,
+    });
+
+    beforeEach(() => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 1, email: 'test@example.com' } as any);
+      vi.mocked(prisma.verificationCode.findFirst).mockResolvedValue(codeRow as any);
+      vi.mocked(prisma.verificationCode.deleteMany).mockResolvedValue({ count: 1 } as any);
+    });
+
+    it('issues no token to an applicant still awaiting approval', async () => {
+      vi.mocked(prisma.user.update).mockResolvedValue(confirmedAs('pending_approval') as any);
+
+      const result = await authService.verifyCode('test@example.com', '123456');
+
+      // The email is still confirmed — they proved they own the mailbox.
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { isConfirmed: true } })
+      );
+      // But that is not the approval gate, so no session is handed out.
+      expect(result.token).toBeNull();
+      expect(result.statusMessage).toMatch(/awaiting administrator approval/i);
+    });
+
+    it('issues no token to a rejected applicant', async () => {
+      vi.mocked(prisma.user.update).mockResolvedValue(confirmedAs('rejected') as any);
+
+      const result = await authService.verifyCode('test@example.com', '123456');
+
+      expect(result.token).toBeNull();
+      expect(result.statusMessage).toMatch(/declined/i);
+    });
+
+    it('issues a token once the account is active', async () => {
+      vi.mocked(prisma.user.update).mockResolvedValue(confirmedAs('active') as any);
+
+      const result = await authService.verifyCode('test@example.com', '123456');
+
+      expect(result.token).toBe('mock_jwt_token');
+      expect(result.statusMessage).toBeNull();
+    });
+  });
+
+  describe('re-registration cannot erase an administrator verdict', () => {
+    const validRegistration = {
+      fullname: 'Test User',
+      email: 'test@example.com',
+      password: 'StrongPass123!',
+    };
+
+    it('refuses a rejected applicant rather than deleting the rejection', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        id: 1, email: 'test@example.com', isConfirmed: false, status: 'rejected',
+      } as any);
+
+      await expect(authService.register({ ...validRegistration })).rejects.toThrow(/declined/i);
+      expect(prisma.user.delete).not.toHaveBeenCalled();
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('refuses to restart a registration already in the queue', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        id: 1, email: 'test@example.com', isConfirmed: false, status: 'pending_approval',
+      } as any);
+
+      await expect(authService.register({ ...validRegistration })).rejects.toThrow(/awaiting/i);
+      expect(prisma.user.delete).not.toHaveBeenCalled();
+    });
+
+    it('still lets an ordinary unverified account re-register', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        id: 1, email: 'test@example.com', isConfirmed: false, status: 'active',
+      } as any);
+      vi.mocked(prisma.user.create).mockResolvedValue({
+        id: 2, fullname: 'Test User', email: 'test@example.com',
+        isAdmin: false, isInstructor: false, tokenVersion: 0, createdAt: new Date(),
+      } as any);
+
+      await authService.register({ ...validRegistration });
+
+      expect(prisma.user.delete).toHaveBeenCalledWith({ where: { id: 1 } });
+    });
+  });
+
+  // ===========================================================================
   // Signup with a teacher's course code (services/courseCodeSignup.service.ts)
   // ===========================================================================
 
@@ -517,6 +618,13 @@ describe('AuthService', () => {
       user: { create: ReturnType<typeof vi.fn> };
       enrollment: { create: ReturnType<typeof vi.fn> };
       invitation: { updateMany: ReturnType<typeof vi.fn> };
+      // The verification code is written on the transaction client too, so an
+      // interruption cannot leave a spent sponsorship beside an unverifiable
+      // account.
+      verificationCode: {
+        deleteMany: ReturnType<typeof vi.fn>;
+        create: ReturnType<typeof vi.fn>;
+      };
     };
 
     /** Answer the code -> course lookup with a published course. */
@@ -545,6 +653,13 @@ describe('AuthService', () => {
         user: { create: vi.fn().mockResolvedValue(createdUser()) },
         enrollment: { create: vi.fn().mockResolvedValue({}) },
         invitation: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+        // A sponsored signup stores its verification code in the SAME
+        // transaction as the account, so that an interruption cannot leave a
+        // spent invitation beside an account with no way to verify it.
+        verificationCode: {
+          deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+          create: vi.fn().mockResolvedValue({}),
+        },
       };
       vi.mocked(prisma.$transaction).mockImplementation((async (fn: any) => fn(tx)) as any);
     });
@@ -649,7 +764,11 @@ describe('AuthService', () => {
       // whose owner has not proved they read it.
       expect(result.verificationRequired).toBe(true);
       expect(tx.user.create.mock.calls[0][0].data.isConfirmed).toBe(false);
-      expect(prisma.verificationCode.create).toHaveBeenCalled();
+      // On the TRANSACTION client, not the base one: the code has to be stored
+      // atomically with the account, or an interruption would leave the
+      // invitation/course sponsorship spent and the account unverifiable.
+      expect(tx.verificationCode.create).toHaveBeenCalled();
+      expect(prisma.verificationCode.create).not.toHaveBeenCalled();
     });
 
     it('cannot reopen a closed platform', async () => {

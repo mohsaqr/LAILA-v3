@@ -58,7 +58,10 @@ export const useAuth = () => {
 
   const verifyCode = async (email: string, code: string) => {
     const response = await authApi.verifyCode({ email, code });
-    setAuth(response.user, response.token);
+    // The server withholds the token when the account is verified but still
+    // gated — awaiting approval, or rejected. Storing a null token would leave
+    // a signed-in-looking session that every request then rejects.
+    if (response.token) setAuth(response.user, response.token);
     return response;
   };
 
@@ -69,7 +72,8 @@ export const useAuth = () => {
 
   const resetPassword = async (email: string, code: string, newPassword: string) => {
     const response = await authApi.resetPassword({ email, code, newPassword });
-    setAuth(response.user, response.token);
+    // Same as verifyCode: a reset proves mailbox control, not approval.
+    if (response.token) setAuth(response.user, response.token);
     return response;
   };
 
