@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Activity, KeyRound, Pencil, Trash2, UserCheck, UserPlus, UserX, X } from 'lucide-react';
+import { Activity, KeyRound, Pencil, Ticket, Trash2, UserCheck, UserPlus, UserX, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usersApi } from '../../../api/users';
 import { adminApi } from '../../../api/admin';
@@ -426,6 +426,13 @@ export const UsersPanel = () => {
           },
         }}
         exportAction={{ onClick: handleExport }}
+        // Inviting someone is the same job as adding them, so it belongs next
+        // to Add User rather than only behind Settings → Invitations.
+        secondaryCta={{
+          label: t('invite'),
+          onClick: () => navigate('/admin/settings?tab=invitations'),
+          icon: <Ticket className="w-4 h-4" />,
+        }}
         createCta={{
           label: t('add_user'),
           onClick: openCreate,

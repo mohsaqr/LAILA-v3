@@ -155,6 +155,13 @@ router.post('/:id/unpublish', authenticateToken, requireInstructor, asyncHandler
   res.json({ success: true, data: course });
 }));
 
+// Issue a new activation code, invalidating the one already handed out
+router.post('/:id/regenerate-code', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const id = parseInt(req.params.id);
+  const course = await courseService.regenerateActivationCode(id, req.user!.id, req.user!.isAdmin);
+  res.json({ success: true, data: course });
+}));
+
 // Get course students
 router.get('/:id/students', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = parseInt(req.params.id);

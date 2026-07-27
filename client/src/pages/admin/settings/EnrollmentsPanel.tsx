@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Upload } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Ticket, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { adminApi } from '../../../api/admin';
 import { Button } from '../../../components/common/Button';
@@ -22,6 +23,7 @@ interface AdminEnrollment {
 
 export const EnrollmentsPanel = () => {
   const { t } = useTranslation(['admin', 'common']);
+  const navigate = useNavigate();
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [csvText, setCsvText] = useState('');
 
@@ -171,6 +173,13 @@ export const EnrollmentsPanel = () => {
           },
         }}
         exportAction={{ onClick: handleExport }}
+        // An invitation can carry a course, so it is a way to enrol someone who
+        // does not have an account yet — the gap batch import cannot fill.
+        secondaryCta={{
+          label: t('invite'),
+          icon: <Ticket className="w-4 h-4" />,
+          onClick: () => navigate('/admin/settings?tab=invitations'),
+        }}
         createCta={{
           label: t('batch_import'),
           icon: <Upload className="w-4 h-4" />,

@@ -883,5 +883,6 @@
   "invite_status_pending": "Odottaa",
   "invite_status_used": "Käytetty",
   "invite_status_expired": "Vanhentunut",
-  "invite_status_revoked": "Peruutettu"
+  "invite_status_revoked": "Peruutettu",
+  "invite": "Kutsu"
 }

@@ -49,6 +49,41 @@ export class CourseService {
     return Array.from(bytes, b => chars[b % chars.length]).join('');
   }
 
+  /**
+   * Issue a fresh activation code, invalidating the one already handed out.
+   *
+   * Wanted when a code has spread beyond the intended class. activation_code is
+   * UNIQUE, so each candidate is checked before it is written rather than
+   * letting a collision surface to the instructor as a P2002.
+   */
+  async regenerateActivationCode(courseId: number, instructorId: number, isAdmin = false) {
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+      select: { id: true },
+    });
+    if (!course) {
+      throw new AppError('Course not found', 404);
+    }
+    if (!(await courseRoleService.canEditContent(instructorId, courseId, isAdmin))) {
+      throw new AppError('Not authorized to change this course', 403);
+    }
+
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const candidate = this.generateActivationCode();
+      const taken = await prisma.course.findFirst({
+        where: { activationCode: candidate },
+        select: { id: true },
+      });
+      if (taken) continue;
+      return prisma.course.update({
+        where: { id: courseId },
+        data: { activationCode: candidate },
+        select: { id: true, activationCode: true },
+      });
+    }
+    throw new AppError('Could not generate a unique activation code', 500);
+  }
+
   // Generate slug from title
   private generateSlug(title: string): string {
     return title

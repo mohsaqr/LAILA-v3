@@ -11,6 +11,8 @@ import {
   Pencil,
   Globe,
   FileEdit,
+  Copy,
+  RefreshCw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../api/courses';
@@ -86,6 +88,23 @@ export const CourseDetails = () => {
   const { data: course, isLoading } = useQuery({
     queryKey: ['course', id],
     queryFn: () => coursesApi.getCourseById(parseInt(id!)),
+  });
+
+  const regenerateCodeMutation = useMutation({
+    mutationFn: () => coursesApi.regenerateActivationCode(parseInt(id!)),
+    onSuccess: data => {
+      toast.success(
+        t('course_code_regenerated', {
+          code: data.activationCode,
+          defaultValue: `New course code: ${data.activationCode}`,
+        })
+      );
+      queryClient.invalidateQueries({ queryKey: ['course', id] });
+    },
+    onError: (e: any) =>
+      toast.error(e?.response?.data?.error ?? t('course_code_regenerate_failed', {
+        defaultValue: 'Could not issue a new code',
+      })),
   });
 
   const enrollMutation = useMutation({
@@ -404,6 +423,50 @@ export const CourseDetails = () => {
                       <GraduationCap className="w-4 h-4" strokeWidth={2.25} />
                       {t('sign_in_to_enroll')}
                     </Link>
+                  )}
+                  {canManage && (course as any)?.activationCode && (
+                    // The join code, shown where the person who hands it out
+                    // actually is. The API sends it only to instructors/admins.
+                    <span className="inline-flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const code = (course as any).activationCode as string;
+                          navigator.clipboard?.writeText(code).then(
+                            () => toast.success(t('course_code_copied', { defaultValue: `Copied ${code}` })),
+                            () => toast.error(t('copy_failed', { defaultValue: 'Copy failed' })),
+                          );
+                        }}
+                        title={t('course_code_copy', { defaultValue: 'Copy course code' })}
+                        className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold font-mono tracking-widest transition-all hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+                        style={{
+                          backgroundColor: isDark ? 'rgba(8,143,143,0.18)' : '#ccfbfb',
+                          color: isDark ? '#22d3d3' : '#065c5c',
+                        }}
+                      >
+                        {(course as any).activationCode}
+                        <Copy className="w-3.5 h-3.5" aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Destructive to anyone holding the old code, so it asks.
+                          if (!window.confirm(t('course_code_regenerate_confirm', {
+                            defaultValue: 'Issue a new course code? The current one will stop working immediately.',
+                          }))) return;
+                          regenerateCodeMutation.mutate();
+                        }}
+                        disabled={regenerateCodeMutation.isPending}
+                        title={t('course_code_regenerate', { defaultValue: 'New course code' })}
+                        className="p-1.5 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+                        style={{ color: isDark ? '#9ca3af' : '#6b7280' }}
+                      >
+                        <RefreshCw
+                          className={`w-4 h-4 ${regenerateCodeMutation.isPending ? 'animate-spin' : ''}`}
+                          aria-hidden="true"
+                        />
+                      </button>
+                    </span>
                   )}
                   {canManage && (
                     <>

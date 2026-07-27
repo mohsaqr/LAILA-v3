@@ -110,6 +110,14 @@ export const coursesApi = {
     return response.data.data!;
   },
 
+  // Issue a new activation code; the one already handed out stops working.
+  regenerateActivationCode: async (id: number) => {
+    const response = await apiClient.post<ApiResponse<{ id: number; activationCode: string }>>(
+      `/courses/${id}/regenerate-code`
+    );
+    return response.data.data!;
+  },
+
   getCourseStudents: async (id: number) => {
     const response = await apiClient.get<ApiResponse<any[]>>(`/courses/${id}/students`);
     return response.data.data!;

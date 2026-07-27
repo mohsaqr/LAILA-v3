@@ -883,5 +883,6 @@
   "invite_status_pending": "Pending",
   "invite_status_used": "Used",
   "invite_status_expired": "Expired",
-  "invite_status_revoked": "Revoked"
+  "invite_status_revoked": "Revoked",
+  "invite": "Invite"
 }
