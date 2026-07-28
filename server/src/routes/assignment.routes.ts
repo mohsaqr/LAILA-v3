@@ -70,11 +70,14 @@ router.delete('/:id', authenticateToken, requireInstructor, asyncHandler(async (
 
 // ============= ATTACHMENTS =============
 
-// Get attachments for an assignment
+// Get attachments for an assignment. Routed through getAssignmentById so the
+// same enrollment/publish/availability gate applies — getAttachments took only
+// an id and checked nothing, exposing instructor material (solution files) by
+// id to any authenticated user.
 router.get('/:id/attachments', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = parseInt(req.params.id);
-  const attachments = await assignmentService.getAttachments(id);
-  res.json({ success: true, data: attachments });
+  const assignment = await assignmentService.getAssignmentById(id, req.user!.id, req.user!.isInstructor, req.user!.isAdmin);
+  res.json({ success: true, data: assignment.attachments ?? [] });
 }));
 
 // Add attachment to an assignment

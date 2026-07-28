@@ -196,7 +196,9 @@ describe('CourseRoleService', () => {
       expect(result).toBe(true);
     });
 
-    it('should allow team member with manage_students permission', async () => {
+    it('does NOT let a manage_students team member manage staff roles (self-escalation guard)', async () => {
+      // manage_students governs student enrolment, not staff role assignment —
+      // otherwise a TA could grant themselves course_admin.
       vi.mocked(prisma.course.findUnique).mockResolvedValue({ id: 1, instructorId: 99 } as any);
       vi.mocked(prisma.courseRole.findUnique).mockResolvedValue({
         id: 1,
@@ -204,7 +206,7 @@ describe('CourseRoleService', () => {
       } as any);
 
       const result = await courseRoleService.canManageRoles(5, 1, false);
-      expect(result).toBe(true);
+      expect(result).toBe(false);
     });
 
     it('should deny team member without manage_students permission', async () => {

@@ -93,6 +93,19 @@ export class CourseService {
       + '-' + Date.now().toString(36);
   }
 
+  /**
+   * Drop the activation code from a course payload and expose only whether one
+   * exists. A course code is a signup sponsorship (courseCodeSignup.service):
+   * anyone holding it can enrol AND, in invite_only/approval registration modes,
+   * self-register bypassing the approval queue — so it must never reach a viewer
+   * who is not the course's own staff. Public catalog and slug lookups run this;
+   * GET /:id does the equivalent inline for its authenticated viewers.
+   */
+  private stripActivationCode<T extends { activationCode?: string | null }>(course: T) {
+    const { activationCode, ...rest } = course;
+    return { ...rest, hasActivationCode: !!activationCode };
+  }
+
   async getCourses(filters: CourseFilters, page = 1, limit = 10) {
     const where: any = {
       status: 'published',
@@ -132,7 +145,7 @@ export class CourseService {
     ]);
 
     return {
-      courses,
+      courses: courses.map((c) => this.stripActivationCode(c)),
       pagination: {
         page,
         limit,
@@ -313,7 +326,7 @@ export class CourseService {
     // First, get the course without status filter to check ownership
     const course = await prisma.course.findUnique({
       where: { id },
-      select: { id: true, instructorId: true, status: true },
+      select: { id: true, instructorId: true, status: true, isPublic: true },
     });
 
     if (!course) {
@@ -337,6 +350,21 @@ export class CourseService {
     // If course is unpublished and user doesn't have access, throw 404
     if (course.status !== 'published' && !includeUnpublished) {
       throw new AppError('Course not found', 404);
+    }
+
+    // A published-but-private (restricted) course is hidden from non-staff who
+    // are not enrolled — otherwise its details are readable by anyone who
+    // iterates course ids. Staff (includeUnpublished) always see it.
+    if (course.status === 'published' && course.isPublic === false && !includeUnpublished) {
+      const enrolled = userId
+        ? await prisma.enrollment.findUnique({
+            where: { userId_courseId: { userId, courseId: id } },
+            select: { id: true },
+          })
+        : null;
+      if (!enrolled) {
+        throw new AppError('Course not found', 404);
+      }
     }
 
     return this.getCourseById(id, includeUnpublished);
@@ -443,13 +471,18 @@ export class CourseService {
 
     if (!result) throw new AppError('Course not found', 404);
 
-    // Access check
-    let canSeeUnpublished = isAdmin || (isInstructor && result.instructorId === userId);
-    if (!canSeeUnpublished && isInstructor) {
+    // Access check. This payload is the curriculum editor's data — it carries
+    // unpublished modules/lectures/quizzes, every section's chatbotSystemPrompt,
+    // and each courseTutor's chatbot.systemPrompt. Only staff OF THIS COURSE may
+    // see it. Previously the flag gated only the unpublished-course 404, so any
+    // instructor could pull another course's prompts and drafts by id. The
+    // global isInstructor flag alone is not enough — ownership/team/admin is.
+    let isCourseStaff = isAdmin || (isInstructor && result.instructorId === userId);
+    if (!isCourseStaff && isInstructor) {
       const isTeam = await courseRoleService.isTeamMember(userId, id);
-      if (isTeam) canSeeUnpublished = true;
+      if (isTeam) isCourseStaff = true;
     }
-    if (result.status !== 'published' && !canSeeUnpublished) {
+    if (!isCourseStaff) {
       throw new AppError('Course not found', 404);
     }
 
@@ -558,7 +591,9 @@ export class CourseService {
       throw new AppError('Course not found', 404);
     }
 
-    // Return full course with appropriate visibility
+    // Return full course with appropriate visibility. includeUnpublished is
+    // exactly "viewer is this course's owner / admin / team member", so it
+    // doubles as the gate for revealing the activation code.
     if (includeUnpublished) {
       return prisma.course.findUnique({
         where: { slug },
@@ -590,7 +625,8 @@ export class CourseService {
       });
     }
 
-    return this.getCourseBySlug(slug);
+    const publicCourse = await this.getCourseBySlug(slug);
+    return this.stripActivationCode(publicCourse);
   }
 
   async createCourse(instructorId: number, data: CreateCourseInput, context?: SystemEventContext) {

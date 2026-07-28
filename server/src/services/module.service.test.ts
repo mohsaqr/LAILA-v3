@@ -7,6 +7,7 @@ vi.mock('../utils/prisma.js', () => ({
   default: {
     course: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
     courseModule: {
       findMany: vi.fn(),
@@ -70,7 +71,15 @@ describe('ModuleService', () => {
   // ===========================================================================
 
   describe('getModules', () => {
-    it('should return modules for instructor', async () => {
+    beforeEach(() => {
+      // Default: caller does not own the course (owner check returns null).
+      vi.mocked(prisma.course.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.courseRole.findUnique).mockResolvedValue(null);
+    });
+
+    it('should return all modules for the course owner', async () => {
+      // userId 1 owns course 1 → isCourseStaff, no enrollment needed.
+      vi.mocked(prisma.course.findFirst).mockResolvedValue({ id: 1 } as any);
       vi.mocked(prisma.courseModule.findMany).mockResolvedValue([mockModule] as any);
 
       const result = await moduleService.getModules(1, 1, true, false);
@@ -81,6 +90,14 @@ describe('ModuleService', () => {
         orderBy: { orderIndex: 'asc' },
         include: expect.any(Object),
       });
+    });
+
+    it('does NOT grant a global instructor of another course staff access', async () => {
+      // userId 2 is a global instructor but not owner/team of course 1.
+      vi.mocked(prisma.course.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null);
+
+      await expect(moduleService.getModules(1, 2, true, false)).rejects.toThrow('You must be enrolled');
     });
 
     it('should return modules for admin', async () => {

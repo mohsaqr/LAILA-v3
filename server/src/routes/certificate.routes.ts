@@ -86,8 +86,8 @@ router.post('/issue', authenticateToken, requireInstructor, asyncHandler(async (
 
   const certificate = await certificateService.issueCertificate(
     data,
-    user.isAdmin,
-    user.isInstructor
+    user.id,
+    user.isAdmin
   );
   res.status(201).json({ success: true, data: certificate });
 }));

@@ -24,6 +24,7 @@ vi.mock('../utils/prisma.js', () => ({
     },
     course: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
     assignmentAttachment: {
       findMany: vi.fn(),
@@ -96,7 +97,13 @@ describe('AssignmentService', () => {
   });
 
   describe('getAssignments', () => {
-    it('should return all assignments for instructor', async () => {
+    beforeEach(() => {
+      // Default: caller neither owns the course nor holds a course role.
+      vi.mocked(prisma.course.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.courseRole.findUnique).mockResolvedValue(null);
+    });
+
+    it('should return all assignments (incl. drafts) for the course owner', async () => {
       const mockAssignments = [
         {
           id: 1,
@@ -114,6 +121,8 @@ describe('AssignmentService', () => {
         },
       ];
 
+      // userId 10 owns course 1 → staff, sees drafts, no publish filter.
+      vi.mocked(prisma.course.findFirst).mockResolvedValue({ id: 1 } as any);
       vi.mocked(prisma.assignment.findMany).mockResolvedValue(mockAssignments as any);
 
       const result = await assignmentService.getAssignments(1, 10, true, false);
@@ -123,6 +132,16 @@ describe('AssignmentService', () => {
         expect.objectContaining({
           where: { courseId: 1 },
         })
+      );
+    });
+
+    it('does NOT let a global instructor of another course see drafts', async () => {
+      // userId 99 is a global instructor but not owner/team of course 1.
+      vi.mocked(prisma.course.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null);
+
+      await expect(assignmentService.getAssignments(1, 99, true, false)).rejects.toThrow(
+        'You must be enrolled in this course to view assignments'
       );
     });
 
@@ -491,13 +510,20 @@ describe('AssignmentService', () => {
   // ===========================================================================
 
   describe('getAssignmentById', () => {
+    // instructorId 10 owns the course; isPublished so an enrolled student may see it.
     const mockAssignment = {
       id: 1,
       title: 'Test Assignment',
       courseId: 1,
+      isPublished: true,
       course: { id: 1, title: 'Test Course', instructorId: 10 },
       module: { id: 1, title: 'Module 1' },
     };
+
+    beforeEach(() => {
+      vi.mocked(prisma.courseRole.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null);
+    });
 
     it('should return assignment without user submission', async () => {
       vi.mocked(prisma.assignment.findUnique).mockResolvedValue(mockAssignment as any);
@@ -508,30 +534,54 @@ describe('AssignmentService', () => {
       expect((result as any).mySubmission).toBeUndefined();
     });
 
-    it('should return assignment with user submission when userId provided', async () => {
+    it('should return assignment with user submission (owner viewing)', async () => {
       vi.mocked(prisma.assignment.findUnique).mockResolvedValue(mockAssignment as any);
       vi.mocked(prisma.assignmentSubmission.findUnique).mockResolvedValue({
         id: 1,
         assignmentId: 1,
-        userId: 20,
+        userId: 10,
         content: 'My work',
         status: 'submitted',
       } as any);
 
-      const result = await assignmentService.getAssignmentById(1, 20);
+      // Owner (id 10) bypasses the enrollment gate; submission inclusion works.
+      const result = await assignmentService.getAssignmentById(1, 10);
 
       expect(result.title).toBe('Test Assignment');
       expect((result as any).mySubmission.content).toBe('My work');
     });
 
-    it('should return null submission when user has no submission', async () => {
+    it('lets an enrolled student read a published assignment', async () => {
       vi.mocked(prisma.assignment.findUnique).mockResolvedValue(mockAssignment as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue({ id: 99 } as any);
       vi.mocked(prisma.assignmentSubmission.findUnique).mockResolvedValue(null);
 
       const result = await assignmentService.getAssignmentById(1, 20);
 
       expect(result.title).toBe('Test Assignment');
       expect((result as any).mySubmission).toBeNull();
+    });
+
+    it('rejects a non-enrolled, non-staff user (IDOR guard)', async () => {
+      vi.mocked(prisma.assignment.findUnique).mockResolvedValue(mockAssignment as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null);
+
+      await expect(assignmentService.getAssignmentById(1, 20)).rejects.toThrow(/must be enrolled/i);
+    });
+
+    it('hides an unpublished assignment from an enrolled student as 404', async () => {
+      vi.mocked(prisma.assignment.findUnique).mockResolvedValue({ ...mockAssignment, isPublished: false } as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue({ id: 99 } as any);
+
+      await expect(assignmentService.getAssignmentById(1, 20)).rejects.toThrow('Assignment not found');
+    });
+
+    it('does not treat a global instructor of another course as staff', async () => {
+      vi.mocked(prisma.assignment.findUnique).mockResolvedValue({ ...mockAssignment, isPublished: false } as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null);
+
+      // isInstructor=true but they are not owner/team of course 1 → gated.
+      await expect(assignmentService.getAssignmentById(1, 20, true, false)).rejects.toThrow(/must be enrolled/i);
     });
 
     it('should throw 404 when assignment not found', async () => {

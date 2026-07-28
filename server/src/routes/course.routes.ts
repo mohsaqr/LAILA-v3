@@ -335,6 +335,13 @@ router.delete('/attachments/:attachmentId', authenticateToken, requireInstructor
 // Get lecture sections
 router.get('/lectures/:lectureId/sections', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const lectureId = parseInt(req.params.lectureId);
+  // Sections carry the same protected bodies as the lecture (content, file
+  // URLs, chatbot system prompts, the joined assignment). getSections took only
+  // a lecture id and checked nothing, so any authenticated user could read the
+  // sections of any unpublished lecture in any course. Reuse the lecture's own
+  // publish/enrollment/availability gate — it throws 403/404 when the caller
+  // may not see the lecture.
+  await lectureService.getLectureById(lectureId, req.user!.id, req.user!.isAdmin);
   const sections = await sectionService.getSections(lectureId);
   res.json({ success: true, data: sections });
 }));

@@ -119,7 +119,7 @@ export class CodeLabService {
   /**
    * Get all code labs for a module (with enrollment check)
    */
-  async getCodeLabsForModule(moduleId: number, userId?: number, isInstructor = false, isAdmin = false) {
+  async getCodeLabsForModule(moduleId: number, userId?: number, _isInstructor = false, isAdmin = false) {
     // Get the module to find the course
     const module = await prisma.courseModule.findUnique({
       where: { id: moduleId },
@@ -130,27 +130,23 @@ export class CodeLabService {
       throw new AppError('Module not found', 404);
     }
 
-    // Check authorization: admins and instructors have access, students need enrollment
-    let isTeam = false;
-    if (userId && !isAdmin && !isInstructor) {
-      isTeam = await courseRoleService.isTeamMember(userId, module.course.id);
-      if (!isTeam) {
-        const enrollment = await prisma.enrollment.findUnique({
-          where: {
-            userId_courseId: { userId, courseId: module.course.id },
-          },
-        });
+    // Staff of THIS course see drafts; the global isInstructor flag is not
+    // trusted (an instructor of another course must be enrolled and sees only
+    // published, in-window labs).
+    const isCourseStaff = await courseRoleService.isCourseStaff(userId, module.course.id, isAdmin);
+    if (userId && !isCourseStaff) {
+      const enrollment = await prisma.enrollment.findUnique({
+        where: {
+          userId_courseId: { userId, courseId: module.course.id },
+        },
+      });
 
-        if (!enrollment) {
-          throw new AppError('You must be enrolled in this course to view code labs', 403);
-        }
+      if (!enrollment) {
+        throw new AppError('You must be enrolled in this course to view code labs', 403);
       }
     }
 
-    // Students only see published, in-window labs; staff (admin/instructor/
-    // team) see drafts too. Mirrors getModuleForums and getCodeLabById, which
-    // otherwise this list-view bypassed entirely (leaking draft/staged labs).
-    const canViewUnpublished = isAdmin || isInstructor || isTeam;
+    const canViewUnpublished = isCourseStaff;
 
     const codeLabs = await prisma.codeLab.findMany({
       where: {
@@ -192,42 +188,42 @@ export class CodeLabService {
       throw new AppError('Code Lab not found', 404);
     }
 
-    // Check if user has access (enrolled, instructor, or admin)
+    // Access check. A code lab carries instructions/starterCode — i.e. the
+    // worked solution — so a by-id fetch must be gated. Only a platform admin
+    // sees any lab; the GLOBAL isInstructor flag is NOT trusted (an instructor
+    // of another course was previously handed every course's lab). Course
+    // owner/team bypass enrollment + window; everyone else must be an enrolled
+    // student and the lab published and in-window.
     if (userId) {
-      // Check if user is admin or instructor (they have access to all courses)
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { isAdmin: true, isInstructor: true },
+        select: { isAdmin: true },
       });
 
-      if (user?.isAdmin || user?.isInstructor) {
-        // Admins and instructors have access to all code labs
-        return codeLab;
-      }
+      if (!user?.isAdmin) {
+        const courseId = codeLab.module.course.id;
+        const isOwner = codeLab.module.course.instructorId === userId;
+        const isTeam = isOwner ? true : await courseRoleService.isTeamMember(userId, courseId);
 
-      const courseId = codeLab.module.course.id;
-
-      // Course owners and team members bypass enrollment + the availability window.
-      const isOwner = codeLab.module.course.instructorId === userId;
-      const isTeam = isOwner ? true : await courseRoleService.isTeamMember(userId, courseId);
-
-      if (!isOwner && !isTeam) {
-        // For regular students, check enrollment
-        const enrollment = await prisma.enrollment.findUnique({
-          where: {
-            userId_courseId: {
-              userId,
-              courseId,
+        if (!isOwner && !isTeam) {
+          const enrollment = await prisma.enrollment.findUnique({
+            where: {
+              userId_courseId: {
+                userId,
+                courseId,
+              },
             },
-          },
-        });
+          });
 
-        if (!enrollment) {
-          throw new AppError('You must be enrolled to access this Code Lab', 403);
+          if (!enrollment) {
+            throw new AppError('You must be enrolled to access this Code Lab', 403);
+          }
+          if (!codeLab.isPublished) {
+            throw new AppError('Code Lab not found', 404);
+          }
+          // Enrolled non-staff student: enforce the instructor-scheduled window.
+          assertWithinAvailability(codeLab, 'Code Lab');
         }
-
-        // Enrolled non-staff student: enforce the instructor-scheduled window.
-        assertWithinAvailability(codeLab, 'Code Lab');
       }
     }
 

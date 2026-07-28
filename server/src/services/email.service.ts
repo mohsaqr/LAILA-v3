@@ -4,6 +4,12 @@ import { createLogger } from '../utils/logger.js';
 
 const emailLogger = createLogger('email');
 
+// Lifetime of a signup verification code. Owned here because the email copy
+// below states it; auth.service derives the stored expiresAt from it so the
+// database and the message can never disagree.
+export const VERIFICATION_CODE_TTL_MINUTES = 10;
+export const VERIFICATION_CODE_TTL_MS = VERIFICATION_CODE_TTL_MINUTES * 60 * 1000;
+
 interface EmailOptions {
   to: string;
   subject: string;
@@ -82,9 +88,13 @@ export class EmailService {
     try {
       const fromName = process.env.EMAIL_FROM_NAME || 'LAILA LMS';
       const fromEmail = process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.SMTP_USER;
+      // SMTP_FROM may already be a full mailbox ("LAILA <addr>"). Wrapping it
+      // again nests the angle brackets and Gmail renders the sender mangled,
+      // as `LAILA LMS> <addr>` — so only add a display name to a bare address.
+      const from = fromEmail?.includes('<') ? fromEmail : `"${fromName}" <${fromEmail}>`;
 
       await this.transporter.sendMail({
-        from: `"${fromName}" <${fromEmail}>`,
+        from,
         to: options.to,
         subject: options.subject,
         text: options.text,
@@ -446,7 +456,7 @@ export class EmailService {
     return this.sendEmail({
       to: email,
       subject: `${code} is your verification code`,
-      text: `Hi ${fullname},\n\nYour verification code is: ${code}\n\nThis code will expire in 2 minutes.\n\nIf you didn't request this, you can safely ignore this email.\n\nBest,\n${appName}`,
+      text: `Hi ${fullname},\n\nYour verification code is: ${code}\n\nThis code will expire in ${VERIFICATION_CODE_TTL_MINUTES} minutes.\n\nIf you didn't request this, you can safely ignore this email.\n\nBest,\n${appName}`,
       html: this.wrapInTemplate(`
         <h2>Verify Your Email</h2>
         <p>Hi ${fullname},</p>
@@ -454,7 +464,7 @@ export class EmailService {
         <div style="text-align: center; margin: 30px 0;">
           <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; background: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 12px; padding: 16px 32px; display: inline-block;">${code}</span>
         </div>
-        <p>This code will expire in <strong>2 minutes</strong>.</p>
+        <p>This code will expire in <strong>${VERIFICATION_CODE_TTL_MINUTES} minutes</strong>.</p>
         <p><small>If you didn't request this, you can safely ignore this email.</small></p>
       `, fullname),
     });

@@ -661,7 +661,39 @@ class ActivityLogService {
   /**
    * Get filter options for dropdowns (users, courses, verbs, objectTypes)
    */
-  async getFilterOptions(options?: { courseId?: number; instructorId?: number; isAdmin?: boolean }) {
+  async getFilterOptions(options?: { courseId?: number; instructorId?: number; isAdmin?: boolean; restrictToUserId?: number }) {
+    // A student may only ever see themselves in the user dropdown. Without this
+    // the fall-through below built the list from a distinct scan of the WHOLE
+    // activity log (or a whole course roster) — names AND emails — handing any
+    // student the platform user directory. The caller passes their own id here.
+    if (options?.restrictToUserId) {
+      const own = { userId: options.restrictToUserId } as const;
+      const [self, courses, verbs, objectTypes] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: options.restrictToUserId },
+          select: { id: true, fullname: true, email: true },
+        }),
+        prisma.learningActivityLog.findMany({
+          where: { ...own, courseId: { not: null } },
+          select: { courseId: true, courseTitle: true },
+          distinct: ['courseId'],
+          orderBy: { courseTitle: 'asc' },
+        }),
+        prisma.learningActivityLog.groupBy({
+          by: ['verb'], where: own, _count: { id: true }, orderBy: { verb: 'asc' },
+        }),
+        prisma.learningActivityLog.groupBy({
+          by: ['objectType'], where: own, _count: { id: true }, orderBy: { objectType: 'asc' },
+        }),
+      ]);
+      return {
+        users: self ? [self] : [],
+        courses: courses.filter(c => c.courseId !== null).map(c => ({ id: c.courseId, title: c.courseTitle })),
+        verbs: verbs.map(v => ({ verb: v.verb, count: v._count.id })),
+        objectTypes: objectTypes.map(o => ({ objectType: o.objectType, count: o._count.id })),
+      };
+    }
+
     // Build course filter for instructors (only their own courses)
     let courseWhere: any = { courseId: { not: null } };
     let courseIds: number[] | undefined;

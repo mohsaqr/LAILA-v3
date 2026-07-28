@@ -25,6 +25,7 @@ vi.mock('../utils/prisma.js', () => ({
 vi.mock('./courseRole.service.js', () => ({
   courseRoleService: {
     isTeamMember: vi.fn(),
+    isCourseStaff: vi.fn(),
     // Mutation guards now route through canEditContent (folds in owner+admin).
     canEditContent: vi.fn().mockResolvedValue(true),
     canGrade: vi.fn().mockResolvedValue(true),
@@ -46,10 +47,10 @@ describe('CodeLabService - getCodeLabsForModule publish/availability gate', () =
   });
 
   it('restricts an enrolled student to published, in-window labs', async () => {
-    vi.mocked(courseRoleService.isTeamMember).mockResolvedValue(false);
+    vi.mocked(courseRoleService.isCourseStaff).mockResolvedValue(false);
     vi.mocked(prisma.enrollment.findUnique).mockResolvedValue({ id: 1 } as any);
 
-    // userId set, not admin, not instructor -> student path.
+    // userId set, not staff of this course -> student path.
     await codeLabService.getCodeLabsForModule(5, 99, false, false);
 
     expect(prisma.codeLab.findMany).toHaveBeenCalledWith(
@@ -59,20 +60,23 @@ describe('CodeLabService - getCodeLabsForModule publish/availability gate', () =
     );
   });
 
-  it('lets an instructor see drafts (no isPublished filter)', async () => {
-    await codeLabService.getCodeLabsForModule(5, 1, true, false);
+  it('does NOT let a global instructor of another course see drafts', async () => {
+    // Not staff of this course; the global isInstructor flag no longer grants it.
+    vi.mocked(courseRoleService.isCourseStaff).mockResolvedValue(false);
+    vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null);
+
+    await expect(codeLabService.getCodeLabsForModule(5, 99, true, false)).rejects.toThrow(
+      /must be enrolled/i,
+    );
+  });
+
+  it('lets course staff (owner/team) see drafts (no isPublished filter)', async () => {
+    vi.mocked(courseRoleService.isCourseStaff).mockResolvedValue(true);
+
+    await codeLabService.getCodeLabsForModule(5, 1, false, false);
 
     const call = vi.mocked(prisma.codeLab.findMany).mock.calls[0][0] as any;
     expect(call.where.moduleId).toBe(5);
-    expect(call.where.isPublished).toBeUndefined();
-  });
-
-  it('lets a team member see drafts (no isPublished filter)', async () => {
-    vi.mocked(courseRoleService.isTeamMember).mockResolvedValue(true);
-
-    await codeLabService.getCodeLabsForModule(5, 50, false, false);
-
-    const call = vi.mocked(prisma.codeLab.findMany).mock.calls[0][0] as any;
     expect(call.where.isPublished).toBeUndefined();
   });
 });

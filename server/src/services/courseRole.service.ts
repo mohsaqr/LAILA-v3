@@ -344,6 +344,24 @@ export class CourseRoleService {
     return !!role;
   }
 
+  /**
+   * Staff OF THIS COURSE: platform admin, the course owner, or any team member.
+   * This is the canonical "may see unpublished content of this course" check for
+   * READ endpoints — use it instead of the caller's GLOBAL isInstructor flag,
+   * which is true for instructors of OTHER courses and must not grant access
+   * here. (For write guards prefer the permission-aware canEditContent/canGrade.)
+   */
+  async isCourseStaff(userId: number | undefined, courseId: number, isAdmin = false): Promise<boolean> {
+    if (isAdmin) return true;
+    if (!userId) return false;
+    const owns = await prisma.course.findFirst({
+      where: { id: courseId, instructorId: userId },
+      select: { id: true },
+    });
+    if (owns) return true;
+    return this.isTeamMember(userId, courseId);
+  }
+
   // Permission-aware gates for MUTATIONS. Prefer these over isTeamMember when
   // guarding a write: isTeamMember is true for ANY role (including a bare TA),
   // whereas these enforce the granular per-role permission model. Each folds in
@@ -365,21 +383,22 @@ export class CourseRoleService {
     return this.hasPermission(userId, courseId, 'manage_students');
   }
 
-  // Check if user can manage course roles (instructor, admin, or team member with manage_students)
+  // Who may assign/edit/remove COURSE STAFF ROLES: the platform admin and the
+  // course owner ONLY. A team member holding `manage_students` was previously
+  // allowed here too, which let them grant themselves course_admin (or edit
+  // their own role) and escalate. manage_students governs STUDENT enrollment
+  // management, not staff role assignment.
   async canManageRoles(userId: number, courseId: number, isAdmin: boolean) {
     if (isAdmin) return true;
 
     const course = await prisma.course.findUnique({
       where: { id: courseId },
+      select: { instructorId: true },
     });
 
     if (!course) return false;
 
-    // Course owner instructor can manage roles
-    if (course.instructorId === userId) return true;
-
-    // Team members with manage_students permission can also manage roles
-    return this.hasPermission(userId, courseId, 'manage_students');
+    return course.instructorId === userId;
   }
 }
 

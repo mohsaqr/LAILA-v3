@@ -259,7 +259,7 @@ router.put(
       customPersonality,
       customTemperature,
       isActive,
-    }, userId);
+    }, userId, courseId);
 
     res.json({ success: true, data: tutor });
   })
@@ -288,7 +288,7 @@ router.delete(
       return;
     }
 
-    await courseTutorService.removeCourseTutor(tutorId, userId);
+    await courseTutorService.removeCourseTutor(tutorId, userId, courseId);
     res.json({ success: true, message: 'Tutor removed from course' });
   })
 );

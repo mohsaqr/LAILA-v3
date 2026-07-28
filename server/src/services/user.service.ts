@@ -105,6 +105,7 @@ export class UserService {
     }
 
     const updateData: any = {};
+    let revokeSessions = false;
 
     if (data.fullname) updateData.fullname = data.fullname;
     if (data.email && data.email !== user.email) {
@@ -114,12 +115,19 @@ export class UserService {
         throw new AppError('Email already in use', 400);
       }
       updateData.email = data.email;
+      // An email change alters the login identity; revoke existing sessions.
+      revokeSessions = true;
     }
     if (data.password) {
+      // A non-admin (self) MUST prove the current password, which this generic
+      // endpoint does not collect. Route self password changes through
+      // PUT /api/auth/password so a stolen token cannot silently seize the
+      // account. Admins may still reset a user's password here.
+      if (!isAdmin) {
+        throw new AppError('Use the change-password endpoint to update your password', 400);
+      }
       updateData.passwordHash = await bcrypt.hash(data.password, 10);
-      // A password change must invalidate existing sessions, matching every
-      // other password path — otherwise stolen tokens survive the reset.
-      updateData.tokenVersion = { increment: 1 };
+      revokeSessions = true;
     }
 
     // Only admins can change these
@@ -127,6 +135,28 @@ export class UserService {
       if (typeof data.isActive === 'boolean') updateData.isActive = data.isActive;
       if (typeof data.isInstructor === 'boolean') updateData.isInstructor = data.isInstructor;
       if (typeof data.isAdmin === 'boolean') updateData.isAdmin = data.isAdmin;
+
+      // Never let the last active admin be demoted or deactivated — it would
+      // lock everyone out of admin.
+      const removingAdmin = (data.isAdmin === false && user.isAdmin) || (data.isActive === false && user.isActive);
+      if (removingAdmin && user.isAdmin) {
+        const otherAdmins = await prisma.user.count({
+          where: { isAdmin: true, isActive: true, id: { not: id } },
+        });
+        if (otherAdmins === 0) {
+          throw new AppError('Cannot remove the last active administrator', 400);
+        }
+      }
+
+      // A role or activation change must invalidate the user's existing tokens,
+      // otherwise a demoted admin keeps isAdmin in their 30-day JWT.
+      if (typeof data.isAdmin === 'boolean' && data.isAdmin !== user.isAdmin) revokeSessions = true;
+      if (typeof data.isInstructor === 'boolean' && data.isInstructor !== user.isInstructor) revokeSessions = true;
+      if (typeof data.isActive === 'boolean' && data.isActive !== user.isActive) revokeSessions = true;
+    }
+
+    if (revokeSessions) {
+      updateData.tokenVersion = { increment: 1 };
     }
 
     const updated = await prisma.user.update({
@@ -143,7 +173,7 @@ export class UserService {
     });
 
     // Refresh cached status so a bumped tokenVersion / isActive takes effect now.
-    if (data.password || (isAdmin && typeof data.isActive === 'boolean')) {
+    if (revokeSessions) {
       invalidateUserStatusCache(id);
     }
 

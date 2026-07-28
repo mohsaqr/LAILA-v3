@@ -198,7 +198,14 @@ router.get(
   authenticateToken,
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const agents = await tutorService.getAvailableAgents();
-    res.json({ success: true, data: agents });
+    // A tutor's systemPrompt contains its rubric and guardrails ("never reveal
+    // the answer") — exactly what a student needs to jailbreak it. Staff may see
+    // it; students get the persona without the prompt.
+    const isStaff = req.user!.isAdmin || req.user!.isInstructor;
+    const data = isStaff
+      ? agents
+      : agents.map(({ systemPrompt, ...rest }) => rest);
+    res.json({ success: true, data });
   })
 );
 

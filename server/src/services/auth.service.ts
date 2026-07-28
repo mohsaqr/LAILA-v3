@@ -7,7 +7,7 @@ import { UserPayload } from '../types/index.js';
 import { learningAnalyticsService, AuthEventData } from './learningAnalytics.service.js';
 import { authLogger } from '../utils/logger.js';
 import { userService } from './user.service.js';
-import { emailService } from './email.service.js';
+import { emailService, VERIFICATION_CODE_TTL_MS } from './email.service.js';
 import { asRegistrationRole, registrationPolicyService } from './registrationPolicy.service.js';
 import { invitationService, type InvitationRecord } from './invitation.service.js';
 import {
@@ -23,6 +23,19 @@ import {
   type UserStatus,
 } from '../utils/userStatus.js';
 import crypto from 'crypto';
+
+/**
+ * Constant-time string comparison for secrets (verification codes). A plain
+ * `===` short-circuits on the first differing character, leaking match length
+ * through timing; timingSafeEqual does not. The length guard is required
+ * because timingSafeEqual throws on unequal-length buffers.
+ */
+function timingSafeEqualStr(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
 
 // Context for auth logging
 export interface AuthContext {
@@ -149,7 +162,7 @@ export class AuthService {
     const verification = decision.requiresEmailVerification
       ? {
           code: crypto.randomInt(100000, 999999).toString(),
-          expiresAt: new Date(Date.now() + 2 * 60 * 1000),
+          expiresAt: new Date(Date.now() + VERIFICATION_CODE_TTL_MS),
         }
       : null;
 
@@ -166,9 +179,9 @@ export class AuthService {
     // such fallback — its retry would need an invitation that is already
     // consumed — so there the code is written inside the transaction instead.
     if (verification && !invitation && !sponsorCourse) {
-      await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+      await prisma.verificationCode.deleteMany({ where: { userId: user.id, purpose: 'signup' } });
       await prisma.verificationCode.create({
-        data: { userId: user.id, code: verification.code, expiresAt: verification.expiresAt },
+        data: { userId: user.id, code: verification.code, purpose: 'signup', expiresAt: verification.expiresAt },
       });
     }
 
@@ -287,9 +300,9 @@ export class AuthService {
       }
 
       if (verification) {
-        await tx.verificationCode.deleteMany({ where: { userId: user.id } });
+        await tx.verificationCode.deleteMany({ where: { userId: user.id, purpose: 'signup' } });
         await tx.verificationCode.create({
-          data: { userId: user.id, code: verification.code, expiresAt: verification.expiresAt },
+          data: { userId: user.id, code: verification.code, purpose: 'signup', expiresAt: verification.expiresAt },
         });
       }
 
@@ -325,8 +338,17 @@ export class AuthService {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) throw new AppError('User not found', 404);
 
+    // A signup code confirms an unconfirmed account. Refusing an already-
+    // confirmed user closes the takeover path where an attacker triggers
+    // forgot-password for a live account and then brute-forces this endpoint
+    // to re-confirm it and mint a token.
+    if (user.isConfirmed) throw new AppError('Account is already verified', 400);
+
+    // Look the code up by purpose, NOT by value: matching on `code` would make
+    // a wrong guess indistinguishable from "no code" and leave nothing to count
+    // attempts against, so the 6-digit code could be brute-forced for free.
     const record = await prisma.verificationCode.findFirst({
-      where: { userId: user.id, code },
+      where: { userId: user.id, purpose: 'signup' },
     });
 
     if (!record) {
@@ -337,6 +359,11 @@ export class AuthService {
       // Expired — delete and reject
       await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
       throw new AppError('Verification code has expired', 400);
+    }
+
+    if (!timingSafeEqualStr(record.code, code)) {
+      await this.registerFailedCodeAttempt(record.id, user.id, record.attempts);
+      throw new AppError('Invalid verification code', 400);
     }
 
     // Confirm user and delete code
@@ -355,7 +382,7 @@ export class AuthService {
       },
     });
 
-    await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+    await prisma.verificationCode.deleteMany({ where: { userId: user.id, purpose: 'signup' } });
 
     // Proving you own the mailbox does not get you in on its own. Verification
     // and approval are independent gates and this path consulted only the
@@ -386,11 +413,11 @@ export class AuthService {
     if (user.isConfirmed) throw new AppError('User already verified', 400);
 
     const code = crypto.randomInt(100000, 999999).toString();
-    const expiresAt = new Date(Date.now() + 2 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + VERIFICATION_CODE_TTL_MS);
 
-    await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+    await prisma.verificationCode.deleteMany({ where: { userId: user.id, purpose: 'signup' } });
     await prisma.verificationCode.create({
-      data: { userId: user.id, code, expiresAt },
+      data: { userId: user.id, code, purpose: 'signup', expiresAt },
     });
 
     // Send verification email (non-blocking)
@@ -685,15 +712,16 @@ export class AuthService {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) throw new AppError('User not found', 404);
 
-    // Delete any existing verification codes for this user
-    await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+    // Clear only prior reset codes; a signup code the user is mid-verification
+    // on must survive.
+    await prisma.verificationCode.deleteMany({ where: { userId: user.id, purpose: 'reset' } });
 
     // Generate 6-digit verification code
     const code = crypto.randomInt(100000, 999999).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const expiresAt = new Date(Date.now() + VERIFICATION_CODE_TTL_MS);
 
     await prisma.verificationCode.create({
-      data: { userId: user.id, code, expiresAt },
+      data: { userId: user.id, code, purpose: 'reset', expiresAt },
     });
 
     // Send verification email (non-blocking)
@@ -714,7 +742,7 @@ export class AuthService {
     if (!user) throw new AppError('User not found', 404);
 
     const record = await prisma.verificationCode.findFirst({
-      where: { userId: user.id },
+      where: { userId: user.id, purpose: 'reset' },
     });
 
     if (!record) {
@@ -722,11 +750,11 @@ export class AuthService {
     }
 
     if (record.expiresAt < new Date()) {
-      await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+      await prisma.verificationCode.deleteMany({ where: { userId: user.id, purpose: 'reset' } });
       throw new AppError('Verification code has expired', 400);
     }
 
-    if (record.code !== code) {
+    if (!timingSafeEqualStr(record.code, code)) {
       await this.registerFailedCodeAttempt(record.id, user.id, record.attempts);
       throw new AppError('Invalid verification code', 400);
     }
@@ -752,7 +780,7 @@ export class AuthService {
     if (!user) throw new AppError('User not found', 404);
 
     const record = await prisma.verificationCode.findFirst({
-      where: { userId: user.id },
+      where: { userId: user.id, purpose: 'reset' },
     });
 
     if (!record) {
@@ -760,11 +788,11 @@ export class AuthService {
     }
 
     if (record.expiresAt < new Date()) {
-      await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+      await prisma.verificationCode.deleteMany({ where: { userId: user.id, purpose: 'reset' } });
       throw new AppError('Verification code has expired', 400);
     }
 
-    if (record.code !== code) {
+    if (!timingSafeEqualStr(record.code, code)) {
       await this.registerFailedCodeAttempt(record.id, user.id, record.attempts);
       throw new AppError('Invalid verification code', 400);
     }
@@ -772,11 +800,16 @@ export class AuthService {
     // Hash new password
     const passwordHash = await bcrypt.hash(newPassword, 10);
 
-    // Update user: new password, increment tokenVersion, reset lockout
+    // Update user: new password, increment tokenVersion, reset lockout.
+    // isConfirmed is set because completing a reset proves mailbox ownership —
+    // the same proof signup verification requires. Without it, resetting an
+    // unconfirmed account left it in a state login later rejects as "sign up
+    // again", stranding the account.
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
         passwordHash,
+        isConfirmed: true,
         tokenVersion: { increment: 1 },
         failedLoginAttempts: 0,
         lockedUntil: null,
@@ -794,7 +827,7 @@ export class AuthService {
     });
 
     // Delete the verification code
-    await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+    await prisma.verificationCode.deleteMany({ where: { userId: user.id, purpose: 'reset' } });
 
     // Invalidate user status cache
     invalidateUserStatusCache(user.id);

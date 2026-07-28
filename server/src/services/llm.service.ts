@@ -934,8 +934,38 @@ export class LLMService {
   // OLLAMA-SPECIFIC: LIST LOCAL MODELS
   // ===========================================================================
 
+  // These endpoints fetch a caller-supplied base URL server-side. They exist to
+  // reach LOCAL model runtimes (Ollama / LM Studio), so the URL is constrained
+  // to loopback + RFC1918 private ranges. Without this an admin could aim the
+  // server at any host — an SSRF into the internal network or a cloud metadata
+  // endpoint (169.254.169.254). Rejects non-http(s) schemes and public hosts.
+  private assertLocalLlmUrl(rawUrl: string): void {
+    let parsed: URL;
+    try {
+      parsed = new URL(rawUrl);
+    } catch {
+      throw new AppError('Invalid base URL', 400);
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new AppError('Base URL must be http(s)', 400);
+    }
+    const host = parsed.hostname.toLowerCase();
+    const isAllowed =
+      host === 'localhost' ||
+      host.endsWith('.local') ||
+      host === '::1' ||
+      /^127\./.test(host) ||
+      /^10\./.test(host) ||
+      /^192\.168\./.test(host) ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(host);
+    if (!isAllowed) {
+      throw new AppError('Base URL must point to a local or private-network host', 400);
+    }
+  }
+
   async getOllamaModels(baseUrl?: string): Promise<Array<{ name: string; size: number; modifiedAt: string }>> {
     const url = baseUrl || 'http://localhost:11434';
+    this.assertLocalLlmUrl(url);
 
     const response = await fetch(`${url}/api/tags`, {
       method: 'GET',
@@ -952,6 +982,7 @@ export class LLMService {
 
   async pullOllamaModel(modelName: string, baseUrl?: string): Promise<void> {
     const url = baseUrl || 'http://localhost:11434';
+    this.assertLocalLlmUrl(url);
 
     const response = await fetch(`${url}/api/pull`, {
       method: 'POST',
@@ -970,6 +1001,7 @@ export class LLMService {
 
   async getLMStudioModels(baseUrl?: string): Promise<Array<{ id: string; object: string }>> {
     const url = baseUrl || 'http://localhost:1234/v1';
+    this.assertLocalLlmUrl(url);
 
     const client = new OpenAI({
       apiKey: 'not-needed',

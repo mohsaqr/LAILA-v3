@@ -128,6 +128,11 @@ model VerificationCode {
   id        Int      @id @default(autoincrement())
   userId    Int      @map("user_id")
   code      String
+  // 'signup' (confirm a new account) or 'reset' (password reset). Both flows
+  // share this table; without this discriminator a reset code minted via
+  // forgot-password could be redeemed at /verify-code to confirm AND log in
+  // someone else's account. Every verifier filters on it.
+  purpose   String   @default("signup")
   expiresAt DateTime @map("expires_at")
   attempts  Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")

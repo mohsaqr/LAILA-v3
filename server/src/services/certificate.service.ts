@@ -2,6 +2,7 @@ import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { createLogger } from '../utils/logger.js';
 import { notificationService } from './notification.service.js';
+import { courseRoleService } from './courseRole.service.js';
 import crypto from 'crypto';
 
 const logger = createLogger('certificate');
@@ -417,7 +418,7 @@ class CertificateService {
     };
   }
 
-  async issueCertificate(data: CreateCertificateInput, isAdmin = false, isInstructor = false) {
+  async issueCertificate(data: CreateCertificateInput, callerId: number, isAdmin = false) {
     // Verify the user has completed the course
     const enrollment = await prisma.enrollment.findUnique({
       where: { userId_courseId: { userId: data.userId, courseId: data.courseId } },
@@ -442,10 +443,17 @@ class CertificateService {
       throw new AppError('User is not enrolled in this course', 400);
     }
 
-    // Check authorization
-    if (!isAdmin && enrollment.course.instructorId !== data.userId && !isInstructor) {
-      // Only instructors of the course or admins can issue certificates
-      throw new AppError('Not authorized to issue certificates', 403);
+    // Authorization. The previous check compared the course owner against the
+    // RECIPIENT (data.userId) and trusted the global isInstructor flag, so any
+    // instructor could issue any certificate — including enrolling in a course
+    // and issuing one to themselves. Gate on the CALLER: admin, the course's
+    // own instructor, or a team member with grade permission.
+    const isOwner = enrollment.course.instructorId === callerId;
+    if (!isAdmin && !isOwner) {
+      const canGrade = await courseRoleService.canGrade(callerId, data.courseId, isAdmin);
+      if (!canGrade) {
+        throw new AppError('Not authorized to issue certificates for this course', 403);
+      }
     }
 
     // Check if certificate already exists

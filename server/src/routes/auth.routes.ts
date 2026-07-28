@@ -7,7 +7,7 @@ import { authService, AuthContext } from '../services/auth.service.js';
 import { authenticateToken } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import { courseCodeLimiter } from '../middleware/rateLimit.middleware.js';
-import { registerSchema, loginSchema, updateProfileSchema } from '../utils/validation.js';
+import { registerSchema, loginSchema, updateProfileSchema, resetPasswordSchema, updatePasswordSchema } from '../utils/validation.js';
 import { AuthRequest } from '../types/index.js';
 import prisma from '../utils/prisma.js';
 
@@ -43,13 +43,15 @@ const avatarUpload = multer({
 
 const router = Router();
 
-// Helper to extract client info for logging
+// Helper to extract client info for logging.
+//
+// Use req.ip, NOT the first X-Forwarded-For entry. With `trust proxy: 1` set in
+// index.ts, Express derives req.ip from the hop nginx appends, which the client
+// cannot forge. Reading XFF[0] directly let an attacker send
+// `X-Forwarded-For: 8.8.8.8` and stamp every login_failure / register audit row
+// with a fake IP, poisoning brute-force forensics.
 function getClientIp(req: Request): string | undefined {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded) {
-    return (typeof forwarded === 'string' ? forwarded : forwarded[0]).split(',')[0].trim();
-  }
-  return req.socket.remoteAddress;
+  return req.ip;
 }
 
 function getAuthContext(req: Request): AuthContext {
@@ -84,6 +86,11 @@ router.post('/register', courseCodeLimiter, asyncHandler(async (req, res: Respon
   res.status(201).json({ success: true, data: result });
 }));
 
+// Same normalization the register/login zod schemas apply, for the endpoints
+// that read email straight off the body. A code is always looked up by the
+// stored (lowercased) address, so a mixed-case request must resolve to it.
+const normalizeEmail = (email: unknown) => String(email).trim().toLowerCase();
+
 // Verify activation code
 router.post('/verify-code', asyncHandler(async (req, res: Response) => {
   const { email, code } = req.body;
@@ -91,7 +98,7 @@ router.post('/verify-code', asyncHandler(async (req, res: Response) => {
     res.status(400).json({ success: false, error: 'email and code are required' });
     return;
   }
-  const result = await authService.verifyCode(String(email), String(code));
+  const result = await authService.verifyCode(normalizeEmail(email), String(code));
   res.json({ success: true, data: result });
 }));
 
@@ -102,7 +109,7 @@ router.post('/resend-code', asyncHandler(async (req, res: Response) => {
     res.status(400).json({ success: false, error: 'email is required' });
     return;
   }
-  const result = await authService.resendCode(String(email));
+  const result = await authService.resendCode(normalizeEmail(email));
   res.json({ success: true, data: result });
 }));
 
@@ -113,7 +120,7 @@ router.post('/forgot-password', asyncHandler(async (req, res: Response) => {
     res.status(400).json({ success: false, error: 'email is required' });
     return;
   }
-  const result = await authService.forgotPassword(String(email));
+  const result = await authService.forgotPassword(normalizeEmail(email));
   res.json({ success: true, data: result });
 }));
 
@@ -124,18 +131,16 @@ router.post('/verify-reset-code', asyncHandler(async (req, res: Response) => {
     res.status(400).json({ success: false, error: 'email and code are required' });
     return;
   }
-  const result = await authService.verifyResetCode(String(email), String(code));
+  const result = await authService.verifyResetCode(normalizeEmail(email), String(code));
   res.json({ success: true, data: result });
 }));
 
-// Reset password — verify code and set new password
+// Reset password — verify code and set new password. resetPasswordSchema
+// enforces strongPasswordSchema, so a reset cannot set a weaker password than
+// signup would allow (this used to be unvalidated).
 router.post('/reset-password', asyncHandler(async (req, res: Response) => {
-  const { email, code, newPassword } = req.body;
-  if (!email || !code || !newPassword) {
-    res.status(400).json({ success: false, error: 'email, code, and newPassword are required' });
-    return;
-  }
-  const result = await authService.resetPassword(String(email), String(code), String(newPassword));
+  const { email, code, newPassword } = resetPasswordSchema.parse(req.body);
+  const result = await authService.resetPassword(email, code, newPassword);
   res.json({ success: true, data: result });
 }));
 
@@ -153,9 +158,11 @@ router.get('/me', authenticateToken, asyncHandler(async (req: AuthRequest, res: 
   res.json({ success: true, data: user });
 }));
 
-// Update password
+// Update password. updatePasswordSchema enforces strongPasswordSchema on the
+// new password (previously this path only String()'d it, so an authenticated
+// user — or a stolen token — could set a 1-character password).
 router.put('/password', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { currentPassword, newPassword } = req.body;
+  const { currentPassword, newPassword } = updatePasswordSchema.parse(req.body);
   const context = getAuthContext(req);
   const result = await authService.updatePassword(req.user!.id, currentPassword, newPassword, context);
   res.json({ success: true, data: result });

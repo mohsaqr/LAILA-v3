@@ -242,8 +242,14 @@ router.get('/stats', authenticateToken, asyncHandler(async (req: AuthRequest, re
  */
 router.get('/filter-options', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const courseId = req.query.courseId ? parseInt(req.query.courseId as string) : undefined;
+  // A non-privileged user (student) is pinned to their own id via
+  // restrictToUserId, so the user dropdown — and the course/verb lists — are
+  // built only from their own activity, never the whole platform or an
+  // arbitrary course roster. Instructors/admins keep the course-scoped view.
+  const isPrivileged = req.user!.isAdmin || req.user!.isInstructor;
   const options = await activityLogService.getFilterOptions({
     courseId,
+    restrictToUserId: isPrivileged ? undefined : req.user!.id,
     instructorId: req.user!.isInstructor && !req.user!.isAdmin ? req.user!.id : undefined,
     isAdmin: req.user!.isAdmin,
   });

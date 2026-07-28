@@ -3,7 +3,6 @@ import { createServer } from 'http';
 import cors from 'cors';
 import compression from 'compression';
 import helmet from 'helmet';
-import session from 'express-session';
 import dotenv from 'dotenv';
 import path from 'path';
 import { readFileSync } from 'fs';
@@ -81,6 +80,12 @@ const APP_VERSION: string = (() => {
 
 // CORS configuration - supports multiple origins or wildcard
 const corsOrigin = process.env.CLIENT_URL || 'http://localhost:5174';
+// A reflect-any-origin CORS policy combined with credentials:true is unsafe in
+// production — any site could drive an authenticated cross-site request the
+// moment cookies enter the picture. Refuse to boot rather than run open.
+if (process.env.NODE_ENV === 'production' && corsOrigin === '*') {
+  throw new Error('CLIENT_URL="*" is not allowed in production; set explicit allowed origin(s)');
+}
 const corsOptions = {
   origin: corsOrigin === '*' ? true : corsOrigin.includes(',')
     ? corsOrigin.split(',').map(o => o.trim())
@@ -125,22 +130,32 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(requestLoggingMiddleware);
 app.use(slowRequestLoggingMiddleware(2000)); // Log requests slower than 2s
 
-// Validate required environment variables
+// Validate required environment variables. JWT_SECRET was previously enforced
+// only incidentally (by initSocket); check it here next to SESSION_SECRET so a
+// missing or placeholder signing key fails the boot loudly rather than minting
+// forgeable tokens.
 if (!process.env.SESSION_SECRET) {
   throw new Error('SESSION_SECRET environment variable is required');
 }
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
+if (process.env.NODE_ENV === 'production') {
+  const placeholders = ['your-super-secret-jwt-key-change-in-production', 'your-session-secret-change-in-production', 'changeme', 'secret'];
+  for (const [name, value] of [['JWT_SECRET', process.env.JWT_SECRET], ['SESSION_SECRET', process.env.SESSION_SECRET]] as const) {
+    if (value!.length < 32 || placeholders.includes(value!)) {
+      throw new Error(`${name} is too weak or is a placeholder; set a strong random value in production`);
+    }
+  }
+}
 
-// Session configuration
-app.use(session({
-  secret: process.env.SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-  },
-}));
+// NOTE: express-session was previously mounted here but nothing ever wrote to
+// req.session (auth is stateless Bearer JWT), so it set no cookie and did
+// nothing — removed to avoid a misleading "we have sessions/CSRF" posture for
+// whoever adds a cookie feature next. SESSION_SECRET is retained above because
+// it is the HMAC key for invitation codes (invitation.service), not a cookie
+// secret. If a real cookie/session is introduced later, add CSRF protection at
+// the same time.
 
 // Static files for uploads with security headers
 app.use('/uploads', (req, res, next) => {

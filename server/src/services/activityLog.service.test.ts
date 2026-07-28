@@ -685,6 +685,26 @@ describe('ActivityLogService', () => {
       expect(result.verbs).toHaveLength(1);
       expect(result.objectTypes).toHaveLength(1);
     });
+
+    it('restrictToUserId returns only that user, never the platform directory', async () => {
+      // The distinct-scan branch (which would leak every user's email) must not
+      // run; the user list is exactly the one requesting student.
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        id: 42, fullname: 'Only Me', email: 'me@test.com',
+      } as any);
+      vi.mocked(prisma.learningActivityLog.findMany).mockResolvedValue([] as any); // own courses
+      vi.mocked(prisma.learningActivityLog.groupBy)
+        .mockResolvedValueOnce([{ verb: 'viewed', _count: { id: 3 } }] as any)
+        .mockResolvedValueOnce([{ objectType: 'lecture', _count: { id: 2 } }] as any);
+
+      const result = await activityLogService.getFilterOptions({ restrictToUserId: 42, courseId: 999 });
+
+      expect(result.users).toEqual([{ id: 42, fullname: 'Only Me', email: 'me@test.com' }]);
+      // The enrollment/distinct-scan roster query is never issued for a student.
+      expect(prisma.learningActivityLog.findMany).toHaveBeenCalledTimes(1);
+      const call = vi.mocked(prisma.learningActivityLog.findMany).mock.calls[0][0] as any;
+      expect(call.where).toMatchObject({ userId: 42 });
+    });
   });
 
   // ===========================================================================

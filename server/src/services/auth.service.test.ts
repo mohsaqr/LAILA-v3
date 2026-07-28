@@ -27,6 +27,7 @@ vi.mock('../utils/prisma.js', () => ({
     verificationCode: {
       findFirst: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
       deleteMany: vi.fn(),
     },
     // register() consults the registration policy, which is stored here.
@@ -89,6 +90,7 @@ vi.mock('./email.service.js', () => ({
   emailService: {
     sendVerificationCode: vi.fn().mockResolvedValue(true),
   },
+  VERIFICATION_CODE_TTL_MS: 10 * 60 * 1000,
 }));
 
 import prisma from '../utils/prisma.js';
@@ -542,6 +544,72 @@ describe('AuthService', () => {
 
       expect(result.token).toBe('mock_jwt_token');
       expect(result.statusMessage).toBeNull();
+    });
+  });
+
+  describe('verifyCode brute-force and takeover defenses', () => {
+    beforeEach(() => {
+      vi.mocked(prisma.verificationCode.deleteMany).mockResolvedValue({ count: 1 } as any);
+      vi.mocked(prisma.verificationCode.update).mockResolvedValue({} as any);
+    });
+
+    it('refuses an already-confirmed account (blocks the forgot-password → verify-code takeover)', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        id: 1,
+        email: 'victim@example.com',
+        isConfirmed: true,
+      } as any);
+
+      await expect(authService.verifyCode('victim@example.com', '123456')).rejects.toThrow(
+        /already verified/i
+      );
+      // No confirmation, no token minting for a live account.
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('counts a wrong guess instead of letting the 6-digit code be brute-forced for free', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        id: 1,
+        email: 'test@example.com',
+        isConfirmed: false,
+      } as any);
+      vi.mocked(prisma.verificationCode.findFirst).mockResolvedValue({
+        id: 9,
+        userId: 1,
+        code: '123456',
+        attempts: 0,
+        purpose: 'signup',
+        expiresAt: new Date(Date.now() + 60_000),
+      } as any);
+
+      await expect(authService.verifyCode('test@example.com', '000000')).rejects.toThrow(
+        /invalid verification code/i
+      );
+      expect(prisma.verificationCode.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { attempts: { increment: 1 } } })
+      );
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('destroys the code after too many wrong guesses', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        id: 1,
+        email: 'test@example.com',
+        isConfirmed: false,
+      } as any);
+      vi.mocked(prisma.verificationCode.findFirst).mockResolvedValue({
+        id: 9,
+        userId: 1,
+        code: '123456',
+        attempts: 4, // one more failure crosses MAX_CODE_ATTEMPTS (5)
+        purpose: 'signup',
+        expiresAt: new Date(Date.now() + 60_000),
+      } as any);
+
+      await expect(authService.verifyCode('test@example.com', '000000')).rejects.toThrow(
+        /too many/i
+      );
+      expect(prisma.verificationCode.deleteMany).toHaveBeenCalled();
     });
   });
 

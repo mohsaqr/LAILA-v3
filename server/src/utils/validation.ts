@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AppError } from '../middleware/error.middleware.js';
 
 // =============================================================================
 // PAGINATION UTILITIES
@@ -18,6 +19,32 @@ export function parsePaginationLimit(limitParam: string | undefined, defaultLimi
   const parsed = parseInt(limitParam, 10);
   if (isNaN(parsed) || parsed < 1) return defaultLimit;
   return Math.min(parsed, MAX_PAGINATION_LIMIT);
+}
+
+/**
+ * Parse a positive-integer route/query param, throwing a clean 400 on anything
+ * that is not one. Many handlers did a bare `parseInt(req.params.id)` and passed
+ * the result straight into business logic; a non-numeric segment produced `NaN`,
+ * which is only sometimes caught downstream (the Prisma-validation backstop
+ * covers ids that reach Prisma, not NaN flowing into arithmetic/branching).
+ * `label` is used in the error message.
+ */
+export function parseIdParam(value: unknown, label = 'id'): number {
+  // Strict: reject anything that is not a whole positive integer. parseInt is
+  // deliberately NOT used on strings — it silently truncates "12abc" to 12 and
+  // "1.5" to 1, which is exactly the kind of sloppy id a guard should catch.
+  let n: number;
+  if (typeof value === 'number') {
+    n = value;
+  } else if (typeof value === 'string' && /^\d+$/.test(value.trim())) {
+    n = Number(value.trim());
+  } else {
+    throw new AppError(`Invalid ${label}`, 400);
+  }
+  if (!Number.isInteger(n) || n < 1) {
+    throw new AppError(`Invalid ${label}`, 400);
+  }
+  return n;
 }
 
 // Strong password validation
@@ -41,9 +68,20 @@ const strongPasswordSchema = z.string()
 // account", a course code is a teacher saying "you may join my course". Someone
 // can legitimately have both, and they govern different outcomes (role vs.
 // enrolment), so there is nothing to disambiguate.
+// Email is stored and compared verbatim against a case-sensitive unique index,
+// so it MUST be normalized at every entry point. Otherwise `Bob@x.com` and
+// `bob@x.com` are two accounts, and the rejected/pending re-registration guard
+// (which looks the address up) is bypassable by changing case. Invitations,
+// batch enrollment and domain matching already lowercase — this aligns signup
+// and login with them.
+const normalizedEmail = z
+  .string()
+  .email('Invalid email address')
+  .transform((e) => e.trim().toLowerCase());
+
 export const registerSchema = z.object({
   fullname: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
+  email: normalizedEmail,
   password: strongPasswordSchema,
   inviteToken: z.string().min(1).max(255).optional(),
   inviteCode: z.string().min(1).max(64).optional(),
@@ -67,8 +105,17 @@ export const updateProfileSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  email: normalizedEmail,
   password: z.string().min(1, 'Password is required'),
+});
+
+// Password reset: the code proves mailbox ownership, so no current password.
+// strongPasswordSchema is reused so a reset can't set a weaker password than
+// signup would accept.
+export const resetPasswordSchema = z.object({
+  email: normalizedEmail,
+  code: z.string().min(1, 'Verification code is required'),
+  newPassword: strongPasswordSchema,
 });
 
 export const updateUserSchema = z.object({

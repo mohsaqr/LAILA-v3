@@ -18,26 +18,26 @@ export interface EventContext {
 }
 
 export class AssignmentService {
-  async getAssignments(courseId: number, userId?: number, isInstructor = false, isAdmin = false) {
-    // Verify authorization: instructors/admins can access any course, students need enrollment
-    if (userId && !isInstructor && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(userId, courseId);
-      if (!isTeam) {
-        const enrollment = await prisma.enrollment.findUnique({
-          where: {
-            userId_courseId: { userId, courseId },
-          },
-        });
+  async getAssignments(courseId: number, userId?: number, _isInstructor = false, isAdmin = false) {
+    // Staff of THIS course see unpublished assignments; the global isInstructor
+    // flag is not trusted (an instructor of another course must be enrolled and
+    // sees only published ones).
+    const isCourseStaff = await courseRoleService.isCourseStaff(userId, courseId, isAdmin);
+    if (userId && !isCourseStaff) {
+      const enrollment = await prisma.enrollment.findUnique({
+        where: {
+          userId_courseId: { userId, courseId },
+        },
+      });
 
-        if (!enrollment) {
-          throw new AppError('You must be enrolled in this course to view assignments', 403);
-        }
+      if (!enrollment) {
+        throw new AppError('You must be enrolled in this course to view assignments', 403);
       }
     }
 
     const where: any = { courseId };
 
-    if (!isInstructor && !isAdmin) {
+    if (!isCourseStaff) {
       where.isPublished = true;
     }
 
@@ -55,7 +55,7 @@ export class AssignmentService {
     });
 
     // If student, include their submission status
-    if (userId && !isInstructor && !isAdmin) {
+    if (userId && !isCourseStaff) {
       const submissions = await prisma.assignmentSubmission.findMany({
         where: {
           userId,
@@ -137,13 +137,27 @@ export class AssignmentService {
       throw new AppError('Assignment not found', 404);
     }
 
-    // Non-staff enrolled students are gated by the instructor-scheduled
-    // availability window; owners / admins / global instructors / team members
-    // bypass it entirely.
-    if (userId && !isAdmin && !isInstructor) {
+    // Access gate for a by-id fetch. Only staff OF THIS COURSE (owner / team /
+    // admin) see it freely — the global isInstructor flag is deliberately not
+    // trusted, so an instructor of another course is an ordinary viewer here.
+    // Everyone else must be an enrolled student, the assignment must be
+    // published, and its availability window open. Previously this only applied
+    // the window check, so any authenticated user could read any course's
+    // assignment (incl. unpublished drafts) and its attachment URLs by id.
+    if (userId && !isAdmin) {
       const isOwner = assignment.course.instructorId === userId;
       const isTeam = isOwner ? true : await courseRoleService.isTeamMember(userId, assignment.course.id);
       if (!isOwner && !isTeam) {
+        const enrolled = await prisma.enrollment.findUnique({
+          where: { userId_courseId: { userId, courseId: assignment.course.id } },
+          select: { id: true },
+        });
+        if (!enrolled) {
+          throw new AppError('You must be enrolled in this course to view this assignment', 403);
+        }
+        if (!assignment.isPublished) {
+          throw new AppError('Assignment not found', 404);
+        }
         assertWithinAvailability(assignment, 'Assignment');
       }
     }

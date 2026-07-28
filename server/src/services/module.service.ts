@@ -20,25 +20,25 @@ export class ModuleService {
     return course;
   }
 
-  async getModules(courseId: number, userId?: number, isInstructor = false, isAdmin = false) {
-    // Verify authorization: instructors/admins/team members can access any course, students need enrollment
-    let isTeamMember = false;
-    if (userId && !isInstructor && !isAdmin) {
-      isTeamMember = await courseRoleService.isTeamMember(userId, courseId);
-      if (!isTeamMember) {
-        const enrollment = await prisma.enrollment.findUnique({
-          where: {
-            userId_courseId: { userId, courseId },
-          },
-        });
+  async getModules(courseId: number, userId?: number, _isInstructor = false, isAdmin = false) {
+    // Staff of THIS course see unpublished content; the caller's GLOBAL
+    // isInstructor flag is ignored (an instructor of another course was
+    // previously shown this course's unpublished modules, and skipped the
+    // enrollment check entirely). Non-staff must be enrolled.
+    const isCourseStaff = await courseRoleService.isCourseStaff(userId, courseId, isAdmin);
+    if (userId && !isCourseStaff) {
+      const enrollment = await prisma.enrollment.findUnique({
+        where: {
+          userId_courseId: { userId, courseId },
+        },
+      });
 
-        if (!enrollment) {
-          throw new AppError('You must be enrolled in this course to view modules', 403);
-        }
+      if (!enrollment) {
+        throw new AppError('You must be enrolled in this course to view modules', 403);
       }
     }
 
-    const showUnpublished = isInstructor || isAdmin || isTeamMember;
+    const showUnpublished = isCourseStaff;
 
     const modules = await prisma.courseModule.findMany({
       where: {

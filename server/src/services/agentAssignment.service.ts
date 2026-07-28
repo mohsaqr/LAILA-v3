@@ -1003,8 +1003,12 @@ export class AgentAssignmentService {
       throw new AppError('Not authorized', 403);
     }
 
-    const submission = await prisma.assignmentSubmission.findUnique({
-      where: { id: submissionId },
+    // Bind the submission to the authorized assignment. The ownership check
+    // above is on `assignmentId`; fetching the submission by id alone let an
+    // instructor pass their own assignment id with another course's submission
+    // id and read that student's grade, feedback and agent config.
+    const submission = await prisma.assignmentSubmission.findFirst({
+      where: { id: submissionId, assignmentId },
       include: {
         user: {
           select: { id: true, fullname: true, email: true },
