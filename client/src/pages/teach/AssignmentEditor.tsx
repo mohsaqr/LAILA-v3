@@ -60,7 +60,7 @@ export const AssignmentEditor = () => {
   const [form, setForm] = useState(blankForm());
   const attach = useAssignmentAttachments(aId);
 
-  const { data: assignment, isLoading } = useQuery({
+  const { data: assignment, isLoading, isError } = useQuery({
     queryKey: ['assignment', aId],
     queryFn: () => assignmentsApi.getAssignmentById(aId!),
     enabled: !isNew && !!aId,
@@ -135,13 +135,38 @@ export const AssignmentEditor = () => {
       toast.error(t('title_required', { defaultValue: 'Title is required' }));
       return;
     }
+    // Never save an edit whose form was not built from a loaded assignment —
+    // see the guard below for why that would destroy data.
+    if (!isNew && !assignment) return;
     (isNew ? createMutation : updateMutation).mutate(form);
   };
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
     setForm(prev => ({ ...prev, [key]: value }));
 
-  if (!isNew && isLoading) return <Loading fullScreen text={t('common:loading', { defaultValue: 'Loading…' })} />;
+  // In edit mode the form must never render from `blankForm()`. `isLoading`
+  // alone is not enough: if the fetch fails, isLoading goes false while
+  // `assignment` stays undefined, so the form would render EMPTY over a real
+  // row — and updateAssignment spreads whatever the client sends, so one Save
+  // would blank the stored title and description without the user ever
+  // touching those fields. Gate on the assignment itself.
+  if (!isNew && !assignment) {
+    if (isLoading) return <Loading fullScreen text={t('common:loading', { defaultValue: 'Loading…' })} />;
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+        <Card>
+          <CardBody className="text-center py-10 space-y-4">
+            <p className="text-gray-700 dark:text-gray-300">
+              {isError ? t('failed_to_load_assignment') : t('assignment_not_found')}
+            </p>
+            <Button variant="secondary" onClick={() => navigate(`/courses/${courseId}`)}>
+              {t('common:back')}
+            </Button>
+          </CardBody>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
