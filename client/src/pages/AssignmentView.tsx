@@ -21,6 +21,7 @@ import {
 import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
 import { sanitizeHtml, isHtmlContent } from '../utils/sanitize';
+import { displayFileName } from '../utils/fileName';
 import { RichTextEditor } from '../components/forum/RichTextEditor';
 import { resolveFileUrl } from '../api/client';
 import { useTranslation } from 'react-i18next';
@@ -280,6 +281,8 @@ export const AssignmentView = () => {
   const isSubmitted = mySubmission?.status === 'submitted' || mySubmission?.status === 'graded';
   const isGraded = mySubmission?.status === 'graded';
   const canResubmit = isSubmitted && !isGraded && !isFullyPastDue;
+  /** Whether the student may still add or remove files: before submitting, and again while resubmitting. */
+  const uploadOpen = !isSubmitted || isResubmitting;
   const canSubmit = !isFullyPastDue && !isGraded;
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -333,7 +336,7 @@ export const AssignmentView = () => {
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-4">
             <div>
               <p className="text-sm mb-1" style={{ color: colors.textSecondary }}>{course?.title}</p>
-              <h1 className="text-xl sm:text-2xl font-bold" style={{ color: colors.textPrimary }}>{assignment.title}</h1>
+              <h1 className="text-base sm:text-lg font-bold" style={{ color: colors.textPrimary }}>{assignment.title}</h1>
             </div>
             <StatusBadge
               isGraded={isGraded}
@@ -389,10 +392,10 @@ export const AssignmentView = () => {
           {/* Lab assignment: submitted (waiting for grading or graded) — show submission content */}
           {linkedLab && isSubmitted && mySubmission && (
             <Card>
-              <CardHeader>
-                <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{t('your_submission')}</h2>
+              <CardHeader className="py-3">
+                <h2 className="text-sm font-semibold" style={{ color: colors.textPrimary }}>{t('your_submission')}</h2>
               </CardHeader>
-              <CardBody>
+              <CardBody className="py-4">
                 {!isGraded && (
                   <div className="flex items-center justify-between p-4 rounded-lg mb-4" style={{ backgroundColor: colors.bgBlueBanner }}>
                     <div className="flex items-center gap-2">
@@ -434,13 +437,7 @@ export const AssignmentView = () => {
                       {t('file_attachments')}
                     </label>
                     {fileUrls.map((url, index) => {
-                      const rawName = url.split('/').pop() ?? `file-${index + 1}`;
-                      let displayName: string;
-                      try {
-                        displayName = decodeURIComponent(rawName.replace(/^[\w-]{36}/, '').replace(/^-/, '')) || rawName;
-                      } catch {
-                        displayName = rawName;
-                      }
+                      const displayName = displayFileName(url, index);
                       const isPdf = url.toLowerCase().endsWith('.pdf');
                       const resolvedUrl = resolveFileUrl(url);
 
@@ -482,10 +479,10 @@ export const AssignmentView = () => {
           {/* Assignment Description */}
           {assignment.description && (
             <Card>
-              <CardHeader>
-                <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{t('assignment_description')}</h2>
+              <CardHeader className="py-3">
+                <h2 className="text-sm font-semibold" style={{ color: colors.textPrimary }}>{t('assignment_description')}</h2>
               </CardHeader>
-              <CardBody>
+              <CardBody className="py-4">
                 {isHtmlContent(assignment.description) ? (
                   <TrackedContent context="assignment" courseId={parsedCourseId} objectId={parsedAssignmentId} objectTitle={assignment.title}>
                     <div
@@ -508,10 +505,10 @@ export const AssignmentView = () => {
           {/* Instructions */}
           {assignment.instructions && (
             <Card>
-              <CardHeader>
-                <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{t('assignment_instructions')}</h2>
+              <CardHeader className="py-3">
+                <h2 className="text-sm font-semibold" style={{ color: colors.textPrimary }}>{t('assignment_instructions')}</h2>
               </CardHeader>
-              <CardBody>
+              <CardBody className="py-4">
                 {isHtmlContent(assignment.instructions) ? (
                   <TrackedContent context="assignment" courseId={parsedCourseId} objectId={parsedAssignmentId} objectTitle={assignment.title}>
                     <div
@@ -532,13 +529,13 @@ export const AssignmentView = () => {
           {/* Attachments */}
           {assignment.attachments && assignment.attachments.length > 0 && (
             <Card>
-              <CardHeader>
-                <h2 className="font-semibold flex items-center gap-2" style={{ color: colors.textPrimary }}>
+              <CardHeader className="py-3">
+                <h2 className="text-sm font-semibold flex items-center gap-2" style={{ color: colors.textPrimary }}>
                   <Paperclip className="w-4 h-4" />
                   {t('attachments')}
                 </h2>
               </CardHeader>
-              <CardBody>
+              <CardBody className="py-4">
                 <div className="space-y-2">
                   {assignment.attachments.map(att => (
                     <a
@@ -621,10 +618,10 @@ export const AssignmentView = () => {
           {/* Submission Area (hidden for lab assignments — labs have their own submit flow) */}
           {!linkedLab && !isGraded && !(isFullyPastDue && !isSubmitted) && (
             <Card>
-              <CardHeader>
-                <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{t('your_submission')}</h2>
+              <CardHeader className="py-3">
+                <h2 className="text-sm font-semibold" style={{ color: colors.textPrimary }}>{t('your_submission')}</h2>
               </CardHeader>
-              <CardBody className="space-y-4">
+              <CardBody className="py-4 space-y-4">
                 {(assignment.submissionType === 'text' || assignment.submissionType === 'mixed') && (
                   isSubmitted && !isResubmitting ? (
                     <div>
@@ -664,29 +661,38 @@ export const AssignmentView = () => {
                   )
                 )}
 
-                {(assignment.submissionType === 'file' || assignment.submissionType === 'mixed') && (
+                {/* `uploadOpen` is the whole state of this block: before the
+                    first submit, and again once the student clicks Resubmit.
+                    While it is closed the dropzone is not rendered at all —
+                    a permanently disabled "Submission locked" target is a
+                    control that cannot be used, so it reads as broken rather
+                    than as done. The submitted files stay visible, and the
+                    Resubmit button below is what brings the dropzone back. */}
+                {(assignment.submissionType === 'file' || assignment.submissionType === 'mixed') &&
+                  (uploadOpen || fileUrls.length > 0) && (
                   <div>
                     <label className="block text-sm font-medium mb-2" style={{ color: colors.textSecondary }}>
                       {t('file_attachments')}
                     </label>
-                    {assignment.allowedFileTypes && (
+                    {uploadOpen && assignment.allowedFileTypes && (
                       <p className="text-xs mb-2" style={{ color: colors.textMuted }}>
                         {t('allowed_types', { types: assignment.allowedFileTypes })}
                       </p>
                     )}
+                    {uploadOpen && (
                     <div
                       role="button"
-                      tabIndex={(isSubmitted && !isResubmitting) || isUploading ? -1 : 0}
+                      tabIndex={isUploading ? -1 : 0}
                       className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                       style={{ borderColor: colors.borderDashed }}
-                      onClick={() => !(isSubmitted && !isResubmitting) && !isUploading && fileInputRef.current?.click()}
+                      onClick={() => !isUploading && fileInputRef.current?.click()}
                       onKeyDown={(e) => {
-                        if ((e.key === 'Enter' || e.key === ' ') && !(isSubmitted && !isResubmitting) && !isUploading) {
+                        if ((e.key === 'Enter' || e.key === ' ') && !isUploading) {
                           e.preventDefault();
                           fileInputRef.current?.click();
                         }
                       }}
-                      aria-disabled={(isSubmitted && !isResubmitting) || isUploading}
+                      aria-disabled={isUploading}
                       aria-label={t('click_to_upload_file', { defaultValue: 'Click to upload a file' })}
                     >
                       {isUploading
@@ -696,9 +702,7 @@ export const AssignmentView = () => {
                       <p className="text-sm" style={{ color: colors.textSecondary }}>
                         {isUploading
                           ? t('uploading', { defaultValue: 'Uploading...' })
-                          : (isSubmitted && !isResubmitting)
-                            ? t('submission_locked', { defaultValue: 'Submission locked' })
-                            : t('click_to_upload_file', { defaultValue: 'Click to upload a file' })
+                          : t('click_to_upload_file', { defaultValue: 'Click to upload a file' })
                         }
                       </p>
                       {assignment.maxFileSize && (
@@ -707,25 +711,20 @@ export const AssignmentView = () => {
                         </p>
                       )}
                     </div>
+                    )}
                     <input
                       ref={fileInputRef}
                       type="file"
                       className="hidden"
                       onChange={handleFileUpload}
                       accept={assignment.allowedFileTypes || undefined}
-                      disabled={isSubmitted && !isResubmitting}
+                      disabled={!uploadOpen}
                     />
 
                     {fileUrls.length > 0 && (
                       <div className="mt-4 space-y-2">
                         {fileUrls.map((url, index) => {
-                          const rawName = url.split('/').pop() ?? `file-${index + 1}`;
-                          let displayName: string;
-                          try {
-                            displayName = decodeURIComponent(rawName.replace(/^[\w-]{36}/, '').replace(/^-/, '')) || rawName;
-                          } catch {
-                            displayName = rawName;
-                          }
+                          const displayName = displayFileName(url, index);
                           const isPdf = url.toLowerCase().endsWith('.pdf');
                           const resolvedUrl = resolveFileUrl(url);
 
@@ -748,12 +747,12 @@ export const AssignmentView = () => {
                                 <div className="flex items-center gap-2 p-2 rounded" style={{ backgroundColor: colors.bgFile }}>
                                   <FileText className="w-4 h-4" style={{ color: colors.textMuted }} />
                                   <span className="flex-1 text-sm truncate" style={{ color: colors.textPrimary }}>{displayName}</span>
-                                  {(isSubmitted && !isResubmitting) && (
+                                  {!uploadOpen && (
                                     <a href={resolvedUrl} download={displayName} target="_blank" rel="noopener noreferrer" style={{ color: colors.textSecondary }}>
                                       <Download className="w-4 h-4" />
                                     </a>
                                   )}
-                                  {(!isSubmitted || isResubmitting) && (
+                                  {uploadOpen && (
                                     <button onClick={() => { track('file_removed', { verb: 'interacted', objectType: 'assignment', objectId: parsedAssignmentId, courseId: parsedCourseId, payload: { fileIndex: index } }); setFileUrls(fileUrls.filter((_, i) => i !== index)); }} style={{ color: colors.textRed }}>
                                       <X className="w-4 h-4" />
                                     </button>
@@ -828,10 +827,10 @@ export const AssignmentView = () => {
           {/* Graded Submission View (non-lab assignments) */}
           {!linkedLab && isGraded && mySubmission && (
             <Card>
-              <CardHeader>
-                <h2 className="font-semibold" style={{ color: colors.textPrimary }}>{t('your_submission')}</h2>
+              <CardHeader className="py-3">
+                <h2 className="text-sm font-semibold" style={{ color: colors.textPrimary }}>{t('your_submission')}</h2>
               </CardHeader>
-              <CardBody>
+              <CardBody className="py-4">
                 {mySubmission.content && (
                   isHtmlContent(mySubmission.content) ? (
                     <TrackedContent context="assignment" courseId={parsedCourseId} objectId={parsedAssignmentId} objectTitle={assignment.title}>
@@ -853,13 +852,7 @@ export const AssignmentView = () => {
                       {t('file_attachments')}
                     </label>
                     {fileUrls.map((url, index) => {
-                      const rawName = url.split('/').pop() ?? `file-${index + 1}`;
-                      let displayName: string;
-                      try {
-                        displayName = decodeURIComponent(rawName.replace(/^[\w-]{36}/, '').replace(/^-/, '')) || rawName;
-                      } catch {
-                        displayName = rawName;
-                      }
+                      const displayName = displayFileName(url, index);
                       const isPdf = url.toLowerCase().endsWith('.pdf');
                       const resolvedUrl = resolveFileUrl(url);
 
@@ -900,13 +893,13 @@ export const AssignmentView = () => {
           {/* Grade Card (if graded) */}
           {isGraded && mySubmission && (
             <Card style={{ backgroundColor: colors.bgGreenCard, borderColor: colors.borderGreen }}>
-              <CardHeader>
-                <h2 className="font-semibold flex items-center gap-2" style={{ color: colors.textGreen }}>
+              <CardHeader className="py-3">
+                <h2 className="text-sm font-semibold flex items-center gap-2" style={{ color: colors.textGreen }}>
                   <Award className="w-5 h-5" />
                   {t('your_grade')}
                 </h2>
               </CardHeader>
-              <CardBody>
+              <CardBody className="py-4">
                 <div className="text-center mb-4">
                   <span className="text-4xl font-bold" style={{ color: colors.textGreen }}>
                     {mySubmission.grade}
