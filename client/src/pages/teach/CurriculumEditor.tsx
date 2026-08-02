@@ -28,6 +28,7 @@ import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { EmptyState } from '../../components/common/EmptyState';
 import { Input, TextArea } from '../../components/common/Input';
 import { AssignmentWizardModal } from '../../components/teach/AssignmentWizardModal';
+import { useAssignmentAttachments } from '../../components/teach/AssignmentAttachments';
 import { ForumWizardModal, type ForumWizardFormData } from '../../components/teach/ForumWizardModal';
 import { QuizWizardModal, blankQuestion, type QuizWizardFormData, type QuizQuestionFormData } from '../../components/teach/QuizWizardModal';
 import { LessonWizardModal, type LessonWizardFormData } from '../../components/teach/LessonWizardModal';
@@ -132,6 +133,10 @@ export const CurriculumEditor = ({
     moduleId?: number;
     assignment?: Assignment;
   }>({ isOpen: false });
+  // Attachments for the wizard's assignment. `null` while creating (no id to
+  // hang files off yet) — the hook stages those and the create mutation flushes
+  // them once the server hands back an id.
+  const assignmentAttachments = useAssignmentAttachments(assignmentModal.assignment?.id ?? null);
   const [deleteAssignmentConfirm, setDeleteAssignmentConfirm] = useState<Assignment | null>(null);
   const [forumModal, setForumModal] = useState<{
     isOpen: boolean;
@@ -473,7 +478,10 @@ export const CurriculumEditor = ({
         dueDate: data.dueDate ? data.dueDate + ':00.000Z' : null,
         gracePeriodDeadline: data.gracePeriodDeadline ? data.gracePeriodDeadline + ':00.000Z' : null,
       }),
-    onSuccess: () => {
+    onSuccess: async (created) => {
+      // Files picked in step 2 had no assignment to attach to; upload them now
+      // that the server has handed back an id, before the modal resets.
+      await assignmentAttachments.flushStaged(created.id);
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('assignment_created'));
       closeAssignmentModal();
@@ -785,6 +793,9 @@ export const CurriculumEditor = ({
 
   const closeAssignmentModal = () => {
     setAssignmentModal({ isOpen: false });
+    // Drop anything still staged, so a cancelled create does not leak its files
+    // into the next assignment opened in this modal.
+    assignmentAttachments.clearStaged();
     setAssignmentForm({
       title: '',
       description: '',
@@ -2186,6 +2197,13 @@ export const CurriculumEditor = ({
         isSubmitting={createAssignmentMutation.isPending || updateAssignmentMutation.isPending}
         onClose={closeAssignmentModal}
         onSubmit={() => handleAssignmentSubmit({ preventDefault: () => {} } as React.FormEvent)}
+        attachments={assignmentAttachments.attachments}
+        stagedFiles={assignmentAttachments.stagedFiles}
+        attachBusy={assignmentAttachments.uploading}
+        onAttachFiles={assignmentAttachments.attach}
+        onRemoveAttachment={assignmentAttachments.remove}
+        onRemoveStagedFile={assignmentAttachments.removeStaged}
+        removingAttachmentId={assignmentAttachments.removingId}
       />
 
       {/* Delete Assignment Confirmation */}

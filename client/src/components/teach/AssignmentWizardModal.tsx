@@ -4,6 +4,13 @@ import { X, FileText, Upload, Layers, Bot, Check, Calendar } from 'lucide-react'
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { RichTextEditor } from '../forum/RichTextEditor';
 import { Button } from '../common/Button';
+import { AssignmentAttachmentList } from './AssignmentAttachments';
+import { AssignmentAttachment } from '../../types';
+import {
+  ASSIGNMENT_FILE_ACCEPT,
+  ASSIGNMENT_FILE_FORMATS_LABEL,
+  ASSIGNMENT_FILE_MAX_LABEL,
+} from '../../constants/assignmentFiles';
 
 /**
  * Wrapper that hides the browser's native `datetime-local` chrome
@@ -81,6 +88,18 @@ interface AssignmentWizardModalProps {
   isSubmitting: boolean;
   onClose: () => void;
   onSubmit: () => void;
+  /**
+   * Attachment state, owned by the parent (which also owns the create/update
+   * mutations, and so is the only place that can upload staged files once the
+   * assignment has an id). The wizard just renders it under step 2.
+   */
+  attachments: AssignmentAttachment[];
+  stagedFiles: File[];
+  attachBusy: boolean;
+  onAttachFiles: (files: File[]) => void;
+  onRemoveAttachment: (id: number) => void;
+  onRemoveStagedFile: (index: number) => void;
+  removingAttachmentId?: number | null;
 }
 
 const TOTAL_STEPS = 3;
@@ -102,6 +121,13 @@ export const AssignmentWizardModal = ({
   isSubmitting,
   onClose,
   onSubmit,
+  attachments,
+  stagedFiles,
+  attachBusy,
+  onAttachFiles,
+  onRemoveAttachment,
+  onRemoveStagedFile,
+  removingAttachmentId,
 }: AssignmentWizardModalProps) => {
   const { t } = useTranslation(['teaching', 'common', 'courses']);
   const focusRef = useFocusTrap(isOpen);
@@ -245,7 +271,24 @@ export const AssignmentWizardModal = ({
                   value={form.description}
                   onChange={val => setForm(f => ({ ...f, description: val }))}
                   editorClassName="px-3 py-2 min-h-[260px] max-h-[320px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none focus-within:outline-none"
+                  onAttachFiles={onAttachFiles}
+                  attachAccept={ASSIGNMENT_FILE_ACCEPT}
+                  attachBusy={attachBusy}
+                  attachTitle={t('attach_files')}
                 />
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {t('attach_files_hint')} {ASSIGNMENT_FILE_FORMATS_LABEL} &middot;{' '}
+                    {t('max_file_size', { limit: ASSIGNMENT_FILE_MAX_LABEL })}
+                  </p>
+                  <AssignmentAttachmentList
+                    attachments={attachments}
+                    stagedFiles={stagedFiles}
+                    onRemove={onRemoveAttachment}
+                    onRemoveStaged={onRemoveStagedFile}
+                    removingId={removingAttachmentId}
+                  />
+                </div>
               </div>
             )}
 

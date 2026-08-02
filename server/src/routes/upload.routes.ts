@@ -312,12 +312,33 @@ router.post(
   }
 );
 
-// Upload assignment file endpoint - instructors only, 3MB limit, csv/xlsx/png/jpg/pdf
+/**
+ * Formats an instructor may attach to an assignment: the documents, data files,
+ * images and archives that make up course material.
+ *
+ * Wider than the original six (csv/xlsx/png/jpg/jpeg/pdf), which could not carry
+ * a Word brief, a slide deck or a starter zip. Still narrower than
+ * `allowedExtensions` — video and audio are excluded because the size cap below
+ * cannot serve them and lectures already have their own media path.
+ *
+ * Every entry must also exist in `allowedExtensions`: the filter below still
+ * runs the extension↔MIME cross-check, so a renamed binary is rejected. `.svg`
+ * is absent from both, which is what blocks it (XSS).
+ */
+export const ASSIGNMENT_FILE_EXTENSIONS = [
+  '.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.txt', '.csv',
+  '.jpg', '.jpeg', '.png', '.gif', '.webp',
+  '.zip', '.rar', '.7z',
+];
+
+/** 3MB, unchanged. Mirrored client-side in `client/src/constants/assignmentFiles.ts`. */
+export const ASSIGNMENT_FILE_MAX_BYTES = 3 * 1024 * 1024;
+
+// Upload assignment file endpoint - instructors only
 const assignmentFileFilter = (req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const ext = path.extname(file.originalname).toLowerCase();
-  const assignmentFileExts = ['.csv', '.xlsx', '.png', '.jpg', '.jpeg', '.pdf'];
-  if (!assignmentFileExts.includes(ext)) {
-    cb(new Error('Only csv, xlsx, png, jpg, jpeg, pdf files are allowed'));
+  if (!ASSIGNMENT_FILE_EXTENSIONS.includes(ext)) {
+    cb(new Error(`File extension ${ext || '(none)'} is not allowed for assignment attachments`));
     return;
   }
   const allowedMimes = allowedExtensions[ext];
@@ -331,7 +352,7 @@ const assignmentFileFilter = (req: Express.Request, file: Express.Multer.File, c
 const assignmentFileUpload = multer({
   storage,
   fileFilter: assignmentFileFilter,
-  limits: { fileSize: 3 * 1024 * 1024 }, // 3MB
+  limits: { fileSize: ASSIGNMENT_FILE_MAX_BYTES },
 });
 
 router.post(

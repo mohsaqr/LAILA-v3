@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Heading2, ImagePlus, Link as LinkIcon, Code, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
+import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Heading2, ImagePlus, Link as LinkIcon, Code, AlignLeft, AlignCenter, AlignRight, Paperclip, Loader2 } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
@@ -21,11 +21,42 @@ interface RichTextEditorProps {
   editorClassName?: string;
   /** When false, the outer rounded border is omitted. Default true. */
   bordered?: boolean;
+  /**
+   * Opt-in file attachments. Supplying a handler adds a paperclip button next
+   * to the image button; without one the button is not rendered at all, so
+   * every existing caller keeps exactly the toolbar it has today.
+   *
+   * The editor deliberately does NOT upload the file or touch its own content:
+   * the picked files are handed straight to the host, which decides where they
+   * live. An attachment is a sibling of the description, not part of its HTML —
+   * embedding a link would hide the file from whatever lists and serves
+   * attachments, and would strand it the moment someone edits the text around it.
+   */
+  onAttachFiles?: (files: File[]) => void;
+  /** `accept` for the attachment picker. Required for `onAttachFiles` to be useful. */
+  attachAccept?: string;
+  /** Swaps the paperclip for a spinner and blocks re-picking mid-upload. */
+  attachBusy?: boolean;
+  /** Tooltip for the paperclip. */
+  attachTitle?: string;
 }
 
-export const RichTextEditor = ({ value, onChange, placeholder = '', disabled = false, maxImageSizeKB = 500, editorClassName, bordered = true }: RichTextEditorProps) => {
+export const RichTextEditor = ({
+  value,
+  onChange,
+  placeholder = '',
+  disabled = false,
+  maxImageSizeKB = 500,
+  editorClassName,
+  bordered = true,
+  onAttachFiles,
+  attachAccept,
+  attachBusy = false,
+  attachTitle = 'Attach files',
+}: RichTextEditorProps) => {
   const { isDark } = useTheme();
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const attachInputRef = useRef<HTMLInputElement>(null);
 
   const colors = {
     bgInput: isDark ? '#374151' : '#ffffff',
@@ -95,6 +126,14 @@ export const RichTextEditor = ({ value, onChange, placeholder = '', disabled = f
     if (imageInputRef.current) imageInputRef.current.value = '';
   }, [editor]);
 
+  const handleAttachSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    // Reset before handing over: the host may hold the files across an async
+    // upload, and without this, re-picking the same file fires no change event.
+    if (attachInputRef.current) attachInputRef.current.value = '';
+    if (files.length) onAttachFiles?.(files);
+  }, [onAttachFiles]);
+
   const addLink = useCallback(() => {
     if (!editor) return;
     const url = window.prompt('URL');
@@ -103,14 +142,16 @@ export const RichTextEditor = ({ value, onChange, placeholder = '', disabled = f
 
   if (!editor) return null;
 
-  const Btn = ({ onClick, isActive, children, title }: {
-    onClick: () => void; isActive?: boolean; children: React.ReactNode; title: string;
+  const Btn = ({ onClick, isActive, children, title, disabled: btnDisabled }: {
+    onClick: () => void; isActive?: boolean; children: React.ReactNode; title: string; disabled?: boolean;
   }) => (
     <button
       type="button"
       onClick={onClick}
       title={title}
-      className={`p-1.5 rounded transition-colors ${
+      aria-label={title}
+      disabled={btnDisabled}
+      className={`p-1.5 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
         isActive
           ? 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white'
           : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200'
@@ -144,6 +185,15 @@ export const RichTextEditor = ({ value, onChange, placeholder = '', disabled = f
         <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1" />
         <Btn onClick={addLink} isActive={editor.isActive('link')} title="Add Link"><LinkIcon size={16} /></Btn>
         <Btn onClick={() => imageInputRef.current?.click()} title="Add Image"><ImagePlus size={16} /></Btn>
+        {onAttachFiles && (
+          <Btn
+            onClick={() => attachInputRef.current?.click()}
+            title={attachTitle}
+            disabled={disabled || attachBusy}
+          >
+            {attachBusy ? <Loader2 size={16} className="animate-spin" /> : <Paperclip size={16} />}
+          </Btn>
+        )}
       </div>
       <EditorContent
         editor={editor}
@@ -151,6 +201,16 @@ export const RichTextEditor = ({ value, onChange, placeholder = '', disabled = f
         style={{ color: colors.textPrimary }}
       />
       <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+      {onAttachFiles && (
+        <input
+          ref={attachInputRef}
+          type="file"
+          accept={attachAccept}
+          multiple
+          onChange={handleAttachSelect}
+          className="hidden"
+        />
+      )}
     </div>
   );
 };

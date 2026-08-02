@@ -14,6 +14,12 @@ import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { RichTextEditor } from '../../components/forum/RichTextEditor';
 import { SearchableSelect } from '../../components/common/SearchableSelect';
 import { Toggle } from '../../components/common/Toggle';
+import { AssignmentAttachmentList, useAssignmentAttachments } from '../../components/teach/AssignmentAttachments';
+import {
+  ASSIGNMENT_FILE_ACCEPT,
+  ASSIGNMENT_FILE_FORMATS_LABEL,
+  ASSIGNMENT_FILE_MAX_LABEL,
+} from '../../constants/assignmentFiles';
 
 /** ISO → datetime-local value. */
 const toLocal = (iso?: string | null) => {
@@ -52,6 +58,7 @@ export const AssignmentEditor = () => {
   const queryClient = useQueryClient();
 
   const [form, setForm] = useState(blankForm());
+  const attach = useAssignmentAttachments(aId);
 
   const { data: assignment, isLoading } = useQuery({
     queryKey: ['assignment', aId],
@@ -98,7 +105,11 @@ export const AssignmentEditor = () => {
   const createMutation = useMutation({
     mutationFn: (f: typeof form) =>
       assignmentsApi.createAssignment(courseId, { ...payload(f), moduleId: moduleId ? Number(moduleId) : undefined } as never),
-    onSuccess: (created) => {
+    onSuccess: async (created) => {
+      // Files picked before the assignment existed had no id to hang off; now
+      // there is one. Uploading before navigating keeps the list consistent
+      // with what the user sees the moment the edit route takes over.
+      await attach.flushStaged(created.id);
       refresh();
       toast.success(t('assignment_created', { defaultValue: 'Assignment created' }));
       navigate(`/teach/courses/${courseId}/assignments/${created.id}/edit`, { replace: true });
@@ -108,7 +119,10 @@ export const AssignmentEditor = () => {
 
   const updateMutation = useMutation({
     mutationFn: (f: typeof form) => assignmentsApi.updateAssignment(aId!, payload(f) as never),
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Retries anything a failed flush left behind, so "uploads when you save"
+      // stays true on the second save rather than only the first.
+      await attach.flushStaged(aId!);
       queryClient.invalidateQueries({ queryKey: ['assignment', aId] });
       refresh();
       toast.success(t('common:saved', { defaultValue: 'Saved' }));
@@ -154,7 +168,25 @@ export const AssignmentEditor = () => {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
               {t('common:description', { defaultValue: 'Description' })}
             </label>
-            <RichTextEditor value={form.description} onChange={v => set('description', v)} />
+            <RichTextEditor
+              value={form.description}
+              onChange={v => set('description', v)}
+              onAttachFiles={attach.attach}
+              attachAccept={ASSIGNMENT_FILE_ACCEPT}
+              attachBusy={attach.uploading}
+              attachTitle={t('attach_files')}
+            />
+            <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+              {t('attach_files_hint')} {ASSIGNMENT_FILE_FORMATS_LABEL} &middot;{' '}
+              {t('max_file_size', { limit: ASSIGNMENT_FILE_MAX_LABEL })}
+            </p>
+            <AssignmentAttachmentList
+              attachments={attach.attachments}
+              stagedFiles={attach.stagedFiles}
+              onRemove={attach.remove}
+              onRemoveStaged={attach.removeStaged}
+              removingId={attach.removingId}
+            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
