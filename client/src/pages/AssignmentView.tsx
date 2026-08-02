@@ -315,11 +315,13 @@ export const AssignmentView = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Breadcrumb */}
       <div className="mb-6">
+        {/* Home (the icon the component renders) → course → this assignment.
+            The "Courses" and "Assignments" list segments are deliberately
+            omitted: the course link already reaches the only list a reader
+            needs, and both were noise between the home icon and the title. */}
         <Breadcrumb
           items={[
-            { label: t('courses'), href: '/courses' },
             { label: course?.title || t('course'), href: `/courses/${courseId}` },
-            { label: t('assignments'), href: `/courses/${courseId}/assignments` },
             { label: assignment.title },
           ]}
         />
