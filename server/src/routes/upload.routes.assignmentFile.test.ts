@@ -102,6 +102,42 @@ describe('POST /api/uploads/assignment-file', () => {
     expect(res.body.error).toContain('File too large');
   });
 
+  it('keeps the original name in the stored filename', async () => {
+    // Storing only `<uuid><ext>` left the UI nothing to show but ".png".
+    // The name has to survive into the filename, because that is the only
+    // place a submission's fileUrls JSON can carry it.
+    const res = await post('network report.pdf', 'application/pdf');
+    expect(res.status).toBe(200);
+    written.push(res.body.data.filename);
+
+    expect(res.body.data.filename).toMatch(/^[\w-]{36}-network-report\.pdf$/);
+    expect(res.body.data.originalName).toBe('network report.pdf');
+  });
+
+  it('strips path traversal and URL-breaking characters from the stored name', async () => {
+    // `originalname` is attacker-controlled and lands on disk verbatim unless
+    // sanitised, so a name must never escape the uploads directory or smuggle
+    // characters that change how the resulting URL parses.
+    for (const hostile of ['../../etc/passwd.pdf', 'a/b/c.pdf', 'we%20ird#frag?q.pdf']) {
+      const res = await post(hostile, 'application/pdf');
+      expect(res.status).toBe(200);
+      const name: string = res.body.data.filename;
+      written.push(name);
+
+      expect(name).not.toContain('/');
+      expect(name).not.toContain('..');
+      expect(name).not.toMatch(/[%#?\\]/);
+      expect(path.resolve(uploadsDir, name).startsWith(uploadsDir)).toBe(true);
+    }
+  });
+
+  it('keeps non-ASCII names rather than flattening them', async () => {
+    const res = await post('tehtävä.pdf', 'application/pdf');
+    expect(res.status).toBe(200);
+    written.push(res.body.data.filename);
+    expect(res.body.data.filename).toContain('tehtävä');
+  });
+
   it('keeps every allowed extension lowercase and dotted', async () => {
     // A typo'd entry would be silently unusable: it passes the extension check
     // and then fails the MIME lookup for every real file.

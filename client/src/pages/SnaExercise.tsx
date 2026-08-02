@@ -21,6 +21,7 @@ import { assignmentsApi } from '../api/assignments';
 import { coursesApi } from '../api/courses';
 import { resolveFileUrl } from '../api/client';
 import { sanitizeHtml, isHtmlContent } from '../utils/sanitize';
+import { displayFileName } from '../utils/fileName';
 import { LabAssignmentPanel, type ReportItem } from '../components/labs/LabAssignmentPanel';
 import { useTheme } from '../hooks/useTheme';
 import { MyDatasetPicker } from '../components/common/MyDatasetPicker';
@@ -1442,9 +1443,7 @@ export const SnaExercise = () => {
                     <div className="mb-4 space-y-2">
                       <label className="block text-sm font-medium mb-1" style={{ color: headerColors.textSecondary }}>{t('file_attachments')}</label>
                       {submissionFileUrls.map((url, index) => {
-                        const rawName = url.split('/').pop() ?? `file-${index + 1}`;
-                        let displayName: string;
-                        try { displayName = decodeURIComponent(rawName.replace(/^[\w-]{36}/, '').replace(/^-/, '')) || rawName; } catch { displayName = rawName; }
+                        const displayName = displayFileName(url, index);
                         const isPdf = url.toLowerCase().endsWith('.pdf');
                         const resolvedUrl = resolveFileUrl(url);
                         if (isPdf) {

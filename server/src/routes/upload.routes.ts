@@ -16,15 +16,63 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+/**
+ * Undo busboy's latin1 decoding of the multipart `filename` parameter.
+ *
+ * busboy 1.x defaults `defParamCharset` to latin1 and multer 1.4 does not
+ * override it, so a UTF-8 filename arrives with each byte widened into its own
+ * character — "tehtävä.pdf" becomes "tehtÃ¤vÃ¤.pdf". Re-narrowing to bytes and
+ * decoding as UTF-8 recovers the original, and is a no-op for pure ASCII, so it
+ * is safe to apply unconditionally.
+ */
+const decodeOriginalName = (name: string): string => {
+  const decoded = Buffer.from(name, 'latin1').toString('utf8');
+  // A byte sequence that is not valid UTF-8 decodes with replacement chars;
+  // in that case the name really was latin1 and should be left alone.
+  return decoded.includes('�') ? name : decoded;
+};
+
+/**
+ * Reduce a user-supplied filename to something safe to write to disk and to
+ * put in a URL path, while still being recognisable to whoever uploaded it.
+ *
+ * Non-ASCII letters are deliberately KEPT — Arabic and Finnish course material
+ * is normal here, and allow-listing ASCII would flatten those names to nothing.
+ * What is removed is the set that is dangerous or ambiguous rather than merely
+ * foreign:
+ *   - path separators and traversal (`basename` first, then any leftover / \)
+ *   - control characters and NUL
+ *   - `% # ?`, which change how a URL parses or break the decodeURIComponent
+ *     the client runs over this name
+ *   - Windows-reserved `: * " < > |`
+ * Whitespace collapses to `-` so the stored name never needs percent-encoding
+ * to round-trip through the URL and back.
+ */
+const safeFileStem = (rawOriginalName: string): string => {
+  const originalName = decodeOriginalName(rawOriginalName);
+  const stem = path.basename(originalName, path.extname(originalName));
+  const cleaned = stem
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\x00-\x1f\x7f]/g, '')
+    .replace(/[/\\:*?"<>|%#]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/^[.\-]+|[.\-]+$/g, '')
+    .slice(0, 80);
+  return cleaned || 'file';
+};
+
 // Configure multer storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadsDir);
   },
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const uniqueName = `${uuid()}${ext}`;
-    cb(null, uniqueName);
+    const ext = path.extname(file.originalname).toLowerCase();
+    // `<uuid>-<original stem><ext>`. The uuid keeps names unique; the stem is
+    // what every consumer strips the uuid back off to display (see
+    // client/src/utils/fileName.ts). Storing only `<uuid><ext>` — as this did —
+    // meant there was no name left to show and the UI rendered a bare ".png".
+    cb(null, `${uuid()}-${safeFileStem(file.originalname)}${ext}`);
   },
 });
 

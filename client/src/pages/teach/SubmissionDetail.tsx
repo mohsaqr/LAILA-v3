@@ -22,6 +22,7 @@ import { Input, TextArea } from '../../components/common/Input';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { resolveFileUrl } from '../../api/client';
+import { displayFileName } from '../../utils/fileName';
 import { sanitizeHtml, isHtmlContent } from '../../utils/sanitize';
 import activityLogger from '../../services/activityLogger';
 import { TrackedContent } from '../../components/common/TrackedContent';
@@ -263,13 +264,7 @@ export const SubmissionDetail = () => {
             </h2>
             <div className="space-y-2">
               {fileUrls.map((url, index) => {
-                const rawName = url.split('/').pop() ?? `file-${index + 1}`;
-                let displayName: string;
-                try {
-                  displayName = decodeURIComponent(rawName.replace(/^[\w-]{36}/, '').replace(/^-/, '')) || rawName;
-                } catch {
-                  displayName = rawName;
-                }
+                const displayName = displayFileName(url, index);
                 const isPdf = url.toLowerCase().endsWith('.pdf') || displayName.toLowerCase().endsWith('.pdf');
                 const resolvedUrl = resolveFileUrl(url);
 
