@@ -199,7 +199,7 @@ export const ModuleSection = ({
       subtitle: quiz.description || undefined,
       metadata: quiz._count?.questions ? t('x_questions', { count: quiz._count.questions }) : undefined,
       href: `/courses/${courseId}/quizzes/${quiz.id}`,
-      orderIndex: (quiz as any).orderIndex ?? 0,
+      orderIndex: quiz.orderIndex ?? 0,
       hidden: !quiz.isPublished,
     })),
     ...publishedAssignments.map(assignment => ({
@@ -213,7 +213,7 @@ export const ModuleSection = ({
       href: assignment.submissionType === 'ai_agent'
         ? `/courses/${courseId}/agent-assignments/${assignment.id}`
         : `/courses/${courseId}/assignments/${assignment.id}`,
-      orderIndex: (assignment as any).orderIndex ?? 0,
+      orderIndex: assignment.orderIndex ?? 0,
       hidden: !assignment.isPublished,
     })),
     ...publishedForums.map(forum => ({

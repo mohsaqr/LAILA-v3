@@ -16,6 +16,13 @@ export interface Quiz {
   shuffleOptions: boolean;
   showResults: 'after_submit' | 'after_due_date' | 'never';
   isPublished: boolean;
+  /**
+   * Position among the module's items, shared with lectures/assignments/forums
+   * — what the curriculum editor's up/down arrows write. Optional because not
+   * every quiz endpoint returns it; consumers fall back to 0, which sorts the
+   * item to the top. See the note on `Assignment.orderIndex` in types/index.ts.
+   */
+  orderIndex?: number;
   dueDate?: string;
   availableFrom?: string;
   createdAt: string;

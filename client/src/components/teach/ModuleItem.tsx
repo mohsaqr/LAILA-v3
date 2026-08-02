@@ -349,9 +349,9 @@ export const ModuleItem = ({
     const items: FlatItem[] = [
       ...lectures.map(l => ({ type: 'lecture' as const, id: l.id, orderIndex: l.orderIndex ?? 0, data: l })),
       ...codeLabs.map(c => ({ type: 'codelab' as const, id: c.id, orderIndex: c.orderIndex ?? 0, data: c })),
-      ...assignments.map(a => ({ type: 'assignment' as const, id: a.id, orderIndex: (a as any).orderIndex ?? 0, data: a })),
+      ...assignments.map(a => ({ type: 'assignment' as const, id: a.id, orderIndex: a.orderIndex ?? 0, data: a })),
       ...forums.map(f => ({ type: 'forum' as const, id: f.id, orderIndex: f.orderIndex ?? 0, data: f })),
-      ...quizzes.map(q => ({ type: 'quiz' as const, id: q.id, orderIndex: (q as any).orderIndex ?? 0, data: q })),
+      ...quizzes.map(q => ({ type: 'quiz' as const, id: q.id, orderIndex: q.orderIndex ?? 0, data: q })),
       ...moduleSurveys.map((ms: any) => ({ type: 'survey' as const, id: ms.id, orderIndex: ms.orderIndex ?? 0, data: ms })),
     ];
     return items.sort((a, b) => (a.orderIndex - b.orderIndex) || (a.id - b.id));

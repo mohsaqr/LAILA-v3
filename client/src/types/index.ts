@@ -114,6 +114,8 @@ export interface ModuleQuiz {
   description?: string | null;
   isPublished: boolean;
   moduleId?: number;
+  /** Position among the module's items. See the note on `Assignment.orderIndex`. */
+  orderIndex?: number;
   _count?: { questions: number };
 }
 
@@ -468,6 +470,14 @@ export interface Assignment {
   gracePeriodDeadline: string | null;
   points: number;
   weight?: number;
+  /**
+   * Position among the module's items, shared across lectures/quizzes/forums —
+   * this is what the curriculum editor's up/down arrows write. Optional because
+   * not every assignment endpoint returns it; where it is absent the consumer
+   * falls back to 0, which sorts the item to the top. If reordering ever looks
+   * ignored again, check that the server query actually SELECTS this field.
+   */
+  orderIndex?: number;
   isPublished: boolean;
   aiAssisted: boolean;
   aiPrompt: string | null;

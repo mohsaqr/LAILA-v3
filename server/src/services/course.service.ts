@@ -167,7 +167,14 @@ export class CourseService {
                 ...(includeUnpublished ? {} : { isPublished: true, ...availabilityWindowWhere() }),
                 lectureId: null, // exclude lecture-level assignments
               },
-              orderBy: { createdAt: 'asc' },
+              // `orderIndex` is the sort key the curriculum editor's up/down
+              // arrows write (moduleService.reorderModuleItems). It MUST be
+              // selected as well as ordered by: the course page merges
+              // assignments, lectures, quizzes and forums into one list and
+              // re-sorts them client-side (ModuleSection.tsx), so an assignment
+              // that arrives without the field falls back to 0 and pins itself
+              // above every real index — i.e. reordering silently does nothing.
+              orderBy: { orderIndex: 'asc' },
               select: {
                 id: true,
                 title: true,
@@ -178,6 +185,7 @@ export class CourseService {
                 isPublished: true,
                 submissionType: true,
                 moduleId: true,
+                orderIndex: true,
                 agentRequirements: true,
               },
             },
@@ -196,13 +204,15 @@ export class CourseService {
             },
             quizzes: {
               where: includeUnpublished ? {} : { isPublished: true, ...availabilityWindowWhere() },
-              orderBy: { createdAt: 'asc' },
+              // Same sort key, same reason as `assignments` above.
+              orderBy: { orderIndex: 'asc' },
               select: {
                 id: true,
                 title: true,
                 description: true,
                 isPublished: true,
                 moduleId: true,
+                orderIndex: true,
                 _count: { select: { questions: true } },
               },
             },
@@ -215,6 +225,9 @@ export class CourseService {
                 description: true,
                 isPublished: true,
                 moduleId: true,
+                // Ordered by above, but the client re-sorts across types, so the
+                // value has to travel too — see the note on `assignments`.
+                orderIndex: true,
                 _count: { select: { posts: true } },
               },
             },
@@ -345,8 +358,12 @@ export class CourseService {
               select: { id: true, title: true, description: true, orderIndex: true, isPublished: true },
             },
             quizzes: {
-              orderBy: { createdAt: 'asc' },
-              select: { id: true, title: true, description: true, isPublished: true, _count: { select: { questions: true } } },
+              // `orderIndex` here for the same reason as in getCourseById: the
+              // curriculum editor merges all six item types into one flat list
+              // and sorts on it (ModuleItem.tsx), so omitting it pins quizzes
+              // to the top no matter where the arrows put them.
+              orderBy: { orderIndex: 'asc' },
+              select: { id: true, title: true, description: true, isPublished: true, orderIndex: true, _count: { select: { questions: true } } },
             },
             moduleSurveys: {
               include: {

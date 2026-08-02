@@ -226,6 +226,32 @@ describe('CourseService', () => {
         })
       );
     });
+
+    // The course page merges a module's lectures, assignments, quizzes and
+    // forums into ONE list and re-sorts it client-side on `orderIndex`
+    // (ModuleSection.tsx). A relation that is ordered correctly by Prisma but
+    // does not SELECT the field ships `undefined`, the client falls back to 0,
+    // and that item pins itself above every real index — reordering it in the
+    // curriculum editor then appears to do nothing. Ordering alone is not
+    // enough; the value has to travel.
+    it('selects orderIndex for every cross-sorted module relation', async () => {
+      vi.mocked(prisma.course.findFirst).mockResolvedValue({
+        ...mockCourse,
+        modules: [mockModule],
+      } as any);
+
+      await courseService.getCourseById(1);
+
+      const args = vi.mocked(prisma.course.findFirst).mock.calls[0][0] as any;
+      const moduleInclude = args?.include?.modules?.include;
+
+      for (const relation of ['lectures', 'assignments', 'quizzes', 'forumThreads', 'codeLabs']) {
+        expect(
+          moduleInclude?.[relation]?.select?.orderIndex,
+          `${relation} must select orderIndex`
+        ).toBe(true);
+      }
+    });
   });
 
   // ===========================================================================
