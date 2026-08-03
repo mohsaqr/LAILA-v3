@@ -133,19 +133,41 @@ describe('generated nginx security-header blocks', () => {
     ).toBe(true);
   });
 
+  // nginx drops EVERY inherited add_header in a location that declares one of
+  // its own, and does not cascade into nested locations. So every such location
+  // needs its own block — three in laila.conf: the SPA catch-all, the nested
+  // index.html, and /assets/, which sets Cache-Control and therefore shipped
+  // the JS and CSS bundles with no nosniff at all.
   it('covers every location that sets add_header in laila.conf', () => {
     const conf = readFileSync(resolve(root, 'deploy/nginx/laila.conf'), 'utf8');
-    // Both the SPA catch-all and the nested index.html location must carry a
-    // block; a missing one silently serves that path with no CSP.
-    expect(conf.match(/# >>> laila-security-headers/g)).toHaveLength(2);
+    expect(conf.match(/# >>> laila-security-headers/g)).toHaveLength(3);
   });
 
   it('gives deploy.sh both of its inline nginx configs a policy', () => {
     const sh = readFileSync(resolve(root, 'deploy/deploy.sh'), 'utf8');
-    // Two heredocs (localhost and pre-certbot) x two locations each.
-    expect(sh.match(/# >>> laila-security-headers/g)).toHaveLength(4);
+    // Two heredocs (localhost and pre-certbot) x three locations each.
+    expect(sh.match(/# >>> laila-security-headers/g)).toHaveLength(6);
     // These listeners are plaintext, so they must use the http variant.
     expect(sh).not.toContain('# >>> laila-security-headers https >>>');
+  });
+
+  // A location that declares add_header and has no block is the exact bug this
+  // guards: it looks protected because the server block above sets headers, but
+  // nginx has already discarded them for that location.
+  it('leaves no add_header location in laila.conf without a block', () => {
+    const conf = readFileSync(resolve(root, 'deploy/nginx/laila.conf'), 'utf8');
+    // Split on location openings; any chunk with an add_header that is not a
+    // generated one must also contain a marker.
+    const chunks = conf.split(/^\s*location\s/m).slice(1);
+    for (const chunk of chunks) {
+      const body = chunk.slice(0, chunk.indexOf('\n    }'));
+      const declaresOwn = /^\s*add_header\s+Cache-Control/m.test(body);
+      if (!declaresOwn) continue;
+      expect(
+        body,
+        `a location sets Cache-Control but has no security-header block: ${chunk.slice(0, 40)}`
+      ).toContain('# >>> laila-security-headers');
+    }
   });
 
   // The standalone snippet is the only way to fix a host that is already

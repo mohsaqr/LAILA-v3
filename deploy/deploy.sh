@@ -521,6 +521,15 @@ server {
         expires 1y;
         add_header Cache-Control "public, immutable";
         access_log off;
+
+        # Cache-Control above makes nginx discard every inherited add_header,
+        # so the bundles need their own copy.
+        # >>> laila-security-headers http >>>
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        # <<< laila-security-headers <<<
     }
 
     # SPA catch-all
@@ -658,6 +667,15 @@ server {
         expires 1y;
         add_header Cache-Control "public, immutable";
         access_log off;
+
+        # Cache-Control above makes nginx discard every inherited add_header,
+        # so the bundles need their own copy.
+        # >>> laila-security-headers http >>>
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        # <<< laila-security-headers <<<
     }
 
     location / {

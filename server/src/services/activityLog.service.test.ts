@@ -788,3 +788,55 @@ describe('ActivityLogService', () => {
     });
   });
 });
+
+describe('safeTimezone', () => {
+  // `timezone` arrives raw from req.query and is the one caller-controlled
+  // value that cannot be bound as a parameter — Postgres does not accept a
+  // placeholder in `AT TIME ZONE`. It is therefore inlined into the only
+  // $queryRawUnsafe statements in the codebase, so it must be validated here.
+  //
+  // This branch runs ONLY on Postgres; the SQLite path used in dev and CI
+  // ignores the timezone entirely. Testing the function directly is the only
+  // way to cover it locally.
+  const safeTimezone = (tz?: string): string =>
+    (activityLogService as any).safeTimezone(tz);
+
+  it('passes through real IANA zones', () => {
+    for (const tz of ['UTC', 'Europe/Helsinki', 'America/New_York', 'Asia/Riyadh']) {
+      expect(safeTimezone(tz)).toBe(tz);
+    }
+  });
+
+  it('defaults to UTC when absent or empty', () => {
+    expect(safeTimezone(undefined)).toBe('UTC');
+    expect(safeTimezone('')).toBe('UTC');
+  });
+
+  // Previously these reached Postgres, which rejects the whole statement and
+  // turns a dashboard load into a 500.
+  it('falls back to UTC for a nonsense zone rather than passing it to the database', () => {
+    expect(safeTimezone('Not/AZone')).toBe('UTC');
+    expect(safeTimezone('nonsense')).toBe('UTC');
+  });
+
+  // The old defence was `tz.replace(/'/g, '')`, which relies on
+  // standard_conforming_strings being on to be sufficient. None of these
+  // should survive validation regardless of database settings.
+  it.each([
+    "UTC'; DROP TABLE learning_activity_logs; --",
+    "UTC' || (SELECT password_hash FROM users LIMIT 1) || '",
+    'UTC--',
+    'UTC/*x*/',
+    "UTC\\'",
+    'UTC; SELECT 1',
+  ])('rejects SQL-bearing input: %s', (evil) => {
+    expect(safeTimezone(evil)).toBe('UTC');
+  });
+
+  it('never returns a value containing SQL syntax characters', () => {
+    const inputs = ["a'b", 'a;b', 'a--b', 'a b', 'a"b', 'a\\b', 'a(b)'];
+    for (const input of inputs) {
+      expect(safeTimezone(input)).toMatch(/^[A-Za-z0-9_+\-/]+$/);
+    }
+  });
+});
