@@ -460,6 +460,13 @@ server {
 
     # API proxy
     location /api/ {
+        # Must clear the largest server-side multer limit (lecture videos are
+        # 200MB in upload.routes.ts). At the 10M server default every video or
+        # large-file upload dies at nginx with an HTML 413 the SPA cannot parse.
+        # Multer still enforces the real per-type ceilings; this only stops
+        # nginx truncating the body first. Kept in step with deploy/nginx/laila.conf.
+        client_max_body_size 200M;
+
         proxy_pass http://127.0.0.1:5001;
         proxy_http_version 1.1;
         proxy_set_header Host              $host;
@@ -562,6 +569,13 @@ server {
     client_max_body_size 10M;
 
     location /api/ {
+        # Must clear the largest server-side multer limit (lecture videos are
+        # 200MB in upload.routes.ts). At the 10M server default every video or
+        # large-file upload dies at nginx with an HTML 413 the SPA cannot parse.
+        # Multer still enforces the real per-type ceilings; this only stops
+        # nginx truncating the body first. Kept in step with deploy/nginx/laila.conf.
+        client_max_body_size 200M;
+
         proxy_pass http://127.0.0.1:5001;
         proxy_http_version 1.1;
         proxy_set_header Host              $host;
