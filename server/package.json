@@ -1,6 +1,6 @@
 {
   "name": "laila-server",
-  "version": "3.11.2",
+  "version": "3.11.3",
   "description": "LAILA LMS Backend - Node.js/Express API",
   "main": "dist/index.js",
   "scripts": {
