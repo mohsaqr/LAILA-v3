@@ -13,6 +13,8 @@ Production deployment for LAILA on a Linux server with PostgreSQL, Nginx, and sy
 - [SSL/HTTPS](#sslhttps)
 - [Backups](#backups)
 - [Management Commands](#management-commands)
+  - [Deployment topologies — why the steps differ per host](#deployment-topologies--why-the-steps-differ-per-host)
+  - [Updating an existing host](#updating-an-existing-host)
   - [Verify a deployment](#verify-a-deployment)
   - [Content-Security-Policy and the labs](#content-security-policy-and-the-labs)
 - [Database Migration (SQLite to PostgreSQL)](#database-migration)
@@ -348,6 +350,57 @@ npm run build
 sudo systemctl restart laila
 ```
 
+### Deployment topologies — why the steps differ per host
+
+LAILA is deployed in two shapes, and **which one a host uses decides whether it
+needs an nginx step at all**. Check with one command:
+
+```bash
+curl -sI https://your-host/ | grep -i '^server:'
+```
+
+| `Server:` header | Topology | What serves `index.html` | To update |
+|---|---|---|---|
+| `cloudflare`, or your tunnel | tunnel → Express, **no nginx** | Express, so helmet sets the headers | Code deploy only |
+| `nginx/...` | nginx → Express | nginx, from disk — **helmet never sees it** | Code deploy **plus** the nginx snippet |
+
+This is the single most important distinction in this document. On an
+nginx-fronted host the Express security headers apply only to `/api/*`
+responses, where a JSON body loads no subresources and the policy governs
+nothing, while the pages themselves ship with no CSP at all. Deploying code to
+such a host does **not** fix its headers.
+
+### Updating an existing host
+
+```bash
+# 1. Code
+cd /path/to/LAILA-v3
+git pull
+npm run install:all
+npm run build            # NOT `npx tsc` — see the warning below
+sudo systemctl restart laila     # or: pm2 restart laila
+
+# 2. nginx-fronted hosts only — install the security-header snippet
+sudo bash deploy/update-nginx-headers.sh
+#    then add the include line it prints, to the SPA `location /` block
+#    and to any nested location that sets its own add_header, then:
+sudo nginx -t && sudo systemctl reload nginx
+
+# 3. Confirm from outside
+node scripts/verify-deployment.mjs https://your-host --expect-version 3.10.0
+```
+
+⚠️ **Use `npm run build`, not `npx tsc`.** `npx tsc` compiles but skips npm
+lifecycle scripts, so `prebuild` never runs: no `build-info.json` is written and
+`check-versions` never gates the deploy. The server falls back to reading the
+commit out of `.git`, so `/api/health` still reports a `gitSha` — but with
+`builtAt: null`, which is the signature of a deploy that skipped `prebuild`.
+
+⚠️ **Never run `deploy.sh` to update an existing host.** It is an installer. It
+unconditionally overwrites `server/.env` from the template, taking the live
+database password, JWT/session secrets and API keys with it, then re-prompts for
+all of them and re-runs migrations.
+
 ### Verify a deployment
 
 **Always run this after a deploy.** A `git pull` plus a service restart can
@@ -358,7 +411,7 @@ sizes by hand.
 
 ```bash
 # From a checkout of the commit you believe is deployed
-node scripts/verify-deployment.mjs https://laila.example.com --expect-version 3.9.0
+node scripts/verify-deployment.mjs https://laila.example.com --expect-version 3.10.0
 
 # Skip the bundle download (faster, but does not check the About page)
 node scripts/verify-deployment.mjs https://laila.example.com --quick
