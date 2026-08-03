@@ -458,6 +458,20 @@ server {
     # Upload size
     client_max_body_size 10M;
 
+    # OIDC discovery. RFC 8414 fixes this path at the issuer root, so it cannot
+    # live under /api/ with the other OIDC endpoints. Without this it falls
+    # through to the SPA catch-all and is answered with index.html, so a
+    # relying party gets HTML where it expects JSON. Exact match so it cannot
+    # shadow /.well-known/acme-challenge/.
+    location = /.well-known/openid-configuration {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     # API proxy
     location /api/ {
         # Must clear the largest server-side multer limit (lecture videos are
@@ -586,6 +600,18 @@ server {
     gzip_types text/plain text/css text/javascript application/javascript application/json application/xml image/svg+xml;
 
     client_max_body_size 10M;
+
+    # OIDC discovery — see the note in the other config above. Exact match so
+    # it cannot shadow /.well-known/acme-challenge/, which certbot needs on
+    # this HTTP listener to issue the certificate.
+    location = /.well-known/openid-configuration {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
 
     location /api/ {
         # Must clear the largest server-side multer limit (lecture videos are
