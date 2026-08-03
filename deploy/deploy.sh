@@ -514,9 +514,28 @@ server {
         root __INSTALL_DIR__/client/dist;
         try_files $uri $uri/ /index.html;
 
+        # nginx serves index.html from disk, so the Express helmet CSP never
+        # sees it. Without this block the SPA ships with no CSP at all.
+        # Generated from server/src/config/csp.ts — `npm run csp:generate`.
+        # http variant: this listener is plaintext localhost, so HSTS and
+        # upgrade-insecure-requests are omitted.
+        # >>> laila-security-headers http >>>
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        # <<< laila-security-headers <<<
+
         location = /index.html {
             expires 5m;
             add_header Cache-Control "public, must-revalidate";
+            # add_header does not cascade into nested locations — repeat.
+            # >>> laila-security-headers http >>>
+            add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+            # <<< laila-security-headers <<<
         }
     }
 }
@@ -619,9 +638,30 @@ server {
         root __INSTALL_DIR__/client/dist;
         try_files $uri $uri/ /index.html;
 
+        # nginx serves index.html from disk, so the Express helmet CSP never
+        # sees it. Without this block the SPA ships with no CSP at all.
+        # Generated from server/src/config/csp.ts — `npm run csp:generate`.
+        # http variant: this config is the pre-certbot HTTP listener, so HSTS
+        # and upgrade-insecure-requests are omitted — sending them before a
+        # certificate exists would pin the host to an unreachable https.
+        # certbot rewrites this file when it installs the certificate.
+        # >>> laila-security-headers http >>>
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        # <<< laila-security-headers <<<
+
         location = /index.html {
             expires 5m;
             add_header Cache-Control "public, must-revalidate";
+            # add_header does not cascade into nested locations — repeat.
+            # >>> laila-security-headers http >>>
+            add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+            # <<< laila-security-headers <<<
         }
     }
 }

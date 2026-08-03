@@ -82,6 +82,9 @@ export const About = () => {
     server: Dependency[];
   };
 
+  // Injected by `define` in vite.config.ts at build time — see vite-env.d.ts.
+  const build = __BUILD_INFO__;
+
   // One list, alphabetical — which workspace a package sits in is a build
   // detail, not something an attribution reader cares about.
   const allDeps = useMemo(
@@ -143,6 +146,27 @@ export const About = () => {
                 <dt className={muted}>Version</dt>
                 <dd className={`font-mono ${body}`}>{pkg.version}</dd>
               </div>
+              {/*
+                The commit, not the version, is what identifies a build: the
+                version only moves when someone bumps it, so two deployments
+                can report the same one while serving different code. Shown
+                only when the build had git available (a tarball build has not).
+              */}
+              {build.gitSha && (
+                <div className="flex justify-between gap-3">
+                  <dt className={muted}>Build</dt>
+                  <dd className={`font-mono ${body}`}>
+                    {build.gitSha}
+                    {build.gitDirty ? '-dirty' : ''}
+                  </dd>
+                </div>
+              )}
+              {build.builtAt && (
+                <div className="flex justify-between gap-3">
+                  <dt className={muted}>Built</dt>
+                  <dd className={body}>{new Date(build.builtAt).toLocaleString()}</dd>
+                </div>
+              )}
               <div className="flex justify-between gap-3">
                 <dt className={muted}>License</dt>
                 <dd className={body}>{deps.carmLicenseVersion}</dd>

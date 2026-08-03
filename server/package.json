@@ -1,6 +1,6 @@
 {
   "name": "laila-server",
-  "version": "3.9.0",
+  "version": "3.10.0",
   "description": "LAILA LMS Backend - Node.js/Express API",
   "main": "dist/index.js",
   "scripts": {
@@ -8,6 +8,7 @@
     "oidc:smoke": "node --env-file=.env scripts/oidc-smoke-test.mjs",
     "dev": "npm run setup:local && nodemon --legacy-watch --watch src --ext ts,json --exec 'tsx src/index.ts'",
     "setup:local": "bash scripts/setup-local-db.sh",
+    "prebuild": "node ../scripts/check-versions.mjs && node ../scripts/build-info.mjs",
     "build": "tsc",
     "start": "node dist/index.js",
     "db:generate": "prisma generate --schema prisma/local/schema.prisma",
@@ -23,7 +24,9 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "verify": "tsx scripts/verify-system.ts",
-    "check": "npm run test:run && npm run verify"
+    "csp:generate": "tsx scripts/gen-nginx-csp.ts",
+    "csp:check": "tsx scripts/gen-nginx-csp.ts --check",
+    "check": "npm run test:run && npm run verify && npm run csp:check"
   },
   "dependencies": {
     "@google/generative-ai": "^0.2.1",

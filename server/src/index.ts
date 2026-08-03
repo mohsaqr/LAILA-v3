@@ -5,7 +5,6 @@ import compression from 'compression';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import path from 'path';
-import { readFileSync } from 'fs';
 import { initSocket } from './utils/socket.js';
 
 // Load environment variables
@@ -56,6 +55,10 @@ import meRoutes from './routes/me.routes.js';
 import presentationRoutes from './routes/presentation.routes.js';
 import oidcRoutes, { discoveryRouter as oidcDiscoveryRouter } from './routes/oidc.routes.js';
 
+// Import configuration
+import { CSP_DIRECTIVES } from './config/csp.js';
+import { APP_VERSION, BUILD_INFO } from './config/buildInfo.js';
+
 // Import middleware
 import { errorHandler } from './middleware/error.middleware.js';
 import { authLimiter, uploadLimiter, apiLimiter, llmLimiter, presentationLimiter } from './middleware/rateLimit.middleware.js';
@@ -64,19 +67,9 @@ const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5001;
 
-// Read the version from package.json rather than npm_package_version: that
-// variable is only set when the process is started through npm, and the
-// deployed service runs under systemd, where it is absent — which is why
-// /api/health reported a hardcoded fallback instead of the real release.
-// Resolved relative to this file, which sits one level below the package root
-// as both src/index.ts and dist/index.js.
-const APP_VERSION: string = (() => {
-  try {
-    return JSON.parse(readFileSync(path.join(__dirname, '../package.json'), 'utf8')).version;
-  } catch {
-    return 'unknown';
-  }
-})();
+// Version, commit and build time all come from config/buildInfo.ts. See there
+// for why npm_package_version cannot be used, and why the git SHA matters more
+// than the version for telling two deployments apart.
 
 // CORS configuration - supports multiple origins or wildcard
 const corsOrigin = process.env.CLIENT_URL || 'http://localhost:5174';
@@ -100,21 +93,12 @@ app.use(cors(corsOptions));
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "blob:"],
-      fontSrc: ["'self'"],
-      connectSrc: ["'self'", "ws:", "wss:"],
-      // Allow embedding lecture videos from common providers (the rest of
-      // the app frames nothing). Uploaded videos are same-origin via media.
-      frameSrc: [
-        "'self'",
-        "https://www.youtube.com",
-        "https://www.youtube-nocookie.com",
-        "https://player.vimeo.com",
-      ],
-      objectSrc: ["'none'"],
+      // Every directive lives in config/csp.ts, which the nginx configs under
+      // deploy/ are generated from. Do NOT add one inline here: nginx serves
+      // the SPA's index.html from disk without ever reaching Express, so an
+      // inline directive would protect the API and silently miss the pages.
+      // config/csp.test.ts fails if the committed nginx copies drift.
+      ...CSP_DIRECTIVES,
       upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
     },
   },
@@ -232,6 +216,15 @@ app.get('/api/health', async (req, res) => {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       version: APP_VERSION,
+      // Identifies the artifact exactly. The version only moves when someone
+      // bumps it; the commit moves every build, so this is what tells a fresh
+      // deployment apart from one still serving last week's files.
+      build: {
+        gitSha: BUILD_INFO.gitSha,
+        gitBranch: BUILD_INFO.gitBranch,
+        gitDirty: BUILD_INFO.gitDirty,
+        builtAt: BUILD_INFO.builtAt,
+      },
       environment: process.env.NODE_ENV || 'development',
       checks: {
         database: {
