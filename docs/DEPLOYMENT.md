@@ -384,9 +384,7 @@ npm run build                     # NOT `npx tsc` — see Note 1
 sudo systemctl restart laila      # or: pm2 restart laila
 
 # ── 2. nginx-fronted hosts ONLY (see the topology table above) ─────────────
-sudo bash deploy/update-nginx-headers.sh
-#    Prints an `include` line. Add it in TWO places (see Note 3), then:
-sudo nginx -t && sudo systemctl reload nginx
+sudo bash deploy/update-nginx-headers.sh    # installs, patches, tests, reloads
 
 # ── 3. Schema changes only ─────────────────────────────────────────────────
 cd server && npx prisma migrate deploy   # see Note 2 before using `db push`
@@ -411,11 +409,25 @@ inside migrations. Migration `20260727153257_add_course_code_signup` contains a
 runs, leaving legacy mixed-case codes while signup matches uppercased ones.
 Prefer `prisma migrate deploy`.
 
-**3. The nginx `include` goes in two places.** nginx discards **every**
-inherited `add_header` from a location that declares one of its own, and does
-not cascade into nested locations. The nested `location = /index.html` sets
-`Cache-Control`, so without its own `include` it serves the actual document
-with no CSP:
+**3. Step 2 is fully automatic and safe to re-run.**
+`update-nginx-headers.sh` installs the snippet, adds the `include` to every
+location serving the SPA document, runs `nginx -t`, **restores its backup if
+that fails**, and only then reloads. It is idempotent, so a second run is a
+no-op — safe from a cron. It never touches `server/.env`, the database,
+systemd, or certbot's certificates, and it leaves every other location
+(`/api/`, `/assets/`, …) alone.
+
+```bash
+sudo bash deploy/update-nginx-headers.sh --dry-run    # show, change nothing
+sudo bash deploy/update-nginx-headers.sh --check      # exit 1 if not applied
+sudo bash deploy/update-nginx-headers.sh --config /path/to/site.conf
+```
+
+The `include` is added in **two** places, which looks like a duplicate but is
+not: nginx discards **every** inherited `add_header` from a location that
+declares one of its own, and does not cascade into nested locations. The nested
+`location = /index.html` sets `Cache-Control`, so without its own `include` it
+would serve the actual document with no CSP:
 
 ```nginx
 location / {
@@ -430,9 +442,9 @@ location / {
 }
 ```
 
-`update-nginx-headers.sh` refuses to reload until the snippet is actually
-included by some site config — an installed-but-unincluded snippet is inert and
-otherwise looks like success.
+If `nginx -t` fails for any reason, the script puts the original config back
+(`<config>.laila-bak-<timestamp>`) and reloads nothing, so a bad patch cannot
+take the site down.
 
 **4. Never run `deploy.sh` to update an existing host.** It is an *installer*.
 It unconditionally overwrites `server/.env` from the template, taking the live
