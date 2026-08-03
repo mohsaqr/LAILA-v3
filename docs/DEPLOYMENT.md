@@ -372,34 +372,114 @@ such a host does **not** fix its headers.
 
 ### Updating an existing host
 
+Run every step. Step 2 applies only to nginx-fronted hosts; skipping step 4
+is how a bad deploy goes unnoticed.
+
 ```bash
-# 1. Code
+# ── 1. Code ────────────────────────────────────────────────────────────────
 cd /path/to/LAILA-v3
 git pull
 npm run install:all
-npm run build            # NOT `npx tsc` — see the warning below
-sudo systemctl restart laila     # or: pm2 restart laila
+npm run build                     # NOT `npx tsc` — see Note 1
+sudo systemctl restart laila      # or: pm2 restart laila
 
-# 2. nginx-fronted hosts only — install the security-header snippet
+# ── 2. nginx-fronted hosts ONLY (see the topology table above) ─────────────
 sudo bash deploy/update-nginx-headers.sh
-#    then add the include line it prints, to the SPA `location /` block
-#    and to any nested location that sets its own add_header, then:
+#    Prints an `include` line. Add it in TWO places (see Note 3), then:
 sudo nginx -t && sudo systemctl reload nginx
 
-# 3. Confirm from outside
+# ── 3. Schema changes only ─────────────────────────────────────────────────
+cd server && npx prisma migrate deploy   # see Note 2 before using `db push`
+
+# ── 4. Confirm from outside — always ───────────────────────────────────────
 node scripts/verify-deployment.mjs https://your-host --expect-version 3.10.0
 ```
 
-⚠️ **Use `npm run build`, not `npx tsc`.** `npx tsc` compiles but skips npm
+#### Notes
+
+**1. Use `npm run build`, not `npx tsc`.** `npx tsc` compiles but skips npm
 lifecycle scripts, so `prebuild` never runs: no `build-info.json` is written and
 `check-versions` never gates the deploy. The server falls back to reading the
 commit out of `.git`, so `/api/health` still reports a `gitSha` — but with
-`builtAt: null`, which is the signature of a deploy that skipped `prebuild`.
+`builtAt: null`. **That null is the signature of a deploy that skipped
+`prebuild`**, and it is worth checking for.
 
-⚠️ **Never run `deploy.sh` to update an existing host.** It is an installer. It
-unconditionally overwrites `server/.env` from the template, taking the live
+**2. `prisma db push` applies structure only.** It skips the data-rewrite blocks
+inside migrations. Migration `20260727153257_add_course_code_signup` contains a
+`DO $$` block that uppercases, trims and de-duplicates activation codes
+*before* adding the unique index; applied with `db push`, that rewrite never
+runs, leaving legacy mixed-case codes while signup matches uppercased ones.
+Prefer `prisma migrate deploy`.
+
+**3. The nginx `include` goes in two places.** nginx discards **every**
+inherited `add_header` from a location that declares one of its own, and does
+not cascade into nested locations. The nested `location = /index.html` sets
+`Cache-Control`, so without its own `include` it serves the actual document
+with no CSP:
+
+```nginx
+location / {
+    try_files $uri $uri/ /index.html;
+    include /etc/nginx/snippets/laila-security-headers.conf;
+
+    location = /index.html {
+        expires 5m;
+        add_header Cache-Control "public, must-revalidate";
+        include /etc/nginx/snippets/laila-security-headers.conf;   # required
+    }
+}
+```
+
+`update-nginx-headers.sh` refuses to reload until the snippet is actually
+included by some site config — an installed-but-unincluded snippet is inert and
+otherwise looks like success.
+
+**4. Never run `deploy.sh` to update an existing host.** It is an *installer*.
+It unconditionally overwrites `server/.env` from the template, taking the live
 database password, JWT/session secrets and API keys with it, then re-prompts for
-all of them and re-runs migrations.
+all of them and re-runs migrations. Its inline nginx configs are written at
+install time only, which is why an existing host needs the snippet instead.
+
+**5. A green `/api/health` does not mean the deploy worked.** The service can be
+up, the database healthy and the version right while the client still serves an
+older bundle — the pull happened, the artifacts were never rebuilt. One host ran
+in that state for a day. Only step 4 catches it; it compares the *commit*, which
+moves every build, rather than the version, which moves only when someone bumps
+it.
+
+**6. Auth rate limits bite during post-deploy testing.** `/api/auth/*` allows
+5 requests/minute per IP (**429**), and accounts lock after repeated failures
+(**423**) — two independent defences with different status codes. Pace any
+login-heavy smoke test.
+
+**7. Production refuses weak secrets.** Booting with `NODE_ENV=production` and a
+placeholder `JWT_SECRET` or `SESSION_SECRET` aborts at startup by design. If the
+service dies immediately after a deploy, check that first.
+
+**8. Deploy timing is not proportional to the change.** Where a `server-pull`
+cron is used, the wait depends on where in the polling interval the push landed
+— observed between ~2.5 and ~7.5 minutes for a one-line docs change. Slow is not
+the same as broken.
+
+**9. There is more than one deployment, and they are not interchangeable.**
+Confirm which you are on before assuming a step applies:
+
+| Host | Topology | Deploy trigger | Needs step 2? |
+|---|---|---|---|
+| `laila.lacarm.com` | tunnel → Express, no nginx | auto on push to `main` | No — helmet serves the headers |
+| `lailalms.net` | nginx → Express | manual | **Yes** |
+
+They have drifted before: one ran a build a week older than the other while both
+reported healthy, and only one had a CSP on its pages. Run step 4 against each
+host separately — verifying one says nothing about the other.
+
+**10. Lab data URLs must be CORS-enabled.** Unrelated to the CSP, but it lands
+in the same place. `github.com/<owner>/<repo>/raw/...` is a redirect that sends
+no `Access-Control-Allow-Origin`, so the browser blocks it; use
+`raw.githubusercontent.com/<owner>/<repo>/<branch>/...`. Inside WebR the failure
+appears as a libcurl `Timeout was reached` after the full 10s, never as a CORS
+error, so it reads as a network fault. Desktop R is not a valid test — it has
+real sockets and ignores CORS entirely.
 
 ### Verify a deployment
 
