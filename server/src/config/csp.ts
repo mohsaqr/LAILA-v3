@@ -30,6 +30,18 @@ export const WEBR_PACKAGE_REPO = 'https://repo.r-wasm.org';
 export const PYODIDE_CDN = 'https://cdn.jsdelivr.net';
 
 /**
+ * Google Fonts, linked from `client/index.html` — the stylesheet comes from one
+ * origin and the font files from another.
+ *
+ * These are not optional extras: without them the policy silently blocks the
+ * Inter webfont and the app falls back to a system font. `'unsafe-inline'` in
+ * style-src does not help — it covers inline styles, not an external
+ * stylesheet, which is matched against the source list like any other fetch.
+ */
+export const GOOGLE_FONTS_CSS = 'https://fonts.googleapis.com';
+export const GOOGLE_FONTS_FILES = 'https://fonts.gstatic.com';
+
+/**
  * Directive names are camelCase because that is what helmet expects; the nginx
  * generator converts them to the kebab-case the header actually uses.
  */
@@ -43,11 +55,13 @@ export const CSP_DIRECTIVES = {
   // eval() for JavaScript, which is why it is preferred over 'unsafe-eval'.
   scriptSrc: ["'self'", "'wasm-unsafe-eval'"],
 
-  // Tailwind and React inline styles. A deliberate, standard relaxation.
-  styleSrc: ["'self'", "'unsafe-inline'"],
+  // 'unsafe-inline' covers Tailwind and React inline styles — a deliberate,
+  // standard relaxation. It does NOT cover the Google Fonts stylesheet, which
+  // is an external fetch and has to be listed as an origin.
+  styleSrc: ["'self'", "'unsafe-inline'", GOOGLE_FONTS_CSS],
 
   imgSrc: ["'self'", 'data:', 'blob:'],
-  fontSrc: ["'self'"],
+  fontSrc: ["'self'", GOOGLE_FONTS_FILES],
 
   // The labs are not bundled: WebR and Pyodide fetch their runtimes and
   // packages at page load. Under `'self'` alone the browser blocks all three

@@ -4,6 +4,8 @@ import { dirname, join, resolve } from 'node:path';
 
 import {
   CSP_DIRECTIVES,
+  GOOGLE_FONTS_CSS,
+  GOOGLE_FONTS_FILES,
   NGINX_GENERATED_TARGETS,
   PYODIDE_CDN,
   WEBR_CDN,
@@ -59,6 +61,46 @@ describe('Content-Security-Policy', () => {
     // On a plaintext listener this would rewrite every subresource request to
     // https and break asset loading outright.
     expect(buildCspHeader('http')).not.toContain('upgrade-insecure-requests');
+  });
+
+  // Without these the policy silently blocks the Inter webfont linked from
+  // index.html and the app drops to a system font. 'unsafe-inline' in
+  // style-src does not cover an external stylesheet — that is matched against
+  // the source list like any other fetch.
+  it('permits the Google Fonts origins', () => {
+    expect(CSP_DIRECTIVES.styleSrc).toContain(GOOGLE_FONTS_CSS);
+    expect(CSP_DIRECTIVES.fontSrc).toContain(GOOGLE_FONTS_FILES);
+  });
+
+  // `script-src 'self'` blocks inline scripts outright. index.html used to
+  // carry one (the pre-paint dark-theme setter); it was moved to
+  // public/theme-init.js so the policy needs no sha256 hash maintained across
+  // helmet, the nginx blocks and the meta tag.
+  describe('index.html stays compatible with the policy', () => {
+    const indexHtml = readFileSync(resolve(repoRoot(), 'client/index.html'), 'utf8');
+
+    it('has no inline script', () => {
+      const inline = indexHtml.match(/<script(?![^>]*\ssrc=)[^>]*>[\s\S]*?<\/script>/gi) ?? [];
+      expect(
+        inline,
+        "inline scripts are blocked by script-src 'self' — move it to a file under client/public/"
+      ).toHaveLength(0);
+    });
+
+    it('loads the theme initialiser as a same-origin file', () => {
+      expect(indexHtml).toContain('src="/theme-init.js"');
+      expect(existsSync(resolve(repoRoot(), 'client/public/theme-init.js'))).toBe(true);
+    });
+
+    it('references only font origins the policy allows', () => {
+      const externals = [...indexHtml.matchAll(/https:\/\/[a-z0-9.-]+/gi)].map((m) => m[0]);
+      const allowed = [GOOGLE_FONTS_CSS, GOOGLE_FONTS_FILES];
+      for (const origin of new Set(externals)) {
+        expect(allowed, `${origin} is referenced by index.html but not allowed by the CSP`).toContain(
+          origin
+        );
+      }
+    });
   });
 
   it('renders directive names in kebab-case', () => {

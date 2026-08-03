@@ -146,20 +146,39 @@ async function checkDocument() {
   }
   pass('SPA document reachable', `${res.status} ${res.headers.get('content-type') ?? ''}`.trim());
 
-  // The header must be on the *document*. When nginx serves index.html from
-  // disk, helmet never sees the request — the CSP then appears only on /api
-  // responses, where it protects nothing, and the pages ship unprotected.
+  // The policy can arrive two ways, and on an nginx-fronted host only one of
+  // them is available: nginx serves index.html from disk, so helmet never sees
+  // the request and no header is set. The build therefore also embeds a
+  // <meta http-equiv> in the HTML, which travels with the bundle. Either is a
+  // real policy the browser enforces, so accept both — but say which, because
+  // a meta tag cannot carry HSTS, X-Frame-Options or frame-ancestors.
   const cspHeader = res.headers.get('content-security-policy');
-  if (!cspHeader) {
+  // Capture the opening quote and match to the matching one. A naive
+  // [^"']+ truncates at the first single quote, and a CSP is full of them
+  // ('self', 'unsafe-inline'), which silently yields just "default-src ".
+  const cspMeta = body?.match(
+    /<meta[^>]+http-equiv=["']Content-Security-Policy["'][^>]+content=(["'])([\s\S]*?)\1/i
+  )?.[2];
+  const csp = cspHeader ?? cspMeta;
+
+  if (!csp) {
     fail(
       'document has a CSP',
-      'no Content-Security-Policy on the SPA document. If nginx fronts this host it must set ' +
-        'the headers itself — see the generated block in deploy/nginx/laila.conf'
+      'no Content-Security-Policy on the SPA document — neither an HTTP header nor a ' +
+        '<meta http-equiv> in the HTML. A build from this commit embeds the meta tag, so this ' +
+        'host is serving an older bundle'
     );
   } else {
-    pass('document has a CSP');
+    pass('document has a CSP', cspHeader ? 'HTTP header' : 'meta tag (no header)');
+    if (!cspHeader) {
+      note(
+        'CSP delivered by meta tag only',
+        'works, but a meta policy cannot carry HSTS, X-Frame-Options or frame-ancestors — ' +
+          'install the nginx snippet for those (deploy/update-nginx-headers.sh)'
+      );
+    }
 
-    const live = parseCsp(cspHeader);
+    const live = parseCsp(csp);
     const want = expectedCsp();
 
     // WebR and Pyodide download their runtimes and packages at page load. If
