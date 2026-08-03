@@ -458,8 +458,29 @@ server {
     # Upload size
     client_max_body_size 10M;
 
+    # OIDC discovery. RFC 8414 fixes this path at the issuer root, so it cannot
+    # live under /api/ with the other OIDC endpoints. Without this it falls
+    # through to the SPA catch-all and is answered with index.html, so a
+    # relying party gets HTML where it expects JSON. Exact match so it cannot
+    # shadow /.well-known/acme-challenge/.
+    location = /.well-known/openid-configuration {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     # API proxy
     location /api/ {
+        # Must clear the largest server-side multer limit (lecture videos are
+        # 200MB in upload.routes.ts). At the 10M server default every video or
+        # large-file upload dies at nginx with an HTML 413 the SPA cannot parse.
+        # Multer still enforces the real per-type ceilings; this only stops
+        # nginx truncating the body first. Kept in step with deploy/nginx/laila.conf.
+        client_max_body_size 200M;
+
         proxy_pass http://127.0.0.1:5001;
         proxy_http_version 1.1;
         proxy_set_header Host              $host;
@@ -500,6 +521,15 @@ server {
         expires 1y;
         add_header Cache-Control "public, immutable";
         access_log off;
+
+        # Cache-Control above makes nginx discard every inherited add_header,
+        # so the bundles need their own copy.
+        # >>> laila-security-headers http >>>
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        # <<< laila-security-headers <<<
     }
 
     # SPA catch-all
@@ -507,9 +537,28 @@ server {
         root __INSTALL_DIR__/client/dist;
         try_files $uri $uri/ /index.html;
 
+        # nginx serves index.html from disk, so the Express helmet CSP never
+        # sees it. Without this block the SPA ships with no CSP at all.
+        # Generated from server/src/config/csp.ts — `npm run csp:generate`.
+        # http variant: this listener is plaintext localhost, so HSTS and
+        # upgrade-insecure-requests are omitted.
+        # >>> laila-security-headers http >>>
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        # <<< laila-security-headers <<<
+
         location = /index.html {
             expires 5m;
             add_header Cache-Control "public, must-revalidate";
+            # add_header does not cascade into nested locations — repeat.
+            # >>> laila-security-headers http >>>
+            add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+            # <<< laila-security-headers <<<
         }
     }
 }
@@ -561,7 +610,26 @@ server {
 
     client_max_body_size 10M;
 
+    # OIDC discovery — see the note in the other config above. Exact match so
+    # it cannot shadow /.well-known/acme-challenge/, which certbot needs on
+    # this HTTP listener to issue the certificate.
+    location = /.well-known/openid-configuration {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     location /api/ {
+        # Must clear the largest server-side multer limit (lecture videos are
+        # 200MB in upload.routes.ts). At the 10M server default every video or
+        # large-file upload dies at nginx with an HTML 413 the SPA cannot parse.
+        # Multer still enforces the real per-type ceilings; this only stops
+        # nginx truncating the body first. Kept in step with deploy/nginx/laila.conf.
+        client_max_body_size 200M;
+
         proxy_pass http://127.0.0.1:5001;
         proxy_http_version 1.1;
         proxy_set_header Host              $host;
@@ -599,15 +667,45 @@ server {
         expires 1y;
         add_header Cache-Control "public, immutable";
         access_log off;
+
+        # Cache-Control above makes nginx discard every inherited add_header,
+        # so the bundles need their own copy.
+        # >>> laila-security-headers http >>>
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        # <<< laila-security-headers <<<
     }
 
     location / {
         root __INSTALL_DIR__/client/dist;
         try_files $uri $uri/ /index.html;
 
+        # nginx serves index.html from disk, so the Express helmet CSP never
+        # sees it. Without this block the SPA ships with no CSP at all.
+        # Generated from server/src/config/csp.ts — `npm run csp:generate`.
+        # http variant: this config is the pre-certbot HTTP listener, so HSTS
+        # and upgrade-insecure-requests are omitted — sending them before a
+        # certificate exists would pin the host to an unreachable https.
+        # certbot rewrites this file when it installs the certificate.
+        # >>> laila-security-headers http >>>
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        # <<< laila-security-headers <<<
+
         location = /index.html {
             expires 5m;
             add_header Cache-Control "public, must-revalidate";
+            # add_header does not cascade into nested locations — repeat.
+            # >>> laila-security-headers http >>>
+            add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+            # <<< laila-security-headers <<<
         }
     }
 }

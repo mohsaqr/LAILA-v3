@@ -2,11 +2,12 @@ import { Router, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { v4 as uuid } from 'uuid';
+import { randomUUID as uuid } from 'node:crypto';
 import { authenticateToken, requireInstructor } from '../middleware/auth.middleware.js';
 import { AuthRequest } from '../types/index.js';
 import prisma from '../utils/prisma.js';
 import { courseRoleService } from '../services/courseRole.service.js';
+import { asyncHandler } from '../middleware/error.middleware.js';
 
 const router = Router();
 
@@ -497,7 +498,7 @@ router.post(
   '/assignment-submission',
   authenticateToken,
   assignmentSubmissionUpload.single('file'),
-  async (req: AuthRequest, res: Response) => {
+  asyncHandler(async (req: AuthRequest, res: Response) => {
     if (!req.file) {
       res.status(400).json({ success: false, error: 'No file uploaded' });
       return;
@@ -584,7 +585,7 @@ router.post(
         mimetype: req.file.mimetype,
       },
     });
-  }
+  })
 );
 
 // Error handling for multer errors

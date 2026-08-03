@@ -404,10 +404,18 @@ class ForumService {
     });
     const authorMap = new Map(authors.map(a => [a.id, a]));
 
-    const postsWithAuthors = thread.posts.map(post => ({
-      ...post,
-      author: post.isAnonymous ? null : authorMap.get(post.authorId),
-    }));
+    // Anonymity has to remove the scalar identifiers too, not just null the
+    // resolved author object. Spreading `...post` still carried `authorId`
+    // (and `requesterId`/`requester` for AI posts), which a classmate could
+    // correlate against the named posts in the same thread to unmask the
+    // poster — defeating allowAnonymous entirely.
+    const postsWithAuthors = thread.posts.map(post => {
+      if (post.isAnonymous) {
+        const { authorId, requesterId, requester, ...rest } = post as typeof post & { requesterId?: number };
+        return { ...rest, author: null };
+      }
+      return { ...post, author: authorMap.get(post.authorId) };
+    });
 
     const myLikeRow = await prisma.forumThreadLike.findUnique({
       where: { threadId_userId: { threadId, userId } },
@@ -415,8 +423,9 @@ class ForumService {
     });
     const { reactions, total } = await this.getReactionBreakdown(threadId);
 
+    const { authorId: threadAuthorId, ...threadRest } = thread;
     return {
-      ...thread,
+      ...(thread.isAnonymous ? threadRest : thread),
       author: thread.isAnonymous ? null : authorMap.get(thread.authorId),
       posts: postsWithAuthors,
       likeCount: total,

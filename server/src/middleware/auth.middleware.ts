@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AuthRequest, UserPayload } from '../types/index.js';
 import prisma from '../utils/prisma.js';
+import { USER_STATUS_LOGIN_ERRORS, type UserStatus } from '../utils/userStatus.js';
 
 // Read the secret lazily and cache it. A top-level read would run before
 // index.ts calls dotenv.config() (imports are hoisted), so at module-load the
@@ -24,6 +25,8 @@ function jwtSecret(): string {
 interface CachedUserStatus {
   tokenVersion: number;
   isActive: boolean;
+  /** Registration lifecycle — see utils/userStatus.ts. */
+  status: string;
   cachedAt: number;
 }
 
@@ -43,7 +46,10 @@ function getCachedUserStatus(userId: number): CachedUserStatus | null {
   return cached;
 }
 
-function setCachedUserStatus(userId: number, status: { tokenVersion: number; isActive: boolean }): void {
+function setCachedUserStatus(
+  userId: number,
+  status: { tokenVersion: number; isActive: boolean; status: string }
+): void {
   userStatusCache.set(userId, {
     ...status,
     cachedAt: Date.now(),
@@ -82,16 +88,18 @@ export const authenticateToken = async (
       let cachedStatus = getCachedUserStatus(decoded.id);
       let tokenVersion: number;
       let isActive: boolean;
+      let status: string;
 
       if (cachedStatus) {
         // Cache hit
         tokenVersion = cachedStatus.tokenVersion;
         isActive = cachedStatus.isActive;
+        status = cachedStatus.status;
       } else {
         // Cache miss - query database
         const user = await prisma.user.findUnique({
           where: { id: decoded.id },
-          select: { tokenVersion: true, isActive: true },
+          select: { tokenVersion: true, isActive: true, status: true },
         });
 
         if (!user) {
@@ -101,13 +109,24 @@ export const authenticateToken = async (
 
         tokenVersion = user.tokenVersion;
         isActive = user.isActive;
+        status = user.status;
 
         // Cache the result
-        setCachedUserStatus(decoded.id, { tokenVersion, isActive });
+        setCachedUserStatus(decoded.id, { tokenVersion, isActive, status });
       }
 
       if (!isActive) {
         res.status(403).json({ success: false, error: 'Account is deactivated' });
+        return;
+      }
+
+      // The approval gate belongs on EVERY authenticated request, not only on
+      // login: tokens are also issued by verifyCode() and resetPassword(), and
+      // an admin rejecting someone must take effect against a token that was
+      // already handed out rather than waiting for it to expire.
+      const statusError = USER_STATUS_LOGIN_ERRORS[status as UserStatus];
+      if (statusError) {
+        res.status(403).json({ success: false, error: statusError });
         return;
       }
 
@@ -145,14 +164,30 @@ export const optionalAuth = async (
         if (!cachedStatus) {
           const user = await prisma.user.findUnique({
             where: { id: decoded.id },
-            select: { tokenVersion: true, isActive: true },
+            select: { tokenVersion: true, isActive: true, status: true },
           });
           if (user) {
-            cachedStatus = { tokenVersion: user.tokenVersion, isActive: user.isActive, cachedAt: Date.now() };
-            setCachedUserStatus(decoded.id, { tokenVersion: user.tokenVersion, isActive: user.isActive });
+            cachedStatus = {
+              tokenVersion: user.tokenVersion,
+              isActive: user.isActive,
+              status: user.status,
+              cachedAt: Date.now(),
+            };
+            setCachedUserStatus(decoded.id, {
+              tokenVersion: user.tokenVersion,
+              isActive: user.isActive,
+              status: user.status,
+            });
           }
         }
-        if (!cachedStatus || !cachedStatus.isActive || cachedStatus.tokenVersion !== decoded.tokenVersion) {
+        // Same three gates as authenticateToken; here a failure means "carry on
+        // anonymously" rather than an error, since this route allows guests.
+        if (
+          !cachedStatus ||
+          !cachedStatus.isActive ||
+          USER_STATUS_LOGIN_ERRORS[cachedStatus.status as UserStatus] ||
+          cachedStatus.tokenVersion !== decoded.tokenVersion
+        ) {
           next();
           return;
         }

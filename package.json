@@ -1,6 +1,6 @@
 {
   "name": "laila-lms",
-  "version": "3.8.0",
+  "version": "3.11.0",
   "description": "LAILA - AI-powered Learning Management System",
   "private": true,
   "scripts": {
@@ -21,13 +21,16 @@
     "db:studio": "cd server && npx prisma studio --schema prisma/local/schema.prisma",
     "db:reset": "cd server && npx prisma migrate reset --schema prisma/local/schema.prisma",
     "lint": "cd client && npm run lint",
-    "clean": "rm -rf server/node_modules client/node_modules node_modules"
+    "check:versions": "node scripts/check-versions.mjs",
+    "verify:deployment": "node scripts/verify-deployment.mjs",
+    "clean": "rm -rf server/node_modules client/node_modules node_modules",
+    "licenses:generate": "node scripts/generate-third-party-licenses.mjs"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.6"
   },
   "keywords": [
     "lms",
@@ -36,5 +39,5 @@
     "learning-management-system"
   ],
   "author": "LAILA Team",
-  "license": "MIT"
+  "license": "SEE LICENSE IN LICENSE"
 }

@@ -51,7 +51,7 @@ export class SurveyService {
     return surveys;
   }
 
-  async getSurveyById(surveyId: number, userId?: number, isInstructor = false) {
+  async getSurveyById(surveyId: number, userId?: number, _isInstructor = false, isAdmin = false) {
     const survey = await prisma.survey.findUnique({
       where: { id: surveyId },
       include: {
@@ -71,9 +71,16 @@ export class SurveyService {
       throw new AppError('Survey not found', 404);
     }
 
-    // Check visibility
-    if (!isInstructor && !survey.isPublished) {
-      throw new AppError('Survey not available', 403);
+    // Visibility. A published survey stays openly readable (anonymous /
+    // standalone survey-taking is an intended feature). An UNPUBLISHED draft is
+    // visible ONLY to its creator or an admin — the previous check trusted the
+    // global isInstructor flag, so any instructor could read any other
+    // instructor's draft survey by id.
+    if (!survey.isPublished) {
+      const isOwner = userId != null && survey.createdById === userId;
+      if (!isOwner && !isAdmin) {
+        throw new AppError('Survey not available', 403);
+      }
     }
 
     // Parse options from JSON for each question
@@ -330,6 +337,19 @@ export class SurveyService {
 
     if (!survey.isPublished) {
       throw new AppError('Survey is not available', 400);
+    }
+
+    // A supplied moduleId must actually be a module this survey is attached to.
+    // It was written verbatim, so a caller could attribute their response to any
+    // module id and poison another course's per-module analytics.
+    if (data.moduleId != null) {
+      const link = await prisma.moduleSurvey.findFirst({
+        where: { surveyId, moduleId: data.moduleId },
+        select: { id: true },
+      });
+      if (!link) {
+        throw new AppError('This survey is not attached to that module', 400);
+      }
     }
 
     // Check if user already submitted (if not anonymous and user is logged in)

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AppError } from '../middleware/error.middleware.js';
 
 // =============================================================================
 // PAGINATION UTILITIES
@@ -20,13 +21,60 @@ export function parsePaginationLimit(limitParam: string | undefined, defaultLimi
   return Math.min(parsed, MAX_PAGINATION_LIMIT);
 }
 
-// Strong password validation
+/**
+ * Parse a positive-integer route/query param, throwing a clean 400 on anything
+ * that is not one. Many handlers did a bare `parseInt(req.params.id)` and passed
+ * the result straight into business logic; a non-numeric segment produced `NaN`,
+ * which is only sometimes caught downstream (the Prisma-validation backstop
+ * covers ids that reach Prisma, not NaN flowing into arithmetic/branching).
+ * `label` is used in the error message.
+ */
+export function parseIdParam(value: unknown, label = 'id'): number {
+  // Strict: reject anything that is not a whole positive integer. parseInt is
+  // deliberately NOT used on strings — it silently truncates "12abc" to 12 and
+  // "1.5" to 1, which is exactly the kind of sloppy id a guard should catch.
+  let n: number;
+  if (typeof value === 'number') {
+    n = value;
+  } else if (typeof value === 'string' && /^\d+$/.test(value.trim())) {
+    n = Number(value.trim());
+  } else {
+    throw new AppError(`Invalid ${label}`, 400);
+  }
+  if (!Number.isInteger(n) || n < 1) {
+    throw new AppError(`Invalid ${label}`, 400);
+  }
+  return n;
+}
+
+/**
+ * bcrypt hashes only the first 72 BYTES of its input and discards the rest
+ * without complaint. Left unbounded, a user setting a long passphrase gets a
+ * silent, safe-looking failure: registration succeeds, login succeeds, and
+ * everything past byte 72 protects nothing — two passwords sharing their first
+ * 72 bytes are the same password as far as the hash is concerned.
+ *
+ * The limit is in BYTES, not characters, which is why this is a refine and not
+ * `.max(72)`. `.max()` counts UTF-16 code units, so 72 accented or CJK
+ * characters — or ~18 emoji — sail past it and are then truncated anyway.
+ */
+const BCRYPT_MAX_PASSWORD_BYTES = 72;
+
+// Strong password validation.
+//
+// The byte check is last: `.refine()` returns a ZodEffects, which has no
+// `.regex()`, so any further string rules would fail to compile after it.
 const strongPasswordSchema = z.string()
   .min(8, 'Password must be at least 8 characters')
   .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
   .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
   .regex(/[0-9]/, 'Password must contain at least one number')
-  .regex(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain at least one special character');
+  .regex(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain at least one special character')
+  .refine(
+    (value) => Buffer.byteLength(value, 'utf8') <= BCRYPT_MAX_PASSWORD_BYTES,
+    `Password must be at most ${BCRYPT_MAX_PASSWORD_BYTES} bytes — about 72 plain characters, ` +
+      'but fewer if it contains accents, non-Latin scripts or emoji'
+  );
 
 // Auth validation schemas
 //
@@ -41,9 +89,20 @@ const strongPasswordSchema = z.string()
 // account", a course code is a teacher saying "you may join my course". Someone
 // can legitimately have both, and they govern different outcomes (role vs.
 // enrolment), so there is nothing to disambiguate.
+// Email is stored and compared verbatim against a case-sensitive unique index,
+// so it MUST be normalized at every entry point. Otherwise `Bob@x.com` and
+// `bob@x.com` are two accounts, and the rejected/pending re-registration guard
+// (which looks the address up) is bypassable by changing case. Invitations,
+// batch enrollment and domain matching already lowercase — this aligns signup
+// and login with them.
+const normalizedEmail = z
+  .string()
+  .email('Invalid email address')
+  .transform((e) => e.trim().toLowerCase());
+
 export const registerSchema = z.object({
   fullname: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
+  email: normalizedEmail,
   password: strongPasswordSchema,
   inviteToken: z.string().min(1).max(255).optional(),
   inviteCode: z.string().min(1).max(64).optional(),
@@ -55,7 +114,15 @@ export const registerSchema = z.object({
   path: ['inviteCode'],
 });
 
-// Password update validation schema
+// Password update validation schema.
+//
+// `currentPassword` is deliberately NOT byte-bounded. It verifies an existing
+// password, and anyone who set one longer than 72 bytes before that limit
+// existed still types the whole thing — bcrypt compares the first 72 bytes and
+// matches. Applying the bound here would reject their input before it ever
+// reached the hash and lock them out of their own account. The same reasoning
+// applies to loginSchema below. Bound where a password is SET, never where one
+// is CHECKED.
 export const updatePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Current password is required'),
   newPassword: strongPasswordSchema,
@@ -66,9 +133,21 @@ export const updateProfileSchema = z.object({
   fullname: z.string().min(2, 'Name must be at least 2 characters'),
 });
 
+// Unbounded by design — see the note on updatePasswordSchema. Login verifies a
+// password rather than setting one, so a length rule here could only ever lock
+// out an existing user whose password predates the limit.
 export const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  email: normalizedEmail,
   password: z.string().min(1, 'Password is required'),
+});
+
+// Password reset: the code proves mailbox ownership, so no current password.
+// strongPasswordSchema is reused so a reset can't set a weaker password than
+// signup would accept.
+export const resetPasswordSchema = z.object({
+  email: normalizedEmail,
+  code: z.string().min(1, 'Verification code is required'),
+  newPassword: strongPasswordSchema,
 });
 
 export const updateUserSchema = z.object({

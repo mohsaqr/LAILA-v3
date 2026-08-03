@@ -11,6 +11,7 @@ import {
   Eye,
   EyeOff,
   Globe,
+  Info,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
@@ -311,6 +312,15 @@ export const Navbar = ({ onMenuClick, topOffset = 0 }: NavbarProps = {}) => {
                     >
                       <User className="w-4 h-4" />
                       {t('profile')}
+                    </Link>
+                    <Link
+                      to="/about"
+                      className="flex items-center gap-2 px-4 py-2 text-sm"
+                      style={{ color: colors.textSecondary }}
+                      onClick={() => setIsUserMenuOpen(false)}
+                    >
+                      <Info className="w-4 h-4" />
+                      {t('about', { defaultValue: 'About' })}
                     </Link>
                     <hr style={{ borderColor: colors.dropdownBorder }} className="my-1" />
                     <button

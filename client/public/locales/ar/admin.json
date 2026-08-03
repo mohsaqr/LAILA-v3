@@ -883,5 +883,6 @@
   "invite_status_pending": "قيد الانتظار",
   "invite_status_used": "مستخدمة",
   "invite_status_expired": "منتهية",
-  "invite_status_revoked": "ملغاة"
+  "invite_status_revoked": "ملغاة",
+  "invite": "دعوة"
 }

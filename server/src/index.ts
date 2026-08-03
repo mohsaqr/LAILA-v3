@@ -3,7 +3,6 @@ import { createServer } from 'http';
 import cors from 'cors';
 import compression from 'compression';
 import helmet from 'helmet';
-import session from 'express-session';
 import dotenv from 'dotenv';
 import path from 'path';
 import { initSocket } from './utils/socket.js';
@@ -56,6 +55,10 @@ import meRoutes from './routes/me.routes.js';
 import presentationRoutes from './routes/presentation.routes.js';
 import oidcRoutes, { discoveryRouter as oidcDiscoveryRouter } from './routes/oidc.routes.js';
 
+// Import configuration
+import { CSP_DIRECTIVES } from './config/csp.js';
+import { APP_VERSION, BUILD_INFO } from './config/buildInfo.js';
+
 // Import middleware
 import { errorHandler } from './middleware/error.middleware.js';
 import { authLimiter, uploadLimiter, apiLimiter, llmLimiter, presentationLimiter } from './middleware/rateLimit.middleware.js';
@@ -64,8 +67,18 @@ const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5001;
 
+// Version, commit and build time all come from config/buildInfo.ts. See there
+// for why npm_package_version cannot be used, and why the git SHA matters more
+// than the version for telling two deployments apart.
+
 // CORS configuration - supports multiple origins or wildcard
 const corsOrigin = process.env.CLIENT_URL || 'http://localhost:5174';
+// A reflect-any-origin CORS policy combined with credentials:true is unsafe in
+// production — any site could drive an authenticated cross-site request the
+// moment cookies enter the picture. Refuse to boot rather than run open.
+if (process.env.NODE_ENV === 'production' && corsOrigin === '*') {
+  throw new Error('CLIENT_URL="*" is not allowed in production; set explicit allowed origin(s)');
+}
 const corsOptions = {
   origin: corsOrigin === '*' ? true : corsOrigin.includes(',')
     ? corsOrigin.split(',').map(o => o.trim())
@@ -80,21 +93,12 @@ app.use(cors(corsOptions));
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "blob:"],
-      fontSrc: ["'self'"],
-      connectSrc: ["'self'", "ws:", "wss:"],
-      // Allow embedding lecture videos from common providers (the rest of
-      // the app frames nothing). Uploaded videos are same-origin via media.
-      frameSrc: [
-        "'self'",
-        "https://www.youtube.com",
-        "https://www.youtube-nocookie.com",
-        "https://player.vimeo.com",
-      ],
-      objectSrc: ["'none'"],
+      // Every directive lives in config/csp.ts, which the nginx configs under
+      // deploy/ are generated from. Do NOT add one inline here: nginx serves
+      // the SPA's index.html from disk without ever reaching Express, so an
+      // inline directive would protect the API and silently miss the pages.
+      // config/csp.test.ts fails if the committed nginx copies drift.
+      ...CSP_DIRECTIVES,
       upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
     },
   },
@@ -110,22 +114,32 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(requestLoggingMiddleware);
 app.use(slowRequestLoggingMiddleware(2000)); // Log requests slower than 2s
 
-// Validate required environment variables
+// Validate required environment variables. JWT_SECRET was previously enforced
+// only incidentally (by initSocket); check it here next to SESSION_SECRET so a
+// missing or placeholder signing key fails the boot loudly rather than minting
+// forgeable tokens.
 if (!process.env.SESSION_SECRET) {
   throw new Error('SESSION_SECRET environment variable is required');
 }
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
+if (process.env.NODE_ENV === 'production') {
+  const placeholders = ['your-super-secret-jwt-key-change-in-production', 'your-session-secret-change-in-production', 'changeme', 'secret'];
+  for (const [name, value] of [['JWT_SECRET', process.env.JWT_SECRET], ['SESSION_SECRET', process.env.SESSION_SECRET]] as const) {
+    if (value!.length < 32 || placeholders.includes(value!)) {
+      throw new Error(`${name} is too weak or is a placeholder; set a strong random value in production`);
+    }
+  }
+}
 
-// Session configuration
-app.use(session({
-  secret: process.env.SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-  },
-}));
+// NOTE: express-session was previously mounted here but nothing ever wrote to
+// req.session (auth is stateless Bearer JWT), so it set no cookie and did
+// nothing — removed to avoid a misleading "we have sessions/CSRF" posture for
+// whoever adds a cookie feature next. SESSION_SECRET is retained above because
+// it is the HMAC key for invitation codes (invitation.service), not a cookie
+// secret. If a real cookie/session is introduced later, add CSRF protection at
+// the same time.
 
 // Static files for uploads with security headers
 app.use('/uploads', (req, res, next) => {
@@ -201,7 +215,16 @@ app.get('/api/health', async (req, res) => {
       status: 'healthy',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      version: process.env.npm_package_version || '3.0.0',
+      version: APP_VERSION,
+      // Identifies the artifact exactly. The version only moves when someone
+      // bumps it; the commit moves every build, so this is what tells a fresh
+      // deployment apart from one still serving last week's files.
+      build: {
+        gitSha: BUILD_INFO.gitSha,
+        gitBranch: BUILD_INFO.gitBranch,
+        gitDirty: BUILD_INFO.gitDirty,
+        builtAt: BUILD_INFO.builtAt,
+      },
       environment: process.env.NODE_ENV || 'development',
       checks: {
         database: {

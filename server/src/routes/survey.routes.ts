@@ -51,11 +51,10 @@ router.get('/', authenticateToken, asyncHandler(async (req: AuthRequest, res: Re
   res.json({ success: true, data: surveys });
 }));
 
-// Get survey by ID (public for taking, instructor for management)
+// Get survey by ID (public for taking a published survey; draft is owner/admin only)
 router.get('/:id', optionalAuth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = parseInt(req.params.id);
-  const isInstructor = req.user?.isInstructor || req.user?.isAdmin || false;
-  const survey = await surveyService.getSurveyById(id, req.user?.id, isInstructor);
+  const survey = await surveyService.getSurveyById(id, req.user?.id, req.user?.isInstructor || false, req.user?.isAdmin || false);
   res.json({ success: true, data: survey });
 }));
 

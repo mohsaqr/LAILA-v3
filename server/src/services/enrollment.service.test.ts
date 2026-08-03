@@ -69,7 +69,16 @@ vi.mock('./email.service.js', () => ({
   },
 }));
 
+// Prerequisite enforcement is exercised in prerequisite.service.test.ts; here
+// it defaults to "met" so the enrol tests isolate enrolment behaviour.
+vi.mock('./prerequisite.service.js', () => ({
+  prerequisiteService: {
+    checkPrerequisites: vi.fn().mockResolvedValue({ met: true, prerequisites: [] }),
+  },
+}));
+
 import prisma from '../utils/prisma.js';
+import { prerequisiteService } from './prerequisite.service.js';
 
 describe('EnrollmentService', () => {
   let enrollmentService: EnrollmentService;
@@ -365,6 +374,32 @@ describe('EnrollmentService', () => {
 
       await expect(enrollmentService.enroll(10, 1)).rejects.toThrow(AppError);
       await expect(enrollmentService.enroll(10, 1)).rejects.toThrow('Already enrolled in this course');
+    });
+
+    it('blocks self-enrollment into a private course with no activation code', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({ isAdmin: false, isInstructor: false } as any);
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({
+        id: 3, status: 'published', isPublic: false, activationCode: null,
+      } as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null);
+
+      await expect(enrollmentService.enroll(10, 3)).rejects.toThrow(/not open for self-enrollment/i);
+      expect(prisma.enrollment.create).not.toHaveBeenCalled();
+    });
+
+    it('blocks self-enrollment when a required prerequisite is unmet', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({ isAdmin: false, isInstructor: false } as any);
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({ id: 2, status: 'published' } as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null);
+      vi.mocked(prerequisiteService.checkPrerequisites).mockResolvedValueOnce({
+        met: false,
+        prerequisites: [
+          { isRequired: true, met: false, prerequisiteCourse: { id: 1, title: 'Intro 101' } },
+        ],
+      } as any);
+
+      await expect(enrollmentService.enroll(10, 2)).rejects.toThrow(/prerequisite/i);
+      expect(prisma.enrollment.create).not.toHaveBeenCalled();
     });
   });
 

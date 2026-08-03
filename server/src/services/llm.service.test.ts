@@ -1230,12 +1230,23 @@ describe('LLMService', () => {
         json: () => Promise.resolve({ models: [] }),
       });
 
-      await llmService.getOllamaModels('http://custom:11434');
+      await llmService.getOllamaModels('http://192.168.1.50:11434');
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://custom:11434/api/tags',
+        'http://192.168.1.50:11434/api/tags',
         expect.any(Object)
       );
+    });
+
+    it('rejects a non-local base URL (SSRF guard) without fetching', async () => {
+      mockFetch.mockClear();
+      await expect(llmService.getOllamaModels('http://169.254.169.254')).rejects.toThrow(
+        /local or private-network/i,
+      );
+      await expect(llmService.getOllamaModels('http://evil.example.com')).rejects.toThrow(
+        /local or private-network/i,
+      );
+      expect(mockFetch).not.toHaveBeenCalled();
     });
   });
 
@@ -1660,10 +1671,10 @@ describe('LLMService', () => {
         json: () => Promise.resolve({ status: 'success' }),
       });
 
-      await llmService.pullOllamaModel('llama2', 'http://custom:11434');
+      await llmService.pullOllamaModel('llama2', 'http://192.168.1.50:11434');
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://custom:11434/api/pull',
+        'http://192.168.1.50:11434/api/pull',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({ name: 'llama2' }),

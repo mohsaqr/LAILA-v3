@@ -883,5 +883,6 @@
   "invite_status_pending": "Pendiente",
   "invite_status_used": "Usada",
   "invite_status_expired": "Caducada",
-  "invite_status_revoked": "Revocada"
+  "invite_status_revoked": "Revocada",
+  "invite": "Invitar"
 }

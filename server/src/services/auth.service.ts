@@ -7,7 +7,7 @@ import { UserPayload } from '../types/index.js';
 import { learningAnalyticsService, AuthEventData } from './learningAnalytics.service.js';
 import { authLogger } from '../utils/logger.js';
 import { userService } from './user.service.js';
-import { emailService } from './email.service.js';
+import { emailService, VERIFICATION_CODE_TTL_MS } from './email.service.js';
 import { asRegistrationRole, registrationPolicyService } from './registrationPolicy.service.js';
 import { invitationService, type InvitationRecord } from './invitation.service.js';
 import {
@@ -23,6 +23,19 @@ import {
   type UserStatus,
 } from '../utils/userStatus.js';
 import crypto from 'crypto';
+
+/**
+ * Constant-time string comparison for secrets (verification codes). A plain
+ * `===` short-circuits on the first differing character, leaking match length
+ * through timing; timingSafeEqual does not. The length guard is required
+ * because timingSafeEqual throws on unequal-length buffers.
+ */
+function timingSafeEqualStr(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
 
 // Context for auth logging
 export interface AuthContext {
@@ -110,6 +123,19 @@ export class AuthService {
       if (existingUser.isConfirmed) {
         throw new AppError('Email already registered', 409);
       }
+      // An administrator's verdict outlives an unverified row. Deleting purely
+      // on isConfirmed let a rejected applicant clear their rejection by
+      // submitting the form a second time, and let a pending one silently
+      // restart their place in the queue.
+      if (existingUser.status === 'rejected') {
+        throw new AppError(
+          USER_STATUS_LOGIN_ERRORS.rejected ?? 'Registration is not available.',
+          403
+        );
+      }
+      if (existingUser.status === 'pending_approval') {
+        throw new AppError('Your registration is already awaiting administrator approval.', 409);
+      }
       // Unverified user — delete old record so they can re-register
       await prisma.user.delete({ where: { id: existingUser.id } });
     }
@@ -129,26 +155,40 @@ export class AuthService {
       status: decision.requiresApproval ? 'pending_approval' : DEFAULT_USER_STATUS,
     };
 
+    // The code is minted BEFORE the write so it can be stored in the same
+    // transaction as the account. Creating it afterwards meant an interruption
+    // between the two left a spent invitation and an account with no way to
+    // verify it — and the retry then failed, because the invitation was gone.
+    const verification = decision.requiresEmailVerification
+      ? {
+          code: crypto.randomInt(100000, 999999).toString(),
+          expiresAt: new Date(Date.now() + VERIFICATION_CODE_TTL_MS),
+        }
+      : null;
+
     // A transaction is only opened when something has to happen ATOMICALLY with
     // the insert — spending an invitation, or delivering a promised enrolment.
     // An ordinary public signup still takes the plain single-statement path.
     const user = invitation || sponsorCourse
-      ? await this.createSponsoredUser(invitation, sponsorCourse, newUser)
+      ? await this.createSponsoredUser(invitation, sponsorCourse, newUser, verification)
       : await prisma.user.create({ data: newUser, select: NEW_USER_SELECT });
 
-    if (decision.requiresEmailVerification) {
-      // Generate 6-digit verification code
-      const code = crypto.randomInt(100000, 999999).toString();
-      const expiresAt = new Date(Date.now() + 2 * 60 * 1000); // 10 minutes
-
-      // Delete any existing codes for this user, then create new one
-      await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+    // The plain path writes its code after the insert. That is not atomic, but
+    // nothing irreversible was spent: if it fails the applicant has an account
+    // with no code, and "resend code" recovers it. A sponsored signup has no
+    // such fallback — its retry would need an invitation that is already
+    // consumed — so there the code is written inside the transaction instead.
+    if (verification && !invitation && !sponsorCourse) {
+      await prisma.verificationCode.deleteMany({ where: { userId: user.id, purpose: 'signup' } });
       await prisma.verificationCode.create({
-        data: { userId: user.id, code, expiresAt },
+        data: { userId: user.id, code: verification.code, purpose: 'signup', expiresAt: verification.expiresAt },
       });
+    }
 
-      // Send verification email (non-blocking)
-      emailService.sendVerificationCode(user.email, code, user.fullname).catch((err) => {
+    if (verification) {
+      // Sending is not transactional and must not be: a mail failure should
+      // cost the applicant a resend, not their account.
+      emailService.sendVerificationCode(user.email, verification.code, user.fullname).catch(err => {
         authLogger.warn({ err, email: user.email }, 'Failed to send verification email');
       });
     }
@@ -219,6 +259,12 @@ export class AuthService {
    * fail on a race; doing it before the expensive insert keeps the losing
    * request short.
    */
+  /**
+   * Create a sponsored account and everything that must be true the moment it
+   * exists: the invitation spent, the promised enrolments in place, and the
+   * verification code stored. One transaction, so a failure anywhere leaves no
+   * half-registered user and, crucially, no invitation burned for nothing.
+   */
   private async createSponsoredUser(
     invitation: InvitationRecord | null,
     sponsorCourse: SignupCourse | null,
@@ -229,7 +275,8 @@ export class AuthService {
       isConfirmed: boolean;
       isInstructor: boolean;
       status: string;
-    }
+    },
+    verification: { code: string; expiresAt: Date } | null
   ) {
     return prisma.$transaction(async tx => {
       if (invitation) {
@@ -250,6 +297,13 @@ export class AuthService {
 
       for (const courseId of courseIds) {
         await enrollSignupCourse(tx, user.id, courseId);
+      }
+
+      if (verification) {
+        await tx.verificationCode.deleteMany({ where: { userId: user.id, purpose: 'signup' } });
+        await tx.verificationCode.create({
+          data: { userId: user.id, code: verification.code, purpose: 'signup', expiresAt: verification.expiresAt },
+        });
       }
 
       return user;
@@ -284,8 +338,17 @@ export class AuthService {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) throw new AppError('User not found', 404);
 
+    // A signup code confirms an unconfirmed account. Refusing an already-
+    // confirmed user closes the takeover path where an attacker triggers
+    // forgot-password for a live account and then brute-forces this endpoint
+    // to re-confirm it and mint a token.
+    if (user.isConfirmed) throw new AppError('Account is already verified', 400);
+
+    // Look the code up by purpose, NOT by value: matching on `code` would make
+    // a wrong guess indistinguishable from "no code" and leave nothing to count
+    // attempts against, so the 6-digit code could be brute-forced for free.
     const record = await prisma.verificationCode.findFirst({
-      where: { userId: user.id, code },
+      where: { userId: user.id, purpose: 'signup' },
     });
 
     if (!record) {
@@ -296,6 +359,11 @@ export class AuthService {
       // Expired — delete and reject
       await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
       throw new AppError('Verification code has expired', 400);
+    }
+
+    if (!timingSafeEqualStr(record.code, code)) {
+      await this.registerFailedCodeAttempt(record.id, user.id, record.attempts);
+      throw new AppError('Invalid verification code', 400);
     }
 
     // Confirm user and delete code
@@ -310,10 +378,20 @@ export class AuthService {
         isInstructor: true,
         avatarUrl: true,
         tokenVersion: true,
+        status: true,
       },
     });
 
-    await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+    await prisma.verificationCode.deleteMany({ where: { userId: user.id, purpose: 'signup' } });
+
+    // Proving you own the mailbox does not get you in on its own. Verification
+    // and approval are independent gates and this path consulted only the
+    // first, so an applicant could sign in simply by verifying their email
+    // before an administrator had approved them.
+    const statusError = USER_STATUS_LOGIN_ERRORS[confirmedUser.status as UserStatus];
+    if (statusError) {
+      return { user: confirmedUser, token: null, statusMessage: statusError };
+    }
 
     // Generate token
     const payload: UserPayload = {
@@ -326,7 +404,7 @@ export class AuthService {
     };
     const token = generateToken(payload);
 
-    return { user: confirmedUser, token };
+    return { user: confirmedUser, token, statusMessage: null };
   }
 
   async resendCode(email: string) {
@@ -335,11 +413,11 @@ export class AuthService {
     if (user.isConfirmed) throw new AppError('User already verified', 400);
 
     const code = crypto.randomInt(100000, 999999).toString();
-    const expiresAt = new Date(Date.now() + 2 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + VERIFICATION_CODE_TTL_MS);
 
-    await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+    await prisma.verificationCode.deleteMany({ where: { userId: user.id, purpose: 'signup' } });
     await prisma.verificationCode.create({
-      data: { userId: user.id, code, expiresAt },
+      data: { userId: user.id, code, purpose: 'signup', expiresAt },
     });
 
     // Send verification email (non-blocking)
@@ -634,15 +712,16 @@ export class AuthService {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) throw new AppError('User not found', 404);
 
-    // Delete any existing verification codes for this user
-    await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+    // Clear only prior reset codes; a signup code the user is mid-verification
+    // on must survive.
+    await prisma.verificationCode.deleteMany({ where: { userId: user.id, purpose: 'reset' } });
 
     // Generate 6-digit verification code
     const code = crypto.randomInt(100000, 999999).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const expiresAt = new Date(Date.now() + VERIFICATION_CODE_TTL_MS);
 
     await prisma.verificationCode.create({
-      data: { userId: user.id, code, expiresAt },
+      data: { userId: user.id, code, purpose: 'reset', expiresAt },
     });
 
     // Send verification email (non-blocking)
@@ -663,7 +742,7 @@ export class AuthService {
     if (!user) throw new AppError('User not found', 404);
 
     const record = await prisma.verificationCode.findFirst({
-      where: { userId: user.id },
+      where: { userId: user.id, purpose: 'reset' },
     });
 
     if (!record) {
@@ -671,11 +750,11 @@ export class AuthService {
     }
 
     if (record.expiresAt < new Date()) {
-      await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+      await prisma.verificationCode.deleteMany({ where: { userId: user.id, purpose: 'reset' } });
       throw new AppError('Verification code has expired', 400);
     }
 
-    if (record.code !== code) {
+    if (!timingSafeEqualStr(record.code, code)) {
       await this.registerFailedCodeAttempt(record.id, user.id, record.attempts);
       throw new AppError('Invalid verification code', 400);
     }
@@ -701,7 +780,7 @@ export class AuthService {
     if (!user) throw new AppError('User not found', 404);
 
     const record = await prisma.verificationCode.findFirst({
-      where: { userId: user.id },
+      where: { userId: user.id, purpose: 'reset' },
     });
 
     if (!record) {
@@ -709,11 +788,11 @@ export class AuthService {
     }
 
     if (record.expiresAt < new Date()) {
-      await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+      await prisma.verificationCode.deleteMany({ where: { userId: user.id, purpose: 'reset' } });
       throw new AppError('Verification code has expired', 400);
     }
 
-    if (record.code !== code) {
+    if (!timingSafeEqualStr(record.code, code)) {
       await this.registerFailedCodeAttempt(record.id, user.id, record.attempts);
       throw new AppError('Invalid verification code', 400);
     }
@@ -721,11 +800,16 @@ export class AuthService {
     // Hash new password
     const passwordHash = await bcrypt.hash(newPassword, 10);
 
-    // Update user: new password, increment tokenVersion, reset lockout
+    // Update user: new password, increment tokenVersion, reset lockout.
+    // isConfirmed is set because completing a reset proves mailbox ownership —
+    // the same proof signup verification requires. Without it, resetting an
+    // unconfirmed account left it in a state login later rejects as "sign up
+    // again", stranding the account.
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
         passwordHash,
+        isConfirmed: true,
         tokenVersion: { increment: 1 },
         failedLoginAttempts: 0,
         lockedUntil: null,
@@ -738,14 +822,23 @@ export class AuthService {
         isInstructor: true,
         avatarUrl: true,
         tokenVersion: true,
+        status: true,
       },
     });
 
     // Delete the verification code
-    await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+    await prisma.verificationCode.deleteMany({ where: { userId: user.id, purpose: 'reset' } });
 
     // Invalidate user status cache
     invalidateUserStatusCache(user.id);
+
+    // Same rule as verifyCode: a password reset proves mailbox control, which
+    // is not the approval gate. Issuing a token here would let a pending or
+    // rejected applicant in through the forgot-password flow.
+    const statusError = USER_STATUS_LOGIN_ERRORS[updatedUser.status as UserStatus];
+    if (statusError) {
+      return { user: updatedUser, token: null, statusMessage: statusError };
+    }
 
     // Generate token
     const payload: UserPayload = {
@@ -758,7 +851,7 @@ export class AuthService {
     };
     const token = generateToken(payload);
 
-    return { user: updatedUser, token };
+    return { user: updatedUser, token, statusMessage: null };
   }
 
   /**

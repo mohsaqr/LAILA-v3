@@ -16,6 +16,9 @@ export interface AuditContext {
 }
 
 export class BatchEnrollmentService {
+  // Upper bound on rows per batch (see parseCSV for the reasoning).
+  private static readonly MAX_ROWS = 2000;
+
   async createJob(
     courseId: number,
     fileName: string,
@@ -398,6 +401,14 @@ export class BatchEnrollmentService {
     const lines = content.trim().split('\n');
     if (lines.length < 2) {
       throw new AppError('CSV file must have a header row and at least one data row', 400);
+    }
+
+    // Cap the batch. Each new row does a bcrypt hash + several queries inside a
+    // per-row transaction, all synchronously within the HTTP request; an
+    // uncapped multi-MB CSV (100k+ rows) would tie the request up until it
+    // times out and the job is stranded in 'processing'.
+    if (lines.length - 1 > BatchEnrollmentService.MAX_ROWS) {
+      throw new AppError(`CSV exceeds the ${BatchEnrollmentService.MAX_ROWS}-row limit for a single batch`, 400);
     }
 
     const header = lines[0].toLowerCase().split(',').map(h => h.trim());

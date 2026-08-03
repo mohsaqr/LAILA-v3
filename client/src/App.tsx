@@ -146,6 +146,7 @@ import { PromptBlocksManagement } from './pages/admin/PromptBlocksManagement';
 
 // User pages
 import { Profile } from './pages/Profile';
+import { About } from './pages/About';
 import { Settings } from './pages/Settings';
 
 // AI Tools pages
@@ -1088,6 +1089,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Profile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/about"
+          element={
+            <ProtectedRoute>
+              <About />
             </ProtectedRoute>
           }
         />

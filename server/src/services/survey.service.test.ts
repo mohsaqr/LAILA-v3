@@ -8,6 +8,7 @@ vi.mock('../utils/prisma.js', () => ({
     moduleSurvey: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       create: vi.fn(),
       delete: vi.fn(),
     },
@@ -196,6 +197,38 @@ describe('SurveyService - Responses', () => {
 
       expect(res).toBeDefined();
       expect(prismaMock.surveyResponse.create).toHaveBeenCalled();
+    });
+
+    it('rejects a moduleId the survey is not attached to', async () => {
+      prismaMock.survey.findUnique.mockResolvedValue(publishedSurvey as any);
+      prismaMock.moduleSurvey.findFirst.mockResolvedValue(null); // no link
+
+      await expect(
+        surveyService.submitResponse(1, 5, { moduleId: 777, answers: [{ questionId: 10, answerValue: 'A' }] } as any),
+      ).rejects.toThrow(/not attached to that module/i);
+      expect(prismaMock.surveyResponse.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getSurveyById visibility', () => {
+    it('hides an unpublished survey from a non-owner instructor', async () => {
+      prismaMock.survey.findUnique.mockResolvedValue({
+        id: 1, isPublished: false, createdById: 100, questions: [], createdBy: { id: 100, fullname: 'Owner' },
+        _count: { responses: 0 },
+      } as any);
+
+      // userId 200, isInstructor true, isAdmin false → not owner, not admin.
+      await expect(surveyService.getSurveyById(1, 200, true, false)).rejects.toThrow(/not available/i);
+    });
+
+    it('lets the owner view their own unpublished survey', async () => {
+      prismaMock.survey.findUnique.mockResolvedValue({
+        id: 1, isPublished: false, createdById: 100, questions: [], createdBy: { id: 100, fullname: 'Owner' },
+        _count: { responses: 0 },
+      } as any);
+
+      const survey = await surveyService.getSurveyById(1, 100, true, false);
+      expect(survey.id).toBe(1);
     });
   });
 

@@ -254,7 +254,8 @@ class CourseTutorService {
   async updateCourseTutor(
     courseTutorId: number,
     input: UpdateTutorInput,
-    userId: number
+    userId: number,
+    courseId: number
   ): Promise<CourseTutorData> {
     const existing = await prisma.courseTutor.findUnique({
       where: { id: courseTutorId },
@@ -264,7 +265,11 @@ class CourseTutorService {
       },
     });
 
-    if (!existing) {
+    // The route authorized the caller for `courseId` (the path), but the tutor
+    // is looked up by id alone. Without binding the two, an instructor of course
+    // A could pass A's URL with B's tutor id and rewrite B's persona. Reject any
+    // tutor that does not belong to the authorized course.
+    if (!existing || existing.courseId !== courseId) {
       throw new AppError('Course tutor not found', 404);
     }
 
@@ -313,7 +318,7 @@ class CourseTutorService {
   /**
    * Remove tutor from course
    */
-  async removeCourseTutor(courseTutorId: number, userId: number): Promise<void> {
+  async removeCourseTutor(courseTutorId: number, userId: number, courseId: number): Promise<void> {
     const existing = await prisma.courseTutor.findUnique({
       where: { id: courseTutorId },
       include: {
@@ -322,7 +327,9 @@ class CourseTutorService {
       },
     });
 
-    if (!existing) {
+    // Bind the tutor to the course the caller was authorized for (see
+    // updateCourseTutor) — otherwise A's DELETE route removes B's tutor.
+    if (!existing || existing.courseId !== courseId) {
       throw new AppError('Course tutor not found', 404);
     }
 

@@ -22,14 +22,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Theme initialization script - runs before any content renders -->
-    <script>
-      (function() {
-        if (localStorage.getItem('laila-theme-preference') === 'dark') {
-          document.documentElement.classList.add('dark');
-        }
-      })();
-    </script>
+    <!-- Theme initialization - runs before any content renders.
+         External (not inline) because `script-src 'self'` blocks inline
+         scripts; see the comment in public/theme-init.js. Must stay a plain
+         script tag: defer/async/module would run it after paint and
+         reintroduce the light-theme flash. -->
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>

@@ -364,6 +364,40 @@ class ActivityLogService {
   }
 
   /**
+   * Resolve a caller-supplied IANA timezone to one that is safe to inline into
+   * SQL, falling back to UTC.
+   *
+   * These are the only queries in the codebase built with `$queryRawUnsafe`,
+   * and the timezone is the only caller-controlled value that cannot be passed
+   * as a bound parameter — Postgres will not accept a placeholder in
+   * `AT TIME ZONE`. It arrives raw from `req.query.timezone`.
+   *
+   * Stripping quotes was the previous defence. That is probably sufficient —
+   * the value sits inside a quoted literal and without a quote you cannot
+   * escape one — but "probably" rests on `standard_conforming_strings` being
+   * on rather than on anything this code controls, and it still let a
+   * nonsense value through to Postgres, which rejects the whole query and
+   * turns a dashboard load into a 500.
+   *
+   * `Intl.DateTimeFormat` throws on anything that is not a real timezone, so
+   * validating through it rejects both problems at once and needs no
+   * hand-maintained list. Note this path runs ONLY on Postgres — the SQLite
+   * branch ignores the timezone entirely — so local tests exercise the safe
+   * side by default. Hence the unit tests on this function directly.
+   */
+  private safeTimezone(timezone?: string): string {
+    if (!timezone) return 'UTC';
+    try {
+      // Throws RangeError for an unknown or malformed zone.
+      new Intl.DateTimeFormat('en-US', { timeZone: timezone });
+    } catch {
+      return 'UTC';
+    }
+    // Belt and braces: even a name Intl accepts must not carry SQL syntax.
+    return /^[A-Za-z0-9_+\-/]+$/.test(timezone) ? timezone : 'UTC';
+  }
+
+  /**
    * Get daily activity counts grouped by verb.
    */
   private buildFilters(filters?: { courseId?: number; userId?: number; startDate?: Date; endDate?: Date }) {
@@ -394,10 +428,10 @@ class ActivityLogService {
 
   async getDailyCounts(filters?: { courseId?: number; userId?: number; startDate?: Date; endDate?: Date; timezone?: string }) {
     const { whereClause, params } = this.buildFilters(filters);
-    const tz = filters?.timezone || 'UTC';
+    const tz = this.safeTimezone(filters?.timezone);
 
     const dateExpr = isPostgres
-      ? `to_char(timestamp AT TIME ZONE '${tz.replace(/'/g, '')}', 'YYYY-MM-DD')`
+      ? `to_char(timestamp AT TIME ZONE '${tz}', 'YYYY-MM-DD')`
       : `date(timestamp / 1000, 'unixepoch', 'localtime')`;
 
     const rows = await prisma.$queryRawUnsafe<Array<{ day: string; verb: string; count: bigint }>>(
@@ -463,9 +497,9 @@ class ActivityLogService {
    */
   async getHourlyCounts(filters?: { courseId?: number; userId?: number; startDate?: Date; endDate?: Date; timezone?: string }) {
     const { whereClause, params } = this.buildFilters(filters);
-    const tz = filters?.timezone || 'UTC';
+    const tz = this.safeTimezone(filters?.timezone);
 
-    const tsExpr = isPostgres ? `timestamp AT TIME ZONE '${tz.replace(/'/g, '')}'` : 'timestamp/1000';
+    const tsExpr = isPostgres ? `timestamp AT TIME ZONE '${tz}'` : 'timestamp/1000';
     const dowExpr = isPostgres
       ? `EXTRACT(DOW FROM ${tsExpr})::integer`
       : `cast(strftime('%w', ${tsExpr}, 'unixepoch', 'localtime') as integer)`;
@@ -661,7 +695,39 @@ class ActivityLogService {
   /**
    * Get filter options for dropdowns (users, courses, verbs, objectTypes)
    */
-  async getFilterOptions(options?: { courseId?: number; instructorId?: number; isAdmin?: boolean }) {
+  async getFilterOptions(options?: { courseId?: number; instructorId?: number; isAdmin?: boolean; restrictToUserId?: number }) {
+    // A student may only ever see themselves in the user dropdown. Without this
+    // the fall-through below built the list from a distinct scan of the WHOLE
+    // activity log (or a whole course roster) — names AND emails — handing any
+    // student the platform user directory. The caller passes their own id here.
+    if (options?.restrictToUserId) {
+      const own = { userId: options.restrictToUserId } as const;
+      const [self, courses, verbs, objectTypes] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: options.restrictToUserId },
+          select: { id: true, fullname: true, email: true },
+        }),
+        prisma.learningActivityLog.findMany({
+          where: { ...own, courseId: { not: null } },
+          select: { courseId: true, courseTitle: true },
+          distinct: ['courseId'],
+          orderBy: { courseTitle: 'asc' },
+        }),
+        prisma.learningActivityLog.groupBy({
+          by: ['verb'], where: own, _count: { id: true }, orderBy: { verb: 'asc' },
+        }),
+        prisma.learningActivityLog.groupBy({
+          by: ['objectType'], where: own, _count: { id: true }, orderBy: { objectType: 'asc' },
+        }),
+      ]);
+      return {
+        users: self ? [self] : [],
+        courses: courses.filter(c => c.courseId !== null).map(c => ({ id: c.courseId, title: c.courseTitle })),
+        verbs: verbs.map(v => ({ verb: v.verb, count: v._count.id })),
+        objectTypes: objectTypes.map(o => ({ objectType: o.objectType, count: o._count.id })),
+      };
+    }
+
     // Build course filter for instructors (only their own courses)
     let courseWhere: any = { courseId: { not: null } };
     let courseIds: number[] | undefined;

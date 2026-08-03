@@ -4,6 +4,7 @@ import { learningAnalyticsService } from './learningAnalytics.service.js';
 import { emailService } from './email.service.js';
 import { enrollmentLogger } from '../utils/logger.js';
 import { courseRoleService } from './courseRole.service.js';
+import { prerequisiteService } from './prerequisite.service.js';
 
 // Context for event logging
 export interface EventContext {
@@ -279,6 +280,14 @@ export class EnrollmentService {
       throw new AppError('Course is not available for enrollment', 400);
     }
 
+    // A non-public course is "restricted", not merely unlisted: it may be joined
+    // only through its activation code (private-by-code), an invitation, or a
+    // staff-issued enrollment. Without this, a published-but-private course was
+    // self-enrollable by anyone who guessed its id.
+    if (course.isPublic === false && !course.activationCode) {
+      throw new AppError('This course is not open for self-enrollment', 403);
+    }
+
     // Validate activation code
     if (course.activationCode) {
       if (!activationCode) {
@@ -298,6 +307,25 @@ export class EnrollmentService {
 
     if (existing) {
       throw new AppError('Already enrolled in this course', 400);
+    }
+
+    // Enforce prerequisites on this self-service path. checkPrerequisites was
+    // implemented but had NO call site, so a required "complete Course A first"
+    // rule was purely decorative — a student could enrol straight into the
+    // dependent course. Staff-issued enrollment (enrollmentManagement) is a
+    // separate, deliberate path and is not gated here.
+    const prereq = await prerequisiteService.checkPrerequisites(courseId, userId);
+    if (!prereq.met) {
+      const unmet = prereq.prerequisites
+        .filter((p) => p.isRequired && !p.met)
+        .map((p) => p.prerequisiteCourse?.title)
+        .filter(Boolean);
+      throw new AppError(
+        unmet.length
+          ? `You must complete the prerequisite(s) first: ${unmet.join(', ')}`
+          : 'You do not meet the prerequisites for this course',
+        403
+      );
     }
 
     const enrollment = await prisma.enrollment.create({

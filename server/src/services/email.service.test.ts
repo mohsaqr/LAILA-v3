@@ -113,4 +113,18 @@ describe('sendEmail with SMTP', () => {
     expect(sendMail).toHaveBeenCalledTimes(1);
     expect((sendMail.mock.calls[0][0] as any).from).toContain('noreply@laila.example');
   });
+
+  it('wraps a bare SMTP_FROM address in the display name', async () => {
+    process.env.SMTP_HOST = 'mail.internal';
+    process.env.SMTP_FROM = 'noreply@laila.example';
+    await new EmailService().sendEmail({ to: 'a@b.c', subject: 's', text: 't' });
+    expect((sendMail.mock.calls[0][0] as any).from).toBe('"LAILA LMS" <noreply@laila.example>');
+  });
+
+  it('uses a full "Name <addr>" SMTP_FROM verbatim instead of nesting it', async () => {
+    process.env.SMTP_HOST = 'mail.internal';
+    process.env.SMTP_FROM = 'LAILA <noreply@laila.example>';
+    await new EmailService().sendEmail({ to: 'a@b.c', subject: 's', text: 't' });
+    expect((sendMail.mock.calls[0][0] as any).from).toBe('LAILA <noreply@laila.example>');
+  });
 });

@@ -1,9 +1,14 @@
 import { Router, Response } from 'express';
 import { chatbotService } from '../services/chatbot.service.js';
-import { authenticateToken, requireAdmin, requireInstructor, optionalAuth } from '../middleware/auth.middleware.js';
+import { authenticateToken, requireAdmin, requireInstructor } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
+import { llmLimiter } from '../middleware/rateLimit.middleware.js';
 import { createChatbotSchema, updateChatbotSchema } from '../utils/validation.js';
 import { AuthRequest } from '../types/index.js';
+
+// Cap chatbot message length so a single request cannot balloon the provider
+// bill (and to match the tighter budgets on the other LLM surfaces).
+const MAX_CHAT_MESSAGE_LENGTH = 8000;
 
 const router = Router();
 
@@ -56,13 +61,20 @@ router.delete('/:id', authenticateToken, requireInstructor, asyncHandler(async (
   res.json({ success: true, ...result });
 }));
 
-// Chat with a specific chatbot
-router.post('/:name/chat', optionalAuth, asyncHandler(async (req: AuthRequest, res: Response) => {
+// Chat with a specific chatbot. Now requires authentication and the LLM rate
+// limiter: it was optionalAuth with no throttle and no length cap, i.e. an
+// anonymous denial-of-wallet against the provider keys (bot names are
+// guessable) that also wrote public chatLog rows readable by session id.
+router.post('/:name/chat', authenticateToken, llmLimiter, asyncHandler(async (req: AuthRequest, res: Response) => {
   const { name } = req.params;
   const { message, sessionId } = req.body;
 
-  if (!message) {
+  if (!message || typeof message !== 'string' || message.trim().length === 0) {
     res.status(400).json({ success: false, error: 'Message is required' });
+    return;
+  }
+  if (message.length > MAX_CHAT_MESSAGE_LENGTH) {
+    res.status(400).json({ success: false, error: `Message exceeds the ${MAX_CHAT_MESSAGE_LENGTH}-character limit` });
     return;
   }
 

@@ -116,6 +116,20 @@ describe('CourseService', () => {
       );
     });
 
+    it('never leaks the activation code to the public catalog', async () => {
+      // The catalog route is unauthenticated; a leaked code lets strangers
+      // enrol and, in gated registration modes, self-register past approval.
+      vi.mocked(prisma.course.findMany).mockResolvedValue([
+        { ...mockCourse, activationCode: 'SECRET123' },
+      ] as any);
+      vi.mocked(prisma.course.count).mockResolvedValue(1);
+
+      const result = await courseService.getCourses({}, 1, 10);
+
+      expect(result.courses[0]).not.toHaveProperty('activationCode');
+      expect(result.courses[0]).toMatchObject({ hasActivationCode: true });
+    });
+
     it('should filter by category', async () => {
       vi.mocked(prisma.course.findMany).mockResolvedValue([mockCourse] as any);
       vi.mocked(prisma.course.count).mockResolvedValue(1);
@@ -869,6 +883,21 @@ describe('CourseService', () => {
       expect(course).toBeDefined();
       // This path should call getCourseBySlug for published courses when user is not admin/owner
       expect(prisma.course.findUnique).toHaveBeenCalled();
+    });
+
+    it('strips the activation code for a non-owner viewing a published course by slug', async () => {
+      const publishedCourse = { ...mockCourse, status: 'published', activationCode: 'SECRET123' };
+      vi.mocked(prisma.course.findUnique).mockResolvedValue(publishedCourse as any);
+
+      const course = await courseService.getCourseBySlugWithOwnerCheck(
+        'introduction-to-programming-abc123',
+        20,
+        false,
+        false
+      );
+
+      expect(course).not.toHaveProperty('activationCode');
+      expect(course).toMatchObject({ hasActivationCode: true });
     });
   });
 

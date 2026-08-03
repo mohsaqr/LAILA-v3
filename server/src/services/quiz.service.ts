@@ -49,22 +49,22 @@ export class QuizService {
   // QUIZ CRUD
   // =========================================================================
 
-  async getQuizzes(courseId: number, userId?: number, isInstructor = false, isAdmin = false) {
-    // Verify authorization for students
-    if (userId && !isInstructor && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(userId, courseId);
-      if (!isTeam) {
-        const enrollment = await prisma.enrollment.findUnique({
-          where: { userId_courseId: { userId, courseId } },
-        });
-        if (!enrollment) {
-          throw new AppError('You must be enrolled in this course to view quizzes', 403);
-        }
+  async getQuizzes(courseId: number, userId?: number, _isInstructor = false, isAdmin = false) {
+    // Staff of THIS course (owner/team/admin) see everything; the global
+    // isInstructor flag is not trusted, so an instructor of another course is
+    // treated as an ordinary viewer and must be enrolled.
+    const isCourseStaff = await courseRoleService.isCourseStaff(userId, courseId, isAdmin);
+    if (userId && !isCourseStaff) {
+      const enrollment = await prisma.enrollment.findUnique({
+        where: { userId_courseId: { userId, courseId } },
+      });
+      if (!enrollment) {
+        throw new AppError('You must be enrolled in this course to view quizzes', 403);
       }
     }
 
     const where: any = { courseId };
-    if (!isInstructor && !isAdmin) {
+    if (!isCourseStaff) {
       where.isPublished = true;
       // Only show quizzes whose availability window is currently open
       // (from <= now <= until, with null = unbounded on each side).
@@ -85,7 +85,7 @@ export class QuizService {
     });
 
     // For students, include their attempt status
-    if (userId && !isInstructor && !isAdmin) {
+    if (userId && !isCourseStaff) {
       const attempts = await prisma.quizAttempt.findMany({
         where: {
           userId,
@@ -118,7 +118,7 @@ export class QuizService {
     return quizzes;
   }
 
-  async getQuizById(quizId: number, userId?: number, includeAnswers = false) {
+  async getQuizById(quizId: number, userId?: number, includeAnswers = false, isAdmin = false) {
     const quiz = await prisma.quiz.findUnique({
       where: { id: quizId },
       include: {
@@ -144,6 +144,37 @@ export class QuizService {
 
     if (!quiz) {
       throw new AppError('Quiz not found', 404);
+    }
+
+    // Access gate. This is a by-id fetch, so without it any authenticated user
+    // could read any quiz's questions — including another course's UNPUBLISHED
+    // exam. Staff-of-this-course (owner / team / admin) see it freely; note the
+    // GLOBAL isInstructor flag is deliberately not trusted, so an instructor of
+    // a different course is treated as an ordinary student here. Everyone else
+    // must be an enrolled student and the quiz must be published and in-window.
+    const isOwner = !!userId && quiz.course.instructorId === userId;
+    let isStaff = isAdmin || isOwner;
+    if (!isStaff && userId) {
+      isStaff = await courseRoleService.isTeamMember(userId, quiz.course.id);
+    }
+    if (!isStaff) {
+      const enrolled = userId
+        ? await prisma.enrollment.findUnique({
+            where: { userId_courseId: { userId, courseId: quiz.course.id } },
+            select: { id: true },
+          })
+        : null;
+      if (!enrolled) {
+        throw new AppError('You must be enrolled in this course to view this quiz', 403);
+      }
+      const now = new Date();
+      const open =
+        quiz.isPublished &&
+        (!quiz.availableFrom || quiz.availableFrom <= now) &&
+        (!quiz.availableUntil || quiz.availableUntil >= now);
+      if (!open) {
+        throw new AppError('This quiz is not available', 403);
+      }
     }
 
     // Parse options JSON for each question
@@ -906,23 +937,40 @@ export class QuizService {
     // Check authorization
     const isOwner = attempt.userId === userId;
     const isCourseInstructor = attempt.quiz.course.instructorId === userId;
-
-    if (!isOwner && !isCourseInstructor && !isAdmin) {
-      const isTeam = await courseRoleService.isTeamMember(userId, attempt.quiz.courseId);
-      if (!isTeam) {
+    // Staff OF THIS COURSE — the only ones who may see the answer key freely.
+    // The global isInstructor flag is deliberately NOT trusted here: an
+    // instructor of some other course taking this quiz is an ordinary student
+    // for it, and must clear the same reveal gate.
+    let isCourseStaff = isCourseInstructor || isAdmin;
+    if (!isOwner && !isCourseStaff) {
+      isCourseStaff = await courseRoleService.isTeamMember(userId, attempt.quiz.courseId);
+      if (!isCourseStaff) {
         throw new AppError('Not authorized', 403);
       }
     }
 
-    // Check if results should be shown
-    if (isOwner && !isInstructor && !isAdmin) {
+    // Reveal gate for the attempt's own taker. correctAnswer + explanation for
+    // every question are in this payload, so it must never be reachable while
+    // the attempt is still open, nor before the quiz's showResults policy says.
+    if (isOwner && !isCourseStaff) {
+      // A quiz not yet submitted has no business returning the answer key —
+      // this was the hole that let a student open an attempt and immediately
+      // read every correct answer with the timer still running.
+      if (attempt.status === 'in_progress') {
+        throw new AppError('Results are not available until you submit this attempt', 403);
+      }
       const showResults = attempt.quiz.showResults;
       if (showResults === 'never') {
         throw new AppError('Results are not available for this quiz', 403);
       }
-      if (showResults === 'after_due_date' && attempt.quiz.dueDate && new Date() < attempt.quiz.dueDate) {
+      // Fail closed: only reveal once the due date has actually passed. A quiz
+      // set to after_due_date but missing a dueDate stays closed rather than
+      // falling through to "shown".
+      if (showResults === 'after_due_date' && (!attempt.quiz.dueDate || new Date() < attempt.quiz.dueDate)) {
         throw new AppError('Results will be available after the due date', 403);
       }
+      // 'after_submit' (the default) and any unrecognized value are allowed
+      // only now that the in_progress case above has been rejected.
     }
 
     // Build results with answers

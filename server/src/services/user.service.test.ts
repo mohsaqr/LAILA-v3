@@ -238,16 +238,16 @@ describe('UserService', () => {
       });
     });
 
-    it('should hash password when updating', async () => {
+    it('lets an admin reset a password (hashes + bumps tokenVersion)', async () => {
       vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any);
       vi.mocked(prisma.user.update).mockResolvedValue(mockUser as any);
 
-      await userService.updateUser(1, { password: 'newpassword123' });
+      await userService.updateUser(1, { password: 'newpassword123' }, true);
 
       expect(bcrypt.hash).toHaveBeenCalledWith('newpassword123', 10);
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: 1 },
-        // A password change now also bumps tokenVersion to invalidate existing sessions.
+        // A password change also bumps tokenVersion to invalidate existing sessions.
         data: expect.objectContaining({
           passwordHash: 'hashed_password',
           tokenVersion: { increment: 1 },
@@ -256,8 +256,17 @@ describe('UserService', () => {
       });
     });
 
-    it('should allow admin to update isAdmin/isInstructor/isActive', async () => {
+    it('rejects a self (non-admin) password change — must use the auth endpoint', async () => {
       vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any);
+
+      await expect(userService.updateUser(1, { password: 'newpassword123' }, false)).rejects.toThrow(
+        /change-password endpoint/i
+      );
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('should allow admin to update isInstructor and revoke existing sessions', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...mockUser, isInstructor: false } as any);
       vi.mocked(prisma.user.update).mockResolvedValue({
         ...mockUser,
         isInstructor: true,
@@ -265,11 +274,22 @@ describe('UserService', () => {
 
       await userService.updateUser(1, { isInstructor: true }, true);
 
+      // A role change must bump tokenVersion so a demoted/promoted user's old
+      // JWT stops carrying the stale role.
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: 1 },
-        data: { isInstructor: true },
+        data: expect.objectContaining({ isInstructor: true, tokenVersion: { increment: 1 } }),
         select: expect.any(Object),
       });
+    });
+
+    it('refuses to demote the last active admin', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...mockUser, isAdmin: true } as any);
+      vi.mocked(prisma.user.count).mockResolvedValue(0); // no other admins
+
+      await expect(userService.updateUser(1, { isAdmin: false }, true)).rejects.toThrow(
+        /last active administrator/i
+      );
     });
 
     it('should ignore admin fields for non-admin callers', async () => {

@@ -7,7 +7,7 @@ vi.mock('../utils/prisma.js', () => ({
     assignment: { findUnique: vi.fn() },
     studentAgentConfig: { findMany: vi.fn() },
     user: { findMany: vi.fn() },
-    assignmentSubmission: { findUnique: vi.fn() },
+    assignmentSubmission: { findUnique: vi.fn(), findFirst: vi.fn() },
   },
 }));
 
@@ -15,7 +15,7 @@ const mockedPrisma = prisma as unknown as {
   assignment: { findUnique: ReturnType<typeof vi.fn> };
   studentAgentConfig: { findMany: ReturnType<typeof vi.fn> };
   user: { findMany: ReturnType<typeof vi.fn> };
-  assignmentSubmission: { findUnique: ReturnType<typeof vi.fn> };
+  assignmentSubmission: { findUnique: ReturnType<typeof vi.fn>; findFirst: ReturnType<typeof vi.fn> };
 };
 
 describe('agentAssignmentService.getAgentSubmissions — conversation count filter', () => {
@@ -40,8 +40,8 @@ describe('agentAssignmentService.getAgentSubmissions — conversation count filt
     });
   });
 
-  it('applies the same filter to the submission-detail endpoint', async () => {
-    mockedPrisma.assignmentSubmission.findUnique.mockResolvedValue({
+  it('applies the same filter to the submission-detail endpoint and binds it to the assignment', async () => {
+    mockedPrisma.assignmentSubmission.findFirst.mockResolvedValue({
       id: 5,
       agentConfig: { id: 7, dosRules: null, dontsRules: null, _count: { testConversations: 0 } },
       user: { id: 1, fullname: 'Test', email: 'test@example.com' },
@@ -49,7 +49,9 @@ describe('agentAssignmentService.getAgentSubmissions — conversation count filt
 
     await agentAssignmentService.getAgentSubmissionDetail(1, 5, 42);
 
-    const call = mockedPrisma.assignmentSubmission.findUnique.mock.calls[0][0];
+    const call = mockedPrisma.assignmentSubmission.findFirst.mock.calls[0][0];
+    // Submission is scoped to the authorized assignment, not fetched by id alone.
+    expect(call.where).toEqual({ id: 5, assignmentId: 1 });
     expect(
       call.include.agentConfig.include._count.select.testConversations
     ).toEqual({ where: { messages: { some: {} } } });
