@@ -51,9 +51,40 @@ export const CSP_DIRECTIVES = {
   // 'wasm-unsafe-eval' is required to compile WebAssembly at all. Chrome has
   // enforced this since 97: without it `WebAssembly.instantiate` throws under
   // any policy that sets script-src, which would take out both the R and the
-  // Python labs. It permits WASM compilation only — it does NOT re-enable
-  // eval() for JavaScript, which is why it is preferred over 'unsafe-eval'.
-  scriptSrc: ["'self'", "'wasm-unsafe-eval'"],
+  // Python labs.
+  //
+  // It is not sufficient on its own, though, and the two additions below are
+  // what actually make the labs run. Both were established by bisecting this
+  // policy against a page that does nothing but `new WebR()`: with the
+  // directive as it stood, init() resolved in 343ms with no CSP at all and
+  // never resolved at all with one.
+  //
+  //  - The CDN origins, because neither runtime is bundled — they fetch
+  //    executable JavaScript, not just data. webR spawns its worker from a
+  //    blob:, and a blob: worker INHERITS this document's policy, so the
+  //    worker's `importScripts('<WEBR_CDN>/R.js')` is matched against
+  //    script-src and refused. Pyodide likewise pulls `pyodide.asm.js` from
+  //    PYODIDE_CDN. Listing them in connect-src alone is not enough: that
+  //    covers the fetch of the worker bootstrap, not the scripts it loads.
+  //    (WEBR_PACKAGE_REPO is deliberately absent — R packages are downloaded
+  //    into the virtual filesystem as data and never executed as JavaScript.)
+  //
+  //  - 'unsafe-eval', because webR's Emscripten runtime calls eval() directly
+  //    when it dynamically links libRblas.so / libRlapack.so.
+  //    'wasm-unsafe-eval' permits WASM compilation only and does NOT re-enable
+  //    eval() for JavaScript, so under it alone R.js loads and then dies
+  //    linking its first side module. This is a real relaxation — it restores
+  //    eval() for every script on the page — and it is accepted only because
+  //    no configuration without it runs R. Self-hosting the runtimes would
+  //    remove the need for the two origins but NOT for this token: the eval()
+  //    calls are inside the runtime regardless of where it is served from.
+  //
+  // The failure mode is a hang, not an error, which is why it reads as
+  // slowness: webR's importScripts wrapper only catches TypeError, so a CSP
+  // NetworkError is rethrown inside an async function and becomes an unhandled
+  // rejection. Rejections do not fire Worker.onerror, so init()'s promise never
+  // settles and the lab sits on "Initializing R..." forever.
+  scriptSrc: ["'self'", "'wasm-unsafe-eval'", "'unsafe-eval'", WEBR_CDN, PYODIDE_CDN],
 
   // 'unsafe-inline' covers Tailwind and React inline styles — a deliberate,
   // standard relaxation. It does NOT cover the Google Fonts stylesheet, which

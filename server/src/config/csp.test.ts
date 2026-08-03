@@ -46,7 +46,34 @@ describe('Content-Security-Policy', () => {
   // fail to boot. It enables WASM compilation only, not JavaScript eval().
   it("permits WebAssembly compilation via 'wasm-unsafe-eval'", () => {
     expect(CSP_DIRECTIVES.scriptSrc).toContain("'wasm-unsafe-eval'");
-    expect(CSP_DIRECTIVES.scriptSrc).not.toContain("'unsafe-eval'");
+  });
+
+  // This assertion used to be its inverse — script-src deliberately withheld
+  // 'unsafe-eval' — and that is what silently broke the labs: webR's Emscripten
+  // runtime calls eval() when it dynamically links libRblas.so, so R.js loaded
+  // and then died on its first side module. It surfaced as an eternal
+  // "Initializing R..." rather than an error, because the CSP NetworkError
+  // became an unhandled rejection inside the worker and init() never settled.
+  //
+  // Keep the token. It is a genuine relaxation of the policy, accepted because
+  // no configuration without it runs R at all — verified by bisecting the
+  // deployed policy against a bare `new WebR()` page.
+  it("permits eval() for webR's Emscripten runtime", () => {
+    expect(CSP_DIRECTIVES.scriptSrc).toContain("'unsafe-eval'");
+  });
+
+  // Neither runtime is bundled: they fetch executable JavaScript from these
+  // origins. webR's worker runs from a blob: and therefore inherits this
+  // policy, so its importScripts of R.js is matched against script-src — being
+  // listed in connect-src covers the worker bootstrap fetch but not the
+  // scripts that worker goes on to load.
+  it('permits the runtime CDNs in script-src, not just connect-src', () => {
+    for (const origin of [WEBR_CDN, PYODIDE_CDN]) {
+      expect(CSP_DIRECTIVES.scriptSrc, `script-src must allow ${origin}`).toContain(origin);
+    }
+    // R packages arrive as data for the virtual filesystem and are never
+    // executed as JavaScript, so this one stays out of script-src.
+    expect(CSP_DIRECTIVES.scriptSrc).not.toContain(WEBR_PACKAGE_REPO);
   });
 
   // Both runtimes spawn their interpreter in a Web Worker created from a blob:
