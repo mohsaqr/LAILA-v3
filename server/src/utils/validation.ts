@@ -47,13 +47,34 @@ export function parseIdParam(value: unknown, label = 'id'): number {
   return n;
 }
 
-// Strong password validation
+/**
+ * bcrypt hashes only the first 72 BYTES of its input and discards the rest
+ * without complaint. Left unbounded, a user setting a long passphrase gets a
+ * silent, safe-looking failure: registration succeeds, login succeeds, and
+ * everything past byte 72 protects nothing — two passwords sharing their first
+ * 72 bytes are the same password as far as the hash is concerned.
+ *
+ * The limit is in BYTES, not characters, which is why this is a refine and not
+ * `.max(72)`. `.max()` counts UTF-16 code units, so 72 accented or CJK
+ * characters — or ~18 emoji — sail past it and are then truncated anyway.
+ */
+const BCRYPT_MAX_PASSWORD_BYTES = 72;
+
+// Strong password validation.
+//
+// The byte check is last: `.refine()` returns a ZodEffects, which has no
+// `.regex()`, so any further string rules would fail to compile after it.
 const strongPasswordSchema = z.string()
   .min(8, 'Password must be at least 8 characters')
   .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
   .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
   .regex(/[0-9]/, 'Password must contain at least one number')
-  .regex(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain at least one special character');
+  .regex(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain at least one special character')
+  .refine(
+    (value) => Buffer.byteLength(value, 'utf8') <= BCRYPT_MAX_PASSWORD_BYTES,
+    `Password must be at most ${BCRYPT_MAX_PASSWORD_BYTES} bytes — about 72 plain characters, ` +
+      'but fewer if it contains accents, non-Latin scripts or emoji'
+  );
 
 // Auth validation schemas
 //
@@ -93,7 +114,15 @@ export const registerSchema = z.object({
   path: ['inviteCode'],
 });
 
-// Password update validation schema
+// Password update validation schema.
+//
+// `currentPassword` is deliberately NOT byte-bounded. It verifies an existing
+// password, and anyone who set one longer than 72 bytes before that limit
+// existed still types the whole thing — bcrypt compares the first 72 bytes and
+// matches. Applying the bound here would reject their input before it ever
+// reached the hash and lock them out of their own account. The same reasoning
+// applies to loginSchema below. Bound where a password is SET, never where one
+// is CHECKED.
 export const updatePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Current password is required'),
   newPassword: strongPasswordSchema,
@@ -104,6 +133,9 @@ export const updateProfileSchema = z.object({
   fullname: z.string().min(2, 'Name must be at least 2 characters'),
 });
 
+// Unbounded by design — see the note on updatePasswordSchema. Login verifies a
+// password rather than setting one, so a length rule here could only ever lock
+// out an existing user whose password predates the limit.
 export const loginSchema = z.object({
   email: normalizedEmail,
   password: z.string().min(1, 'Password is required'),
