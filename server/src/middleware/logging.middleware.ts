@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import { httpLogger, logRequest, RequestLogContext } from '../utils/logger.js';
 
 // Extend Express Request type to include requestId
@@ -17,7 +17,7 @@ declare global {
  */
 export const requestLoggingMiddleware = (req: Request, res: Response, next: NextFunction) => {
   // Generate request ID
-  req.requestId = (req.headers['x-request-id'] as string) || uuidv4();
+  req.requestId = (req.headers['x-request-id'] as string) || randomUUID();
   req.startTime = process.hrtime.bigint();
 
   // Add request ID to response headers

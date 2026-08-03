@@ -2,7 +2,7 @@ import { Router, Response, Request } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { v4 as uuid } from 'uuid';
+import { randomUUID as uuid } from 'node:crypto';
 import { authService, AuthContext } from '../services/auth.service.js';
 import { authenticateToken } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
