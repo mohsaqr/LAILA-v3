@@ -1,0 +1,128 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, within } from '@testing-library/react';
+import { CodeOutput } from './CodeOutput';
+
+const PLOT = { type: 'plot' as const, content: 'iVBORw0KGgoAAAANS' };
+const TEXT = { type: 'stdout' as const, content: '[1] 74.28571' };
+
+const openInspector = () => fireEvent.click(screen.getByLabelText('Inspect output full screen'));
+const dialog = () => screen.getByRole('dialog');
+
+describe('CodeOutput inspector', () => {
+  beforeEach(() => {
+    document.body.style.overflow = '';
+  });
+
+  it('offers an inspect control once there is output', () => {
+    render(<CodeOutput outputs={[TEXT]} />);
+    expect(screen.getByLabelText('Inspect output full screen')).toBeTruthy();
+  });
+
+  it('has nothing to inspect before a run', () => {
+    render(<CodeOutput outputs={[]} />);
+    expect(screen.queryByLabelText('Inspect output full screen')).toBeNull();
+  });
+
+  it('opens a modal dialog, not just a bigger div', () => {
+    render(<CodeOutput outputs={[PLOT]} />);
+    openInspector();
+    expect(dialog().getAttribute('aria-modal')).toBe('true');
+  });
+
+  it('locks background scroll while open and restores it on close', () => {
+    render(<CodeOutput outputs={[PLOT]} />);
+    openInspector();
+    expect(document.body.style.overflow).toBe('hidden');
+    fireEvent.click(screen.getByLabelText('Close full screen'));
+    expect(document.body.style.overflow).not.toBe('hidden');
+  });
+
+  it('closes on Escape', () => {
+    render(<CodeOutput outputs={[PLOT]} />);
+    openInspector();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('starts fitted, then zooms in discrete steps', () => {
+    render(<CodeOutput outputs={[PLOT]} />);
+    openInspector();
+    const d = dialog();
+
+    expect(within(d).getByText('Fit')).toBeTruthy();
+    fireEvent.click(within(d).getByLabelText('Zoom in'));
+    // First step away from fit lands on 150%, i.e. one stop above 100%.
+    expect(within(d).getByText('150%')).toBeTruthy();
+    fireEvent.click(within(d).getByLabelText('Zoom out'));
+    expect(within(d).getByText('100%')).toBeTruthy();
+  });
+
+  it('returns to fit from any zoom level', () => {
+    render(<CodeOutput outputs={[PLOT]} />);
+    openInspector();
+    const d = dialog();
+    fireEvent.click(within(d).getByLabelText('Zoom in'));
+    fireEvent.click(within(d).getByLabelText('Fit to screen'));
+    expect(within(d).getByText('Fit')).toBeTruthy();
+  });
+
+  it('supports +/-/0 keys, so a dense plot can be read without the mouse', () => {
+    render(<CodeOutput outputs={[PLOT]} />);
+    openInspector();
+    fireEvent.keyDown(window, { key: '+' });
+    expect(within(dialog()).getByText('150%')).toBeTruthy();
+    fireEvent.keyDown(window, { key: '0' });
+    expect(within(dialog()).getByText('Fit')).toBeTruthy();
+  });
+
+  it('widens the image when zoomed so the container can pan', () => {
+    render(<CodeOutput outputs={[PLOT]} />);
+    openInspector();
+    const d = dialog();
+    fireEvent.click(within(d).getByLabelText('Zoom in'));
+
+    // A CSS transform would scale the pixels without growing the scroll area.
+    const img = within(d).getByAltText('Plot 1') as HTMLImageElement;
+    expect(img.style.width).toBe('150%');
+    expect(img.style.maxWidth).toBe('none');
+  });
+
+  it('lets a plot be downloaded as a file', () => {
+    render(<CodeOutput outputs={[PLOT]} />);
+    openInspector();
+    const link = within(dialog()).getByLabelText('Download plot 1') as HTMLAnchorElement;
+    expect(link.getAttribute('download')).toBe('plot-1.png');
+    expect(link.getAttribute('href')).toContain('data:image/png;base64,');
+  });
+
+  it('hides zoom controls when the output is text only', () => {
+    render(<CodeOutput outputs={[TEXT]} />);
+    openInspector();
+    expect(within(dialog()).queryByLabelText('Zoom in')).toBeNull();
+  });
+
+  it('copies text output to the clipboard', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(<CodeOutput outputs={[TEXT]} error="Error: object not found" />);
+    openInspector();
+    fireEvent.click(within(dialog()).getByLabelText('Copy text output to clipboard'));
+
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('[1] 74.28571'));
+    expect(writeText.mock.calls[0][0]).toContain('Error: object not found');
+  });
+
+  it('does not offer to copy an image as text', () => {
+    render(<CodeOutput outputs={[PLOT]} />);
+    openInspector();
+    expect(within(dialog()).queryByLabelText('Copy text output to clipboard')).toBeNull();
+  });
+
+  it('announces run status to screen readers, not by colour alone', () => {
+    const { rerender } = render(<CodeOutput outputs={[TEXT]} />);
+    expect(screen.getByText('Run succeeded')).toBeTruthy();
+    rerender(<CodeOutput outputs={[TEXT]} error="boom" />);
+    expect(screen.getByText('Run failed')).toBeTruthy();
+  });
+});
