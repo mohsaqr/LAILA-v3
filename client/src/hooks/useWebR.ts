@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { WebR } from 'webr';
 import { debug } from '../utils/debug';
 import { NETWORK_SHIM } from './webrNetworkShim';
+import { asRBlock } from './rCodeBlock';
 
 interface WebROutput {
   type: 'stdout' | 'stderr' | 'plot' | 'message';
@@ -187,7 +188,7 @@ export const useWebR = (
       const result = await webR.evalRString(`
         paste(capture.output({
           tryCatch(
-            { ${code} },
+            ${asRBlock(code)},
             error = function(e) cat("Error:", conditionMessage(e), "\\n"),
             warning = function(w) { cat("Warning:", conditionMessage(w), "\\n"); invokeRestart("muffleWarning") }
           )

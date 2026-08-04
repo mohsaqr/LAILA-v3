@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { WebR } from 'webr';
 import { debug } from '../utils/debug';
 import { NETWORK_SHIM } from './webrNetworkShim';
+import { asRBlock } from './rCodeBlock';
 
 interface WebROutput {
   type: 'stdout' | 'stderr' | 'plot' | 'message';
@@ -683,7 +684,7 @@ export const useLabWebR = (
           paste(capture.output({
             tryCatch(
               withCallingHandlers({
-                ${code.replace(/`/g, "\\`")}
+                ${code}
               },
               warning = function(w) invokeRestart("muffleWarning")
               ),
@@ -696,7 +697,7 @@ export const useLabWebR = (
           paste(capture.output({
             tryCatch(
               withCallingHandlers({
-                capture_plot(quote({ ${code.replace(/`/g, "\\`")} }))
+                capture_plot(quote(${asRBlock(code)}))
               },
               warning = function(w) invokeRestart("muffleWarning")
               ),
@@ -709,7 +710,7 @@ export const useLabWebR = (
           paste(capture.output({
             tryCatch(
               withCallingHandlers({
-                ${code.replace(/`/g, "\\`")}
+                ${code}
               },
               warning = function(w) invokeRestart("muffleWarning")
               ),
