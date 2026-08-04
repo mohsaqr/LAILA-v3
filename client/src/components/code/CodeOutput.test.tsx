@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
-import { CodeOutput } from './CodeOutput';
+import { CodeOutput, outputsToMarkdown } from './CodeOutput';
 
 const PLOT = { type: 'plot' as const, content: 'iVBORw0KGgoAAAANS' };
 const TEXT = { type: 'stdout' as const, content: '[1] 74.28571' };
@@ -124,5 +124,60 @@ describe('CodeOutput inspector', () => {
     expect(screen.getByText('Run succeeded')).toBeTruthy();
     rerender(<CodeOutput outputs={[TEXT]} error="boom" />);
     expect(screen.getByText('Run failed')).toBeTruthy();
+  });
+});
+
+describe('CodeOutput export', () => {
+  it('offers copy and markdown export inline, without opening the modal', () => {
+    render(<CodeOutput outputs={[TEXT]} />);
+    expect(screen.getByLabelText('Copy output text')).toBeTruthy();
+    expect(screen.getByLabelText('Export output as Markdown')).toBeTruthy();
+  });
+
+  it('does not offer inline copy when the only output is a plot', () => {
+    render(<CodeOutput outputs={[PLOT]} />);
+    expect(screen.queryByLabelText('Copy output text')).toBeNull();
+    expect(screen.getByLabelText('Export output as Markdown')).toBeTruthy();
+  });
+});
+
+describe('outputsToMarkdown', () => {
+  it('fences console text', () => {
+    expect(outputsToMarkdown([TEXT])).toContain('```\n[1] 74.28571\n```');
+  });
+
+  it('embeds plots as data URIs so the file stands alone', () => {
+    const md = outputsToMarkdown([PLOT]);
+    expect(md).toContain('![Plot 1](data:image/png;base64,');
+  });
+
+  it('numbers plots by plot, not by output index', () => {
+    const md = outputsToMarkdown([TEXT, PLOT, TEXT, PLOT]);
+    expect(md).toContain('![Plot 1]');
+    expect(md).toContain('![Plot 2]');
+    expect(md).not.toContain('![Plot 3]');
+  });
+
+  it('carries the code that produced the result, tagged with its language', () => {
+    const md = outputsToMarkdown([TEXT], { code: 'mean(x)', language: 'python' });
+    expect(md).toContain('```python\nmean(x)\n```');
+  });
+
+  it('titles the document when the cell has a name', () => {
+    expect(outputsToMarkdown([TEXT], { title: 'Step 6' })).toContain('## Step 6');
+  });
+
+  it('includes an error that has no stderr item of its own', () => {
+    expect(outputsToMarkdown([TEXT], { error: 'object not found' }))
+      .toContain('> **Error:** object not found');
+  });
+
+  it('does not duplicate an error already present as stderr', () => {
+    const md = outputsToMarkdown([{ type: 'stderr', content: 'boom' }], { error: 'boom' });
+    expect(md.match(/boom/g)).toHaveLength(1);
+  });
+
+  it('skips whitespace-only output instead of emitting an empty fence', () => {
+    expect(outputsToMarkdown([{ type: 'stdout', content: '   \n  ' }]).trim()).toBe('');
   });
 });

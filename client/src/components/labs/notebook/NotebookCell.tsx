@@ -348,6 +348,8 @@ const NotebookCellInner = ({
         {(run || running) && (
           <div data-cell-output={cell.id}>
             <CodeOutput
+              code={code}
+              title={cell.title}
               outputs={run?.outputs ?? []}
               isExecuting={running}
               error={run?.error}

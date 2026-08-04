@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   AlertCircle, CheckCircle, Terminal, Maximize2, X,
-  ZoomIn, ZoomOut, Download, Copy, Check, Scan,
+  ZoomIn, ZoomOut, Download, Copy, Check, Scan, FileDown,
 } from 'lucide-react';
 
 interface OutputItem {
@@ -14,6 +14,10 @@ interface CodeOutputProps {
   isExecuting?: boolean;
   error?: string | null;
   language?: 'r' | 'python';
+  /** Included in a Markdown export so the result carries the code that made it. */
+  code?: string;
+  /** Names the exported file and titles the Markdown. */
+  title?: string;
 }
 
 /** Runtimes emit bare base64 for plots; browsers need a data URI. */
@@ -23,7 +27,51 @@ const plotSrc = (content: string) =>
 /** Zoom stops, in the spirit of RStudio's plot pane. 1 = fit to the viewport. */
 const ZOOM_STEPS = [0.5, 0.75, 1, 1.5, 2, 3, 4];
 
-export const CodeOutput = ({ outputs, isExecuting, error, language = 'r' }: CodeOutputProps) => {
+/**
+ * Renders a run as Markdown: console text in fenced blocks, plots as embedded
+ * data-URI images so the file stands alone with no sidecar assets.
+ */
+export const outputsToMarkdown = (
+  outputs: OutputItem[],
+  opts: { code?: string; title?: string; language?: 'r' | 'python'; error?: string | null } = {}
+): string => {
+  const { code, title, language = 'r', error } = opts;
+  const parts: string[] = [];
+  if (title) parts.push(`## ${title}`);
+  if (code?.trim()) parts.push(`\`\`\`${language}\n${code.trim()}\n\`\`\``);
+
+  let plotNo = 0;
+  outputs.forEach(o => {
+    if (o.type === 'plot') {
+      plotNo += 1;
+      parts.push(`![Plot ${plotNo}](${plotSrc(o.content)})`);
+    } else if (o.content.trim()) {
+      parts.push(`\`\`\`\n${o.content.replace(/\s+$/, '')}\n\`\`\``);
+    }
+  });
+
+  if (error && !outputs.some(o => o.type === 'stderr')) {
+    parts.push(`> **Error:** ${error.trim()}`);
+  }
+  return parts.join('\n\n') + '\n';
+};
+
+/** Hands the browser a file without needing a server round-trip. */
+const downloadText = (filename: string, text: string, mime = 'text/markdown') => {
+  const url = URL.createObjectURL(new Blob([text], { type: `${mime};charset=utf-8` }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Revoking immediately can cancel the download in some browsers.
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+};
+
+export const CodeOutput = ({
+  outputs, isExecuting, error, language = 'r', code, title,
+}: CodeOutputProps) => {
   const langLabel = language === 'python' ? 'Python' : 'R';
   const [fullscreen, setFullscreen] = useState(false);
   // Drives the fade-in: flipped true one frame after the overlay mounts.
@@ -48,6 +96,11 @@ export const CodeOutput = ({ outputs, isExecuting, error, language = 'r' }: Code
       return ZOOM_STEPS[Math.max(0, Math.min(ZOOM_STEPS.length - 1, next))];
     });
   }, []);
+
+  const exportMarkdown = useCallback(() => {
+    const slug = (title || 'output').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    downloadText(`${slug || 'output'}.md`, outputsToMarkdown(outputs, { code, title, language, error }));
+  }, [outputs, code, title, language, error]);
 
   const copyOutput = useCallback(async () => {
     try {
@@ -194,12 +247,34 @@ export const CodeOutput = ({ outputs, isExecuting, error, language = 'r' }: Code
               <span className="sr-only">Run succeeded</span>
             </>
           )}
+          {textOutput.trim() && (
+            <button
+              type="button"
+              onClick={copyOutput}
+              title="Copy output text"
+              aria-label="Copy output text"
+              className="ml-2 flex items-center gap-1.5 px-2 py-1 rounded text-gray-300 hover:text-white hover:bg-gray-700 text-xs font-medium transition-colors"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={exportMarkdown}
+            title="Export as Markdown (plots embedded)"
+            aria-label="Export output as Markdown"
+            className="flex items-center gap-1.5 px-2 py-1 rounded text-gray-300 hover:text-white hover:bg-gray-700 text-xs font-medium transition-colors"
+          >
+            <FileDown className="w-3.5 h-3.5" />
+            .md
+          </button>
           <button
             type="button"
             onClick={() => setFullscreen(true)}
             title="Inspect output (zoom, download)"
             aria-label="Inspect output full screen"
-            className="ml-2 flex items-center gap-1.5 px-2 py-1 rounded text-gray-300 hover:text-white hover:bg-gray-700 text-xs font-medium transition-colors"
+            className="flex items-center gap-1.5 px-2 py-1 rounded text-gray-300 hover:text-white hover:bg-gray-700 text-xs font-medium transition-colors"
           >
             <Maximize2 className="w-3.5 h-3.5" />
             Inspect
