@@ -9,6 +9,7 @@ import {
   Loader2,
   Maximize2,
   Minimize2,
+  Link as LinkIcon,
 } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { resolveFileUrl } from '../../api/client';
@@ -374,6 +375,9 @@ export const PptxViewer = ({ url, fileName, sectionId, onDownload, tracking }: P
   const navBtn =
     'inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-200 enabled:hover:bg-gray-100 dark:enabled:hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed';
 
+  // Resolved through the same helper as the images so it works behind the
+  // dev proxy and in production alike.
+  const pdfUrl = manifest?.pdfUrl ? resolveFileUrl(manifest.pdfUrl) : null;
   const aspect = manifest?.width && manifest?.height ? `${manifest.width} / ${manifest.height}` : '16 / 9';
   const nextSrc = manifest?.images && current + 1 < total ? resolveFileUrl(manifest.images[current + 1]) : null;
 
@@ -429,6 +433,26 @@ export const PptxViewer = ({ url, fileName, sectionId, onDownload, tracking }: P
               <Maximize2 className="w-4 h-4" aria-hidden="true" />
             )}
           </button>
+        )}
+        {/* The slides above are images, so any hyperlink in the deck is dead
+            pixels. This opens the same deck as a PDF, where they work. Only
+            shown when the server kept one — decks converted before that was
+            added have no PDF until they are reconverted. */}
+        {pdfUrl && (
+          <a
+            href={pdfUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={t('courses:slides_open_pdf_hint', {
+              defaultValue: 'Open the deck as a PDF, where links can be clicked',
+            })}
+            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          >
+            <LinkIcon className="w-4 h-4" aria-hidden="true" />
+            <span className="hidden sm:inline">
+              {t('courses:slides_open_pdf', { defaultValue: 'PDF with links' })}
+            </span>
+          </a>
         )}
         <a
           href={url}

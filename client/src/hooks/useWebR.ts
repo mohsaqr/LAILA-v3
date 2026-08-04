@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { WebR } from 'webr';
 import { debug } from '../utils/debug';
+import { NETWORK_SHIM } from './webrNetworkShim';
+import { asRBlock } from './rCodeBlock';
 
 interface WebROutput {
   type: 'stdout' | 'stderr' | 'plot' | 'message';
@@ -70,6 +72,10 @@ export const useWebR = (
       `);
       debug.webr('[WebR] Default options set');
 
+      // Makes `import("<url>")` and friends reach the network at all — see
+      // webrNetworkShim.ts for why they otherwise cannot.
+      await webR.evalRVoid(NETWORK_SHIM);
+
       webRRef.current = webR;
       setIsReady(true);
       setLoadingStatus('Ready');
@@ -112,18 +118,32 @@ export const useWebR = (
       setIsInstallingPackages(true);
       const installed: string[] = [];
       const failed: string[] = [];
-      for (const pkg of missing) {
-        if (cancelled) return;
-        installedRef.current.add(pkg); // mark attempted so we don't retry in a loop
-        setLoadingStatus(`Installing ${pkg}...`);
-        try {
-          await webR.installPackages([pkg], { quiet: true });
-          installed.push(pkg);
-        } catch (installErr) {
-          failed.push(pkg);
-          debug.webr(`[WebR] Warning: could not install ${pkg}:`, installErr);
+
+      // One call for the whole list — see the note in useLabWebR: a loop
+      // re-resolves the dependency closure per package and never overlaps its
+      // requests.
+      missing.forEach(pkg => installedRef.current.add(pkg)); // don't retry in a loop
+      setLoadingStatus(
+        missing.length === 1 ? `Installing ${missing[0]}...` : `Installing ${missing.length} packages...`
+      );
+      try {
+        await webR.installPackages(missing, { quiet: true });
+        installed.push(...missing);
+      } catch (batchErr) {
+        // Retry individually only here, to find which package actually failed.
+        debug.webr('[WebR] Batch install failed, retrying individually:', batchErr);
+        for (const pkg of missing) {
+          if (cancelled) return;
+          try {
+            await webR.installPackages([pkg], { quiet: true });
+            installed.push(pkg);
+          } catch (installErr) {
+            failed.push(pkg);
+            debug.webr(`[WebR] Warning: could not install ${pkg}:`, installErr);
+          }
         }
       }
+      if (cancelled) return;
       if (installed.length > 0) {
         setLoadingStatus('Loading packages...');
         await webR.evalRVoid(
@@ -168,7 +188,7 @@ export const useWebR = (
       const result = await webR.evalRString(`
         paste(capture.output({
           tryCatch(
-            { ${code} },
+            ${asRBlock(code)},
             error = function(e) cat("Error:", conditionMessage(e), "\\n"),
             warning = function(w) { cat("Warning:", conditionMessage(w), "\\n"); invokeRestart("muffleWarning") }
           )

@@ -30,6 +30,8 @@ import { Input } from '../../common/Input';
 import { SearchableSelect } from '../../common/SearchableSelect';
 import { AddResourceModal } from './AddResourceModal';
 import { PickerModal } from './PickerModal';
+import { LabPickerModal } from './LabPickerModal';
+import { useAuthStore } from '../../../store/authStore';
 import { emptyResourceMeta, resourceMetaToPayload, availabilityIsValid, type ResourceMeta } from './ResourceMetaFields';
 
 /** Escape a string for safe interpolation into an HTML double-quoted attribute. */
@@ -42,7 +44,7 @@ type ItemType = 'lecture' | 'codelab' | 'assignment' | 'quiz' | 'forum' | 'surve
 type PaletteKind =
   | 'lecture' | 'page' | 'file' | 'folder' | 'video' | 'url' | 'image' | 'embed'
   | 'assignment' | 'quiz' | 'forum' | 'survey' | 'poll' | 'codelab'
-  | 'agent';
+  | 'lab' | 'agent';
 
 /** Item types that participate in the unified cross-type reorder (everything
  *  except the pinned reference items: assigned labs / interactive labs). */
@@ -206,6 +208,59 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
     onError,
   });
 
+  // ─── Lab picker popup — attach one of the instructor's reusable labs ──────
+  // A CustomLab is not owned by a course: LabAssignment links it to a course
+  // and module, so the same lab can serve several courses. The editor could
+  // already show and detach assigned labs but offered no way to attach one,
+  // which left reusable labs reachable only from the retired curriculum page.
+  const [labPickerModule, setLabPickerModule] = useState<number | null>(null);
+  const [pickedLabId, setPickedLabId] = useState('');
+  // Graded-assignment options, carried over from the old curriculum editor —
+  // dropping them would trade one missing feature for another.
+  const [labGraded, setLabGraded] = useState(false);
+  const [labPrompt, setLabPrompt] = useState('');
+  const [labPoints, setLabPoints] = useState('100');
+  const [labDueDate, setLabDueDate] = useState('');
+  const closeLabPicker = () => {
+    setLabPickerModule(null);
+    setPickedLabId('');
+    setLabGraded(false);
+    setLabPrompt('');
+    setLabPoints('100');
+    setLabDueDate('');
+  };
+
+  // The attachable library: public labs, admin templates, and your own. The
+  // server's assignToCourse already permits all three — the picker used to ask
+  // for /my-labs and so hid everything an instructor had not authored.
+  const currentUser = useAuthStore(s => s.user);
+
+  const { data: libraryLabs } = useQuery({
+    queryKey: ['customLabs', 'library'],
+    queryFn: () => customLabsApi.getLabs(),
+    enabled: labPickerModule != null,
+  });
+
+  const labAdd = useMutation({
+    mutationFn: ({ moduleId, labId }: { moduleId: number; labId: number }) =>
+      customLabsApi.assignToCourse(labId, {
+        courseId,
+        moduleId,
+        enableAssignment: labGraded,
+        // Only sent when graded, so an ungraded attach does not create an
+        // assignment row with empty settings.
+        prompt: labGraded ? labPrompt || undefined : undefined,
+        points: labGraded ? Number(labPoints) || 0 : undefined,
+        dueDate: labGraded && labDueDate ? `${labDueDate}:00.000Z` : undefined,
+      }),
+    onSuccess: () => {
+      refresh();
+      toast.success(t('lab_added', { defaultValue: 'Lab added' }));
+      closeLabPicker();
+    },
+    onError,
+  });
+
   // ─── AI agent picker — add a tutor/chatbot as its own item in a topic ─────
   // Implemented as a lecture whose single section is a functional chatbot
   // (type='chatbot'), so students can actually chat with it.
@@ -305,7 +360,7 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
   // (the same fields as when adding, but saving updates in place).
   const openEdit = async (item: EditorItem) => {
     const kind = item.subKind;
-    if (kind !== 'url' && kind !== 'embed') return;
+    if (kind !== 'url' && kind !== 'embed' && kind !== 'folder') return;
     try {
       const lec = await coursesApi.getLectureById(item.id) as any;
       const section = (lec.sections ?? [])[0];
@@ -320,7 +375,31 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
         availableFrom: lec.availableFrom ? isoToLocalInput(lec.availableFrom) : '',
         availableUntil: lec.availableUntil ? isoToLocalInput(lec.availableUntil) : '',
       });
-      if (kind === 'url') {
+      if (kind === 'folder') {
+        // Re-stage the files already in the folder so the modal opens showing
+        // its current contents — the instructor can then remove any of them or
+        // add more, which is the whole point of editing a folder. They are
+        // marked 'done' because they are already uploaded; nothing re-uploads.
+        const a = parseMarker(section.content ?? '', 'lecture-folder');
+        let existing: Array<{ fileName: string; fileUrl: string; fileType?: string; fileSize?: number }> = [];
+        try {
+          const parsed = JSON.parse(a['data-files'] ?? '[]');
+          if (Array.isArray(parsed)) existing = parsed;
+        } catch {
+          // A malformed marker must not open an empty modal that then SAVES
+          // over the real contents — bail and leave the item untouched.
+          onError();
+          return;
+        }
+        setFolderBatch(existing.map(f => ({
+          name: f.fileName,
+          status: 'done' as const,
+          fileUrl: f.fileUrl,
+          fileType: f.fileType ?? '',
+          fileSize: f.fileSize ?? 0,
+        })));
+        setUrlValue(''); setUrlNewTab(true); setEmbedUrl(''); setEmbedHeight(480);
+      } else if (kind === 'url') {
         const a = parseMarker(section.content ?? '', 'lecture-url');
         setUrlValue(a['data-url'] ?? '');
         setUrlNewTab((a['data-newtab'] ?? 'true') !== 'false');
@@ -470,6 +549,13 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
           if (ready.length === 0) { setBusy(false); return; }
           const folderFiles = ready.map(f => ({ fileName: f.name, fileUrl: f.fileUrl!, fileType: f.fileType ?? '', fileSize: f.fileSize ?? 0 }));
           const content = `<lecture-folder data-label="${escapeAttr(p.title)}" data-files="${escapeAttr(JSON.stringify(folderFiles))}"></lecture-folder>`;
+          // Editing rewrites the same section. Without this branch the modal
+          // would create a second folder every time one was edited.
+          if (addModal.editing) {
+            await coursesApi.updateLecture(addModal.editing.lectureId, { title: p.title, ...lectureMeta } as never);
+            await coursesApi.updateSection(addModal.editing.sectionId, { content });
+            refresh(); toast.success(t('common:saved', { defaultValue: 'Saved' })); setBusy(false); setAddModal(null); return;
+          }
           await createMediaLecture(moduleId, p.title, { type: 'text', content }, lectureMeta);
           refresh(); toast.success(t('folder_added', { defaultValue: 'Folder added' })); setBusy(false); setAddModal(null); return;
         }
@@ -574,10 +660,14 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
   const editItem = (item: EditorItem) => {
     switch (item.type) {
       case 'lecture':
-        // URL / embed resources edit in place via the same modal used to add
-        // them (they carry no editable prose, so the section page would be a
-        // dead end). Every other lecture opens the full section editor.
-        if (item.subKind === 'url' || item.subKind === 'embed') { void openEdit(item); break; }
+        // URL / embed / folder resources edit in place via the same modal used
+        // to add them (they carry no editable prose, so the section page would
+        // be a dead end — a folder opened the rich text editor and offered no
+        // way to add or remove its files). Every other lecture opens the full
+        // section editor.
+        if (item.subKind === 'url' || item.subKind === 'embed' || item.subKind === 'folder') {
+          void openEdit(item); break;
+        }
         navigate(`/teach/courses/${courseId}/lectures/${item.id}`); break;
       case 'codelab': navigate(`/teach/courses/${courseId}/code-labs/${item.id}`); break;
       case 'quiz': navigate(`/teach/courses/${courseId}/quizzes/${item.id}`); break;
@@ -600,6 +690,9 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
       // Surveys can't be created blank here — pick one the instructor already
       // made and attach it to the module via a popup.
       case 'survey': setSurveyPickerModule(moduleId); break;
+      // Same for labs: a CustomLab exists independently of any course, so this
+      // attaches an existing one rather than creating a blank.
+      case 'lab': setLabPickerModule(moduleId); break;
     }
   };
 
@@ -614,6 +707,7 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
       case 'forum':
         addItem(moduleId, kind); break;
       case 'survey': setSurveyPickerModule(moduleId); break;
+      case 'lab': setLabPickerModule(moduleId); break;
       case 'agent': setAgentPickerModule(moduleId); break;
       // Image is a file restricted to image types (it previews inline).
       case 'image': openAdd(moduleId, 'file', true); break;
@@ -789,9 +883,78 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
                 value={pickedSurveyId}
                 onChange={setPickedSurveyId}
                 options={options}
+                placeholder={t('choose_one', { defaultValue: 'Choose one…' })}
               />
             )}
           </PickerModal>
+        );
+      })()}
+
+      {/* Lab picker — attach one of the instructor's reusable labs to a topic */}
+      {labPickerModule != null && (() => {
+        // A lab may only be assigned to a course once (LabAssignment is unique
+        // on labId+courseId), so anything already attached anywhere in this
+        // course is shown as unavailable rather than offered and then rejected.
+        const assignedLabIds = new Set<number>(
+          ((details as { labs?: { labId?: number; lab?: { id?: number } }[] } | undefined)?.labs ?? [])
+            .map(la => la.labId ?? la.lab?.id)
+            .filter((x): x is number => typeof x === 'number'),
+        );
+        return (
+          <LabPickerModal
+            isOpen
+            onClose={closeLabPicker}
+            labs={libraryLabs ?? []}
+            assignedLabIds={assignedLabIds}
+            currentUserId={currentUser?.id}
+            adminCreatorIds={new Set(
+              (libraryLabs ?? []).filter(l => l.creator?.isAdmin).map(l => l.createdBy),
+            )}
+            selectedLabId={pickedLabId}
+            onSelect={setPickedLabId}
+            isConfirming={labAdd.isPending}
+            onBrowseAll={() => { closeLabPicker(); navigate('/labs'); }}
+            onConfirm={() => labPickerModule != null && pickedLabId &&
+              labAdd.mutate({ moduleId: labPickerModule, labId: Number(pickedLabId) })}
+          >
+            {/* Grading is optional: a lab is often just material to work
+                through. Ticking this creates the assignment alongside it. */}
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+              <input
+                type="checkbox"
+                checked={labGraded}
+                onChange={e => setLabGraded(e.target.checked)}
+                className="rounded border-gray-300 dark:border-gray-600"
+              />
+              {t('lab_as_assignment', { defaultValue: 'Also collect it as a graded assignment' })}
+            </label>
+
+            {labGraded && (
+              <div className="space-y-3 pl-6">
+                <Input
+                  label={t('lab_prompt', { defaultValue: 'Instructions' })}
+                  value={labPrompt}
+                  onChange={e => setLabPrompt(e.target.value)}
+                  placeholder={t('lab_prompt_ph', { defaultValue: 'What should students submit?' })}
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    type="number"
+                    min="0"
+                    label={t('lab_points', { defaultValue: 'Points' })}
+                    value={labPoints}
+                    onChange={e => setLabPoints(e.target.value)}
+                  />
+                  <Input
+                    type="datetime-local"
+                    label={t('lab_due_date', { defaultValue: 'Due date' })}
+                    value={labDueDate}
+                    onChange={e => setLabDueDate(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+          </LabPickerModal>
         );
       })()}
 
@@ -1217,6 +1380,9 @@ const PALETTE_GROUPS: { headingKey: string; headingFallback: string; tiles: Pale
   {
     headingKey: 'group_ai_labs', headingFallback: 'AI & Labs',
     tiles: [
+      // "Attach", not "create": a lab lives independently of any course and is
+      // linked in, so the same one can be reused across courses.
+      { kind: 'lab', Icon: Beaker, color: '#059669', colorDark: '#34d399', labelKey: 'add_lab', labelFallback: 'Lab', descKey: 'desc_lab', descFallback: 'Attach one of your labs' },
       { kind: 'agent', Icon: Bot, color: '#7c3aed', colorDark: '#a78bfa', labelKey: 'add_ai_agent', labelFallback: 'AI Agent', descKey: 'desc_ai_agent', descFallback: 'Attach a tutor / chatbot' },
     ],
   },

@@ -8,6 +8,14 @@ export interface SlideManifest {
   images?: string[];
   width?: number;
   height?: number;
+  /**
+   * The same deck as a PDF, when the server kept one.
+   *
+   * The slides are rendered to images, so hyperlinks in the deck are not
+   * clickable. This is the link-bearing version. Optional: decks converted
+   * before it was retained have no PDF until they are reconverted.
+   */
+  pdfUrl?: string;
 }
 
 export const presentationsApi = {

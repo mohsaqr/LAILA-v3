@@ -135,6 +135,47 @@ export const buildTeachingListBreadcrumb = (
 ];
 
 /**
+ * Build breadcrumb for a lab opened from a course, or standalone.
+ *
+ * A course lab is reached at `/labs/:id?courseId=N` — the course lives in a
+ * query param, not the path, so nothing about the URL reveals the hierarchy.
+ * The crumbs have to supply it. Walking straight from "Courses" to the lab
+ * name, as this did before, strands a student at the top-level course list
+ * with no link back to the course they were working inside.
+ *
+ * Labels are passed in rather than hardcoded so callers can translate them;
+ * the older builders in this file predate that and still emit English.
+ */
+export type LabBreadcrumbArgs = {
+  labName: string;
+  /** Label for the labs listing — the course's labs page, or `/labs`. */
+  labsLabel: string;
+} & (
+  | { courseId?: null; coursesLabel?: string; courseTitle?: string }
+  /** A course lab needs its course's name, so the type demands one: the
+   *  caller resolves the still-loading case (`course?.title || t('course')`). */
+  | { courseId: number | string; coursesLabel: string; courseTitle: string }
+);
+
+export const buildLabBreadcrumb = ({
+  labName,
+  labsLabel,
+  courseId,
+  coursesLabel,
+  courseTitle,
+}: LabBreadcrumbArgs): BreadcrumbItem[] => {
+  if (courseId == null) {
+    return [{ label: labsLabel, href: '/labs' }, { label: labName }];
+  }
+  return [
+    { label: coursesLabel!, href: '/courses' },
+    { label: courseTitle!, href: `/courses/${courseId}` },
+    { label: labsLabel, href: `/courses/${courseId}/labs` },
+    { label: labName },
+  ];
+};
+
+/**
  * Build breadcrumb for admin pages
  */
 export const buildAdminBreadcrumb = (

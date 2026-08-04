@@ -255,6 +255,8 @@ export interface CustomLab {
   creator?: {
     id: number;
     fullname: string;
+    /** Present on library listings; admin-authored labs act as shared templates. */
+    isAdmin?: boolean;
   };
   templates?: LabTemplate[];
   assignments?: LabAssignment[];

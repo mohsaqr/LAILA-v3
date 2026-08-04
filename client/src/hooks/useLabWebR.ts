@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { WebR } from 'webr';
 import { debug } from '../utils/debug';
+import { NETWORK_SHIM } from './webrNetworkShim';
+import { asRBlock } from './rCodeBlock';
 
 interface WebROutput {
   type: 'stdout' | 'stderr' | 'plot' | 'message';
@@ -482,18 +484,40 @@ export const useLabWebR = (
     const failed: string[] = [];
 
     try {
-      for (const pkg of missing) {
-        installedRef.current.add(pkg); // mark attempted so we never retry in a loop
-        setLoadingStatus(`Installing ${pkg}...`);
-        debug.webr(`[Lab WebR] Installing package: ${pkg}`);
+      // One call for the whole list, not one call per package.
+      //
+      // installPackages() resolves a dependency closure per invocation, so
+      // installing N packages in a loop re-resolves everything they share —
+      // and a lab loading tidyverse alongside TraMineR shares a great deal
+      // (rlang, dplyr, ggplot2 …). Each iteration was also its own awaited
+      // round trip to the package repo, so the requests never overlapped.
+      // Batching collapses that into a single resolution and lets the fetches
+      // run together.
+      missing.forEach(pkg => installedRef.current.add(pkg)); // never retry in a loop
+      setLoadingStatus(
+        missing.length === 1 ? `Installing ${missing[0]}...` : `Installing ${missing.length} packages...`
+      );
+      debug.webr(`[Lab WebR] Installing packages: ${missing.join(', ')}`);
 
-        try {
-          await webR.installPackages([pkg], { quiet: true });
-          installed.push(pkg);
-          debug.webr(`[Lab WebR] Successfully installed: ${pkg}`);
-        } catch (installErr) {
-          failed.push(pkg);
-          debug.webr(`[Lab WebR] Warning: Could not install ${pkg}:`, installErr);
+      try {
+        await webR.installPackages(missing, { quiet: true });
+        installed.push(...missing);
+        debug.webr(`[Lab WebR] Installed ${missing.length} package(s)`);
+      } catch (batchErr) {
+        // A batch fails as a unit, so it cannot say which package was at fault
+        // — a single typo'd library() call would otherwise report every
+        // package as failed and strand the ones that were fine. Retry
+        // individually only on this path; the happy path stays one call.
+        debug.webr('[Lab WebR] Batch install failed, retrying individually:', batchErr);
+        setLoadingStatus('Checking packages...');
+        for (const pkg of missing) {
+          try {
+            await webR.installPackages([pkg], { quiet: true });
+            installed.push(pkg);
+          } catch (installErr) {
+            failed.push(pkg);
+            debug.webr(`[Lab WebR] Warning: Could not install ${pkg}:`, installErr);
+          }
         }
       }
 
@@ -548,6 +572,10 @@ export const useLabWebR = (
       // Install helper functions
       setLoadingStatus('Setting up environment...');
       await webR.evalRVoid(BASE_PLOT_HELPER);
+
+      // Makes `import("<url>")` and friends reach the network at all — see
+      // webrNetworkShim.ts for why they otherwise cannot.
+      await webR.evalRVoid(NETWORK_SHIM);
 
       // Add lab-type-specific helpers
       if (labType === 'tna') {
@@ -656,7 +684,7 @@ export const useLabWebR = (
           paste(capture.output({
             tryCatch(
               withCallingHandlers({
-                ${code.replace(/`/g, "\\`")}
+                ${code}
               },
               warning = function(w) invokeRestart("muffleWarning")
               ),
@@ -669,7 +697,7 @@ export const useLabWebR = (
           paste(capture.output({
             tryCatch(
               withCallingHandlers({
-                capture_plot(quote({ ${code.replace(/`/g, "\\`")} }))
+                capture_plot(quote(${asRBlock(code)}))
               },
               warning = function(w) invokeRestart("muffleWarning")
               ),
@@ -682,7 +710,7 @@ export const useLabWebR = (
           paste(capture.output({
             tryCatch(
               withCallingHandlers({
-                ${code.replace(/`/g, "\\`")}
+                ${code}
               },
               warning = function(w) invokeRestart("muffleWarning")
               ),

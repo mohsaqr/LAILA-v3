@@ -2,11 +2,32 @@ import rateLimit from 'express-rate-limit';
 
 /**
  * Rate limiter for authentication routes (login, register).
- * Strict limits to prevent brute force attacks.
+ *
+ * DISABLED by owner decision (2026-08-03). It was five requests a minute per
+ * IP, which locked the operator out of their own deployment repeatedly during
+ * testing — a legitimate person retrying a password they are unsure of trips it
+ * long before an attacker's script would care.
+ *
+ * The middleware is kept mounted rather than removed from the routes so this is
+ * one line to change, not a hunt through index.ts. Restore brute-force
+ * protection by deleting the `skip` below; there is no other throttle on
+ * password guessing now that the account lockout in `auth.service.ts` is also
+ * off (see MAX_FAILED_ATTEMPTS there).
+ *
+ * `skip` is what disables it — NOT `max: 0`. In express-rate-limit v6 and older
+ * a limit of 0 meant unlimited; since v7 it means every request is blocked, and
+ * this package is on v8. `max: 0` here would deny all logins outright, which is
+ * the precise opposite of the intent. The library ships a WRN_ERL_MAX_ZERO
+ * warning for that trap.
+ *
+ * Note the counters are in-memory (no `store` configured), so a
+ * `systemctl restart laila` clears every limiter in this file instantly —
+ * useful if a finite limit is ever restored and someone is stuck behind it.
  */
 export const authLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 5, // 5 requests per minute
+  max: 5, // inert while `skip` returns true; the value to fall back to
+  skip: () => true,
   message: {
     success: false,
     error: 'Too many authentication attempts. Please try again later.',

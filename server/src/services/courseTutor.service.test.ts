@@ -18,6 +18,13 @@ vi.mock('../utils/prisma.js', () => ({
     tutorConversation: {
       findMany: vi.fn(),
     },
+    courseTutorConversation: {
+      findUnique: vi.fn(),
+      update: vi.fn(),
+    },
+    courseTutorMessage: {
+      create: vi.fn(),
+    },
   },
 }));
 
@@ -25,12 +32,17 @@ vi.mock('../utils/prisma.js', () => ({
 vi.mock('./chat.service.js', () => ({
   chatService: {
     sendMessage: vi.fn(),
+    chat: vi.fn(),
   },
+}));
+
+vi.mock('./courseContext.service.js', () => ({
+  buildCourseContext: vi.fn(),
 }));
 
 vi.mock('./activityLog.service.js', () => ({
   activityLogService: {
-    logActivity: vi.fn(),
+    logActivity: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -41,6 +53,8 @@ vi.mock('./courseRole.service.js', () => ({
 }));
 
 import prisma from '../utils/prisma.js';
+import { chatService } from './chat.service.js';
+import { buildCourseContext } from './courseContext.service.js';
 import { courseRoleService } from './courseRole.service.js';
 import { courseTutorService } from './courseTutor.service.js';
 
@@ -226,5 +240,70 @@ describe('CourseTutorService', () => {
 
       expect(result).toEqual([]);
     });
+  });
+});
+
+// The tutor was given the course TITLE and nothing else, so "what does this
+// course cover?" was answered from the title alone. sendMessage had no tests at
+// all, so nothing held the fix — or the old behaviour — in place.
+describe('CourseTutorService.sendMessage — course context in the prompt', () => {
+  const CONVERSATION = {
+    id: 11,
+    userId: 42,
+    courseTutor: {
+      id: 4,
+      courseTutorId: 4,
+      customSystemPrompt: null,
+      chatbot: { id: 2, name: 'socratic', displayName: 'Socratic Guide', systemPrompt: 'You are Socratic.', temperature: 0.7 },
+      course: { id: 1, title: 'Learning Analytics' },
+    },
+    messages: [],
+  };
+
+  const sentPrompt = () => (vi.mocked(chatService.chat).mock.calls[0][0] as any).systemPrompt as string;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.courseTutorConversation.findUnique).mockResolvedValue(CONVERSATION as any);
+    vi.mocked(prisma.courseTutorMessage.create).mockResolvedValue({ id: 1, role: 'user', content: 'hi', createdAt: new Date() } as any);
+    vi.mocked(prisma.courseTutorConversation.update).mockResolvedValue(CONVERSATION as any);
+    vi.mocked(chatService.chat).mockResolvedValue({ reply: 'Indeed.', model: 'm', responseTime: 1 } as any);
+    vi.mocked(buildCourseContext).mockResolvedValue(
+      'Course: Learning Analytics\nTopics covered in this course:\n1. Foundations'
+    );
+  });
+
+  it('puts the course outline in the system prompt', async () => {
+    await courseTutorService.sendMessage(11, 42, 'What does this course cover?');
+
+    expect(buildCourseContext).toHaveBeenCalledWith(1);
+    expect(sentPrompt()).toContain('Topics covered in this course:');
+    expect(sentPrompt()).toContain('Foundations');
+  });
+
+  it('keeps the persona and the stay-in-character instruction', async () => {
+    await courseTutorService.sendMessage(11, 42, 'hi');
+
+    expect(sentPrompt()).toContain('You are Socratic.');
+    expect(sentPrompt()).toContain('Stay in character');
+  });
+
+  it('degrades to the old behaviour when the outline is empty', async () => {
+    vi.mocked(buildCourseContext).mockResolvedValue('');
+
+    await courseTutorService.sendMessage(11, 42, 'hi');
+
+    // No blank gap, and the course is still named.
+    expect(sentPrompt()).toContain('Learning Analytics');
+    expect(sentPrompt()).not.toMatch(/\n\n\n/);
+  });
+
+  it('builds the context before storing the user message', async () => {
+    // Ordering: a DB failure here must not leave the student's message saved
+    // with no reply, or their retry stores it twice.
+    vi.mocked(buildCourseContext).mockRejectedValue(new Error('db down'));
+
+    await expect(courseTutorService.sendMessage(11, 42, 'hi')).rejects.toThrow();
+    expect(prisma.courseTutorMessage.create).not.toHaveBeenCalled();
   });
 });

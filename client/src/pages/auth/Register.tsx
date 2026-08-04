@@ -296,20 +296,26 @@ export const Register = () => {
                     <p className="leading-relaxed">{t('invite_link_detected')}</p>
                   </div>
                 ) : (
-                  <div className="relative">
-                    <Ticket
-                      className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5"
-                      style={{ color: colors.textMuted }}
-                    />
-                    <Input
-                      type="text"
-                      dir="ltr"
-                      autoComplete="off"
-                      placeholder={t('invite_code_placeholder')}
-                      value={inviteCode}
-                      onChange={(e) => setInviteCode(e.target.value)}
-                      className="pl-11"
-                    />
+                  <div>
+                    {/* The icon is centred against the INPUT only. Keeping the
+                        helper text inside the relative wrapper would make
+                        `top-1/2` split the input plus the caption, dropping the
+                        icon below the field's centre. */}
+                    <div className="relative">
+                      <Ticket
+                        className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5"
+                        style={{ color: colors.textMuted }}
+                      />
+                      <Input
+                        type="text"
+                        dir="ltr"
+                        autoComplete="off"
+                        placeholder={t('invite_code_placeholder')}
+                        value={inviteCode}
+                        onChange={(e) => setInviteCode(e.target.value)}
+                        className="pl-11"
+                      />
+                    </div>
                     <p className="mt-1 text-xs" style={{ color: colors.textMuted }}>
                       {t('invite_code_optional')}
                     </p>
@@ -321,20 +327,22 @@ export const Register = () => {
                     an invitation link is in play, because the invitation says
                     "you may have an account" while this says "you are in my
                     class". A ?code= link pre-fills it. */}
-                <div className="relative">
-                  <GraduationCap
-                    className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5"
-                    style={{ color: colors.textMuted }}
-                  />
-                  <Input
-                    type="text"
-                    dir="ltr"
-                    autoComplete="off"
-                    placeholder={t('course_code_placeholder')}
-                    value={courseCode}
-                    onChange={(e) => setCourseCode(e.target.value)}
-                    className="pl-11"
-                  />
+                <div>
+                  <div className="relative">
+                    <GraduationCap
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5"
+                      style={{ color: colors.textMuted }}
+                    />
+                    <Input
+                      type="text"
+                      dir="ltr"
+                      autoComplete="off"
+                      placeholder={t('course_code_placeholder')}
+                      value={courseCode}
+                      onChange={(e) => setCourseCode(e.target.value)}
+                      className="pl-11"
+                    />
+                  </div>
                   <p className="mt-1 text-xs" style={{ color: colors.textMuted }}>
                     {t('course_code_optional')}
                   </p>

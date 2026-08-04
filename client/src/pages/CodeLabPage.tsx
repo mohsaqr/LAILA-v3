@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
@@ -8,7 +8,7 @@ import { useWebR } from '../hooks/useWebR';
 import { Button } from '../components/common/Button';
 import { Loading } from '../components/common/Loading';
 import { LabNotebook } from '../components/labs/notebook/LabNotebook';
-import { LabAIPanel, AICellContext } from '../components/labs/notebook/LabAIPanel';
+import { LabAIPanel, AICellContext, AIIntent } from '../components/labs/notebook/LabAIPanel';
 import { blockToCell, LabCell } from '../components/labs/authoring/cell';
 import { detectRPackages } from '../utils/detectRPackages';
 import activityLogger from '../services/activityLogger';
@@ -21,6 +21,7 @@ export const CodeLabPage = () => {
 
   const [aiOpen, setAiOpen] = useState(false);
   const [aiContext, setAiContext] = useState<AICellContext | null>(null);
+  const aiRequestRef = useRef(0);
 
   const { data: codeLab, isLoading, error } = useQuery({
     queryKey: ['codeLab', labId],
@@ -33,6 +34,10 @@ export const CodeLabPage = () => {
     () => detectRPackages((codeLab?.blocks ?? []).map(b => b.starterCode ?? '')),
     [codeLab?.blocks]
   );
+
+  // Memoized: NotebookCell is memo'd, and rebuilding this array on every render
+  // would hand each cell a new `cell` prop and defeat it.
+  const notebookCells = useMemo(() => (codeLab?.blocks ?? []).map(blockToCell), [codeLab?.blocks]);
 
   const {
     isReady: isWebRReady,
@@ -54,8 +59,8 @@ export const CodeLabPage = () => {
   }, [labId, codeLab?.title, parsedCourseId]);
 
   const handleAskAI = useCallback(
-    (cell: LabCell, code: string, err: string | null, output?: string) => {
-      setAiContext({ cell, code, error: err, output });
+    (cell: LabCell, code: string, err: string | null, intent: AIIntent, output?: string) => {
+      setAiContext({ cell, code, error: err, output, intent, requestId: ++aiRequestRef.current });
       setAiOpen(true);
     },
     []
@@ -99,8 +104,8 @@ export const CodeLabPage = () => {
   if (error || !codeLab) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('code_lab_not_found')}</h1>
-        <p className="text-gray-600 mb-4">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">{t('code_lab_not_found')}</h1>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">
           {t('lab_not_found_description')}
         </p>
         <Button onClick={() => navigate(-1)}>{t('go_back')}</Button>
@@ -161,7 +166,8 @@ export const CodeLabPage = () => {
       {/* The unified lab notebook (student view: run + local edits, locks enforced) */}
       <LabNotebook
         key={labId}
-        cells={(codeLab.blocks ?? []).map(blockToCell)}
+        cells={notebookCells}
+        labName={codeLab.title}
         language="r"
         canEdit={false}
         runtime={notebookRuntime}

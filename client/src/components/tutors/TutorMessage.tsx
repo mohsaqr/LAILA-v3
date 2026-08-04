@@ -85,7 +85,7 @@ export const TutorMessage = ({
             color: isUser ? '#ffffff' : colors.textPrimary,
           }}
         >
-          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+          <p dir="auto" className="text-sm whitespace-pre-wrap">{message.content}</p>
         </div>
 
         {/* Metadata */}

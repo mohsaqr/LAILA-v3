@@ -3,6 +3,7 @@ import { AppError } from '../middleware/error.middleware.js';
 import { chatService } from './chat.service.js';
 import { activityLogService } from './activityLog.service.js';
 import { courseRoleService } from './courseRole.service.js';
+import { buildCourseContext } from './courseContext.service.js';
 
 // Types
 export interface CourseTutorData {
@@ -929,6 +930,11 @@ class CourseTutorService {
     const chatbot = tutor.chatbot;
     const mergedConfig = this.getMergedConfig(tutor as CourseTutorData);
 
+    // Built BEFORE the user's message is stored. It is a database read, and if
+    // the database is unavailable it throws — after the write, that leaves the
+    // message saved with no reply and the student's retry stores it twice.
+    const courseContext = await buildCourseContext(tutor.course.id);
+
     // Save user message
     const userMessage = await prisma.courseTutorMessage.create({
       data: {
@@ -944,8 +950,11 @@ class CourseTutorService {
       content: m.content,
     }));
 
-    // Build system prompt with course context
+    // Build system prompt with course context. The tutor used to be told only
+    // the course *title*, so it knew nothing about what the course actually
+    // covers and answered from the title alone.
     let systemPrompt = mergedConfig.systemPrompt;
+    if (courseContext) systemPrompt += `\n\n${courseContext}`;
     systemPrompt += `\n\nIMPORTANT: You are ${mergedConfig.displayName}, a tutor for the course "${tutor.course.title}". Stay in character and provide helpful, course-relevant responses.`;
 
     // Get AI response

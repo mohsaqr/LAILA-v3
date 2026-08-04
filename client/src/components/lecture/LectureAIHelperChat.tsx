@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Send, Loader2, Bot, User } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
+import { useAutoGrowTextarea } from '../../hooks/useAutoGrowTextarea';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -31,6 +32,10 @@ export const LectureAIHelperChat = ({
   const effectivePlaceholder = placeholder || t('ask_about_lecture');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Grow the composer with the message instead of scrolling inside one row.
+  // 4 rows preserves this panel's previous ~120px ceiling; it sits in a
+  // narrow sidebar and cannot afford the default 8.
+  useAutoGrowTextarea(inputRef, inputValue, 4);
 
   // Theme colors
   const colors = {
@@ -57,6 +62,10 @@ export const LectureAIHelperChat = ({
   }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // An IME (Arabic, CJK) uses Enter to confirm a candidate. A native form
+    // submit is suppressed mid-composition; a JS keydown handler is not, so
+    // without this the half-composed text is sent as the message.
+    if (e.nativeEvent.isComposing) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (inputValue.trim() && !isLoading) {
@@ -106,7 +115,7 @@ export const LectureAIHelperChat = ({
                   color: message.role === 'user' ? '#ffffff' : colors.textPrimary,
                 }}
               >
-                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                <p dir="auto" className="text-sm whitespace-pre-wrap">{message.content}</p>
               </div>
               {message.timestamp && (
                 <p
@@ -171,7 +180,11 @@ export const LectureAIHelperChat = ({
               border: `1px solid ${colors.inputBorder}`,
               color: colors.textPrimary,
               minHeight: '44px',
-              maxHeight: '120px',
+              // No maxHeight here. useAutoGrowTextarea sets both the height and
+              // overflowY from its OWN cap, so a competing CSS ceiling made the
+              // element clamp at 120px while the hook still believed the text
+              // fit and left overflow hidden — the writer's own lines went
+              // off-screen and could not be scrolled to. One owner for the cap.
             }}
           />
           <button

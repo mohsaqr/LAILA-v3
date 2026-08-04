@@ -144,7 +144,20 @@ if (process.env.NODE_ENV === 'production') {
 // Static files for uploads with security headers
 app.use('/uploads', (req, res, next) => {
   // Add Content-Security-Policy to prevent script execution in uploaded files
-  res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'");
+  const base = "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'";
+
+  // `default-src 'none'` also means `object-src 'none'`, and the browser's
+  // built-in PDF viewer renders through a plugin object — so a PDF opened from
+  // here shows a blank page rather than the document. Slide decks are kept as
+  // PDF precisely so their hyperlinks can be clicked (see
+  // presentation.service.ts), which is useless if the viewer cannot start.
+  // Widened only for .pdf, and only to object/frame: scripts, XHR and
+  // everything else stay denied, and `nosniff` still pins the content type.
+  const isPdf = req.path.toLowerCase().endsWith('.pdf');
+  res.setHeader(
+    'Content-Security-Policy',
+    isPdf ? `${base}; object-src 'self'; frame-src 'self'` : base
+  );
   res.setHeader('X-Content-Type-Options', 'nosniff');
   next();
 }, express.static(path.join(process.cwd(), 'uploads')));

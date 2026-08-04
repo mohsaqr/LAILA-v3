@@ -1556,5 +1556,20 @@
   "create_graded_assignment": "Create a graded assignment (students can submit their work)",
   "assignment_prompt": "Assignment prompt (optional)",
   "assignment_prompt_placeholder": "What should students do and submit?",
-  "assign_no_assignment_hint": "Without an assignment, students can open and run the lab but cannot submit work for grading."
+  "assign_no_assignment_hint": "Without an assignment, students can open and run the lab but cannot submit work for grading.",
+  "lab_origin_mine": "Yours",
+  "lab_origin_shared": "Shared",
+  "lab_origin_template": "Template",
+  "lab_library_subtitle": "Attach any lab from the library. It stays reusable — adding it here does not copy it or take it away from other courses.",
+  "lab_search_ph": "Search by name, description or author…",
+  "already_in_course": "Already in this course",
+  "unknown_author": "Unknown",
+  "select_lab_to_preview": "Select a lab to see what it contains.",
+  "lab_contents": "Contents",
+  "lab_empty": "This lab has no cells yet.",
+  "lab_public": "Public",
+  "lab_private": "Private",
+  "used_in_n_courses": "Used in {{count}} courses",
+  "add_lab": "Add lab",
+  "go_to_labs": "Manage labs"
 }

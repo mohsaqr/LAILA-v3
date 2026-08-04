@@ -428,7 +428,21 @@ export class AuthService {
     return { message: 'Verification code resent' };
   }
 
-  // Account lockout settings
+  // Account lockout settings.
+  //
+  // DISABLED by owner decision (2026-08-03): `LOCKOUT_ENABLED = false` makes
+  // login never lock an account, however many passwords are missed. The counter
+  // is still incremented, so `failed_login_attempts` remains usable as a signal
+  // and re-enabling costs one boolean.
+  //
+  // It was 5 attempts / 15 minutes, and it behaved worse than those numbers
+  // suggest: nothing resets the counter when a lock expires — only a successful
+  // login or a password reset does — so a locked-out account came back with the
+  // counter still at the maximum and re-locked on the very next wrong password.
+  // One guess per 15 minutes, indefinitely, for anyone who had forgotten their
+  // password. That ratchet is what made this worth turning off rather than
+  // tuning. If it is restored, reset the counter when the lock lapses too.
+  private static readonly LOCKOUT_ENABLED = false;
   private static readonly MAX_FAILED_ATTEMPTS = 5;
   private static readonly LOCKOUT_DURATION_MINUTES = 15;
 
@@ -459,8 +473,10 @@ export class AuthService {
       throw new AppError('Invalid credentials', 401);
     }
 
-    // Check if account is locked
-    if (user.lockedUntil && user.lockedUntil > new Date()) {
+    // Check if account is locked. A row locked before the feature was disabled
+    // still carries a future lockedUntil, so this must gate on the flag too or
+    // those users stay locked until the timestamp lapses.
+    if (AuthService.LOCKOUT_ENABLED && user.lockedUntil && user.lockedUntil > new Date()) {
       const remainingMinutes = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
       try {
         await learningAnalyticsService.logAuthEvent({
@@ -544,7 +560,9 @@ export class AuthService {
       };
 
       // Lock account if max attempts reached
-      if (newFailedAttempts >= AuthService.MAX_FAILED_ATTEMPTS) {
+      const shouldLock =
+        AuthService.LOCKOUT_ENABLED && newFailedAttempts >= AuthService.MAX_FAILED_ATTEMPTS;
+      if (shouldLock) {
         updateData.lockedUntil = new Date(Date.now() + AuthService.LOCKOUT_DURATION_MINUTES * 60000);
       }
 
@@ -559,7 +577,7 @@ export class AuthService {
           userId: user.id,
           userEmail: user.email,
           eventType: 'login_failure',
-          failureReason: newFailedAttempts >= AuthService.MAX_FAILED_ATTEMPTS ? 'account_locked' : 'invalid_password',
+          failureReason: shouldLock ? 'account_locked' : 'invalid_password',
           attemptCount: newFailedAttempts,
           sessionId: context?.sessionId,
           userAgent: context?.userAgent,
@@ -573,7 +591,7 @@ export class AuthService {
         authLogger.warn({ err: error, email: data.email }, 'Failed to log login failure event');
       }
 
-      if (newFailedAttempts >= AuthService.MAX_FAILED_ATTEMPTS) {
+      if (shouldLock) {
         throw new AppError(`Account locked due to too many failed attempts. Please try again in ${AuthService.LOCKOUT_DURATION_MINUTES} minutes.`, 423);
       }
 

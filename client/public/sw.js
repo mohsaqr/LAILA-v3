@@ -1,4 +1,8 @@
-const CACHE_NAME = 'laila-v1';
+// Bumped from laila-v1 so the activate handler below deletes the old cache.
+// That cache holds cross-origin runtime scripts this worker should never have
+// stored; a rename is what actually evicts them from browsers already carrying
+// a poisoned copy.
+const CACHE_NAME = 'laila-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -33,6 +37,26 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  // Only ever handle same-origin requests.
+  //
+  // This worker exists to cache the app's own shell. Left unguarded it
+  // intercepts EVERY GET on every origin — the WebR and Pyodide runtimes, the
+  // Google Fonts files — and it handles them badly in two ways:
+  //
+  //   1. The not-in-cache branch below has no .catch(), so any fetch rejection
+  //      rejects respondWith, which the browser reports to the caller as a hard
+  //      network error. In webR that surfaces as
+  //      "Worker loading error: Network error loading .../webr-worker.js"
+  //      and no R lab can start.
+  //   2. A cross-origin script, once cached, is served from cache indefinitely
+  //      — the runtimes get pinned to whatever copy was stored first.
+  //
+  // Neither belongs to a shell cache. Returning without calling respondWith
+  // hands the request back to the browser untouched.
+  if (url.origin !== self.location.origin) {
+    return;
+  }
 
   // Skip API requests - always go to network
   if (url.pathname.startsWith('/api')) {

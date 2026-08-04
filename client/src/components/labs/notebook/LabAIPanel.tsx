@@ -6,12 +6,25 @@ import ReactMarkdown from 'react-markdown';
 import { chatApi, chatbotsApi } from '../../../api/chat';
 import { LabCell } from '../authoring/cell';
 
+/**
+ * What the student clicked. Everything except `ask` sends a preset question
+ * immediately, so a single click produces an answer with no typing.
+ */
+export type AIIntent = 'explain' | 'interpret' | 'debug' | 'ask';
+
 export interface AICellContext {
   cell: LabCell;
   code: string;
   error: string | null;
   /** Text output of the cell's last run, truncated — grounding for "why is this wrong". */
   output?: string;
+  intent: AIIntent;
+  /**
+   * Bumped on every click. Without it a second click of the same button on the
+   * same cell would build an identical context object and the auto-send effect
+   * could not tell it apart from the first.
+   */
+  requestId: number;
 }
 
 interface LabAIPanelProps {
@@ -48,6 +61,9 @@ export const LabAIPanel = ({
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  /** requestId of the click already auto-sent, so StrictMode cannot double-fire. */
+  const autoSentRef = useRef<number | null>(null);
 
   const { data: chatbot } = useQuery({
     queryKey: ['chatbot', chatbotId],
@@ -69,15 +85,38 @@ export const LabAIPanel = ({
     return () => window.removeEventListener('keydown', onKey);
   }, [isOpen, onClose]);
 
-  // Seed a question when the student clicks Ask AI on a failing cell.
-  useEffect(() => {
-    if (isOpen && cellContext?.error && !input) {
-      setInput(
-        t('courses:ai_error_seed', {
-          defaultValue: 'I got an error running this cell — can you help me understand it?',
-        })
-      );
+  // A preset question per intent. `ask` has none — the student types their own.
+  const presetFor = (intent: AIIntent): string | null => {
+    switch (intent) {
+      case 'explain':
+        return t('courses:ai_preset_explain', {
+          defaultValue: 'Explain what this code does, step by step, in plain language.',
+        });
+      case 'interpret':
+        return t('courses:ai_preset_interpret', {
+          defaultValue:
+            'Interpret the output of this cell. What do these results mean, and what should I conclude from them?',
+        });
+      case 'debug':
+        return t('courses:ai_preset_debug', {
+          defaultValue:
+            'This cell is not doing what I expect. Help me find the problem and explain how to fix it.',
+        });
+      default:
+        return null;
     }
+  };
+
+  // One click on Explain/Interpret/Debug should produce an answer, not a
+  // pre-filled box the student still has to submit.
+  useEffect(() => {
+    if (!isOpen || !cellContext) return;
+    if (autoSentRef.current === cellContext.requestId) return;
+    autoSentRef.current = cellContext.requestId;
+
+    const preset = presetFor(cellContext.intent);
+    if (preset) sendText(preset);
+    else inputRef.current?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cellContext, isOpen]);
 
@@ -91,8 +130,8 @@ export const LabAIPanel = ({
       (cellContext.error ? `\nThe last run failed with:\n${cellContext.error}` : '')
     : '';
 
-  const send = async () => {
-    const text = input.trim();
+  const sendText = async (raw: string) => {
+    const text = raw.trim();
     if (!text || sending) return;
     setInput('');
     const history = messages.slice(-20);
@@ -127,6 +166,8 @@ export const LabAIPanel = ({
       setSending(false);
     }
   };
+
+  const send = () => sendText(input);
 
   return (
     <div className="fixed inset-y-0 ltr:right-0 rtl:left-0 z-[60] w-full sm:w-[26rem] flex flex-col bg-white dark:bg-gray-800 ltr:border-l rtl:border-r border-gray-200 dark:border-gray-700 shadow-2xl">
@@ -198,10 +239,13 @@ export const LabAIPanel = ({
       <div className="p-3 border-t border-gray-100 dark:border-gray-700">
         <div className="flex items-end gap-2">
           <textarea
+            ref={inputRef}
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) {
+              // isComposing guards IME input: a native submit is suppressed
+              // mid-composition but a JS keydown handler is not.
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault();
                 send();
               }

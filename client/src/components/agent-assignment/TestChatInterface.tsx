@@ -145,7 +145,7 @@ export const TestChatInterface = ({
                       <ChatMarkdown content={msg.content} />
                     </div>
                   ) : (
-                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                    <p dir="auto" className="text-sm whitespace-pre-wrap">{msg.content}</p>
                   )}
                 </div>
               </div>

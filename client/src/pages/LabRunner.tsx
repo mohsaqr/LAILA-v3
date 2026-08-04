@@ -14,7 +14,9 @@ import {
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { customLabsApi } from '../api/customLabs';
+import { coursesApi } from '../api/courses';
 import { assignmentsApi } from '../api/assignments';
+import { buildLabBreadcrumb } from '../utils/breadcrumbs';
 import { LabAssignmentPanel } from '../components/labs';
 import { ReportItem } from '../components/labs/LabAssignmentPanel';
 import { Button } from '../components/common/Button';
@@ -28,7 +30,7 @@ import { isPythonLab } from '../utils/labType';
 import { useAuthStore } from '../store/authStore';
 import { LabNotebook } from '../components/labs/notebook/LabNotebook';
 import { LabSettingsHeader } from '../components/labs/notebook/LabSettingsHeader';
-import { LabAIPanel, AICellContext } from '../components/labs/notebook/LabAIPanel';
+import { LabAIPanel, AICellContext, AIIntent } from '../components/labs/notebook/LabAIPanel';
 import { templateToCell, cellPatchToTemplate, LabCellPatch, LabCell } from '../components/labs/authoring/cell';
 import { detectRPackages } from '../utils/detectRPackages';
 import type { OutputItem as NotebookOutputItem } from '../components/labs/LabOutput';
@@ -83,6 +85,16 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
   const logSession = useCallback((event: string) =>
     setSessionEvents(prev => [...prev, { ts: Date.now(), event }]), []);
 
+  // For the breadcrumb's course crumb. The key stringifies courseId because
+  // every other page keys this query off the raw `useParams` string — matching
+  // it means clicking through from /courses/:id/labs reuses that cache entry
+  // instead of refetching the same course under a numeric key.
+  const { data: course } = useQuery({
+    queryKey: ['course', courseId == null ? null : String(courseId)],
+    queryFn: () => coursesApi.getCourseById(courseId!),
+    enabled: courseId != null,
+  });
+
   const { data: assignmentConfig } = useQuery({
     queryKey: ['labAssignmentConfig', lab.id, courseId],
     queryFn: () => customLabsApi.getLabAssignmentConfig(lab.id, courseId!),
@@ -111,14 +123,21 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
   const canEditLab =
     !!currentUser && (isAdmin || (isInstructor && lab.createdBy === currentUser.id));
 
-  const sortedTemplates: LabTemplate[] = [...(lab.templates ?? [])].sort(
-    (a: LabTemplate, b: LabTemplate) => a.orderIndex - b.orderIndex
+  // Memoized: NotebookCell is memo'd, and a fresh array here would give every
+  // cell a new `cell` prop on each render, defeating it.
+  const sortedTemplates: LabTemplate[] = useMemo(
+    () => [...(lab.templates ?? [])].sort((a: LabTemplate, b: LabTemplate) => a.orderIndex - b.orderIndex),
+    [lab.templates]
   );
-  const notebookCells: LabCell[] = sortedTemplates.map(templateToCell);
+  const notebookCells: LabCell[] = useMemo(
+    () => sortedTemplates.map(templateToCell),
+    [sortedTemplates]
+  );
 
   // AI assistant (attached per lab by the instructor)
   const [aiOpen, setAiOpen] = useState(false);
   const [aiContext, setAiContext] = useState<AICellContext | null>(null);
+  const aiRequestRef = useRef(0);
 
   // The lab query is keyed by the raw string route param (['lab', '20']), so a
   // number key here would never match and the list would silently not refresh.
@@ -272,8 +291,10 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
   );
 
   const handleAskAI = useCallback(
-    (cell: LabCell, cellCode: string, error: string | null, output?: string) => {
-      setAiContext({ cell, code: cellCode, error, output });
+    (cell: LabCell, cellCode: string, error: string | null, intent: AIIntent, output?: string) => {
+      // requestId distinguishes repeat clicks of the same button on the same
+      // cell, which would otherwise build an identical context object.
+      setAiContext({ cell, code: cellCode, error, output, intent, requestId: ++aiRequestRef.current });
       setAiOpen(true);
     },
     []
@@ -350,14 +371,14 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
           <Breadcrumb
             items={
               courseId
-                ? [
-                    { label: t('common:courses'), href: '/courses' },
-                    { label: lab.name },
-                  ]
-                : [
-                    { label: t('labs'), href: '/labs' },
-                    { label: lab.name },
-                  ]
+                ? buildLabBreadcrumb({
+                    labName: lab.name,
+                    labsLabel: t('course_interactive_labs'),
+                    coursesLabel: t('common:courses'),
+                    courseId,
+                    courseTitle: course?.title || t('course'),
+                  })
+                : buildLabBreadcrumb({ labName: lab.name, labsLabel: t('labs_title') })
             }
           />
         </div>
@@ -378,7 +399,7 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
                 </div>
               </div>
 
-              <div className="mt-4 h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div className="mt-4 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-500"
                   style={{
@@ -444,6 +465,7 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
                 updateTemplateMutation.mutate({ templateId: cellId, patch })
               }
               onAddCell={(position, cellType) => addTemplateMutation.mutate({ position, cellType })}
+              labName={lab.name}
               onImport={isPythonLab(lab.labType) ? undefined : content => importMutation.mutate(content)}
               isImporting={importMutation.isPending}
               onDuplicateCell={cell => duplicateTemplateMutation.mutate(cell.id)}

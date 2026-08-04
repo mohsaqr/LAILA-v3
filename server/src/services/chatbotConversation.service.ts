@@ -2,6 +2,7 @@ import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { chatService } from './chat.service.js';
 import { activityLogService } from './activityLog.service.js';
+import { buildCourseContext } from './courseContext.service.js';
 
 export interface SendMessageData {
   message: string;
@@ -109,6 +110,12 @@ export class ChatbotConversationService {
     const section = await this.verifyEnrollment(sectionId, userId);
     const conversation = await this.getOrCreateConversation(sectionId, userId);
 
+    // Built BEFORE the user's message is stored. It is a database read, and if
+    // the database is unavailable it throws — after the write, that leaves the
+    // message saved with no reply, so the student's retry stores it twice and
+    // the duplicate then appears in the history window below.
+    const courseContext = await buildCourseContext(section.lecture.module.course.id);
+
     // Save user message
     await prisma.chatbotConversationMessage.create({
       data: {
@@ -138,9 +145,21 @@ export class ChatbotConversationService {
     const lectureTitle = section.lecture.title;
     const moduleTitle = section.lecture.module.title;
 
+    // The three titles alone told the bot where the student was but nothing
+    // about what the course teaches, so "what does this course cover?" was
+    // answered from the title. The outline supplies that; the lines after it
+    // keep the student's current position, which the outline does not convey.
+    //
+    // Falls back to the bare title when the outline is empty (a deleted course,
+    // say). Interpolating unguarded would leave a blank gap and drop the course
+    // name entirely — worse than the behaviour this change set out to fix.
+    const courseBlock = courseContext || `Course: ${courseTitle}`;
+
     const fullSystemPrompt = `${systemPrompt}
 
-Course: ${courseTitle}
+${courseBlock}
+
+The student is currently reading:
 Module: ${moduleTitle}
 Lesson: ${lectureTitle}
 

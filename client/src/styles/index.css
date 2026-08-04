@@ -249,9 +249,16 @@ html.dark {
   @apply text-gray-400 dark:text-gray-500;
 }
 
+/* Default size for an image the author has not sized. The :not() matters —
+   without it this 300px ceiling silently overrides an explicit width, so
+   choosing "100%" appeared to do nothing. */
+.forum-reply-editor .tiptap img:not([style*="width"]) {
+  max-width: 300px;
+}
+
 .forum-reply-editor .tiptap img {
   display: inline-block;
-  max-width: 300px;
+  max-width: 100%;
   height: auto;
   @apply rounded-lg my-2;
 }
@@ -286,10 +293,16 @@ html.dark {
   text-align: right !important;
 }
 
-/* Rendered forum content images */
+/* Rendered forum content images. Same :not() as the editor rule above: an
+   author who sets a width must see it honoured here too, or the size chosen
+   while writing silently reverts for every reader. */
+.prose img:not([style*="width"]) {
+  max-width: 300px;
+}
+
 .prose img {
   display: inline-block;
-  max-width: 300px;
+  max-width: 100%;
   height: auto;
 }
 
@@ -347,4 +360,68 @@ html.dark {
 .fitb-input:focus {
   outline: none;
   border-bottom-color: #088f8f;
+}
+
+/* ---------------------------------------------------------------------------
+   Tables — editor and rendered output
+   A table with no borders is unreadable and, while editing, gives no clue
+   where the cells are. Both surfaces are styled so what an author builds is
+   what a student sees.
+   --------------------------------------------------------------------------- */
+.forum-reply-editor .tiptap table,
+.prose table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0.75rem 0;
+  overflow: hidden;
+}
+
+.forum-reply-editor .tiptap th,
+.forum-reply-editor .tiptap td,
+.prose th,
+.prose td {
+  position: relative;
+  min-width: 3rem;
+  padding: 0.375rem 0.5rem;
+  vertical-align: top;
+  @apply border border-gray-300 dark:border-gray-600;
+}
+
+.forum-reply-editor .tiptap th,
+.prose th {
+  font-weight: 600;
+  text-align: start;
+  @apply bg-gray-50 dark:bg-gray-700;
+}
+
+/* The cell(s) covered by the current selection while editing. */
+.forum-reply-editor .tiptap .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  @apply bg-cyan-500/20;
+}
+
+/* Grip shown while dragging a column edge (Table is configured resizable). */
+.forum-reply-editor .tiptap .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  pointer-events: none;
+  @apply bg-cyan-500;
+}
+
+.forum-reply-editor .tiptap.resize-cursor {
+  cursor: col-resize;
+}
+
+/* A wide table must scroll inside its own container rather than widening the
+   page — narrow screens otherwise get a horizontal scrollbar on the body. */
+.forum-reply-editor .tiptap .tableWrapper,
+.prose .tableWrapper {
+  overflow-x: auto;
 }

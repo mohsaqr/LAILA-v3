@@ -5,6 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import {
   CSP_DIRECTIVES,
   GOOGLE_FONTS_CSS,
+  GITHUB_RAW,
   GOOGLE_FONTS_FILES,
   NGINX_GENERATED_TARGETS,
   PYODIDE_CDN,
@@ -41,12 +42,49 @@ describe('Content-Security-Policy', () => {
     }
   });
 
+  // Lab notebooks load their datasets from GitHub. Without this the fetch is
+  // blocked and R reports a ten-second libcurl timeout rather than anything
+  // resembling a CSP error, which is exactly how it went misdiagnosed.
+  // Only the raw host is listed: github.com/<o>/<r>/raw/... returns a 302 with
+  // an empty access-control-allow-origin and can never work from a browser.
+  it('permits the GitHub raw host in connect-src', () => {
+    expect(CSP_DIRECTIVES.connectSrc).toContain(GITHUB_RAW);
+    expect(CSP_DIRECTIVES.connectSrc).not.toContain('https://github.com');
+  });
+
   // Chrome has enforced this since 97: with any script-src set and no
   // 'wasm-unsafe-eval', WebAssembly.instantiate throws and both lab runtimes
   // fail to boot. It enables WASM compilation only, not JavaScript eval().
   it("permits WebAssembly compilation via 'wasm-unsafe-eval'", () => {
     expect(CSP_DIRECTIVES.scriptSrc).toContain("'wasm-unsafe-eval'");
-    expect(CSP_DIRECTIVES.scriptSrc).not.toContain("'unsafe-eval'");
+  });
+
+  // This assertion used to be its inverse — script-src deliberately withheld
+  // 'unsafe-eval' — and that is what silently broke the labs: webR's Emscripten
+  // runtime calls eval() when it dynamically links libRblas.so, so R.js loaded
+  // and then died on its first side module. It surfaced as an eternal
+  // "Initializing R..." rather than an error, because the CSP NetworkError
+  // became an unhandled rejection inside the worker and init() never settled.
+  //
+  // Keep the token. It is a genuine relaxation of the policy, accepted because
+  // no configuration without it runs R at all — verified by bisecting the
+  // deployed policy against a bare `new WebR()` page.
+  it("permits eval() for webR's Emscripten runtime", () => {
+    expect(CSP_DIRECTIVES.scriptSrc).toContain("'unsafe-eval'");
+  });
+
+  // Neither runtime is bundled: they fetch executable JavaScript from these
+  // origins. webR's worker runs from a blob: and therefore inherits this
+  // policy, so its importScripts of R.js is matched against script-src — being
+  // listed in connect-src covers the worker bootstrap fetch but not the
+  // scripts that worker goes on to load.
+  it('permits the runtime CDNs in script-src, not just connect-src', () => {
+    for (const origin of [WEBR_CDN, PYODIDE_CDN]) {
+      expect(CSP_DIRECTIVES.scriptSrc, `script-src must allow ${origin}`).toContain(origin);
+    }
+    // R packages arrive as data for the virtual filesystem and are never
+    // executed as JavaScript, so this one stays out of script-src.
+    expect(CSP_DIRECTIVES.scriptSrc).not.toContain(WEBR_PACKAGE_REPO);
   });
 
   // Both runtimes spawn their interpreter in a Web Worker created from a blob:
@@ -201,5 +239,30 @@ describe('generated nginx security-header blocks', () => {
       expect(snippet).toContain('include /etc/nginx/snippets/laila-security-headers.conf;');
       expect(snippet).toContain('update-nginx-headers.sh');
     });
+  });
+});
+
+// Monaco is fetched from jsDelivr by @monaco-editor/react, and its AMD build
+// loads vs/editor/editor.main.css as a <link>. jsDelivr was in script-src but
+// not style-src, so the editor's script ran and its stylesheet was blocked —
+// every lab code cell rendered unstyled (white instead of the dark theme, layout
+// collapsed) and looked like a broken editor rather than a blocked request.
+describe('CSP - external stylesheets', () => {
+  it('allows the jsDelivr stylesheet Monaco loads', () => {
+    expect(CSP_DIRECTIVES.styleSrc).toContain(PYODIDE_CDN);
+  });
+
+  it("does not rely on 'unsafe-inline' to cover a cross-origin stylesheet", () => {
+    // 'unsafe-inline' permits inline <style>, never a fetch to another origin.
+    expect(CSP_DIRECTIVES.styleSrc).toContain("'unsafe-inline'");
+    expect(CSP_DIRECTIVES.styleSrc).toContain(GOOGLE_FONTS_CSS);
+  });
+
+  it('keeps the same origin allowed for scripts and their stylesheets', () => {
+    // The bug was the two disagreeing: an origin good enough to execute must
+    // also be good enough to style, or it half-loads.
+    const scriptOrigins = CSP_DIRECTIVES.scriptSrc.filter(s => s.startsWith('https://'));
+    expect(scriptOrigins).toContain(PYODIDE_CDN);
+    expect(CSP_DIRECTIVES.styleSrc).toContain(PYODIDE_CDN);
   });
 });

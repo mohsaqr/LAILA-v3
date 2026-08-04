@@ -88,6 +88,16 @@ export default defineConfig(({ mode }) => {
           target: env.VITE_API_TARGET || 'http://127.0.0.1:5001',
           changeOrigin: true,
         },
+        // client/.env sets VITE_API_URL=/api, so the Socket.IO client resolves
+        // to the same origin — this dev server — exactly as it does in
+        // production behind nginx. Without this entry the handshake falls
+        // through to the SPA's index.html and notifications silently never
+        // connect. `ws: true` is required: the transport upgrades.
+        '/socket.io': {
+          target: env.VITE_API_TARGET || 'http://127.0.0.1:5001',
+          changeOrigin: true,
+          ws: true,
+        },
       },
     },
   };

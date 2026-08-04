@@ -1,10 +1,88 @@
 import DOMPurify from 'dompurify';
 
 /**
+ * CSS properties an author may set through the rich text editor.
+ *
+ * `style` has to be allowed at all because Tiptap expresses formatting as
+ * inline CSS — text alignment and colour have no other representation. It was
+ * previously stripped wholesale, which silently discarded the alignment the
+ * toolbar had been offering all along: the editor showed centred text, the
+ * saved-and-rendered version was left-aligned, and nothing reported a problem.
+ *
+ * Allow-list rather than deny-list, because the danger in CSS is not one known
+ * set of properties. `position`/`z-index` allow an invisible overlay on top of
+ * unrelated UI (clickjacking), `content` can inject text, and anything
+ * accepting `url()` is a request to an arbitrary host. Only what the toolbar
+ * can actually produce is listed here.
+ */
+const ALLOWED_CSS_PROPS = new Set([
+  'color',
+  'background-color',
+  'text-align',
+  'width',
+  'height',
+  'max-width',
+  'float',
+  'margin',
+  'margin-left',
+  'margin-right',
+  'font-weight',
+  'font-style',
+  'text-decoration',
+  'vertical-align',
+  // Needed to centre an image: an <img> is inline, so auto margins do nothing
+  // until it is a block. `display: none` is the only abuse here and it only
+  // hides the author's own content.
+  'display',
+]);
+
+/** Values carrying a fetch, a script, or an escape from the value grammar. */
+const DANGEROUS_CSS_VALUE = /url\s*\(|expression\s*\(|javascript:|@import|[<>{};]/i;
+
+let hookInstalled = false;
+
+/**
+ * Filter every surviving `style` attribute down to ALLOWED_CSS_PROPS.
+ *
+ * DOMPurify does drop the classic script-in-CSS vectors on its own, but it
+ * keeps layout properties, so allowing `style` unfiltered would let any forum
+ * post position itself over the page. This runs after DOMPurify's own pass and
+ * rebuilds the attribute from scratch.
+ */
+const installStyleFilter = (): void => {
+  if (hookInstalled) return;
+  hookInstalled = true;
+
+  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+    const el = node as Element;
+    if (!el.getAttribute || !el.hasAttribute?.('style')) return;
+
+    const declarations = (el.getAttribute('style') || '')
+      .split(';')
+      .map(part => part.trim())
+      .filter(Boolean)
+      .map(part => {
+        const idx = part.indexOf(':');
+        if (idx === -1) return null;
+        const prop = part.slice(0, idx).trim().toLowerCase();
+        const value = part.slice(idx + 1).trim();
+        if (!ALLOWED_CSS_PROPS.has(prop)) return null;
+        if (!value || DANGEROUS_CSS_VALUE.test(value)) return null;
+        return `${prop}: ${value}`;
+      })
+      .filter((d): d is string => d !== null);
+
+    if (declarations.length > 0) el.setAttribute('style', `${declarations.join('; ')};`);
+    else el.removeAttribute('style');
+  });
+};
+
+/**
  * Sanitize HTML content to prevent XSS attacks.
  * Uses DOMPurify with a safe default configuration.
  */
 export const sanitizeHtml = (dirty: string): string => {
+  installStyleFilter();
   return DOMPurify.sanitize(dirty, {
     ALLOWED_TAGS: [
       'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
@@ -14,12 +92,16 @@ export const sanitizeHtml = (dirty: string): string => {
       'a', 'img',
       'pre', 'code',
       'blockquote',
-      'table', 'thead', 'tbody', 'tr', 'th', 'td',
+      'table', 'thead', 'tbody', 'tr', 'th', 'td', 'colgroup', 'col', 'caption',
       'div', 'span',
     ],
     ALLOWED_ATTR: [
       'href', 'src', 'alt', 'title', 'class', 'id',
       'target', 'rel', 'width', 'height',
+      // Presentational formatting the editor produces. `style` is filtered
+      // down to ALLOWED_CSS_PROPS by the hook above; the rest are table
+      // structure, which is meaningless to strip once tables are allowed.
+      'style', 'colspan', 'rowspan', 'colwidth', 'align',
     ],
     ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
     ALLOW_DATA_ATTR: false,

@@ -1,7 +1,73 @@
 import { useRef } from 'react';
-import Editor, { OnMount } from '@monaco-editor/react';
+import Editor, { BeforeMount, OnMount } from '@monaco-editor/react';
+import { useTheme } from '../../../hooks/useTheme';
 
 export type CodeLanguage = 'r' | 'python';
+
+const DARK_THEME = 'laila-dark';
+const LIGHT_THEME = 'laila-light';
+
+/**
+ * The editor surface, matching the black of markdown code fences
+ * (`.prose pre` is gray-950 in `index.css`).
+ *
+ * Monaco paints its own background from its own theme system — no Tailwind
+ * class or `index.css` rule reaches inside `.monaco-editor` — so defining a
+ * theme is the only supported way to change it. Built-in `vs-dark` uses
+ * #1e1e1e, which is *lighter* than both the console below (gray-900) and the
+ * code fences, leaving the surface authors and students stare at as the palest
+ * of the three.
+ *
+ * Gray-900 was the other candidate and was rejected: at a perceived luminance
+ * of 23.6 against vs-dark's 30 it is measurably darker but not visibly so.
+ * Gray-950 lands at 7.05, which is the change people actually see.
+ */
+const EDITOR_BACKGROUND = '#030712'; // gray-950, as .prose pre
+const LINE_HIGHLIGHT = '#111827'; // gray-900 — a visible lift off the black
+
+/**
+ * Light mode gets a light editor. The editor used to be dark in both themes,
+ * which was survivable at vs-dark's #1e1e1e but reads as a hole punched in the
+ * card once the dark theme goes to near-black. Follow the app instead.
+ */
+const LIGHT_BACKGROUND = '#ffffff';
+const LIGHT_LINE_HIGHLIGHT = '#f3f4f6'; // gray-100
+
+/**
+ * Monaco's standalone themes are global to the monaco instance, not per-editor,
+ * so one definition covers every cell — and re-defining the *current* theme
+ * forces a full re-apply, which we would otherwise pay once per mounted cell.
+ * CodeEditorField is the app's only Monaco consumer, so nothing else can be
+ * repainted by this.
+ */
+let themeDefined = false;
+
+const defineLabThemes: BeforeMount = monaco => {
+  if (themeDefined) return;
+  themeDefined = true;
+  monaco.editor.defineTheme(DARK_THEME, {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [],
+    colors: {
+      'editor.background': EDITOR_BACKGROUND,
+      'editorGutter.background': EDITOR_BACKGROUND,
+      'editor.lineHighlightBackground': LINE_HIGHLIGHT,
+      'editorLineNumber.foreground': '#6b7280',
+    },
+  });
+  monaco.editor.defineTheme(LIGHT_THEME, {
+    base: 'vs',
+    inherit: true,
+    rules: [],
+    colors: {
+      'editor.background': LIGHT_BACKGROUND,
+      'editorGutter.background': LIGHT_BACKGROUND,
+      'editor.lineHighlightBackground': LIGHT_LINE_HIGHLIGHT,
+      'editorLineNumber.foreground': '#9ca3af',
+    },
+  });
+};
 
 interface CodeEditorFieldProps {
   value: string;
@@ -33,6 +99,7 @@ export const CodeEditorField = ({
 }: CodeEditorFieldProps) => {
   // Blur/save fire from Monaco's own listeners, which close over the handlers
   // given at mount; refs keep them pointing at the current render's props.
+  const { isDark } = useTheme();
   const onBlurRef = useRef(onBlur);
   const onSaveRef = useRef(onSave);
   const onRunRef = useRef(onRun);
@@ -48,14 +115,28 @@ export const CodeEditorField = ({
   };
 
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
+    <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
       <Editor
         height={height}
         language={language}
         value={value}
         onChange={v => onChange(v ?? '')}
+        beforeMount={defineLabThemes}
         onMount={handleMount}
-        theme="vs-dark"
+        theme={isDark ? DARK_THEME : LIGHT_THEME}
+        // Monaco is fetched from a CDN at runtime, so there is a real gap before
+        // it paints — once per cell. The library's default placeholder has no
+        // background of its own, so the gap shows the cell card (gray-800) and
+        // then jumps to the editor's near-black. Filling it with the editor's
+        // own colour removes the jump.
+        loading={
+          <div
+            className="w-full h-full bg-white dark:bg-gray-950 flex items-center justify-center text-xs text-gray-500"
+            style={{ minHeight: typeof height === 'number' ? height : undefined }}
+          >
+            …
+          </div>
+        }
         options={{
           minimap: { enabled: false },
           fontSize: 14,

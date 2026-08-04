@@ -1,11 +1,14 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Type, PlayCircle, RotateCcw, Loader2, CircleDot, Upload } from 'lucide-react';
+import { Plus, Type, PlayCircle, RotateCcw, Loader2, CircleDot, Upload, FileDown } from 'lucide-react';
 import { NotebookCell, CellRunState } from './NotebookCell';
 import { ConfirmDialog } from '../../common/ConfirmDialog';
 import { CodeLanguage } from '../authoring/CodeEditorField';
 import { LabCell, LabCellPatch } from '../authoring/cell';
 import type { OutputItem } from '../LabOutput';
+import type { AIIntent } from './LabAIPanel';
+import { notebookToRmd } from '../../../utils/notebookToRmd';
+import { downloadText, toFileSlug } from '../../../utils/downloadFile';
 
 export interface NotebookRuntime {
   isReady: boolean;
@@ -35,9 +38,11 @@ export interface LabNotebookProps {
     code: string,
     result: { success: boolean; outputs: OutputItem[] }
   ) => void;
-  onAskAI?: (cell: LabCell, code: string, error: string | null, output?: string) => void;
+  onAskAI?: (cell: LabCell, code: string, error: string | null, intent: AIIntent, output?: string) => void;
   /** True while an add/duplicate/delete/reorder is in flight — disables structural actions. */
   isMutating?: boolean;
+  /** Titles the exported .Rmd and names the downloaded file. */
+  labName?: string;
   /** Import an .Rmd/.qmd file's cells into this lab. Receives the file text. */
   onImport?: (content: string, fileName: string) => void | Promise<void>;
   /** True while an import is in flight. */
@@ -65,9 +70,12 @@ export const LabNotebook = ({
   isMutating = false,
   onImport,
   isImporting = false,
+  labName,
 }: LabNotebookProps) => {
   const { t } = useTranslation(['courses', 'teaching', 'common']);
-  const sorted = [...cells].sort((a, b) => a.orderIndex - b.orderIndex);
+  // Memoized because NotebookCell is memo'd: a fresh array here would hand every
+  // cell a new `cell` prop on every keystroke and defeat it.
+  const sorted = useMemo(() => [...cells].sort((a, b) => a.orderIndex - b.orderIndex), [cells]);
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleImportFile = async (file: File | undefined) => {
@@ -125,15 +133,130 @@ export const LabNotebook = ({
     [runtime, onCellRun]
   );
 
+  // A student's throwaway copies, keyed by the cell they were made from so they
+  // stay put when the instructor reorders or the lab refetches. Session-only:
+  // nothing here is ever sent anywhere, and the key={labId} remount on both
+  // hosts clears them when the lab changes.
+  const [scratch, setScratch] = useState<Record<number, LabCell[]>>({});
+  // Scratch ids count down from -1. Real cell ids are positive autoincrement,
+  // so a negative id can never collide with the instructor's.
+  const scratchIdRef = useRef(0);
+
+  const handleScratchCopy = useCallback((source: LabCell) => {
+    scratchIdRef.current -= 1;
+    const copyCell: LabCell = {
+      ...source,
+      id: scratchIdRef.current,
+      title: `${source.title} (copy)`,
+      isScratch: true,
+    };
+    setScratch(prev => ({ ...prev, [source.id]: [...(prev[source.id] ?? []), copyCell] }));
+    // Seed the draft so the copy opens with whatever the student had typed,
+    // not the instructor's original.
+    setDrafts(prev => ({ ...prev, [copyCell.id]: prev[source.id] ?? source.code }));
+  }, []);
+
+  const handleDismissScratch = useCallback((cellId: number) => {
+    setScratch(prev => {
+      const next: Record<number, LabCell[]> = {};
+      for (const [sourceId, list] of Object.entries(prev)) {
+        const kept = list.filter(c => c.id !== cellId);
+        if (kept.length) next[Number(sourceId)] = kept;
+      }
+      return next;
+    });
+    setDrafts(prev => {
+      const next = { ...prev };
+      delete next[cellId];
+      return next;
+    });
+    setRuns(prev => {
+      const next = { ...prev };
+      delete next[cellId];
+      return next;
+    });
+  }, []);
+
+  const handleClearOutput = useCallback((cellId: number) => {
+    setRuns(prev => {
+      const next = { ...prev };
+      delete next[cellId];
+      return next;
+    });
+  }, []);
+
+  const handleDeleteRequest = useCallback((c: LabCell) => setDeleteCell(c), []);
+
+  // `runs` changes on every execution, so closing over it would rebuild this on
+  // every run and re-render every cell. Read it through a ref instead — the same
+  // idiom CodeEditorField uses for its Monaco callbacks.
+  const runsRef = useRef(runs);
+  runsRef.current = runs;
+  const handleAskAI = useCallback(
+    (cell: LabCell, code: string, error: string | null, intent: AIIntent) => {
+      const out = runsRef.current[cell.id]?.outputs
+        ?.filter(o => o.type !== 'plot')
+        .map(o => o.content)
+        .join('\n')
+        .slice(0, 2000);
+      onAskAI?.(cell, code, error, intent, out || undefined);
+    },
+    [onAskAI]
+  );
+
+  // One drag-props object per cell, rebuilt only when the cell list itself
+  // changes. The closures capture nothing but the id.
+  const idKey = sorted.map(c => c.id).join(',');
+  const dragPropsById = useMemo(() => {
+    if (!canEdit || !onReorder) return {} as Record<number, NonNullable<React.ComponentProps<typeof NotebookCell>['dragProps']>>;
+    return Object.fromEntries(
+      sorted.map(c => [
+        c.id,
+        {
+          draggable: true,
+          onDragStart: (e: React.DragEvent) => {
+            e.dataTransfer.setData('text/plain', String(c.id));
+            e.dataTransfer.effectAllowed = 'move';
+            setDragId(c.id);
+          },
+          onDragEnd: () => {
+            setDragId(null);
+            setOverGap(null);
+          },
+        },
+      ])
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idKey, canEdit, onReorder]);
+
   const runDisabledReason = !runtime.isReady
     ? runtimeStatus ||
       t('courses:runtime_loading', { defaultValue: 'Starting runtime…' })
     : null;
 
+  // What is actually on screen, top to bottom: each instructor cell followed by
+  // any scratch copies made from it.
+  const displayOrder = useMemo(
+    () => sorted.flatMap(c => [c, ...(scratch[c.id] ?? [])]),
+    [sorted, scratch]
+  );
+
+  // Exports what the reader is actually looking at: the student's current
+  // edits and their scratch copies, not the instructor's stored originals.
+  // With student edits held only in session, this is the one way out.
+  const downloadRmd = () => {
+    const name = labName || 'lab';
+    downloadText(
+      `${toFileSlug(name, 'lab')}.Rmd`,
+      notebookToRmd(displayOrder, { labName: name, drafts, language }),
+      'text/markdown'
+    );
+  };
+
   const runAll = async () => {
     setRunningAll(true);
     try {
-      for (const cell of sorted) {
+      for (const cell of displayOrder) {
         if (cell.cellType === 'markdown') continue;
         const ok = await runOne(cell, drafts[cell.id] ?? cell.code);
         if (!ok) break; // stop at first failure, like every notebook does
@@ -166,7 +289,7 @@ export const LabNotebook = ({
     onReorder(ids);
   };
 
-  const Gap = ({ index }: { index: number }) => (
+  const renderGap = (index: number) => (
     <div
       onDragOver={e => {
         if (dragId != null) {
@@ -267,6 +390,20 @@ export const LabNotebook = ({
               </button>
             </>
           )}
+          {/* Everyone, not just authors: for a student this is the only way to
+              keep their work, since their edits live only in this session. */}
+          {sorted.length > 0 && (
+            <button
+              onClick={downloadRmd}
+              title={t('courses:download_rmd_desc', {
+                defaultValue: 'Download this notebook as an .Rmd file you can open in RStudio',
+              })}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-xs font-medium transition-colors"
+            >
+              <FileDown className="w-3.5 h-3.5" />
+              {t('courses:download_rmd', { defaultValue: 'Download .Rmd' })}
+            </button>
+          )}
           <button
             onClick={runAll}
             disabled={!runtime.isReady || runtime.isExecuting || runningAll || sorted.length === 0}
@@ -332,7 +469,7 @@ export const LabNotebook = ({
         </div>
       ) : (
         <div>
-          <Gap index={0} />
+          {renderGap(0)}
           {sorted.map((cell, i) => (
             <div key={cell.id}>
               <NotebookCell
@@ -348,46 +485,35 @@ export const LabNotebook = ({
                 runDisabledReason={runDisabledReason}
                 isMutating={isMutating}
                 onRun={runOne}
-                onClearOutput={cellId =>
-                  setRuns(prev => {
-                    const next = { ...prev };
-                    delete next[cellId];
-                    return next;
-                  })
-                }
+                onClearOutput={handleClearOutput}
                 onSave={canEdit ? onSaveCell : undefined}
                 onDuplicate={canEdit ? onDuplicateCell : undefined}
-                onDelete={canEdit && onDeleteCell ? c => setDeleteCell(c) : undefined}
-                onAskAI={
-                  onAskAI
-                    ? (cell, code, error) => {
-                        const out = runs[cell.id]?.outputs
-                          ?.filter(o => o.type !== 'plot')
-                          .map(o => o.content)
-                          .join('\n')
-                          .slice(0, 2000);
-                        onAskAI(cell, code, error, out || undefined);
-                      }
-                    : undefined
-                }
-                dragProps={
-                  canEdit && onReorder
-                    ? {
-                        draggable: true,
-                        onDragStart: e => {
-                          e.dataTransfer.setData('text/plain', String(cell.id));
-                          e.dataTransfer.effectAllowed = 'move';
-                          setDragId(cell.id);
-                        },
-                        onDragEnd: () => {
-                          setDragId(null);
-                          setOverGap(null);
-                        },
-                      }
-                    : undefined
-                }
+                onDelete={canEdit && onDeleteCell ? handleDeleteRequest : undefined}
+                onAskAI={onAskAI ? handleAskAI : undefined}
+                onScratchCopy={canEdit ? undefined : handleScratchCopy}
+                dragProps={dragPropsById[cell.id]}
               />
-              <Gap index={i + 1} />
+              {(scratch[cell.id] ?? []).map(sc => (
+                <div key={sc.id} className="mt-3">
+                  <NotebookCell
+                    cell={sc}
+                    index={i}
+                    total={sorted.length}
+                    language={language}
+                    canEdit={false}
+                    draft={drafts[sc.id]}
+                    onDraftChange={handleDraftChange}
+                    run={runs[sc.id]}
+                    isRuntimeBusy={!runtime.isReady || runtime.isExecuting || runningAll}
+                    runDisabledReason={runDisabledReason}
+                    onRun={runOne}
+                    onClearOutput={handleClearOutput}
+                    onAskAI={onAskAI ? handleAskAI : undefined}
+                    onDismissScratch={handleDismissScratch}
+                  />
+                </div>
+              ))}
+              {renderGap(i + 1)}
             </div>
           ))}
         </div>

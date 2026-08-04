@@ -108,8 +108,9 @@ datasource db {
 
 ```bash
 cd server
-npx prisma generate
-npx prisma migrate deploy 2>/dev/null || npx prisma db push --accept-data-loss
+npx prisma generate --schema prisma/prod/schema.prisma
+npx prisma migrate deploy --schema prisma/prod/schema.prisma 2>/dev/null \
+  || npx prisma db push --schema prisma/prod/schema.prisma --accept-data-loss
 npx tsx prisma/seed.ts
 ```
 
@@ -334,11 +335,42 @@ curl -sf http://127.0.0.1:5001/api/health
 
 ```bash
 cd /path/to/LAILA-v3
-git pull
-cd server && npm ci --omit=dev && npx prisma generate && npx prisma migrate deploy && npx tsc
+
+# Back up BEFORE any migration. `migrate deploy` is not reversible, and this is
+# the only step in the procedure that can lose data permanently.
+sudo bash deploy/backup.sh
+
+git fetch origin && git merge --ff-only origin/main    # refuse to merge over local edits
+cd server && npm ci
+npx prisma generate --schema prisma/prod/schema.prisma
+npx prisma migrate status --schema prisma/prod/schema.prisma   # read this before continuing
+npx prisma migrate deploy --schema prisma/prod/schema.prisma
+npm run build                     # NOT `npx tsc` and NOT `--noEmit` — see Note 1
 cd ../client && npm ci && npm run build
 sudo systemctl restart laila
 ```
+
+Every `prisma` invocation needs `--schema`: there is no `server/prisma/schema.prisma`
+(only `prod/` and `local/`), and `server/package.json` declares no `schema` key,
+so a bare `npx prisma generate` exits with "Could not find a Prisma schema".
+
+`npm ci`, not `npm ci --omit=dev`: `prisma` and `typescript` are devDependencies.
+Omitting them makes the `npx prisma …` lines silently fetch a *different* major
+version from the registry, which then runs migrations against a mismatched
+`@prisma/client`.
+
+Verify the deploy landed — **check artifacts and process start time, never the
+git SHA.** A pull that stops halfway leaves the SHA correct and the build stale:
+
+```bash
+systemctl show laila -p ActiveEnterTimestamp     # must be just now
+ls -l --time-style=+%F_%T server/dist/index.js client/dist/index.html
+curl -sf http://127.0.0.1:5001/api/health        # builtAt must NOT be null — see Note 1
+```
+
+That last check matters: `builtAt: null` is how a build that skipped `prebuild`
+announces itself, and the file timestamps above look perfectly healthy when it
+happens.
 
 Or the short version (if no schema changes):
 
@@ -640,8 +672,9 @@ DATABASE_URL="postgresql://laila:password@localhost:5432/laila"
 
 ```bash
 cd server
-npx prisma generate
-npx prisma migrate deploy 2>/dev/null || npx prisma db push --accept-data-loss
+npx prisma generate --schema prisma/prod/schema.prisma
+npx prisma migrate deploy --schema prisma/prod/schema.prisma 2>/dev/null \
+  || npx prisma db push --schema prisma/prod/schema.prisma --accept-data-loss
 npx prisma db seed
 ```
 

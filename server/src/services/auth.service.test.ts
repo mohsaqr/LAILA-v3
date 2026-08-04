@@ -1060,15 +1060,20 @@ describe('AuthService', () => {
       );
     });
 
-    it('should throw error for locked account', async () => {
+    // Account lockout is disabled (LOCKOUT_ENABLED = false in auth.service.ts).
+    // This used to assert the opposite. The case still matters because rows
+    // locked BEFORE the feature was turned off keep a future lockedUntil in the
+    // database — if the check did not gate on the flag, those users would stay
+    // locked out until their timestamp happened to lapse.
+    it('lets a user with a stale future lockedUntil log in', async () => {
       const futureDate = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
       vi.mocked(prisma.user.findUnique).mockResolvedValue({
         ...mockUser,
         lockedUntil: futureDate,
       } as any);
 
-      await expect(authService.login(validLogin)).rejects.toThrow(AppError);
-      await expect(authService.login(validLogin)).rejects.toThrow(/Account is locked/);
+      const result = await authService.login(validLogin);
+      expect(result.token).toBeDefined();
     });
 
     it('should increment failed login attempts on wrong password', async () => {
@@ -1086,7 +1091,12 @@ describe('AuthService', () => {
       });
     });
 
-    it('should lock account after 5 failed attempts', async () => {
+    // Was 'should lock account after 5 failed attempts'. With the lockout
+    // disabled the 5th failure must read exactly like the first — a plain 401 —
+    // and must NOT write a lockedUntil. The counter is still incremented, so
+    // failed_login_attempts stays usable as a signal and re-enabling the
+    // feature needs no backfill.
+    it('does not lock the account on the 5th failed attempt', async () => {
       vi.mocked(prisma.user.findUnique).mockResolvedValue({
         ...mockUser,
         failedLoginAttempts: 4, // This will be the 5th attempt
@@ -1094,15 +1104,17 @@ describe('AuthService', () => {
       vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
       vi.mocked(prisma.user.update).mockResolvedValue({ ...mockUser, failedLoginAttempts: 5 } as any);
 
-      await expect(authService.login(validLogin)).rejects.toThrow(/Account locked/);
+      await expect(authService.login(validLogin)).rejects.toThrow('Invalid credentials');
 
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: 1 },
-        data: expect.objectContaining({
-          failedLoginAttempts: 5,
-          lockedUntil: expect.any(Date),
-        }),
+        data: { failedLoginAttempts: 5 },
       });
+      expect(prisma.user.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ lockedUntil: expect.anything() }),
+        })
+      );
     });
   });
 
@@ -1289,17 +1301,20 @@ describe('AuthService', () => {
       tokenVersion: 0,
     };
 
-    it('should still throw locked error when logging fails', async () => {
+    // Was 'should still throw locked error when logging fails'. The locked
+    // branch is unreachable now that lockout is disabled, but the property this
+    // test exists to protect is not about locking — it is that a failure inside
+    // the analytics logger must never swallow the auth outcome. Re-pointed at
+    // the wrong-password path, which is still live.
+    it('should still throw invalid-credentials when logging fails', async () => {
       const { learningAnalyticsService } = await import('./learningAnalytics.service.js');
 
-      const futureDate = new Date(Date.now() + 10 * 60 * 1000);
-      vi.mocked(prisma.user.findUnique).mockResolvedValue({
-        ...mockUser,
-        lockedUntil: futureDate,
-      } as any);
+      vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any);
+      vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
+      vi.mocked(prisma.user.update).mockResolvedValue(mockUser as any);
       vi.mocked(learningAnalyticsService.logAuthEvent).mockRejectedValueOnce(new Error('Log failed'));
 
-      await expect(authService.login(validLogin)).rejects.toThrow(/Account is locked/);
+      await expect(authService.login(validLogin)).rejects.toThrow('Invalid credentials');
     });
 
     it('should still throw deactivated error when logging fails', async () => {

@@ -6,6 +6,7 @@ import { TutorTypingIndicator } from './TutorTypingIndicator';
 import { CollaborativePicker } from './CollaborativePicker';
 import { CollaborativeResponse } from './CollaborativeResponse';
 import { Button } from '../common/Button';
+import { useAutoGrowTextarea } from '../../hooks/useAutoGrowTextarea';
 import { EmotionalPulseWidget } from '../common/EmotionalPulseWidget';
 import { useTheme } from '../../hooks/useTheme';
 import type {
@@ -81,6 +82,8 @@ export const TutorChat = ({
   };
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Grow the composer with the message instead of scrolling inside one row.
+  useAutoGrowTextarea(inputRef, input);
 
   // Auto scroll to bottom on new messages
   useEffect(() => {
@@ -106,6 +109,10 @@ export const TutorChat = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // An IME (Arabic, CJK) uses Enter to confirm a candidate. A native form
+    // submit is suppressed mid-composition; a JS keydown handler is not, so
+    // without this the half-composed text is sent as the message.
+    if (e.nativeEvent.isComposing) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
