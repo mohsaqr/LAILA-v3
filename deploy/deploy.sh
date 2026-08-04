@@ -525,7 +525,7 @@ server {
         # Cache-Control above makes nginx discard every inherited add_header,
         # so the bundles need their own copy.
         # >>> laila-security-headers http >>>
-        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval' https://webr.r-wasm.org https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net https://raw.githubusercontent.com; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval' https://webr.r-wasm.org https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net https://raw.githubusercontent.com; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
         add_header X-Frame-Options "SAMEORIGIN" always;
         add_header X-Content-Type-Options "nosniff" always;
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
@@ -543,7 +543,7 @@ server {
         # http variant: this listener is plaintext localhost, so HSTS and
         # upgrade-insecure-requests are omitted.
         # >>> laila-security-headers http >>>
-        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval' https://webr.r-wasm.org https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net https://raw.githubusercontent.com; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval' https://webr.r-wasm.org https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net https://raw.githubusercontent.com; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
         add_header X-Frame-Options "SAMEORIGIN" always;
         add_header X-Content-Type-Options "nosniff" always;
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
@@ -554,7 +554,7 @@ server {
             add_header Cache-Control "public, must-revalidate";
             # add_header does not cascade into nested locations — repeat.
             # >>> laila-security-headers http >>>
-            add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval' https://webr.r-wasm.org https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net https://raw.githubusercontent.com; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
+            add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval' https://webr.r-wasm.org https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net https://raw.githubusercontent.com; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
             add_header X-Frame-Options "SAMEORIGIN" always;
             add_header X-Content-Type-Options "nosniff" always;
             add_header Referrer-Policy "strict-origin-when-cross-origin" always;
@@ -671,7 +671,7 @@ server {
         # Cache-Control above makes nginx discard every inherited add_header,
         # so the bundles need their own copy.
         # >>> laila-security-headers http >>>
-        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval' https://webr.r-wasm.org https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net https://raw.githubusercontent.com; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval' https://webr.r-wasm.org https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net https://raw.githubusercontent.com; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
         add_header X-Frame-Options "SAMEORIGIN" always;
         add_header X-Content-Type-Options "nosniff" always;
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
@@ -690,7 +690,7 @@ server {
         # certificate exists would pin the host to an unreachable https.
         # certbot rewrites this file when it installs the certificate.
         # >>> laila-security-headers http >>>
-        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval' https://webr.r-wasm.org https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net https://raw.githubusercontent.com; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval' https://webr.r-wasm.org https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net https://raw.githubusercontent.com; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
         add_header X-Frame-Options "SAMEORIGIN" always;
         add_header X-Content-Type-Options "nosniff" always;
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
@@ -701,7 +701,7 @@ server {
             add_header Cache-Control "public, must-revalidate";
             # add_header does not cascade into nested locations — repeat.
             # >>> laila-security-headers http >>>
-            add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval' https://webr.r-wasm.org https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net https://raw.githubusercontent.com; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
+            add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval' https://webr.r-wasm.org https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss: https://webr.r-wasm.org https://repo.r-wasm.org https://cdn.jsdelivr.net https://raw.githubusercontent.com; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; object-src 'none'" always;
             add_header X-Frame-Options "SAMEORIGIN" always;
             add_header X-Content-Type-Options "nosniff" always;
             add_header Referrer-Policy "strict-origin-when-cross-origin" always;

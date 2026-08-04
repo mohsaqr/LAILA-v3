@@ -241,3 +241,28 @@ describe('generated nginx security-header blocks', () => {
     });
   });
 });
+
+// Monaco is fetched from jsDelivr by @monaco-editor/react, and its AMD build
+// loads vs/editor/editor.main.css as a <link>. jsDelivr was in script-src but
+// not style-src, so the editor's script ran and its stylesheet was blocked —
+// every lab code cell rendered unstyled (white instead of the dark theme, layout
+// collapsed) and looked like a broken editor rather than a blocked request.
+describe('CSP - external stylesheets', () => {
+  it('allows the jsDelivr stylesheet Monaco loads', () => {
+    expect(CSP_DIRECTIVES.styleSrc).toContain(PYODIDE_CDN);
+  });
+
+  it("does not rely on 'unsafe-inline' to cover a cross-origin stylesheet", () => {
+    // 'unsafe-inline' permits inline <style>, never a fetch to another origin.
+    expect(CSP_DIRECTIVES.styleSrc).toContain("'unsafe-inline'");
+    expect(CSP_DIRECTIVES.styleSrc).toContain(GOOGLE_FONTS_CSS);
+  });
+
+  it('keeps the same origin allowed for scripts and their stylesheets', () => {
+    // The bug was the two disagreeing: an origin good enough to execute must
+    // also be good enough to style, or it half-loads.
+    const scriptOrigins = CSP_DIRECTIVES.scriptSrc.filter(s => s.startsWith('https://'));
+    expect(scriptOrigins).toContain(PYODIDE_CDN);
+    expect(CSP_DIRECTIVES.styleSrc).toContain(PYODIDE_CDN);
+  });
+});

@@ -104,9 +104,18 @@ export const CSP_DIRECTIVES = {
   scriptSrc: ["'self'", "'wasm-unsafe-eval'", "'unsafe-eval'", WEBR_CDN, PYODIDE_CDN],
 
   // 'unsafe-inline' covers Tailwind and React inline styles — a deliberate,
-  // standard relaxation. It does NOT cover the Google Fonts stylesheet, which
-  // is an external fetch and has to be listed as an origin.
-  styleSrc: ["'self'", "'unsafe-inline'", GOOGLE_FONTS_CSS],
+  // standard relaxation. It does NOT cover a stylesheet fetched from another
+  // origin, which has to be listed here whatever 'unsafe-inline' says.
+  //
+  // Two of those. Google Fonts is the obvious one. The other is Monaco: the
+  // code editor in every lab and code lab is loaded from jsDelivr by
+  // @monaco-editor/react, and its AMD build pulls `vs/editor/editor.main.css`
+  // as a <link>. With jsDelivr in script-src but not here, Monaco's JavaScript
+  // ran and built its DOM while the stylesheet was blocked — so the editor
+  // rendered white instead of its dark theme, with the layout collapsed. It
+  // looked like a broken editor, not a blocked request, because the script had
+  // loaded perfectly well.
+  styleSrc: ["'self'", "'unsafe-inline'", GOOGLE_FONTS_CSS, PYODIDE_CDN],
 
   imgSrc: ["'self'", 'data:', 'blob:'],
   fontSrc: ["'self'", GOOGLE_FONTS_FILES],
