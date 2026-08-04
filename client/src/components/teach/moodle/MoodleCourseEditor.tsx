@@ -30,6 +30,8 @@ import { Input } from '../../common/Input';
 import { SearchableSelect } from '../../common/SearchableSelect';
 import { AddResourceModal } from './AddResourceModal';
 import { PickerModal } from './PickerModal';
+import { LabPickerModal } from './LabPickerModal';
+import { useAuthStore } from '../../../store/authStore';
 import { emptyResourceMeta, resourceMetaToPayload, availabilityIsValid, type ResourceMeta } from './ResourceMetaFields';
 
 /** Escape a string for safe interpolation into an HTML double-quoted attribute. */
@@ -228,9 +230,14 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
     setLabDueDate('');
   };
 
-  const { data: myLabs } = useQuery({
-    queryKey: ['customLabs', 'mine'],
-    queryFn: () => customLabsApi.getMyLabs(),
+  // The attachable library: public labs, admin templates, and your own. The
+  // server's assignToCourse already permits all three — the picker used to ask
+  // for /my-labs and so hid everything an instructor had not authored.
+  const currentUser = useAuthStore(s => s.user);
+
+  const { data: libraryLabs } = useQuery({
+    queryKey: ['customLabs', 'library'],
+    queryFn: () => customLabsApi.getLabs(),
     enabled: labPickerModule != null,
   });
 
@@ -887,94 +894,67 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
       {labPickerModule != null && (() => {
         // A lab may only be assigned to a course once (LabAssignment is unique
         // on labId+courseId), so anything already attached anywhere in this
-        // course is filtered out rather than offered and then rejected.
+        // course is shown as unavailable rather than offered and then rejected.
         const assignedLabIds = new Set<number>(
           ((details as { labs?: { labId?: number; lab?: { id?: number } }[] } | undefined)?.labs ?? [])
             .map(la => la.labId ?? la.lab?.id)
             .filter((x): x is number => typeof x === 'number'),
         );
-        const options = (myLabs ?? [])
-          .filter(l => !assignedLabIds.has(l.id))
-          .map(l => ({ value: String(l.id), label: l.name }));
-        const empty = options.length === 0;
         return (
-          <PickerModal
+          <LabPickerModal
             isOpen
             onClose={closeLabPicker}
-            title={t('add_lab_title', { defaultValue: 'Add a lab' })}
-            subtitle={t('pick_existing_lab', { defaultValue: 'Pick one of your labs to attach to this section. The lab itself stays reusable across courses.' })}
-            footer={!empty && (
-              <Button
-                disabled={!pickedLabId}
-                loading={labAdd.isPending}
-                onClick={() => labPickerModule != null && pickedLabId &&
-                  labAdd.mutate({ moduleId: labPickerModule, labId: Number(pickedLabId) })}
-              >
-                {t('common:add', { defaultValue: 'Add' })}
-              </Button>
+            labs={libraryLabs ?? []}
+            assignedLabIds={assignedLabIds}
+            currentUserId={currentUser?.id}
+            adminCreatorIds={new Set(
+              (libraryLabs ?? []).filter(l => l.creator?.isAdmin).map(l => l.createdBy),
             )}
+            selectedLabId={pickedLabId}
+            onSelect={setPickedLabId}
+            isConfirming={labAdd.isPending}
+            onBrowseAll={() => { closeLabPicker(); navigate('/labs'); }}
+            onConfirm={() => labPickerModule != null && pickedLabId &&
+              labAdd.mutate({ moduleId: labPickerModule, labId: Number(pickedLabId) })}
           >
-            {empty ? (
-              <div className="text-center py-6 space-y-3">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {(myLabs ?? []).length === 0
-                    ? t('no_labs_create', { defaultValue: 'You have no labs to add. Create one first.' })
-                    : t('all_labs_assigned', { defaultValue: 'Every one of your labs is already in this course.' })}
-                </p>
-                <Button variant="secondary" onClick={() => { closeLabPicker(); navigate('/labs'); }}>
-                  {t('go_to_labs', { defaultValue: 'Go to labs' })}
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <SearchableSelect
-                  label={t('select_lab', { defaultValue: 'Select a lab' })}
-                  value={pickedLabId}
-                  onChange={setPickedLabId}
-                  options={options}
-                  placeholder={t('choose_one', { defaultValue: 'Choose one…' })}
+            {/* Grading is optional: a lab is often just material to work
+                through. Ticking this creates the assignment alongside it. */}
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+              <input
+                type="checkbox"
+                checked={labGraded}
+                onChange={e => setLabGraded(e.target.checked)}
+                className="rounded border-gray-300 dark:border-gray-600"
+              />
+              {t('lab_as_assignment', { defaultValue: 'Also collect it as a graded assignment' })}
+            </label>
+
+            {labGraded && (
+              <div className="space-y-3 pl-6">
+                <Input
+                  label={t('lab_prompt', { defaultValue: 'Instructions' })}
+                  value={labPrompt}
+                  onChange={e => setLabPrompt(e.target.value)}
+                  placeholder={t('lab_prompt_ph', { defaultValue: 'What should students submit?' })}
                 />
-
-                {/* Grading is optional: a lab is often just material to work
-                    through. Ticking this creates the assignment alongside it. */}
-                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
-                  <input
-                    type="checkbox"
-                    checked={labGraded}
-                    onChange={e => setLabGraded(e.target.checked)}
-                    className="rounded border-gray-300 dark:border-gray-600"
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    type="number"
+                    min="0"
+                    label={t('lab_points', { defaultValue: 'Points' })}
+                    value={labPoints}
+                    onChange={e => setLabPoints(e.target.value)}
                   />
-                  {t('lab_as_assignment', { defaultValue: 'Also collect it as a graded assignment' })}
-                </label>
-
-                {labGraded && (
-                  <div className="space-y-3 pl-6">
-                    <Input
-                      label={t('lab_prompt', { defaultValue: 'Instructions' })}
-                      value={labPrompt}
-                      onChange={e => setLabPrompt(e.target.value)}
-                      placeholder={t('lab_prompt_ph', { defaultValue: 'What should students submit?' })}
-                    />
-                    <div className="grid grid-cols-2 gap-3">
-                      <Input
-                        type="number"
-                        min="0"
-                        label={t('lab_points', { defaultValue: 'Points' })}
-                        value={labPoints}
-                        onChange={e => setLabPoints(e.target.value)}
-                      />
-                      <Input
-                        type="datetime-local"
-                        label={t('lab_due_date', { defaultValue: 'Due date' })}
-                        value={labDueDate}
-                        onChange={e => setLabDueDate(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                )}
+                  <Input
+                    type="datetime-local"
+                    label={t('lab_due_date', { defaultValue: 'Due date' })}
+                    value={labDueDate}
+                    onChange={e => setLabDueDate(e.target.value)}
+                  />
+                </div>
               </div>
             )}
-          </PickerModal>
+          </LabPickerModal>
         );
       })()}
 

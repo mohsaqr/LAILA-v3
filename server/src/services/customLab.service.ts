@@ -2805,7 +2805,9 @@ export class CustomLabService {
       where,
       include: {
         creator: {
-          select: { id: true, fullname: true },
+          // isAdmin lets the picker tell an admin-authored shared template
+          // apart from a colleague's public lab.
+          select: { id: true, fullname: true, isAdmin: true },
         },
         templates: {
           orderBy: { orderIndex: 'asc' },
