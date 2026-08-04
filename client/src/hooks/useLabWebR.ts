@@ -483,18 +483,40 @@ export const useLabWebR = (
     const failed: string[] = [];
 
     try {
-      for (const pkg of missing) {
-        installedRef.current.add(pkg); // mark attempted so we never retry in a loop
-        setLoadingStatus(`Installing ${pkg}...`);
-        debug.webr(`[Lab WebR] Installing package: ${pkg}`);
+      // One call for the whole list, not one call per package.
+      //
+      // installPackages() resolves a dependency closure per invocation, so
+      // installing N packages in a loop re-resolves everything they share —
+      // and a lab loading tidyverse alongside TraMineR shares a great deal
+      // (rlang, dplyr, ggplot2 …). Each iteration was also its own awaited
+      // round trip to the package repo, so the requests never overlapped.
+      // Batching collapses that into a single resolution and lets the fetches
+      // run together.
+      missing.forEach(pkg => installedRef.current.add(pkg)); // never retry in a loop
+      setLoadingStatus(
+        missing.length === 1 ? `Installing ${missing[0]}...` : `Installing ${missing.length} packages...`
+      );
+      debug.webr(`[Lab WebR] Installing packages: ${missing.join(', ')}`);
 
-        try {
-          await webR.installPackages([pkg], { quiet: true });
-          installed.push(pkg);
-          debug.webr(`[Lab WebR] Successfully installed: ${pkg}`);
-        } catch (installErr) {
-          failed.push(pkg);
-          debug.webr(`[Lab WebR] Warning: Could not install ${pkg}:`, installErr);
+      try {
+        await webR.installPackages(missing, { quiet: true });
+        installed.push(...missing);
+        debug.webr(`[Lab WebR] Installed ${missing.length} package(s)`);
+      } catch (batchErr) {
+        // A batch fails as a unit, so it cannot say which package was at fault
+        // — a single typo'd library() call would otherwise report every
+        // package as failed and strand the ones that were fine. Retry
+        // individually only on this path; the happy path stays one call.
+        debug.webr('[Lab WebR] Batch install failed, retrying individually:', batchErr);
+        setLoadingStatus('Checking packages...');
+        for (const pkg of missing) {
+          try {
+            await webR.installPackages([pkg], { quiet: true });
+            installed.push(pkg);
+          } catch (installErr) {
+            failed.push(pkg);
+            debug.webr(`[Lab WebR] Warning: Could not install ${pkg}:`, installErr);
+          }
         }
       }
 

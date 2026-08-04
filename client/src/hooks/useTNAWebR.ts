@@ -244,33 +244,30 @@ export const useTNAWebR = (): UseTNAWebRReturn => {
     const failedPackages: string[] = [];
 
     try {
-      // First try to install quadprog and other dependencies that might be missing
-      for (const pkg of FALLBACK_PACKAGES) {
-        setLoadingStatus(`Installing ${pkg}...`);
-        debug.webr(`[TNA WebR] Attempting to install dependency: ${pkg}`);
+      // One call for everything, not one per package. installPackages()
+      // resolves a dependency closure per invocation, so a loop re-resolves
+      // what the packages share and never overlaps its requests.
+      const wanted = [...new Set([...FALLBACK_PACKAGES, ...TNA_PACKAGES])];
+      setLoadingStatus(`Installing ${wanted.length} packages...`);
+      debug.webr(`[TNA WebR] Installing packages: ${wanted.join(', ')}`);
 
-        try {
-          await webR.installPackages([pkg], { quiet: true });
-          installedPackages.push(pkg);
-          debug.webr(`[TNA WebR] Successfully installed: ${pkg}`);
-        } catch (installErr) {
-          debug.webr(`[TNA WebR] Could not install ${pkg} (may not be in WebR repo):`, installErr);
-          failedPackages.push(pkg);
-        }
-      }
-
-      // Install main packages one by one for better status updates
-      for (const pkg of TNA_PACKAGES) {
-        setLoadingStatus(`Installing ${pkg}...`);
-        debug.webr(`[TNA WebR] Installing package: ${pkg}`);
-
-        try {
-          await webR.installPackages([pkg], { quiet: true });
-          installedPackages.push(pkg);
-          debug.webr(`[TNA WebR] Successfully installed: ${pkg}`);
-        } catch (installErr) {
-          debug.webr(`[TNA WebR] Warning: Could not install ${pkg}:`, installErr);
-          failedPackages.push(pkg);
+      try {
+        await webR.installPackages(wanted, { quiet: true });
+        installedPackages.push(...wanted);
+      } catch (batchErr) {
+        // The batch fails as a unit and cannot name the culprit — some of
+        // these are expected to be absent from the webR repo — so fall back to
+        // one-by-one purely to find out which. The happy path stays one call.
+        debug.webr('[TNA WebR] Batch install failed, retrying individually:', batchErr);
+        for (const pkg of wanted) {
+          setLoadingStatus(`Installing ${pkg}...`);
+          try {
+            await webR.installPackages([pkg], { quiet: true });
+            installedPackages.push(pkg);
+          } catch (installErr) {
+            debug.webr(`[TNA WebR] Warning: Could not install ${pkg}:`, installErr);
+            failedPackages.push(pkg);
+          }
         }
       }
 

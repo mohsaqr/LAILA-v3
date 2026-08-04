@@ -117,18 +117,32 @@ export const useWebR = (
       setIsInstallingPackages(true);
       const installed: string[] = [];
       const failed: string[] = [];
-      for (const pkg of missing) {
-        if (cancelled) return;
-        installedRef.current.add(pkg); // mark attempted so we don't retry in a loop
-        setLoadingStatus(`Installing ${pkg}...`);
-        try {
-          await webR.installPackages([pkg], { quiet: true });
-          installed.push(pkg);
-        } catch (installErr) {
-          failed.push(pkg);
-          debug.webr(`[WebR] Warning: could not install ${pkg}:`, installErr);
+
+      // One call for the whole list — see the note in useLabWebR: a loop
+      // re-resolves the dependency closure per package and never overlaps its
+      // requests.
+      missing.forEach(pkg => installedRef.current.add(pkg)); // don't retry in a loop
+      setLoadingStatus(
+        missing.length === 1 ? `Installing ${missing[0]}...` : `Installing ${missing.length} packages...`
+      );
+      try {
+        await webR.installPackages(missing, { quiet: true });
+        installed.push(...missing);
+      } catch (batchErr) {
+        // Retry individually only here, to find which package actually failed.
+        debug.webr('[WebR] Batch install failed, retrying individually:', batchErr);
+        for (const pkg of missing) {
+          if (cancelled) return;
+          try {
+            await webR.installPackages([pkg], { quiet: true });
+            installed.push(pkg);
+          } catch (installErr) {
+            failed.push(pkg);
+            debug.webr(`[WebR] Warning: could not install ${pkg}:`, installErr);
+          }
         }
       }
+      if (cancelled) return;
       if (installed.length > 0) {
         setLoadingStatus('Loading packages...');
         await webR.evalRVoid(
