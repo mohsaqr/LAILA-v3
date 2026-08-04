@@ -1,51 +1,23 @@
 import { useRef } from 'react';
 import Editor, { BeforeMount, OnMount } from '@monaco-editor/react';
+import { useTheme } from '../../../hooks/useTheme';
+import { LAB_THEMES, resolveTheme } from './labEditorThemes';
+import { useEditorTheme } from '../../../hooks/useEditorTheme';
 
 export type CodeLanguage = 'r' | 'python';
 
-const LAB_THEME = 'laila-dark';
-
 /**
- * The editor surface, matching the black of markdown code fences
- * (`.prose pre` is gray-950 in `index.css`).
- *
- * Monaco paints its own background from its own theme system — no Tailwind
- * class or `index.css` rule reaches inside `.monaco-editor` — so defining a
- * theme is the only supported way to change it. Built-in `vs-dark` uses
- * #1e1e1e, which is *lighter* than both the console below (gray-900) and the
- * code fences, leaving the surface authors and students stare at as the palest
- * of the three.
- *
- * Gray-900 was the other candidate and was rejected: at a perceived luminance
- * of 23.6 against vs-dark's 30 it is measurably darker but not visibly so.
- * Gray-950 lands at 7.05, which is the change people actually see.
+ * Every preset is defined up front, once per monaco instance. Themes are global
+ * rather than per-editor, so switching is a `theme` prop change — no redefine,
+ * no editor teardown. Defining them all costs one pass and makes the picker
+ * instant.
  */
-const EDITOR_BACKGROUND = '#030712'; // gray-950, as .prose pre
-const LINE_HIGHLIGHT = '#111827'; // gray-900 — a visible lift off the black
+let themesDefined = false;
 
-/**
- * Monaco's standalone themes are global to the monaco instance, not per-editor,
- * so one definition covers every cell — and re-defining the *current* theme
- * forces a full re-apply, which we would otherwise pay once per mounted cell.
- * CodeEditorField is the app's only Monaco consumer, so nothing else can be
- * repainted by this.
- */
-let themeDefined = false;
-
-const defineLabTheme: BeforeMount = monaco => {
-  if (themeDefined) return;
-  themeDefined = true;
-  monaco.editor.defineTheme(LAB_THEME, {
-    base: 'vs-dark',
-    inherit: true,
-    rules: [],
-    colors: {
-      'editor.background': EDITOR_BACKGROUND,
-      'editorGutter.background': EDITOR_BACKGROUND,
-      'editor.lineHighlightBackground': LINE_HIGHLIGHT,
-      'editorLineNumber.foreground': '#6b7280',
-    },
-  });
+const defineLabThemes: BeforeMount = monaco => {
+  if (themesDefined) return;
+  themesDefined = true;
+  LAB_THEMES.forEach(({ id, def }) => monaco.editor.defineTheme(id, def));
 };
 
 interface CodeEditorFieldProps {
@@ -78,6 +50,9 @@ export const CodeEditorField = ({
 }: CodeEditorFieldProps) => {
   // Blur/save fire from Monaco's own listeners, which close over the handlers
   // given at mount; refs keep them pointing at the current render's props.
+  const { isDark } = useTheme();
+  const [storedTheme] = useEditorTheme();
+  const active = resolveTheme(storedTheme, isDark);
   const onBlurRef = useRef(onBlur);
   const onSaveRef = useRef(onSave);
   const onRunRef = useRef(onRun);
@@ -99,9 +74,9 @@ export const CodeEditorField = ({
         language={language}
         value={value}
         onChange={v => onChange(v ?? '')}
-        beforeMount={defineLabTheme}
+        beforeMount={defineLabThemes}
         onMount={handleMount}
-        theme={LAB_THEME}
+        theme={active.id}
         // Monaco is fetched from a CDN at runtime, so there is a real gap before
         // it paints — once per cell. The library's default placeholder has no
         // background of its own, so the gap shows the cell card (gray-800) and
@@ -109,8 +84,13 @@ export const CodeEditorField = ({
         // own colour removes the jump.
         loading={
           <div
-            className="w-full h-full bg-gray-950 flex items-center justify-center text-xs text-gray-500"
-            style={{ minHeight: typeof height === 'number' ? height : undefined }}
+            className="w-full h-full flex items-center justify-center text-xs text-gray-500"
+            style={{
+              minHeight: typeof height === 'number' ? height : undefined,
+              // The picked theme's own surface, so the CDN gap does not flash a
+              // different colour than the editor that replaces it.
+              backgroundColor: active.def.colors['editor.background'],
+            }}
           >
             …
           </div>

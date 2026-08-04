@@ -1132,5 +1132,8 @@
   "run_failed": "La ejecución falló",
   "run_succeeded": "Ejecución correcta",
   "download_rmd": "Descargar .Rmd",
-  "download_rmd_desc": "Descarga este cuaderno como un archivo .Rmd que puedes abrir en RStudio"
+  "download_rmd_desc": "Descarga este cuaderno como un archivo .Rmd que puedes abrir en RStudio",
+  "editor_theme": "Tema del editor",
+  "editor_theme_light": "Claro",
+  "editor_theme_dark": "Oscuro"
 }

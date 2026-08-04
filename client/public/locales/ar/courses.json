@@ -1132,5 +1132,8 @@
   "run_failed": "فشل التنفيذ",
   "run_succeeded": "نجح التنفيذ",
   "download_rmd": "تنزيل ملف ‎.Rmd",
-  "download_rmd_desc": "نزّل هذا الدفتر كملف ‎.Rmd يمكنك فتحه في RStudio"
+  "download_rmd_desc": "نزّل هذا الدفتر كملف ‎.Rmd يمكنك فتحه في RStudio",
+  "editor_theme": "سمة المحرر",
+  "editor_theme_light": "فاتح",
+  "editor_theme_dark": "داكن"
 }

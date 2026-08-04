@@ -8,12 +8,25 @@ import { render } from '@testing-library/react';
  */
 const captured: { props: Record<string, any> | null } = { props: null };
 
+/** Drives which theme the component asks Monaco for. */
+const appTheme = { isDark: true };
+vi.mock('../../../hooks/useTheme', () => ({
+  useTheme: () => ({
+    isDark: appTheme.isDark,
+    theme: appTheme.isDark ? 'dark' : 'light',
+    setTheme: () => {},
+    toggleTheme: () => {},
+  }),
+}));
+
 vi.mock('@monaco-editor/react', () => ({
   default: (props: Record<string, any>) => {
     captured.props = props;
     return <div data-testid="monaco-stub" />;
   },
 }));
+
+import { LAB_THEMES } from './labEditorThemes';
 
 /** A minimal stand-in for the `monaco` namespace passed to `beforeMount`. */
 const fakeMonaco = () => {
@@ -48,9 +61,27 @@ const CODE_FENCE_BACKGROUND = '#030712';
 /** CodeOutput renders the console on bg-gray-900 directly beneath the editor. */
 const CONSOLE_BACKGROUND = '#111827';
 
+/** The theme definition the component is currently asking Monaco to use. */
+const activeTheme = (monaco: ReturnType<typeof fakeMonaco>) =>
+  monaco.defined.find(d => d.name === captured.props?.theme)!;
+
+/** Mount once in the given mode and return the theme Monaco was handed. */
+const mountAndRead = async (isDark: boolean) => {
+  appTheme.isDark = isDark;
+  const CodeEditorField = await loadField();
+  render(<CodeEditorField value="1 + 1" onChange={() => {}} />);
+  const monaco = fakeMonaco();
+  captured.props?.beforeMount(monaco.api);
+  return activeTheme(monaco);
+};
+
+/** The card the editor sits inside is `bg-white` (NotebookCell). */
+const CARD_BACKGROUND = '#ffffff';
+
 describe('CodeEditorField theming', () => {
   beforeEach(() => {
     captured.props = null;
+    appTheme.isDark = true;
   });
 
   it('does not hand Monaco the built-in vs-dark theme', async () => {
@@ -135,7 +166,10 @@ describe('CodeEditorField theming', () => {
       captured.props?.beforeMount(monaco.api);
     }
 
-    expect(monaco.defined).toHaveLength(1);
+    // Every preset defined exactly once — not once per cell. Counted from the
+    // catalogue so adding a preset does not fail this test spuriously.
+    expect(monaco.defined).toHaveLength(LAB_THEMES.length);
+    expect(new Set(monaco.defined.map(d => d.name)).size).toBe(LAB_THEMES.length);
   });
 
   it('shows a dark placeholder while Monaco is fetched from the CDN', async () => {
@@ -152,5 +186,43 @@ describe('CodeEditorField theming', () => {
 
     // Without this the light #e5e7eb ring stays lit around every dark editor.
     expect(container.querySelector('div')?.className).toContain('dark:border-gray-700');
+  });
+});
+
+describe('CodeEditorField theme selection', () => {
+  beforeEach(() => {
+    captured.props = null;
+  });
+
+  it('uses a dark editor even when the app is in light mode', async () => {
+    const active = await mountAndRead(false);
+
+    // The editor is a dark surface in both app modes. Its two neighbours in a
+    // cell — markdown fences and the output console — are dark with no light
+    // variant, so a light editor would be the odd one out.
+    expect(active.data.base).toBe('vs-dark');
+    expect(luminance(active.data.colors['editor.background'])).toBeLessThan(90);
+  });
+
+  it('uses a dark editor in dark mode too', async () => {
+    const active = await mountAndRead(true);
+    expect(active.data.base).toBe('vs-dark');
+    expect(active.data.colors['editor.background']).toBe(CODE_FENCE_BACKGROUND);
+  });
+
+  it('never paints the editor white, whatever the app theme', async () => {
+    for (const isDark of [true, false]) {
+      const bg = (await mountAndRead(isDark)).data.colors['editor.background'];
+      expect(bg.toLowerCase()).not.toBe(CARD_BACKGROUND);
+      expect(luminance(bg)).toBeLessThan(luminance(CONSOLE_BACKGROUND) + 40);
+    }
+  });
+
+  it('defines every preset so the picker can switch without a remount', async () => {
+    const active = await mountAndRead(false);
+    expect(active).toBeTruthy();
+    // Switching theme is a `theme` prop change, not a redefine — which only
+    // works if all of them were defined up front.
+    expect(LAB_THEMES.length).toBeGreaterThan(2);
   });
 });
