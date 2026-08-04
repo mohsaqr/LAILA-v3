@@ -14,7 +14,9 @@ import {
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { customLabsApi } from '../api/customLabs';
+import { coursesApi } from '../api/courses';
 import { assignmentsApi } from '../api/assignments';
+import { buildLabBreadcrumb } from '../utils/breadcrumbs';
 import { LabAssignmentPanel } from '../components/labs';
 import { ReportItem } from '../components/labs/LabAssignmentPanel';
 import { Button } from '../components/common/Button';
@@ -82,6 +84,16 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
 
   const logSession = useCallback((event: string) =>
     setSessionEvents(prev => [...prev, { ts: Date.now(), event }]), []);
+
+  // For the breadcrumb's course crumb. The key stringifies courseId because
+  // every other page keys this query off the raw `useParams` string — matching
+  // it means clicking through from /courses/:id/labs reuses that cache entry
+  // instead of refetching the same course under a numeric key.
+  const { data: course } = useQuery({
+    queryKey: ['course', courseId == null ? null : String(courseId)],
+    queryFn: () => coursesApi.getCourseById(courseId!),
+    enabled: courseId != null,
+  });
 
   const { data: assignmentConfig } = useQuery({
     queryKey: ['labAssignmentConfig', lab.id, courseId],
@@ -359,14 +371,14 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
           <Breadcrumb
             items={
               courseId
-                ? [
-                    { label: t('common:courses'), href: '/courses' },
-                    { label: lab.name },
-                  ]
-                : [
-                    { label: t('labs'), href: '/labs' },
-                    { label: lab.name },
-                  ]
+                ? buildLabBreadcrumb({
+                    labName: lab.name,
+                    labsLabel: t('course_interactive_labs'),
+                    coursesLabel: t('common:courses'),
+                    courseId,
+                    courseTitle: course?.title || t('course'),
+                  })
+                : buildLabBreadcrumb({ labName: lab.name, labsLabel: t('labs_title') })
             }
           />
         </div>
