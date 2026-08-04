@@ -5,6 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import {
   CSP_DIRECTIVES,
   GOOGLE_FONTS_CSS,
+  GITHUB_RAW,
   GOOGLE_FONTS_FILES,
   NGINX_GENERATED_TARGETS,
   PYODIDE_CDN,
@@ -39,6 +40,16 @@ describe('Content-Security-Policy', () => {
     for (const origin of [WEBR_CDN, WEBR_PACKAGE_REPO, PYODIDE_CDN]) {
       expect(CSP_DIRECTIVES.connectSrc, `connect-src must allow ${origin}`).toContain(origin);
     }
+  });
+
+  // Lab notebooks load their datasets from GitHub. Without this the fetch is
+  // blocked and R reports a ten-second libcurl timeout rather than anything
+  // resembling a CSP error, which is exactly how it went misdiagnosed.
+  // Only the raw host is listed: github.com/<o>/<r>/raw/... returns a 302 with
+  // an empty access-control-allow-origin and can never work from a browser.
+  it('permits the GitHub raw host in connect-src', () => {
+    expect(CSP_DIRECTIVES.connectSrc).toContain(GITHUB_RAW);
+    expect(CSP_DIRECTIVES.connectSrc).not.toContain('https://github.com');
   });
 
   // Chrome has enforced this since 97: with any script-src set and no

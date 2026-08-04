@@ -30,6 +30,23 @@ export const WEBR_PACKAGE_REPO = 'https://repo.r-wasm.org';
 export const PYODIDE_CDN = 'https://cdn.jsdelivr.net';
 
 /**
+ * Where lab notebooks fetch their datasets from.
+ *
+ * Only the `raw.githubusercontent.com` host works, and the distinction is not
+ * cosmetic: `github.com/<o>/<r>/raw/...` answers with a 302 carrying an EMPTY
+ * `access-control-allow-origin`, so the browser drops it; this host answers
+ * `access-control-allow-origin: *`.
+ *
+ * Both failures look identical from inside R, and neither looks like CORS or
+ * CSP — R's libcurl is shimmed over browser `fetch`, gets nothing back to
+ * report, and surfaces
+ *   `Error: Timeout was reached [github.com]: Connection timed out after 10000 milliseconds`
+ * after the full ten seconds. Desktop R is not a valid test for lab content:
+ * it has real sockets and ignores CORS entirely.
+ */
+export const GITHUB_RAW = 'https://raw.githubusercontent.com';
+
+/**
  * Google Fonts, linked from `client/index.html` — the stylesheet comes from one
  * origin and the font files from another.
  *
@@ -98,7 +115,7 @@ export const CSP_DIRECTIVES = {
   // packages at page load. Under `'self'` alone the browser blocks all three
   // origins and no lab can start — the failure surfaces inside R as a libcurl
   // "Timeout was reached", not as a CSP error, so it is easy to misdiagnose.
-  connectSrc: ["'self'", 'ws:', 'wss:', WEBR_CDN, WEBR_PACKAGE_REPO, PYODIDE_CDN],
+  connectSrc: ["'self'", 'ws:', 'wss:', WEBR_CDN, WEBR_PACKAGE_REPO, PYODIDE_CDN, GITHUB_RAW],
 
   // Both runtimes run their interpreter in a Web Worker spawned from a blob:
   // URL. worker-src falls back to child-src and then to default-src, so
