@@ -1,0 +1,98 @@
+# =============================================================================
+# vLLM — local OpenAI-compatible inference server for LAILA
+# =============================================================================
+# Install:
+#   sudo cp deploy/systemd/vllm.service /etc/systemd/system/vllm.service
+#   sudo nano /etc/systemd/system/vllm.service     # fill in the placeholders
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now vllm               # enable, or it dies at reboot
+#
+# Placeholders:
+#   __USER__        → the Linux user that owns the conda env (NOT a sudo user)
+#   __CONDA_DIR__   → e.g. /home/vllm/miniconda3
+#   __VLLM_SRC__    → e.g. /home/vllm/vllm_source
+#   __MODEL__       → e.g. Qwen/Qwen2.5-0.5B-Instruct
+#   __KV_GIB__      → KV cache size in GiB (see "Memory" below)
+#   __MEM_MAX__     → cgroup ceiling, e.g. 32G (see "Memory" below)
+#   __THREADS__     → physical cores to bind, e.g. 0-7 (see "CPU" below)
+#
+# Full guide: docs/VLLM-SETUP.md
+# =============================================================================
+
+[Unit]
+Description=vLLM Server (CPU)
+Documentation=https://docs.vllm.ai/en/latest/getting_started/installation/cpu.html
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+Group=__USER__
+WorkingDirectory=__VLLM_SRC__
+
+# --- Memory ---------------------------------------------------------------
+# VLLM_CPU_KVCACHE_SPACE is in GiB and is reserved on top of model weights and
+# the PyTorch runtime. Budget roughly:
+#     MemoryMax  >=  KV cache  +  model weights  +  6-8 GiB runtime headroom
+# Setting MemoryMax at or just above the KV cache alone guarantees an OOM kill
+# under load — the process is killed, systemd restarts it, and it OOMs again.
+Environment="VLLM_CPU_KVCACHE_SPACE=__KV_GIB__"
+
+# --- CPU ------------------------------------------------------------------
+# Bind to PHYSICAL cores only (check `lscpu -e` — avoid hyperthread siblings).
+# If CPUQuota is also set it must not contradict this: binding 8 cores under a
+# 200% quota means six of them idle while the threads contend for two.
+Environment="VLLM_CPU_OMP_THREADS_BIND=__THREADS__"
+
+# tcmalloc needs `apt install libtcmalloc-minimal4`; if the file is absent the
+# dynamic loader prints an error on every exec and the allocator benefit is
+# silently lost — verify the path exists before trusting this line.
+Environment="LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libtcmalloc_minimal.so.4:__CONDA_DIR__/envs/vllm/lib/libiomp5.so"
+
+# --- Model cache ----------------------------------------------------------
+# Without this the model is fetched from HuggingFace into the service user's
+# home on first start, so a cold boot blocks on the network and a HF outage or
+# rate-limit turns into a crash loop. Pre-download once, then consider
+# HF_HUB_OFFLINE=1 to make that guarantee explicit.
+Environment="HF_HOME=__VLLM_SRC__/.hf"
+
+ExecStart=/bin/bash -lc 'source __CONDA_DIR__/etc/profile.d/conda.sh && conda activate vllm && exec vllm serve __MODEL__ --host 127.0.0.1 --port 8000 --served-model-name default'
+
+# `exec` above matters: without it bash stays as PID 1 of the unit and systemd
+# signals the wrapper instead of vLLM, so stop/restart leaves an orphan holding
+# port 8000.
+
+# --- Restart policy -------------------------------------------------------
+# on-failure, not always: a clean exit is a decision, not something to undo.
+# RestartSec + StartLimit turn a persistent failure into a stopped unit you can
+# see, instead of an invisible loop that pins the CPU.
+Restart=on-failure
+RestartSec=15
+StartLimitBurst=4
+StartLimitIntervalSec=300
+
+# Model load on CPU is slow; do not let systemd kill a healthy cold start.
+TimeoutStartSec=600
+TimeoutStopSec=60
+
+MemoryMax=__MEM_MAX__
+
+# --- Security -------------------------------------------------------------
+# Mirrors laila.service. Run as a dedicated non-login account, never as the
+# default sudo-capable `ubuntu` user.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=__VLLM_SRC__
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=vllm
+
+[Install]
+WantedBy=multi-user.target

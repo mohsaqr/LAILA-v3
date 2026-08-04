@@ -30,7 +30,22 @@ import {
 export class LLMService {
   private providerCache: Map<string, { value: LLMProviderConfig; expiresAt: number }> = new Map();
   private clientCache: Map<string, OpenAI | GoogleGenerativeAI> = new Map();
+  private resolvedModelCache: Map<string, { value: string; expiresAt: number }> = new Map();
   private cacheExpiry: number = 5 * 60 * 1000; // 5 minutes
+
+  // Placeholder model ids the admin UI offers for local servers, labelled
+  // "Auto-detect". They are NOT model names: send `model: "default"` to vLLM
+  // and it answers 404 "The model `default` does not exist". The label promised
+  // a lookup that never happened — resolveModel() below is that lookup.
+  private static readonly AUTODETECT_MODEL_IDS: Partial<Record<LLMProviderName, string>> = {
+    vllm: 'default',
+    lmstudio: 'local-model',
+  };
+
+  /** How long a *failed* detection is remembered. Short, so a server that comes
+   *  back is picked up quickly, but long enough that a down server is not
+   *  re-probed once per message. */
+  private static readonly FAILED_LOOKUP_CACHE_MS = 30 * 1000;
 
   // ===========================================================================
   // PROVIDER MANAGEMENT
@@ -588,10 +603,11 @@ export class LLMService {
     }
 
     // Determine model
-    const model = request.model || provider.defaultModel;
-    if (!model) {
+    const requestedModel = request.model || provider.defaultModel;
+    if (!requestedModel) {
       throw new LLMError('No model specified', 'MODEL_NOT_FOUND', provider.provider);
     }
+    const model = await this.resolveModel(provider, requestedModel);
 
     // Build parameters using defaults
     const params = {
@@ -658,6 +674,99 @@ export class LLMService {
       });
       throw error;
     }
+  }
+
+  /**
+   * Turn an "Auto-detect" placeholder into the model name the local server
+   * actually serves, by asking it.
+   *
+   * vLLM and LM Studio both expose whatever they have loaded through
+   * `GET /v1/models`, and both reject a `model` field that doesn't match. An
+   * operator running `vllm serve Qwen/Qwen2.5-0.5B-Instruct` has no reason to
+   * guess that LAILA is sending the literal string "default", and the 404 comes
+   * back from vLLM — the wrong layer to debug.
+   *
+   * Real model names pass through untouched, so an operator who typed the full
+   * name (or who started vLLM with `--served-model-name default`) is unaffected.
+   * The result is cached per provider for the same window as provider config;
+   * swapping the loaded model is a restart, not a per-request event.
+   *
+   * **This never throws.** An earlier version raised on a failed lookup, which
+   * was wrong twice over. `chat.service.ts` catches everything from this layer,
+   * logs it at `console.log` and retries via the legacy path — which routes any
+   * non-OpenAI provider to Gemini — so the message was discarded and a vLLM
+   * outage surfaced as a Gemini error. And it made `GET /v1/models` a hard
+   * prerequisite for chat, breaking two setups that work today: vLLM started
+   * with `--served-model-name default` (where the placeholder is already the
+   * right name) and any deployment that allow-lists only
+   * `/v1/chat/completions`. On failure the placeholder is returned unchanged —
+   * worst case is exactly the behaviour before this method existed — and the
+   * diagnosis goes to the log, where it survives.
+   */
+  private async resolveModel(provider: LLMProviderConfig, model: string): Promise<string> {
+    const placeholder = LLMService.AUTODETECT_MODEL_IDS[provider.provider];
+    if (!placeholder || model !== placeholder) return model;
+
+    // LLMProviderConfig.id is optional (unsaved configs exist), so fall back to
+    // the name, which is the identity providers are looked up by.
+    const cacheKey = String(provider.id ?? provider.name);
+    const cached = this.resolvedModelCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+    let served: string | undefined;
+    try {
+      const client = new OpenAI({
+        apiKey: provider.apiKey || 'not-needed',
+        baseURL: provider.baseUrl,
+        timeout: provider.connectTimeout,
+        // The SDK retries twice by default. This lookup now sits in front of
+        // every message, so against a host that drops packets rather than
+        // refusing them, each retry costs a full connectTimeout before the
+        // chat request even starts. One attempt, then fall back.
+        maxRetries: 0,
+      });
+      const list = await client.models.list();
+      served = LLMService.pickChatModel(list.data);
+    } catch (error) {
+      console.error(
+        `[LLM] Could not reach ${provider.name} at ${provider.baseUrl} to detect the loaded ` +
+          `model; sending "${placeholder}" unchanged. ` +
+          `${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+
+    if (!served) {
+      // Negative result cached too, or an unreachable server is re-probed on
+      // every message and every student pays the timeout.
+      this.resolvedModelCache.set(cacheKey, {
+        value: placeholder,
+        expiresAt: Date.now() + LLMService.FAILED_LOOKUP_CACHE_MS,
+      });
+      return placeholder;
+    }
+
+    // A silent success is its own problem: when the wrong model gets picked,
+    // this line is the only way to find out what was chosen.
+    console.info(`[LLM] ${provider.name}: "${placeholder}" resolved to "${served}"`);
+    this.resolvedModelCache.set(cacheKey, {
+      value: served,
+      expiresAt: Date.now() + this.cacheExpiry,
+    });
+    return served;
+  }
+
+  /**
+   * Choose the entry from `/v1/models` most likely to answer a chat completion.
+   *
+   * vLLM serves a single model, so anything works there. LM Studio lists every
+   * **downloaded** model in no guaranteed order, embedding models among them —
+   * so taking `data[0]` can send a chat request to an embedder and then cache
+   * that choice for five minutes.
+   */
+  private static pickChatModel(models: Array<{ id?: string }> | undefined): string | undefined {
+    const ids = (models ?? []).map(m => m?.id).filter((id): id is string => !!id);
+    const NON_CHAT = /(embed|rerank|whisper|clip|tts|stable-diffusion|sdxl)/i;
+    return ids.find(id => !NON_CHAT.test(id)) ?? ids[0];
   }
 
   private async chatOpenAICompatible(
@@ -1144,6 +1253,9 @@ export class LLMService {
   private clearCache(): void {
     this.providerCache.clear();
     this.clientCache.clear();
+    // Editing a provider can repoint baseUrl at a different server, so the
+    // detected model name is no longer trustworthy either.
+    this.resolvedModelCache.clear();
   }
 }
 

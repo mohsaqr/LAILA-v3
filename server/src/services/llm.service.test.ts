@@ -1768,3 +1768,180 @@ describe('LLMService', () => {
     });
   });
 });
+
+// =============================================================================
+// AUTO-DETECT MODEL RESOLUTION (vLLM / LM Studio)
+// =============================================================================
+// The admin UI offers "default" (vLLM) and "local-model" (LM Studio) labelled
+// "Auto-detect", but nothing detected anything: the literal placeholder went
+// into the request body and vLLM answered 404 "The model `default` does not
+// exist" — an error that points at the model, not at the missing lookup.
+
+describe('LLMService - auto-detect model resolution', () => {
+  let service: LLMService;
+
+  const localProvider = {
+    id: 7,
+    name: 'vllm-local',
+    provider: 'vllm',
+    baseUrl: 'http://localhost:8000/v1',
+    apiKey: null,
+    connectTimeout: 10000,
+  } as any;
+
+  // resolveModel is private by design — it is an implementation detail of
+  // chat(). Reaching it directly keeps these cases readable instead of mocking
+  // the whole provider-lookup chain to assert one string.
+  const resolve = (provider: any, model: string): Promise<string> =>
+    (service as any).resolveModel(provider, model);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    service = new LLMService();
+    mockOpenAIModels.mockResolvedValue({ data: [{ id: 'gpt-4o-mini', object: 'model' }] });
+  });
+
+  it('replaces the vLLM "default" placeholder with the served model name', async () => {
+    mockOpenAIModels.mockResolvedValue({
+      data: [{ id: 'Qwen/Qwen2.5-0.5B-Instruct', object: 'model' }],
+    });
+
+    expect(await resolve(localProvider, 'default')).toBe('Qwen/Qwen2.5-0.5B-Instruct');
+  });
+
+  it('replaces the LM Studio "local-model" placeholder', async () => {
+    mockOpenAIModels.mockResolvedValue({ data: [{ id: 'llama-3.2-3b', object: 'model' }] });
+
+    const lmstudio = { ...localProvider, provider: 'lmstudio', name: 'lm' };
+    expect(await resolve(lmstudio, 'local-model')).toBe('llama-3.2-3b');
+  });
+
+  it('leaves an explicitly named model untouched and never calls the server', async () => {
+    expect(await resolve(localProvider, 'Qwen/Qwen2.5-7B-Instruct')).toBe('Qwen/Qwen2.5-7B-Instruct');
+    expect(mockOpenAIModels).not.toHaveBeenCalled();
+  });
+
+  it('does not treat "default" as a placeholder for cloud providers', async () => {
+    const openai = { ...localProvider, provider: 'openai', name: 'openai' };
+    expect(await resolve(openai, 'default')).toBe('default');
+    expect(mockOpenAIModels).not.toHaveBeenCalled();
+  });
+
+  it('caches the detection so it is not repeated on every message', async () => {
+    mockOpenAIModels.mockResolvedValue({ data: [{ id: 'Qwen/Qwen2.5-0.5B-Instruct' }] });
+
+    await resolve(localProvider, 'default');
+    await resolve(localProvider, 'default');
+    await resolve(localProvider, 'default');
+
+    expect(mockOpenAIModels).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips embedding models — LM Studio lists every downloaded model', async () => {
+    mockOpenAIModels.mockResolvedValue({
+      data: [{ id: 'nomic-embed-text-v1.5' }, { id: 'llama-3.1-8b-instruct' }],
+    });
+
+    const lmstudio = { ...localProvider, provider: 'lmstudio', name: 'lm' };
+    // data[0] would send a chat completion to an embedder, then cache it.
+    expect(await resolve(lmstudio, 'local-model')).toBe('llama-3.1-8b-instruct');
+  });
+
+  it('falls back to the first entry when everything looks non-chat', async () => {
+    mockOpenAIModels.mockResolvedValue({ data: [{ id: 'my-embed-only-model' }] });
+
+    expect(await resolve(localProvider, 'default')).toBe('my-embed-only-model');
+  });
+
+  // These two used to throw. They must not: chat.service.ts catches everything
+  // from this layer, logs at console.log and retries through the legacy path —
+  // which routes a non-OpenAI provider to Gemini — so a throw here surfaced a
+  // vLLM outage as a Gemini error. Returning the placeholder reproduces exactly
+  // the behaviour from before this method existed.
+  it('returns the placeholder unchanged when the server is unreachable', async () => {
+    mockOpenAIModels.mockRejectedValue(new Error('connect ECONNREFUSED 127.0.0.1:8000'));
+
+    await expect(resolve(localProvider, 'default')).resolves.toBe('default');
+  });
+
+  it('returns the placeholder when the server is up but serving nothing', async () => {
+    mockOpenAIModels.mockResolvedValue({ data: [] });
+
+    await expect(resolve(localProvider, 'default')).resolves.toBe('default');
+  });
+
+  it('does not re-probe a server that just failed', async () => {
+    mockOpenAIModels.mockRejectedValue(new Error('ECONNREFUSED'));
+
+    await resolve(localProvider, 'default');
+    await resolve(localProvider, 'default');
+    await resolve(localProvider, 'default');
+
+    // Without negative caching every student message pays the full timeout.
+    expect(mockOpenAIModels).toHaveBeenCalledTimes(1);
+  });
+});
+
+// The tests above exercise resolveModel directly, which leaves the one line
+// that WIRES it into chat() unguarded — deleting that line kept the whole suite
+// green. These go through the public chat() instead.
+describe('LLMService - auto-detect wired into chat()', () => {
+  let service: LLMService;
+
+  const vllmProviderRow = {
+    id: 7,
+    name: 'vllm-local',
+    provider: 'vllm',
+    displayName: 'vLLM (Local)',
+    providerType: 'local',
+    isEnabled: true,
+    isDefault: true,
+    priority: 100,
+    baseUrl: 'http://localhost:8000/v1',
+    apiKey: null,
+    defaultModel: 'default',
+    defaultTemperature: 0.7,
+    defaultMaxTokens: 2048,
+    connectTimeout: 10000,
+    requestTimeout: 300000,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    service = new LLMService();
+    vi.mocked(prisma.lLMProvider.findFirst).mockResolvedValue(vllmProviderRow as any);
+    vi.mocked(prisma.lLMProvider.update).mockResolvedValue(vllmProviderRow as any);
+    mockOpenAIChat.mockResolvedValue({
+      id: 'c1',
+      object: 'chat.completion',
+      created: 1,
+      model: 'Qwen/Qwen2.5-0.5B-Instruct',
+      choices: [{ index: 0, message: { role: 'assistant', content: 'Hi' }, finish_reason: 'stop' }],
+      usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+    });
+  });
+
+  it('sends the SERVED model name, never the literal "default"', async () => {
+    mockOpenAIModels.mockResolvedValue({ data: [{ id: 'Qwen/Qwen2.5-0.5B-Instruct' }] });
+
+    await service.chat({ messages: [{ role: 'user', content: 'Hello' }] });
+
+    const sent = mockOpenAIChat.mock.calls[0][0];
+    // The entire point of the fix: vLLM 404s on `model: "default"`.
+    expect(sent.model).toBe('Qwen/Qwen2.5-0.5B-Instruct');
+    expect(sent.model).not.toBe('default');
+  });
+
+  it('still sends a message when the model lookup fails', async () => {
+    mockOpenAIModels.mockRejectedValue(new Error('ECONNREFUSED'));
+
+    // Degrades to the pre-fix behaviour rather than failing the student's
+    // message — a lookup failure must not become a chat outage.
+    await expect(
+      service.chat({ messages: [{ role: 'user', content: 'Hello' }] })
+    ).resolves.toBeDefined();
+    expect(mockOpenAIChat.mock.calls[0][0].model).toBe('default');
+  });
+});

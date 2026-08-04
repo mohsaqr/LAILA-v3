@@ -81,3 +81,6 @@ issues.md
 /laila-home.png
 server/uploads
 backups/
+
+# Playwright MCP session artifacts (screenshots, console logs)
+.playwright-mcp/
