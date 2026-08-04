@@ -35,6 +35,10 @@ export const CodeLabPage = () => {
     [codeLab?.blocks]
   );
 
+  // Memoized: NotebookCell is memo'd, and rebuilding this array on every render
+  // would hand each cell a new `cell` prop and defeat it.
+  const notebookCells = useMemo(() => (codeLab?.blocks ?? []).map(blockToCell), [codeLab?.blocks]);
+
   const {
     isReady: isWebRReady,
     isLoading: isWebRLoading,
@@ -162,7 +166,8 @@ export const CodeLabPage = () => {
       {/* The unified lab notebook (student view: run + local edits, locks enforced) */}
       <LabNotebook
         key={labId}
-        cells={(codeLab.blocks ?? []).map(blockToCell)}
+        cells={notebookCells}
+        labName={codeLab.title}
         language="r"
         canEdit={false}
         runtime={notebookRuntime}

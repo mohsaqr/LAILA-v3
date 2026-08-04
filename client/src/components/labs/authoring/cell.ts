@@ -18,6 +18,12 @@ export interface LabCell {
   locked: boolean;
   /** "code" runs in the lab runtime; "markdown" is prose-only content. */
   cellType: 'code' | 'markdown';
+  /**
+   * A student's throwaway copy, held in the notebook's own state and never sent
+   * anywhere. Set explicitly rather than inferred from the negative id these
+   * cells carry: the id is an allocation detail, this is the meaning.
+   */
+  isScratch?: boolean;
 }
 
 /** Fields an editor can change, in LabCell terms. */

@@ -12,7 +12,10 @@ import {
   Check,
   Sparkles,
   X,
+  RotateCcw,
 } from 'lucide-react';
+import { RowMenu, RowMenuItem } from '../../common/RowMenu';
+import { useCopyToClipboard } from '../../../hooks/useCopyToClipboard';
 import { CodeEditorField, CodeLanguage } from '../authoring/CodeEditorField';
 import { MarkdownField } from '../authoring/MarkdownField';
 import { CodeOutput } from '../../code/CodeOutput';
@@ -77,6 +80,10 @@ interface NotebookCellProps {
   onDuplicate?: (cell: LabCell) => void;
   onDelete?: (cell: LabCell) => void;
   onAskAI?: (cell: LabCell, code: string, error: string | null, intent: AIIntent) => void;
+  /** Students only: make a session-only scratch copy of this cell. */
+  onScratchCopy?: (cell: LabCell) => void;
+  /** Discard a scratch copy. Only supplied for scratch cells. */
+  onDismissScratch?: (cellId: number) => void;
   /** Disables structural actions while another add/duplicate/reorder is in flight. */
   isMutating?: boolean;
   /** Native HTML5 drag wiring, provided by the notebook (authors only). */
@@ -110,10 +117,13 @@ const NotebookCellInner = ({
   onDuplicate,
   onDelete,
   onAskAI,
+  onScratchCopy,
+  onDismissScratch,
   isMutating = false,
   dragProps,
 }: NotebookCellProps) => {
   const { t } = useTranslation(['courses', 'teaching', 'common']);
+  const { copied, copy } = useCopyToClipboard();
   const [editingProse, setEditingProse] = useState(false);
   const [title, setTitle] = useState(cell.title);
   const [prose, setProse] = useState(cell.prose);
@@ -155,6 +165,70 @@ const NotebookCellInner = ({
   const runCell = () => {
     if (!isRuntimeBusy && !running) onRun(cell, code);
   };
+
+  const isScratch = !!cell.isScratch;
+
+  // Secondary actions, assembled per role and cell type. Ordering is stable so
+  // the menu does not reshuffle as a cell's state changes.
+  const menuItems: RowMenuItem[] = [];
+  if (canEdit && !isMarkdownCell) {
+    menuItems.push({
+      key: 'lock',
+      label: cell.locked
+        ? t('teaching:unlock_cell', { defaultValue: 'Unlock — students can edit' })
+        : t('teaching:lock_cell', { defaultValue: 'Lock — students can run but not edit' }),
+      icon: cell.locked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />,
+      onClick: () => onSave?.(cell.id, { locked: !cell.locked }),
+    });
+  }
+  if (onDuplicate) {
+    menuItems.push({
+      key: 'duplicate',
+      label: t('teaching:duplicate_cell', { defaultValue: 'Duplicate cell' }),
+      icon: <Copy className="w-4 h-4" />,
+      disabled: isMutating,
+      onClick: () => onDuplicate(cell),
+    });
+  }
+  // Students get a throwaway copy instead — nothing is written to the lab.
+  if (onScratchCopy && !isMarkdownCell && !isScratch) {
+    menuItems.push({
+      key: 'scratch',
+      label: t('courses:duplicate_scratch', { defaultValue: 'Duplicate as my scratch copy' }),
+      icon: <Copy className="w-4 h-4" />,
+      onClick: () => onScratchCopy(cell),
+    });
+  }
+  if (!canEdit && !isMarkdownCell && !codeReadOnly) {
+    menuItems.push({
+      key: 'reset',
+      label: t('courses:reset_to_starter', {
+        defaultValue: "Reset to the instructor's original code",
+      }),
+      icon: <RotateCcw className="w-4 h-4" />,
+      disabled: code === cell.code,
+      onClick: () => onDraftChange(cell.id, cell.code),
+    });
+  }
+  if (onDismissScratch && isScratch) {
+    menuItems.push({
+      key: 'dismiss',
+      label: t('courses:dismiss_scratch', { defaultValue: 'Discard this copy' }),
+      icon: <Trash2 className="w-4 h-4" />,
+      destructive: true,
+      onClick: () => onDismissScratch(cell.id),
+    });
+  }
+  if (onDelete) {
+    menuItems.push({
+      key: 'delete',
+      label: t('teaching:delete_block', { defaultValue: 'Delete cell' }),
+      icon: <Trash2 className="w-4 h-4" />,
+      disabled: isMutating,
+      destructive: true,
+      onClick: () => onDelete(cell),
+    });
+  }
 
   return (
     <div className="group/cell relative rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm transition-shadow focus-within:ring-2 focus-within:ring-emerald-500/40 focus-within:border-emerald-300">
@@ -215,6 +289,17 @@ const NotebookCellInner = ({
           </span>
         )}
 
+        {isScratch && (
+          <span
+            className="shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 text-xs font-medium"
+            title={t('courses:scratch_cell_hint', {
+              defaultValue: 'A copy just for you. It is not saved and disappears when you leave.',
+            })}
+          >
+            {t('courses:scratch_cell_badge', { defaultValue: 'Your copy — not saved' })}
+          </span>
+        )}
+
         {cell.locked && !canEdit && (
           <span
             className="shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-xs"
@@ -227,48 +312,17 @@ const NotebookCellInner = ({
           </span>
         )}
 
-        {/* Author controls — permanently visible */}
-        {canEdit && (
-          <div className="flex items-center gap-0.5">
-            {!isMarkdownCell && (
-            <button
-              onClick={() => onSave?.(cell.id, { locked: !cell.locked })}
-              className={`p-1.5 rounded-md transition-colors ${
-                cell.locked
-                  ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/60'
-                  : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600'
-              }`}
-              title={
-                cell.locked
-                  ? t('teaching:unlock_cell', { defaultValue: 'Unlock — students can edit' })
-                  : t('teaching:lock_cell', {
-                      defaultValue: 'Lock — students can run but not edit',
-                    })
-              }
-            >
-              {cell.locked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-            </button>
-            )}
-            {onDuplicate && (
-              <button
-                onClick={() => onDuplicate(cell)}
-                disabled={isMutating}
-                className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
-                title={t('teaching:duplicate_cell', { defaultValue: 'Duplicate cell' })}
-              >
-                <Copy className="w-4 h-4" />
-              </button>
-            )}
-            {onDelete && (
-              <button
-                onClick={() => onDelete(cell)}
-                disabled={isMutating}
-                className="p-1.5 rounded-md text-red-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30 disabled:opacity-40 disabled:cursor-not-allowed"
-                title={t('teaching:delete_block', { defaultValue: 'Delete cell' })}
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            )}
+        {/* Secondary actions. Permanently visible, never hover-revealed — see
+            the component note above. Rendered only when it would hold
+            something, so a student on a text cell gets no empty trigger. */}
+        {menuItems.length > 0 && (
+          <div className="shrink-0">
+            <RowMenu
+              items={menuItems}
+              ariaLabel={t('courses:cell_actions', { defaultValue: 'Cell actions' })}
+              // Clears the AI drawer (z-60), which a cell menu can overlap.
+              zIndex={70}
+            />
           </div>
         )}
       </div>
@@ -355,6 +409,14 @@ const NotebookCellInner = ({
             </span>
           )}
           <span className="flex-1" />
+          <button
+            onClick={() => void copy(code)}
+            title={t('courses:copy_code', { defaultValue: 'Copy code' })}
+            aria-label={t('courses:copy_code', { defaultValue: 'Copy code' })}
+            className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 transition-colors"
+          >
+            {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+          </button>
           {onAskAI && (
             <div className="flex items-center gap-1 rounded-lg border border-violet-200 dark:border-violet-800 p-0.5">
               <Sparkles className="w-4 h-4 ml-1.5 mr-0.5 text-violet-500 dark:text-violet-300 shrink-0" />

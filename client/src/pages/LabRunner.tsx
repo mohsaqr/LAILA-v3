@@ -111,10 +111,16 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
   const canEditLab =
     !!currentUser && (isAdmin || (isInstructor && lab.createdBy === currentUser.id));
 
-  const sortedTemplates: LabTemplate[] = [...(lab.templates ?? [])].sort(
-    (a: LabTemplate, b: LabTemplate) => a.orderIndex - b.orderIndex
+  // Memoized: NotebookCell is memo'd, and a fresh array here would give every
+  // cell a new `cell` prop on each render, defeating it.
+  const sortedTemplates: LabTemplate[] = useMemo(
+    () => [...(lab.templates ?? [])].sort((a: LabTemplate, b: LabTemplate) => a.orderIndex - b.orderIndex),
+    [lab.templates]
   );
-  const notebookCells: LabCell[] = sortedTemplates.map(templateToCell);
+  const notebookCells: LabCell[] = useMemo(
+    () => sortedTemplates.map(templateToCell),
+    [sortedTemplates]
+  );
 
   // AI assistant (attached per lab by the instructor)
   const [aiOpen, setAiOpen] = useState(false);
@@ -447,6 +453,7 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
                 updateTemplateMutation.mutate({ templateId: cellId, patch })
               }
               onAddCell={(position, cellType) => addTemplateMutation.mutate({ position, cellType })}
+              labName={lab.name}
               onImport={isPythonLab(lab.labType) ? undefined : content => importMutation.mutate(content)}
               isImporting={importMutation.isPending}
               onDuplicateCell={cell => duplicateTemplateMutation.mutate(cell.id)}

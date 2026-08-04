@@ -1,5 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
+
+// Labels moved from hardcoded English to t(); the mock returns each key's
+// defaultValue, so every assertion below reads the same text a user sees.
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (_key: string, opts?: Record<string, unknown>) => {
+      const dv = (opts?.defaultValue as string) ?? _key;
+      return dv.replace(/\{\{(\w+)\}\}/g, (_m, name) => String(opts?.[name] ?? ''));
+    },
+  }),
+}));
+
 import { CodeOutput, outputsToMarkdown } from './CodeOutput';
 
 const PLOT = { type: 'plot' as const, content: 'iVBORw0KGgoAAAANS' };
@@ -138,6 +150,21 @@ describe('CodeOutput export', () => {
     render(<CodeOutput outputs={[PLOT]} />);
     expect(screen.queryByLabelText('Copy output text')).toBeNull();
     expect(screen.getByLabelText('Export output as Markdown')).toBeTruthy();
+  });
+});
+
+describe('CodeOutput copy feedback', () => {
+  it('ticks both copy buttons from one copy, as it always has', async () => {
+    Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
+    render(<CodeOutput outputs={[TEXT]} />);
+
+    // Header and overlay share one `copied` flag. Adopting the shared hook kept
+    // a single instance precisely so this stays true.
+    fireEvent.click(screen.getByLabelText('Copy output text'));
+    await screen.findByText('Copied');
+
+    openInspector();
+    expect(within(dialog()).getByText('Copied')).toBeTruthy();
   });
 });
 

@@ -19,7 +19,18 @@ export interface RowMenuItem {
  * coords relative to the trigger; closes on outside click, scroll, or
  * resize.
  */
-export const RowMenu = ({ items }: { items: RowMenuItem[] }) => {
+interface RowMenuProps {
+  items: RowMenuItem[];
+  /**
+   * Accessible name for the trigger. Without one a page full of these is a
+   * page full of buttons called "button" — and a notebook renders one per cell.
+   */
+  ariaLabel?: string;
+  /** Stacking context to sit in. Raise it above any drawer the menu overlaps. */
+  zIndex?: number;
+}
+
+export const RowMenu = ({ items, ariaLabel, zIndex = 50 }: RowMenuProps) => {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -66,6 +77,8 @@ export const RowMenu = ({ items }: { items: RowMenuItem[] }) => {
         onClick={() => setOpen(v => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={ariaLabel}
+        title={ariaLabel}
         className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
       >
         <MoreHorizontal className="w-4 h-4" />
@@ -79,7 +92,7 @@ export const RowMenu = ({ items }: { items: RowMenuItem[] }) => {
               position: 'fixed',
               top: coords.top,
               right: coords.right,
-              zIndex: 50,
+              zIndex,
             }}
             className="min-w-[10rem] py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg"
           >
