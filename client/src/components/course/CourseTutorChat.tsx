@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { courseTutorApi, MergedTutorConfig, Conversation, Message } from '../../api/courseTutor';
 import { useTheme } from '../../hooks/useTheme';
 import { Button } from '../common/Button';
+import { useAutoGrowTextarea } from '../../hooks/useAutoGrowTextarea';
 import { Loading } from '../common/Loading';
 import { activityLogger } from '../../services/activityLogger';
 
@@ -34,6 +35,8 @@ export const CourseTutorChat = ({
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Grow the composer with the message instead of scrolling inside one row.
+  useAutoGrowTextarea(inputRef, input);
 
   // Theme colors
   const colors = {
@@ -151,6 +154,10 @@ export const CourseTutorChat = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // An IME (Arabic, CJK) uses Enter to confirm a candidate. A native form
+    // submit is suppressed mid-composition; a JS keydown handler is not, so
+    // without this the half-composed text is sent as the message.
+    if (e.nativeEvent.isComposing) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -405,7 +412,7 @@ const MessageBubble = ({
           className="px-4 py-3 rounded-2xl rounded-br-md max-w-[80%] text-white"
           style={{ backgroundColor: colors.userBubble }}
         >
-          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+          <p dir="auto" className="text-sm whitespace-pre-wrap">{message.content}</p>
         </div>
       </div>
     );
@@ -430,7 +437,7 @@ const MessageBubble = ({
         className="px-4 py-3 rounded-2xl rounded-bl-md max-w-[80%]"
         style={{ backgroundColor: colors.messageBubble }}
       >
-        <p className="text-sm whitespace-pre-wrap" style={{ color: colors.textPrimary }}>
+        <p dir="auto" className="text-sm whitespace-pre-wrap" style={{ color: colors.textPrimary }}>
           {message.content}
         </p>
       </div>

@@ -59,10 +59,26 @@ const allowedExtensions: Record<string, string[]> = {
   '.zip': ['application/zip', 'application/x-zip-compressed'],
   '.rar': ['application/x-rar-compressed', 'application/vnd.rar'],
   '.7z': ['application/x-7z-compressed'],
+  // Course material — network analysis. A .gephi project is a zipped XML
+  // bundle with no registered MIME type, so browsers fall back to
+  // octet-stream, guess a zip type, or send nothing at all; all four are the
+  // same file. Listing the extension is what makes it uploadable — the MIME
+  // check below can only narrow an extension that is already allowed.
+  '.gephi': [
+    'application/octet-stream',
+    'application/zip',
+    'application/x-zip-compressed',
+    'application/gzip',
+    'application/xml',
+    'text/xml',
+    '',
+  ],
 };
 
-// File filter with extension and MIME type validation
-const fileFilter = (req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+// File filter with extension and MIME type validation.
+// Exported for tests — the allow-list decides what course material can be
+// uploaded at all, so it is worth pinning rather than exercising through multer.
+export const fileFilter = (req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const ext = path.extname(file.originalname).toLowerCase();
 
   // Block SVG files explicitly (XSS risk)
@@ -78,8 +94,11 @@ const fileFilter = (req: Express.Request, file: Express.Multer.File, cb: multer.
     return;
   }
 
-  // Validate that MIME type matches the extension
-  if (!allowedMimes.includes(file.mimetype)) {
+  // Validate that MIME type matches the extension. Normalised because a
+  // browser may omit the type entirely for an extension it does not recognise
+  // — an absent type is not a mismatch, so extensions that expect that list ''.
+  const mime = (file.mimetype || '').toLowerCase();
+  if (!allowedMimes.includes(mime)) {
     cb(new Error(`File type mismatch: ${ext} file with ${file.mimetype} MIME type is not allowed`));
     return;
   }

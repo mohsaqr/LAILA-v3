@@ -9,6 +9,7 @@ import { Card, CardBody } from '../common/Card';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import analytics from '../../services/analytics';
 import activityLogger from '../../services/activityLogger';
+import { useAutoGrowTextarea } from '../../hooks/useAutoGrowTextarea';
 
 interface ChatbotSectionStudentProps {
   section: LectureSection;
@@ -21,7 +22,9 @@ export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStude
   const [hasTrackedStart, setHasTrackedStart] = useState(false);
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Grow the composer with the message instead of scrolling inside one row.
+  useAutoGrowTextarea(inputRef, message);
   const queryClient = useQueryClient();
 
   // Helper to get chatbot params for logging
@@ -167,8 +170,9 @@ export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStude
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [history, sendMessageMutation.isPending]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  // Optional event: the form's onSubmit passes one, Enter-to-send does not.
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!message.trim() || sendMessageMutation.isPending) return;
     sendMessageMutation.mutate(message.trim());
   };
@@ -264,7 +268,7 @@ export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStude
                         : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm border border-gray-100 dark:border-gray-700 rounded-bl-md'
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+                    <p dir="auto" className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
                   </div>
                 </div>
               ))}
@@ -289,16 +293,33 @@ export const ChatbotSectionStudent = ({ section, courseId }: ChatbotSectionStude
 
         {/* Input */}
         <form onSubmit={handleSubmit} className="border-t border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-800">
-          <div className="flex items-center gap-3">
-            <input
+          {/* items-end, not items-center: once the box grows the send button
+              should sit beside the last line, not float at the middle. */}
+          <div className="flex items-end gap-3">
+            {/* A textarea, not an input — a single-line field scrolls a long
+                message inside one row so the student cannot read back what
+                they typed. Enter still sends; Shift+Enter starts a new line. */}
+            <textarea
               ref={inputRef}
-              type="text"
+              rows={1}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={(e) => {
+                // An IME (Arabic, CJK) uses Enter to confirm a candidate. The
+                // <input> this replaced submitted natively, which browsers
+                // suppress mid-composition; a JS handler is not suppressed, so
+                // without this the half-composed text is sent.
+                if (e.nativeEvent.isComposing) return;
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit();
+                }
+              }}
               placeholder={t('type_your_message')}
               aria-label={t('type_your_message')}
               disabled={sendMessageMutation.isPending}
-              className="flex-1 min-w-0 px-4 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+              dir="auto"
+              className="flex-1 min-w-0 resize-none px-4 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-3xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <button
               type="submit"
