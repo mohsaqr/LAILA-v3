@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { WebR } from 'webr';
 import { debug } from '../utils/debug';
+import { NETWORK_SHIM } from './webrNetworkShim';
 
 interface WebROutput {
   type: 'stdout' | 'stderr' | 'plot' | 'message';
@@ -548,6 +549,10 @@ export const useLabWebR = (
       // Install helper functions
       setLoadingStatus('Setting up environment...');
       await webR.evalRVoid(BASE_PLOT_HELPER);
+
+      // Makes `import("<url>")` and friends reach the network at all — see
+      // webrNetworkShim.ts for why they otherwise cannot.
+      await webR.evalRVoid(NETWORK_SHIM);
 
       // Add lab-type-specific helpers
       if (labType === 'tna') {

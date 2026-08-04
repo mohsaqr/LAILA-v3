@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { WebR } from 'webr';
 import { debug } from '../utils/debug';
+import { NETWORK_SHIM } from './webrNetworkShim';
 
 interface WebROutput {
   type: 'stdout' | 'stderr' | 'plot' | 'message';
@@ -333,6 +334,10 @@ export const useTNAWebR = (): UseTNAWebRReturn => {
         )
       `);
       debug.webr('[TNA WebR] Default options set');
+
+      // Makes `import("<url>")` and friends reach the network at all — see
+      // webrNetworkShim.ts for why they otherwise cannot.
+      await webR.evalRVoid(NETWORK_SHIM);
 
       webRRef.current = webR;
 
