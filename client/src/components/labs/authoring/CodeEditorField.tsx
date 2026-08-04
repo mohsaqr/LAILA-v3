@@ -1,11 +1,9 @@
 import { useRef } from 'react';
 import Editor, { BeforeMount, OnMount } from '@monaco-editor/react';
-import { useTheme } from '../../../hooks/useTheme';
 
 export type CodeLanguage = 'r' | 'python';
 
-const DARK_THEME = 'laila-dark';
-const LIGHT_THEME = 'laila-light';
+const LAB_THEME = 'laila-dark';
 
 /**
  * The editor surface, matching the black of markdown code fences
@@ -26,14 +24,6 @@ const EDITOR_BACKGROUND = '#030712'; // gray-950, as .prose pre
 const LINE_HIGHLIGHT = '#111827'; // gray-900 — a visible lift off the black
 
 /**
- * Light mode gets a light editor. The editor used to be dark in both themes,
- * which was survivable at vs-dark's #1e1e1e but reads as a hole punched in the
- * card once the dark theme goes to near-black. Follow the app instead.
- */
-const LIGHT_BACKGROUND = '#ffffff';
-const LIGHT_LINE_HIGHLIGHT = '#f3f4f6'; // gray-100
-
-/**
  * Monaco's standalone themes are global to the monaco instance, not per-editor,
  * so one definition covers every cell — and re-defining the *current* theme
  * forces a full re-apply, which we would otherwise pay once per mounted cell.
@@ -42,10 +32,10 @@ const LIGHT_LINE_HIGHLIGHT = '#f3f4f6'; // gray-100
  */
 let themeDefined = false;
 
-const defineLabThemes: BeforeMount = monaco => {
+const defineLabTheme: BeforeMount = monaco => {
   if (themeDefined) return;
   themeDefined = true;
-  monaco.editor.defineTheme(DARK_THEME, {
+  monaco.editor.defineTheme(LAB_THEME, {
     base: 'vs-dark',
     inherit: true,
     rules: [],
@@ -54,17 +44,6 @@ const defineLabThemes: BeforeMount = monaco => {
       'editorGutter.background': EDITOR_BACKGROUND,
       'editor.lineHighlightBackground': LINE_HIGHLIGHT,
       'editorLineNumber.foreground': '#6b7280',
-    },
-  });
-  monaco.editor.defineTheme(LIGHT_THEME, {
-    base: 'vs',
-    inherit: true,
-    rules: [],
-    colors: {
-      'editor.background': LIGHT_BACKGROUND,
-      'editorGutter.background': LIGHT_BACKGROUND,
-      'editor.lineHighlightBackground': LIGHT_LINE_HIGHLIGHT,
-      'editorLineNumber.foreground': '#9ca3af',
     },
   });
 };
@@ -99,7 +78,6 @@ export const CodeEditorField = ({
 }: CodeEditorFieldProps) => {
   // Blur/save fire from Monaco's own listeners, which close over the handlers
   // given at mount; refs keep them pointing at the current render's props.
-  const { isDark } = useTheme();
   const onBlurRef = useRef(onBlur);
   const onSaveRef = useRef(onSave);
   const onRunRef = useRef(onRun);
@@ -121,9 +99,9 @@ export const CodeEditorField = ({
         language={language}
         value={value}
         onChange={v => onChange(v ?? '')}
-        beforeMount={defineLabThemes}
+        beforeMount={defineLabTheme}
         onMount={handleMount}
-        theme={isDark ? DARK_THEME : LIGHT_THEME}
+        theme={LAB_THEME}
         // Monaco is fetched from a CDN at runtime, so there is a real gap before
         // it paints — once per cell. The library's default placeholder has no
         // background of its own, so the gap shows the cell card (gray-800) and
@@ -131,7 +109,7 @@ export const CodeEditorField = ({
         // own colour removes the jump.
         loading={
           <div
-            className="w-full h-full bg-white dark:bg-gray-950 flex items-center justify-center text-xs text-gray-500"
+            className="w-full h-full bg-gray-950 flex items-center justify-center text-xs text-gray-500"
             style={{ minHeight: typeof height === 'number' ? height : undefined }}
           >
             …
