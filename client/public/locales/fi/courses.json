@@ -1089,5 +1089,6 @@
   "lab_prompt": "Ohjeet",
   "lab_prompt_ph": "Mitä opiskelijoiden tulee palauttaa?",
   "lab_points": "Pisteet",
-  "lab_due_date": "Määräaika"
+  "lab_due_date": "Määräaika",
+  "choose_one": "Valitse yksi…"
 }

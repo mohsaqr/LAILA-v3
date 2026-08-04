@@ -1089,5 +1089,6 @@
   "lab_prompt": "Instrucciones",
   "lab_prompt_ph": "¿Qué deben entregar los estudiantes?",
   "lab_points": "Puntos",
-  "lab_due_date": "Fecha de entrega"
+  "lab_due_date": "Fecha de entrega",
+  "choose_one": "Elige uno…"
 }

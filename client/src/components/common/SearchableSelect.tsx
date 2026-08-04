@@ -7,9 +7,18 @@ interface SearchableSelectProps {
   onChange: (val: string) => void;
   options: { value: string; label: string }[];
   className?: string;
+  /**
+   * Shown, muted, while nothing is selected.
+   *
+   * Without it an unselected control renders an empty box — there is no
+   * `value` to fall back to and no native placeholder, so the trigger looks
+   * like a bug rather than a prompt. Every call site that can start empty
+   * should pass one.
+   */
+  placeholder?: string;
 }
 
-export const SearchableSelect = ({ label, value, onChange, options, className }: SearchableSelectProps) => {
+export const SearchableSelect = ({ label, value, onChange, options, className, placeholder }: SearchableSelectProps) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const ref = useRef<HTMLDivElement>(null);
@@ -37,7 +46,9 @@ export const SearchableSelect = ({ label, value, onChange, options, className }:
           onClick={() => { setOpen(!open); setSearch(''); }}
           className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 text-left flex items-center justify-between gap-2 focus:outline-none focus:ring-2 focus:ring-violet-500"
         >
-          <span className="truncate">{selectedLabel}</span>
+          <span className={`truncate ${selectedLabel ? '' : 'text-gray-400 dark:text-gray-500'}`}>
+            {selectedLabel || placeholder || ''}
+          </span>
           <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
         {open && (

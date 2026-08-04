@@ -876,6 +876,7 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
                 value={pickedSurveyId}
                 onChange={setPickedSurveyId}
                 options={options}
+                placeholder={t('choose_one', { defaultValue: 'Choose one…' })}
               />
             )}
           </PickerModal>
@@ -931,6 +932,7 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
                   value={pickedLabId}
                   onChange={setPickedLabId}
                   options={options}
+                  placeholder={t('choose_one', { defaultValue: 'Choose one…' })}
                 />
 
                 {/* Grading is optional: a lab is often just material to work

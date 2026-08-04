@@ -1092,5 +1092,6 @@
   "lab_prompt": "Instructions",
   "lab_prompt_ph": "What should students submit?",
   "lab_points": "Points",
-  "lab_due_date": "Due date"
+  "lab_due_date": "Due date",
+  "choose_one": "Choose one…"
 }
