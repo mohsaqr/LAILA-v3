@@ -1075,5 +1075,19 @@
   "by_author": "tekijä {{name}}",
   "course_labs_heading": "Kurssin labrat",
   "slides_open_pdf": "PDF linkkeineen",
-  "slides_open_pdf_hint": "Avaa esitys PDF-muodossa, jossa linkkejä voi napsauttaa"
+  "slides_open_pdf_hint": "Avaa esitys PDF-muodossa, jossa linkkejä voi napsauttaa",
+  "add_lab": "Laboratorio",
+  "desc_lab": "Liitä jokin laboratorioistasi",
+  "add_lab_title": "Lisää laboratorio",
+  "pick_existing_lab": "Valitse jokin laboratorioistasi liitettäväksi tähän osioon. Laboratorio pysyy uudelleenkäytettävänä eri kursseilla.",
+  "select_lab": "Valitse laboratorio",
+  "no_labs_create": "Sinulla ei ole laboratorioita lisättäväksi. Luo ensin uusi.",
+  "all_labs_assigned": "Kaikki laboratoriosi ovat jo tällä kurssilla.",
+  "go_to_labs": "Siirry laboratorioihin",
+  "lab_added": "Laboratorio lisätty",
+  "lab_as_assignment": "Kerää myös arvioitavana tehtävänä",
+  "lab_prompt": "Ohjeet",
+  "lab_prompt_ph": "Mitä opiskelijoiden tulee palauttaa?",
+  "lab_points": "Pisteet",
+  "lab_due_date": "Määräaika"
 }

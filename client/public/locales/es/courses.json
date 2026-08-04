@@ -1075,5 +1075,19 @@
   "by_author": "por {{name}}",
   "course_labs_heading": "Laboratorios del curso",
   "slides_open_pdf": "PDF con enlaces",
-  "slides_open_pdf_hint": "Abrir la presentación en PDF, donde se puede hacer clic en los enlaces"
+  "slides_open_pdf_hint": "Abrir la presentación en PDF, donde se puede hacer clic en los enlaces",
+  "add_lab": "Laboratorio",
+  "desc_lab": "Adjunta uno de tus laboratorios",
+  "add_lab_title": "Añadir un laboratorio",
+  "pick_existing_lab": "Elige uno de tus laboratorios para adjuntarlo a esta sección. El laboratorio sigue siendo reutilizable en otros cursos.",
+  "select_lab": "Selecciona un laboratorio",
+  "no_labs_create": "No tienes laboratorios que añadir. Crea uno primero.",
+  "all_labs_assigned": "Todos tus laboratorios ya están en este curso.",
+  "go_to_labs": "Ir a laboratorios",
+  "lab_added": "Laboratorio añadido",
+  "lab_as_assignment": "Recogerlo también como tarea calificada",
+  "lab_prompt": "Instrucciones",
+  "lab_prompt_ph": "¿Qué deben entregar los estudiantes?",
+  "lab_points": "Puntos",
+  "lab_due_date": "Fecha de entrega"
 }

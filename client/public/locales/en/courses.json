@@ -1078,5 +1078,19 @@
   "by_author": "by {{name}}",
   "course_labs_heading": "Course labs",
   "slides_open_pdf": "PDF with links",
-  "slides_open_pdf_hint": "Open the deck as a PDF, where links can be clicked"
+  "slides_open_pdf_hint": "Open the deck as a PDF, where links can be clicked",
+  "add_lab": "Lab",
+  "desc_lab": "Attach one of your labs",
+  "add_lab_title": "Add a lab",
+  "pick_existing_lab": "Pick one of your labs to attach to this section. The lab itself stays reusable across courses.",
+  "select_lab": "Select a lab",
+  "no_labs_create": "You have no labs to add. Create one first.",
+  "all_labs_assigned": "Every one of your labs is already in this course.",
+  "go_to_labs": "Go to labs",
+  "lab_added": "Lab added",
+  "lab_as_assignment": "Also collect it as a graded assignment",
+  "lab_prompt": "Instructions",
+  "lab_prompt_ph": "What should students submit?",
+  "lab_points": "Points",
+  "lab_due_date": "Due date"
 }

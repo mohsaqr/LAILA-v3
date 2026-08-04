@@ -42,7 +42,7 @@ type ItemType = 'lecture' | 'codelab' | 'assignment' | 'quiz' | 'forum' | 'surve
 type PaletteKind =
   | 'lecture' | 'page' | 'file' | 'folder' | 'video' | 'url' | 'image' | 'embed'
   | 'assignment' | 'quiz' | 'forum' | 'survey' | 'poll' | 'codelab'
-  | 'agent';
+  | 'lab' | 'agent';
 
 /** Item types that participate in the unified cross-type reorder (everything
  *  except the pinned reference items: assigned labs / interactive labs). */
@@ -202,6 +202,54 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
       refresh();
       toast.success(t('survey_added', { defaultValue: 'Survey added' }));
       closeSurveyPicker();
+    },
+    onError,
+  });
+
+  // ─── Lab picker popup — attach one of the instructor's reusable labs ──────
+  // A CustomLab is not owned by a course: LabAssignment links it to a course
+  // and module, so the same lab can serve several courses. The editor could
+  // already show and detach assigned labs but offered no way to attach one,
+  // which left reusable labs reachable only from the retired curriculum page.
+  const [labPickerModule, setLabPickerModule] = useState<number | null>(null);
+  const [pickedLabId, setPickedLabId] = useState('');
+  // Graded-assignment options, carried over from the old curriculum editor —
+  // dropping them would trade one missing feature for another.
+  const [labGraded, setLabGraded] = useState(false);
+  const [labPrompt, setLabPrompt] = useState('');
+  const [labPoints, setLabPoints] = useState('100');
+  const [labDueDate, setLabDueDate] = useState('');
+  const closeLabPicker = () => {
+    setLabPickerModule(null);
+    setPickedLabId('');
+    setLabGraded(false);
+    setLabPrompt('');
+    setLabPoints('100');
+    setLabDueDate('');
+  };
+
+  const { data: myLabs } = useQuery({
+    queryKey: ['customLabs', 'mine'],
+    queryFn: () => customLabsApi.getMyLabs(),
+    enabled: labPickerModule != null,
+  });
+
+  const labAdd = useMutation({
+    mutationFn: ({ moduleId, labId }: { moduleId: number; labId: number }) =>
+      customLabsApi.assignToCourse(labId, {
+        courseId,
+        moduleId,
+        enableAssignment: labGraded,
+        // Only sent when graded, so an ungraded attach does not create an
+        // assignment row with empty settings.
+        prompt: labGraded ? labPrompt || undefined : undefined,
+        points: labGraded ? Number(labPoints) || 0 : undefined,
+        dueDate: labGraded && labDueDate ? `${labDueDate}:00.000Z` : undefined,
+      }),
+    onSuccess: () => {
+      refresh();
+      toast.success(t('lab_added', { defaultValue: 'Lab added' }));
+      closeLabPicker();
     },
     onError,
   });
@@ -635,6 +683,9 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
       // Surveys can't be created blank here — pick one the instructor already
       // made and attach it to the module via a popup.
       case 'survey': setSurveyPickerModule(moduleId); break;
+      // Same for labs: a CustomLab exists independently of any course, so this
+      // attaches an existing one rather than creating a blank.
+      case 'lab': setLabPickerModule(moduleId); break;
     }
   };
 
@@ -649,6 +700,7 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
       case 'forum':
         addItem(moduleId, kind); break;
       case 'survey': setSurveyPickerModule(moduleId); break;
+      case 'lab': setLabPickerModule(moduleId); break;
       case 'agent': setAgentPickerModule(moduleId); break;
       // Image is a file restricted to image types (it previews inline).
       case 'image': openAdd(moduleId, 'file', true); break;
@@ -825,6 +877,100 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
                 onChange={setPickedSurveyId}
                 options={options}
               />
+            )}
+          </PickerModal>
+        );
+      })()}
+
+      {/* Lab picker — attach one of the instructor's reusable labs to a topic */}
+      {labPickerModule != null && (() => {
+        // A lab may only be assigned to a course once (LabAssignment is unique
+        // on labId+courseId), so anything already attached anywhere in this
+        // course is filtered out rather than offered and then rejected.
+        const assignedLabIds = new Set<number>(
+          ((details as { labs?: { labId?: number; lab?: { id?: number } }[] } | undefined)?.labs ?? [])
+            .map(la => la.labId ?? la.lab?.id)
+            .filter((x): x is number => typeof x === 'number'),
+        );
+        const options = (myLabs ?? [])
+          .filter(l => !assignedLabIds.has(l.id))
+          .map(l => ({ value: String(l.id), label: l.name }));
+        const empty = options.length === 0;
+        return (
+          <PickerModal
+            isOpen
+            onClose={closeLabPicker}
+            title={t('add_lab_title', { defaultValue: 'Add a lab' })}
+            subtitle={t('pick_existing_lab', { defaultValue: 'Pick one of your labs to attach to this section. The lab itself stays reusable across courses.' })}
+            footer={!empty && (
+              <Button
+                disabled={!pickedLabId}
+                loading={labAdd.isPending}
+                onClick={() => labPickerModule != null && pickedLabId &&
+                  labAdd.mutate({ moduleId: labPickerModule, labId: Number(pickedLabId) })}
+              >
+                {t('common:add', { defaultValue: 'Add' })}
+              </Button>
+            )}
+          >
+            {empty ? (
+              <div className="text-center py-6 space-y-3">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {(myLabs ?? []).length === 0
+                    ? t('no_labs_create', { defaultValue: 'You have no labs to add. Create one first.' })
+                    : t('all_labs_assigned', { defaultValue: 'Every one of your labs is already in this course.' })}
+                </p>
+                <Button variant="secondary" onClick={() => { closeLabPicker(); navigate('/labs'); }}>
+                  {t('go_to_labs', { defaultValue: 'Go to labs' })}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <SearchableSelect
+                  label={t('select_lab', { defaultValue: 'Select a lab' })}
+                  value={pickedLabId}
+                  onChange={setPickedLabId}
+                  options={options}
+                />
+
+                {/* Grading is optional: a lab is often just material to work
+                    through. Ticking this creates the assignment alongside it. */}
+                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                  <input
+                    type="checkbox"
+                    checked={labGraded}
+                    onChange={e => setLabGraded(e.target.checked)}
+                    className="rounded border-gray-300 dark:border-gray-600"
+                  />
+                  {t('lab_as_assignment', { defaultValue: 'Also collect it as a graded assignment' })}
+                </label>
+
+                {labGraded && (
+                  <div className="space-y-3 pl-6">
+                    <Input
+                      label={t('lab_prompt', { defaultValue: 'Instructions' })}
+                      value={labPrompt}
+                      onChange={e => setLabPrompt(e.target.value)}
+                      placeholder={t('lab_prompt_ph', { defaultValue: 'What should students submit?' })}
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input
+                        type="number"
+                        min="0"
+                        label={t('lab_points', { defaultValue: 'Points' })}
+                        value={labPoints}
+                        onChange={e => setLabPoints(e.target.value)}
+                      />
+                      <Input
+                        type="datetime-local"
+                        label={t('lab_due_date', { defaultValue: 'Due date' })}
+                        value={labDueDate}
+                        onChange={e => setLabDueDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </PickerModal>
         );
@@ -1252,6 +1398,9 @@ const PALETTE_GROUPS: { headingKey: string; headingFallback: string; tiles: Pale
   {
     headingKey: 'group_ai_labs', headingFallback: 'AI & Labs',
     tiles: [
+      // "Attach", not "create": a lab lives independently of any course and is
+      // linked in, so the same one can be reused across courses.
+      { kind: 'lab', Icon: Beaker, color: '#059669', colorDark: '#34d399', labelKey: 'add_lab', labelFallback: 'Lab', descKey: 'desc_lab', descFallback: 'Attach one of your labs' },
       { kind: 'agent', Icon: Bot, color: '#7c3aed', colorDark: '#a78bfa', labelKey: 'add_ai_agent', labelFallback: 'AI Agent', descKey: 'desc_ai_agent', descFallback: 'Attach a tutor / chatbot' },
     ],
   },
