@@ -126,3 +126,86 @@ describe('isHtmlContent', () => {
     expect(isHtmlContent('<em>emphasis</em>')).toBe(false);
   });
 });
+
+// `style` used to be stripped wholesale, which silently discarded the text
+// alignment the toolbar had been offering all along, and blocked text colour
+// and image sizing. It is now allowed but filtered to a property allow-list.
+describe('sanitizeHtml - inline styles', () => {
+  describe('keeps what the editor produces', () => {
+    it('keeps text alignment', () => {
+      expect(sanitizeHtml('<p style="text-align: center">hi</p>')).toContain('text-align: center');
+    });
+
+    it('keeps text colour', () => {
+      expect(sanitizeHtml('<span style="color: #ff0000">red</span>')).toContain('color: #ff0000');
+    });
+
+    it('keeps colour in the rgb() form Tiptap actually emits', () => {
+      // Tiptap normalises #dc2626 to rgb(220, 38, 38) before saving, so the hex
+      // case alone does not prove the editor's output survives. rgb()/hsl() also
+      // check that the url()/expression() guard is not over-broad about parens.
+      expect(sanitizeHtml('<span style="color: rgb(220, 38, 38)">x</span>')).toContain('rgb(220, 38, 38)');
+      expect(sanitizeHtml('<span style="color: hsl(0, 72%, 51%)">x</span>')).toContain('hsl(0, 72%, 51%)');
+    });
+
+    it('keeps image sizing and float', () => {
+      const out = sanitizeHtml('<img src="/a.png" style="width: 50%; float: left">');
+      expect(out).toContain('width: 50%');
+      expect(out).toContain('float: left');
+    });
+
+    it('keeps table structure attributes', () => {
+      const out = sanitizeHtml('<table><tbody><tr><td colspan="2" rowspan="3">x</td></tr></tbody></table>');
+      expect(out).toContain('colspan="2"');
+      expect(out).toContain('rowspan="3"');
+    });
+
+    it('keeps allowed properties while dropping disallowed ones in the same attribute', () => {
+      const out = sanitizeHtml('<p style="color: red; position: fixed">x</p>');
+      expect(out).toContain('color: red');
+      expect(out).not.toContain('position');
+    });
+  });
+
+  describe('drops what it must', () => {
+    it('drops positioning — an overlay over unrelated UI is clickjacking', () => {
+      const out = sanitizeHtml('<div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999">x</div>');
+      expect(out).not.toContain('position');
+      expect(out).not.toContain('z-index');
+    });
+
+    it('drops any value containing url()', () => {
+      const out = sanitizeHtml('<p style="background-color: url(https://evil.test/track.png)">x</p>');
+      expect(out).not.toContain('url(');
+      expect(out).not.toContain('evil.test');
+    });
+
+    it('drops javascript: in a style value', () => {
+      const out = sanitizeHtml('<p style="background-color: javascript:alert(1)">x</p>');
+      expect(out).not.toContain('javascript:');
+    });
+
+    it('drops expression()', () => {
+      const out = sanitizeHtml('<p style="width: expression(alert(1))">x</p>');
+      expect(out).not.toContain('expression');
+    });
+
+    it('drops @import', () => {
+      expect(sanitizeHtml('<p style="color: red; @import url(x)">x</p>')).not.toContain('@import');
+    });
+
+    it('removes the attribute entirely when nothing survives', () => {
+      expect(sanitizeHtml('<p style="position: fixed">x</p>')).toBe('<p>x</p>');
+    });
+
+    it('still strips <style> elements', () => {
+      expect(sanitizeHtml('<style>body{display:none}</style><p>x</p>')).not.toContain('display');
+    });
+
+    it('still strips event handlers alongside a valid style', () => {
+      const out = sanitizeHtml('<p style="color: red" onclick="alert(1)">x</p>');
+      expect(out).toContain('color: red');
+      expect(out).not.toContain('onclick');
+    });
+  });
+});

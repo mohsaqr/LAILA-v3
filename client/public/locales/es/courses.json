@@ -1073,5 +1073,7 @@
   "edit_lab_hint": "Abre el laboratorio para editar sus celdas y configuración",
   "n_cells": "{{count}} celdas",
   "by_author": "por {{name}}",
-  "course_labs_heading": "Laboratorios del curso"
+  "course_labs_heading": "Laboratorios del curso",
+  "slides_open_pdf": "PDF con enlaces",
+  "slides_open_pdf_hint": "Abrir la presentación en PDF, donde se puede hacer clic en los enlaces"
 }

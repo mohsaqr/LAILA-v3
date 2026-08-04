@@ -1076,5 +1076,7 @@
   "edit_lab_hint": "Open the lab to edit its cells and settings",
   "n_cells": "{{count}} cells",
   "by_author": "by {{name}}",
-  "course_labs_heading": "Course labs"
+  "course_labs_heading": "Course labs",
+  "slides_open_pdf": "PDF with links",
+  "slides_open_pdf_hint": "Open the deck as a PDF, where links can be clicked"
 }

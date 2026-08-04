@@ -1073,5 +1073,7 @@
   "edit_lab_hint": "افتح المختبر لتحرير خلاياه وإعداداته",
   "n_cells": "{{count}} خلايا",
   "by_author": "بواسطة {{name}}",
-  "course_labs_heading": "مختبرات المقرر"
+  "course_labs_heading": "مختبرات المقرر",
+  "slides_open_pdf": "PDF مع الروابط",
+  "slides_open_pdf_hint": "افتح العرض التقديمي بصيغة PDF حيث يمكن النقر على الروابط"
 }

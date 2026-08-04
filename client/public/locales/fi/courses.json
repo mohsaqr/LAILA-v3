@@ -1073,5 +1073,7 @@
   "edit_lab_hint": "Avaa labra muokataksesi sen soluja ja asetuksia",
   "n_cells": "{{count}} solua",
   "by_author": "tekijä {{name}}",
-  "course_labs_heading": "Kurssin labrat"
+  "course_labs_heading": "Kurssin labrat",
+  "slides_open_pdf": "PDF linkkeineen",
+  "slides_open_pdf_hint": "Avaa esitys PDF-muodossa, jossa linkkejä voi napsauttaa"
 }

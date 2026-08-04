@@ -305,7 +305,7 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
   // (the same fields as when adding, but saving updates in place).
   const openEdit = async (item: EditorItem) => {
     const kind = item.subKind;
-    if (kind !== 'url' && kind !== 'embed') return;
+    if (kind !== 'url' && kind !== 'embed' && kind !== 'folder') return;
     try {
       const lec = await coursesApi.getLectureById(item.id) as any;
       const section = (lec.sections ?? [])[0];
@@ -320,7 +320,31 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
         availableFrom: lec.availableFrom ? isoToLocalInput(lec.availableFrom) : '',
         availableUntil: lec.availableUntil ? isoToLocalInput(lec.availableUntil) : '',
       });
-      if (kind === 'url') {
+      if (kind === 'folder') {
+        // Re-stage the files already in the folder so the modal opens showing
+        // its current contents — the instructor can then remove any of them or
+        // add more, which is the whole point of editing a folder. They are
+        // marked 'done' because they are already uploaded; nothing re-uploads.
+        const a = parseMarker(section.content ?? '', 'lecture-folder');
+        let existing: Array<{ fileName: string; fileUrl: string; fileType?: string; fileSize?: number }> = [];
+        try {
+          const parsed = JSON.parse(a['data-files'] ?? '[]');
+          if (Array.isArray(parsed)) existing = parsed;
+        } catch {
+          // A malformed marker must not open an empty modal that then SAVES
+          // over the real contents — bail and leave the item untouched.
+          onError();
+          return;
+        }
+        setFolderBatch(existing.map(f => ({
+          name: f.fileName,
+          status: 'done' as const,
+          fileUrl: f.fileUrl,
+          fileType: f.fileType ?? '',
+          fileSize: f.fileSize ?? 0,
+        })));
+        setUrlValue(''); setUrlNewTab(true); setEmbedUrl(''); setEmbedHeight(480);
+      } else if (kind === 'url') {
         const a = parseMarker(section.content ?? '', 'lecture-url');
         setUrlValue(a['data-url'] ?? '');
         setUrlNewTab((a['data-newtab'] ?? 'true') !== 'false');
@@ -470,6 +494,13 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
           if (ready.length === 0) { setBusy(false); return; }
           const folderFiles = ready.map(f => ({ fileName: f.name, fileUrl: f.fileUrl!, fileType: f.fileType ?? '', fileSize: f.fileSize ?? 0 }));
           const content = `<lecture-folder data-label="${escapeAttr(p.title)}" data-files="${escapeAttr(JSON.stringify(folderFiles))}"></lecture-folder>`;
+          // Editing rewrites the same section. Without this branch the modal
+          // would create a second folder every time one was edited.
+          if (addModal.editing) {
+            await coursesApi.updateLecture(addModal.editing.lectureId, { title: p.title, ...lectureMeta } as never);
+            await coursesApi.updateSection(addModal.editing.sectionId, { content });
+            refresh(); toast.success(t('common:saved', { defaultValue: 'Saved' })); setBusy(false); setAddModal(null); return;
+          }
           await createMediaLecture(moduleId, p.title, { type: 'text', content }, lectureMeta);
           refresh(); toast.success(t('folder_added', { defaultValue: 'Folder added' })); setBusy(false); setAddModal(null); return;
         }
@@ -574,10 +605,14 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
   const editItem = (item: EditorItem) => {
     switch (item.type) {
       case 'lecture':
-        // URL / embed resources edit in place via the same modal used to add
-        // them (they carry no editable prose, so the section page would be a
-        // dead end). Every other lecture opens the full section editor.
-        if (item.subKind === 'url' || item.subKind === 'embed') { void openEdit(item); break; }
+        // URL / embed / folder resources edit in place via the same modal used
+        // to add them (they carry no editable prose, so the section page would
+        // be a dead end — a folder opened the rich text editor and offered no
+        // way to add or remove its files). Every other lecture opens the full
+        // section editor.
+        if (item.subKind === 'url' || item.subKind === 'embed' || item.subKind === 'folder') {
+          void openEdit(item); break;
+        }
         navigate(`/teach/courses/${courseId}/lectures/${item.id}`); break;
       case 'codelab': navigate(`/teach/courses/${courseId}/code-labs/${item.id}`); break;
       case 'quiz': navigate(`/teach/courses/${courseId}/quizzes/${item.id}`); break;

@@ -76,6 +76,18 @@ export interface SlideManifest {
   /** Pixel dimensions of the rendered slides (for the client aspect box). */
   width?: number;
   height?: number;
+  /**
+   * The deck as a PDF, when it could be kept.
+   *
+   * The slide images are pixels, so hyperlinks in the deck cannot be clicked.
+   * This is the same deck with its links intact, offered as a companion to the
+   * image viewer rather than a replacement — the images stay because they are
+   * what per-slide progress tracking is built on.
+   *
+   * Absent for decks converted before this was retained, so the client must
+   * treat it as optional rather than assume every ready manifest has one.
+   */
+  pdfUrl?: string;
   /** Machine-readable failure reason. */
   error?: SlideErrorCode | string;
   /** Human-readable, actionable description of the failure. */
@@ -477,12 +489,32 @@ export class PresentationService {
       }
       const { width, height } = await readPngSize(path.join(cacheDir, images[0]));
 
+      // 4) Keep the intermediate PDF next to the images.
+      //
+      // The PNGs are pixels, so every hyperlink in the deck is dead and any
+      // embedded media is a still frame — the reported complaint. LibreOffice's
+      // PDF preserves hyperlinks, and it has already been produced and paid for
+      // by step 1; deleting it was throwing away the only link-bearing artefact
+      // in the pipeline. Best-effort: a deck whose PDF cannot be kept still
+      // renders its slides, it just offers no link-clickable view.
+      let pdfName: string | undefined;
+      try {
+        await fs.rename(pdfPath, path.join(cacheDir, 'deck.pdf'));
+        pdfName = 'deck.pdf';
+      } catch (pdfErr) {
+        console.warn(
+          `[presentation] Could not keep the PDF for ${base}; links will not be clickable: ` +
+            `${pdfErr instanceof Error ? pdfErr.message : String(pdfErr)}`,
+        );
+      }
+
       const manifest: SlideManifest = {
         status: 'ready',
         slideCount: images.length,
         images: images.map((name) => `/uploads/slides/${base}/${name}`),
         width,
         height,
+        ...(pdfName ? { pdfUrl: `/uploads/slides/${base}/${pdfName}` } : {}),
       };
       await fs.rm(tmpDir, { recursive: true, force: true });
       await fs.writeFile(manifestPath, JSON.stringify(manifest));
