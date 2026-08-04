@@ -1132,5 +1132,8 @@
   "run_failed": "Suoritus epäonnistui",
   "run_succeeded": "Suoritus onnistui",
   "download_rmd": "Lataa .Rmd",
-  "download_rmd_desc": "Lataa tämä muistikirja .Rmd-tiedostona, jonka voit avata RStudiossa"
+  "download_rmd_desc": "Lataa tämä muistikirja .Rmd-tiedostona, jonka voit avata RStudiossa",
+  "editor_theme": "Editorin teema",
+  "editor_theme_light": "Vaalea",
+  "editor_theme_dark": "Tumma"
 }

@@ -4,6 +4,7 @@ import { Plus, Type, PlayCircle, RotateCcw, Loader2, CircleDot, Upload, FileDown
 import { NotebookCell, CellRunState } from './NotebookCell';
 import { ConfirmDialog } from '../../common/ConfirmDialog';
 import { CodeLanguage } from '../authoring/CodeEditorField';
+import { EditorThemePicker } from './EditorThemePicker';
 import { LabCell, LabCellPatch } from '../authoring/cell';
 import type { OutputItem } from '../LabOutput';
 import type { AIIntent } from './LabAIPanel';
@@ -390,6 +391,7 @@ export const LabNotebook = ({
               </button>
             </>
           )}
+          <EditorThemePicker />
           {/* Everyone, not just authors: for a student this is the only way to
               keep their work, since their edits live only in this session. */}
           {sorted.length > 0 && (

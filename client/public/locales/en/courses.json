@@ -1135,5 +1135,8 @@
   "run_failed": "Run failed",
   "run_succeeded": "Run succeeded",
   "download_rmd": "Download .Rmd",
-  "download_rmd_desc": "Download this notebook as an .Rmd file you can open in RStudio"
+  "download_rmd_desc": "Download this notebook as an .Rmd file you can open in RStudio",
+  "editor_theme": "Editor theme",
+  "editor_theme_light": "Light",
+  "editor_theme_dark": "Dark"
 }
