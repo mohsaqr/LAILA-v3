@@ -1,6 +1,6 @@
 {
   "name": "laila-lms",
-  "version": "3.11.5",
+  "version": "3.12.0",
   "description": "LAILA - AI-powered Learning Management System",
   "private": true,
   "scripts": {
