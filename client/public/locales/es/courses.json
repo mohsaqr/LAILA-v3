@@ -1090,5 +1090,16 @@
   "lab_prompt_ph": "¿Qué deben entregar los estudiantes?",
   "lab_points": "Puntos",
   "lab_due_date": "Fecha de entrega",
-  "choose_one": "Elige uno…"
+  "choose_one": "Elige uno…",
+  "ai_explain": "Explicar",
+  "ai_interpret": "Interpretar",
+  "ai_debug": "Depurar",
+  "ai_ask": "Preguntar",
+  "ai_explain_hint": "Explica qué hace este código",
+  "ai_interpret_hint": "Interpreta el resultado — ejecuta la celda primero",
+  "ai_debug_hint": "Encuentra y explica el problema — ejecuta la celda primero",
+  "ai_ask_hint": "Haz tu propia pregunta sobre esta celda",
+  "ai_preset_explain": "Explica paso a paso, en lenguaje sencillo, qué hace este código.",
+  "ai_preset_interpret": "Interpreta la salida de esta celda. ¿Qué significan estos resultados y qué debería concluir?",
+  "ai_preset_debug": "Esta celda no hace lo que espero. Ayúdame a encontrar el problema y explica cómo solucionarlo."
 }

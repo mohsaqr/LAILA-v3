@@ -20,6 +20,7 @@ import { renderMarkdown } from '../../../utils/renderMarkdown';
 import { sanitizeHtml } from '../../../utils/sanitize';
 import { LabCell, LabCellPatch } from '../authoring/cell';
 import type { OutputItem } from '../LabOutput';
+import type { AIIntent } from './LabAIPanel';
 
 export interface CellRunState {
   outputs: OutputItem[];
@@ -27,6 +28,35 @@ export interface CellRunState {
   running: boolean;
   execCount: number | null;
 }
+
+/**
+ * The AI actions offered per cell. Explain reads the code, Interpret reads the
+ * result, Debug reads the failure; Ask leaves the question to the student.
+ */
+const AI_ACTIONS: {
+  intent: AIIntent;
+  labelKey: string;
+  fallback: string;
+  hintKey: string;
+  hintFallback: string;
+}[] = [
+  {
+    intent: 'explain', labelKey: 'courses:ai_explain', fallback: 'Explain',
+    hintKey: 'courses:ai_explain_hint', hintFallback: 'Explain what this code does',
+  },
+  {
+    intent: 'interpret', labelKey: 'courses:ai_interpret', fallback: 'Interpret',
+    hintKey: 'courses:ai_interpret_hint', hintFallback: 'Interpret the result — run the cell first',
+  },
+  {
+    intent: 'debug', labelKey: 'courses:ai_debug', fallback: 'Debug',
+    hintKey: 'courses:ai_debug_hint', hintFallback: 'Find and explain the problem — run the cell first',
+  },
+  {
+    intent: 'ask', labelKey: 'courses:ai_ask', fallback: 'Ask',
+    hintKey: 'courses:ai_ask_hint', hintFallback: 'Ask your own question about this cell',
+  },
+];
 
 interface NotebookCellProps {
   cell: LabCell;
@@ -46,7 +76,7 @@ interface NotebookCellProps {
   onSave?: (cellId: number, patch: LabCellPatch) => void;
   onDuplicate?: (cell: LabCell) => void;
   onDelete?: (cell: LabCell) => void;
-  onAskAI?: (cell: LabCell, code: string, error: string | null) => void;
+  onAskAI?: (cell: LabCell, code: string, error: string | null, intent: AIIntent) => void;
   /** Disables structural actions while another add/duplicate/reorder is in flight. */
   isMutating?: boolean;
   /** Native HTML5 drag wiring, provided by the notebook (authors only). */
@@ -326,13 +356,22 @@ const NotebookCellInner = ({
           )}
           <span className="flex-1" />
           {onAskAI && (
-            <button
-              onClick={() => onAskAI(cell, code, run?.error ?? null)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-violet-200 dark:border-violet-800 text-violet-600 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-900/30 text-sm font-medium transition-colors"
-            >
-              <Sparkles className="w-4 h-4" />
-              {t('courses:ask_ai', { defaultValue: 'Ask AI' })}
-            </button>
+            <div className="flex items-center gap-1 rounded-lg border border-violet-200 dark:border-violet-800 p-0.5">
+              <Sparkles className="w-4 h-4 ml-1.5 mr-0.5 text-violet-500 dark:text-violet-300 shrink-0" />
+              {AI_ACTIONS.map(({ intent, labelKey, fallback, hintKey, hintFallback }) => (
+                <button
+                  key={intent}
+                  onClick={() => onAskAI(cell, code, run?.error ?? null, intent)}
+                  // Interpret and Debug need something to look at; offering them
+                  // before a run would send the AI an empty output block.
+                  disabled={intent !== 'explain' && intent !== 'ask' && !run}
+                  title={t(hintKey, { defaultValue: hintFallback })}
+                  className="px-2.5 py-1 rounded-md text-violet-600 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-900/30 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition-colors"
+                >
+                  {t(labelKey, { defaultValue: fallback })}
+                </button>
+              ))}
+            </div>
           )}
           {run && !running && (
             <button

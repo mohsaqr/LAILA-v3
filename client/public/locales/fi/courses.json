@@ -1090,5 +1090,16 @@
   "lab_prompt_ph": "Mitä opiskelijoiden tulee palauttaa?",
   "lab_points": "Pisteet",
   "lab_due_date": "Määräaika",
-  "choose_one": "Valitse yksi…"
+  "choose_one": "Valitse yksi…",
+  "ai_explain": "Selitä",
+  "ai_interpret": "Tulkitse",
+  "ai_debug": "Korjaa",
+  "ai_ask": "Kysy",
+  "ai_explain_hint": "Selitä, mitä tämä koodi tekee",
+  "ai_interpret_hint": "Tulkitse tulos — aja solu ensin",
+  "ai_debug_hint": "Etsi ja selitä ongelma — aja solu ensin",
+  "ai_ask_hint": "Kysy oma kysymyksesi tästä solusta",
+  "ai_preset_explain": "Selitä selkeästi vaihe vaiheelta, mitä tämä koodi tekee.",
+  "ai_preset_interpret": "Tulkitse tämän solun tuloste. Mitä nämä tulokset tarkoittavat ja mitä niistä pitäisi päätellä?",
+  "ai_preset_debug": "Tämä solu ei toimi odotetusti. Auta minua löytämään ongelma ja selitä, miten sen korjaa."
 }

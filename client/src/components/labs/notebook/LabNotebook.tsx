@@ -6,6 +6,7 @@ import { ConfirmDialog } from '../../common/ConfirmDialog';
 import { CodeLanguage } from '../authoring/CodeEditorField';
 import { LabCell, LabCellPatch } from '../authoring/cell';
 import type { OutputItem } from '../LabOutput';
+import type { AIIntent } from './LabAIPanel';
 
 export interface NotebookRuntime {
   isReady: boolean;
@@ -35,7 +36,7 @@ export interface LabNotebookProps {
     code: string,
     result: { success: boolean; outputs: OutputItem[] }
   ) => void;
-  onAskAI?: (cell: LabCell, code: string, error: string | null, output?: string) => void;
+  onAskAI?: (cell: LabCell, code: string, error: string | null, intent: AIIntent, output?: string) => void;
   /** True while an add/duplicate/delete/reorder is in flight — disables structural actions. */
   isMutating?: boolean;
   /** Import an .Rmd/.qmd file's cells into this lab. Receives the file text. */
@@ -360,13 +361,13 @@ export const LabNotebook = ({
                 onDelete={canEdit && onDeleteCell ? c => setDeleteCell(c) : undefined}
                 onAskAI={
                   onAskAI
-                    ? (cell, code, error) => {
+                    ? (cell, code, error, intent) => {
                         const out = runs[cell.id]?.outputs
                           ?.filter(o => o.type !== 'plot')
                           .map(o => o.content)
                           .join('\n')
                           .slice(0, 2000);
-                        onAskAI(cell, code, error, out || undefined);
+                        onAskAI(cell, code, error, intent, out || undefined);
                       }
                     : undefined
                 }

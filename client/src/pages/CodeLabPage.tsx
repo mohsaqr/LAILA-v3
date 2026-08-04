@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
@@ -8,7 +8,7 @@ import { useWebR } from '../hooks/useWebR';
 import { Button } from '../components/common/Button';
 import { Loading } from '../components/common/Loading';
 import { LabNotebook } from '../components/labs/notebook/LabNotebook';
-import { LabAIPanel, AICellContext } from '../components/labs/notebook/LabAIPanel';
+import { LabAIPanel, AICellContext, AIIntent } from '../components/labs/notebook/LabAIPanel';
 import { blockToCell, LabCell } from '../components/labs/authoring/cell';
 import { detectRPackages } from '../utils/detectRPackages';
 import activityLogger from '../services/activityLogger';
@@ -21,6 +21,7 @@ export const CodeLabPage = () => {
 
   const [aiOpen, setAiOpen] = useState(false);
   const [aiContext, setAiContext] = useState<AICellContext | null>(null);
+  const aiRequestRef = useRef(0);
 
   const { data: codeLab, isLoading, error } = useQuery({
     queryKey: ['codeLab', labId],
@@ -54,8 +55,8 @@ export const CodeLabPage = () => {
   }, [labId, codeLab?.title, parsedCourseId]);
 
   const handleAskAI = useCallback(
-    (cell: LabCell, code: string, err: string | null, output?: string) => {
-      setAiContext({ cell, code, error: err, output });
+    (cell: LabCell, code: string, err: string | null, intent: AIIntent, output?: string) => {
+      setAiContext({ cell, code, error: err, output, intent, requestId: ++aiRequestRef.current });
       setAiOpen(true);
     },
     []

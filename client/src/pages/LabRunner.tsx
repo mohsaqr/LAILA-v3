@@ -28,7 +28,7 @@ import { isPythonLab } from '../utils/labType';
 import { useAuthStore } from '../store/authStore';
 import { LabNotebook } from '../components/labs/notebook/LabNotebook';
 import { LabSettingsHeader } from '../components/labs/notebook/LabSettingsHeader';
-import { LabAIPanel, AICellContext } from '../components/labs/notebook/LabAIPanel';
+import { LabAIPanel, AICellContext, AIIntent } from '../components/labs/notebook/LabAIPanel';
 import { templateToCell, cellPatchToTemplate, LabCellPatch, LabCell } from '../components/labs/authoring/cell';
 import { detectRPackages } from '../utils/detectRPackages';
 import type { OutputItem as NotebookOutputItem } from '../components/labs/LabOutput';
@@ -119,6 +119,7 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
   // AI assistant (attached per lab by the instructor)
   const [aiOpen, setAiOpen] = useState(false);
   const [aiContext, setAiContext] = useState<AICellContext | null>(null);
+  const aiRequestRef = useRef(0);
 
   // The lab query is keyed by the raw string route param (['lab', '20']), so a
   // number key here would never match and the list would silently not refresh.
@@ -272,8 +273,10 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
   );
 
   const handleAskAI = useCallback(
-    (cell: LabCell, cellCode: string, error: string | null, output?: string) => {
-      setAiContext({ cell, code: cellCode, error, output });
+    (cell: LabCell, cellCode: string, error: string | null, intent: AIIntent, output?: string) => {
+      // requestId distinguishes repeat clicks of the same button on the same
+      // cell, which would otherwise build an identical context object.
+      setAiContext({ cell, code: cellCode, error, output, intent, requestId: ++aiRequestRef.current });
       setAiOpen(true);
     },
     []
