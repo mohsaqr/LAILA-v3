@@ -8,12 +8,6 @@ import { render } from '@testing-library/react';
  */
 const captured: { props: Record<string, any> | null } = { props: null };
 
-/** Drives which theme the component asks Monaco for. */
-const theme = { isDark: true };
-vi.mock('../../../hooks/useTheme', () => ({
-  useTheme: () => ({ isDark: theme.isDark, theme: theme.isDark ? 'dark' : 'light', setTheme: () => {}, toggleTheme: () => {} }),
-}));
-
 vi.mock('@monaco-editor/react', () => ({
   default: (props: Record<string, any>) => {
     captured.props = props;
@@ -57,12 +51,7 @@ const CONSOLE_BACKGROUND = '#111827';
 describe('CodeEditorField theming', () => {
   beforeEach(() => {
     captured.props = null;
-    theme.isDark = true;
   });
-
-  /** The theme definition the component is currently asking Monaco to use. */
-  const activeTheme = (monaco: ReturnType<typeof fakeMonaco>) =>
-    monaco.defined.find(d => d.name === captured.props?.theme)!;
 
   it('does not hand Monaco the built-in vs-dark theme', async () => {
     const CodeEditorField = await loadField();
@@ -88,10 +77,10 @@ describe('CodeEditorField theming', () => {
 
     const monaco = fakeMonaco();
     captured.props?.beforeMount(monaco.api);
-    const active = activeTheme(monaco);
+    const theme = monaco.defined.find(d => d.name === captured.props?.theme)!;
 
-    expect(active.data.colors['editor.background']).toBe(CODE_FENCE_BACKGROUND);
-    expect(active.data.colors['editorGutter.background']).toBe(CODE_FENCE_BACKGROUND);
+    expect(theme.data.colors['editor.background']).toBe(CODE_FENCE_BACKGROUND);
+    expect(theme.data.colors['editorGutter.background']).toBe(CODE_FENCE_BACKGROUND);
   });
 
   it('is VISIBLY darker than vs-dark, not merely darker on paper', async () => {
@@ -100,12 +89,12 @@ describe('CodeEditorField theming', () => {
 
     const monaco = fakeMonaco();
     captured.props?.beforeMount(monaco.api);
-    const active = activeTheme(monaco);
+    const theme = monaco.defined.find(d => d.name === captured.props?.theme)!;
 
     // gray-900 was tried first and rejected on sight: at luminance 23.6 against
     // vs-dark's 30 it is measurably darker but looks identical side by side.
     // Anything above half of vs-dark's luminance fails to read as a change.
-    const chosen = luminance(active.data.colors['editor.background']);
+    const chosen = luminance(theme.data.colors['editor.background']);
     expect(chosen).toBeLessThan(luminance(VS_DARK_BACKGROUND) / 2);
     expect(chosen).toBeLessThan(luminance(CONSOLE_BACKGROUND));
   });
@@ -116,11 +105,11 @@ describe('CodeEditorField theming', () => {
 
     const monaco = fakeMonaco();
     captured.props?.beforeMount(monaco.api);
-    const active = activeTheme(monaco);
+    const theme = monaco.defined.find(d => d.name === captured.props?.theme)!;
 
     // A darker base needs a lighter stripe, or the cursor's line disappears.
-    expect(luminance(active.data.colors['editor.lineHighlightBackground']))
-      .toBeGreaterThan(luminance(active.data.colors['editor.background']));
+    expect(luminance(theme.data.colors['editor.lineHighlightBackground']))
+      .toBeGreaterThan(luminance(theme.data.colors['editor.background']));
   });
 
   it('inherits vs-dark so syntax colours are not silently dropped', async () => {
@@ -129,10 +118,10 @@ describe('CodeEditorField theming', () => {
 
     const monaco = fakeMonaco();
     captured.props?.beforeMount(monaco.api);
-    const active = activeTheme(monaco);
+    const theme = monaco.defined.find(d => d.name === captured.props?.theme)!;
 
-    expect(active.data.base).toBe('vs-dark');
-    expect(active.data.inherit).toBe(true);
+    expect(theme.data.base).toBe('vs-dark');
+    expect(theme.data.inherit).toBe(true);
   });
 
   it('defines the theme once across many cells, because redefining the active theme re-applies it', async () => {
@@ -146,8 +135,7 @@ describe('CodeEditorField theming', () => {
       captured.props?.beforeMount(monaco.api);
     }
 
-    // Two themes (light and dark), defined once between them — not per cell.
-    expect(monaco.defined).toHaveLength(2);
+    expect(monaco.defined).toHaveLength(1);
   });
 
   it('shows a dark placeholder while Monaco is fetched from the CDN', async () => {
@@ -164,66 +152,5 @@ describe('CodeEditorField theming', () => {
 
     // Without this the light #e5e7eb ring stays lit around every dark editor.
     expect(container.querySelector('div')?.className).toContain('dark:border-gray-700');
-  });
-});
-
-describe('CodeEditorField follows the app theme', () => {
-  beforeEach(() => {
-    captured.props = null;
-  });
-
-  it('asks for the light theme in light mode', async () => {
-    theme.isDark = false;
-    const CodeEditorField = await loadField();
-    render(<CodeEditorField value="1 + 1" onChange={() => {}} />);
-
-    const monaco = fakeMonaco();
-    captured.props?.beforeMount(monaco.api);
-    const active = monaco.defined.find(d => d.name === captured.props?.theme)!;
-
-    // A near-black editor reads as a hole punched in a white card.
-    expect(active.data.base).toBe('vs');
-    expect(luminance(active.data.colors['editor.background']))
-      .toBeGreaterThan(luminance(CONSOLE_BACKGROUND));
-  });
-
-  it('asks for the dark theme in dark mode', async () => {
-    theme.isDark = true;
-    const CodeEditorField = await loadField();
-    render(<CodeEditorField value="1 + 1" onChange={() => {}} />);
-
-    const monaco = fakeMonaco();
-    captured.props?.beforeMount(monaco.api);
-    const active = monaco.defined.find(d => d.name === captured.props?.theme)!;
-
-    expect(active.data.base).toBe('vs-dark');
-    expect(active.data.colors['editor.background']).toBe(CODE_FENCE_BACKGROUND);
-  });
-
-  it('uses a different theme in each mode', async () => {
-    theme.isDark = false;
-    let CodeEditorField = await loadField();
-    render(<CodeEditorField value="x" onChange={() => {}} />);
-    const light = captured.props?.theme;
-
-    theme.isDark = true;
-    CodeEditorField = await loadField();
-    render(<CodeEditorField value="x" onChange={() => {}} />);
-
-    expect(captured.props?.theme).not.toBe(light);
-  });
-
-  it('keeps the light current-line stripe visible too', async () => {
-    theme.isDark = false;
-    const CodeEditorField = await loadField();
-    render(<CodeEditorField value="1 + 1" onChange={() => {}} />);
-
-    const monaco = fakeMonaco();
-    captured.props?.beforeMount(monaco.api);
-    const active = monaco.defined.find(d => d.name === captured.props?.theme)!;
-
-    // Lighter base needs a darker stripe — the inverse of the dark case.
-    expect(luminance(active.data.colors['editor.lineHighlightBackground']))
-      .toBeLessThan(luminance(active.data.colors['editor.background']));
   });
 });
