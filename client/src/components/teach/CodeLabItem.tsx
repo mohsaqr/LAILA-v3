@@ -35,25 +35,25 @@ export const CodeLabItem = ({
   const blockCount = codeLab.blocks?.length || 0;
 
   return (
-    <div className="flex items-center gap-3 p-3 min-h-[64px] bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors">
+    <div className="flex items-center gap-3 p-3 min-h-[64px] bg-emerald-50 dark:bg-emerald-900/20 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors">
       <div className="flex items-center gap-3 flex-1 min-w-0">
-      <div className="flex items-center justify-center w-8 h-8 rounded bg-white border border-emerald-200 flex-shrink-0">
+      <div className="flex items-center justify-center w-8 h-8 rounded bg-white dark:bg-gray-800 border border-emerald-200 dark:border-emerald-800 flex-shrink-0">
         <FlaskConical className="w-4 h-4 text-emerald-600" />
       </div>
 
       {/* Code Lab info */}
       <div className="flex-1 min-w-0">
-        <h4 className="text-sm font-medium text-gray-900 truncate">
+        <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
           {codeLab.title}
         </h4>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
-          <span className="text-emerald-600 font-medium">{t('code_lab')}</span>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+          <span className="text-emerald-600 dark:text-emerald-400 font-medium">{t('code_lab')}</span>
           <span>•</span>
           <span>{t('x_blocks', { count: blockCount })}</span>
           {!codeLab.isPublished && (
             <>
               <span>•</span>
-              <span className="text-amber-600">{t('draft')}</span>
+              <span className="text-amber-600 dark:text-amber-400">{t('draft')}</span>
             </>
           )}
         </div>
@@ -64,7 +64,7 @@ export const CodeLabItem = ({
       {/* Edit Content Button */}
       <Link
         to={`/teach/courses/${courseId}/code-labs/${codeLab.id}`}
-        className="px-3 py-1.5 text-xs font-medium text-emerald-600 bg-emerald-100 hover:bg-emerald-200 rounded-lg transition-colors flex items-center gap-1.5"
+        className="px-3 py-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/40 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 rounded-lg transition-colors flex items-center gap-1.5"
         title={t('edit_code_lab')}
       >
         <FileEdit className="w-3.5 h-3.5" />
@@ -76,18 +76,18 @@ export const CodeLabItem = ({
         <button
           onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
           disabled={isFirst}
-          className="p-1 rounded hover:bg-emerald-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="p-1 rounded hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           title={t('move_up')}
         >
-          <ChevronUp className="w-4 h-4 text-gray-500" />
+          <ChevronUp className="w-4 h-4 text-gray-500 dark:text-gray-400" />
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
           disabled={isLast}
-          className="p-1 rounded hover:bg-emerald-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="p-1 rounded hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           title={t('move_down')}
         >
-          <ChevronDown className="w-4 h-4 text-gray-500" />
+          <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
         </button>
       </div>
 
@@ -95,14 +95,14 @@ export const CodeLabItem = ({
       <div className="flex items-center gap-1">
         <button
           onClick={(e) => { e.stopPropagation(); onEdit(codeLab); }}
-          className="p-1.5 rounded hover:bg-emerald-200 transition-colors"
+          className="p-1.5 rounded hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors"
           title={t('edit_code_lab_details')}
         >
-          <Edit2 className="w-4 h-4 text-gray-500" />
+          <Edit2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(codeLab); }}
-          className="p-1.5 rounded hover:bg-red-100 transition-colors"
+          className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
           title={t('delete_code_lab')}
         >
           <Trash2 className="w-4 h-4 text-red-500" />

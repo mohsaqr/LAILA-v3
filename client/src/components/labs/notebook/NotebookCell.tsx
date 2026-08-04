@@ -150,11 +150,11 @@ const NotebookCellInner = ({
           <span
             className={`shrink-0 min-w-[2.4rem] text-center font-mono text-xs px-1.5 py-0.5 rounded-md ${
               running
-                ? 'bg-amber-100 text-amber-700 animate-pulse'
+                ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 animate-pulse'
                 : run?.error
-                  ? 'bg-red-100 text-red-600'
+                  ? 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300'
                   : run?.execCount
-                    ? 'bg-emerald-100 text-emerald-700'
+                    ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-400'
             }`}
             title={t('courses:execution_count', { defaultValue: 'Execution count' })}
@@ -180,7 +180,7 @@ const NotebookCellInner = ({
         )}
 
         {(metaDirty || codeDirty) && (
-          <span className="shrink-0 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
+          <span className="shrink-0 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-medium">
             {t('teaching:unsaved', { defaultValue: 'Unsaved' })}
           </span>
         )}
@@ -205,7 +205,7 @@ const NotebookCellInner = ({
               onClick={() => onSave?.(cell.id, { locked: !cell.locked })}
               className={`p-1.5 rounded-md transition-colors ${
                 cell.locked
-                  ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                  ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/60'
                   : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600'
               }`}
               title={

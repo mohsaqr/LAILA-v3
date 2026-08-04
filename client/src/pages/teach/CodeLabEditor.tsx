@@ -583,7 +583,7 @@ export const CodeLabEditor = () => {
   if (!codeLab) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{t('code_lab_not_found')}</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">{t('code_lab_not_found')}</h1>
         <Button onClick={() => navigate(`/teach/courses/${courseId}/curriculum`)}>
           {t('back_to_curriculum')}
         </Button>
@@ -610,7 +610,7 @@ export const CodeLabEditor = () => {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <FlaskConical className="w-5 h-5 text-emerald-600" />
-                <h1 className="text-lg sm:text-xl font-semibold text-gray-900">{t('edit_code_lab')}</h1>
+                <h1 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">{t('edit_code_lab')}</h1>
               </div>
             </CardHeader>
             <CardBody className="space-y-4">
@@ -692,7 +692,7 @@ export const CodeLabEditor = () => {
           <Card>
             <CardHeader>
               <div>
-                <h2 className="text-lg sm:text-xl font-semibold text-gray-900">{t('code_blocks')}</h2>
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">{t('code_blocks')}</h2>
                 <p className="text-sm text-gray-500">
                   {t('code_blocks_description')}
                 </p>

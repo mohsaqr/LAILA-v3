@@ -378,7 +378,7 @@ export const LabRunnerUI = ({ lab, hook, courseId, hideSubmit, openPanel, onPane
                 </div>
               </div>
 
-              <div className="mt-4 h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div className="mt-4 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-500"
                   style={{

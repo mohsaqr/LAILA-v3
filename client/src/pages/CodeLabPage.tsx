@@ -99,8 +99,8 @@ export const CodeLabPage = () => {
   if (error || !codeLab) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('code_lab_not_found')}</h1>
-        <p className="text-gray-600 mb-4">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">{t('code_lab_not_found')}</h1>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">
           {t('lab_not_found_description')}
         </p>
         <Button onClick={() => navigate(-1)}>{t('go_back')}</Button>
