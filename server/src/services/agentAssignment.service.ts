@@ -964,7 +964,11 @@ export class AgentAssignmentService {
   async getAgentSubmissions(assignmentId: number, instructorId: number, isAdmin = false) {
     const assignment = await this.getAgentAssignment(assignmentId);
 
-    if (assignment.course.instructorId !== instructorId && !isAdmin) {
+    // Staff of THIS course, not just its owner: a TA or co-instructor has the
+    // same reason to open this as the instructor does, and does on an
+    // ordinary assignment (assignment.service.ts). isCourseStaff folds in
+    // admin and the owner.
+    if (!(await courseRoleService.isCourseStaff(instructorId, assignment.course.id, isAdmin))) {
       throw new AppError('Not authorized', 403);
     }
 
@@ -1021,7 +1025,11 @@ export class AgentAssignmentService {
   ) {
     const assignment = await this.getAgentAssignment(assignmentId);
 
-    if (assignment.course.instructorId !== instructorId && !isAdmin) {
+    // Staff of THIS course, not just its owner: a TA or co-instructor has the
+    // same reason to open this as the instructor does, and does on an
+    // ordinary assignment (assignment.service.ts). isCourseStaff folds in
+    // admin and the owner.
+    if (!(await courseRoleService.isCourseStaff(instructorId, assignment.course.id, isAdmin))) {
       throw new AppError('Not authorized', 403);
     }
 
@@ -1082,7 +1090,11 @@ export class AgentAssignmentService {
       throw new AppError('Agent config not found', 404);
     }
 
-    if (config.assignment.course.instructorId !== instructorId && !isAdmin) {
+    // Staff of THIS course, not just its owner: a TA or co-instructor has the
+    // same reason to open this as the instructor does, and does on an
+    // ordinary assignment (assignment.service.ts). isCourseStaff folds in
+    // admin and the owner.
+    if (!(await courseRoleService.isCourseStaff(instructorId, config.assignment.courseId, isAdmin))) {
       throw new AppError('Not authorized', 403);
     }
 
@@ -1108,7 +1120,11 @@ export class AgentAssignmentService {
       throw new AppError('Agent config not found', 404);
     }
 
-    if (config.assignment.course.instructorId !== instructorId && !isAdmin) {
+    // Staff of THIS course, not just its owner: a TA or co-instructor has the
+    // same reason to open this as the instructor does, and does on an
+    // ordinary assignment (assignment.service.ts). isCourseStaff folds in
+    // admin and the owner.
+    if (!(await courseRoleService.isCourseStaff(instructorId, config.assignment.courseId, isAdmin))) {
       throw new AppError('Not authorized', 403);
     }
 
@@ -1140,7 +1156,9 @@ export class AgentAssignmentService {
       throw new AppError('Submission not found', 404);
     }
 
-    if (submission.assignment.course.instructorId !== instructorId && !isAdmin) {
+    // Permission-aware: a bare TA may grade, but the granular model decides —
+    // same guard assignment.service.ts uses for ordinary submissions.
+    if (!(await courseRoleService.canGrade(instructorId, submission.assignment.course.id, isAdmin))) {
       throw new AppError('Not authorized', 403);
     }
 
@@ -1431,7 +1449,11 @@ CRITICAL RULES:
       include: { assignment: { include: { course: { select: { instructorId: true } } } } },
     });
     if (!config) throw new AppError('Agent config not found', 404);
-    if (config.assignment.course.instructorId !== instructorId && !isAdmin) {
+    // Staff of THIS course, not just its owner: a TA or co-instructor has the
+    // same reason to open this as the instructor does, and does on an
+    // ordinary assignment (assignment.service.ts). isCourseStaff folds in
+    // admin and the owner.
+    if (!(await courseRoleService.isCourseStaff(instructorId, config.assignment.courseId, isAdmin))) {
       throw new AppError('Not authorized', 403);
     }
     return prisma.userDataset.findMany({

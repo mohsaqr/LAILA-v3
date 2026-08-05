@@ -2,6 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { agentAssignmentService } from './agentAssignment.service.js';
 import prisma from '../utils/prisma.js';
 
+// getAgentSubmissions/Detail now authorise through courseRoleService rather
+// than comparing course.instructorId, so a TA gets the same access as the owner.
+vi.mock('./courseRole.service.js', () => ({
+  courseRoleService: {
+    isCourseStaff: vi.fn().mockResolvedValue(true),
+    isTeamMember: vi.fn().mockResolvedValue(true),
+    canGrade: vi.fn().mockResolvedValue(true),
+  },
+}));
+
 vi.mock('../utils/prisma.js', () => ({
   default: {
     assignment: { findUnique: vi.fn() },

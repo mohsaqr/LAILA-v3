@@ -191,15 +191,12 @@ class CertificateService {
    * Get all certificates issued for a course (instructor view)
    */
   async getCourseIssuedCertificates(courseId: number, instructorId: number, isAdmin = false) {
-    // Verify instructor owns the course
-    if (!isAdmin) {
-      const course = await prisma.course.findUnique({
-        where: { id: courseId },
-        select: { instructorId: true },
-      });
-      if (!course || course.instructorId !== instructorId) {
-        throw new AppError('Not authorized', 403);
-      }
+    // Staff of THIS course, not just its owner. A TA with grade permission can
+    // already ISSUE a certificate (see issueCertificate), so locking them out of
+    // the eligibility and issued lists left them acting blind. isCourseStaff
+    // folds in admin and the owner.
+    if (!(await courseRoleService.isCourseStaff(instructorId, courseId, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     const certificates = await prisma.certificate.findMany({
@@ -228,15 +225,12 @@ class CertificateService {
    * Get students eligible to receive a certificate (instructor view)
    */
   async getEligibleStudents(courseId: number, instructorId: number, isAdmin = false) {
-    // Verify instructor owns the course
-    if (!isAdmin) {
-      const course = await prisma.course.findUnique({
-        where: { id: courseId },
-        select: { instructorId: true },
-      });
-      if (!course || course.instructorId !== instructorId) {
-        throw new AppError('Not authorized', 403);
-      }
+    // Staff of THIS course, not just its owner. A TA with grade permission can
+    // already ISSUE a certificate (see issueCertificate), so locking them out of
+    // the eligibility and issued lists left them acting blind. isCourseStaff
+    // folds in admin and the owner.
+    if (!(await courseRoleService.isCourseStaff(instructorId, courseId, isAdmin))) {
+      throw new AppError('Not authorized', 403);
     }
 
     // Get course with modules and lectures
@@ -287,7 +281,7 @@ class CertificateService {
     }));
   }
 
-  async getCertificate(certificateId: number, userId?: number, isAdmin = false, isInstructor = false) {
+  async getCertificate(certificateId: number, userId?: number, isAdmin = false, _isInstructor = false) {
     const certificate = await prisma.certificate.findUnique({
       where: { id: certificateId },
       include: {
@@ -297,21 +291,17 @@ class CertificateService {
 
     if (!certificate) throw new AppError('Certificate not found', 404);
 
-    // Check authorization - owner, admin, or course instructor can view
+    // Authorization: the recipient, or staff of THIS course.
+    //
+    // The caller's GLOBAL isInstructor flag is deliberately not consulted — it
+    // is true for instructors of unrelated courses. isCourseStaff answers the
+    // only question that matters (admin, this course's owner, or one of its
+    // team members) and, unlike the previous owner-only check, does not lock
+    // out the TA who issued the certificate in the first place.
     const isOwner = certificate.userId === userId;
-
-    if (!isAdmin && !isOwner) {
-      // Check if user is the course instructor
-      if (isInstructor && userId) {
-        const course = await prisma.course.findUnique({
-          where: { id: certificate.courseId },
-          select: { instructorId: true },
-        });
-        const isCourseInstructor = course?.instructorId === userId;
-        if (!isCourseInstructor) {
-          throw new AppError('Not authorized', 403);
-        }
-      } else {
+    if (!isOwner) {
+      const isStaff = await courseRoleService.isCourseStaff(userId, certificate.courseId, isAdmin);
+      if (!isStaff) {
         throw new AppError('Not authorized', 403);
       }
     }

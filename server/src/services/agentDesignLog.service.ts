@@ -7,6 +7,7 @@
 
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
+import { courseRoleService } from './courseRole.service.js';
 
 // Event types
 type AgentDesignEventType =
@@ -203,7 +204,10 @@ export class AgentDesignLogService {
       throw new AppError('Agent config not found', 404);
     }
 
-    if (config.assignment.course.instructorId !== instructorId && !isAdmin) {
+    // Staff of THIS course, not just its owner — a TA or co-instructor who can
+    // grade the agent can also see how it was designed. isCourseStaff folds in
+    // admin and the owner.
+    if (!(await courseRoleService.isCourseStaff(instructorId, config.assignment.courseId, isAdmin))) {
       throw new AppError('Not authorized', 403);
     }
 
@@ -284,7 +288,10 @@ export class AgentDesignLogService {
       throw new AppError('Agent config not found', 404);
     }
 
-    if (config.assignment.course.instructorId !== instructorId && !isAdmin) {
+    // Staff of THIS course, not just its owner — a TA or co-instructor who can
+    // grade the agent can also see how it was designed. isCourseStaff folds in
+    // admin and the owner.
+    if (!(await courseRoleService.isCourseStaff(instructorId, config.assignment.courseId, isAdmin))) {
       throw new AppError('Not authorized', 403);
     }
 
@@ -341,7 +348,10 @@ export class AgentDesignLogService {
       throw new AppError('Agent config not found', 404);
     }
 
-    if (config.assignment.course.instructorId !== instructorId && !isAdmin) {
+    // Staff of THIS course, not just its owner — a TA or co-instructor who can
+    // grade the agent can also see how it was designed. isCourseStaff folds in
+    // admin and the owner.
+    if (!(await courseRoleService.isCourseStaff(instructorId, config.assignment.courseId, isAdmin))) {
       throw new AppError('Not authorized', 403);
     }
 
@@ -391,7 +401,10 @@ export class AgentDesignLogService {
       throw new AppError('Assignment not found', 404);
     }
 
-    if (assignment.course.instructorId !== instructorId && !isAdmin) {
+    // Staff of THIS course, not just its owner — a TA or co-instructor who can
+    // grade the agent can also see how it was designed. isCourseStaff folds in
+    // admin and the owner.
+    if (!(await courseRoleService.isCourseStaff(instructorId, assignment.courseId, isAdmin))) {
       throw new AppError('Not authorized', 403);
     }
 
