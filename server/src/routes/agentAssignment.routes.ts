@@ -19,6 +19,7 @@ const buildEventContext = (req: AuthRequest): EventContext => ({
   userFullname: req.user!.fullname,
   userEmail: req.user!.email,
   userRole: req.user!.isInstructor ? 'instructor' : 'student',
+  isAdmin: Boolean(req.user!.isAdmin),
   ipAddress: req.ip || req.socket.remoteAddress,
   userAgent: req.headers['user-agent'],
   sessionId: req.headers['x-session-id'] as string | undefined,

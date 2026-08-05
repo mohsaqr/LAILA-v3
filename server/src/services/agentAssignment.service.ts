@@ -8,6 +8,7 @@ import { AppError } from '../middleware/error.middleware.js';
 import { CreateAgentConfigInput, UpdateAgentConfigInput, GradeAgentSubmissionInput } from '../utils/validation.js';
 import { agentAnalyticsService, ClientContext, UserContext, AssignmentContext } from './agentAnalytics.service.js';
 import { activityLogService, type ActivityVerb } from './activityLog.service.js';
+import { courseRoleService } from './courseRole.service.js';
 import { llmService } from './llm.service.js';
 
 // AI Config type
@@ -24,6 +25,12 @@ export interface EventContext {
   userFullname?: string;
   userEmail?: string;
   userRole?: 'student' | 'instructor';
+  /**
+   * The global admin flag from the JWT. Needed because course-staff checks fold
+   * it in — `userRole` alone cannot distinguish an admin from an instructor of
+   * some unrelated course.
+   */
+  isAdmin?: boolean;
   ipAddress?: string;
   userAgent?: string;
   sessionId?: string;
@@ -179,8 +186,23 @@ export class AgentAssignmentService {
   ) {
     const assignment = await this.getAgentAssignment(assignmentId);
 
-    // Check enrollment
-    await this.checkEnrollment(userId, assignment.courseId);
+    // Staff of THIS course may build an agent without being enrolled — it is
+    // the only way to see the assignment as a student does, and previously the
+    // bare enrollment check locked out admins, the course's own instructor and
+    // its TAs alike. Mirrors assignment.service.ts, where the same bypass is
+    // already applied to ordinary submissions.
+    //
+    // This is the ONLY enrollment gate on the agent config lifecycle (update
+    // and submit have none, since both require a config that only this method
+    // can create), so it must keep denying unrelated users.
+    const isStaff = await courseRoleService.isCourseStaff(
+      userId,
+      assignment.courseId,
+      context.isAdmin ?? false
+    );
+    if (!isStaff) {
+      await this.checkEnrollment(userId, assignment.courseId);
+    }
 
     // Check if config already exists
     const existing = await prisma.studentAgentConfig.findUnique({
