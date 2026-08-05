@@ -10,6 +10,7 @@ import {
   AlertCircle,
   ChevronRight,
   Loader2,
+  KeyRound,
 } from 'lucide-react';
 import { batchEnrollmentApi } from '../../api/batchEnrollment';
 import { coursesApi } from '../../api/courses';
@@ -261,6 +262,19 @@ export const BatchEnrollment = () => {
               </code>
               <p className="text-xs text-gray-400 mt-2">
                 {t('email_required_info')}
+              </p>
+            </div>
+
+            {/* Accounts created here get a random password that is hashed and
+                discarded, and no mail is sent. Without saying so, an operator
+                has no way to know the people they just imported cannot log in. */}
+            <div className="flex items-start gap-2 p-4 rounded-lg bg-blue-50 text-blue-900">
+              <KeyRound className="w-4 h-4 mt-0.5 shrink-0" />
+              <p className="text-xs">
+                {t('import_new_user_password_note', {
+                  defaultValue:
+                    'Anyone who did not already have an account cannot sign in until they set a password — ask them to use “Forgot password” on the login page.',
+                })}
               </p>
             </div>
           </CardBody>

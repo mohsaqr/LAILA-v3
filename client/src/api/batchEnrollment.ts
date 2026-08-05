@@ -6,7 +6,40 @@ import {
   BatchEnrollmentResult,
 } from '../types';
 
+/** One course's outcome within a pasted multi-course import. */
+export interface ImportCourseSummary {
+  jobId: number;
+  courseId: number;
+  courseTitle: string;
+  totalRows: number;
+  successCount: number;
+  errorCount: number;
+  /** Rows whose user was already enrolled — expected, not a failure. */
+  alreadyEnrolled: number;
+}
+
+/** A row the parser could not use. Distinct from `alreadyEnrolled`. */
+export interface ImportInvalidRow {
+  rowNumber: number;
+  email: string;
+  reason: string;
+}
+
+export interface ImportResult {
+  jobs: ImportCourseSummary[];
+  invalid: ImportInvalidRow[];
+}
+
 export const batchEnrollmentApi = {
+  // Paste import: each row names its own course, so one call can span several.
+  importPasted: async (content: string) => {
+    const response = await apiClient.post<ApiResponse<ImportResult>>(
+      '/batch-enrollment/import',
+      { content }
+    );
+    return response.data.data!;
+  },
+
   // Upload CSV and create batch enrollment job
   uploadCSV: async (courseId: number, file: File) => {
     const formData = new FormData();

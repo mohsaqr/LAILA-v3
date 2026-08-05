@@ -7,12 +7,43 @@ import { adminAuditService } from './adminAudit.service.js';
 export interface BatchEnrollmentRow {
   email: string;
   fullname?: string;
+  /** 1-based data row as the operator sees it; the header is row 0. */
+  rowNumber?: number;
+}
+
+/** A row carrying its own course, for the multi-course paste import. */
+export interface MultiCourseRow extends BatchEnrollmentRow {
+  courseId: number;
+}
+
+/**
+ * A row the parser could not use.
+ *
+ * Deliberately NOT called "skipped": a *result* with status `skipped` means a
+ * perfectly good row whose user was already enrolled. These are different
+ * outcomes and conflating them in one word is how the counts stop adding up.
+ */
+export interface InvalidRow {
+  rowNumber: number;
+  email: string;
+  reason: string;
+}
+
+export interface ParsedCSV<T extends BatchEnrollmentRow = BatchEnrollmentRow> {
+  rows: T[];
+  invalid: InvalidRow[];
 }
 
 export interface AuditContext {
   adminId: number;
   adminEmail?: string;
   ipAddress?: string;
+}
+
+export interface ImportActor {
+  id: number;
+  email?: string;
+  isAdmin: boolean;
 }
 
 export class BatchEnrollmentService {
@@ -57,7 +88,8 @@ export class BatchEnrollmentService {
   async processJob(
     jobId: number,
     rows: BatchEnrollmentRow[],
-    context: AuditContext
+    context: AuditContext,
+    invalid: InvalidRow[] = []
   ) {
     const job = await prisma.batchEnrollmentJob.findUnique({
       where: { id: jobId },
@@ -80,9 +112,30 @@ export class BatchEnrollmentService {
     let errorCount = 0;
     const errors: string[] = [];
 
+    // Unusable rows are recorded before any real work, rather than dropped.
+    // parseCSV used to `continue` past them silently, so a 100-address paste
+    // with five typos reported "95 rows, 95 successes" and the five bad
+    // addresses appeared nowhere — not in the counts, the results table, or
+    // the error log. An operator had no way to discover who was left out.
+    for (const bad of invalid) {
+      await prisma.batchEnrollmentResult.create({
+        data: {
+          jobId,
+          rowNumber: bad.rowNumber,
+          email: bad.email,
+          status: 'error',
+          errorMessage: bad.reason,
+        },
+      });
+      errors.push(`Row ${bad.rowNumber}: ${bad.reason}`);
+      errorCount++;
+    }
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      const rowNumber = i + 1;
+      // Prefer the parser's line number so the operator can find the row in
+      // what they pasted; fall back to position for programmatic callers.
+      const rowNumber = row.rowNumber ?? i + 1;
 
       try {
         // Use transaction for each row to ensure atomic user creation + enrollment
@@ -178,7 +231,7 @@ export class BatchEnrollmentService {
         await prisma.batchEnrollmentJob.update({
           where: { id: jobId },
           data: {
-            processedRows: i + 1,
+            processedRows: invalid.length + i + 1,
             successCount,
             errorCount,
           },
@@ -215,7 +268,7 @@ export class BatchEnrollmentService {
         courseId: job.courseId,
         courseTitle: job.course.title,
         fileName: job.fileName,
-        totalRows: rows.length,
+        totalRows: rows.length + invalid.length,
         successCount,
         errorCount,
       },
@@ -396,8 +449,53 @@ export class BatchEnrollmentService {
     return 'email,fullname\nstudent1@example.com,John Doe\nstudent2@example.com,Jane Smith';
   }
 
-  // Parse CSV content
-  parseCSV(content: string): BatchEnrollmentRow[] {
+  /** Template for the multi-course paste import. */
+  getMultiCourseTemplate(): string {
+    return 'email,course_id,fullname\nstudent1@example.com,1,John Doe\nstudent2@example.com,2,Jane Smith';
+  }
+
+  /**
+   * Split one CSV line, honouring double-quoted fields.
+   *
+   * A bare `split(',')` corrupts any row holding a quoted name with a comma in
+   * it ("Doe, John") by shifting every column after it. In the single-course
+   * format that only mangles a name; in the multi-course format the course id
+   * silently becomes a fragment of somebody's surname, so the row either fails
+   * or — worse — parses as a different course.
+   */
+  private splitCsvLine(line: string): string[] {
+    const values: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch !== '"') {
+          current += ch;
+        } else if (line[i + 1] === '"') {
+          current += '"'; // A doubled quote inside a quoted field is a literal one.
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ',') {
+        values.push(current);
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+    values.push(current);
+    // trim() also strips the trailing \r of a CRLF file, so Windows exports
+    // do not arrive with a carriage return glued to the last column.
+    return values.map(v => v.trim());
+  }
+
+  /** Shared header handling: row cap, required columns, column positions. */
+  private readHeader(content: string, required: string[]) {
     const lines = content.trim().split('\n');
     if (lines.length < 2) {
       throw new AppError('CSV file must have a header row and at least one data row', 400);
@@ -411,27 +509,39 @@ export class BatchEnrollmentService {
       throw new AppError(`CSV exceeds the ${BatchEnrollmentService.MAX_ROWS}-row limit for a single batch`, 400);
     }
 
-    const header = lines[0].toLowerCase().split(',').map(h => h.trim());
-    const emailIndex = header.indexOf('email');
-
-    if (emailIndex === -1) {
-      throw new AppError('CSV must have an "email" column', 400);
+    const header = this.splitCsvLine(lines[0]).map(h => h.toLowerCase());
+    const missing = required.filter(column => !header.includes(column));
+    if (missing.length > 0) {
+      throw new AppError(
+        `CSV must have ${missing.map(m => `"${m}"`).join(' and ')} column${missing.length > 1 ? 's' : ''}`,
+        400
+      );
     }
 
+    return { lines, header };
+  }
+
+  // Parse CSV content
+  parseCSV(content: string): ParsedCSV {
+    const { lines, header } = this.readHeader(content, ['email']);
+    const emailIndex = header.indexOf('email');
     const fullnameIndex = header.indexOf('fullname');
 
     const rows: BatchEnrollmentRow[] = [];
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim());
-      const email = values[emailIndex];
+    const invalid: InvalidRow[] = [];
 
-      if (!email || !this.isValidEmail(email)) {
-        continue; // Skip invalid rows
-      }
+    for (let i = 1; i < lines.length; i++) {
+      if (lines[i].trim() === '') continue; // Blank line, not a mistake worth reporting.
+
+      const values = this.splitCsvLine(lines[i]);
+      const email = values[emailIndex] || '';
+
+      if (!this.collectIfInvalidEmail(email, i, invalid)) continue;
 
       rows.push({
         email,
-        fullname: fullnameIndex !== -1 ? values[fullnameIndex] : undefined,
+        fullname: (fullnameIndex !== -1 ? values[fullnameIndex] : '') || undefined,
+        rowNumber: i,
       });
     }
 
@@ -439,7 +549,142 @@ export class BatchEnrollmentService {
       throw new AppError('No valid email addresses found in CSV', 400);
     }
 
-    return rows;
+    return { rows, invalid };
+  }
+
+  /**
+   * Parse the `email,course_id[,fullname]` format used by the paste importer,
+   * where every row names its own course.
+   */
+  parseMultiCourseCSV(content: string): ParsedCSV<MultiCourseRow> {
+    const { lines, header } = this.readHeader(content, ['email', 'course_id']);
+    const emailIndex = header.indexOf('email');
+    const courseIndex = header.indexOf('course_id');
+    const fullnameIndex = header.indexOf('fullname');
+
+    const rows: MultiCourseRow[] = [];
+    const invalid: InvalidRow[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      if (lines[i].trim() === '') continue;
+
+      const values = this.splitCsvLine(lines[i]);
+      const email = values[emailIndex] || '';
+      const rawCourseId = values[courseIndex] || '';
+
+      if (!this.collectIfInvalidEmail(email, i, invalid)) continue;
+
+      // Strict digits only: parseInt would accept "1.9" and "1abc" as course 1,
+      // enrolling somebody into a course the operator never named.
+      if (!/^\d+$/.test(rawCourseId)) {
+        invalid.push({
+          rowNumber: i,
+          email,
+          reason: rawCourseId ? `"${rawCourseId}" is not a course id` : 'Missing course id',
+        });
+        continue;
+      }
+
+      rows.push({
+        email,
+        courseId: Number(rawCourseId),
+        fullname: (fullnameIndex !== -1 ? values[fullnameIndex] : '') || undefined,
+        rowNumber: i,
+      });
+    }
+
+    if (rows.length === 0) {
+      throw new AppError('No valid rows found — every line was missing an email address or a course id', 400);
+    }
+
+    return { rows, invalid };
+  }
+
+  /** Records an unusable address and returns false; returns true when it is fine. */
+  private collectIfInvalidEmail(email: string, rowNumber: number, invalid: InvalidRow[]): boolean {
+    if (!email) {
+      invalid.push({ rowNumber, email: '', reason: 'Missing email address' });
+      return false;
+    }
+    if (!this.isValidEmail(email)) {
+      invalid.push({ rowNumber, email, reason: 'Not a valid email address' });
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Import rows that each name their own course, creating one job per course.
+   *
+   * `BatchEnrollmentJob` is keyed to a single course, so a multi-course import
+   * is N ordinary jobs rather than a new kind of thing — no schema change, and
+   * each course keeps its own auditable job and result rows.
+   */
+  async importMultiCourse(content: string, actor: ImportActor, context: { ipAddress?: string }) {
+    const { rows, invalid } = this.parseMultiCourseCSV(content);
+    const courseIds = Array.from(new Set(rows.map(row => row.courseId)));
+
+    // Both checks run across every course before anything is written. A partial
+    // import is far worse than a refusal here: the operator would be left
+    // working out which courses landed and which did not, with users already
+    // created and no single job to point at.
+    const courses = await prisma.course.findMany({
+      where: { id: { in: courseIds } },
+      select: { id: true, title: true },
+    });
+    const known = new Set(courses.map(course => course.id));
+    const unknown = courseIds.filter(id => !known.has(id));
+    if (unknown.length > 0) {
+      throw new AppError(
+        `Unknown course id${unknown.length > 1 ? 's' : ''}: ${unknown.join(', ')}`,
+        400
+      );
+    }
+
+    const permitted = await Promise.all(
+      courseIds.map(id => this.hasAccessToCourse(actor.id, id, actor.isAdmin))
+    );
+    const forbidden = courseIds.filter((_, index) => !permitted[index]);
+    if (forbidden.length > 0) {
+      throw new AppError(
+        `Not authorized to manage enrollments for course${forbidden.length > 1 ? 's' : ''}: ${forbidden.join(', ')}`,
+        403
+      );
+    }
+
+    const titles = new Map(courses.map(course => [course.id, course.title]));
+    const jobs = [];
+
+    for (const courseId of courseIds) {
+      const courseRows = rows.filter(row => row.courseId === courseId);
+      const job = await this.createJob(courseId, 'pasted-import.csv', courseRows.length, actor.id);
+      const completed = await this.processJob(job.id, courseRows, {
+        adminId: actor.id,
+        adminEmail: actor.email,
+        ipAddress: context.ipAddress,
+      });
+
+      // 'skipped' means already enrolled. It is tracked on the result rows
+      // rather than the job, so it has to be counted back out here.
+      const alreadyEnrolled = await prisma.batchEnrollmentResult.count({
+        where: { jobId: job.id, status: 'skipped' },
+      });
+
+      jobs.push({
+        jobId: completed.id,
+        courseId,
+        courseTitle: titles.get(courseId) ?? '',
+        totalRows: courseRows.length,
+        successCount: completed.successCount,
+        errorCount: completed.errorCount,
+        alreadyEnrolled,
+      });
+    }
+
+    // Unusable rows name no course, so they belong to no job — attaching them
+    // to an arbitrary one would claim the operator asked for something they
+    // did not. They are reported on the response instead.
+    return { jobs, invalid };
   }
 
   private isValidEmail(email: string): boolean {

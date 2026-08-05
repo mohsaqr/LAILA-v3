@@ -49,26 +49,64 @@ router.post(
     }
 
     const csvContent = req.file.buffer.toString('utf-8');
-    const rows = batchEnrollmentService.parseCSV(csvContent);
+    const { rows, invalid } = batchEnrollmentService.parseCSV(csvContent);
 
-    // Create job
+    // Unusable rows count toward the job total. They belong to this course as
+    // much as any other row in the file, so they are recorded against the job
+    // and show up in its results rather than vanishing.
     const job = await batchEnrollmentService.createJob(
       courseId,
       req.file.originalname,
-      rows.length,
+      rows.length + invalid.length,
       req.user!.id
     );
 
     // Process job (in real app, this would be queued)
     const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip;
 
-    const completedJob = await batchEnrollmentService.processJob(job.id, rows, {
-      adminId: req.user!.id,
-      adminEmail: req.user!.email,
-      ipAddress,
-    });
+    const completedJob = await batchEnrollmentService.processJob(
+      job.id,
+      rows,
+      {
+        adminId: req.user!.id,
+        adminEmail: req.user!.email,
+        ipAddress,
+      },
+      invalid
+    );
 
     res.status(201).json({ success: true, data: completedJob });
+  })
+);
+
+/**
+ * Paste import: every row names its own course, so one request can span
+ * several courses. Creates one job per course — see importMultiCourse.
+ */
+router.post(
+  '/import',
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const content = (req.body ?? {}).content;
+
+    if (typeof content !== 'string' || content.trim() === '') {
+      throw new AppError('No rows provided', 400);
+    }
+
+    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip;
+
+    // Authorisation is per course and lives in the service, because only the
+    // parsed rows know which courses are involved.
+    const result = await batchEnrollmentService.importMultiCourse(
+      content,
+      {
+        id: req.user!.id,
+        email: req.user!.email,
+        isAdmin: req.user!.isAdmin,
+      },
+      { ipAddress }
+    );
+
+    res.status(201).json({ success: true, data: result });
   })
 );
 

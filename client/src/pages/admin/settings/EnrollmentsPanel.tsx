@@ -1,10 +1,14 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Ticket, Upload } from 'lucide-react';
+import { Ticket, Upload, AlertTriangle, KeyRound } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { adminApi } from '../../../api/admin';
+import {
+  batchEnrollmentApi,
+  type ImportResult,
+} from '../../../api/batchEnrollment';
 import { Button } from '../../../components/common/Button';
 import { Modal } from '../../../components/common/Modal';
 import {
@@ -24,8 +28,35 @@ interface AdminEnrollment {
 export const EnrollmentsPanel = () => {
   const { t } = useTranslation(['admin', 'common']);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [csvText, setCsvText] = useState('');
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+
+  const importMutation = useMutation({
+    mutationFn: (content: string) => batchEnrollmentApi.importPasted(content),
+    onSuccess: result => {
+      setImportResult(result);
+      // The table behind the modal is now stale by exactly the rows we added.
+      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+    },
+    onError: (error: any) => {
+      // The server refuses the whole import on an unknown or unpermitted
+      // course, and its message names which — worth surfacing verbatim.
+      toast.error(
+        error?.response?.data?.error ||
+          error?.message ||
+          t('batch_import_failed', { defaultValue: 'Import failed' }),
+      );
+    },
+  });
+
+  const closeBatchModal = () => {
+    setShowBatchModal(false);
+    setCsvText('');
+    setImportResult(null);
+    importMutation.reset();
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['enrollments', 'all'],
@@ -183,42 +214,130 @@ export const EnrollmentsPanel = () => {
         createCta={{
           label: t('batch_import'),
           icon: <Upload className="w-4 h-4" />,
-          onClick: () => setShowBatchModal(true),
+          onClick: () => {
+            setImportResult(null);
+            setShowBatchModal(true);
+          },
         }}
       />
 
       <Modal
         isOpen={showBatchModal}
-        onClose={() => setShowBatchModal(false)}
+        onClose={closeBatchModal}
         title={t('batch_import_enrollments')}
       >
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600 dark:text-gray-300">
-            {t('batch_import_instructions')}{' '}
-            <code className="px-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-              email,course_id
-            </code>
-          </p>
-          <textarea
-            value={csvText}
-            onChange={e => setCsvText(e.target.value)}
-            placeholder="email,course_id&#10;student@example.com,1&#10;another@example.com,2"
-            className="w-full h-40 px-3 py-2 text-sm font-mono rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowBatchModal(false)}>
-              {t('common:cancel')}
-            </Button>
-            <Button
-              onClick={() => {
-                toast.success(t('feature_coming_soon'));
-                setShowBatchModal(false);
-              }}
-            >
-              {t('import')}
-            </Button>
+        {importResult ? (
+          <div className="space-y-4">
+            <ul className="space-y-2">
+              {importResult.jobs.map(job => (
+                <li
+                  key={job.jobId}
+                  className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/40"
+                >
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {job.courseTitle}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    {t('import_enrolled_count', {
+                      n: job.successCount,
+                      defaultValue: '{{n}} enrolled',
+                    })}
+                    {job.alreadyEnrolled > 0 &&
+                      ` · ${t('import_already_enrolled_count', {
+                        n: job.alreadyEnrolled,
+                        defaultValue: '{{n}} already enrolled',
+                      })}`}
+                    {job.errorCount > 0 &&
+                      ` · ${t('import_failed_count', {
+                        n: job.errorCount,
+                        defaultValue: '{{n}} failed',
+                      })}`}
+                  </p>
+                </li>
+              ))}
+            </ul>
+
+            {/* Rows the parser could not use. These used to be dropped in
+                silence, so a paste with a few typos looked like a clean run. */}
+            {importResult.invalid.length > 0 && (
+              <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                <p className="flex items-center gap-2 text-sm font-medium text-amber-900 dark:text-amber-200">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  {t('import_skipped_rows', {
+                    n: importResult.invalid.length,
+                    defaultValue: '{{n}} row(s) could not be read',
+                  })}
+                </p>
+                <ul className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                  {importResult.invalid.map(row => (
+                    <li
+                      key={row.rowNumber}
+                      className="text-xs font-mono text-amber-800 dark:text-amber-300"
+                    >
+                      {t('import_row_label', {
+                        row: row.rowNumber,
+                        defaultValue: 'Row {{row}}',
+                      })}
+                      : {row.email || '—'} — {row.reason}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* New accounts get a random password that is hashed and thrown
+                away; nothing is emailed. Without this note the operator has no
+                way to know the people they just added cannot sign in. */}
+            {importResult.jobs.some(job => job.successCount > 0) && (
+              <p className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-sm text-blue-900 dark:text-blue-200">
+                <KeyRound className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>
+                  {t('import_new_user_password_note', {
+                    defaultValue:
+                      'Anyone who did not already have an account cannot sign in until they set a password — ask them to use “Forgot password” on the login page.',
+                  })}
+                </span>
+              </p>
+            )}
+
+            <div className="flex justify-end">
+              <Button onClick={closeBatchModal}>{t('common:done', { defaultValue: 'Done' })}</Button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              {t('batch_import_instructions')}{' '}
+              <code className="px-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                email,course_id
+              </code>
+            </p>
+            <textarea
+              value={csvText}
+              onChange={e => setCsvText(e.target.value)}
+              placeholder="email,course_id&#10;student@example.com,1&#10;another@example.com,2"
+              className="w-full h-40 px-3 py-2 text-sm font-mono rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {t('batch_import_course_id_hint', {
+                defaultValue:
+                  'Include the header row. A course id is the number in the course URL. Names containing a comma must be quoted.',
+              })}
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={closeBatchModal}>
+                {t('common:cancel')}
+              </Button>
+              <Button
+                onClick={() => importMutation.mutate(csvText)}
+                loading={importMutation.isPending}
+                disabled={csvText.trim() === '' || importMutation.isPending}
+              >
+                {t('import')}
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

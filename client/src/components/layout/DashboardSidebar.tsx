@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard,
   GraduationCap,
+  UploadCloud,
   ClipboardList,
   ClipboardCheck,
   Calendar,
@@ -126,6 +127,10 @@ export const DashboardSidebar = ({ mobileOpen = false, onMobileClose, isDesktop 
   const adminNavItems: NavItem[] = [
     { label: t('admin:users', { defaultValue: 'Users' }), icon: Users, path: '/admin/settings?tab=users' },
     { label: t('admin:enrollments', { defaultValue: 'Enrollments' }), icon: GraduationCap, path: '/admin/settings?tab=enrollments' },
+    // The CSV-upload importer. It had no entry anywhere, so the only route to
+    // it was typing the URL — which is why the paste box in Enrollments looked
+    // like the whole feature.
+    { label: t('admin:batch_enrollment', { defaultValue: 'Batch Enrollment' }), icon: UploadCloud, path: '/admin/batch-enrollment' },
     { label: t('admin:categories', { defaultValue: 'Categories' }), icon: Tag, path: '/admin/settings?tab=categories' },
     { label: t('admin:chatbots', { defaultValue: 'Chatbots' }), icon: MessageSquare, path: '/admin/chatbot-registry' },
     { label: t('admin:prompts', { defaultValue: 'Prompts' }), icon: Blocks, path: '/admin/prompt-blocks' },
