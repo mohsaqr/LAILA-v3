@@ -305,7 +305,7 @@
     },
     {
       "name": "nodemailer",
-      "version": "7.0.13",
+      "version": "9.0.4",
       "license": "MIT-0",
       "homepage": "https://nodemailer.com/"
     },

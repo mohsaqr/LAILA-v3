@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import prisma from '../utils/prisma.js';
 import { authenticateToken, requireInstructor } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
@@ -194,9 +194,32 @@ router.post('/announce', authenticateToken, requireInstructor, asyncHandler(asyn
 // TEST ROUTES (development only)
 // =========================================================================
 
+/**
+ * Request-time production check for the developer-only routes below.
+ *
+ * The gate used to be `if (process.env.NODE_ENV !== 'production')` evaluated at
+ * module scope. That is read while this module is being imported, which happens
+ * before index.ts gets to load the .env file — so on a host that supplies
+ * NODE_ENV through server/.env rather than the process environment, the value
+ * was undefined and these endpoints mounted in production.
+ *
+ * index.ts now imports `dotenv/config` first, which fixes the ordering. This
+ * second check is kept anyway: it costs nothing per request, and a route that
+ * lets any authenticated user make the server send mail should not be one
+ * import-order regression away from being live. Denying at request time is the
+ * only form of this check that cannot be defeated by initialisation order.
+ */
+const devOnly = (_req: any, res: Response, next: NextFunction): void => {
+  if (process.env.NODE_ENV === 'production') {
+    res.status(404).json({ success: false, error: 'Not found' });
+    return;
+  }
+  next();
+};
+
 if (process.env.NODE_ENV !== 'production') {
   // Test email sending
-  router.post('/test', authenticateToken, asyncHandler(async (req, res) => {
+  router.post('/test', devOnly, authenticateToken, asyncHandler(async (req, res) => {
     const user = (req as any).user;
 
     const sent = await emailService.sendEmail({
@@ -214,7 +237,7 @@ if (process.env.NODE_ENV !== 'production') {
   }));
 
   // Create test notification
-  router.post('/test-notification', authenticateToken, asyncHandler(async (req, res) => {
+  router.post('/test-notification', devOnly, authenticateToken, asyncHandler(async (req, res) => {
     const user = (req as any).user;
 
     const result = await notificationService.create({

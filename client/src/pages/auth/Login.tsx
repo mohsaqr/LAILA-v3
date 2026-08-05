@@ -9,6 +9,7 @@ import { useLanguageStore } from '../../store/languageStore';
 import { supportedLanguages, SupportedLanguage } from '../../i18n/config';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
+import { safeReturnPath } from '../../utils/safeReturnPath';
 
 export const Login = () => {
   const { t } = useTranslation(['auth', 'common']);
@@ -32,14 +33,13 @@ export const Login = () => {
    *
    * Only the in-app path is reconstructed, never a caller-supplied string: an
    * absolute URL here would be an open redirect straight out of the login form.
-   * The leading-`//` check rejects protocol-relative URLs like `//evil.example`,
-   * which browsers treat as absolute.
+   * `safeReturnPath` owns that rule — see utils/safeReturnPath.ts for the two
+   * off-site spellings it rejects and why the check lives in a tested unit
+   * rather than inline here.
    */
   const returnTo = (() => {
     const from = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from;
-    const path = from?.pathname;
-    if (!path || !path.startsWith('/') || path.startsWith('//')) return '/dashboard';
-    return `${path}${from?.search ?? ''}`;
+    return safeReturnPath(from?.pathname, from?.search);
   })();
 
   // Theme colors
