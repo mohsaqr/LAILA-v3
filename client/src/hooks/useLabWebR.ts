@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { WebR } from 'webr';
 import { debug } from '../utils/debug';
 import { NETWORK_SHIM } from './webrNetworkShim';
-import { asRBlock } from './rCodeBlock';
+import { R_CONSOLE_HELPERS, evalAllCall, evalPlotCall } from './rRunner';
 
 interface WebROutput {
   type: 'stdout' | 'stderr' | 'plot' | 'message';
@@ -80,7 +80,11 @@ const LAB_PACKAGES: Record<string, string[]> = {
   ],
 };
 
-// Base plot capture helper (works for all lab types)
+// Base plot capture helpers (works for all lab types).
+//
+// The runner no longer needs these — `.laila_eval_plot` in rRunner.ts opens the
+// device for a plotting cell — but they stay because lab content can call
+// `capture_plot()` directly, and that code lives in the database, not here.
 const BASE_PLOT_HELPER = `
 # Universal plot capture function
 .capture_to_base64 <- function(plot_obj = NULL) {
@@ -572,6 +576,7 @@ export const useLabWebR = (
       // Install helper functions
       setLoadingStatus('Setting up environment...');
       await webR.evalRVoid(BASE_PLOT_HELPER);
+      await webR.evalRVoid(R_CONSOLE_HELPERS);
 
       // Makes `import("<url>")` and friends reach the network at all — see
       // webrNetworkShim.ts for why they otherwise cannot.
@@ -672,73 +677,27 @@ export const useLabWebR = (
 
     try {
       const webR = webRRef.current;
-      const hasSnaHelper = code.includes('plot_network(') || code.includes('plot_centrality(') ||
-                           code.includes('plot_communities(') || code.includes('plot_adjacency(');
-      const isPlotCode = code.includes('plot(') || code.includes('ggplot_tna(') || code.includes('ggplot(');
 
-      let rCode: string;
+      // The SNA helpers and ggplot_tna open, close and base64-encode their own
+      // PNG device, so wrapping them in another one would capture a blank
+      // image alongside theirs.
+      const capturesOwnPlot =
+        code.includes('plot_network(') || code.includes('plot_centrality(') ||
+        code.includes('plot_communities(') || code.includes('plot_adjacency(') ||
+        code.includes('ggplot_tna(');
+      const drawsPlot = code.includes('plot(') || code.includes('ggplot(');
 
-      if (hasSnaHelper) {
-        // SNA helpers handle their own plot capture internally
-        rCode = `
-          paste(capture.output({
-            tryCatch(
-              withCallingHandlers({
-                ${code}
-              },
+      const rCode = `
+        paste(capture.output({
+          tryCatch(
+            withCallingHandlers(
+              ${!capturesOwnPlot && drawsPlot ? evalPlotCall(code) : evalAllCall(code)},
               warning = function(w) invokeRestart("muffleWarning")
-              ),
+            ),
             error = function(e) cat("Error:", conditionMessage(e), "\\n")
-            )
-          }), collapse = "\\n")
-        `;
-      } else if (isPlotCode && !code.includes('ggplot_tna(')) {
-        rCode = `
-          paste(capture.output({
-            tryCatch(
-              withCallingHandlers({
-                capture_plot(quote(${asRBlock(code)}))
-              },
-              warning = function(w) invokeRestart("muffleWarning")
-              ),
-            error = function(e) cat("Error:", conditionMessage(e), "\\n")
-            )
-          }), collapse = "\\n")
-        `;
-      } else if (code.includes('ggplot_tna(')) {
-        rCode = `
-          paste(capture.output({
-            tryCatch(
-              withCallingHandlers({
-                ${code}
-              },
-              warning = function(w) invokeRestart("muffleWarning")
-              ),
-            error = function(e) cat("Error:", conditionMessage(e), "\\n")
-            )
-          }), collapse = "\\n")
-        `;
-      } else {
-        rCode = `
-          paste(capture.output({
-            tryCatch(
-              withCallingHandlers({
-                .exprs <- parse(text = ${JSON.stringify(code)})
-                .last_result <- NULL
-                for (.expr in .exprs) {
-                  .last_result <- eval(.expr)
-                }
-                if (!is.null(.last_result)) {
-                  print(.last_result)
-                }
-              },
-              warning = function(w) invokeRestart("muffleWarning")
-              ),
-            error = function(e) cat("Error:", conditionMessage(e), "\\n")
-            )
-          }), collapse = "\\n")
-        `;
-      }
+          )
+        }), collapse = "\\n")
+      `;
 
       const result = await webR.evalRString(rCode);
       const outputs = parseOutput(result || '');

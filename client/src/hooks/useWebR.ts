@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { WebR } from 'webr';
 import { debug } from '../utils/debug';
 import { NETWORK_SHIM } from './webrNetworkShim';
-import { asRBlock } from './rCodeBlock';
+import { R_CONSOLE_HELPERS, evalAllCall } from './rRunner';
 
 interface WebROutput {
   type: 'stdout' | 'stderr' | 'plot' | 'message';
@@ -75,6 +75,7 @@ export const useWebR = (
       // Makes `import("<url>")` and friends reach the network at all — see
       // webrNetworkShim.ts for why they otherwise cannot.
       await webR.evalRVoid(NETWORK_SHIM);
+      await webR.evalRVoid(R_CONSOLE_HELPERS);
 
       webRRef.current = webR;
       setIsReady(true);
@@ -184,13 +185,21 @@ export const useWebR = (
       const webR = webRRef.current;
       debug.webr('[WebR] Executing code:', code.substring(0, 100) + '...');
 
-      // Use captureR for cleaner output handling
+      // Warnings are handled by withCallingHandlers, NOT by tryCatch. A
+      // tryCatch warning handler is an *exiting* handler: it unwinds the stack
+      // before running, so `muffleWarning` no longer exists by the time
+      // invokeRestart looks for it and the whole cell dies with "no 'restart'
+      // 'muffleWarning' found". withCallingHandlers runs the handler in place,
+      // with the restart still established, so the warning prints and the cell
+      // carries on.
       const result = await webR.evalRString(`
         paste(capture.output({
           tryCatch(
-            ${asRBlock(code)},
-            error = function(e) cat("Error:", conditionMessage(e), "\\n"),
-            warning = function(w) { cat("Warning:", conditionMessage(w), "\\n"); invokeRestart("muffleWarning") }
+            withCallingHandlers(
+              ${evalAllCall(code)},
+              warning = function(w) { cat("Warning:", conditionMessage(w), "\\n"); invokeRestart("muffleWarning") }
+            ),
+            error = function(e) cat("Error:", conditionMessage(e), "\\n")
           )
         }), collapse = "\\n")
       `);
