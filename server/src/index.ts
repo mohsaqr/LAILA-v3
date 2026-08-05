@@ -1,3 +1,19 @@
+// MUST be the first import. ES module imports are all evaluated before any
+// statement in this file runs, so the `dotenv.config()` call further down
+// executes AFTER every module below has already been initialised. Anything that
+// read process.env at module scope — a log level, a feature gate — therefore saw
+// an empty value and silently took its default.
+//
+// That was not theoretical: notification.routes.ts registers developer-only test
+// endpoints behind `NODE_ENV !== 'production'` at module scope, so on any host
+// that supplies NODE_ENV through server/.env rather than the process
+// environment, those routes were being mounted in production. The systemd unit
+// happens to set NODE_ENV itself, which masked it there.
+//
+// `dotenv/config` applies the file as a side effect of the import, which puts it
+// ahead of every import that follows. Keep it first.
+import 'dotenv/config';
+
 import express from 'express';
 import { createServer } from 'http';
 import cors from 'cors';
@@ -7,7 +23,9 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { initSocket } from './utils/socket.js';
 
-// Load environment variables
+// Retained deliberately. dotenv does not overwrite variables that are already
+// set, so this is a no-op after the side-effect import above — but it keeps
+// working if someone reorders the imports, and it documents the dependency.
 dotenv.config();
 
 // Import logger first

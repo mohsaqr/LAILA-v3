@@ -1060,16 +1060,29 @@ describe('AuthService', () => {
       );
     });
 
-    // Account lockout is disabled (LOCKOUT_ENABLED = false in auth.service.ts).
-    // This used to assert the opposite. The case still matters because rows
-    // locked BEFORE the feature was turned off keep a future lockedUntil in the
-    // database — if the check did not gate on the flag, those users would stay
-    // locked out until their timestamp happened to lapse.
-    it('lets a user with a stale future lockedUntil log in', async () => {
+    // Account lockout is ENABLED again (LOCKOUT_ENABLED = true), after the
+    // ratchet that made it unusable was fixed. See MAX_FAILED_ATTEMPTS in
+    // auth.service.ts for the history.
+    it('refuses a login while the account is locked', async () => {
       const futureDate = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
       vi.mocked(prisma.user.findUnique).mockResolvedValue({
         ...mockUser,
         lockedUntil: futureDate,
+      } as any);
+
+      await expect(authService.login(validLogin)).rejects.toThrow(/locked/i);
+      // The password is never even checked while a lock is live — that is what
+      // makes the lock cost an attacker time rather than just changing the
+      // error message.
+      expect(bcrypt.compare).not.toHaveBeenCalled();
+    });
+
+    it('lets the user back in once the lock has lapsed', async () => {
+      const pastDate = new Date(Date.now() - 60 * 1000); // lapsed a minute ago
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        ...mockUser,
+        failedLoginAttempts: 10,
+        lockedUntil: pastDate,
       } as any);
 
       const result = await authService.login(validLogin);
@@ -1091,21 +1104,18 @@ describe('AuthService', () => {
       });
     });
 
-    // Was 'should lock account after 5 failed attempts'. With the lockout
-    // disabled the 5th failure must read exactly like the first — a plain 401 —
-    // and must NOT write a lockedUntil. The counter is still incremented, so
-    // failed_login_attempts stays usable as a signal and re-enabling the
-    // feature needs no backfill.
-    it('does not lock the account on the 5th failed attempt', async () => {
+    it('does not lock before the threshold', async () => {
       vi.mocked(prisma.user.findUnique).mockResolvedValue({
         ...mockUser,
-        failedLoginAttempts: 4, // This will be the 5th attempt
+        failedLoginAttempts: 4, // this makes it the 5th attempt, still under 10
       } as any);
       vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
       vi.mocked(prisma.user.update).mockResolvedValue({ ...mockUser, failedLoginAttempts: 5 } as any);
 
       await expect(authService.login(validLogin)).rejects.toThrow('Invalid credentials');
 
+      // Five wrong passwords is a person who has forgotten theirs, not an
+      // attack; it must read exactly like the first failure.
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: 1 },
         data: { failedLoginAttempts: 5 },
@@ -1115,6 +1125,51 @@ describe('AuthService', () => {
           data: expect.objectContaining({ lockedUntil: expect.anything() }),
         })
       );
+    });
+
+    it('locks the account on the 10th failed attempt', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        ...mockUser,
+        failedLoginAttempts: 9, // this will be the 10th
+      } as any);
+      vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
+      vi.mocked(prisma.user.update).mockResolvedValue({ ...mockUser, failedLoginAttempts: 10 } as any);
+
+      await expect(authService.login(validLogin)).rejects.toThrow(/locked/i);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: expect.objectContaining({
+          failedLoginAttempts: 10,
+          lockedUntil: expect.any(Date),
+        }),
+      });
+    });
+
+    // REGRESSION: this is the bug that got the whole feature switched off on
+    // 2026-08-03. Nothing reset the counter when a lock lapsed, so an account
+    // came back from its 15 minutes still at the maximum and re-locked on the
+    // very next wrong password — one guess per 15 minutes, forever, for anyone
+    // who had simply forgotten their password. A lapsed lock must hand back a
+    // full budget, not a single attempt.
+    it('starts a fresh budget after a lock lapses, instead of re-locking at once', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        ...mockUser,
+        failedLoginAttempts: 10, // was at the maximum when the lock was set
+        lockedUntil: new Date(Date.now() - 60 * 1000), // and that lock has lapsed
+      } as any);
+      vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
+      vi.mocked(prisma.user.update).mockResolvedValue({ ...mockUser, failedLoginAttempts: 1 } as any);
+
+      // A plain 401, NOT another lock.
+      await expect(authService.login(validLogin)).rejects.toThrow('Invalid credentials');
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        // Counter restarts at 1 (not 11), and the spent timestamp is cleared so
+        // it cannot later read as a live lock.
+        data: { failedLoginAttempts: 1, lockedUntil: null },
+      });
     });
   });
 

@@ -1,36 +1,47 @@
 import rateLimit from 'express-rate-limit';
 
 /**
- * Rate limiter for authentication routes (login, register).
+ * Rate limiter for authentication routes (login, register, password reset).
  *
- * DISABLED by owner decision (2026-08-03). It was five requests a minute per
- * IP, which locked the operator out of their own deployment repeatedly during
- * testing — a legitimate person retrying a password they are unsure of trips it
- * long before an attacker's script would care.
+ * This counts FAILED attempts only, which is the whole design.
  *
- * The middleware is kept mounted rather than removed from the routes so this is
- * one line to change, not a hunt through index.ts. Restore brute-force
- * protection by deleting the `skip` below; there is no other throttle on
- * password guessing now that the account lockout in `auth.service.ts` is also
- * off (see MAX_FAILED_ATTEMPTS there).
+ * History: it was originally five requests a minute per IP counting every
+ * request, and it locked the operator out of their own deployment repeatedly
+ * during testing — so on 2026-08-03 it was switched off entirely with
+ * `skip: () => true`. That left no throttle whatsoever on password guessing,
+ * because the account lockout in `auth.service.ts` had been disabled on the
+ * same day. Shipping with both off is not an option.
  *
- * `skip` is what disables it — NOT `max: 0`. In express-rate-limit v6 and older
- * a limit of 0 meant unlimited; since v7 it means every request is blocked, and
- * this package is on v8. `max: 0` here would deny all logins outright, which is
- * the precise opposite of the intent. The library ships a WRN_ERL_MAX_ZERO
- * warning for that trap.
+ * `skipSuccessfulRequests` is what makes a finite limit safe to restore. The
+ * old limiter charged a legitimate person for the request that finally
+ * succeeded, so a handful of fumbled passwords plus one good one hit the same
+ * ceiling an attacker did. Now only a 4xx/5xx response is counted: someone who
+ * eventually gets in spends nothing, and the budget is reachable only by
+ * sustained failure.
+ *
+ * The numbers are deliberately generous — 30 failures per 15 minutes rather
+ * than the old 5 per minute — because a university NAT puts an entire campus
+ * behind one address, and first-day-of-term login is exactly when a shared-IP
+ * false positive would hurt most. For an attacker the same budget is 120
+ * guesses an hour against bcrypt, which is useless for online brute force.
+ *
+ * Per-ACCOUNT protection is separate and lives in `auth.service.ts` — this
+ * limiter is per-IP and so cannot stop a botnet spread across many addresses
+ * from targeting one admin account. The two layers are complementary; neither
+ * substitutes for the other.
  *
  * Note the counters are in-memory (no `store` configured), so a
- * `systemctl restart laila` clears every limiter in this file instantly —
- * useful if a finite limit is ever restored and someone is stuck behind it.
+ * `systemctl restart laila` clears every limiter in this file instantly — the
+ * escape hatch if a real user is ever stuck behind one.
  */
 export const authLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 5, // inert while `skip` returns true; the value to fall back to
-  skip: () => true,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 30, // failed attempts per IP per window
+  // Only failures count toward the budget. See the rationale above.
+  skipSuccessfulRequests: true,
   message: {
     success: false,
-    error: 'Too many authentication attempts. Please try again later.',
+    error: 'Too many failed authentication attempts. Please try again later.',
   },
   standardHeaders: true,
   legacyHeaders: false,

@@ -430,20 +430,28 @@ export class AuthService {
 
   // Account lockout settings.
   //
-  // DISABLED by owner decision (2026-08-03): `LOCKOUT_ENABLED = false` makes
-  // login never lock an account, however many passwords are missed. The counter
-  // is still incremented, so `failed_login_attempts` remains usable as a signal
-  // and re-enabling costs one boolean.
+  // This is the per-ACCOUNT half of brute-force protection; the per-IP half is
+  // `authLimiter` in middleware/rateLimit.middleware.ts. Only this half can stop
+  // a botnet spread across many addresses from grinding away at one admin
+  // account, so it cannot simply be delegated to the rate limiter.
   //
-  // It was 5 attempts / 15 minutes, and it behaved worse than those numbers
-  // suggest: nothing resets the counter when a lock expires — only a successful
-  // login or a password reset does — so a locked-out account came back with the
-  // counter still at the maximum and re-locked on the very next wrong password.
-  // One guess per 15 minutes, indefinitely, for anyone who had forgotten their
-  // password. That ratchet is what made this worth turning off rather than
-  // tuning. If it is restored, reset the counter when the lock lapses too.
-  private static readonly LOCKOUT_ENABLED = false;
-  private static readonly MAX_FAILED_ATTEMPTS = 5;
+  // It was disabled on 2026-08-03 for a good reason, now fixed. At 5 attempts /
+  // 15 minutes it behaved far worse than those numbers suggest: nothing reset
+  // the counter when a lock expired — only a successful login or a password
+  // reset did — so a locked-out account came back with the counter still at the
+  // maximum and re-locked on the very next wrong password. That meant one guess
+  // per 15 minutes, indefinitely, for anyone who had merely forgotten their
+  // password. It was a ratchet, not a lockout.
+  //
+  // Re-enabled with that ratchet fixed (see `lockExpired` in login(), which
+  // starts a fresh budget once a lock lapses) and with a threshold doubled to
+  // 10, so a legitimate person gets ten tries every 15 minutes rather than one.
+  // An attacker gets at most 40 bcrypt-cost-10 guesses an hour per account.
+  //
+  // Escape hatch: a password reset clears both the counter and the lock, so a
+  // locked-out operator can always recover through email without a DB edit.
+  private static readonly LOCKOUT_ENABLED = true;
+  private static readonly MAX_FAILED_ATTEMPTS = 10;
   private static readonly LOCKOUT_DURATION_MINUTES = 15;
 
   async login(data: LoginInput, context?: AuthContext) {
@@ -472,6 +480,11 @@ export class AuthService {
       }
       throw new AppError('Invalid credentials', 401);
     }
+
+    // A lock that has already lapsed must start the next attempt from a clean
+    // slate. Leaving the counter at its maximum is what turned the old lockout
+    // into a one-guess-per-15-minutes ratchet; see MAX_FAILED_ATTEMPTS above.
+    const lockExpired = user.lockedUntil != null && user.lockedUntil <= new Date();
 
     // Check if account is locked. A row locked before the feature was disabled
     // still carries a future lockedUntil, so this must gate on the flag too or
@@ -553,9 +566,11 @@ export class AuthService {
     // Check password
     const isValidPassword = await bcrypt.compare(data.password, user.passwordHash);
     if (!isValidPassword) {
-      // Increment failed login attempts
-      const newFailedAttempts = user.failedLoginAttempts + 1;
-      const updateData: { failedLoginAttempts: number; lockedUntil?: Date } = {
+      // Increment failed login attempts. A lapsed lock resets the budget first,
+      // so serving a lock costs the user their counter rather than leaving them
+      // permanently one wrong password away from the next lock.
+      const newFailedAttempts = (lockExpired ? 0 : user.failedLoginAttempts) + 1;
+      const updateData: { failedLoginAttempts: number; lockedUntil?: Date | null } = {
         failedLoginAttempts: newFailedAttempts,
       };
 
@@ -564,6 +579,10 @@ export class AuthService {
         AuthService.LOCKOUT_ENABLED && newFailedAttempts >= AuthService.MAX_FAILED_ATTEMPTS;
       if (shouldLock) {
         updateData.lockedUntil = new Date(Date.now() + AuthService.LOCKOUT_DURATION_MINUTES * 60000);
+      } else if (lockExpired) {
+        // Clear the spent timestamp too, so `lockedUntil` never lingers as a
+        // stale value that later reads as "this account has a lock".
+        updateData.lockedUntil = null;
       }
 
       await prisma.user.update({
