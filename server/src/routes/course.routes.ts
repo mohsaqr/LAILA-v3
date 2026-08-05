@@ -253,11 +253,20 @@ router.put('/:courseId/modules/reorder', authenticateToken, requireInstructor, a
 }));
 
 // Reorder a module's items across all types in one flat sequence.
-// Body: { items: [{ type: 'lecture' | 'codelab' | 'assignment' | 'forum' | 'quiz' | 'survey', id: number }] }
+// Body: { items: [{ type: 'lecture' | 'codelab' | 'assignment' | 'forum' | 'quiz' | 'survey' | 'lab', id: number }] }
 router.put('/modules/:moduleId/reorder-items', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
   const moduleId = parseInt(req.params.moduleId);
   const items = Array.isArray(req.body?.items) ? req.body.items : [];
   const result = await moduleService.reorderModuleItems(moduleId, req.user!.id, items, req.user!.isAdmin);
+  res.json({ success: true, ...result });
+}));
+
+// Move a single item into another section of the same course.
+// Body: { type, id } — :moduleId is the DESTINATION.
+router.put('/modules/:moduleId/move-item', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const moduleId = parseInt(req.params.moduleId);
+  const { type, id } = req.body ?? {};
+  const result = await moduleService.moveItemToModule(moduleId, req.user!.id, { type, id }, req.user!.isAdmin);
   res.json({ success: true, ...result });
 }));
 

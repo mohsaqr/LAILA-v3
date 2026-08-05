@@ -26,7 +26,10 @@ interface CourseFilters {
   limit?: number;
 }
 
-export type ModuleItemType = 'lecture' | 'codelab' | 'assignment' | 'forum' | 'quiz' | 'survey';
+// 'lab' is a LabAssignment junction row. It joined this union once the table
+// gained orderIndex/isPublished columns — before that an assigned lab had
+// nowhere to record a position, so it was pinned to the end of its section.
+export type ModuleItemType = 'lecture' | 'codelab' | 'assignment' | 'forum' | 'quiz' | 'survey' | 'lab';
 
 export interface CourseResourceCounts {
   assignments: number;
@@ -159,6 +162,18 @@ export const coursesApi = {
     const response = await apiClient.put<ApiResponse<{ message: string }>>(
       `/courses/modules/${moduleId}/reorder-items`,
       { items }
+    );
+    return response.data;
+  },
+
+  /** Move one item into another section of the same course. */
+  moveModuleItem: async (
+    targetModuleId: number,
+    item: { type: ModuleItemType; id: number }
+  ) => {
+    const response = await apiClient.put<ApiResponse<{ message: string }>>(
+      `/courses/modules/${targetModuleId}/move-item`,
+      item
     );
     return response.data;
   },

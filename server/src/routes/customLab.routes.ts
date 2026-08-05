@@ -232,6 +232,20 @@ router.delete('/:id/assign/:courseId', authenticateToken, requireInstructor, asy
   res.json({ success: true, ...result });
 }));
 
+// Show / hide an assigned lab for students (without unassigning it)
+router.patch('/:id/assign/:courseId/visibility', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const labId = parseId(req.params.id);
+  const courseId = parseId(req.params.courseId);
+  const isPublished = req.body?.isPublished;
+  if (typeof isPublished !== 'boolean') {
+    throw new AppError('isPublished must be a boolean', 400);
+  }
+  const result = await customLabService.setLabAssignmentVisibility(
+    labId, courseId, isPublished, req.user!.id, req.user!.isAdmin,
+  );
+  res.json({ success: true, ...result });
+}));
+
 // Get labs for a course
 router.get('/course/:courseId', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const courseId = parseId(req.params.courseId);

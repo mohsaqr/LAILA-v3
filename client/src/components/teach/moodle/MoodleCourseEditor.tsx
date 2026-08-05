@@ -6,7 +6,7 @@ import {
   ChevronDown, ChevronRight, ArrowUp, ArrowDown, GripVertical, Pencil, SquarePen, Copy, Trash2, Eye, EyeOff, Plus,
   Check, X, FileText, FlaskConical, ClipboardList, MessageSquare, FileQuestion, ClipboardCheck,
   Beaker, Network, Bot, Search, Video, FileUp, Loader2, Link2, UploadCloud,
-  Link as LinkIcon, FileType2, MonitorPlay, BarChart3, Image as ImageIcon, Folder,
+  Link as LinkIcon, FileType2, MonitorPlay, BarChart3, Image as ImageIcon, Folder, FolderInput,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTheme } from '../../../hooks/useTheme';
@@ -25,6 +25,7 @@ import { customLabsApi } from '../../../api/customLabs';
 import { surveysApi } from '../../../api/surveys';
 import { Loading } from '../../common/Loading';
 import { ConfirmDialog } from '../../common/ConfirmDialog';
+import { RowMenu } from '../../common/RowMenu';
 import { Button } from '../../common/Button';
 import { Input } from '../../common/Input';
 import { SearchableSelect } from '../../common/SearchableSelect';
@@ -48,7 +49,7 @@ type PaletteKind =
 
 /** Item types that participate in the unified cross-type reorder (everything
  *  except the pinned reference items: assigned labs / interactive labs). */
-type ReorderableType = 'lecture' | 'codelab' | 'assignment' | 'quiz' | 'forum' | 'survey';
+type ReorderableType = 'lecture' | 'codelab' | 'assignment' | 'quiz' | 'forum' | 'survey' | 'lab';
 
 interface EditorItem {
   type: ItemType;
@@ -70,9 +71,15 @@ interface EditorItem {
   orderIndex: number;
   /** View link for the title. */
   viewHref: string;
-  /** Reference items (assigned lab / interactive lab) can't be renamed/edited
-   *  inline — only removed from the module. */
+  /** Reference items point at a resource that exists independently of this
+   *  course (an assigned lab, an interactive lab), so they are never renamed
+   *  or edited in place — only removed. They can still be positioned and
+   *  hidden, which is what `pinned` controls separately. */
   reference?: boolean;
+  /** Cannot be reordered or moved between sections. True only for interactive
+   *  labs, which are stored as keys in a delimited string on the module and so
+   *  have no row of their own to carry a position. */
+  pinned?: boolean;
 }
 
 const ITEM_META: Record<ItemType, { Icon: typeof FileText; color: string; colorDark: string }> = {
@@ -152,6 +159,7 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
     moduleCreate: useMutation({ mutationFn: (data: Record<string, unknown>) => coursesApi.createModule(courseId, data), onSuccess: refresh }),
     modulesReorder: useMutation({ mutationFn: (moduleIds: number[]) => coursesApi.reorderModules(courseId, moduleIds), onSuccess: refresh }),
     itemsReorder: useMutation({ mutationFn: ({ moduleId, items }: { moduleId: number; items: { type: ReorderableType; id: number }[] }) => coursesApi.reorderModuleItems(moduleId, items), onSuccess: refresh }),
+    itemMove: useMutation({ mutationFn: ({ moduleId, item }: { moduleId: number; item: { type: ReorderableType; id: number } }) => coursesApi.moveModuleItem(moduleId, item), onSuccess: refresh }),
 
     lectureUpdate: useMutation({ mutationFn: ({ id, data }: { id: number; data: Record<string, unknown> }) => coursesApi.updateLecture(id, data), onSuccess: refresh }),
     lectureDelete: useMutation({ mutationFn: (id: number) => coursesApi.deleteLecture(id), onSuccess: refresh }),
@@ -173,6 +181,7 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
     surveyRemove: useMutation({ mutationFn: ({ moduleId, surveyId }: { moduleId: number; surveyId: number }) => surveysApi.removeSurveyFromModule(moduleId, surveyId), onSuccess: refresh }),
 
     labUnassign: useMutation({ mutationFn: (labId: number) => customLabsApi.unassignFromCourse(labId, courseId), onSuccess: refresh }),
+    labVisibility: useMutation({ mutationFn: ({ labId, isPublished }: { labId: number; isPublished: boolean }) => customLabsApi.setAssignmentVisibility(labId, courseId, isPublished), onSuccess: refresh }),
     interactiveRemove: useMutation({
       mutationFn: ({ moduleId, key }: { moduleId: number; key: string }) => {
         const mod = details?.course?.modules?.find((m: { id: number }) => m.id === moduleId) as { interactiveLabs?: string } | undefined;
@@ -625,6 +634,9 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
       case 'quiz': mut.quizUpdate.mutate({ id: item.id, data }, opts); break;
       case 'forum': mut.forumUpdate.mutate({ id: item.id, data }, opts); break;
       case 'survey': if (item.surveyId) mut.surveyUpdate.mutate({ id: item.surveyId, data }, opts); break;
+      // An assigned lab is hidden per course, on the assignment row — the
+      // CustomLab itself is shared and must not change for other courses.
+      case 'lab': if (item.labId) mut.labVisibility.mutate({ labId: item.labId, isPublished: !item.isPublished }, opts); break;
     }
   };
 
@@ -655,6 +667,19 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
   // Persist a new item order within a module (unified cross-type reorder).
   const reorderItems = (moduleId: number, items: { type: ReorderableType; id: number }[]) =>
     mut.itemsReorder.mutate({ moduleId, items }, { onError });
+
+  // Move one item into a different section. The server refuses a destination
+  // in another course, so the picker only ever offers this course's sections.
+  const moveItemToModule = (item: EditorItem, targetModuleId: number) => {
+    if (item.pinned) return;
+    mut.itemMove.mutate(
+      { moduleId: targetModuleId, item: { type: item.type as ReorderableType, id: item.id } },
+      {
+        onError,
+        onSuccess: () => toast.success(t('item_moved', { defaultValue: 'Moved' })),
+      },
+    );
+  };
 
   // Open the dedicated editor page for an item.
   const editItem = (item: EditorItem) => {
@@ -730,9 +755,9 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
     const assignments = details?.assignments ?? [];
     const forums = details?.forums ?? [];
     const labs = (details as { labs?: any[] } | undefined)?.labs ?? [];
-    // Pin assigned labs + interactive labs to the end, mirroring the student
-    // view's ordering.
-    const LAB_ORDER = Number.MAX_SAFE_INTEGER - 2;
+    // Assigned labs now carry a real orderIndex, so they sort with everything
+    // else. Interactive labs still have no row of their own (they live as keys
+    // in a delimited string on the module), so they stay pinned last.
     const INTERACTIVE_ORDER = Number.MAX_SAFE_INTEGER - 1;
     const interactiveLabel = (key: string) =>
       key === 'tna' ? t('interactive_lab_tna', { defaultValue: 'Interactive TNA Exercise' })
@@ -751,10 +776,12 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
           ...assignments.filter((a: any) => a.moduleId === m.id).map((a: any) => ({ type: 'assignment' as const, id: a.id, title: a.title, isPublished: !!a.isPublished, orderIndex: a.orderIndex ?? 0, viewHref: `/teach/courses/${courseId}/assignments/${a.id}/edit` })),
           ...forums.filter((f: any) => f.moduleId === m.id).map((f: any) => ({ type: 'forum' as const, id: f.id, title: f.title, isPublished: !!f.isPublished, orderIndex: f.orderIndex ?? 0, viewHref: `/courses/${courseId}/forums/${f.id}` })),
           ...((m as any).moduleSurveys ?? []).map((ms: any) => ({ type: 'survey' as const, id: ms.id, surveyId: ms.survey?.id, title: ms.survey?.title ?? 'Survey', isPublished: !!ms.survey?.isPublished, orderIndex: ms.orderIndex ?? 0, viewHref: `/teach/surveys?courseId=${courseId}` })),
-          // Assigned lab templates (Python SNA Lab, etc.) — reference items.
-          ...labs.filter((la: any) => la.moduleId === m.id).map((la: any) => ({ type: 'lab' as const, id: la.id, labId: la.labId ?? la.lab?.id, title: la.lab?.name ?? la.title ?? 'Lab', isPublished: true, orderIndex: LAB_ORDER, viewHref: `/courses/${courseId}`, reference: true })),
-          // Interactive labs (TNA / SNA) stored on the module — reference items.
-          ...interactiveKeys.map((key, idx) => ({ type: 'interactive' as const, id: idx, interactiveKey: key, title: interactiveLabel(key), isPublished: true, orderIndex: INTERACTIVE_ORDER + idx, viewHref: `/courses/${courseId}`, reference: true })),
+          // Assigned lab templates (Python SNA Lab, etc.) — reference items,
+          // but orderable and hideable like anything else in the section.
+          ...labs.filter((la: any) => la.moduleId === m.id).map((la: any) => ({ type: 'lab' as const, id: la.id, labId: la.labId ?? la.lab?.id, title: la.lab?.name ?? la.title ?? 'Lab', isPublished: la.isPublished !== false, orderIndex: la.orderIndex ?? 0, viewHref: `/courses/${courseId}`, reference: true })),
+          // Interactive labs (TNA / SNA) stored on the module — reference AND
+          // pinned: there is no per-lab row to hold an order or a visibility.
+          ...interactiveKeys.map((key, idx) => ({ type: 'interactive' as const, id: idx, interactiveKey: key, title: interactiveLabel(key), isPublished: true, orderIndex: INTERACTIVE_ORDER + idx, viewHref: `/courses/${courseId}`, reference: true, pinned: true })),
         ].sort((a, b) => (a.orderIndex - b.orderIndex) || (a.id - b.id));
         return { id: m.id, title: m.title, description: (m as { description?: string }).description ?? '', isPublished: (m as any).isPublished ?? true, items };
       });
@@ -803,6 +830,9 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
             onMoveUp={() => moveModule(idx, -1)}
             onMoveDown={() => moveModule(idx, 1)}
             onReorderItems={(items) => reorderItems(m.id, items)}
+            // Every other section, so a row can be moved out of this one.
+            otherSections={modules.filter(o => o.id !== m.id).map(o => ({ id: o.id, title: o.title }))}
+            onMoveItemToModule={moveItemToModule}
             onRenameModule={(title) => mut.moduleUpdate.mutate({ id: m.id, data: { title } }, { onError })}
             onDescribeModule={(description) => mut.moduleUpdate.mutate({ id: m.id, data: { description } }, { onError })}
             onToggleModule={() => mut.moduleUpdate.mutate({ id: m.id, data: { isPublished: !m.isPublished } }, { onError })}
@@ -1327,6 +1357,9 @@ interface ModuleCardProps {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onReorderItems: (items: { type: ReorderableType; id: number }[]) => void;
+  /** The other sections of this course, as move destinations. */
+  otherSections: { id: number; title: string }[];
+  onMoveItemToModule: (item: EditorItem, targetModuleId: number) => void;
   onRenameModule: (title: string) => void;
   onDescribeModule: (description: string) => void;
   onToggleModule: () => void;
@@ -1393,6 +1426,7 @@ const PALETTE_TILE_COUNT = PALETTE_GROUPS.reduce((n, g) => n + g.tiles.length, 0
 
 const ModuleCard = ({
   module, isFirst, isLast, onMoveUp, onMoveDown, onReorderItems,
+  otherSections, onMoveItemToModule,
   onRenameModule, onDescribeModule, onToggleModule, onDeleteModule,
   onRenameItem, onToggleItem, onEditItem, onDuplicateItem, onDeleteItem, onAdd,
 }: ModuleCardProps) => {
@@ -1406,10 +1440,11 @@ const ModuleCard = ({
   // Index (within `reorderable`) of the row currently being dragged.
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
-  // The reorderable subset (everything except pinned reference items), in
-  // display order. Moving an item swaps it with its neighbour here and sends
-  // the full new order to the server.
-  const reorderable = module.items.filter(i => !i.reference) as (EditorItem & { type: ReorderableType })[];
+  // The reorderable subset (everything except pinned items), in display order.
+  // Moving an item swaps it with its neighbour here and sends the full new
+  // order to the server. Assigned labs belong here — only interactive labs,
+  // which have no row of their own, are pinned.
+  const reorderable = module.items.filter(i => !i.pinned) as (EditorItem & { type: ReorderableType })[];
   const commitOrder = (next: typeof reorderable) =>
     onReorderItems(next.map(r => ({ type: r.type, id: r.id })));
   const moveItem = (item: EditorItem, dir: -1 | 1) => {
@@ -1466,19 +1501,21 @@ const ModuleCard = ({
           />
           <div className="border-t border-dashed border-gray-200 dark:border-gray-700 pt-2 space-y-1">
             {module.items.map(item => {
-              const ri = item.reference ? -1 : reorderable.findIndex(r => r.type === item.type && r.id === item.id);
+              const ri = item.pinned ? -1 : reorderable.findIndex(r => r.type === item.type && r.id === item.id);
               return (
                 <ItemRow
                   key={`${item.type}-${item.id}`}
                   item={item}
-                  canReorder={!item.reference}
+                  canReorder={!item.pinned}
+                  sections={otherSections}
+                  onMoveToSection={(targetId) => onMoveItemToModule(item, targetId)}
                   isFirst={ri === 0}
                   isLast={ri === reorderable.length - 1}
                   onMoveUp={() => moveItem(item, -1)}
                   onMoveDown={() => moveItem(item, 1)}
                   isDragging={dragIndex === ri}
                   onDragStart={() => setDragIndex(ri)}
-                  onDragOverRow={(e) => { if (!item.reference) e.preventDefault(); }}
+                  onDragOverRow={(e) => { if (!item.pinned) e.preventDefault(); }}
                   onDropRow={() => dropItem(ri)}
                   onDragEnd={() => setDragIndex(null)}
                   onRename={(title) => onRenameItem(item, title)}
@@ -1568,12 +1605,15 @@ const ModuleCard = ({
 // ─── Item row ─────────────────────────────────────────────────────────────
 
 const ItemRow = ({
-  item, canReorder, isFirst, isLast, onMoveUp, onMoveDown,
+  item, canReorder, sections, onMoveToSection, isFirst, isLast, onMoveUp, onMoveDown,
   isDragging, onDragStart, onDragOverRow, onDropRow, onDragEnd,
   onRename, onToggle, onEdit, onDuplicate, onDelete,
 }: {
   item: EditorItem;
   canReorder: boolean;
+  /** Other sections this row can be moved into. */
+  sections: { id: number; title: string }[];
+  onMoveToSection: (targetModuleId: number) => void;
   isFirst: boolean;
   isLast: boolean;
   onMoveUp: () => void;
@@ -1636,16 +1676,52 @@ const ItemRow = ({
       {!item.isPublished && <HiddenBadge />}
       <div className="ml-auto shrink-0 flex items-center gap-0.5">
         {canReorder && <ReorderArrows isFirst={isFirst} isLast={isLast} onUp={onMoveUp} onDown={onMoveDown} />}
+        {canReorder && sections.length > 0 && (
+          <MoveToSectionButton sections={sections} onPick={onMoveToSection} />
+        )}
         <ItemActions
           isPublished={item.isPublished}
           onEdit={item.reference ? undefined : onEdit}
           // Duplicate is lessons-only for now.
           onDuplicate={item.type === 'lecture' ? onDuplicate : undefined}
-          onToggle={item.reference ? undefined : onToggle}
+          // Reference items can't be renamed or edited, but an assigned lab can
+          // still be hidden from students — that lives on the assignment row,
+          // not on the shared lab. Only pinned items (interactive labs) have
+          // nowhere to store it.
+          onToggle={item.pinned ? undefined : onToggle}
           onDelete={onDelete}
         />
       </div>
     </div>
+  );
+};
+
+/**
+ * "Move to section" — the only way to get a resource out of the block it was
+ * created in. Reordering has always been within-block only, so an item added
+ * to the wrong section had to be deleted and rebuilt.
+ *
+ * A picker rather than cross-block dragging: it works on touch, and it works
+ * when the destination is scrolled off-screen or collapsed.
+ */
+const MoveToSectionButton = ({
+  sections, onPick,
+}: {
+  sections: { id: number; title: string }[];
+  onPick: (targetModuleId: number) => void;
+}) => {
+  const { t } = useTranslation(['teaching', 'common']);
+  const label = t('move_to_section', { defaultValue: 'Move to section' });
+  return (
+    <RowMenu
+      ariaLabel={label}
+      icon={<FolderInput className="w-4 h-4" />}
+      items={sections.map(section => ({
+        key: String(section.id),
+        label: section.title || t('untitled_section', { defaultValue: 'Untitled section' }),
+        onClick: () => onPick(section.id),
+      }))}
+    />
   );
 };
 

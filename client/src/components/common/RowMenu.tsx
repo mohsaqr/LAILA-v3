@@ -28,9 +28,15 @@ interface RowMenuProps {
   ariaLabel?: string;
   /** Stacking context to sit in. Raise it above any drawer the menu overlaps. */
   zIndex?: number;
+  /**
+   * Trigger glyph. Defaults to the three-dot "more" icon; pass something else
+   * when the menu has one specific purpose and sits beside other icon buttons,
+   * where a second three-dot control would read as a duplicate of the first.
+   */
+  icon?: React.ReactNode;
 }
 
-export const RowMenu = ({ items, ariaLabel, zIndex = 50 }: RowMenuProps) => {
+export const RowMenu = ({ items, ariaLabel, zIndex = 50, icon }: RowMenuProps) => {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -81,7 +87,7 @@ export const RowMenu = ({ items, ariaLabel, zIndex = 50 }: RowMenuProps) => {
         title={ariaLabel}
         className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
       >
-        <MoreHorizontal className="w-4 h-4" />
+        {icon ?? <MoreHorizontal className="w-4 h-4" />}
       </button>
       {open && coords &&
         createPortal(
@@ -94,7 +100,7 @@ export const RowMenu = ({ items, ariaLabel, zIndex = 50 }: RowMenuProps) => {
               right: coords.right,
               zIndex,
             }}
-            className="min-w-[10rem] py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg"
+            className="min-w-[10rem] max-h-72 overflow-y-auto py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg"
           >
             {items.map(item => (
               <button

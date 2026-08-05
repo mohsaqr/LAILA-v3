@@ -117,6 +117,15 @@ export const customLabsApi = {
     return response.data.data!;
   },
 
+  /** Show or hide an assigned lab for students, keeping the assignment. */
+  setAssignmentVisibility: async (labId: number, courseId: number, isPublished: boolean) => {
+    const response = await apiClient.patch<ApiResponse<{ message: string }>>(
+      `/labs/${labId}/assign/${courseId}/visibility`,
+      { isPublished }
+    );
+    return response.data;
+  },
+
   unassignFromCourse: async (labId: number, courseId: number) => {
     const response = await apiClient.delete<ApiResponse<{ message: string }>>(
       `/labs/${labId}/assign/${courseId}`

@@ -11,6 +11,8 @@ import type { Quiz } from '../../api/quizzes';
 interface LabAssignmentItem {
   id: number;
   lab: { id: number; name: string; labType: string; description: string | null };
+  orderIndex?: number;
+  isPublished?: boolean;
 }
 
 interface ModuleSectionProps {
@@ -133,15 +135,24 @@ export const ModuleSection = ({
   // latter (mirrors the id/title/href resolution below).
   const surveyIsPublished = (s: any) => s.survey?.isPublished ?? s.isPublished;
   const publishedSurveys = keepPublished(surveys, surveyIsPublished);
+  // Assigned labs are gated like every other type. The server already omits
+  // hidden ones for students, but this path also renders the staff preview
+  // (showHidden), and a client-side filter means visibility does not depend on
+  // exactly one query being right. Rows predating the isPublished column
+  // report undefined, which counts as visible.
+  const visibleLabAssignments = keepPublished(labAssignments, la => la.isPublished !== false);
 
-  // Check if module has any content
+  // Check if module has any content.
+  // Assigned labs were missing from this list, so a section holding only labs
+  // reported itself empty and rendered "no content" instead of its labs.
   const hasContent =
     publishedLectures.length > 0 ||
     publishedLabs.length > 0 ||
     publishedQuizzes.length > 0 ||
     publishedAssignments.length > 0 ||
     publishedForums.length > 0 ||
-    publishedSurveys.length > 0;
+    publishedSurveys.length > 0 ||
+    visibleLabAssignments.length > 0;
 
   // Resource kinds derived server-side (getCourseById) for media-as-section
   // lectures, so each shows its own icon instead of the generic lesson one.
@@ -182,15 +193,17 @@ export const ModuleSection = ({
       orderIndex: lab.orderIndex ?? 0,
       hidden: !lab.isPublished,
     })),
-    ...labAssignments.map(la => ({
+    ...visibleLabAssignments.map(la => ({
       id: la.id,
       type: 'lab' as ContentType,
       title: la.lab.name,
       subtitle: la.lab.description || undefined,
       href: `/labs/${la.lab.id}?courseId=${courseId}`,
-      // Lab templates have no orderIndex; pin them after the unified
-      // sequence so existing courses don't reshuffle visually.
-      orderIndex: Number.MAX_SAFE_INTEGER - 2,
+      // Assigned labs now carry a real orderIndex, so they take the position
+      // the instructor gave them. Existing rows default to 0; falling back to
+      // the old end-pin sentinel would instead freeze them last forever.
+      orderIndex: la.orderIndex ?? 0,
+      hidden: la.isPublished === false,
     })),
     ...publishedQuizzes.map(quiz => ({
       id: quiz.id,
@@ -415,11 +428,24 @@ export const ModuleSection = ({
           >
             {moduleIndex + 1}
           </div>
-          <span
-            className="font-semibold text-left flex-1"
-            style={{ color: colors.textPrimary }}
-          >
-            {module.title}
+          {/* Accordion has its own header markup, so the description needs
+              rendering here too — fixing only the card/list header left this
+              view still dropping it. */}
+          <span className="text-left flex-1 min-w-0">
+            <span
+              className="font-semibold block"
+              style={{ color: colors.textPrimary }}
+            >
+              {module.title}
+            </span>
+            {module.description && (
+              <span
+                className="block text-sm line-clamp-2"
+                style={{ color: colors.textSecondary }}
+              >
+                {module.description}
+              </span>
+            )}
           </span>
           {moduleHidden && hiddenBadge}
         </button>
@@ -479,7 +505,12 @@ export const ModuleSection = ({
               </h2>
               {moduleHidden && hiddenBadge}
             </div>
-            {module.description && viewMode !== 'mini-cards' && (
+            {/* Shown in every view mode. This was gated on
+                `viewMode !== 'mini-cards'`, and 'mini-cards' is the default for
+                every course — so a section description typed in the editor was
+                invisible to students (and to teachers outside edit mode) unless
+                someone had changed the course's curriculum view. */}
+            {module.description && (
               <p
                 className="text-sm mt-1 line-clamp-2"
                 style={{ color: colors.textSecondary }}

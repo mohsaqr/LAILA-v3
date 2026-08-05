@@ -3,6 +3,19 @@ import { AppError } from '../middleware/error.middleware.js';
 import { CreateModuleInput, UpdateModuleInput } from '../utils/validation.js';
 import { courseRoleService } from './courseRole.service.js';
 
+/**
+ * Item types that live inside a module and carry their own orderIndex.
+ *
+ * `lab` (a LabAssignment junction row) only joined this list once the table
+ * gained orderIndex/isPublished columns — before that the editor had nowhere
+ * to store a position, so assigned labs were pinned to the end of the block.
+ */
+export const MODULE_ITEM_TYPES = [
+  'lecture', 'codelab', 'assignment', 'forum', 'quiz', 'survey', 'lab',
+] as const;
+
+export type ModuleItemType = (typeof MODULE_ITEM_TYPES)[number];
+
 export class ModuleService {
   private async verifyCourseOwnership(courseId: number, instructorId: number, isAdmin = false) {
     const course = await prisma.course.findUnique({
@@ -176,7 +189,7 @@ export class ModuleService {
   async reorderModuleItems(
     moduleId: number,
     instructorId: number,
-    items: { type: 'lecture' | 'codelab' | 'assignment' | 'forum' | 'quiz' | 'survey'; id: number }[],
+    items: { type: ModuleItemType; id: number }[],
     isAdmin = false,
   ) {
     const module = await prisma.courseModule.findUnique({ where: { id: moduleId } });
@@ -210,6 +223,9 @@ export class ModuleService {
           case 'survey':
             // ModuleSurvey id (the junction row), not the surveyId.
             return prisma.moduleSurvey.update({ where: { id }, data });
+          case 'lab':
+            // LabAssignment id (the junction row), not the labId.
+            return prisma.labAssignment.update({ where: { id }, data });
           default:
             return null;
         }
@@ -219,6 +235,99 @@ export class ModuleService {
     await prisma.$transaction(ops);
 
     return { message: 'Module items reordered' };
+  }
+
+  /**
+   * The module an item currently sits in, or null when it sits in none.
+   *
+   * Lectures and code labs carry no courseId of their own — they belong to a
+   * course only through their module — so the module is the one link every
+   * type shares, and the only reliable way to ask "which course is this in?".
+   */
+  private async currentModuleIdOf(type: ModuleItemType, id: number): Promise<number | null> {
+    const pick = { select: { moduleId: true } };
+    switch (type) {
+      case 'lecture': return (await prisma.lecture.findUnique({ where: { id }, ...pick }))?.moduleId ?? null;
+      case 'codelab': return (await prisma.codeLab.findUnique({ where: { id }, ...pick }))?.moduleId ?? null;
+      case 'assignment': return (await prisma.assignment.findUnique({ where: { id }, ...pick }))?.moduleId ?? null;
+      case 'quiz': return (await prisma.quiz.findUnique({ where: { id }, ...pick }))?.moduleId ?? null;
+      case 'forum': return (await prisma.forumThread.findUnique({ where: { id }, ...pick }))?.moduleId ?? null;
+      case 'survey': return (await prisma.moduleSurvey.findUnique({ where: { id }, ...pick }))?.moduleId ?? null;
+      case 'lab': return (await prisma.labAssignment.findUnique({ where: { id }, ...pick }))?.moduleId ?? null;
+      default: return null;
+    }
+  }
+
+  /** Highest orderIndex across every item type in a module, or -1 if empty. */
+  private async maxOrderIndexIn(moduleId: number): Promise<number> {
+    const agg = { where: { moduleId }, _max: { orderIndex: true } } as const;
+    const maxima = await Promise.all([
+      prisma.lecture.aggregate(agg),
+      prisma.codeLab.aggregate(agg),
+      prisma.assignment.aggregate(agg),
+      prisma.quiz.aggregate(agg),
+      prisma.forumThread.aggregate(agg),
+      prisma.moduleSurvey.aggregate(agg),
+      prisma.labAssignment.aggregate(agg),
+    ]);
+    return maxima.reduce((best, m) => Math.max(best, m._max.orderIndex ?? -1), -1);
+  }
+
+  /**
+   * Move one item into a different module of the SAME course, landing it at
+   * the end of the destination.
+   *
+   * The same-course rule is the security boundary. Item ids are global, so
+   * without it an instructor who can edit course A could name any lecture id
+   * from course B and pull that resource into their own course.
+   */
+  async moveItemToModule(
+    targetModuleId: number,
+    instructorId: number,
+    item: { type: ModuleItemType; id: number },
+    isAdmin = false,
+  ) {
+    const id = Number(item.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new AppError('Invalid item id', 400);
+    }
+    if (!MODULE_ITEM_TYPES.includes(item.type)) {
+      throw new AppError('Invalid item type', 400);
+    }
+
+    const target = await prisma.courseModule.findUnique({ where: { id: targetModuleId } });
+    if (!target) throw new AppError('Module not found', 404);
+    await this.verifyCourseOwnership(target.courseId, instructorId, isAdmin);
+
+    const sourceModuleId = await this.currentModuleIdOf(item.type, id);
+    if (sourceModuleId == null) {
+      throw new AppError('Item not found, or not in a section', 404);
+    }
+    if (sourceModuleId === targetModuleId) {
+      return { message: 'Item already in this section' };
+    }
+
+    const source = await prisma.courseModule.findUnique({
+      where: { id: sourceModuleId },
+      select: { courseId: true },
+    });
+    if (!source || source.courseId !== target.courseId) {
+      throw new AppError('Cannot move an item between courses', 403);
+    }
+
+    const data = { moduleId: targetModuleId, orderIndex: (await this.maxOrderIndexIn(targetModuleId)) + 1 };
+
+    switch (item.type) {
+      case 'lecture': await prisma.lecture.update({ where: { id }, data }); break;
+      case 'codelab': await prisma.codeLab.update({ where: { id }, data }); break;
+      case 'assignment': await prisma.assignment.update({ where: { id }, data }); break;
+      case 'quiz': await prisma.quiz.update({ where: { id }, data }); break;
+      case 'forum': await prisma.forumThread.update({ where: { id }, data }); break;
+      case 'survey': await prisma.moduleSurvey.update({ where: { id }, data }); break;
+      case 'lab': await prisma.labAssignment.update({ where: { id }, data }); break;
+    }
+
+    return { message: 'Item moved' };
   }
 }
 

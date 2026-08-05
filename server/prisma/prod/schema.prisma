@@ -1808,6 +1808,11 @@ model LabAssignment {
   courseId     Int           @map("course_id")
   moduleId     Int?          @map("module_id")
   assignmentId Int?          @unique @map("assignment_id")
+  // Without these two an assigned lab could be neither positioned nor hidden:
+  // the editor had nowhere to record either fact, so it pinned every lab to
+  // the end of its block with a sentinel order and hard-coded it as visible.
+  orderIndex   Int           @default(0) @map("order_index")
+  isPublished  Boolean       @default(true) @map("is_published")
   module       CourseModule? @relation(fields: [moduleId], references: [id])
   course       Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
   lab          CustomLab     @relation(fields: [labId], references: [id], onDelete: Cascade)

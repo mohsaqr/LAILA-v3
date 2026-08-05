@@ -24,12 +24,13 @@ vi.mock('../utils/prisma.js', () => ({
       findUnique: vi.fn(),
       findMany: vi.fn(),
     },
-    lecture: { update: vi.fn() },
-    codeLab: { update: vi.fn() },
-    assignment: { update: vi.fn() },
-    forumThread: { update: vi.fn() },
-    quiz: { update: vi.fn() },
-    moduleSurvey: { update: vi.fn() },
+    lecture: { update: vi.fn(), findUnique: vi.fn(), aggregate: vi.fn() },
+    codeLab: { update: vi.fn(), findUnique: vi.fn(), aggregate: vi.fn() },
+    assignment: { update: vi.fn(), findUnique: vi.fn(), aggregate: vi.fn() },
+    forumThread: { update: vi.fn(), findUnique: vi.fn(), aggregate: vi.fn() },
+    quiz: { update: vi.fn(), findUnique: vi.fn(), aggregate: vi.fn() },
+    moduleSurvey: { update: vi.fn(), findUnique: vi.fn(), aggregate: vi.fn() },
+    labAssignment: { update: vi.fn(), findUnique: vi.fn(), aggregate: vi.fn() },
     $transaction: vi.fn().mockResolvedValue([]),
   },
 }));
@@ -354,6 +355,20 @@ describe('ModuleService', () => {
       expect(prisma.moduleSurvey.update).toHaveBeenCalledWith({ where: { id: 13 }, data: { orderIndex: 2 } });
     });
 
+    it('reorders an assigned lab alongside everything else', async () => {
+      const items = [
+        { type: 'lab', id: 7 },
+        { type: 'lecture', id: 8 },
+      ] as any;
+
+      await moduleService.reorderModuleItems(5, 1, items);
+
+      // Labs were absent from this switch, so a lab in the submitted order was
+      // silently dropped and snapped back to the end of the section on refresh.
+      expect(prisma.labAssignment.update).toHaveBeenCalledWith({ where: { id: 7 }, data: { orderIndex: 0 } });
+      expect(prisma.lecture.update).toHaveBeenCalledWith({ where: { id: 8 }, data: { orderIndex: 1 } });
+    });
+
     it('coerces a numeric-string id instead of silently dropping it', async () => {
       const items = [{ type: 'lecture', id: '5' }] as any;
 
@@ -363,4 +378,100 @@ describe('ModuleService', () => {
       expect(prisma.lecture.update).toHaveBeenCalledWith({ where: { id: 5 }, data: { orderIndex: 0 } });
     });
   });
+
+  describe('moveItemToModule', () => {
+    /** Destination module 5 in course 10, owned by instructor 1. */
+    const destInCourse10 = () => {
+      vi.mocked(prisma.courseModule.findUnique).mockImplementation((async ({ where }: any) =>
+        where.id === 5 ? { id: 5, courseId: 10 }
+        : where.id === 6 ? { id: 6, courseId: 10 }
+        : where.id === 99 ? { id: 99, courseId: 77 }   // a DIFFERENT course
+        : null) as any);
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({ id: 10, instructorId: 1 } as any);
+      // Empty destination, so the moved item lands at index 0.
+      const empty = { _max: { orderIndex: null } } as any;
+      [prisma.lecture, prisma.codeLab, prisma.assignment, prisma.quiz,
+       prisma.forumThread, prisma.moduleSurvey, prisma.labAssignment]
+        .forEach(t => vi.mocked(t.aggregate).mockResolvedValue(empty));
+    };
+
+    beforeEach(destInCourse10);
+
+    it('moves an item and appends it to the destination', async () => {
+      vi.mocked(prisma.lecture.findUnique).mockResolvedValue({ moduleId: 6 } as any);
+      vi.mocked(prisma.lecture.aggregate).mockResolvedValue({ _max: { orderIndex: 3 } } as any);
+
+      await moduleService.moveItemToModule(5, 1, { type: 'lecture', id: 42 });
+
+      expect(prisma.lecture.update).toHaveBeenCalledWith({
+        where: { id: 42 },
+        // One past the highest index in the destination, so it lands last
+        // rather than colliding with whatever already sits at that position.
+        data: { moduleId: 5, orderIndex: 4 },
+      });
+    });
+
+    it('refuses to move an item in from another course', async () => {
+      // The lecture currently lives in module 99, which belongs to course 77.
+      vi.mocked(prisma.lecture.findUnique).mockResolvedValue({ moduleId: 99 } as any);
+
+      // This is the security boundary: item ids are global, so without the
+      // same-course check an instructor could name any id and pull another
+      // course's resource into their own.
+      await expect(
+        moduleService.moveItemToModule(5, 1, { type: 'lecture', id: 42 }),
+      ).rejects.toThrow('Cannot move an item between courses');
+      expect(prisma.lecture.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses when the caller cannot edit the destination course', async () => {
+      vi.mocked(prisma.lecture.findUnique).mockResolvedValue({ moduleId: 6 } as any);
+
+      await expect(
+        moduleService.moveItemToModule(5, 999, { type: 'lecture', id: 42 }),
+      ).rejects.toThrow('Not authorized');
+      expect(prisma.lecture.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects an item that is in no section at all', async () => {
+      vi.mocked(prisma.lecture.findUnique).mockResolvedValue({ moduleId: null } as any);
+
+      await expect(
+        moduleService.moveItemToModule(5, 1, { type: 'lecture', id: 42 }),
+      ).rejects.toThrow(/not in a section/);
+    });
+
+    it('is a no-op when the destination is where the item already is', async () => {
+      vi.mocked(prisma.lecture.findUnique).mockResolvedValue({ moduleId: 5 } as any);
+
+      const result = await moduleService.moveItemToModule(5, 1, { type: 'lecture', id: 42 });
+
+      expect(result.message).toMatch(/already/);
+      expect(prisma.lecture.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unknown item type', async () => {
+      await expect(
+        moduleService.moveItemToModule(5, 1, { type: 'bogus' as any, id: 42 }),
+      ).rejects.toThrow('Invalid item type');
+    });
+
+    it('rejects a non-integer id instead of querying with undefined', async () => {
+      await expect(
+        moduleService.moveItemToModule(5, 1, { type: 'lecture', id: 'abc' as any }),
+      ).rejects.toThrow('Invalid item id');
+    });
+
+    it('moves an assigned lab, which used to be pinned in place', async () => {
+      vi.mocked(prisma.labAssignment.findUnique).mockResolvedValue({ moduleId: 6 } as any);
+
+      await moduleService.moveItemToModule(5, 1, { type: 'lab', id: 7 });
+
+      expect(prisma.labAssignment.update).toHaveBeenCalledWith({
+        where: { id: 7 },
+        data: { moduleId: 5, orderIndex: 0 },
+      });
+    });
+  });
+
 });

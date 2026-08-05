@@ -238,12 +238,16 @@ export class CourseService {
               },
             },
             labAssignments: {
-              // Labs have no draft/availability state today (CustomLab has no
-              // isPublished/availableFrom columns), so there is nothing to gate
-              // here yet — but if such a flag is ever added, mirror the
-              // isPublished + availabilityWindowWhere() gate used by the
-              // sibling relations so staged labs don't leak to students.
-              where: { assignmentId: null },
+              // LabAssignment now carries isPublished, so honour it exactly as
+              // the sibling relations do — a lab an instructor has hidden must
+              // not reach students. (There is still no availability window on
+              // labs; add availabilityWindowWhere() here too if dates arrive.)
+              where: includeUnpublished
+                ? { assignmentId: null }
+                : { assignmentId: null, isPublished: true },
+              // Same sort key as the sibling relations, so a lab keeps the
+              // position the instructor gave it instead of being pinned last.
+              orderBy: { orderIndex: 'asc' },
               include: {
                 lab: {
                   select: { id: true, name: true, labType: true, description: true },
@@ -468,6 +472,10 @@ export class CourseService {
         },
 
         labAssignments: {
+          // Editor-side query (course staff), so hidden labs are included on
+          // purpose — they render with a "Hidden" badge. Ordering still has to
+          // match the student view or the two lists disagree.
+          orderBy: { orderIndex: 'asc' },
           include: {
             lab: {
               include: {

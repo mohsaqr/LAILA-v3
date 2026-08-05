@@ -3354,11 +3354,47 @@ export class CustomLabService {
   }
 
   /**
+   * Show or hide an assigned lab for students, without unassigning it.
+   *
+   * Mirrors the publish toggle every other module item already had. Before the
+   * lab_assignments table gained isPublished, the only way to take a lab off
+   * the course page was to remove it outright and lose its configuration.
+   */
+  async setLabAssignmentVisibility(
+    labId: number,
+    courseId: number,
+    isPublished: boolean,
+    userId: number,
+    isAdmin = false,
+  ) {
+    const course = await prisma.course.findUnique({ where: { id: courseId } });
+    if (!course) {
+      throw new AppError('Course not found', 404);
+    }
+    if (course.instructorId !== userId && !isAdmin) {
+      throw new AppError('Not authorized to modify this course', 403);
+    }
+
+    const assignment = await prisma.labAssignment.findFirst({ where: { labId, courseId } });
+    if (!assignment) {
+      throw new AppError('Lab assignment not found', 404);
+    }
+
+    await prisma.labAssignment.update({
+      where: { id: assignment.id },
+      data: { isPublished },
+    });
+
+    return { message: isPublished ? 'Lab shown to students' : 'Lab hidden from students' };
+  }
+
+  /**
    * Get labs assigned to a course
    */
   async getLabsForCourse(courseId: number) {
     const assignments = await prisma.labAssignment.findMany({
       where: { courseId },
+      orderBy: { orderIndex: 'asc' },
       include: {
         lab: {
           include: {
