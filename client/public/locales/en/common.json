@@ -1,5 +1,6 @@
 {
   "loading": "Loading...",
+  "max_length_exceeded": "Must be {{max}} characters or fewer",
   "save": "Save",
   "saved": "Saved",
   "more": "More",

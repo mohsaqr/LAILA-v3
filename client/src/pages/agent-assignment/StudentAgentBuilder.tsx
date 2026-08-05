@@ -26,6 +26,8 @@ import {
 import toast from 'react-hot-toast';
 import { agentAssignmentsApi } from '../../api/agentAssignments';
 import { resolveFileUrl } from '../../api/client';
+import { apiErrorMessage } from '../../utils/apiError';
+import { AGENT_CONFIG_LIMITS } from '../../components/agent-assignment/agentConfigLimits';
 import { AgentIdentityTab } from '../../components/agent-assignment/AgentIdentityTab';
 import { AgentBehaviorTab } from '../../components/agent-assignment/AgentBehaviorTab';
 import { AgentAdvancedTab } from '../../components/agent-assignment/AgentAdvancedTab';
@@ -216,7 +218,7 @@ export const StudentAgentBuilder = () => {
       logger?.logDraftSaved(formData);
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.error || t('failed_to_create_agent'));
+      toast.error(apiErrorMessage(err, t('failed_to_create_agent')));
     },
   });
 
@@ -231,7 +233,7 @@ export const StudentAgentBuilder = () => {
       logger?.logDraftSaved(formData);
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.error || t('failed_to_save_agent'));
+      toast.error(apiErrorMessage(err, t('failed_to_save_agent')));
     },
   });
 
@@ -245,7 +247,7 @@ export const StudentAgentBuilder = () => {
       setShowSubmitConfirm(false);
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.error || t('failed_to_submit_agent'));
+      toast.error(apiErrorMessage(err, t('failed_to_submit_agent')));
       setShowSubmitConfirm(false);
     },
   });
@@ -259,7 +261,7 @@ export const StudentAgentBuilder = () => {
       logger?.logUnsubmitRequested();
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.error || t('failed_to_unsubmit_agent'));
+      toast.error(apiErrorMessage(err, t('failed_to_unsubmit_agent')));
     },
   });
 
@@ -296,35 +298,76 @@ export const StudentAgentBuilder = () => {
     [logger]
   );
 
-  // Validation
-  const validate = (): boolean => {
+  // Which tab owns each field, so a failed save can take the student to the
+  // control that is actually wrong. Order matters: the first entry with an
+  // error is the one we jump to.
+  const FIELD_TAB: { field: string; tab: TabType }[] = [
+    { field: 'agentName', tab: 'identity' },
+    { field: 'agentTitle', tab: 'identity' },
+    { field: 'personaDescription', tab: 'identity' },
+    { field: 'welcomeMessage', tab: 'identity' },
+    { field: 'systemPrompt', tab: 'advanced' },
+    { field: 'knowledgeContext', tab: 'advanced' },
+  ];
+
+  // Validation.
+  //
+  // Returns the errors rather than a boolean: `setErrors` does not update the
+  // `errors` binding the caller closed over, so a caller that validates and
+  // then reads `errors` sees the PREVIOUS attempt's result — which is how
+  // clicking Save used to do nothing at all on the first failure.
+  //
+  // The length caps mirror the server's Zod schema (see agentConfigLimits.ts).
+  // Catching them here is what turns an opaque 422 into a message next to the
+  // offending field.
+  const validate = (): Record<string, string> => {
     const newErrors: Record<string, string> = {};
+    // `max`, not `count` — `count` would make i18next resolve plural suffixes
+    // and miss the single key.
+    const tooLong = (max: number) =>
+      t('common:max_length_exceeded', { max, defaultValue: 'Must be {{max}} characters or fewer' });
 
     if (!formData.agentName.trim()) {
       newErrors.agentName = t('agent_name_required');
-    } else if (formData.agentName.length > 100) {
+    } else if (formData.agentName.length > AGENT_CONFIG_LIMITS.agentName) {
       newErrors.agentName = t('agent_name_max_length');
     }
 
     if (!formData.systemPrompt.trim()) {
       newErrors.systemPrompt = t('system_prompt_required');
-    } else if (formData.systemPrompt.length < 10) {
+    } else if (formData.systemPrompt.length < AGENT_CONFIG_LIMITS.systemPromptMin) {
       newErrors.systemPrompt = t('system_prompt_min_length');
     }
 
+    if ((formData.agentTitle || '').length > AGENT_CONFIG_LIMITS.agentTitle) {
+      newErrors.agentTitle = tooLong(AGENT_CONFIG_LIMITS.agentTitle);
+    }
+    if ((formData.personaDescription || '').length > AGENT_CONFIG_LIMITS.personaDescription) {
+      newErrors.personaDescription = tooLong(AGENT_CONFIG_LIMITS.personaDescription);
+    }
+    if ((formData.welcomeMessage || '').length > AGENT_CONFIG_LIMITS.welcomeMessage) {
+      newErrors.welcomeMessage = tooLong(AGENT_CONFIG_LIMITS.welcomeMessage);
+    }
+    if ((formData.knowledgeContext || '').length > AGENT_CONFIG_LIMITS.knowledgeContext) {
+      newErrors.knowledgeContext = tooLong(AGENT_CONFIG_LIMITS.knowledgeContext);
+    }
+
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return newErrors;
   };
 
   // Save handler
   const handleSave = () => {
-    if (!validate()) {
-      // Switch to tab with first error
-      if (errors.agentName) {
-        setActiveTab('identity');
-      } else if (errors.systemPrompt) {
-        setActiveTab('advanced');
-      }
+    const validationErrors = validate();
+    const failedFields = Object.keys(validationErrors);
+
+    if (failedFields.length > 0) {
+      // Take the student to the offending field and say so. Without both, a
+      // failure on another tab is invisible: the inline message renders on a
+      // tab they are not looking at and the button appears to do nothing.
+      const firstBad = FIELD_TAB.find(({ field }) => validationErrors[field]);
+      if (firstBad) setActiveTab(firstBad.tab);
+      toast.error(validationErrors[firstBad?.field ?? failedFields[0]]);
       return;
     }
 

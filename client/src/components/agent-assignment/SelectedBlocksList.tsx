@@ -6,57 +6,14 @@
  */
 
 import { useState, useCallback, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { GripVertical, X, Eye, EyeOff, Copy, Check, Loader2 } from 'lucide-react';
-import { PromptBlock, PromptBlockCategory } from '../../types';
-import { promptBlocksApi } from '../../api/promptBlocks';
-import { PROMPT_BLOCKS, getCategoryInfo } from '../../config/promptBlocks';
+import { generatePromptFromBlocks, usePromptBlockLookup } from './usePromptBlocks';
 
 interface SelectedBlocksListProps {
   selectedBlockIds: string[];
   onReorder: (blockIds: string[]) => void;
   onRemove: (blockId: string) => void;
   disabled?: boolean;
-}
-
-// Generate prompt from block objects
-function generatePromptFromBlocks(blocks: PromptBlock[]): string {
-  if (blocks.length === 0) return '';
-
-  const grouped: Record<string, PromptBlock[]> = {};
-  blocks.forEach((block) => {
-    if (!grouped[block.category]) {
-      grouped[block.category] = [];
-    }
-    grouped[block.category].push(block);
-  });
-
-  const sections: string[] = [];
-
-  if (grouped.persona?.length) {
-    sections.push(grouped.persona.map((b) => b.promptText).join(' '));
-  }
-  if (grouped.tone?.length) {
-    sections.push(grouped.tone.map((b) => b.promptText).join(' '));
-  }
-  if (grouped.behavior?.length) {
-    const behaviors = grouped.behavior.map((b) => `- ${b.promptText}`).join('\n');
-    sections.push(`\nWhen helping students:\n${behaviors}`);
-  }
-  if (grouped.constraint?.length) {
-    const constraints = grouped.constraint.map((b) => `- ${b.promptText}`).join('\n');
-    sections.push(`\nImportant guidelines:\n${constraints}`);
-  }
-  if (grouped.format?.length) {
-    const formats = grouped.format.map((b) => `- ${b.promptText}`).join('\n');
-    sections.push(`\nResponse formatting:\n${formats}`);
-  }
-  if (grouped.knowledge?.length) {
-    const knowledge = grouped.knowledge.map((b) => `- ${b.promptText}`).join('\n');
-    sections.push(`\nKnowledge guidelines:\n${knowledge}`);
-  }
-
-  return sections.join('\n\n').trim();
 }
 
 export const SelectedBlocksList = ({
@@ -69,67 +26,14 @@ export const SelectedBlocksList = ({
   const [showPreview, setShowPreview] = useState(true);
   const [copied, setCopied] = useState(false);
 
-  // Fetch blocks from API
-  const { data: apiData, isLoading } = useQuery({
-    queryKey: ['promptBlocks'],
-    queryFn: promptBlocksApi.getBlocksWithCategories,
-    staleTime: 5 * 60 * 1000,
-  });
+  const {
+    categories: categoryLookup,
+    resolve: resolveBlocks,
+    isLoading,
+  } = usePromptBlockLookup();
 
-  // Build a lookup map for both API and static blocks
-  const blockLookup = useMemo(() => {
-    const lookup = new Map<string, PromptBlock>();
-
-    // Add static blocks
-    PROMPT_BLOCKS.forEach((block) => {
-      lookup.set(block.id, block);
-    });
-
-    // Add API blocks (with db_ prefix)
-    if (apiData?.blocks) {
-      apiData.blocks.forEach((apiBlock) => {
-        lookup.set(`db_${apiBlock.id}`, {
-          id: `db_${apiBlock.id}`,
-          category: apiBlock.category as PromptBlockCategory,
-          label: apiBlock.label,
-          promptText: apiBlock.promptText,
-          description: apiBlock.description || '',
-          popular: apiBlock.popular,
-        });
-      });
-    }
-
-    return lookup;
-  }, [apiData]);
-
-  // Category lookup
-  const categoryLookup = useMemo(() => {
-    const lookup = new Map<string, { name: string }>();
-
-    // Add default categories
-    ['persona', 'tone', 'behavior', 'constraint', 'format', 'knowledge'].forEach((cat) => {
-      const info = getCategoryInfo(cat as PromptBlockCategory);
-      if (info) {
-        lookup.set(cat, info);
-      }
-    });
-
-    // Add API categories
-    if (apiData?.categories) {
-      apiData.categories.forEach((cat) => {
-        lookup.set(cat.slug, { name: cat.name });
-      });
-    }
-
-    return lookup;
-  }, [apiData]);
-
-  // Get blocks in order
-  const blocks = useMemo(() => {
-    return selectedBlockIds
-      .map((id) => blockLookup.get(id))
-      .filter((block): block is PromptBlock => !!block);
-  }, [selectedBlockIds, blockLookup]);
+  // Ids are all that is persisted; resolve them against the catalogue.
+  const blocks = useMemo(() => resolveBlocks(selectedBlockIds), [resolveBlocks, selectedBlockIds]);
 
   const handleDragStart = (index: number) => (e: React.DragEvent) => {
     if (disabled) return;

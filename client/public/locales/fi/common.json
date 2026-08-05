@@ -1,5 +1,6 @@
 {
   "loading": "Ladataan...",
+  "max_length_exceeded": "Saa olla enintään {{max}} merkkiä",
   "save": "Tallenna",
   "saved": "Tallennettu",
   "more": "Lisää",

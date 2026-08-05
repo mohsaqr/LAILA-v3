@@ -1,5 +1,6 @@
 {
   "loading": "Cargando...",
+  "max_length_exceeded": "Debe tener {{max}} caracteres o menos",
   "save": "Guardar",
   "saved": "Guardado",
   "more": "Más",

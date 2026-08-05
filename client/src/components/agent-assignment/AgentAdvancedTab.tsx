@@ -9,13 +9,15 @@
  * - Tips panel
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { Settings, Thermometer, BookOpen, Lightbulb, Info, Blocks } from 'lucide-react';
 import { TextArea } from '../common/Input';
 import { AgentConfigFormData, PromptBlock } from '../../types';
 import { SystemPromptField } from './SystemPromptField';
 import { PromptBlockSelector } from './PromptBlockSelector';
 import { SelectedBlocksList } from './SelectedBlocksList';
+import { generatePromptFromBlocks, usePromptBlockLookup } from './usePromptBlocks';
+import { AGENT_CONFIG_LIMITS } from './agentConfigLimits';
 import { AgentDesignLogger } from '../../services/agentDesignLogger';
 
 interface AgentAdvancedTabProps {
@@ -46,59 +48,6 @@ const getTemperatureLabel = (value: number): { label: string; description: strin
   return TEMPERATURE_LABELS[4];
 };
 
-// Generate prompt from block objects directly
-function generatePromptFromBlockObjects(blocks: PromptBlock[]): string {
-  if (blocks.length === 0) return '';
-
-  // Group blocks by category for organization
-  const grouped: Record<string, PromptBlock[]> = {};
-  blocks.forEach((block) => {
-    if (!grouped[block.category]) {
-      grouped[block.category] = [];
-    }
-    grouped[block.category].push(block);
-  });
-
-  // Build the prompt text
-  const sections: string[] = [];
-
-  // Persona first
-  if (grouped.persona?.length) {
-    sections.push(grouped.persona.map((b) => b.promptText).join(' '));
-  }
-
-  // Tone
-  if (grouped.tone?.length) {
-    sections.push(grouped.tone.map((b) => b.promptText).join(' '));
-  }
-
-  // Behaviors
-  if (grouped.behavior?.length) {
-    const behaviors = grouped.behavior.map((b) => `- ${b.promptText}`).join('\n');
-    sections.push(`\nWhen helping students:\n${behaviors}`);
-  }
-
-  // Constraints
-  if (grouped.constraint?.length) {
-    const constraints = grouped.constraint.map((b) => `- ${b.promptText}`).join('\n');
-    sections.push(`\nImportant guidelines:\n${constraints}`);
-  }
-
-  // Format
-  if (grouped.format?.length) {
-    const formats = grouped.format.map((b) => `- ${b.promptText}`).join('\n');
-    sections.push(`\nResponse formatting:\n${formats}`);
-  }
-
-  // Knowledge bounds
-  if (grouped.knowledge?.length) {
-    const knowledge = grouped.knowledge.map((b) => `- ${b.promptText}`).join('\n');
-    sections.push(`\nKnowledge guidelines:\n${knowledge}`);
-  }
-
-  return sections.join('\n\n').trim();
-}
-
 export const AgentAdvancedTab = ({
   formData,
   errors,
@@ -109,12 +58,17 @@ export const AgentAdvancedTab = ({
   const [showTips, setShowTips] = useState(true);
   const [showBlockSelector, setShowBlockSelector] = useState(true);
 
-  // Store selected blocks with their full data
-  const selectedBlocksRef = useRef<Map<string, PromptBlock>>(new Map());
+  // Resolve block ids against the real catalogue (static + database), the same
+  // source SelectedBlocksList renders from. Anything narrower — such as a ref
+  // populated only by clicks in the current session — makes a reloaded config
+  // resolve to nothing, so the next block edit rebuilds the system prompt from
+  // an empty set and throws the student's prompt away.
+  const { resolve: resolveBlocks } = usePromptBlockLookup();
 
   const temperatureValue = formData.temperature ?? 0.7;
   const tempInfo = getTemperatureLabel(temperatureValue);
   const selectedBlockIds = formData.selectedPromptBlocks || [];
+  const knowledgeContext = formData.knowledgeContext || '';
 
   const handleSystemPromptChange = (value: string) => {
     const previousValue = formData.systemPrompt;
@@ -138,66 +92,57 @@ export const AgentAdvancedTab = ({
     }
   };
 
-  // Get ordered blocks from the map
-  const getOrderedBlocks = (blockIds: string[]): PromptBlock[] => {
-    return blockIds
-      .map((id) => selectedBlocksRef.current.get(id))
-      .filter((block): block is PromptBlock => !!block);
-  };
+  // Keep the system prompt in step with the block list, without ever
+  // overwriting text the student typed themselves.
+  //
+  // The field is treated as block-owned only while it still holds exactly what
+  // the *current* blocks generate (or is empty). Then a select, remove or
+  // reorder rewrites it, so what saves is what the "Generated Prompt Preview"
+  // shows. The moment the student edits it by hand the two diverge and the
+  // blocks stop writing to it — their text is theirs, and the preview plus its
+  // copy button remain the way to adopt the generated version.
+  const syncPromptToBlocks = useCallback(
+    (blockIds: string[]) => {
+      const wasBlockGenerated =
+        !formData.systemPrompt.trim() ||
+        formData.systemPrompt === generatePromptFromBlocks(resolveBlocks(selectedBlockIds));
 
-  // Prompt block handlers
+      onChange('selectedPromptBlocks', blockIds);
+      if (wasBlockGenerated) {
+        onChange('systemPrompt', generatePromptFromBlocks(resolveBlocks(blockIds)));
+      }
+    },
+    [formData.systemPrompt, selectedBlockIds, onChange, resolveBlocks]
+  );
+
   const handleBlockSelect = useCallback(
     (block: PromptBlock) => {
-      // Store the full block data
-      selectedBlocksRef.current.set(block.id, block);
-
       const newBlockIds = [...selectedBlockIds, block.id];
-      onChange('selectedPromptBlocks', newBlockIds);
-
-      // Update system prompt with generated content from blocks
-      const blocks = getOrderedBlocks(newBlockIds);
-      const generatedPrompt = generatePromptFromBlockObjects(blocks);
-      if (generatedPrompt) {
-        onChange('systemPrompt', generatedPrompt);
-      }
-
+      syncPromptToBlocks(newBlockIds);
       logger?.logPromptBlockSelected(block.id, block.category, newBlockIds);
     },
-    [selectedBlockIds, onChange, logger]
+    [selectedBlockIds, syncPromptToBlocks, logger]
   );
 
   const handleBlockRemove = useCallback(
     (blockId: string) => {
-      const block = selectedBlocksRef.current.get(blockId);
-      selectedBlocksRef.current.delete(blockId);
-
       const newBlockIds = selectedBlockIds.filter((id) => id !== blockId);
-      onChange('selectedPromptBlocks', newBlockIds);
-
-      // Update system prompt
-      const blocks = getOrderedBlocks(newBlockIds);
-      const generatedPrompt = generatePromptFromBlockObjects(blocks);
-      onChange('systemPrompt', generatedPrompt || formData.systemPrompt);
-
-      logger?.logPromptBlockRemoved(blockId, block?.category || '', newBlockIds);
+      syncPromptToBlocks(newBlockIds);
+      logger?.logPromptBlockRemoved(
+        blockId,
+        resolveBlocks([blockId])[0]?.category || '',
+        newBlockIds
+      );
     },
-    [selectedBlockIds, onChange, formData.systemPrompt, logger]
+    [selectedBlockIds, syncPromptToBlocks, resolveBlocks, logger]
   );
 
   const handleBlocksReorder = useCallback(
     (newBlockIds: string[]) => {
-      onChange('selectedPromptBlocks', newBlockIds);
-
-      // Update system prompt with new order
-      const blocks = getOrderedBlocks(newBlockIds);
-      const generatedPrompt = generatePromptFromBlockObjects(blocks);
-      if (generatedPrompt) {
-        onChange('systemPrompt', generatedPrompt);
-      }
-
+      syncPromptToBlocks(newBlockIds);
       logger?.logPromptBlocksReordered(newBlockIds);
     },
-    [onChange, logger]
+    [syncPromptToBlocks, logger]
   );
 
   return (
@@ -326,15 +271,32 @@ export const AgentAdvancedTab = ({
           Additional domain knowledge or expertise your agent should have.
         </p>
         <TextArea
-          value={formData.knowledgeContext || ''}
+          value={knowledgeContext}
           onChange={(e) => handleKnowledgeContextChange(e.target.value)}
           placeholder="E.g., This agent specializes in introductory biology concepts, focusing on cell biology and genetics for first-year students..."
           rows={4}
+          error={errors.knowledgeContext}
           disabled={disabled}
         />
-        <p className="text-xs text-gray-400">
-          Describe the subject area, level of expertise, or specific knowledge your agent should demonstrate.
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <p className="text-xs text-gray-400">
+            Describe the subject area, level of expertise, or specific knowledge your agent should demonstrate.
+          </p>
+          {/* The server rejects anything over this cap outright, so the count
+              has to be visible: a pasted-in reading list used to become a
+              failed save with nothing on screen to explain it. Deliberately
+              NOT a `maxLength` — that would silently swallow the tail of a
+              paste, which is worse than refusing to save and saying why. */}
+          <span
+            className={`text-xs flex-shrink-0 tabular-nums ${
+              knowledgeContext.length > AGENT_CONFIG_LIMITS.knowledgeContext
+                ? 'text-red-500 font-medium'
+                : 'text-gray-400'
+            }`}
+          >
+            {knowledgeContext.length} / {AGENT_CONFIG_LIMITS.knowledgeContext}
+          </span>
+        </div>
       </div>
 
       {/* Tips Panel */}
