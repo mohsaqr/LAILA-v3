@@ -204,8 +204,13 @@ export const coursesApi = {
     return response.data;
   },
 
-  duplicateLecture: async (lectureId: number) => {
-    const response = await apiClient.post<ApiResponse<Lecture>>(`/courses/lectures/${lectureId}/duplicate`);
+  /** Deep-copy a lecture. `moduleId` lands the copy in a different section of
+   *  the same course (Copy/Paste in the editor); omitted copies it in place. */
+  duplicateLecture: async (lectureId: number, moduleId?: number) => {
+    const response = await apiClient.post<ApiResponse<Lecture>>(
+      `/courses/lectures/${lectureId}/duplicate`,
+      moduleId != null ? { moduleId } : undefined,
+    );
     return response.data.data!;
   },
 

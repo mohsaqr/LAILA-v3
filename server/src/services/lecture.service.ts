@@ -282,7 +282,20 @@ export class LectureService {
    * title is suffixed with "(copy)" so it never silently goes live for
    * students.
    */
-  async duplicateLecture(lectureId: number, instructorId: number, isAdmin = false) {
+  /**
+   * Deep-copy a lecture (sections + attachments + attached assignments).
+   *
+   * `targetModuleId` lands the copy in a different section of the SAME course —
+   * this is what Copy/Paste in the course editor uses. Cross-course copying is
+   * refused: lecture ids are global, so without that check an instructor could
+   * paste another course's lecture into their own.
+   */
+  async duplicateLecture(
+    lectureId: number,
+    instructorId: number,
+    isAdmin = false,
+    targetModuleId?: number,
+  ) {
     const source = await prisma.lecture.findUnique({
       where: { id: lectureId },
       include: {
@@ -300,9 +313,24 @@ export class LectureService {
       throw new AppError('Not authorized', 403);
     }
 
-    // Place the copy right after the last lecture in the same module.
+    let destinationModuleId = source.moduleId;
+    if (targetModuleId != null && targetModuleId !== source.moduleId) {
+      const target = await prisma.courseModule.findUnique({
+        where: { id: targetModuleId },
+        select: { id: true, courseId: true },
+      });
+      if (!target) {
+        throw new AppError('Destination section not found', 404);
+      }
+      if (target.courseId !== source.module.course.id) {
+        throw new AppError('Cannot copy a lecture into another course', 403);
+      }
+      destinationModuleId = target.id;
+    }
+
+    // Place the copy right after the last lecture in the destination module.
     const maxOrder = await prisma.lecture.findFirst({
-      where: { moduleId: source.moduleId },
+      where: { moduleId: destinationModuleId },
       orderBy: { orderIndex: 'desc' },
       select: { orderIndex: true },
     });
@@ -325,7 +353,10 @@ export class LectureService {
         const clone = await tx.assignment.create({
           data: {
             courseId: a.courseId,
-            moduleId: a.moduleId,
+            // An assignment that lived in the source section follows the copy to
+            // its destination. Leaving it behind would surface the clone as a
+            // stray row in the section we copied FROM.
+            moduleId: a.moduleId === source.moduleId ? destinationModuleId : a.moduleId,
             title: a.title,
             description: a.description,
             instructions: a.instructions,
@@ -353,7 +384,7 @@ export class LectureService {
 
       return tx.lecture.create({
         data: {
-          moduleId: source.moduleId,
+          moduleId: destinationModuleId,
           title: `${source.title} (copy)`,
           description: source.description,
           content: source.content,

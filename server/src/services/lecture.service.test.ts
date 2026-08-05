@@ -809,5 +809,74 @@ describe('LectureService', () => {
       const copiedSection = txLectureCreate.mock.calls[0][0].data.sections.create[0];
       expect(copiedSection.assignmentId).toBe(99);
     });
+
+    // ── Copy into another section (Copy/Paste in the course editor) ──────────
+
+    const wireTransaction = () => {
+      const txAssignmentCreate = vi.fn().mockResolvedValue({ id: 99 });
+      const txLectureCreate = vi.fn().mockResolvedValue({ id: 2, sections: [], attachments: [] });
+      vi.mocked(prisma.$transaction).mockImplementation((cb: any) =>
+        cb({ assignment: { create: txAssignmentCreate }, lecture: { create: txLectureCreate } }),
+      );
+      return { txAssignmentCreate, txLectureCreate };
+    };
+
+    it('lands the copy in the destination section when one is given', async () => {
+      vi.mocked(prisma.lecture.findUnique).mockResolvedValue(buildSource() as any);
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({ id: 10, instructorId: 1 } as any);
+      vi.mocked(prisma.courseModule.findUnique).mockResolvedValue({ id: 4, courseId: 10 } as any);
+      vi.mocked(prisma.lecture.findFirst).mockResolvedValue({ orderIndex: 2 } as any);
+      const { txLectureCreate, txAssignmentCreate } = wireTransaction();
+
+      await lectureService.duplicateLecture(1, 1, false, 4);
+
+      // The copy belongs to module 4, and is positioned after module 4's last
+      // lecture — not the source module's.
+      expect(prisma.lecture.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { moduleId: 4 } }),
+      );
+      expect(txLectureCreate.mock.calls[0][0].data.moduleId).toBe(4);
+      expect(txLectureCreate.mock.calls[0][0].data.orderIndex).toBe(3);
+      // The cloned assignment follows the copy, or it would surface as a stray
+      // row back in the section we copied FROM.
+      expect(txAssignmentCreate.mock.calls[0][0].data.moduleId).toBe(4);
+    });
+
+    it('refuses a destination section in another course', async () => {
+      vi.mocked(prisma.lecture.findUnique).mockResolvedValue(buildSource() as any);
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({ id: 10, instructorId: 1 } as any);
+      vi.mocked(prisma.courseModule.findUnique).mockResolvedValue({ id: 4, courseId: 999 } as any);
+      wireTransaction();
+
+      // Lecture ids are global, so without this an instructor could paste
+      // another course's lecture into their own.
+      await expect(lectureService.duplicateLecture(1, 1, false, 4))
+        .rejects.toThrow('Cannot copy a lecture into another course');
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('refuses a destination section that does not exist', async () => {
+      vi.mocked(prisma.lecture.findUnique).mockResolvedValue(buildSource() as any);
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({ id: 10, instructorId: 1 } as any);
+      vi.mocked(prisma.courseModule.findUnique).mockResolvedValue(null);
+      wireTransaction();
+
+      await expect(lectureService.duplicateLecture(1, 1, false, 404))
+        .rejects.toThrow('Destination section not found');
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('copies in place when the destination is the section it already sits in', async () => {
+      vi.mocked(prisma.lecture.findUnique).mockResolvedValue(buildSource() as any);
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({ id: 10, instructorId: 1 } as any);
+      vi.mocked(prisma.lecture.findFirst).mockResolvedValue({ orderIndex: 5 } as any);
+      const { txLectureCreate } = wireTransaction();
+
+      // moduleId 3 is the source's own module — no lookup, no cross-course check.
+      await lectureService.duplicateLecture(1, 1, false, 3);
+
+      expect(prisma.courseModule.findUnique).not.toHaveBeenCalled();
+      expect(txLectureCreate.mock.calls[0][0].data.moduleId).toBe(3);
+    });
   });
 });

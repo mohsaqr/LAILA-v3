@@ -7,6 +7,7 @@ import {
   Check, X, FileText, FlaskConical, ClipboardList, MessageSquare, FileQuestion, ClipboardCheck,
   Beaker, Network, Bot, Search, Video, FileUp, Loader2, Link2, UploadCloud,
   Link as LinkIcon, FileType2, MonitorPlay, BarChart3, Image as ImageIcon, Folder, FolderInput,
+  Scissors, ClipboardPaste,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTheme } from '../../../hooks/useTheme';
@@ -30,6 +31,7 @@ import { Button } from '../../common/Button';
 import { Input } from '../../common/Input';
 import { SearchableSelect } from '../../common/SearchableSelect';
 import { AddResourceModal } from './AddResourceModal';
+import { planItemDrop, canCopyRow } from './dnd';
 import { PickerModal } from './PickerModal';
 import { LabPickerModal } from './LabPickerModal';
 import { useAuthStore } from '../../../store/authStore';
@@ -163,7 +165,7 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
 
     lectureUpdate: useMutation({ mutationFn: ({ id, data }: { id: number; data: Record<string, unknown> }) => coursesApi.updateLecture(id, data), onSuccess: refresh }),
     lectureDelete: useMutation({ mutationFn: (id: number) => coursesApi.deleteLecture(id), onSuccess: refresh }),
-    lectureDuplicate: useMutation({ mutationFn: (id: number) => coursesApi.duplicateLecture(id), onSuccess: refresh }),
+    lectureDuplicate: useMutation({ mutationFn: ({ id, moduleId }: { id: number; moduleId?: number }) => coursesApi.duplicateLecture(id, moduleId), onSuccess: refresh }),
 
     codelabUpdate: useMutation({ mutationFn: ({ id, data }: { id: number; data: Record<string, unknown> }) => codeLabsApi.updateCodeLab(id, data), onSuccess: refresh }),
     codelabDelete: useMutation({ mutationFn: (id: number) => codeLabsApi.deleteCodeLab(id), onSuccess: refresh }),
@@ -657,8 +659,8 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
   // Duplicate an item. Only lessons (lectures) support a deep copy today;
   // the copy lands unpublished at the end of its module with a "(copy)" title.
   const duplicateItem = (item: EditorItem) => {
-    if (item.type !== 'lecture') return;
-    mut.lectureDuplicate.mutate(item.id, {
+    if (!canCopyItem(item)) return;
+    mut.lectureDuplicate.mutate({ id: item.id }, {
       onError,
       onSuccess: () => { refresh(); toast.success(t('lesson_duplicated', { defaultValue: 'Lesson duplicated' })); },
     });
@@ -680,6 +682,42 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
       },
     );
   };
+
+  // ─── Clipboard: Cut / Copy → Paste ──────────────────────────────────────
+  //
+  // Cut is just a deferred move, so it works for every resource type. Copy has
+  // to duplicate rows server-side, and only lectures have an endpoint for that
+  // today — hence `canCopyItem`. When another type gains one, add it there and
+  // the whole Cut/Copy/Paste surface picks it up unchanged.
+  const canCopyItem = canCopyRow;
+
+  const [clipboard, setClipboard] = useState<
+    { item: EditorItem; mode: 'cut' | 'copy'; fromModuleId: number } | null
+  >(null);
+
+  const pasteInto = (targetModuleId: number) => {
+    if (!clipboard) return;
+    const { item, mode } = clipboard;
+    if (mode === 'cut') {
+      // Nothing to do if it is already here; clear so the bar goes away.
+      if (clipboard.fromModuleId !== targetModuleId) moveItemToModule(item, targetModuleId);
+      setClipboard(null);
+      return;
+    }
+    mut.lectureDuplicate.mutate({ id: item.id, moduleId: targetModuleId }, {
+      onError,
+      // The clipboard deliberately SURVIVES a copy-paste, so one resource can be
+      // dropped into several sections without re-copying it each time.
+      onSuccess: () => toast.success(t('item_pasted', { defaultValue: 'Pasted' })),
+    });
+  };
+
+  // ─── Cross-section drag ─────────────────────────────────────────────────
+  //
+  // The dragged row is held here, not in ModuleCard, because a drag that ends
+  // in a different card has to be understood by something that can see both.
+  const [drag, setDrag] = useState<{ item: EditorItem; fromModuleId: number } | null>(null);
+  const dragKey = drag ? `${drag.item.type}-${drag.item.id}` : null;
 
   // Open the dedicated editor page for an item.
   const editItem = (item: EditorItem) => {
@@ -806,6 +844,50 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
     [modules],
   );
 
+  /**
+   * Finish a drag by dropping the held row into `targetModuleId` at
+   * `targetIndex` (a position among that section's reorderable rows).
+   *
+   * Within one section this is the reorder that always existed. Across
+   * sections it is two calls in sequence: the move first — the server appends
+   * the row at the end of the destination — then a reorder of the destination
+   * with the row spliced in where it was dropped. The reorder must not start
+   * until the move has landed, or it would be renumbering a section the row
+   * does not belong to yet.
+   */
+  const dropDraggedOn = async (targetModuleId: number, targetIndex: number) => {
+    const held = drag;
+    setDrag(null);
+    if (!held || held.item.pinned) return;
+
+    const target = modules.find(m => m.id === targetModuleId);
+    if (!target) return;
+
+    const plan = planItemDrop({
+      destRows: target.items.filter(i => !i.pinned),
+      held: held.item,
+      sameSection: held.fromModuleId === targetModuleId,
+      targetIndex,
+    });
+    if (!plan) return;
+
+    const items = plan.order.map(r => ({ type: r.type as ReorderableType, id: r.id }));
+
+    if (!plan.move) {
+      mut.itemsReorder.mutate({ moduleId: targetModuleId, items }, { onError });
+      return;
+    }
+
+    try {
+      await mut.itemMove.mutateAsync({
+        moduleId: targetModuleId,
+        item: { type: held.item.type as ReorderableType, id: held.item.id },
+      });
+      await mut.itemsReorder.mutateAsync({ moduleId: targetModuleId, items });
+      toast.success(t('item_moved', { defaultValue: 'Moved' }));
+    } catch { onError(); }
+  };
+
   const [deleteTarget, setDeleteTarget] = useState<
     | { kind: 'module'; id: number; title: string }
     | { kind: 'item'; item: EditorItem; moduleId: number; title: string }
@@ -876,6 +958,22 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
     onDuplicateItem: duplicateItem,
     onDeleteItem: (item: EditorItem) => setDeleteTarget({ kind: 'item' as const, item, moduleId: m.id, title: item.title }),
     onAdd: (kind: PaletteKind) => addResource(m.id, kind),
+    // Clipboard
+    onCutItem: (item: EditorItem) => setClipboard({ item, mode: 'cut' as const, fromModuleId: m.id }),
+    onCopyItem: (item: EditorItem) => setClipboard({ item, mode: 'copy' as const, fromModuleId: m.id }),
+    canCopyItem,
+    // The paste bar is hidden in the section a CUT came from — pasting it back
+    // where it already is would be a no-op that looks like it did something.
+    pasteLabel: clipboard && !(clipboard.mode === 'cut' && clipboard.fromModuleId === m.id)
+      ? clipboard.item.title
+      : null,
+    onPaste: () => pasteInto(m.id),
+    onClearClipboard: () => setClipboard(null),
+    // Drag
+    dragKey,
+    onDragStartItem: (item: EditorItem) => setDrag({ item, fromModuleId: m.id }),
+    onDragEndItem: () => setDrag(null),
+    onDropAt: (index: number) => { void dropDraggedOn(m.id, index); },
   });
 
   return (
@@ -1446,6 +1544,22 @@ interface ModuleCardProps {
   onAddSubsection?: () => void;
   /** Render as a subsection: tinted, folded by default, no reorder arrows. */
   nested?: boolean;
+  // ── Clipboard ──
+  onCutItem: (item: EditorItem) => void;
+  onCopyItem: (item: EditorItem) => void;
+  /** Whether this resource type can be copied (server-side duplicate exists). */
+  canCopyItem: (item: EditorItem) => boolean;
+  /** Title of the held resource, or null when nothing is pasteable here. */
+  pasteLabel: string | null;
+  onPaste: () => void;
+  onClearClipboard: () => void;
+  // ── Cross-section drag ──
+  /** `type-id` of the row being dragged anywhere on the page, or null. */
+  dragKey: string | null;
+  onDragStartItem: (item: EditorItem) => void;
+  onDragEndItem: () => void;
+  /** Drop the held row into THIS section at `index` among its reorderable rows. */
+  onDropAt: (index: number) => void;
 }
 
 /** A palette tile: icon, label, one-line description, and accent colors. */
@@ -1506,6 +1620,8 @@ const ModuleCard = ({
   onRenameModule, onDescribeModule, onToggleModule, onDeleteModule,
   onRenameItem, onToggleItem, onEditItem, onDuplicateItem, onDeleteItem, onAdd,
   subsectionBlocks, onAddSubsection, nested = false,
+  onCutItem, onCopyItem, canCopyItem, pasteLabel, onPaste, onClearClipboard,
+  dragKey, onDragStartItem, onDragEndItem, onDropAt,
 }: ModuleCardProps) => {
   const { t } = useTranslation(['teaching', 'common']);
   const { isDark } = useTheme();
@@ -1515,9 +1631,6 @@ const ModuleCard = ({
   const [paletteSearch, setPaletteSearch] = useState('');
   const [moduleDesc, setModuleDesc] = useState(module.description ?? '');
   useEffect(() => { setModuleDesc(module.description ?? ''); }, [module.description]);
-  // Index (within `reorderable`) of the row currently being dragged.
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
-
   // The reorderable subset (everything except pinned items), in display order.
   // Moving an item swaps it with its neighbour here and sends the full new
   // order to the server. Assigned labs belong here — only interactive labs,
@@ -1533,15 +1646,9 @@ const ModuleCard = ({
     [next[i], next[j]] = [next[j], next[i]];
     commitOrder(next);
   };
-  // Drag row at `from` to position `to` (both indices within `reorderable`).
-  const dropItem = (to: number) => {
-    if (dragIndex == null || dragIndex === to) { setDragIndex(null); return; }
-    const next = [...reorderable];
-    const [moved] = next.splice(dragIndex, 1);
-    next.splice(to, 0, moved);
-    setDragIndex(null);
-    commitOrder(next);
-  };
+  // Dropping is owned by the parent now: a drag can start in one section and
+  // end in another, so only something that sees every card can resolve it.
+  const dragActive = dragKey != null;
 
   return (
     <div
@@ -1586,7 +1693,14 @@ const ModuleCard = ({
             placeholder={t('section_description_placeholder', { defaultValue: 'Add a description for this section (optional)…' })}
             className="w-full mb-2 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-teal-400 resize-none"
           />
-          <div className="border-t border-dashed border-gray-200 dark:border-gray-700 pt-2 space-y-1">
+          <div
+            className="border-t border-dashed border-gray-200 dark:border-gray-700 pt-2 space-y-1"
+            // Dropping on the section's empty space (or below the last row)
+            // appends. Without this an empty section could not receive a drag
+            // at all — there would be no row to aim at.
+            onDragOver={(e) => { if (dragActive) e.preventDefault(); }}
+            onDrop={() => onDropAt(reorderable.length)}
+          >
             {module.items.map(item => {
               const ri = item.pinned ? -1 : reorderable.findIndex(r => r.type === item.type && r.id === item.id);
               return (
@@ -1600,11 +1714,16 @@ const ModuleCard = ({
                   isLast={ri === reorderable.length - 1}
                   onMoveUp={() => moveItem(item, -1)}
                   onMoveDown={() => moveItem(item, 1)}
-                  isDragging={dragIndex === ri}
-                  onDragStart={() => setDragIndex(ri)}
-                  onDragOverRow={(e) => { if (!item.pinned) e.preventDefault(); }}
-                  onDropRow={() => dropItem(ri)}
-                  onDragEnd={() => setDragIndex(null)}
+                  isDragging={dragKey === `${item.type}-${item.id}`}
+                  onDragStart={() => onDragStartItem(item)}
+                  // Accept the drop while ANY row is in flight, including one
+                  // from another section — that is what makes the drag cross
+                  // section boundaries at all.
+                  onDragOverRow={(e) => { if (dragActive && !item.pinned) e.preventDefault(); }}
+                  onDropRow={() => { if (ri >= 0) onDropAt(ri); }}
+                  onDragEnd={onDragEndItem}
+                  onCut={() => onCutItem(item)}
+                  onCopy={canCopyItem(item) ? () => onCopyItem(item) : undefined}
                   onRename={(title) => onRenameItem(item, title)}
                   onToggle={() => onToggleItem(item)}
                   onEdit={() => onEditItem(item)}
@@ -1614,6 +1733,29 @@ const ModuleCard = ({
               );
             })}
           </div>
+
+          {/* Paste bar — visible in every section while something is held. */}
+          {pasteLabel && (
+            <div className="mt-2 flex items-center gap-2 px-2.5 py-2 rounded-lg border border-dashed border-teal-300 dark:border-teal-700 bg-teal-50/60 dark:bg-teal-900/20">
+              <ClipboardPaste className="w-4 h-4 shrink-0 text-teal-600 dark:text-teal-300" />
+              <button
+                type="button"
+                onClick={onPaste}
+                className="flex-1 min-w-0 text-left text-sm font-medium text-teal-700 dark:text-teal-300 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 rounded truncate"
+              >
+                {t('paste_here_named', { defaultValue: 'Paste "{{title}}" here', title: pasteLabel })}
+              </button>
+              <button
+                type="button"
+                onClick={onClearClipboard}
+                aria-label={t('cancel_paste', { defaultValue: 'Cancel paste' })}
+                title={t('cancel_paste', { defaultValue: 'Cancel paste' })}
+                className="shrink-0 p-1 rounded text-teal-600/70 dark:text-teal-300/70 hover:bg-teal-100 dark:hover:bg-teal-900/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
           {/* Bottom + add bar */}
           <div className="relative mt-3 flex items-center">
@@ -1709,13 +1851,16 @@ const ModuleCard = ({
 const ItemRow = ({
   item, canReorder, sections, onMoveToSection, isFirst, isLast, onMoveUp, onMoveDown,
   isDragging, onDragStart, onDragOverRow, onDropRow, onDragEnd,
-  onRename, onToggle, onEdit, onDuplicate, onDelete,
+  onRename, onToggle, onEdit, onDuplicate, onDelete, onCut, onCopy,
 }: {
   item: EditorItem;
   canReorder: boolean;
   /** Other sections this row can be moved into. */
   sections: { id: number; title: string }[];
   onMoveToSection: (targetModuleId: number) => void;
+  onCut: () => void;
+  /** Omitted when this resource type has no server-side duplicate yet. */
+  onCopy?: () => void;
   isFirst: boolean;
   isLast: boolean;
   onMoveUp: () => void;
@@ -1742,7 +1887,11 @@ const ItemRow = ({
       draggable={canReorder && armed}
       onDragStart={onDragStart}
       onDragOver={onDragOverRow}
-      onDrop={() => { onDropRow(); setArmed(false); }}
+      // Stop here: the section's own container also listens for drops (that is
+      // how an empty section receives one), and without this a drop on a row
+      // would run BOTH handlers. Both read the same pre-update drag state in
+      // one event loop, so the row would be moved twice.
+      onDrop={(e) => { e.stopPropagation(); onDropRow(); setArmed(false); }}
       onDragEnd={() => { onDragEnd(); setArmed(false); }}
       className={`group/item flex items-center gap-1.5 px-2 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/40 ${isDragging ? 'opacity-50 ring-2 ring-teal-300' : ''}`}
     >
@@ -1778,8 +1927,13 @@ const ItemRow = ({
       {!item.isPublished && <HiddenBadge />}
       <div className="ml-auto shrink-0 flex items-center gap-0.5">
         {canReorder && <ReorderArrows isFirst={isFirst} isLast={isLast} onUp={onMoveUp} onDown={onMoveDown} />}
-        {canReorder && sections.length > 0 && (
-          <MoveToSectionButton sections={sections} onPick={onMoveToSection} />
+        {canReorder && (
+          <RowActionsMenu
+            sections={sections}
+            onMoveToSection={onMoveToSection}
+            onCut={onCut}
+            onCopy={onCopy}
+          />
         )}
         <ItemActions
           isPublished={item.isPublished}
@@ -1799,30 +1953,54 @@ const ItemRow = ({
 };
 
 /**
- * "Move to section" — the only way to get a resource out of the block it was
- * created in. Reordering has always been within-block only, so an item added
- * to the wrong section had to be deleted and rebuilt.
+ * Row actions that relocate a resource: Cut, Copy, and a direct "Move to"
+ * entry per destination section.
  *
- * A picker rather than cross-block dragging: it works on touch, and it works
- * when the destination is scrolled off-screen or collapsed.
+ * All three exist because they fail in different places. Dragging is the
+ * fastest way to move a row a short distance, but it is unusable on touch and
+ * impossible when the destination is collapsed or scrolled off-screen. Cut →
+ * Paste crosses any distance. The direct "Move to" list is one click when you
+ * already know where it belongs.
+ *
+ * Copy is absent for resource types with no server-side duplicate — better an
+ * item that is not offered than one that fails when clicked.
  */
-const MoveToSectionButton = ({
-  sections, onPick,
+const RowActionsMenu = ({
+  sections, onMoveToSection, onCut, onCopy,
 }: {
   sections: { id: number; title: string }[];
-  onPick: (targetModuleId: number) => void;
+  onMoveToSection: (targetModuleId: number) => void;
+  onCut: () => void;
+  onCopy?: () => void;
 }) => {
   const { t } = useTranslation(['teaching', 'common']);
-  const label = t('move_to_section', { defaultValue: 'Move to section' });
+  const label = t('row_actions', { defaultValue: 'Move or copy' });
   return (
     <RowMenu
       ariaLabel={label}
       icon={<FolderInput className="w-4 h-4" />}
-      items={sections.map(section => ({
-        key: String(section.id),
-        label: section.title || t('untitled_section', { defaultValue: 'Untitled section' }),
-        onClick: () => onPick(section.id),
-      }))}
+      items={[
+        {
+          key: 'cut',
+          label: t('cut', { defaultValue: 'Cut' }),
+          icon: <Scissors className="w-4 h-4" />,
+          onClick: onCut,
+        },
+        ...(onCopy ? [{
+          key: 'copy',
+          label: t('common:copy', { defaultValue: 'Copy' }),
+          icon: <Copy className="w-4 h-4" />,
+          onClick: onCopy,
+        }] : []),
+        ...sections.map(section => ({
+          key: `move-${section.id}`,
+          label: t('move_to_named', {
+            defaultValue: 'Move to: {{title}}',
+            title: section.title || t('untitled_section', { defaultValue: 'Untitled section' }),
+          }),
+          onClick: () => onMoveToSection(section.id),
+        })),
+      ]}
     />
   );
 };

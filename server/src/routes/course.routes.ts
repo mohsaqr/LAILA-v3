@@ -8,7 +8,7 @@ import { lectureAIHelperService } from '../services/lectureAIHelper.service.js';
 import { courseTutorService } from '../services/courseTutor.service.js';
 import prisma from '../utils/prisma.js';
 import { authenticateToken, requireInstructor, optionalAuth } from '../middleware/auth.middleware.js';
-import { asyncHandler } from '../middleware/error.middleware.js';
+import { asyncHandler, AppError } from '../middleware/error.middleware.js';
 import {
   createCourseSchema,
   updateCourseSchema,
@@ -309,10 +309,17 @@ router.delete('/lectures/:lectureId', authenticateToken, requireInstructor, asyn
   res.json({ success: true, ...result });
 }));
 
-// Duplicate lecture (deep copy: sections + attachments) into the same module
+// Duplicate lecture (deep copy: sections + attachments). Body may carry
+// `moduleId` to land the copy in a different section of the same course —
+// that is Copy/Paste in the course editor. Omitted = copy in place.
 router.post('/lectures/:lectureId/duplicate', authenticateToken, requireInstructor, asyncHandler(async (req: AuthRequest, res: Response) => {
   const lectureId = parseInt(req.params.lectureId);
-  const lecture = await lectureService.duplicateLecture(lectureId, req.user!.id, req.user!.isAdmin);
+  const raw = (req.body ?? {}).moduleId;
+  const moduleId = raw == null ? undefined : Number(raw);
+  if (moduleId !== undefined && (!Number.isInteger(moduleId) || moduleId <= 0)) {
+    throw new AppError('Invalid destination section', 400);
+  }
+  const lecture = await lectureService.duplicateLecture(lectureId, req.user!.id, req.user!.isAdmin, moduleId);
   res.status(201).json({ success: true, data: lecture });
 }));
 
