@@ -213,6 +213,21 @@ export const CourseDetails = () => {
   // Course staff see unpublished modules/items in the non-edit view (tagged
   // "Hidden"), unless they are deliberately previewing the page as a student.
   const showHidden = canManage && !previewingAsStudent;
+
+  // The API returns every module in one flat array, subsections included, so
+  // the curriculum splits them here: top-level modules become sections, and
+  // each one is handed its own subsections to render folded at its bottom.
+  // A subsection whose parent is filtered out is simply never reached.
+  const topLevelModules = (course.modules ?? []).filter(m => m.parentId == null);
+  const subsectionsByParent = (course.modules ?? []).reduce<Record<number, typeof topLevelModules>>(
+    (acc, m) => {
+      if (m.parentId == null) return acc;
+      (acc[m.parentId] ??= []).push(m);
+      return acc;
+    },
+    {},
+  );
+
   const startMs = course.startTime ? new Date(course.startTime).getTime() : null;
   const notStarted =
     startMs != null && startMs > Date.now() && !startReached && (!canManage || previewingAsStudent);
@@ -574,9 +589,9 @@ export const CourseDetails = () => {
                  3-dots (edit/hide/delete), and a bottom "+" add bar. Edit/add
                  navigate to dedicated pages (no popups). */
               <MoodleCourseEditor courseId={parseInt(id!)} />
-            ) : course.modules && course.modules.some((m) => showHidden || (m as { isPublished?: boolean }).isPublished !== false) ? (
+            ) : topLevelModules.some((m) => showHidden || (m as { isPublished?: boolean }).isPublished !== false) ? (
               <div className={viewMode === 'accordion' ? 'space-y-2' : 'space-y-6'}>
-                {course.modules
+                {topLevelModules
                   .filter((module) => showHidden || (module as { isPublished?: boolean }).isPublished !== false)
                   .map((module, moduleIndex) => (
                   <div
@@ -594,6 +609,7 @@ export const CourseDetails = () => {
                       forums={module.forumThreads}
                       surveys={module.moduleSurveys as any}
                       labAssignments={(module as any).labAssignments}
+                      subsections={subsectionsByParent[module.id]}
                       hasAccess={hasAccess}
                       viewMode={viewMode}
                       showHidden={showHidden}

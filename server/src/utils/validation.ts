@@ -190,6 +190,10 @@ export const createModuleSchema = z.object({
   label: z.string().optional(), // e.g., "Week 1 - Foundations"
   orderIndex: z.number().int().min(0).optional(),
   isPublished: z.boolean().optional(),
+  // Makes this module a subsection of another one in the same course. Null
+  // detaches it back to a top-level section. Depth and cross-course checks
+  // live in module.service — Zod only sees the shape.
+  parentId: z.number().int().positive().nullable().optional(),
   interactiveLabs: z.string().optional().nullable(),
   availableFrom: z.string().datetime().optional().nullable(),
   availableUntil: z.string().datetime().optional().nullable(),

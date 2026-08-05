@@ -7,6 +7,7 @@ import { learningAnalyticsService } from './learningAnalytics.service.js';
 import { courseRoleService } from './courseRole.service.js';
 import { prerequisiteService } from './prerequisite.service.js';
 import { availabilityWindowWhere } from '../utils/availability.js';
+import { studentVisibleModuleWhere } from '../utils/moduleVisibility.js';
 
 // Context for system event logging
 export interface SystemEventContext {
@@ -173,7 +174,7 @@ export class CourseService {
         },
         categories: { include: { category: true } },
         modules: {
-          where: includeUnpublished ? {} : { isPublished: true, ...availabilityWindowWhere() },
+          where: includeUnpublished ? {} : studentVisibleModuleWhere(),
           orderBy: { orderIndex: 'asc' },
           include: {
             lectures: {
@@ -551,7 +552,7 @@ export class CourseService {
         },
         categories: { include: { category: true } },
         modules: {
-          where: { isPublished: true, ...availabilityWindowWhere() },
+          where: studentVisibleModuleWhere(),
           orderBy: { orderIndex: 'asc' },
           include: {
             lectures: {

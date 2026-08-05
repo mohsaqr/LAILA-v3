@@ -497,6 +497,15 @@ model CourseModule {
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
   interactiveLabs String?          @map("interactive_labs")
+  // A subsection: a module that renders folded inside its parent instead of as
+  // a section of its own. Nesting is one level deep — a module with a parent
+  // can never itself be a parent (enforced in module.service, not by the DB).
+  // The API deliberately keeps returning modules as ONE FLAT ARRAY, so every
+  // consumer that counts lectures, builds certificates or feeds course context
+  // still sees subsection content. Only the renderers group by parentId.
+  parentId        Int?             @map("parent_id")
+  parent          CourseModule?    @relation("ModuleSubsections", fields: [parentId], references: [id], onDelete: Cascade)
+  children        CourseModule[]   @relation("ModuleSubsections")
   assignments     Assignment[]
   codeLabs        CodeLab[]
   course          Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -508,6 +517,7 @@ model CourseModule {
   surveyResponses SurveyResponse[]
 
   @@index([courseId])
+  @@index([parentId])
   @@map("course_modules")
 }
 

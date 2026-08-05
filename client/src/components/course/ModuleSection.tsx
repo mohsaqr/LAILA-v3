@@ -33,6 +33,13 @@ interface ModuleSectionProps {
   showHidden?: boolean;
   /** This whole module is unpublished (staff preview) — tag the header too. */
   moduleHidden?: boolean;
+  /** Subsections of this module (modules whose parentId is this one). They
+   *  render folded at the bottom of this section, via this same component in
+   *  `nested` mode — one renderer, two sets of chrome. */
+  subsections?: CourseModule[];
+  /** Render as a subsection: a folded, tinted strip instead of a full card.
+   *  Only ModuleSection sets this, on its own children. */
+  nested?: boolean;
 }
 
 // Content item interface for unified handling
@@ -105,14 +112,21 @@ export const ModuleSection = ({
   viewMode = 'mini-cards',
   showHidden = false,
   moduleHidden = false,
+  subsections = [],
+  nested = false,
 }: ModuleSectionProps) => {
   const { t } = useTranslation(['courses']);
   const { isDark } = useTheme();
-  const [isExpanded, setIsExpanded] = useState(true);
+  // A subsection starts folded — tucking supplementary material out of the way
+  // is the entire point of it. The accordion view keeps its open default.
+  const [isExpanded, setIsExpanded] = useState(!nested);
 
   const colors = {
     bg: isDark ? '#111827' : '#f9fafb',
     bgCard: isDark ? '#1f2937' : '#ffffff',
+    // Subsections sit on a deliberately darker fill than the card they are in,
+    // in both themes, so nesting reads without an indent.
+    bgNested: isDark ? '#111827' : '#f3f4f6',
     textPrimary: isDark ? '#f3f4f6' : '#111827',
     textSecondary: isDark ? '#9ca3af' : '#6b7280',
     border: isDark ? '#374151' : '#e5e7eb',
@@ -141,11 +155,16 @@ export const ModuleSection = ({
   // exactly one query being right. Rows predating the isPublished column
   // report undefined, which counts as visible.
   const visibleLabAssignments = keepPublished(labAssignments, la => la.isPublished !== false);
+  // The server already drops subsections of a hidden parent, but gate them here
+  // too so visibility never rests on exactly one query being right.
+  const visibleSubsections = keepPublished(subsections, s => s.isPublished !== false);
 
   // Check if module has any content.
   // Assigned labs were missing from this list, so a section holding only labs
   // reported itself empty and rendered "no content" instead of its labs.
-  const hasContent =
+  // Subsections count for the same reason: a section whose only content is a
+  // "Datasets & references" drawer is not empty.
+  const hasItems =
     publishedLectures.length > 0 ||
     publishedLabs.length > 0 ||
     publishedQuizzes.length > 0 ||
@@ -153,6 +172,7 @@ export const ModuleSection = ({
     publishedForums.length > 0 ||
     publishedSurveys.length > 0 ||
     visibleLabAssignments.length > 0;
+  const hasContent = hasItems || visibleSubsections.length > 0;
 
   // Resource kinds derived server-side (getCourseById) for media-as-section
   // lectures, so each shows its own icon instead of the generic lesson one.
@@ -404,6 +424,113 @@ export const ModuleSection = ({
     return <div key={`${item.type}-${item.id}`} aria-disabled="true">{content}</div>;
   };
 
+  // The items of this section, laid out per the course's view mode. Shared by
+  // the card view and the expanded body of a subsection so a "Datasets" drawer
+  // looks like the section it sits in.
+  const itemsBody = viewMode === 'list' ? (
+    <div className={getGridClasses()}>{contentItems.map(renderListItem)}</div>
+  ) : (
+    <div className={getGridClasses()}>
+      {contentItems.map((item) => {
+        const canAccess = hasAccess || item.isFree;
+        return (
+          <ContentCard
+            key={`${item.type}-${item.id}`}
+            type={item.type}
+            title={item.title}
+            subtitle={item.subtitle}
+            metadata={viewMode === 'mini-cards' ? undefined : item.metadata}
+            href={canAccess ? item.href : undefined}
+            disabled={!canAccess}
+            size={getCardSize()}
+            hidden={item.hidden}
+          />
+        );
+      })}
+    </div>
+  );
+
+  // Subsections render at the bottom of this section's body, folded. Recursion
+  // through this same component keeps one content pipeline; only the chrome
+  // differs. Nesting is one level, so a nested render never has its own.
+  const subsectionBlocks = visibleSubsections.length > 0 && (
+    <div className={hasItems ? 'mt-4 space-y-2' : 'space-y-2'}>
+      {visibleSubsections.map(sub => (
+        <ModuleSection
+          key={sub.id}
+          nested
+          module={sub}
+          moduleIndex={0}
+          courseId={courseId}
+          lectures={sub.lectures}
+          codeLabs={sub.codeLabs}
+          quizzes={sub.quizzes}
+          assignments={sub.assignments}
+          forums={sub.forumThreads as never}
+          surveys={sub.moduleSurveys as never}
+          labAssignments={(sub as { labAssignments?: LabAssignmentItem[] }).labAssignments}
+          hasAccess={hasAccess}
+          viewMode={viewMode}
+          showHidden={showHidden}
+          moduleHidden={showHidden && sub.isPublished === false}
+        />
+      ))}
+    </div>
+  );
+
+  // Subsection: a folded, tinted strip. Rendered by the parent ModuleSection,
+  // never directly by a page.
+  if (nested) {
+    return (
+      <section
+        id={`module-${module.id}`}
+        className="rounded-xl border overflow-hidden"
+        style={{ backgroundColor: colors.bgNested, borderColor: colors.border }}
+      >
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          aria-expanded={isExpanded}
+          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-gray-200/60 dark:hover:bg-gray-700/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-inset"
+        >
+          {isExpanded ? (
+            <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: colors.textSecondary }} />
+          ) : (
+            <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: colors.textSecondary }} />
+          )}
+          <Folder className="w-4 h-4 flex-shrink-0" style={{ color: colors.textSecondary }} />
+          <span
+            className="text-sm font-semibold truncate min-w-0"
+            style={{ color: colors.textPrimary }}
+            title={module.title}
+          >
+            {module.title}
+          </span>
+          {moduleHidden && hiddenBadge}
+          {contentItems.length > 0 && (
+            <span className="ml-auto text-xs flex-shrink-0" style={{ color: colors.textSecondary }}>
+              {contentItems.length}
+            </span>
+          )}
+        </button>
+
+        {isExpanded && (
+          <div className="px-4 pb-3">
+            {module.description && (
+              <p className="text-sm mb-2" style={{ color: colors.textSecondary }}>
+                {module.description}
+              </p>
+            )}
+            {hasItems ? itemsBody : (
+              <p className="text-sm py-2" style={{ color: colors.textSecondary }}>
+                {t('no_content_in_module')}
+              </p>
+            )}
+          </div>
+        )}
+      </section>
+    );
+  }
+
   // Accordion view mode
   if (viewMode === 'accordion') {
     return (
@@ -456,6 +583,7 @@ export const ModuleSection = ({
             style={{ borderColor: colors.border }}
           >
             {contentItems.map(renderAccordionItem)}
+            {subsectionBlocks}
           </div>
         )}
 
@@ -522,33 +650,13 @@ export const ModuleSection = ({
         </div>
       </div>
 
-      {/* Content Grid/List */}
+      {/* Content Grid/List, then any subsections folded at the bottom. */}
       <div className="p-4 sm:p-6">
         {hasContent ? (
-          viewMode === 'list' ? (
-            <div className={getGridClasses()}>
-              {contentItems.map(renderListItem)}
-            </div>
-          ) : (
-            <div className={getGridClasses()}>
-              {contentItems.map((item) => {
-                const canAccess = hasAccess || item.isFree;
-                return (
-                  <ContentCard
-                    key={`${item.type}-${item.id}`}
-                    type={item.type}
-                    title={item.title}
-                    subtitle={item.subtitle}
-                    metadata={viewMode === 'mini-cards' ? undefined : item.metadata}
-                    href={canAccess ? item.href : undefined}
-                    disabled={!canAccess}
-                    size={getCardSize()}
-                    hidden={item.hidden}
-                  />
-                );
-              })}
-            </div>
-          )
+          <>
+            {hasItems && itemsBody}
+            {subsectionBlocks}
+          </>
         ) : (
           <p
             className="text-center py-8"

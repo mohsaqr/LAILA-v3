@@ -2,6 +2,7 @@ import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { CreateModuleInput, UpdateModuleInput } from '../utils/validation.js';
 import { courseRoleService } from './courseRole.service.js';
+import { parentPublishedWhere } from '../utils/moduleVisibility.js';
 
 /**
  * Item types that live inside a module and carry their own orderIndex.
@@ -56,7 +57,9 @@ export class ModuleService {
     const modules = await prisma.courseModule.findMany({
       where: {
         courseId,
-        ...(showUnpublished ? {} : { isPublished: true }),
+        // Subsections come back in this same flat list; the parent gate keeps a
+        // published subsection from outliving the hidden section it sits in.
+        ...(showUnpublished ? {} : { isPublished: true, ...parentPublishedWhere() }),
       },
       orderBy: { orderIndex: 'asc' },
       include: {
@@ -92,12 +95,60 @@ export class ModuleService {
     return modules;
   }
 
+  /**
+   * Validate a would-be parent for a subsection, or throw.
+   *
+   * Three rules, all of which matter:
+   *  - the parent must be in the SAME course. Module ids are global, so without
+   *    this an instructor could file their resources under another course's
+   *    section (and, worse, see it move there).
+   *  - nesting is ONE level. A parent that already has a parent would produce a
+   *    tree the renderers do not draw and the reorder endpoints cannot address.
+   *  - a module that already has children cannot itself become a child, which
+   *    is the same rule seen from the other end.
+   *
+   * Passing `parentId: null` is always allowed — that detaches a subsection
+   * back into a normal section.
+   */
+  private async assertParentAllowed(courseId: number, parentId: number, selfId?: number) {
+    if (selfId != null && parentId === selfId) {
+      throw new AppError('A section cannot be its own parent', 400);
+    }
+
+    const parent = await prisma.courseModule.findUnique({
+      where: { id: parentId },
+      select: { courseId: true, parentId: true },
+    });
+    if (!parent) {
+      throw new AppError('Parent section not found', 404);
+    }
+    if (parent.courseId !== courseId) {
+      throw new AppError('Parent section belongs to a different course', 403);
+    }
+    if (parent.parentId != null) {
+      throw new AppError('A subsection cannot contain another subsection', 400);
+    }
+
+    if (selfId != null) {
+      const childCount = await prisma.courseModule.count({ where: { parentId: selfId } });
+      if (childCount > 0) {
+        throw new AppError('A section with subsections cannot become a subsection', 400);
+      }
+    }
+  }
+
   async createModule(courseId: number, instructorId: number, data: CreateModuleInput, isAdmin = false) {
     await this.verifyCourseOwnership(courseId, instructorId, isAdmin);
 
-    // Get max order index
+    const parentId = data.parentId ?? null;
+    if (parentId != null) {
+      await this.assertParentAllowed(courseId, parentId);
+    }
+
+    // Max order index among SIBLINGS — subsections order within their parent,
+    // top-level sections within the course.
     const maxOrder = await prisma.courseModule.findFirst({
-      where: { courseId },
+      where: { courseId, parentId },
       orderBy: { orderIndex: 'desc' },
       select: { orderIndex: true },
     });
@@ -128,6 +179,12 @@ export class ModuleService {
 
     if (!(await courseRoleService.canEditContent(instructorId, module.course.id, isAdmin))) {
       throw new AppError('Not authorized', 403);
+    }
+
+    // Re-parenting (turning a section into a subsection, or detaching one) goes
+    // through the same rules as creating one.
+    if (data.parentId != null) {
+      await this.assertParentAllowed(module.course.id, data.parentId, moduleId);
     }
 
     const updated = await prisma.courseModule.update({

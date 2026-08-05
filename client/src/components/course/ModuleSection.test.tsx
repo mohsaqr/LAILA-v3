@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('react-i18next', () => ({
@@ -117,5 +117,81 @@ describe('ModuleSection assigned labs', () => {
     });
 
     expect(screen.getByText('SNA R Chapter')).toBeInTheDocument();
+  });
+});
+
+describe('ModuleSection subsections', () => {
+  const sub = (over: Record<string, unknown> = {}) =>
+    ({
+      id: 90,
+      courseId: 1,
+      title: 'Datasets & references',
+      description: null,
+      label: null,
+      orderIndex: 0,
+      isPublished: true,
+      parentId: 1,
+      lectures: [
+        { id: 55, title: 'Week 1 dataset', orderIndex: 0, isPublished: true, contentType: 'text' },
+      ],
+      ...over,
+    }) as never;
+
+  const openSubsection = () => fireEvent.click(screen.getByText('Datasets & references').closest('button')!);
+
+  it('renders a subsection folded, so its contents are out of the way', () => {
+    renderSection({ subsections: [sub()] });
+
+    expect(screen.getByText('Datasets & references')).toBeInTheDocument();
+    // Folded is the whole point — the section was "crammed" before.
+    expect(screen.queryByText('Week 1 dataset')).not.toBeInTheDocument();
+  });
+
+  it('reveals the contents when the subsection is opened', () => {
+    renderSection({ subsections: [sub()] });
+    openSubsection();
+
+    expect(screen.getByText('Week 1 dataset')).toBeInTheDocument();
+  });
+
+  it.each(ALL_MODES)('renders the subsection in %s view too', mode => {
+    renderSection({ viewMode: mode, subsections: [sub()] });
+
+    expect(screen.getByText('Datasets & references')).toBeInTheDocument();
+  });
+
+  it('does not call a section empty when a subsection is its only content', () => {
+    renderSection({ subsections: [sub()] });
+
+    // hasContent counts subsections; without that a section holding only a
+    // resources drawer told the student it had no content at all.
+    expect(screen.queryByText('no_content_in_module')).not.toBeInTheDocument();
+  });
+
+  it('hides an unpublished subsection from students', () => {
+    renderSection({ subsections: [sub({ isPublished: false })] });
+
+    expect(screen.queryByText('Datasets & references')).not.toBeInTheDocument();
+  });
+
+  it('shows an unpublished subsection to staff previewing the page', () => {
+    renderSection({ subsections: [sub({ isPublished: false })], showHidden: true });
+
+    expect(screen.getByText('Datasets & references')).toBeInTheDocument();
+  });
+
+  it('shows the subsection description once opened', () => {
+    renderSection({ subsections: [sub({ description: 'Supplementary material' })] });
+
+    expect(screen.queryByText('Supplementary material')).not.toBeInTheDocument();
+    openSubsection();
+    expect(screen.getByText('Supplementary material')).toBeInTheDocument();
+  });
+
+  it('reports an empty subsection as empty rather than looking broken', () => {
+    renderSection({ subsections: [sub({ lectures: [] })] });
+    openSubsection();
+
+    expect(screen.getByText('no_content_in_module')).toBeInTheDocument();
   });
 });

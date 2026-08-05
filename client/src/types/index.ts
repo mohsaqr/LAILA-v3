@@ -83,6 +83,10 @@ export interface CourseModule {
   label: string | null; // e.g., "Week 1 - Foundations"
   orderIndex: number;
   isPublished: boolean;
+  /** Set when this module is a subsection rendered folded inside another one.
+   *  The API still returns every module in one flat array — only the renderers
+   *  group by this. Nesting is one level deep. */
+  parentId?: number | null;
   interactiveLabs?: string | null;
   lectures?: Lecture[];
   codeLabs?: CodeLab[];

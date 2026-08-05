@@ -16,6 +16,7 @@ vi.mock('../utils/prisma.js', () => ({
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
+      count: vi.fn(),
     },
     enrollment: {
       findUnique: vi.fn(),
@@ -470,6 +471,168 @@ describe('ModuleService', () => {
       expect(prisma.labAssignment.update).toHaveBeenCalledWith({
         where: { id: 7 },
         data: { moduleId: 5, orderIndex: 0 },
+      });
+    });
+  });
+
+  // ===========================================================================
+  // Subsections (parentId)
+  // ===========================================================================
+
+  describe('subsections', () => {
+    const topLevelParent = { id: 10, courseId: 1, parentId: null };
+
+    describe('createModule with a parent', () => {
+      it('orders the new subsection among its siblings, not the whole course', async () => {
+        vi.mocked(prisma.course.findUnique).mockResolvedValue(mockCourse as any);
+        vi.mocked(prisma.courseModule.findUnique).mockResolvedValue(topLevelParent as any);
+        vi.mocked(prisma.courseModule.findFirst).mockResolvedValue({ orderIndex: 3 } as any);
+        vi.mocked(prisma.courseModule.create).mockResolvedValue(mockModule as any);
+
+        await moduleService.createModule(1, 1, { title: 'Datasets', parentId: 10 });
+
+        // Scoping the max-order lookup by parentId is what keeps a subsection
+        // from being appended past the course's last top-level section.
+        expect(prisma.courseModule.findFirst).toHaveBeenCalledWith({
+          where: { courseId: 1, parentId: 10 },
+          orderBy: { orderIndex: 'desc' },
+          select: { orderIndex: true },
+        });
+        expect(prisma.courseModule.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({ parentId: 10, orderIndex: 4 }),
+          include: expect.any(Object),
+        });
+      });
+
+      it('still scopes by parentId: null for a normal section', async () => {
+        vi.mocked(prisma.course.findUnique).mockResolvedValue(mockCourse as any);
+        vi.mocked(prisma.courseModule.findFirst).mockResolvedValue(null);
+        vi.mocked(prisma.courseModule.create).mockResolvedValue(mockModule as any);
+
+        await moduleService.createModule(1, 1, { title: 'Week 2' });
+
+        expect(prisma.courseModule.findFirst).toHaveBeenCalledWith({
+          where: { courseId: 1, parentId: null },
+          orderBy: { orderIndex: 'desc' },
+          select: { orderIndex: true },
+        });
+      });
+
+      it('refuses a parent from another course', async () => {
+        vi.mocked(prisma.course.findUnique).mockResolvedValue(mockCourse as any);
+        vi.mocked(prisma.courseModule.findUnique).mockResolvedValue({ id: 10, courseId: 99, parentId: null } as any);
+
+        // Module ids are global — without this check an instructor could file
+        // their content under a section of a course they cannot even see.
+        await expect(moduleService.createModule(1, 1, { title: 'X', parentId: 10 }))
+          .rejects.toThrow('Parent section belongs to a different course');
+        expect(prisma.courseModule.create).not.toHaveBeenCalled();
+      });
+
+      it('refuses to nest a subsection inside a subsection', async () => {
+        vi.mocked(prisma.course.findUnique).mockResolvedValue(mockCourse as any);
+        vi.mocked(prisma.courseModule.findUnique).mockResolvedValue({ id: 10, courseId: 1, parentId: 5 } as any);
+
+        await expect(moduleService.createModule(1, 1, { title: 'X', parentId: 10 }))
+          .rejects.toThrow('A subsection cannot contain another subsection');
+        expect(prisma.courseModule.create).not.toHaveBeenCalled();
+      });
+
+      it('refuses a parent that does not exist', async () => {
+        vi.mocked(prisma.course.findUnique).mockResolvedValue(mockCourse as any);
+        vi.mocked(prisma.courseModule.findUnique).mockResolvedValue(null);
+
+        await expect(moduleService.createModule(1, 1, { title: 'X', parentId: 404 }))
+          .rejects.toThrow('Parent section not found');
+      });
+    });
+
+    describe('updateModule re-parenting', () => {
+      it('turns an existing section into a subsection', async () => {
+        vi.mocked(prisma.courseModule.findUnique)
+          .mockResolvedValueOnce({ ...mockModule, id: 2 } as any)  // the module itself
+          .mockResolvedValueOnce(topLevelParent as any);           // the proposed parent
+        vi.mocked(prisma.courseModule.count).mockResolvedValue(0);
+        vi.mocked(prisma.courseModule.update).mockResolvedValue({ id: 2 } as any);
+
+        await moduleService.updateModule(2, 1, { parentId: 10 });
+
+        expect(prisma.courseModule.update).toHaveBeenCalledWith({
+          where: { id: 2 },
+          data: { parentId: 10 },
+          include: expect.any(Object),
+        });
+      });
+
+      it('refuses when the module already has subsections of its own', async () => {
+        vi.mocked(prisma.courseModule.findUnique)
+          .mockResolvedValueOnce({ ...mockModule, id: 2 } as any)
+          .mockResolvedValueOnce(topLevelParent as any);
+        // Same one-level rule seen from the other end: moving a parent under
+        // another parent would strand its children at depth 2.
+        vi.mocked(prisma.courseModule.count).mockResolvedValue(3);
+
+        await expect(moduleService.updateModule(2, 1, { parentId: 10 }))
+          .rejects.toThrow('A section with subsections cannot become a subsection');
+        expect(prisma.courseModule.update).not.toHaveBeenCalled();
+      });
+
+      it('refuses to make a module its own parent', async () => {
+        vi.mocked(prisma.courseModule.findUnique).mockResolvedValueOnce({ ...mockModule, id: 7 } as any);
+
+        await expect(moduleService.updateModule(7, 1, { parentId: 7 }))
+          .rejects.toThrow('A section cannot be its own parent');
+        expect(prisma.courseModule.update).not.toHaveBeenCalled();
+      });
+
+      it('lets a subsection be detached back to a top-level section', async () => {
+        vi.mocked(prisma.courseModule.findUnique).mockResolvedValueOnce({ ...mockModule, id: 2 } as any);
+        vi.mocked(prisma.courseModule.update).mockResolvedValue({ id: 2 } as any);
+
+        // parentId: null skips the parent checks entirely — there is no parent
+        // to validate, and detaching is always safe.
+        await moduleService.updateModule(2, 1, { parentId: null });
+
+        expect(prisma.courseModule.update).toHaveBeenCalledWith({
+          where: { id: 2 },
+          data: { parentId: null },
+          include: expect.any(Object),
+        });
+      });
+    });
+
+    describe('getModules parent gate', () => {
+      beforeEach(() => {
+        vi.mocked(prisma.course.findFirst).mockResolvedValue(null);
+        vi.mocked(prisma.courseRole.findUnique).mockResolvedValue(null);
+      });
+
+      it('hides subsections of a hidden section from students', async () => {
+        vi.mocked(prisma.enrollment.findUnique).mockResolvedValue({ id: 1 } as any);
+        vi.mocked(prisma.courseModule.findMany).mockResolvedValue([] as any);
+
+        await moduleService.getModules(1, 2, false, false);
+
+        expect(prisma.courseModule.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: {
+              courseId: 1,
+              isPublished: true,
+              OR: [{ parentId: null }, { parent: { isPublished: true } }],
+            },
+          }),
+        );
+      });
+
+      it('does not apply the gate for course staff', async () => {
+        vi.mocked(prisma.course.findFirst).mockResolvedValue({ id: 1 } as any);
+        vi.mocked(prisma.courseModule.findMany).mockResolvedValue([] as any);
+
+        await moduleService.getModules(1, 1, true, false);
+
+        expect(prisma.courseModule.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({ where: { courseId: 1 } }),
+        );
       });
     });
   });

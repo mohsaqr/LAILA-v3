@@ -783,9 +783,28 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
           // pinned: there is no per-lab row to hold an order or a visibility.
           ...interactiveKeys.map((key, idx) => ({ type: 'interactive' as const, id: idx, interactiveKey: key, title: interactiveLabel(key), isPublished: true, orderIndex: INTERACTIVE_ORDER + idx, viewHref: `/courses/${courseId}`, reference: true, pinned: true })),
         ].sort((a, b) => (a.orderIndex - b.orderIndex) || (a.id - b.id));
-        return { id: m.id, title: m.title, description: (m as { description?: string }).description ?? '', isPublished: (m as any).isPublished ?? true, items };
+        return {
+          id: m.id,
+          title: m.title,
+          description: (m as { description?: string }).description ?? '',
+          isPublished: (m as any).isPublished ?? true,
+          parentId: (m as { parentId?: number | null }).parentId ?? null,
+          items,
+        };
       });
   }, [details, courseId, t]);
+
+  // Subsections arrive in the same flat list; split them out so each renders
+  // inside its parent rather than as a section of its own.
+  const topModules = useMemo(() => modules.filter(m => m.parentId == null), [modules]);
+  const subsectionsByParent = useMemo(
+    () => modules.reduce<Record<number, typeof modules>>((acc, m) => {
+      if (m.parentId == null) return acc;
+      (acc[m.parentId] ??= []).push(m);
+      return acc;
+    }, {}),
+    [modules],
+  );
 
   const [deleteTarget, setDeleteTarget] = useState<
     | { kind: 'module'; id: number; title: string }
@@ -797,8 +816,10 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
   // persisting the new module order.
   const moveModule = (index: number, dir: -1 | 1) => {
     const j = index + dir;
-    if (j < 0 || j >= modules.length) return;
-    const ids = modules.map(m => m.id);
+    if (j < 0 || j >= topModules.length) return;
+    // Only top-level ids are sent: subsections order within their own parent,
+    // and reorderModules assigns orderIndex by position in the array it gets.
+    const ids = topModules.map(m => m.id);
     [ids[index], ids[j]] = [ids[j], ids[index]];
     mut.modulesReorder.mutate(ids, { onError });
   };
@@ -808,8 +829,8 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
   const addSection = async (afterIndex?: number) => {
     try {
       const created = await coursesApi.createModule(courseId, { title: t('new_section', { defaultValue: 'New section' }) } as never);
-      if (afterIndex != null && afterIndex < modules.length - 1) {
-        const ids = modules.map(m => m.id);
+      if (afterIndex != null && afterIndex < topModules.length - 1) {
+        const ids = topModules.map(m => m.id);
         ids.splice(afterIndex + 1, 0, created.id);
         await coursesApi.reorderModules(courseId, ids);
       }
@@ -817,39 +838,75 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
     } catch { onError(); }
   };
 
+  // Create a subsection inside `parentId`. The server orders it after that
+  // parent's existing subsections, so there is nothing to reorder here.
+  const addSubsection = async (parentId: number) => {
+    try {
+      await coursesApi.createModule(courseId, {
+        title: t('new_subsection', { defaultValue: 'Datasets & references' }),
+        parentId,
+      } as never);
+      refresh();
+    } catch { onError(); }
+  };
+
   if (isLoading) return <Loading text={t('common:loading', { defaultValue: 'Loading…' })} />;
+
+  // Everything a ModuleCard needs that is the same for a section and for a
+  // subsection. Written once so the nested card cannot drift from the top one.
+  const cardProps = (m: typeof modules[number]) => ({
+    module: m,
+    onReorderItems: (items: { type: ReorderableType; id: number }[]) => reorderItems(m.id, items),
+    // Every other section AND subsection of this course, so a row can be moved
+    // out of this one — moving a dataset into the drawer is the common case.
+    otherSections: modules
+      .filter(o => o.id !== m.id)
+      .map(o => ({
+        id: o.id,
+        title: o.parentId == null ? o.title : `↳ ${o.title}`,
+      })),
+    onMoveItemToModule: moveItemToModule,
+    onRenameModule: (title: string) => mut.moduleUpdate.mutate({ id: m.id, data: { title } }, { onError }),
+    onDescribeModule: (description: string) => mut.moduleUpdate.mutate({ id: m.id, data: { description } }, { onError }),
+    onToggleModule: () => mut.moduleUpdate.mutate({ id: m.id, data: { isPublished: !m.isPublished } }, { onError }),
+    onDeleteModule: () => setDeleteTarget({ kind: 'module' as const, id: m.id, title: m.title }),
+    onRenameItem: renameItem,
+    onToggleItem: toggleItem,
+    onEditItem: editItem,
+    onDuplicateItem: duplicateItem,
+    onDeleteItem: (item: EditorItem) => setDeleteTarget({ kind: 'item' as const, item, moduleId: m.id, title: item.title }),
+    onAdd: (kind: PaletteKind) => addResource(m.id, kind),
+  });
 
   return (
     <div className="space-y-4">
-      {modules.map((m, idx) => (
+      {topModules.map((m, idx) => (
         <div key={m.id} className="space-y-4">
           <ModuleCard
-            module={m}
+            {...cardProps(m)}
             isFirst={idx === 0}
-            isLast={idx === modules.length - 1}
+            isLast={idx === topModules.length - 1}
             onMoveUp={() => moveModule(idx, -1)}
             onMoveDown={() => moveModule(idx, 1)}
-            onReorderItems={(items) => reorderItems(m.id, items)}
-            // Every other section, so a row can be moved out of this one.
-            otherSections={modules.filter(o => o.id !== m.id).map(o => ({ id: o.id, title: o.title }))}
-            onMoveItemToModule={moveItemToModule}
-            onRenameModule={(title) => mut.moduleUpdate.mutate({ id: m.id, data: { title } }, { onError })}
-            onDescribeModule={(description) => mut.moduleUpdate.mutate({ id: m.id, data: { description } }, { onError })}
-            onToggleModule={() => mut.moduleUpdate.mutate({ id: m.id, data: { isPublished: !m.isPublished } }, { onError })}
-            onDeleteModule={() => setDeleteTarget({ kind: 'module', id: m.id, title: m.title })}
-            onRenameItem={renameItem}
-            onToggleItem={toggleItem}
-            onEditItem={editItem}
-            onDuplicateItem={duplicateItem}
-            onDeleteItem={(item) => setDeleteTarget({ kind: 'item', item, moduleId: m.id, title: item.title })}
-            onAdd={(kind) => addResource(m.id, kind)}
+            onAddSubsection={() => addSubsection(m.id)}
+            subsectionBlocks={(subsectionsByParent[m.id] ?? []).map(s => (
+              <ModuleCard
+                key={s.id}
+                {...cardProps(s)}
+                nested
+                isFirst
+                isLast
+                onMoveUp={() => {}}
+                onMoveDown={() => {}}
+              />
+            ))}
           />
           {/* "Add section" after EACH topic — inserts a new topic right here. */}
           <AddSectionRow label={t('add_section', { defaultValue: 'Add section' })} onClick={() => addSection(idx)} />
         </div>
       ))}
 
-      {modules.length === 0 && (
+      {topModules.length === 0 && (
         <AddSectionRow label={t('add_section', { defaultValue: 'Add section' })} onClick={() => addSection()} />
       )}
 
@@ -863,7 +920,18 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
           setDeleteTarget(null);
         }}
         title={t('common:delete', { defaultValue: 'Delete' })}
-        message={t('delete_confirm_named', { defaultValue: 'Delete "{{title}}"? This cannot be undone.', title: deleteTarget?.title ?? '' })}
+        message={
+          // Deleting a section cascades to its subsections in the database, so
+          // say so rather than let a teacher discover it afterwards. `n`, not
+          // `count` — `count` would make i18next look for plural key variants.
+          deleteTarget?.kind === 'module' && (subsectionsByParent[deleteTarget.id]?.length ?? 0) > 0
+            ? t('delete_section_with_subsections', {
+                defaultValue: 'Delete "{{title}}" and its {{n}} subsection(s), including everything inside them? This cannot be undone.',
+                title: deleteTarget.title,
+                n: subsectionsByParent[deleteTarget.id].length,
+              })
+            : t('delete_confirm_named', { defaultValue: 'Delete "{{title}}"? This cannot be undone.', title: deleteTarget?.title ?? '' })
+        }
         confirmText={t('common:delete', { defaultValue: 'Delete' })}
         requireSecondConfirm
       />
@@ -1370,6 +1438,14 @@ interface ModuleCardProps {
   onDuplicateItem: (item: EditorItem) => void;
   onDeleteItem: (item: EditorItem) => void;
   onAdd: (kind: PaletteKind) => void;
+  /** Rendered subsection cards, dropped in at the bottom of this section's
+   *  body. The parent builds them (each needs its own handlers bound to its own
+   *  id), so this stays a node rather than a data prop. */
+  subsectionBlocks?: React.ReactNode;
+  /** "Add subsection" — omitted on a subsection, since nesting is one level. */
+  onAddSubsection?: () => void;
+  /** Render as a subsection: tinted, folded by default, no reorder arrows. */
+  nested?: boolean;
 }
 
 /** A palette tile: icon, label, one-line description, and accent colors. */
@@ -1429,10 +1505,12 @@ const ModuleCard = ({
   otherSections, onMoveItemToModule,
   onRenameModule, onDescribeModule, onToggleModule, onDeleteModule,
   onRenameItem, onToggleItem, onEditItem, onDuplicateItem, onDeleteItem, onAdd,
+  subsectionBlocks, onAddSubsection, nested = false,
 }: ModuleCardProps) => {
   const { t } = useTranslation(['teaching', 'common']);
   const { isDark } = useTheme();
-  const [open, setOpen] = useState(true);
+  // Subsections start folded here too, matching what the student sees.
+  const [open, setOpen] = useState(!nested);
   const [addOpen, setAddOpen] = useState(false);
   const [paletteSearch, setPaletteSearch] = useState('');
   const [moduleDesc, setModuleDesc] = useState(module.description ?? '');
@@ -1466,20 +1544,29 @@ const ModuleCard = ({
   };
 
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+    <div
+      className={
+        nested
+          ? 'rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-900/60'
+          : 'rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+      }
+    >
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3">
-        <button type="button" onClick={() => setOpen(o => !o)} className="shrink-0 p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400" aria-label={open ? t('collapse', { defaultValue: 'Collapse' }) : t('expand', { defaultValue: 'Expand' })}>
+      <div className={nested ? 'flex items-center gap-2 px-3 py-2' : 'flex items-center gap-2 px-4 py-3'}>
+        <button type="button" onClick={() => setOpen(o => !o)} className="shrink-0 p-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400" aria-label={open ? t('collapse', { defaultValue: 'Collapse' }) : t('expand', { defaultValue: 'Expand' })}>
           {open ? <ChevronDown className="w-5 h-5 text-gray-500" /> : <ChevronRight className="w-5 h-5 text-gray-500" />}
         </button>
+        {nested && <Folder className="w-4 h-4 shrink-0 text-gray-500" />}
         <InlineTitle
           title={module.title}
           onSave={onRenameModule}
-          className="text-base font-bold text-gray-900 dark:text-white"
+          className={nested ? 'text-sm font-semibold text-gray-800 dark:text-gray-100' : 'text-base font-bold text-gray-900 dark:text-white'}
         />
         {!module.isPublished && <HiddenBadge />}
         <div className="ml-auto shrink-0 flex items-center gap-0.5">
-          <ReorderArrows isFirst={isFirst} isLast={isLast} onUp={onMoveUp} onDown={onMoveDown} />
+          {/* A subsection's position is set by the order it was created in; it
+              has no siblings to swap with on the page. */}
+          {!nested && <ReorderArrows isFirst={isFirst} isLast={isLast} onUp={onMoveUp} onDown={onMoveDown} />}
           <ItemActions
             isPublished={module.isPublished}
             onToggle={onToggleModule}
@@ -1596,6 +1683,21 @@ const ModuleCard = ({
               </div>
             );
           })()}
+
+          {/* Subsections, folded, at the bottom of the section — the same place
+              the student sees them. */}
+          {subsectionBlocks && <div className="mt-3 space-y-2">{subsectionBlocks}</div>}
+
+          {onAddSubsection && (
+            <button
+              type="button"
+              onClick={onAddSubsection}
+              className="mt-2 inline-flex items-center gap-1.5 px-2.5 h-7 rounded-lg text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
+            >
+              <Folder className="w-3.5 h-3.5 shrink-0" />
+              {t('add_subsection', { defaultValue: 'Add subsection' })}
+            </button>
+          )}
         </div>
       )}
     </div>
