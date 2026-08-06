@@ -1,28 +1,28 @@
 # LAILA - Learning Analytics and Intelligent Learning Assistant
 
-A multi-agent tutoring platform built around pedagogically distinct AI personas. LAILA provides seven pre-built tutor agents, a student agent builder for learning-through-design, and deploys agents across five interaction surfaces within a full learning management system.
+A multi-agent tutoring platform built around pedagogically distinct AI personas. LAILA provides a set of pre-built tutor agents, a student agent builder for learning-through-design, and deploys agents across several interaction surfaces within a full learning management system.
 
 ## Features
 
 ### Multi-Agent Tutoring System
-- **7 built-in agents** in two categories:
+- **Built-in agents** in two categories:
   - *Professional tutors*: Socratic Guide, Helpful Guide, Project Coach
   - *Peer personas*: Carmen, Laila, Beatrice, Study Buddy
-- **4 routing modes**: Manual selection, intelligent keyword-based routing, collaborative multi-agent responses, random encounter
+- **Routing modes**: manual selection, intelligent keyword-based routing, collaborative multi-agent responses, random encounter
 - **Collaborative styles**: Parallel, sequential, debate, and random multi-agent interactions
-- **5 deployment surfaces**: Global tutoring, course-level tutors, forum AI participation, lecture-embedded chatbots, lecture AI helper (explain & discuss)
+- **Deployment surfaces**: global tutoring, course-level tutors, forum AI participation, lecture-embedded chatbots, lecture AI helper (explain & discuss)
 
 ### Student Agent Builder
-- 10 pedagogical role templates (Peer Tutor, Socratic Guide, Writing Coach, Debate Partner, etc.)
-- 7 personality presets with 38 modular prompt building blocks across 6 categories
+- Pedagogical role templates (Peer Tutor, Socratic Guide, Writing Coach, Debate Partner, and others)
+- Personality presets and modular prompt building blocks, grouped by category (persona, tone, behavior, constraints, format, knowledge)
 - Live testing environment with versioned configuration snapshots
 - Design process analytics: iteration tracking, change audit trail, design event logging
 - Graded coursework submissions with instructor review interface
 
 ### AI-Powered Content Generation
-- **MCQ Generation**: Quiz questions with configurable difficulty (easy/medium/hard), 3-5 options, auto-generated explanations
+- **MCQ Generation**: quiz questions with configurable difficulty (easy/medium/hard), a configurable number of options, and auto-generated explanations
 - **Practice Questions**: Students generate self-study questions from lecture content
-- **Survey Generation**: 5 survey types (general feedback, course evaluation, Likert scale, learning strategies, custom)
+- **Survey Generation**: general feedback, course evaluation, Likert scale, learning strategies, and custom surveys
 
 ### Assessment Engine
 - Multiple question types: multiple choice, true/false, short answer, fill-in-the-blank
@@ -30,21 +30,21 @@ A multi-agent tutoring platform built around pedagogically distinct AI personas.
 - Auto-grading, auto-save, and resume support
 
 ### Custom Labs & Code Execution
-- 10 lab types: TNA, Statistics, Network Analysis, Sequence Analysis, Data Visualization, Regression, Clustering, Time Series, Text Analysis, Custom
+- Lab types spanning TNA, statistics, network analysis, sequence analysis, data visualization, regression, clustering, time series, text analysis, and custom
 - Browser-based R execution via WebR with Monaco editor
 - Pre-built templates for established instruments (MSLQ, COLLES, R-SPQ-2F)
 - Lab assignment to courses with access control
 
 ### Multi-Provider LLM Infrastructure
 - Supports OpenAI, Anthropic, Google Gemini, Ollama, LM Studio, Groq, and OpenAI-compatible endpoints
-- 50+ configuration parameters per provider
+- Extensive per-provider configuration
 - Health checking, usage statistics, provider fallback
 - Local-first deployment via Ollama/LM Studio
 
 ### Learning Analytics
 - Per-message interaction logging across all surfaces
 - Unified xAPI-inspired activity logging (actor-verb-object)
-- Emotional Pulse: 7-state self-report (productive, stimulated, frustrated, learning, enjoying, bored, quitting)
+- Emotional Pulse self-report (productive, stimulated, frustrated, learning, enjoying, bored, quitting)
 - Client-side behavioral analytics with scroll depth tracking
 - CSV, JSON, and Excel export
 
@@ -70,7 +70,7 @@ A multi-agent tutoring platform built around pedagogically distinct AI personas.
 | Database | SQLite (local dev), PostgreSQL (production) |
 | AI Providers | OpenAI, Anthropic, Google Gemini, Ollama, LM Studio, Groq |
 | Code Execution | WebR (WebAssembly R), Monaco Editor |
-| Testing | Vitest (900+ tests) |
+| Testing | Vitest |
 | Auth | JWT |
 
 ## Project Structure
@@ -135,7 +135,7 @@ npm run dev                    # Starts both client + server (auto-runs setup:lo
 ### Access
 
 - **Frontend:** http://localhost:5174
-- **Backend:** http://localhost:5001 (or 6000 when started from root)
+- **Backend:** http://localhost:5001
 - **Database UI:** `cd server && npm run db:studio`
 
 ### Demo Accounts
@@ -177,14 +177,17 @@ npx prisma migrate deploy --schema prisma/prod/schema.prisma   # Apply
 ## Testing
 
 ```bash
-cd server && npm test                                # Run all 900+ tests
+cd server && npm test                                # Run the full server suite
 cd server && npm test -- --run src/path/to/test.ts   # Run specific test file
 cd server && npm test -- --run -t "test name"        # Run specific test by name
 ```
 
 ## Documentation
 
-See [LAILA-Multi-Agent-System-Report.html](LAILA-Multi-Agent-System-Report.html) for the full technical report covering agent architecture, persona design, routing strategies, prompt construction, and learning analytics.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system architecture
+- [`docs/FEATURES.md`](docs/FEATURES.md) — feature reference
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — deployment guide
+- [`docs/LAILA-Technical-Report.html`](docs/LAILA-Technical-Report.html) — technical report on agent architecture, persona design, routing strategies, prompt construction, and learning analytics
 
 ## Author & Maintainer
 
