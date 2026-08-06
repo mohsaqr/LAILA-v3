@@ -47,7 +47,11 @@ type ItemType = 'lecture' | 'codelab' | 'assignment' | 'quiz' | 'forum' | 'surve
 type PaletteKind =
   | 'lecture' | 'page' | 'file' | 'folder' | 'video' | 'url' | 'image' | 'embed'
   | 'assignment' | 'quiz' | 'forum' | 'survey' | 'poll' | 'codelab'
-  | 'lab' | 'agent';
+  | 'lab' | 'agent'
+  // The built-in JS exercises. One kind per exercise rather than a single
+  // 'interactive' kind plus a picker: there are exactly two, and naming them
+  // in the palette is what makes them findable at all.
+  | 'interactive-tna' | 'interactive-sna';
 
 /** Item types that participate in the unified cross-type reorder (everything
  *  except the pinned reference items: assigned labs / interactive labs). */
@@ -184,6 +188,20 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
 
     labUnassign: useMutation({ mutationFn: (labId: number) => customLabsApi.unassignFromCourse(labId, courseId), onSuccess: refresh }),
     labVisibility: useMutation({ mutationFn: ({ labId, isPublished }: { labId: number; isPublished: boolean }) => customLabsApi.setAssignmentVisibility(labId, courseId, isPublished), onSuccess: refresh }),
+    // Interactive labs (the built-in TNA / SNA exercises) are not rows of their
+    // own — a module just carries a comma-separated list of their keys. Adding
+    // is therefore a read-modify-write of that list, and must be idempotent:
+    // the same key twice would render the item twice and make the second one
+    // impossible to remove independently.
+    interactiveAdd: useMutation({
+      mutationFn: ({ moduleId, key }: { moduleId: number; key: string }) => {
+        const mod = details?.course?.modules?.find((m: { id: number }) => m.id === moduleId) as { interactiveLabs?: string } | undefined;
+        const existing = mod?.interactiveLabs ? mod.interactiveLabs.split(',').map(s => s.trim()).filter(Boolean) : [];
+        if (existing.includes(key)) return Promise.resolve(null as never);
+        return coursesApi.updateModule(moduleId, { interactiveLabs: [...existing, key].join(',') } as never);
+      },
+      onSuccess: refresh,
+    }),
     interactiveRemove: useMutation({
       mutationFn: ({ moduleId, key }: { moduleId: number; key: string }) => {
         const mod = details?.course?.modules?.find((m: { id: number }) => m.id === moduleId) as { interactiveLabs?: string } | undefined;
@@ -772,6 +790,11 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
       case 'survey': setSurveyPickerModule(moduleId); break;
       case 'lab': setLabPickerModule(moduleId); break;
       case 'agent': setAgentPickerModule(moduleId); break;
+      // Built-in exercises: nothing to create or pick, just record the key on
+      // the module. The editor could already render and remove these; only the
+      // way to add one was lost when this editor replaced CurriculumEditor.
+      case 'interactive-tna': mut.interactiveAdd.mutate({ moduleId, key: 'tna' }, { onError }); break;
+      case 'interactive-sna': mut.interactiveAdd.mutate({ moduleId, key: 'sna' }, { onError }); break;
       // Image is a file restricted to image types (it previews inline).
       case 'image': openAdd(moduleId, 'file', true); break;
       // Everything else opens the unified add-resource modal.
@@ -1597,15 +1620,24 @@ const PALETTE_GROUPS: { headingKey: string; headingFallback: string; tiles: Pale
       { kind: 'forum', Icon: MessageSquare, color: '#0d9488', colorDark: '#2dd4bf', labelKey: 'add_forum', labelFallback: 'Forum', descKey: 'desc_forum', descFallback: 'A discussion board' },
       { kind: 'survey', Icon: ClipboardCheck, color: '#4f46e5', colorDark: '#a5b4fc', labelKey: 'add_survey', labelFallback: 'Survey', descKey: 'desc_survey', descFallback: 'Attach one of your surveys' },
       { kind: 'poll', Icon: BarChart3, color: '#4f46e5', colorDark: '#a5b4fc', labelKey: 'add_poll', labelFallback: 'Poll', descKey: 'desc_poll', descFallback: 'A quick one-question vote' },
-      { kind: 'codelab', Icon: FlaskConical, color: '#059669', colorDark: '#34d399', labelKey: 'add_code_lab', labelFallback: 'Code Lab', descKey: 'desc_code_lab', descFallback: 'An interactive coding lab' },
     ],
   },
   {
     headingKey: 'group_ai_labs', headingFallback: 'AI & Labs',
     tiles: [
-      // "Attach", not "create": a lab lives independently of any course and is
-      // linked in, so the same one can be reused across courses.
-      { kind: 'lab', Icon: Beaker, color: '#059669', colorDark: '#34d399', labelKey: 'add_lab', labelFallback: 'Lab', descKey: 'desc_lab', descFallback: 'Attach one of your labs' },
+      // The two lab tiles sit side by side ON PURPOSE. They are different
+      // things — one CREATES a coding lab that belongs to this course, the
+      // other ATTACHES a lab from the shared library, which lives
+      // independently and can be reused across courses without being copied.
+      // While they lived in separate groups ("Code Lab" under Activities,
+      // "Lab" here) both read as "a lab" and neither said which was which.
+      // Whatever the labels become, keep them adjacent: the distinction is
+      // only learnable by comparison.
+      { kind: 'codelab', Icon: FlaskConical, color: '#059669', colorDark: '#34d399', labelKey: 'add_code_lab', labelFallback: 'Build a lab', descKey: 'desc_code_lab', descFallback: 'Create a new coding lab in this course' },
+      { kind: 'lab', Icon: Beaker, color: '#059669', colorDark: '#34d399', labelKey: 'add_lab', labelFallback: 'Attach a lab', descKey: 'desc_lab', descFallback: 'Reuse a lab from your library' },
+      // The built-in browser exercises — no R, no setup, nothing to author.
+      { kind: 'interactive-tna', Icon: Network, color: '#7c3aed', colorDark: '#a78bfa', labelKey: 'interactive_lab_tna', labelFallback: 'Interactive TNA Exercise', descKey: 'desc_interactive_tna', descFallback: 'Built-in transition network analysis' },
+      { kind: 'interactive-sna', Icon: Network, color: '#7c3aed', colorDark: '#a78bfa', labelKey: 'interactive_lab_sna', labelFallback: 'Interactive SNA Exercise', descKey: 'desc_interactive_sna', descFallback: 'Built-in social network analysis' },
       { kind: 'agent', Icon: Bot, color: '#7c3aed', colorDark: '#a78bfa', labelKey: 'add_ai_agent', labelFallback: 'AI Agent', descKey: 'desc_ai_agent', descFallback: 'Attach a tutor / chatbot' },
     ],
   },
