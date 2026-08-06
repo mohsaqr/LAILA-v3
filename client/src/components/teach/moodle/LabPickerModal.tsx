@@ -6,9 +6,19 @@ import { Button } from '../../common/Button';
 import type { CustomLab } from '../../../types';
 
 /** Who a lab belongs to, from the viewer's perspective. */
-export type LabOrigin = 'mine' | 'shared' | 'template';
+export type LabOrigin = 'mine' | 'shared' | 'template' | 'builtin';
+
+/**
+ * The built-in JS exercises (TNA / SNA) are not rows in custom_labs — a module
+ * just records their key. They are offered here anyway, because "add a lab to
+ * this course" is one intention and splitting it across separate palette tiles
+ * is how they became impossible to find. They are marked by a negative id,
+ * which no autoincrement row can collide with.
+ */
+export const isBuiltinLab = (lab: Pick<CustomLab, 'id'>): boolean => lab.id < 0;
 
 export const labOrigin = (lab: CustomLab, currentUserId: number | undefined, adminIds: Set<number>): LabOrigin => {
+  if (isBuiltinLab(lab)) return 'builtin';
   if (currentUserId != null && lab.createdBy === currentUserId) return 'mine';
   if (adminIds.has(lab.createdBy)) return 'template';
   return 'shared';
@@ -37,6 +47,7 @@ const ORIGIN_STYLE: Record<LabOrigin, string> = {
   mine: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
   template: 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300',
   shared: 'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300',
+  builtin: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
 };
 
 /**
@@ -97,9 +108,11 @@ export const LabPickerModal = ({
       ? t('teaching:lab_origin_mine', { defaultValue: 'Yours' })
       : o === 'template'
         ? t('teaching:lab_origin_template', { defaultValue: 'Template' })
-        : t('teaching:lab_origin_shared', { defaultValue: 'Shared' });
+        : o === 'builtin'
+          ? t('teaching:lab_origin_builtin', { defaultValue: 'Built-in' })
+          : t('teaching:lab_origin_shared', { defaultValue: 'Shared' });
 
-  const filters: ('all' | LabOrigin)[] = ['all', 'mine', 'shared', 'template'];
+  const filters: ('all' | LabOrigin)[] = ['all', 'mine', 'shared', 'template', 'builtin'];
 
   return (
     <Modal

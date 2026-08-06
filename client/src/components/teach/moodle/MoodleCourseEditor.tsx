@@ -47,11 +47,7 @@ type ItemType = 'lecture' | 'codelab' | 'assignment' | 'quiz' | 'forum' | 'surve
 type PaletteKind =
   | 'lecture' | 'page' | 'file' | 'folder' | 'video' | 'url' | 'image' | 'embed'
   | 'assignment' | 'quiz' | 'forum' | 'survey' | 'poll' | 'codelab'
-  | 'lab' | 'agent'
-  // The built-in JS exercises. One kind per exercise rather than a single
-  // 'interactive' kind plus a picker: there are exactly two, and naming them
-  // in the palette is what makes them findable at all.
-  | 'interactive-tna' | 'interactive-sna';
+  | 'lab' | 'agent';
 
 /** Item types that participate in the unified cross-type reorder (everything
  *  except the pinned reference items: assigned labs / interactive labs). */
@@ -269,6 +265,26 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
     queryFn: () => customLabsApi.getLabs(),
     enabled: labPickerModule != null,
   });
+
+  /**
+   * The built-in JS exercises, shaped as labs so they can be offered in the
+   * same picker. Negative ids mark them and cannot collide with an
+   * autoincrement row; the picker keys off that via isBuiltinLab.
+   *
+   * They live here rather than as their own palette tiles because "add a lab"
+   * is a single intention — splitting it is what made them unfindable.
+   */
+  /** Keys already recorded on a module, so the picker never offers a duplicate. */
+  const moduleInteractiveKeys = (moduleId: number | null): string[] => {
+    if (moduleId == null) return [];
+    const mod = details?.course?.modules?.find((m: { id: number }) => m.id === moduleId) as { interactiveLabs?: string } | undefined;
+    return mod?.interactiveLabs ? mod.interactiveLabs.split(',').map(s => s.trim()).filter(Boolean) : [];
+  };
+
+  const BUILTIN_LABS: { id: number; key: string; name: string; description: string }[] = [
+    { id: -1, key: 'tna', name: t('interactive_lab_tna', { defaultValue: 'TNA Exercise' }), description: t('desc_interactive_tna', { defaultValue: 'Built-in transition network analysis' }) },
+    { id: -2, key: 'sna', name: t('interactive_lab_sna', { defaultValue: 'SNA Exercise' }), description: t('desc_interactive_sna', { defaultValue: 'Built-in social network analysis' }) },
+  ];
 
   const labAdd = useMutation({
     mutationFn: ({ moduleId, labId }: { moduleId: number; labId: number }) =>
@@ -790,11 +806,6 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
       case 'survey': setSurveyPickerModule(moduleId); break;
       case 'lab': setLabPickerModule(moduleId); break;
       case 'agent': setAgentPickerModule(moduleId); break;
-      // Built-in exercises: nothing to create or pick, just record the key on
-      // the module. The editor could already render and remove these; only the
-      // way to add one was lost when this editor replaced CurriculumEditor.
-      case 'interactive-tna': mut.interactiveAdd.mutate({ moduleId, key: 'tna' }, { onError }); break;
-      case 'interactive-sna': mut.interactiveAdd.mutate({ moduleId, key: 'sna' }, { onError }); break;
       // Image is a file restricted to image types (it previews inline).
       case 'image': openAdd(moduleId, 'file', true); break;
       // Everything else opens the unified add-resource modal.
@@ -1132,7 +1143,15 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
           <LabPickerModal
             isOpen
             onClose={closeLabPicker}
-            labs={libraryLabs ?? []}
+            labs={[
+              // Built-ins first: they need no setup, so they are the cheapest
+              // thing a teacher can add. Ones already on this module are
+              // dropped rather than offered and then silently ignored.
+              ...BUILTIN_LABS
+                .filter(b => !moduleInteractiveKeys(labPickerModule).includes(b.key))
+                .map(b => ({ id: b.id, name: b.name, description: b.description, createdBy: -1, isPublic: true } as never)),
+              ...(libraryLabs ?? []),
+            ]}
             assignedLabIds={assignedLabIds}
             currentUserId={currentUser?.id}
             adminCreatorIds={new Set(
@@ -1142,8 +1161,21 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
             onSelect={setPickedLabId}
             isConfirming={labAdd.isPending}
             onBrowseAll={() => { closeLabPicker(); navigate('/labs'); }}
-            onConfirm={() => labPickerModule != null && pickedLabId &&
-              labAdd.mutate({ moduleId: labPickerModule, labId: Number(pickedLabId) })}
+            onConfirm={() => {
+              if (labPickerModule == null || !pickedLabId) return;
+              const id = Number(pickedLabId);
+              // A negative id is one of the built-in exercises, which are not
+              // rows to assign but a key to record on the module.
+              const builtin = BUILTIN_LABS.find(b => b.id === id);
+              if (builtin) {
+                mut.interactiveAdd.mutate(
+                  { moduleId: labPickerModule, key: builtin.key },
+                  { onError, onSuccess: closeLabPicker },
+                );
+                return;
+              }
+              labAdd.mutate({ moduleId: labPickerModule, labId: id });
+            }}
           >
             {/* Grading is optional: a lab is often just material to work
                 through. Ticking this creates the assignment alongside it. */}
@@ -1644,9 +1676,6 @@ const PALETTE_GROUPS: { headingKey: string; headingFallback: string; tiles: Pale
       // only learnable by comparison.
       { kind: 'codelab', Icon: FlaskConical, color: '#059669', colorDark: '#34d399', labelKey: 'add_code_lab', labelFallback: 'Build a lab', descKey: 'desc_code_lab', descFallback: 'Create a new coding lab in this course' },
       { kind: 'lab', Icon: Beaker, color: '#059669', colorDark: '#34d399', labelKey: 'add_lab', labelFallback: 'Attach a lab', descKey: 'desc_lab', descFallback: 'Reuse a lab from your library' },
-      // The built-in browser exercises — no R, no setup, nothing to author.
-      { kind: 'interactive-tna', Icon: Network, color: '#7c3aed', colorDark: '#a78bfa', labelKey: 'interactive_lab_tna', labelFallback: 'Interactive TNA Exercise', descKey: 'desc_interactive_tna', descFallback: 'Built-in transition network analysis' },
-      { kind: 'interactive-sna', Icon: Network, color: '#7c3aed', colorDark: '#a78bfa', labelKey: 'interactive_lab_sna', labelFallback: 'Interactive SNA Exercise', descKey: 'desc_interactive_sna', descFallback: 'Built-in social network analysis' },
       { kind: 'agent', Icon: Bot, color: '#7c3aed', colorDark: '#a78bfa', labelKey: 'add_ai_agent', labelFallback: 'AI Agent', descKey: 'desc_ai_agent', descFallback: 'Attach a tutor / chatbot' },
     ],
   },

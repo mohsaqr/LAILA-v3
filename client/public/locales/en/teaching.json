@@ -1573,6 +1573,7 @@
   "assign_no_assignment_hint": "Without an assignment, students can open and run the lab but cannot submit work for grading.",
   "lab_origin_mine": "Yours",
   "lab_origin_shared": "Shared",
+  "lab_origin_builtin": "Built-in",
   "lab_origin_template": "Template",
   "lab_library_subtitle": "Attach any lab from the library. It stays reusable — adding it here does not copy it or take it away from other courses.",
   "lab_search_ph": "Search by name, description or author…",

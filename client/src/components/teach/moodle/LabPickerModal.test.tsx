@@ -237,3 +237,45 @@ describe('LabPickerModal selection', () => {
     expect(row.getAttribute('aria-current')).toBe('true');
   });
 });
+
+describe('built-in exercises in the library', () => {
+  // The TNA/SNA exercises are not custom_labs rows — they are offered here so
+  // "add a lab" stays one intention, and marked by a negative id.
+  const builtin = (id: number, name: string) =>
+    ({ id, name, description: 'Built-in analysis', createdBy: -1, isPublic: true }) as CustomLab;
+
+  it('lists a built-in alongside real labs', () => {
+    renderPicker({ labs: [builtin(-1, 'TNA Exercise'), lab()] });
+    expect(list().getByText('TNA Exercise')).toBeInTheDocument();
+  });
+
+  it('badges it as Built-in rather than Shared', () => {
+    renderPicker({ labs: [builtin(-1, 'TNA Exercise')] });
+    expect(list().getByText('Built-in')).toBeInTheDocument();
+    expect(list().queryByText('Shared')).not.toBeInTheDocument();
+  });
+
+  it('does not credit it to whoever happens to have id -1', () => {
+    // createdBy is a placeholder on a built-in; labOrigin must short-circuit on
+    // the negative id before it consults currentUserId or the admin set.
+    renderPicker({ labs: [builtin(-1, 'TNA Exercise')], currentUserId: -1 });
+    expect(list().getByText('Built-in')).toBeInTheDocument();
+    expect(list().queryByText('Yours')).not.toBeInTheDocument();
+  });
+
+  it('can be selected, and reports its negative id to the caller', () => {
+    const onSelect = vi.fn();
+    renderPicker({ labs: [builtin(-2, 'SNA Exercise')], onSelect });
+    fireEvent.click(list().getByText('SNA Exercise'));
+    expect(onSelect).toHaveBeenCalledWith('-2');
+  });
+
+  it('filters to just the built-ins', () => {
+    renderPicker({ labs: [builtin(-1, 'TNA Exercise'), lab()] });
+    fireEvent.click(screen.getByRole('button', { name: 'Built-in' }));
+    expect(list().getByText('TNA Exercise')).toBeInTheDocument();
+    // 'TNA Basics' is the real fixture name — asserting on a name no fixture
+    // has would pass no matter what the filter did.
+    expect(list().queryByText('TNA Basics')).not.toBeInTheDocument();
+  });
+});

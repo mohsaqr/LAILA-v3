@@ -1498,6 +1498,7 @@
   "assign_no_assignment_hint": "Sin una tarea, los estudiantes pueden abrir y ejecutar el laboratorio pero no entregar trabajo para calificar.",
   "lab_origin_mine": "Tuyos",
   "lab_origin_shared": "Compartido",
+  "lab_origin_builtin": "Integrado",
   "lab_origin_template": "Plantilla",
   "lab_library_subtitle": "Adjunta cualquier laboratorio de la biblioteca. Sigue siendo reutilizable: añadirlo aquí no lo copia ni lo quita de otros cursos.",
   "lab_search_ph": "Buscar por nombre, descripción o autor…",

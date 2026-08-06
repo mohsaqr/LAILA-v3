@@ -1503,6 +1503,7 @@
   "assign_no_assignment_hint": "Ilman tehtävää opiskelijat voivat avata ja ajaa labran, mutta eivät voi palauttaa työtä arvosteltavaksi.",
   "lab_origin_mine": "Omat",
   "lab_origin_shared": "Jaettu",
+  "lab_origin_builtin": "Sisäänrakennettu",
   "lab_origin_template": "Malli",
   "lab_library_subtitle": "Liitä mikä tahansa harjoitus kirjastosta. Se pysyy uudelleenkäytettävänä — liittäminen ei kopioi sitä eikä poista sitä muilta kursseilta.",
   "lab_search_ph": "Hae nimellä, kuvauksella tai tekijällä…",
