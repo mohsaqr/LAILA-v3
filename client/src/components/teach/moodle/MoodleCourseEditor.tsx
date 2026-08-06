@@ -839,10 +839,19 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
           ...((m as any).moduleSurveys ?? []).map((ms: any) => ({ type: 'survey' as const, id: ms.id, surveyId: ms.survey?.id, title: ms.survey?.title ?? 'Survey', isPublished: !!ms.survey?.isPublished, orderIndex: ms.orderIndex ?? 0, viewHref: `/teach/surveys?courseId=${courseId}` })),
           // Assigned lab templates (Python SNA Lab, etc.) — reference items,
           // but orderable and hideable like anything else in the section.
-          ...labs.filter((la: any) => la.moduleId === m.id).map((la: any) => ({ type: 'lab' as const, id: la.id, labId: la.labId ?? la.lab?.id, title: la.lab?.name ?? la.title ?? 'Lab', isPublished: la.isPublished !== false, orderIndex: la.orderIndex ?? 0, viewHref: `/courses/${courseId}`, reference: true })),
+          // Open the lab itself, not the course page it happens to sit on.
+          // `/labs/:id` is where a teacher reads AND edits it (cells, settings,
+          // instructions); ?courseId keeps the breadcrumb inside this course.
+          ...labs.filter((la: any) => la.moduleId === m.id).map((la: any) => {
+            const labId = la.labId ?? la.lab?.id;
+            return { type: 'lab' as const, id: la.id, labId, title: la.lab?.name ?? la.title ?? 'Lab', isPublished: la.isPublished !== false, orderIndex: la.orderIndex ?? 0, viewHref: labId ? `/labs/${labId}?courseId=${courseId}` : `/courses/${courseId}`, reference: true };
+          }),
           // Interactive labs (TNA / SNA) stored on the module — reference AND
           // pinned: there is no per-lab row to hold an order or a visibility.
-          ...interactiveKeys.map((key, idx) => ({ type: 'interactive' as const, id: idx, interactiveKey: key, title: interactiveLabel(key), isPublished: true, orderIndex: INTERACTIVE_ORDER + idx, viewHref: `/courses/${courseId}`, reference: true, pinned: true })),
+          // Same for the built-in JS exercises: `/courses/:id/<key>-exercise`
+          // is the route that actually renders one (App.tsx). Linking to the
+          // course page meant clicking a TNA/SNA lab went nowhere useful.
+          ...interactiveKeys.map((key, idx) => ({ type: 'interactive' as const, id: idx, interactiveKey: key, title: interactiveLabel(key), isPublished: true, orderIndex: INTERACTIVE_ORDER + idx, viewHref: `/courses/${courseId}/${key}-exercise`, reference: true, pinned: true })),
         ].sort((a, b) => (a.orderIndex - b.orderIndex) || (a.id - b.id));
         return {
           id: m.id,
