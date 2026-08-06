@@ -20,6 +20,8 @@ interface LessonViewerProps {
   courseId?: number;
   lectureId?: number;
   sectionId?: number;
+  /** Heading already on the page, so a node view can skip repeating it. */
+  pageTitle?: string;
 }
 
 /**
@@ -29,7 +31,7 @@ interface LessonViewerProps {
  * the editor (sans edit affordances; the node views check
  * `editor.isEditable`).
  */
-export const LessonViewer = ({ html, courseId, lectureId, sectionId }: LessonViewerProps) => {
+export const LessonViewer = ({ html, courseId, lectureId, sectionId, pageTitle }: LessonViewerProps) => {
   const editor = useEditor({
     editable: false,
     extensions: [
@@ -64,7 +66,7 @@ export const LessonViewer = ({ html, courseId, lectureId, sectionId }: LessonVie
   if (!editor) return null;
 
   return (
-    <LessonMediaContext.Provider value={{ courseId, lectureId, sectionId }}>
+    <LessonMediaContext.Provider value={{ courseId, lectureId, sectionId, pageTitle }}>
       <EditorContent
         editor={editor}
         className="prose prose-sm dark:prose-invert max-w-none"

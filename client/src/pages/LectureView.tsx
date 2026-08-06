@@ -262,6 +262,10 @@ export const LectureView = () => {
                       courseId={parseInt(courseId!)}
                       lectureId={parseInt(lectureId!)}
                       sectionId={section.id}
+                      // The <h1> this page already shows, so a node view can
+                      // avoid restating it — a URL resource is one link card
+                      // under a heading that names the same link.
+                      pageTitle={lecture.title}
                     />
                   </div>
                 ) : (
