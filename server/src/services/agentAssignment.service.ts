@@ -10,6 +10,7 @@ import { agentAnalyticsService, ClientContext, UserContext, AssignmentContext } 
 import { activityLogService, type ActivityVerb } from './activityLog.service.js';
 import { courseRoleService } from './courseRole.service.js';
 import { llmService } from './llm.service.js';
+import { llmBudgetService } from './llmBudget.service.js';
 
 // AI Config type
 interface AIConfig {
@@ -721,6 +722,14 @@ export class AgentAssignmentService {
     // config.temperature is nullable, so undefined/null means "use provider default"
     const temperature = config.temperature ?? undefined;
 
+    // Two of the three branches below talk to a provider SDK directly, so the
+    // metering inside llmService.chat never sees them. Checking here covers all
+    // three. Unset caps make it a no-op, and it fails open.
+    await llmBudgetService.assert({
+      userId: testerInfo.userId,
+      courseId: config.assignment.courseId,
+    });
+
     try {
       if (llmOverrides?.provider) {
         // Use unified LLM service with per-request override
@@ -730,6 +739,7 @@ export class AgentAssignmentService {
           provider: llmOverrides.provider as any,
           temperature,
           maxTokens: 2000,
+          billing: { userId: testerInfo.userId, courseId: config.assignment.courseId },
         });
         const content = llmResponse.choices[0]?.message?.content;
         aiResponse = typeof content === 'string' ? content : 'No response generated';
@@ -787,6 +797,23 @@ export class AgentAssignmentService {
     }
 
     const responseTimeMs = Date.now() - startTime;
+
+    // Meter the two branches that went straight to a provider SDK. The
+    // llmOverrides branch already recorded itself inside llmService.chat, and
+    // recording it again here would double-count it against the same caps.
+    if (!llmOverrides?.provider) {
+      await llmBudgetService.record({
+        userId: testerInfo.userId,
+        courseId: config.assignment.courseId,
+        source: 'agent_direct',
+        module: 'agent_assignment',
+        provider: resolvedProvider,
+        model: resolvedModel,
+        promptTokens,
+        completionTokens,
+        totalTokens,
+      });
+    }
 
     // Save assistant message
     const assistantMessage = await prisma.agentTestMessage.create({

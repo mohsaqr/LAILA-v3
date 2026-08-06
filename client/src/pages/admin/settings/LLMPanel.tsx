@@ -32,6 +32,7 @@ import { Button } from '../../../components/common/Button';
 import { Input } from '../../../components/common/Input';
 import { Loading } from '../../../components/common/Loading';
 import { Modal } from '../../../components/common/Modal';
+import { LLMBudgetSection } from './LLMBudgetSection';
 import toast from 'react-hot-toast';
 
 // ---------------------------------------------------------------------------
@@ -504,6 +505,12 @@ export const LLMPanel = () => {
             <Plus className="w-4 h-4 mr-1" /> {t('add_provider')}
           </Button>
         </div>
+      </div>
+
+      {/* Token caps and usage. Every cap ships unset, so this shows what is
+          being spent long before it constrains anything. */}
+      <div className="mb-6">
+        <LLMBudgetSection />
       </div>
 
       {/* Test Chat Section */}

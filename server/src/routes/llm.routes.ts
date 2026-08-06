@@ -5,6 +5,13 @@
 import { Router, Response } from 'express';
 import { llmService } from '../services/llm.service.js';
 import { settingsService } from '../services/settings.service.js';
+import {
+  llmBudgetService,
+  BUDGET_SETTING_KEYS,
+  monthStart,
+  monthEnd,
+} from '../services/llmBudget.service.js';
+import prisma from '../utils/prisma.js';
 import { authenticateToken, requireAdmin } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import { AuthRequest } from '../types/index.js';
@@ -419,6 +426,117 @@ router.put('/module-assignments/:module', asyncHandler(async (req: AuthRequest, 
   });
   llmService.clearProviderCache();
   res.json({ success: true });
+}));
+
+// =============================================================================
+// TOKEN CAPS AND USAGE
+// =============================================================================
+
+// GET /api/llm/budget — current caps plus what has been spent this month.
+router.get('/budget', asyncHandler(async (_req: AuthRequest, res: Response) => {
+  const caps = await llmBudgetService.getCaps();
+
+  // Grouped by source so it is visible how much traffic still bypasses the
+  // unified LLM service rather than leaving that to guesswork.
+  const [totals, bySource] = await Promise.all([
+    prisma.lLMUsage.aggregate({
+      _sum: { totalTokens: true, costUsd: true },
+      _count: { _all: true },
+      where: { createdAt: { gte: monthStart() } },
+    }),
+    prisma.lLMUsage.groupBy({
+      by: ['source'],
+      _sum: { totalTokens: true, costUsd: true },
+      _count: { _all: true },
+      where: { createdAt: { gte: monthStart() } },
+    }),
+  ]);
+
+  res.json({
+    success: true,
+    data: {
+      caps,
+      periodStart: monthStart().toISOString(),
+      periodEnd: monthEnd().toISOString(),
+      totalTokens: totals._sum.totalTokens ?? 0,
+      totalCostUsd: totals._sum.costUsd ?? null,
+      calls: totals._count._all,
+      bySource: bySource.map(r => ({
+        source: r.source,
+        tokens: r._sum.totalTokens ?? 0,
+        costUsd: r._sum.costUsd ?? null,
+        calls: r._count._all,
+      })),
+    },
+  });
+}));
+
+// PUT /api/llm/budget — set caps. Blank or null clears one (= unlimited).
+router.put('/budget', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const updates: Array<[string, string | null]> = [];
+
+  for (const [field, key] of Object.entries(BUDGET_SETTING_KEYS)) {
+    if (!(field in req.body)) continue;
+    const raw = req.body[field];
+
+    // Clearing a cap is how an admin turns a limit off, so null and '' are
+    // valid input, not errors.
+    if (raw === null || raw === '' || raw === undefined) {
+      updates.push([key, null]);
+      continue;
+    }
+    const n = Number(raw);
+    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
+      return res.status(400).json({
+        success: false,
+        error: `${field} must be a whole number of tokens, or empty for no limit`,
+      });
+    }
+    // 0 is stored as "no limit" by the same rule the service reads it with, so
+    // a stray zero can never switch the platform off.
+    updates.push([key, n === 0 ? null : String(n)]);
+  }
+
+  await Promise.all(updates.map(([key, value]) =>
+    settingsService.updateSystemSetting(key, value, {
+      type: 'number',
+      description: 'LLM token cap. Empty means no limit.',
+    }),
+  ));
+
+  llmBudgetService.clearCache();
+  res.json({ success: true, data: await llmBudgetService.getCaps() });
+}));
+
+// GET /api/llm/budget/top — biggest spenders this month, for spotting a runaway.
+router.get('/budget/top', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+
+  const rows = await prisma.lLMUsage.groupBy({
+    by: ['userId'],
+    _sum: { totalTokens: true, costUsd: true },
+    _count: { _all: true },
+    where: { createdAt: { gte: monthStart() }, userId: { not: null } },
+    orderBy: { _sum: { totalTokens: 'desc' } },
+    take: limit,
+  });
+
+  const users = await prisma.user.findMany({
+    where: { id: { in: rows.map(r => r.userId!).filter(Boolean) } },
+    select: { id: true, email: true, fullname: true },
+  });
+  const byId = new Map(users.map(u => [u.id, u]));
+
+  res.json({
+    success: true,
+    data: rows.map(r => ({
+      userId: r.userId,
+      user: byId.get(r.userId!) ?? null,
+      tokens: r._sum.totalTokens ?? 0,
+      costUsd: r._sum.costUsd ?? null,
+      calls: r._count._all,
+    })),
+  });
 }));
 
 // =============================================================================

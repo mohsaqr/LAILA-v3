@@ -301,6 +301,55 @@ model LLMSettings {
   @@map("llm_settings")
 }
 
+/// One row per LLM call, written by every path that reaches a provider.
+///
+/// Token counts already exist scattered across ChatbotInteractionLog,
+/// AgentTestInteractionLog, AgentTestMessage, TutorMessage and
+/// TutorInteractionLog, but answering "how much has this student used this
+/// month" meant a five-way UNION, and any budget check has to run on every
+/// call. This is the one place that question is cheap to ask.
+///
+/// Deliberately denormalised and nullable: writing it must never be able to
+/// fail a request. `userId` has no relation and no cascade so a deleted user
+/// does not erase the spend they caused, and `courseId` is null for the paths
+/// that genuinely have no course (generic chat, AI tools) rather than being
+/// faked to make a query tidy.
+model LLMUsage {
+  id               Int      @id @default(autoincrement())
+  userId           Int?     @map("user_id")
+  courseId         Int?     @map("course_id")
+  providerId       Int?     @map("provider_id")
+  /// Which code path made the call — 'llm_service', 'chat_legacy',
+  /// 'agent_direct'. Makes it visible how much traffic still bypasses the
+  /// unified service rather than leaving that to guesswork.
+  source           String   @default("llm_service")
+  /// Feature that spent it: chat, tutor, agent_assignment, mcq, survey…
+  module           String?
+  provider         String?
+  model            String?
+  promptTokens     Int?     @map("prompt_tokens")
+  completionTokens Int?     @map("completion_tokens")
+  totalTokens      Int?     @map("total_tokens")
+  /// Cost in USD, computed from LLMModel.inputPricePer1M/outputPricePer1M at
+  /// call time. Null when the model has no prices set (local models, or simply
+  /// unconfigured) — null means unknown, never zero.
+  costUsd          Float?   @map("cost_usd")
+  /// True when the provider reported no usage figures, so the totals above are
+  /// absent rather than genuinely zero. The Gemini path in
+  /// agentAssignment.service returns no counts at all today.
+  usageMissing     Boolean  @default(false) @map("usage_missing")
+  /// Set when the requested max output was lowered to the provider/model limit.
+  clamped          Boolean  @default(false)
+  requestedMaxTokens Int?   @map("requested_max_tokens")
+  grantedMaxTokens   Int?   @map("granted_max_tokens")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@index([courseId, createdAt])
+  @@index([createdAt])
+  @@map("llm_usage")
+}
+
 model ChatLog {
   id              Int      @id @default(autoincrement())
   userId          Int?     @map("user_id")

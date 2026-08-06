@@ -5,8 +5,23 @@ import { ChatMessage, ChatRequest, ChatResponse, AIConfig } from '../types/index
 import { AppError } from '../middleware/error.middleware.js';
 import { createLogger } from '../utils/logger.js';
 import { llmService } from './llm.service.js';
+import { llmBudgetService, isBudgetError } from './llmBudget.service.js';
 
 const logger = createLogger('chat');
+
+/**
+ * What the legacy direct-SDK helpers hand back.
+ *
+ * They used to return the reply text alone, which made the traffic they carry
+ * invisible to metering — and this path runs whenever the unified LLM service
+ * is unavailable, so it is exactly the traffic worth seeing. Usage is optional
+ * because not every provider reports it; absent stays absent rather than
+ * becoming a zero that would read as "free".
+ */
+interface LegacyReply {
+  text: string;
+  usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
+}
 
 export class ChatService {
   private openai: OpenAI | null = null;
@@ -140,6 +155,9 @@ export class ChatService {
           provider: request.provider as any,
           module: request.module,
           temperature: request.temperature,
+          // Attribution for metering. Generic chat has no course, so only the
+          // user and the platform total can account for it.
+          billing: { userId },
         });
 
         const messageContent = response.choices[0]?.message?.content;
@@ -168,6 +186,12 @@ export class ChatService {
           responseTime,
         };
       } catch (error: any) {
+        // A budget refusal is a decision, not a transport failure. This
+        // fallback exists for a provider being down, and retrying through a
+        // direct SDK is exactly right for that — but applied to a cap it would
+        // make the very call the cap just refused, so the limit would appear to
+        // do nothing at all. Re-throw and let the caller see the 429.
+        if (isBudgetError(error)) throw error;
         console.log('New LLM service error, falling back to legacy:', error.message);
       }
     }
@@ -178,6 +202,12 @@ export class ChatService {
     if (!config) {
       throw new AppError('No AI provider configured', 500);
     }
+
+    // The legacy path talks to the provider SDK directly, so it is invisible to
+    // the metering inside llmService.chat. Check the cap here too, or a user
+    // over their limit would still be served by whatever knocked the unified
+    // path out. Unset caps make this a no-op, and it fails open.
+    await llmBudgetService.assert({ userId });
 
     let reply: string;
     let model = request.model || config.model;
@@ -207,11 +237,25 @@ export class ChatService {
       // This follows the Minimal Parameter Principle - let providers use their defaults
       const explicitTemperature = request.temperature !== undefined ? request.temperature : undefined;
 
-      if (config.provider === 'openai') {
-        reply = await this.chatWithOpenAI(messages, model, config.apiKey, explicitTemperature, config.baseURL);
-      } else {
-        reply = await this.chatWithGemini(messages, model, config.apiKey, explicitTemperature);
-      }
+      const legacy = config.provider === 'openai'
+        ? await this.chatWithOpenAI(messages, model, config.apiKey, explicitTemperature, config.baseURL)
+        : await this.chatWithGemini(messages, model, config.apiKey, explicitTemperature);
+
+      reply = legacy.text;
+
+      // `source: 'chat_legacy'` makes it measurable how much traffic still
+      // takes this path rather than the unified service, instead of leaving
+      // that to guesswork.
+      await llmBudgetService.record({
+        userId,
+        source: 'chat_legacy',
+        module: request.module,
+        provider: config.provider,
+        model,
+        promptTokens: legacy.usage?.promptTokens,
+        completionTokens: legacy.usage?.completionTokens,
+        totalTokens: legacy.usage?.totalTokens,
+      });
     } catch (error: any) {
       logger.error({ err: error, provider: config.provider }, 'AI Chat Error');
       throw new AppError(error.message || 'Failed to get AI response', 500);
@@ -237,7 +281,7 @@ export class ChatService {
     };
   }
 
-  private async chatWithOpenAI(messages: ChatMessage[], model: string, apiKey: string, temperature?: number, baseURL?: string): Promise<string> {
+  private async chatWithOpenAI(messages: ChatMessage[], model: string, apiKey: string, temperature?: number, baseURL?: string): Promise<LegacyReply> {
     const client = new OpenAI({ apiKey, baseURL });
 
     // OpenAI's o1/o3 models use max_completion_tokens instead of max_tokens
@@ -267,10 +311,17 @@ export class ChatService {
 
     const response = await client.chat.completions.create(requestParams);
 
-    return response.choices[0]?.message?.content || 'No response generated';
+    return {
+      text: response.choices[0]?.message?.content || 'No response generated',
+      usage: response.usage && {
+        promptTokens: response.usage.prompt_tokens,
+        completionTokens: response.usage.completion_tokens,
+        totalTokens: response.usage.total_tokens,
+      },
+    };
   }
 
-  private async chatWithGemini(messages: ChatMessage[], model: string, apiKey: string, temperature?: number): Promise<string> {
+  private async chatWithGemini(messages: ChatMessage[], model: string, apiKey: string, temperature?: number): Promise<LegacyReply> {
     const client = new GoogleGenerativeAI(apiKey);
 
     // Build generation config - only include explicitly provided parameters (Minimal Parameter Principle)
@@ -295,7 +346,20 @@ export class ChatService {
     const result = await genModel.generateContent(prompt);
     const response = await result.response;
 
-    return response.text() || 'No response generated';
+    // usageMetadata is not present on every SDK version or model, so it is read
+    // defensively; when it is missing the call is recorded as unmeasured.
+    const meta = (response as { usageMetadata?: {
+      promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number;
+    } }).usageMetadata;
+
+    return {
+      text: response.text() || 'No response generated',
+      usage: meta && {
+        promptTokens: meta.promptTokenCount,
+        completionTokens: meta.candidatesTokenCount,
+        totalTokens: meta.totalTokenCount,
+      },
+    };
   }
 
   private async logChat(data: {

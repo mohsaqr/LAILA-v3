@@ -241,6 +241,22 @@ export interface LLMCompletionRequest {
 
   // AI feature identifier for per-module provider routing
   module?: string;
+
+  /**
+   * Who and what to bill this call to.
+   *
+   * Both optional, and both default to "unattributed" rather than to a
+   * placeholder id. A call that genuinely has no course — generic chat, the AI
+   * tools — must not be charged to a course that never made it, so a missing
+   * value is recorded as missing and skipped by that scope's cap.
+   *
+   * Callers that omit these still work exactly as before; they are simply
+   * counted only against the platform-wide total.
+   */
+  billing?: {
+    userId?: number | null;
+    courseId?: number | null;
+  };
 }
 
 export interface LLMFunction {

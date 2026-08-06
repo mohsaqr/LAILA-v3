@@ -884,6 +884,44 @@ export const settingsApi = {
 // LLM PROVIDER API
 // =============================================================================
 
+/**
+ * Token caps. `null` is "no limit", not zero — every cap starts unset, and an
+ * admin removes one by clearing the field rather than typing 0.
+ */
+export interface LLMBudgetCaps {
+  userMonthly: number | null;
+  courseMonthly: number | null;
+  globalMonthly: number | null;
+  maxOutputPerCall: number | null;
+}
+
+export interface LLMUsageBySource {
+  /** 'llm_service' | 'chat_legacy' | 'agent_direct' — which code path spent it. */
+  source: string;
+  tokens: number;
+  /** Null when the models involved have no prices configured: unknown, not free. */
+  costUsd: number | null;
+  calls: number;
+}
+
+export interface LLMBudget {
+  caps: LLMBudgetCaps;
+  periodStart: string;
+  periodEnd: string;
+  totalTokens: number;
+  totalCostUsd: number | null;
+  calls: number;
+  bySource: LLMUsageBySource[];
+}
+
+export interface LLMTopSpender {
+  userId: number | null;
+  user: { id: number; email: string; fullname: string } | null;
+  tokens: number;
+  costUsd: number | null;
+  calls: number;
+}
+
 export interface LLMProvider {
   id: number;
   name: string;
@@ -1451,6 +1489,24 @@ export const llmApi = {
   setModuleAssignment: async (module: string, providerId: number | null) => {
     const response = await apiClient.put<ApiResponse<void>>(`/llm/module-assignments/${module}`, { providerId });
     return response.data;
+  },
+
+  // Token caps and this month's spend. A null cap means no limit.
+  getBudget: async (): Promise<LLMBudget> => {
+    const response = await apiClient.get<ApiResponse<LLMBudget>>('/llm/budget');
+    return response.data.data!;
+  },
+
+  // Save caps. Send null (or '') for a field to remove that limit.
+  setBudget: async (caps: Partial<LLMBudgetCaps>) => {
+    const response = await apiClient.put<ApiResponse<LLMBudgetCaps>>('/llm/budget', caps);
+    return response.data.data!;
+  },
+
+  // Biggest spenders this month — for spotting a runaway before the bill does.
+  getTopSpenders: async (limit = 20): Promise<LLMTopSpender[]> => {
+    const response = await apiClient.get<ApiResponse<LLMTopSpender[]>>(`/llm/budget/top?limit=${limit}`);
+    return response.data.data!;
   },
 
   // Test chat

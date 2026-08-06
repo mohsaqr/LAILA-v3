@@ -6,6 +6,7 @@ import OpenAI from 'openai';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
+import { llmBudgetService } from './llmBudget.service.js';
 import {
   LLMProviderConfig,
   LLMModelConfig,
@@ -609,10 +610,21 @@ export class LLMService {
     }
     const model = await this.resolveModel(provider, requestedModel);
 
+    // A cap may refuse the call before it costs anything. Unset caps are
+    // unlimited and this returns `allowed` on any internal error, so with
+    // nothing configured it is a no-op — see llmBudget.service.
+    await llmBudgetService.assert({
+      userId: request.billing?.userId,
+      courseId: request.billing?.courseId,
+    });
+
+    const requestedMaxTokens = request.maxTokens ?? provider.defaultMaxTokens;
+    const grantedMaxTokens = await this.clampMaxTokens(provider, model, requestedMaxTokens);
+
     // Build parameters using defaults
     const params = {
       temperature: request.temperature ?? provider.defaultTemperature,
-      maxTokens: request.maxTokens ?? provider.defaultMaxTokens,
+      maxTokens: grantedMaxTokens,
       topP: request.topP ?? provider.defaultTopP,
       topK: request.topK ?? provider.defaultTopK,
       frequencyPenalty: request.frequencyPenalty ?? provider.defaultFrequencyPenalty,
@@ -662,6 +674,29 @@ export class LLMService {
         },
       });
 
+      // Per-call metering. `record` never throws — a lost row must not turn a
+      // completed answer into an error the student sees.
+      await llmBudgetService.record({
+        userId: request.billing?.userId,
+        courseId: request.billing?.courseId,
+        providerId: provider.id,
+        source: 'llm_service',
+        module: request.module,
+        provider: provider.provider,
+        model,
+        promptTokens: response.usage?.promptTokens,
+        completionTokens: response.usage?.completionTokens,
+        totalTokens: response.usage?.totalTokens,
+        costUsd: await llmBudgetService.estimateCostUsd(
+          { providerId: provider.id, model },
+          response.usage?.promptTokens,
+          response.usage?.completionTokens,
+        ),
+        clamped: grantedMaxTokens !== requestedMaxTokens,
+        requestedMaxTokens,
+        grantedMaxTokens,
+      });
+
       response.responseTime = Date.now() - startTime;
       return response;
 
@@ -673,6 +708,62 @@ export class LLMService {
         },
       });
       throw error;
+    }
+  }
+
+  /**
+   * Lower a requested output length to what the model, the provider and the
+   * admin ceiling actually allow.
+   *
+   * Callers hard-code these numbers — 2000 for agent replies, 4000 for MCQ and
+   * survey generation, `min(rows * 100, 16000)` for dataset analysis — and none
+   * of them consults the limits already recorded against the provider and the
+   * model. Nothing checked them, so a request could ask for more than the model
+   * can produce and the provider would reject the whole call.
+   *
+   * **Only a limit that exists can bite.** `maxOutputTokens` is null on most
+   * rows today, and null is skipped, not treated as zero. With no limits
+   * configured this returns the request untouched, which is exactly the
+   * behaviour before it existed. Nothing shrinks unless the data says so.
+   *
+   * Clamping rather than rejecting is deliberate: refusing would break the
+   * dataset-analysis and generation paths the moment a provider filled in a
+   * modest `maxOutputTokens`, and a slightly shorter completion is a far better
+   * outcome than a failed request. The clamp is recorded on the usage row so it
+   * stays visible rather than silently degrading quality.
+   */
+  private async clampMaxTokens(
+    provider: LLMProviderConfig,
+    model: string,
+    requested: number,
+  ): Promise<number> {
+    try {
+      const limits: number[] = [];
+
+      const providerMax = provider.maxOutputTokens;
+      if (typeof providerMax === 'number' && providerMax > 0) limits.push(providerMax);
+
+      const modelRow = provider.models?.find(m => m.modelId === model);
+      const modelMax = modelRow?.maxOutputTokens;
+      if (typeof modelMax === 'number' && modelMax > 0) limits.push(modelMax);
+
+      const caps = await llmBudgetService.getCaps();
+      if (caps.maxOutputPerCall != null) limits.push(caps.maxOutputPerCall);
+
+      if (limits.length === 0) return requested;
+
+      const granted = Math.min(requested, ...limits);
+      if (granted < requested) {
+        console.info(
+          `[llm] max output clamped ${requested} -> ${granted} for ${provider.provider}/${model}`,
+        );
+      }
+      return granted;
+    } catch (err) {
+      // A clamp is a safety rail, not a gate. If working it out fails, honour
+      // what the caller asked for rather than failing the request.
+      console.warn('[llm] could not compute max-token clamp, using the request as-is:', err);
+      return requested;
     }
   }
 
