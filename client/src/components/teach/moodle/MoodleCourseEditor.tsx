@@ -190,10 +190,29 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
     // the same key twice would render the item twice and make the second one
     // impossible to remove independently.
     interactiveAdd: useMutation({
-      mutationFn: ({ moduleId, key }: { moduleId: number; key: string }) => {
+      mutationFn: async ({ moduleId, key, graded }: { moduleId: number; key: string; graded?: boolean }) => {
+        // Optionally create the assignment the exercise submits against. The
+        // exercise page finds it by this exact marker (see TnaExercise.tsx /
+        // SnaExercise.tsx); without it a student can work through the exercise
+        // but has nowhere to submit, which is how it looked after this was
+        // reduced to "just record the key".
+        if (graded) {
+          await assignmentsApi.createAssignment(courseId, {
+            moduleId,
+            title: key === 'tna'
+              ? t('interactive_lab_tna', { defaultValue: 'TNA Exercise' })
+              : t('interactive_lab_sna', { defaultValue: 'SNA Exercise' }),
+            description: labPrompt || undefined,
+            submissionType: 'mixed',
+            isPublished: true,
+            points: Number(labPoints) || 0,
+            dueDate: labDueDate ? `${labDueDate}:00.000Z` : undefined,
+            agentRequirements: `interactive_lab_${key}`,
+          } as never);
+        }
         const mod = details?.course?.modules?.find((m: { id: number }) => m.id === moduleId) as { interactiveLabs?: string } | undefined;
         const existing = mod?.interactiveLabs ? mod.interactiveLabs.split(',').map(s => s.trim()).filter(Boolean) : [];
-        if (existing.includes(key)) return Promise.resolve(null as never);
+        if (existing.includes(key)) return null as never;
         return coursesApi.updateModule(moduleId, { interactiveLabs: [...existing, key].join(',') } as never);
       },
       onSuccess: refresh,
@@ -1169,7 +1188,7 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
               const builtin = BUILTIN_LABS.find(b => b.id === id);
               if (builtin) {
                 mut.interactiveAdd.mutate(
-                  { moduleId: labPickerModule, key: builtin.key },
+                  { moduleId: labPickerModule, key: builtin.key, graded: labGraded },
                   { onError, onSuccess: closeLabPicker },
                 );
                 return;
