@@ -1,5 +1,42 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeHtml, createSanitizedMarkup, isHtmlContent } from './sanitize';
+import { sanitizeHtml, createSanitizedMarkup, isHtmlContent, toPlainText } from './sanitize';
+
+describe('toPlainText', () => {
+  it('strips the markup a course card was showing verbatim', () => {
+    // The exact string a student saw on an assignment card.
+    expect(toPlainText('<p><strong>You have two files</strong> to submit</p>'))
+      .toBe('You have two files to submit');
+  });
+
+  it('keeps a word boundary between block elements', () => {
+    expect(toPlainText('<p>first</p><p>second</p>')).toBe('first second');
+    expect(toPlainText('<li>a</li><li>b</li>')).toBe('a b');
+    expect(toPlainText('one<br>two')).toBe('one two');
+  });
+
+  it('decodes entities rather than leaving them raw', () => {
+    expect(toPlainText('<p>R &amp; Python &lt;3</p>')).toBe('R & Python <3');
+  });
+
+  it('collapses the whitespace the editor leaves behind', () => {
+    expect(toPlainText('<p>  spaced   out\n\n  text </p>')).toBe('spaced out text');
+  });
+
+  it('leaves plain text untouched', () => {
+    expect(toPlainText('Just a description')).toBe('Just a description');
+  });
+
+  it('never emits a tag, even for content it is not meant to receive', () => {
+    expect(toPlainText('<img src=x onerror=alert(1)><script>alert(1)</script>')).not.toContain('<');
+  });
+
+  it('returns an empty string for nothing, so a caller can fall back', () => {
+    expect(toPlainText('')).toBe('');
+    expect(toPlainText(null)).toBe('');
+    expect(toPlainText(undefined)).toBe('');
+    expect(toPlainText('<p></p>')).toBe('');
+  });
+});
 
 describe('sanitizeHtml', () => {
   it('should allow safe HTML tags', () => {

@@ -120,6 +120,88 @@ describe('ModuleSection assigned labs', () => {
   });
 });
 
+describe('ModuleSection card layout', () => {
+  // 'list' and 'accordion' have their own row renderers and never reach the
+  // card grid, so these are the only two modes this describes.
+  const CARD_MODES: CurriculumViewMode[] = ['mini-cards', 'icons'];
+
+  // Two items whose content differs by as much as the card can vary: a long
+  // title that wraps, a subtitle, and the "Hidden" badge on one but not the
+  // other. Left to themselves these render at visibly different heights, which
+  // is exactly what the grid has to normalise away.
+  const unevenContent = {
+    showHidden: true,
+    lectures: [
+      {
+        id: 1,
+        title: 'Video: Network measures (by Dragan Gasevic) with a title that wraps',
+        description: 'A long description that also wraps onto more than one line',
+        orderIndex: 0,
+        isPublished: false,
+        contentType: 'video',
+      },
+      { id: 2, title: 'Articles', orderIndex: 1, isPublished: true, contentType: 'text' },
+    ],
+  };
+
+  it.each(CARD_MODES)('lays %s out on a grid with equal-height rows', mode => {
+    const { container } = renderSection({ viewMode: mode, ...unevenContent });
+
+    // `flex flex-wrap` sizes each wrapped row to its own tallest card, so rows
+    // did not match each other; `auto-rows-fr` is what makes them uniform.
+    const grid = container.querySelector('.auto-rows-fr');
+    expect(grid).not.toBeNull();
+    expect(grid?.className).toContain('grid');
+    expect(grid?.className).not.toContain('flex-wrap');
+  });
+
+  it.each(CARD_MODES)('lets the card fill the cell it was given in %s', mode => {
+    renderSection({ viewMode: mode, ...unevenContent });
+
+    // The grid stretches the <Link>, not the bordered div inside it. Without
+    // h-full on both, the border stopped at the content and the stretch was
+    // invisible — the whole reason the cards looked ragged.
+    const link = screen.getByText('Articles').closest('a');
+    expect(link?.className).toContain('h-full');
+    expect(link?.firstElementChild?.className).toContain('h-full');
+  });
+
+  it('renders a description as text, not as markup', () => {
+    renderSection({
+      viewMode: 'mini-cards',
+      lectures: [
+        {
+          id: 1,
+          title: 'Assignment 1',
+          description: '<p><strong>You have two files</strong> to submit</p>',
+          orderIndex: 0,
+          isPublished: true,
+          contentType: 'text',
+        },
+      ],
+    });
+
+    // The card put the stored HTML straight into a <span>, so students read
+    // "<p><strong>You have two files..." on the course page.
+    expect(screen.getByText('You have two files to submit')).toBeInTheDocument();
+    expect(screen.queryByText(/<p>|<strong>/)).not.toBeInTheDocument();
+  });
+
+  it('shows no subtitle at all when the description is only empty markup', () => {
+    const { container } = renderSection({
+      viewMode: 'mini-cards',
+      lectures: [
+        { id: 1, title: 'Articles', description: '<p></p>', orderIndex: 0, isPublished: true, contentType: 'text' },
+      ],
+    });
+
+    // '' would be falsy anyway, but toPlainText must not hand the card a blank
+    // string that still reserves a line of layout.
+    expect(container.textContent).not.toContain('<p>');
+    expect(screen.getByText('Articles')).toBeInTheDocument();
+  });
+});
+
 describe('ModuleSection subsections', () => {
   const sub = (over: Record<string, unknown> = {}) =>
     ({

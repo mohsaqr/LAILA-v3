@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronRight, FileText, PlayCircle, Layers, FlaskConical, FileQuestion, ClipboardList, MessageSquare, Bot, Network, ListChecks, Folder, Link as LinkIcon, MonitorPlay, FileUp, Image as ImageIcon, EyeOff } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { ContentCard, ContentType, ContentCardSize } from './ContentCard';
+import { toPlainText } from '../../utils/sanitize';
 import type { CourseModule, Lecture, CodeLab, Assignment, Survey, ModuleSurvey, ModuleQuiz, CurriculumViewMode } from '../../types';
 import type { Forum } from '../../api/forums';
 import type { Quiz } from '../../api/quizzes';
@@ -301,17 +302,24 @@ export const ModuleSection = ({
     }
   };
 
-  // Get grid classes based on view mode
+  // Get grid classes based on view mode.
+  //
+  // `auto-rows-fr` is load-bearing, not decoration. Cards hold between one and
+  // six rows of content (title 1-2 lines, optional subtitle, optional "Hidden"
+  // badge), so left alone every card is a different height. In an auto-height
+  // grid, `1fr` implicit rows all resolve to the tallest row's content, which
+  // is the only way to make rows match EACH OTHER — `flex flex-wrap`, which
+  // mini-cards used to use, sizes every wrapped row independently.
   const getGridClasses = (): string => {
     switch (viewMode) {
       case 'mini-cards':
-        return 'flex flex-wrap gap-2';
+        return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 auto-rows-fr';
       case 'icons':
-        return 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3';
+        return 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 auto-rows-fr';
       case 'list':
         return 'flex flex-col gap-1';
       default:
-        return 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3';
+        return 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 auto-rows-fr';
     }
   };
 
@@ -438,7 +446,10 @@ export const ModuleSection = ({
             key={`${item.type}-${item.id}`}
             type={item.type}
             title={item.title}
-            subtitle={item.subtitle}
+            // Descriptions are authored in Tiptap and stored as HTML. The card
+            // shows its subtitle in a clamped <span>, so the raw string leaked
+            // markup onto the page: "<p><strong>You have two files...".
+            subtitle={toPlainText(item.subtitle) || undefined}
             metadata={viewMode === 'mini-cards' ? undefined : item.metadata}
             href={canAccess ? item.href : undefined}
             disabled={!canAccess}

@@ -122,6 +122,29 @@ export const isHtmlContent = (text: string | null | undefined): boolean => {
 };
 
 /**
+ * Reduce rich-text HTML to a single line of plain text.
+ *
+ * Descriptions are authored in Tiptap and stored as HTML, but a card subtitle
+ * is a one-line summary in a clamped `<span>` — rendering the raw string there
+ * shows the student `<p><strong>You have two files...`, and rendering it as
+ * HTML would inject block elements into a text run.
+ *
+ * Parsing rather than regex-stripping, so `&amp;` comes back as `&` and a
+ * stray `<` in prose cannot eat the rest of the sentence. `parseFromString`
+ * builds an inert document: no script runs, no resource is fetched.
+ */
+export const toPlainText = (html: string | null | undefined): string => {
+  if (!html) return '';
+  // Block boundaries carry no whitespace of their own, so "<p>a</p><p>b</p>"
+  // would otherwise collapse to "ab".
+  const spaced = html
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<\/(p|div|h[1-6]|li|tr|blockquote|pre)>/gi, ' ');
+  const doc = new DOMParser().parseFromString(spaced, 'text/html');
+  return (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
+};
+
+/**
  * Sanitize HTML and return props for dangerouslySetInnerHTML.
  * This is a convenience wrapper for React components.
  */

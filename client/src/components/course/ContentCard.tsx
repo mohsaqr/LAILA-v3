@@ -266,13 +266,16 @@ export const ContentCard = ({
   if (size === 'mini') {
     const interactive = !disabled && !href;
     const miniContent = (
+      // `h-full` is what makes a row of cards line up. The grid stretches the
+      // ITEM — which is the <Link> below, not this div — so without it the
+      // border stops at the content and every card ends at a different height.
       <div
-        className={`p-3 rounded-lg border transition-all flex flex-col items-center text-center ${focusRing} ${
+        className={`h-full w-full p-3 rounded-lg border transition-all flex flex-col items-center text-center ${focusRing} ${
           disabled
             ? 'opacity-50 cursor-not-allowed'
             : 'hover:shadow-md hover:-translate-y-0.5 cursor-pointer'
         }`}
-        style={{ ...cardStyles, width: '140px', minHeight: '100px' }}
+        style={{ ...cardStyles, minHeight: '100px' }}
         onClick={interactive ? onClick : undefined}
         onKeyDown={interactive ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } } : undefined}
         role={interactive ? 'button' : undefined}
@@ -287,7 +290,7 @@ export const ContentCard = ({
           <Icon style={{ ...iconTextStyle, width: iconSize, height: iconSize }} />
         </div>
         <span
-          className="text-sm font-medium leading-snug line-clamp-3 break-words w-full"
+          className="text-sm font-medium leading-snug line-clamp-2 break-words w-full"
           style={{ color: isDark ? '#f3f4f6' : '#111827' }}
         >
           {title}
@@ -300,12 +303,15 @@ export const ContentCard = ({
             {subtitle}
           </span>
         )}
-        {hiddenBadge && <div className="mt-1.5">{hiddenBadge}</div>}
+        {/* `mt-auto` sits the badge on the floor of the card, so the badges of
+            a row align with each other instead of floating under titles of
+            differing length. */}
+        {hiddenBadge && <div className="mt-auto pt-1.5">{hiddenBadge}</div>}
       </div>
     );
 
     if (href && !disabled) {
-      return <Link to={href} className={`block rounded-lg ${focusRing}`}>{miniContent}</Link>;
+      return <Link to={href} className={`block h-full rounded-lg ${focusRing}`}>{miniContent}</Link>;
     }
     return miniContent;
   }
@@ -314,8 +320,11 @@ export const ContentCard = ({
   if (size === 'icon') {
     const interactive = !disabled && !href;
     const iconContent = (
+      // Deliberately NOT `justify-center`: once the cards are equal height,
+      // centring would push the icon down by however tall that card's own text
+      // is, so the icons across a row would no longer line up.
       <div
-        className={`p-3 rounded-lg border transition-all flex flex-col items-center justify-center text-center ${focusRing} ${
+        className={`h-full w-full p-3 rounded-lg border transition-all flex flex-col items-center text-center ${focusRing} ${
           disabled
             ? 'opacity-50 cursor-not-allowed'
             : 'hover:shadow-md hover:-translate-y-0.5 cursor-pointer'
@@ -340,12 +349,12 @@ export const ContentCard = ({
         >
           {title}
         </span>
-        {hiddenBadge && <div className="mt-1.5">{hiddenBadge}</div>}
+        {hiddenBadge && <div className="mt-auto pt-1.5">{hiddenBadge}</div>}
       </div>
     );
 
     if (href && !disabled) {
-      return <Link to={href} className={`block rounded-lg ${focusRing}`}>{iconContent}</Link>;
+      return <Link to={href} className={`block h-full rounded-lg ${focusRing}`}>{iconContent}</Link>;
     }
     return iconContent;
   }
@@ -354,7 +363,7 @@ export const ContentCard = ({
   const interactiveNormal = !disabled && !href;
   const cardContent = (
     <div
-      className={`p-3 rounded-lg border transition-all ${focusRing} ${
+      className={`h-full w-full p-3 rounded-lg border transition-all flex flex-col ${focusRing} ${
         disabled
           ? 'opacity-50 cursor-not-allowed'
           : 'hover:shadow-md hover:-translate-y-0.5 cursor-pointer'
@@ -395,8 +404,9 @@ export const ContentCard = ({
         </p>
       )}
 
-      {/* Footer: label + metadata */}
-      <div className="flex items-center justify-between gap-2 mt-2">
+      {/* Footer: label + metadata. `mt-auto` keeps it on the bottom edge so the
+          type pills of a row align, however many lines the title took. */}
+      <div className="flex items-center justify-between gap-2 mt-auto pt-2">
         <span className="flex items-center gap-1.5 min-w-0">
           <span
             className={`text-[10px] font-medium px-1.5 py-0.5 rounded flex-shrink-0 ${!isDark ? config.bgLight : ''}`}
@@ -422,7 +432,7 @@ export const ContentCard = ({
   );
 
   if (href && !disabled) {
-    return <Link to={href} className={`block rounded-lg ${focusRing}`}>{cardContent}</Link>;
+    return <Link to={href} className={`block h-full rounded-lg ${focusRing}`}>{cardContent}</Link>;
   }
 
   return cardContent;
