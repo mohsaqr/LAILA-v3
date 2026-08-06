@@ -4,11 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
-import { useTheme } from '../../hooks/useTheme';
-import { useLanguageStore } from '../../store/languageStore';
-import { supportedLanguages, SupportedLanguage } from '../../i18n/config';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
+import { AuthLayout } from '../../components/auth/AuthLayout';
 import { safeReturnPath } from '../../utils/safeReturnPath';
 
 export const Login = () => {
@@ -18,8 +16,6 @@ export const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
-  const { isDark } = useTheme();
-  const { language: currentLanguage, setLanguage } = useLanguageStore();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -41,24 +37,6 @@ export const Login = () => {
     const from = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from;
     return safeReturnPath(from?.pathname, from?.search);
   })();
-
-  // Theme colors
-  const colors = {
-    bgCard: isDark ? '#1f2937' : '#ffffff',
-    textPrimary: isDark ? '#f3f4f6' : '#111827',
-    textSecondary: isDark ? '#9ca3af' : '#6b7280',
-    textMuted: isDark ? '#6b7280' : '#9ca3af',
-    bgQuickLogin: isDark ? '#374151' : '#f9fafb',
-    linkColor: isDark ? '#5eecec' : '#088F8F',
-    linkHover: isDark ? '#99f6f6' : '#065c5c',
-    // Quick login button colors
-    bgBlue: isDark ? 'rgba(59, 130, 246, 0.2)' : '#dbeafe',
-    textBlue: isDark ? '#93c5fd' : '#1d4ed8',
-    bgGreen: isDark ? 'rgba(34, 197, 94, 0.2)' : '#dcfce7',
-    textGreen: isDark ? '#86efac' : '#15803d',
-    bgTeal: isDark ? 'rgba(8, 143, 143, 0.2)' : '#f0fdfd',
-    textTeal: isDark ? '#5eecec' : '#088F8F',
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,132 +67,113 @@ export const Login = () => {
   };
 
   return (
-    <div className="min-h-screen gradient-bg flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="rounded-2xl shadow-xl p-8" style={{ backgroundColor: colors.bgCard }}>
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="flex justify-center mb-4">
-              <img src="/icons/logo.webp" alt="LAILA" className="h-28 w-auto" />
-            </div>
-            <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{t('login_title')}</h1>
-            <p className="mt-1" style={{ color: colors.textSecondary }}>{t('login_subtitle')}</p>
+    <AuthLayout>
+      <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+            {t('login_title')}
+          </h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('login_subtitle')}</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="relative">
+            <Mail className="pointer-events-none absolute start-3 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+            <Input
+              type="email"
+              placeholder={t('email_placeholder')}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              className="ps-11"
+              required
+            />
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: colors.textMuted }} />
-              <Input
-                type="email"
-                placeholder={t('email_placeholder')}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="pl-11"
-                required
-              />
-            </div>
+          <div className="relative">
+            <Lock className="pointer-events-none absolute start-3 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+            <Input
+              type={showPassword ? 'text' : 'password'}
+              placeholder={t('password_placeholder')}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              className="ps-11 pe-11"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              aria-label={showPassword ? t('hide_password') : t('show_password')}
+              tabIndex={-1}
+              className="absolute end-3 top-1/2 z-10 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+            >
+              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            </button>
+          </div>
 
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: colors.textMuted }} />
-              <Input
-                type={showPassword ? 'text' : 'password'}
-                placeholder={t('password_placeholder')}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pl-11 pr-11"
-                required
-              />
+          <div className="flex justify-start">
+            <Link
+              to="/forgot-password"
+              className="text-sm text-primary-600 hover:underline dark:text-primary-300"
+            >
+              {t('forgot_password', { defaultValue: 'Forgot password?' })}
+            </Link>
+          </div>
+
+          <Button type="submit" className="w-full" loading={isLoading}>
+            {t('sign_in')}
+          </Button>
+        </form>
+
+        {/* Footer */}
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {t('no_account')}{' '}
+            <Link
+              to="/register"
+              className="font-medium text-primary-600 hover:underline dark:text-primary-300"
+            >
+              {t('register_link')}
+            </Link>
+          </p>
+        </div>
+
+        {/* Quick Login Buttons - Development Only */}
+        {import.meta.env.DEV && (
+          <div className="mt-6 rounded-lg bg-gray-50 p-4 dark:bg-gray-800/60">
+            <p className="mb-3 text-sm font-medium text-gray-500 dark:text-gray-400">
+              {t('quick_login_dev')}
+            </p>
+            <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
-                style={{ color: colors.textMuted }}
+                onClick={() => quickLogin('student@laila.edu', 'student123')}
+                disabled={isLoading}
+                className="rounded-lg bg-blue-100 px-3 py-2 text-sm text-blue-700 transition-colors disabled:opacity-50 dark:bg-blue-500/20 dark:text-blue-300"
               >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                {t('role_student')}
+              </button>
+              <button
+                type="button"
+                onClick={() => quickLogin('instructor@laila.edu', 'instructor123')}
+                disabled={isLoading}
+                className="rounded-lg bg-green-100 px-3 py-2 text-sm text-green-700 transition-colors disabled:opacity-50 dark:bg-green-500/20 dark:text-green-300"
+              >
+                {t('role_instructor')}
+              </button>
+              <button
+                type="button"
+                onClick={() => quickLogin('admin@laila.edu', 'admin123')}
+                disabled={isLoading}
+                className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-700 transition-colors disabled:opacity-50 dark:bg-primary-500/20 dark:text-primary-300"
+              >
+                {t('role_admin')}
               </button>
             </div>
-
-            <div className="flex justify-start">
-              <Link to="/forgot-password" className="text-sm hover:underline" style={{ color: colors.linkColor }}>
-                {t('forgot_password', { defaultValue: 'Forgot password?' })}
-              </Link>
-            </div>
-
-            <Button type="submit" className="w-full" loading={isLoading}>
-              {t('sign_in')}
-            </Button>
-          </form>
-
-          {/* Footer */}
-          <div className="mt-6 text-center">
-            <p style={{ color: colors.textSecondary }}>
-              {t('no_account')}{' '}
-              <Link to="/register" className="font-medium hover:underline" style={{ color: colors.linkColor }}>
-                {t('register_link')}
-              </Link>
-            </p>
           </div>
-
-          {/* Quick Login Buttons - Development Only */}
-          {import.meta.env.DEV && (
-            <div className="mt-6 p-4 rounded-lg" style={{ backgroundColor: colors.bgQuickLogin }}>
-              <p className="text-sm font-medium mb-3" style={{ color: colors.textSecondary }}>{t('quick_login_dev')}</p>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => quickLogin('student@laila.edu', 'student123')}
-                  disabled={isLoading}
-                  className="px-3 py-2 text-sm rounded-lg transition-colors disabled:opacity-50"
-                  style={{ backgroundColor: colors.bgBlue, color: colors.textBlue }}
-                >
-                  {t('role_student')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => quickLogin('instructor@laila.edu', 'instructor123')}
-                  disabled={isLoading}
-                  className="px-3 py-2 text-sm rounded-lg transition-colors disabled:opacity-50"
-                  style={{ backgroundColor: colors.bgGreen, color: colors.textGreen }}
-                >
-                  {t('role_instructor')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => quickLogin('admin@laila.edu', 'admin123')}
-                  disabled={isLoading}
-                  className="px-3 py-2 text-sm rounded-lg transition-colors disabled:opacity-50"
-                  style={{ backgroundColor: colors.bgTeal, color: colors.textTeal }}
-                >
-                  {t('role_admin')}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Language Selector */}
-        <div className="flex justify-center gap-2 mt-4">
-          {Object.entries(supportedLanguages).map(([code, { nativeName }]) => (
-            <button
-              key={code}
-              onClick={() => setLanguage(code as SupportedLanguage)}
-              className="px-3 py-1.5 text-sm rounded-lg transition-colors"
-              style={{
-                backgroundColor: currentLanguage === code
-                  ? 'rgba(255, 255, 255, 0.25)'
-                  : 'transparent',
-                color: currentLanguage === code
-                  ? '#ffffff'
-                  : 'rgba(255, 255, 255, 0.7)',
-                fontWeight: currentLanguage === code ? 600 : 400,
-              }}
-            >
-              {nativeName}
-            </button>
-          ))}
-        </div>
+        )}
       </div>
-    </div>
+    </AuthLayout>
   );
 };
