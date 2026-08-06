@@ -309,7 +309,7 @@ export const SubmissionReview = () => {
           items={[
             { label: t('navigation:courses'), href: '/courses' },
             ...(course
-              ? [{ label: course.title, href: `/teach/courses/${courseId}/curriculum` }]
+              ? [{ label: course.title, href: `/courses/${courseId}` }]
               : []),
             { label: t('navigation:assignments'), href: `/teach/courses/${courseId}/assignments` },
             { label: assignment.title },

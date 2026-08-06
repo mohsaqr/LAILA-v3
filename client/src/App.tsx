@@ -31,10 +31,15 @@ const LegacyCatalogRedirect = () => {
   return <Navigate to={`/courses/${id}`} replace />;
 };
 
-// /teach/courses/:id/curriculum is retired — fold into the wizard.
+// /teach/courses/:id/curriculum is retired. It used to redirect into the setup
+// WIZARD, which meant every stale link to it — breadcrumbs, dashboard course
+// names, the "Edit Course" button — dropped a teacher into a full editing
+// surface they had not asked for. Those links now point at the course page
+// directly; this redirect matches them so an old bookmark behaves the same.
+// The wizard is still reached deliberately, through "Manage".
 const CurriculumRedirect = () => {
   const { id } = useParams();
-  return <Navigate to={`/teach/courses/${id}/setup?step=setting`} replace />;
+  return <Navigate to={`/courses/${id}`} replace />;
 };
 
 // Course-scoped teaching list pages (quizzes / forums / assignments /
@@ -709,11 +714,10 @@ function App() {
           }
         />
         {/*
-          The standalone /curriculum page is retired in favour of the
-          unified /setup wizard. Redirect any incoming hit (and the
-          legacy "Manage / Curriculum" links scattered across the app)
-          to the wizard's Setting step. The CurriculumEditor component
-          itself is kept; the wizard's Content step still embeds it.
+          The standalone /curriculum page is retired. Incoming hits go to the
+          course page (see CurriculumRedirect above for why not the wizard).
+          The CurriculumEditor component itself is kept; the wizard's Content
+          step still embeds it.
         */}
         <Route
           path="/teach/courses/:id/curriculum"

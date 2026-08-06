@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { withReturnTo, resolveReturnTo } from '../../utils/returnTo';
 import { useTranslation } from 'react-i18next';
 import { Save } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -55,6 +56,10 @@ export const AssignmentEditor = () => {
   const aId = assignmentId ? parseInt(assignmentId, 10) : null;
   const isNew = aId == null;
   const navigate = useNavigate();
+  const location = useLocation();
+  // Carried across the create redirect below: a `replace` navigation to the
+  // page's own edit URL would otherwise drop it and strand the author.
+  const returnTo = new URLSearchParams(location.search).get('returnTo');
   const queryClient = useQueryClient();
 
   const [form, setForm] = useState(blankForm());
@@ -112,7 +117,7 @@ export const AssignmentEditor = () => {
       await attach.flushStaged(created.id);
       refresh();
       toast.success(t('assignment_created', { defaultValue: 'Assignment created' }));
-      navigate(`/teach/courses/${courseId}/assignments/${created.id}/edit`, { replace: true });
+      navigate(withReturnTo(`/teach/courses/${courseId}/assignments/${created.id}/edit`, returnTo), { replace: true });
     },
     onError: (e: any) => toast.error(e?.response?.data?.error ?? t('common:error')),
   });
@@ -159,7 +164,7 @@ export const AssignmentEditor = () => {
             <p className="text-gray-700 dark:text-gray-300">
               {isError ? t('failed_to_load_assignment') : t('assignment_not_found')}
             </p>
-            <Button variant="secondary" onClick={() => navigate(`/courses/${courseId}`)}>
+            <Button variant="secondary" onClick={() => navigate(resolveReturnTo(location.search, `/courses/${courseId}`))}>
               {t('common:back')}
             </Button>
           </CardBody>

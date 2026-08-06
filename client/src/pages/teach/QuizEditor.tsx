@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { withReturnTo, resolveReturnTo } from '../../utils/returnTo';
 import { useTranslation } from 'react-i18next';
 import {
   Plus,
@@ -33,6 +34,10 @@ export const QuizEditor = () => {
   const { t } = useTranslation(['teaching', 'common', 'navigation']);
   const { id: courseId, quizId, moduleId } = useParams<{ id: string; quizId?: string; moduleId?: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  // Carried across the create redirect below: a `replace` navigation to the
+  // page's own edit URL would otherwise drop it and strand the author.
+  const returnTo = new URLSearchParams(location.search).get('returnTo');
   const queryClient = useQueryClient();
   const isNew = !quizId;
   const parsedQuizId = quizId ? parseInt(quizId, 10) : NaN;
@@ -81,7 +86,7 @@ export const QuizEditor = () => {
     onSuccess: (created: { id: number }) => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('quiz_created', { defaultValue: 'Quiz created' }));
-      navigate(`/teach/courses/${courseId}/quizzes/${created.id}`, { replace: true });
+      navigate(withReturnTo(`/teach/courses/${courseId}/quizzes/${created.id}`, returnTo), { replace: true });
     },
     onError: (err: any) => toast.error(err.response?.data?.error || t('failed_to_update_quiz')),
   });
@@ -248,7 +253,7 @@ export const QuizEditor = () => {
           <CardBody className="text-center">
             <AlertCircle className="w-12 h-12 mx-auto mb-4 text-red-500" />
             <p style={{ color: colors.textPrimary }}>{t('failed_load_quiz')}</p>
-            <Button onClick={() => navigate(-1)} className="mt-4">{t('common:go_back')}</Button>
+            <Button onClick={() => navigate(resolveReturnTo(location.search, `/courses/${courseId}`))} className="mt-4">{t('common:go_back')}</Button>
           </CardBody>
         </Card>
       </div>

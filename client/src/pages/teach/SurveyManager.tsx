@@ -351,7 +351,7 @@ export const SurveyManager = () => {
             ...(courseId && course
               ? [
                   { label: t('navigation:courses'), href: '/courses' },
-                  { label: course.title, href: `/teach/courses/${courseId}/curriculum` },
+                  { label: course.title, href: `/courses/${courseId}` },
                 ]
               : []),
             { label: t('surveys') },

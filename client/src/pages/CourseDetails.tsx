@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { sanitizeHtml } from '../utils/sanitize';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Users,
@@ -55,16 +55,31 @@ export const CourseDetails = () => {
   // Inline Edit Mode — toggles the read-only module list into the same
   // curriculum editor used by the setup/manage content step, without leaving
   // this page.
-  const [editMode, setEditMode] = useState(false);
+  //
+  // It lives in the URL rather than in component state. As `useState` it was
+  // lost on every refresh, and lost again on every trip out to a lecture or
+  // assignment editor and back, so a teacher could never tell whether they were
+  // editing. In the URL it survives both, Back and Forward do the obvious
+  // thing, and it is scoped per course for free.
+  //
+  // `editMode` itself is derived further down, where `canManage` is known — the
+  // param alone must not open the editor.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const editRequested = searchParams.get('edit') === '1';
   const [startReached, setStartReached] = useState(false);
   const toggleEditMode = () => {
-    setEditMode(prev => {
-      const next = !prev;
+    const next = new URLSearchParams(searchParams);
+    if (editRequested) {
+      next.delete('edit');
       // Leaving edit mode: refresh the read-only view so it reflects any
       // changes made through the editor (which uses its own query key).
-      if (!next) queryClient.invalidateQueries({ queryKey: ['course', id] });
-      return next;
-    });
+      queryClient.invalidateQueries({ queryKey: ['course', id] });
+    } else {
+      next.set('edit', '1');
+    }
+    // `replace` so repeated toggling does not stack history entries the Back
+    // button has to chew through.
+    setSearchParams(next, { replace: true });
   };
 
   // Theme colors
@@ -197,6 +212,15 @@ export const CourseDetails = () => {
   // which case the management surface (edit toggle, Manage link, publish) must
   // be hidden so the preview is faithful.
   const canManage = (showInstructorControls || isActualAdmin) && viewAsRole !== 'student';
+  // The `?edit=1` request only becomes edit mode if the viewer may manage the
+  // course. This used to be the raw flag, so a staff member who switched to
+  // "view as student" mid-edit kept the editor on screen while the control that
+  // exits it — gated on canManage below — disappeared, leaving no way out.
+  //
+  // The param is deliberately left in the URL when it is refused: switching
+  // back out of the student preview then restores the editor, and rewriting the
+  // URL from an effect would fight the viewer's own Back button.
+  const editMode = editRequested && canManage;
   const thumbnail = course.thumbnail
     ? resolveFileUrl(course.thumbnail) || course.thumbnail
     : null;

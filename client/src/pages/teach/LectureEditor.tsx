@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { withReturnTo, resolveReturnTo } from '../../utils/returnTo';
 import { useTranslation } from 'react-i18next';
 import { Clock, MoreHorizontal, Trash2, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -31,7 +32,17 @@ export const LectureEditor = () => {
   const isNew = !lectureId;
   const lecId = lectureId ? parseInt(lectureId, 10) : NaN;
   const navigate = useNavigate();
+  const location = useLocation();
+  // Carried across the create redirect: a `replace` navigation to this
+  // page's own edit URL would otherwise drop it and strand the author.
+  const returnTo = new URLSearchParams(location.search).get('returnTo');
   const queryClient = useQueryClient();
+  // Where "back" and "save" land. The author arrives here from the course
+  // page's Edit Mode or from the setup wizard's Content step, and each needs a
+  // different destination — so the departing page states it and this reads it.
+  // Hard-coding the course URL was what switched Edit Mode off after every edit.
+  const backTo = resolveReturnTo(location.search, `/courses/${courseId}`);
+
   const { isDark } = useTheme();
 
   const [title, setTitle] = useState('');
@@ -53,7 +64,7 @@ export const LectureEditor = () => {
       await editorRef.current?.flush();
       await queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('common:saved', { defaultValue: 'Saved' }));
-      navigate(`/courses/${courseId}`);
+      navigate(backTo);
     } catch {
       toast.error(t('common:error', { defaultValue: 'Something went wrong' }));
     } finally {
@@ -110,7 +121,7 @@ export const LectureEditor = () => {
     onSuccess: () => {
       toast.success(t('teaching:lesson_deleted', { defaultValue: 'Lesson deleted' }));
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
-      navigate(`/courses/${courseId}`);
+      navigate(backTo);
     },
     onError: () => {
       toast.error(t('teaching:failed_to_delete_lesson', { defaultValue: 'Failed to delete.' }));
@@ -148,7 +159,7 @@ export const LectureEditor = () => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       queryClient.invalidateQueries({ queryKey: ['course', courseId] });
       toast.success(t('teaching:lesson_created', { defaultValue: 'Lesson created' }));
-      navigate(`/teach/courses/${courseId}/lectures/${created.id}`, { replace: true });
+      navigate(withReturnTo(`/teach/courses/${courseId}/lectures/${created.id}`, returnTo), { replace: true });
     },
     onError: () => toast.error(t('teaching:failed_to_save_lesson', { defaultValue: 'Failed to save.' })),
   });

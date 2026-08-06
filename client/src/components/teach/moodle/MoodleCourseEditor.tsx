@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   ChevronDown, ChevronRight, ArrowUp, ArrowDown, GripVertical, Pencil, SquarePen, Copy, Trash2, Eye, EyeOff, Plus,
@@ -14,6 +14,7 @@ import { useTheme } from '../../../hooks/useTheme';
 import { coursesApi } from '../../../api/courses';
 import apiClient from '../../../api/client';
 import { toEmbedUrl } from '../../../utils/embed';
+import { withReturnTo } from '../../../utils/returnTo';
 import { safeEmbedSrc } from '../lesson-editor/EmbedNodeView';
 import { uploadWithProgress } from '../../../utils/upload';
 import { previewKind } from '../../../utils/filePreview';
@@ -140,7 +141,21 @@ interface MoodleCourseEditorProps {
 export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
   const { t } = useTranslation(['teaching', 'common', 'courses']);
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
+
+  /**
+   * Send the author to a dedicated editor page, remembering where they were.
+   *
+   * Every create and edit action here leaves this component, and the
+   * destination pages used to come back to a hard-coded `/courses/:id` — which
+   * threw away the `?edit=1` that keeps Edit Mode on, and was simply the wrong
+   * page when this editor is mounted inside the setup wizard. Reading the live
+   * location instead means both mount points return where they started without
+   * either knowing about the other.
+   */
+  const goToEditor = (target: string) =>
+    navigate(withReturnTo(target, `${location.pathname}${location.search}`));
 
   const { data: details, isLoading } = useQuery({
     queryKey: ['courseDetails', courseId],
@@ -564,23 +579,23 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
       switch (type) {
         case 'lecture': {
           const c = await coursesApi.createLecture(moduleId, { title: p.title, contentType: 'text', ...lectureMeta } as never) as { id: number };
-          refresh(); setAddModal(null); navigate(`/teach/courses/${courseId}/lectures/${c.id}`); return;
+          refresh(); setAddModal(null); goToEditor(`/teach/courses/${courseId}/lectures/${c.id}`); return;
         }
         case 'codelab': {
           const c = await codeLabsApi.createCodeLab({ moduleId, title: p.title, description: p.description, isPublished: p.isPublished, ...dates } as never) as { id: number };
-          refresh(); setAddModal(null); navigate(`/teach/courses/${courseId}/code-labs/${c.id}`); return;
+          refresh(); setAddModal(null); goToEditor(`/teach/courses/${courseId}/code-labs/${c.id}`); return;
         }
         case 'quiz': {
           const c = await quizzesApi.createQuiz(courseId, { moduleId, title: p.title, description: p.description, isPublished: p.isPublished, ...dates } as never) as { id: number };
-          refresh(); setAddModal(null); navigate(`/teach/courses/${courseId}/quizzes/${c.id}`); return;
+          refresh(); setAddModal(null); goToEditor(`/teach/courses/${courseId}/quizzes/${c.id}`); return;
         }
         case 'assignment': {
           const c = await assignmentsApi.createAssignment(courseId, { moduleId, title: p.title, description: p.description, isPublished: p.isPublished, submissionType: 'text', points: 100, ...dates } as never) as { id: number };
-          refresh(); setAddModal(null); navigate(`/teach/courses/${courseId}/assignments/${c.id}/edit`); return;
+          refresh(); setAddModal(null); goToEditor(`/teach/courses/${courseId}/assignments/${c.id}/edit`); return;
         }
         case 'forum': {
           const c = await forumsApi.createForum(courseId, { moduleId, title: p.title, content: p.description || p.title, description: p.description, isPublished: p.isPublished, ...dates } as never) as { id: number };
-          refresh(); setAddModal(null); navigate(`/teach/courses/${courseId}/forums/${c.id}/edit`); return;
+          refresh(); setAddModal(null); goToEditor(`/teach/courses/${courseId}/forums/${c.id}/edit`); return;
         }
         case 'video': {
           if (!videoExtra) { setBusy(false); return; }
@@ -784,12 +799,12 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
         if (item.subKind === 'url' || item.subKind === 'embed' || item.subKind === 'folder') {
           void openEdit(item); break;
         }
-        navigate(`/teach/courses/${courseId}/lectures/${item.id}`); break;
-      case 'codelab': navigate(`/teach/courses/${courseId}/code-labs/${item.id}`); break;
-      case 'quiz': navigate(`/teach/courses/${courseId}/quizzes/${item.id}`); break;
-      case 'assignment': navigate(`/teach/courses/${courseId}/assignments/${item.id}/edit`); break;
-      case 'forum': navigate(`/teach/courses/${courseId}/forums/${item.id}/edit`); break;
-      case 'survey': navigate(`/teach/surveys?courseId=${courseId}`); break;
+        goToEditor(`/teach/courses/${courseId}/lectures/${item.id}`); break;
+      case 'codelab': goToEditor(`/teach/courses/${courseId}/code-labs/${item.id}`); break;
+      case 'quiz': goToEditor(`/teach/courses/${courseId}/quizzes/${item.id}`); break;
+      case 'assignment': goToEditor(`/teach/courses/${courseId}/assignments/${item.id}/edit`); break;
+      case 'forum': goToEditor(`/teach/courses/${courseId}/forums/${item.id}/edit`); break;
+      case 'survey': goToEditor(`/teach/surveys?courseId=${courseId}`); break;
     }
   };
 
@@ -1130,7 +1145,7 @@ export const MoodleCourseEditor = ({ courseId }: MoodleCourseEditorProps) => {
                 </p>
                 <Button
                   variant="secondary"
-                  onClick={() => { closeSurveyPicker(); navigate(`/teach/surveys?courseId=${courseId}`); }}
+                  onClick={() => { closeSurveyPicker(); goToEditor(`/teach/surveys?courseId=${courseId}`); }}
                 >
                   {t('create_survey_link', { defaultValue: 'Go to surveys' })}
                 </Button>

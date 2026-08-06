@@ -156,7 +156,7 @@ export const CourseCertificateManager = () => {
           homeHref="/"
           items={[
             ...(course
-              ? [{ label: course.title, href: `/teach/courses/${courseId}/curriculum` }]
+              ? [{ label: course.title, href: `/courses/${courseId}` }]
               : []),
             { label: t('navigation:certificates') },
           ]}

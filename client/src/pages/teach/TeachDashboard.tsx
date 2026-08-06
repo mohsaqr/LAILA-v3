@@ -233,7 +233,7 @@ export const TeachDashboard = () => {
 
                   {/* Actions */}
                   <div className="flex items-center gap-2 flex-wrap">
-                    <Link to={`/teach/courses/${course.id}/curriculum`}>
+                    <Link to={`/courses/${course.id}?edit=1`}>
                       <Button variant="outline" size="sm">
                         {t('curriculum_editor')}
                       </Button>

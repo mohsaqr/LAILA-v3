@@ -48,7 +48,7 @@ export const CourseHeader = ({
             </div>
             <div className="flex items-center gap-3">
               <Link
-                to={`/teach/courses/${course.id}/curriculum`}
+                to={`/courses/${course.id}?edit=1`}
                 className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
               >
                 <Edit className="w-4 h-4" />

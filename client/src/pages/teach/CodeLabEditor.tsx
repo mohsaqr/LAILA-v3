@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { withReturnTo, resolveReturnTo } from '../../utils/returnTo';
 import { useTranslation } from 'react-i18next';
 import { Save, Plus, FlaskConical, Beaker, Network, Check, Upload, FileCode } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -30,6 +31,10 @@ export const CodeLabEditor = () => {
   const isNew = !codeLabId;
   const labId = codeLabId ? parseInt(codeLabId, 10) : NaN;
   const navigate = useNavigate();
+  const location = useLocation();
+  // Carried across the create redirect: a `replace` navigation to this
+  // page's own edit URL would otherwise drop it and strand the author.
+  const returnTo = new URLSearchParams(location.search).get('returnTo');
   const queryClient = useQueryClient();
 
   const [formData, setFormData] = useState({
@@ -120,7 +125,7 @@ export const CodeLabEditor = () => {
     onSuccess: (created: { id: number }) => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('code_lab_created', { defaultValue: 'Code lab created' }));
-      navigate(`/teach/courses/${courseId}/code-labs/${created.id}`, { replace: true });
+      navigate(withReturnTo(`/teach/courses/${courseId}/code-labs/${created.id}`, returnTo), { replace: true });
     },
     onError: () => toast.error(t('failed_to_save_code_lab')),
   });
@@ -140,7 +145,7 @@ export const CodeLabEditor = () => {
     onSuccess: (created: { id: number }) => {
       queryClient.invalidateQueries({ queryKey: ['courseDetails', courseId] });
       toast.success(t('rmd_imported', { defaultValue: 'R Markdown imported as a code lab' }));
-      navigate(`/teach/courses/${courseId}/code-labs/${created.id}`, { replace: true });
+      navigate(withReturnTo(`/teach/courses/${courseId}/code-labs/${created.id}`, returnTo), { replace: true });
     },
     onError: () => toast.error(t('rmd_import_failed', { defaultValue: 'Failed to import R Markdown' })),
   });
@@ -175,7 +180,9 @@ export const CodeLabEditor = () => {
     enabled: isNew,
   });
 
-  const backToCourse = () => navigate(`/courses/${courseId}`);
+  // Back to wherever the author came from — the course page's Edit Mode or
+  // the wizard's Content step — rather than always the course page.
+  const backToCourse = () => navigate(resolveReturnTo(location.search, `/courses/${courseId}`));
 
   const assignTemplateMutation = useMutation({
     mutationFn: (labId: number) =>
@@ -584,7 +591,7 @@ export const CodeLabEditor = () => {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 text-center">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">{t('code_lab_not_found')}</h1>
-        <Button onClick={() => navigate(`/teach/courses/${courseId}/curriculum`)}>
+        <Button onClick={() => navigate(resolveReturnTo(location.search, `/courses/${courseId}`))}>
           {t('back_to_curriculum')}
         </Button>
       </div>

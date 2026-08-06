@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { withReturnTo, resolveReturnTo } from '../../utils/returnTo';
 import { useTranslation } from 'react-i18next';
 import { Save } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -30,7 +31,14 @@ export const ForumEditor = () => {
   const fId = forumId ? parseInt(forumId, 10) : null;
   const isNew = fId == null;
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
+
+  // Where the author came from — the course page's Edit Mode or the wizard's
+  // Content step. This page previously offered no way back at all, so it was
+  // the one resource type that stranded you.
+  const returnTo = new URLSearchParams(location.search).get('returnTo');
+  const backTo = resolveReturnTo(location.search, `/courses/${courseId}`);
 
   const [form, setForm] = useState(blankForm());
 
@@ -66,7 +74,9 @@ export const ForumEditor = () => {
     onSuccess: (created) => {
       refresh();
       toast.success(t('forum_created', { defaultValue: 'Discussion created' }));
-      navigate(`/teach/courses/${courseId}/forums/${created.id}/edit`, { replace: true });
+      // Carry returnTo across the redirect: without it, creating a discussion
+      // silently loses the way back to Edit Mode or the wizard.
+      navigate(withReturnTo(`/teach/courses/${courseId}/forums/${created.id}/edit`, returnTo), { replace: true });
     },
     onError: (e: any) => toast.error(e?.response?.data?.error ?? t('common:error')),
   });
@@ -139,9 +149,14 @@ export const ForumEditor = () => {
               onLabel={t('common:published', { defaultValue: 'Published' })}
               offLabel={t('common:draft', { defaultValue: 'Draft' })}
             />
-            <Button icon={<Save className="w-4 h-4" />} onClick={handleSave} loading={createMutation.isPending || updateMutation.isPending}>
-              {isNew ? t('common:create', { defaultValue: 'Create' }) : t('common:save', { defaultValue: 'Save' })}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" onClick={() => navigate(backTo)}>
+                {t('common:back', { defaultValue: 'Back' })}
+              </Button>
+              <Button icon={<Save className="w-4 h-4" />} onClick={handleSave} loading={createMutation.isPending || updateMutation.isPending}>
+                {isNew ? t('common:create', { defaultValue: 'Create' }) : t('common:save', { defaultValue: 'Save' })}
+              </Button>
+            </div>
           </div>
         </CardBody>
       </Card>

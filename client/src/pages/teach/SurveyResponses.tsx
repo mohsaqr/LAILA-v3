@@ -100,7 +100,7 @@ export const SurveyResponses = () => {
           items={[
             { label: t('navigation:courses'), href: '/courses' },
             ...(courseId && course
-              ? [{ label: course.title, href: `/teach/courses/${courseId}/curriculum` }]
+              ? [{ label: course.title, href: `/courses/${courseId}` }]
               : []),
             { label: data.survey.title },
             ...(moduleName ? [{ label: moduleName }] : []),

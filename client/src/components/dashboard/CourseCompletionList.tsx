@@ -18,7 +18,7 @@ export interface CourseCompletionListItem {
 
 interface CourseCompletionListProps {
   items: CourseCompletionListItem[];
-  /** Optional override for each row's destination — defaults to the course curriculum page. */
+  /** Optional override for each row's destination — defaults to the course page. */
   getHref?: (item: CourseCompletionListItem) => string;
   className?: string;
 }
@@ -30,7 +30,7 @@ const STRIPE_COLORS = ['#0d9488'];
  * Vertical list of courses with a coloured left stripe per row, the
  * course title, a per-course progress bar with completion %, and an
  * avatar stack of up to 5 enrolled students with a "+N" overflow chip.
- * Each row is a link to the course's curriculum.
+ * Each row is a link to the course page.
  */
 export const CourseCompletionList = ({ items, getHref, className = '' }: CourseCompletionListProps) => {
   const { isDark } = useTheme();
@@ -53,7 +53,7 @@ export const CourseCompletionList = ({ items, getHref, className = '' }: CourseC
     <ul className={`space-y-2 ${className}`}>
       {items.map((c, i) => {
         const stripe = STRIPE_COLORS[i % STRIPE_COLORS.length];
-        const href = getHref ? getHref(c) : `/teach/courses/${c.courseId}/curriculum`;
+        const href = getHref ? getHref(c) : `/courses/${c.courseId}`;
         const overflow = Math.max(0, c.studentCount - c.participants.length);
         return (
           <li key={c.courseId}>
