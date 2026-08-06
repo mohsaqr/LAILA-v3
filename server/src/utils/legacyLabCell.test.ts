@@ -92,6 +92,28 @@ describe('what it refuses to touch', () => {
     expect(out.code).toBe(code);
   });
 
+  it('leaves commented-out CODE alone — it is disabled code, not documentation', () => {
+    // A real cell from lab 24: an install command the student can uncomment.
+    // Converting it moved the code into the description and left an empty
+    // editor, destroying the thing the cell existed for.
+    const code = [
+      '#install.packages(',
+      '#  c("car", "rio", "see", "dplyr", "tidyr",',
+      '#    "broom", "report", "correlation", "performance")',
+      '#)',
+    ].join('\n');
+    const out = splitLegacyCell(code);
+    expect(out.changed).toBe(false);
+    expect(out.code).toBe(code);
+    expect(out.prose).toBe('');
+  });
+
+  it('never empties a cell — if nothing would be left, it does not convert', () => {
+    const out = splitLegacyCell('# just\n# prose\n# and\n# nothing else');
+    expect(out.changed).toBe(false);
+    expect(out.code.trim()).not.toBe('');
+  });
+
   it('handles an empty or undefined cell without throwing', () => {
     expect(splitLegacyCell('').changed).toBe(false);
     expect(splitLegacyCell(undefined as never).code).toBe('');

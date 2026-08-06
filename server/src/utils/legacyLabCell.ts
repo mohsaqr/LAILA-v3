@@ -93,6 +93,13 @@ export function splitLegacyCell(source: string, minBlockLines = 4): LegacyCellSp
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 
+  // A cell that is NOTHING but comments is not a documented code cell — it is
+  // either pure prose, or code the author deliberately commented out for the
+  // student to uncomment. Emptying it destroys the second case, which is how
+  // this converter turned a disabled `install.packages(...)` into prose and
+  // left a blank editor behind. Leave both alone.
+  if (!code) return { prose: '', code: source, changed: false };
+
   return { prose, code, changed: true };
 }
 
