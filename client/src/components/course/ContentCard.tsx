@@ -35,6 +35,18 @@ interface ContentCardProps {
   size?: ContentCardSize;
   /** Marks an unpublished item — only shown to course staff, with a badge. */
   hidden?: boolean;
+  /**
+   * Render `href` as a real `<a>` to somewhere outside the app rather than a
+   * react-router `<Link>`. `<Link>` would try to match an absolute URL against
+   * the app's own routes and land the student on a 404.
+   *
+   * `onClick` fires for these cards, unlike the internal-link case where it is
+   * deliberately ignored — a direct link is the only chance to record that the
+   * student opened the resource, since they never reach its page.
+   */
+  external?: boolean;
+  /** External cards only: honours the author's `data-newtab` choice. */
+  newTab?: boolean;
 }
 
 // Config without labels - labels added in component with translations
@@ -220,6 +232,8 @@ export const ContentCard = ({
   disabled = false,
   size = 'normal',
   hidden = false,
+  external = false,
+  newTab = false,
 }: ContentCardProps) => {
   const { t } = useTranslation(['courses']);
   const { isDark } = useTheme();
@@ -261,6 +275,32 @@ export const ContentCard = ({
   // Shared focus-visible ring for clickable cards (keyboard accessibility).
   const focusRing =
     'focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900';
+
+  /**
+   * Wrap a rendered card in its link. All three sizes link identically, so the
+   * internal/external choice lives here once rather than in each branch.
+   *
+   * `noopener noreferrer` on every external card: without `noopener` the opened
+   * page gets a handle on this one through `window.opener` and can navigate it
+   * somewhere else, which is a real phishing route out of a course page.
+   */
+  const withLink = (content: React.ReactNode) => {
+    const linkClass = `block h-full rounded-lg ${focusRing}`;
+    if (external) {
+      return (
+        <a
+          href={href}
+          target={newTab ? '_blank' : undefined}
+          rel="noopener noreferrer"
+          className={linkClass}
+          onClick={onClick}
+        >
+          {content}
+        </a>
+      );
+    }
+    return <Link to={href!} className={linkClass}>{content}</Link>;
+  };
 
   // Mini size: Compact cards with icon + title
   if (size === 'mini') {
@@ -311,7 +351,7 @@ export const ContentCard = ({
     );
 
     if (href && !disabled) {
-      return <Link to={href} className={`block h-full rounded-lg ${focusRing}`}>{miniContent}</Link>;
+      return withLink(miniContent);
     }
     return miniContent;
   }
@@ -354,7 +394,7 @@ export const ContentCard = ({
     );
 
     if (href && !disabled) {
-      return <Link to={href} className={`block h-full rounded-lg ${focusRing}`}>{iconContent}</Link>;
+      return withLink(iconContent);
     }
     return iconContent;
   }
@@ -432,7 +472,7 @@ export const ContentCard = ({
   );
 
   if (href && !disabled) {
-    return <Link to={href} className={`block h-full rounded-lg ${focusRing}`}>{cardContent}</Link>;
+    return withLink(cardContent);
   }
 
   return cardContent;

@@ -59,6 +59,7 @@ export const SettingStep = ({ initialData, onChange, externalErrors, onDelete }:
       thumbnail: initialData?.thumbnail ?? '',
       isPublic: initialData?.isPublic ?? true,
       curriculumViewMode: initialData?.curriculumViewMode ?? 'mini-cards',
+      openLinkLecturesDirectly: initialData?.openLinkLecturesDirectly ?? true,
     };
 
     const selectedCategories = categories
@@ -80,6 +81,7 @@ export const SettingStep = ({ initialData, onChange, externalErrors, onDelete }:
       updatedAt: initialData?.updatedAt ?? new Date().toISOString(),
       publishedAt: initialData?.publishedAt ?? null,
       curriculumViewMode: data.curriculumViewMode,
+      openLinkLecturesDirectly: data.openLinkLecturesDirectly,
       activationCode: initialData?.activationCode ?? null,
       instructor: {
         id: user?.id ?? 0,

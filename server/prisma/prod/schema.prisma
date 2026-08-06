@@ -478,6 +478,11 @@ model Course {
   tutorRoutingMode           String                @default("all") @map("tutor_routing_mode")
   defaultTutorId             Int?                  @map("default_tutor_id")
   curriculumViewMode         String                @default("mini-cards") @map("curriculum_view_mode")
+  // When a lecture's whole content is one external link, link to it straight
+  // from the curriculum instead of routing through a wrapper page. Defaults to
+  // true: the wrapper adds a click and (these are authored to open in a new
+  // tab) leaves a dead page behind. Set false to get the wrapper page back.
+  openLinkLecturesDirectly   Boolean               @default(true) @map("open_link_lectures_directly")
   enabledLabs                String?               @map("enabled_labs")
   // UNIQUE because signup resolves a typed-in code to a course WITHOUT knowing
   // which course — a global code -> course lookup, the inverse of

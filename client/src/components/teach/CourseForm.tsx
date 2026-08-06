@@ -19,6 +19,8 @@ export interface CourseFormData {
   thumbnail: string;
   isPublic: boolean;
   curriculumViewMode: CurriculumViewMode;
+  /** Skip the wrapper page for lectures that are nothing but one link. */
+  openLinkLecturesDirectly: boolean;
   /** Optional — server auto-generates if empty. */
   activationCode: string;
   /** `datetime-local` value (local time, "YYYY-MM-DDTHH:mm"); '' when unset. */
@@ -440,6 +442,7 @@ export const CourseForm = ({
     thumbnail: '',
     isPublic: true,
     curriculumViewMode: 'mini-cards',
+    openLinkLecturesDirectly: true,
     activationCode: '',
     startTime: '',
     prerequisiteIds: [],
@@ -459,6 +462,8 @@ export const CourseForm = ({
         thumbnail: initialData.thumbnail || '',
         isPublic: initialData.isPublic ?? true,
         curriculumViewMode: initialData.curriculumViewMode || 'mini-cards',
+        // `?? true` not `|| true`: a deliberate false must survive a reload.
+        openLinkLecturesDirectly: initialData.openLinkLecturesDirectly ?? true,
         activationCode: initialData.activationCode || '',
         startTime: toDateTimeLocal(initialData.startTime),
         prerequisiteIds: initialData.prerequisites?.map(p => p.prerequisiteCourseId) ?? [],
@@ -706,6 +711,28 @@ export const CourseForm = ({
       {/* Public / private toggle removed — every course is public; the
           activation code controls enrolment. The form still ships
           `isPublic: true` by default. */}
+
+      {/* On by default: a lecture holding nothing but one link otherwise costs
+          a click on a page that shows the link and then opens it in a new tab,
+          leaving the wrapper stranded behind. Uncheck to restore that page. */}
+      <div className="flex items-start gap-2">
+        <input
+          id="openLinkLecturesDirectly"
+          type="checkbox"
+          checked={formData.openLinkLecturesDirectly}
+          onChange={e => handleChange('openLinkLecturesDirectly', e.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+        />
+        <div className="flex items-center gap-1.5">
+          <label
+            htmlFor="openLinkLecturesDirectly"
+            className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
+          >
+            {t('open_link_lectures_directly')}
+          </label>
+          <InfoPopup text={t('open_link_lectures_directly_help')} />
+        </div>
+      </div>
 
       {showSubmit && (
         <div className="flex justify-end gap-3 pt-4 border-t">

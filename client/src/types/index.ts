@@ -53,6 +53,9 @@ export interface Course {
   updatedAt: string;
   publishedAt: string | null;
   curriculumViewMode?: CurriculumViewMode;
+  /** Link straight to the destination for lectures that hold nothing but one
+   *  external link, instead of routing through a wrapper page. */
+  openLinkLecturesDirectly?: boolean;
   enabledLabs?: string | null;
   activationCode?: string | null;
   /** ISO-8601 course start date+time, or null if unset. */

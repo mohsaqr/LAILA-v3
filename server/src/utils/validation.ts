@@ -168,6 +168,9 @@ export const createCourseSchema = z.object({
   isPublic: z.boolean().optional(),
   thumbnail: z.string().optional().or(z.literal('')),
   curriculumViewMode: z.enum(['mini-cards', 'icons', 'list', 'accordion']).optional(),
+  // Link straight to the destination for lectures that are nothing but one
+  // external link, instead of routing through a wrapper page.
+  openLinkLecturesDirectly: z.boolean().optional(),
   enabledLabs: z.string().optional().nullable(),
   // Optional. If absent or blank the service generates a random 8-char code.
   activationCode: z

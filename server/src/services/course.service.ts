@@ -8,6 +8,7 @@ import { courseRoleService } from './courseRole.service.js';
 import { prerequisiteService } from './prerequisite.service.js';
 import { availabilityWindowWhere } from '../utils/availability.js';
 import { studentVisibleModuleWhere } from '../utils/moduleVisibility.js';
+import { extractDirectLink } from '../utils/lectureLink.js';
 
 // Context for system event logging
 export interface SystemEventContext {
@@ -315,10 +316,18 @@ export class CourseService {
     }
 
     // Derive a lightweight `resourceKind` per lecture for the curriculum icon,
+    // plus `directLink` for lectures that are nothing but one external link,
     // then strip section `content` so the public page never receives it.
+    //
+    // `directLink` has to be resolved here, before the strip: the client cannot
+    // work it out for itself once `sections` is gone. Honouring the course
+    // setting on this side too means the client simply renders what it is
+    // given — there is no second place for the two to disagree.
+    const linkDirectly = (course as { openLinkLecturesDirectly?: boolean }).openLinkLecturesDirectly !== false;
     for (const m of course.modules as any[]) {
       for (const l of (m.lectures ?? []) as any[]) {
         l.resourceKind = lectureResourceKind(l.sections);
+        l.directLink = linkDirectly ? extractDirectLink(l.sections) : null;
         delete l.sections;
       }
     }

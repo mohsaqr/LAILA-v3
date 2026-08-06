@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -12,6 +12,16 @@ vi.mock('react-i18next', () => ({
 }));
 
 vi.mock('../../hooks/useTheme', () => ({ useTheme: () => ({ isDark: false }) }));
+
+// Both resolve rather than returning undefined: the click handler calls
+// `.catch()` on each, so a bare vi.fn() would throw a TypeError instead of
+// testing anything.
+vi.mock('../../api/enrollments', () => ({
+  enrollmentsApi: { markLectureComplete: vi.fn(() => Promise.resolve()) },
+}));
+vi.mock('../../services/activityLogger', () => ({
+  activityLogger: { logLectureViewed: vi.fn(() => Promise.resolve()) },
+}));
 
 import { ModuleSection } from './ModuleSection';
 import type { CurriculumViewMode } from '../../types';
@@ -275,5 +285,106 @@ describe('ModuleSection subsections', () => {
     openSubsection();
 
     expect(screen.getByText('no_content_in_module')).toBeInTheDocument();
+  });
+});
+
+// --- Link-only lectures open directly ------------------------------------
+//
+// Roughly a third of a real course is a "lecture" holding one external link and
+// nothing else. Routing those through a wrapper page costs a click and — since
+// they are authored to open in a new tab — leaves a dead page behind in the old
+// one. The server flags them with `directLink`; these tests pin the behaviour
+// that flag buys, in every view mode.
+
+import { enrollmentsApi } from '../../api/enrollments';
+import { activityLogger } from '../../services/activityLogger';
+
+const DIRECT_URL = 'https://docs.google.com/document/d/abc/edit?pli=1&tab=t.0';
+
+const linkLecture = (over: Record<string, unknown> = {}) => [{
+  id: 7,
+  title: 'Slides: INTRODUCTION',
+  isPublished: true,
+  orderIndex: 0,
+  directLink: { url: DIRECT_URL, newTab: true },
+  ...over,
+}] as never;
+
+const anchorFor = (container: HTMLElement, title: string) =>
+  Array.from(container.querySelectorAll('a')).find(a => a.textContent?.includes(title));
+
+describe('ModuleSection link-only lectures', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it.each(ALL_MODES)('links straight to the destination in %s view', mode => {
+    const { container } = renderSection({ viewMode: mode, lectures: linkLecture() });
+
+    const anchor = anchorFor(container, 'Slides: INTRODUCTION');
+    expect(anchor).toBeDefined();
+    expect(anchor).toHaveAttribute('href', DIRECT_URL);
+    // A react-router <Link> would emit an href the router owns; the wrapper
+    // page's path must not appear anywhere.
+    expect(anchor?.getAttribute('href')).not.toContain('/lectures/');
+  });
+
+  it.each(ALL_MODES)('keeps the wrapper page in %s view when there is no direct link', mode => {
+    const { container } = renderSection({
+      viewMode: mode,
+      lectures: linkLecture({ directLink: null }),
+    });
+
+    const anchor = anchorFor(container, 'Slides: INTRODUCTION');
+    expect(anchor).toHaveAttribute('href', '/courses/1/lectures/7');
+  });
+
+  it('opens in a new tab with noopener when the author asked for one', () => {
+    const { container } = renderSection({ lectures: linkLecture() });
+
+    const anchor = anchorFor(container, 'Slides: INTRODUCTION');
+    expect(anchor).toHaveAttribute('target', '_blank');
+    // Without noopener the opened page can navigate this one via window.opener.
+    expect(anchor).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it('honours data-newtab="false" rather than forcing a new tab', () => {
+    const { container } = renderSection({
+      lectures: linkLecture({ directLink: { url: DIRECT_URL, newTab: false } }),
+    });
+
+    expect(anchorFor(container, 'Slides: INTRODUCTION')).not.toHaveAttribute('target');
+  });
+
+  it('records progress when an enrolled student opens the link', () => {
+    const { container } = renderSection({ lectures: linkLecture(), trackProgress: true });
+
+    fireEvent.click(anchorFor(container, 'Slides: INTRODUCTION')!);
+
+    // The click IS the visit — the student never reaches the lecture page, so
+    // this is the only moment progress can be captured.
+    expect(enrollmentsApi.markLectureComplete).toHaveBeenCalledWith(1, 7, 'Slides: INTRODUCTION', 1);
+    expect(activityLogger.logLectureViewed).toHaveBeenCalledWith(7, 'Slides: INTRODUCTION', 1, 1);
+  });
+
+  it('does not record progress for staff previewing the course', () => {
+    const { container } = renderSection({ lectures: linkLecture(), trackProgress: false });
+
+    fireEvent.click(anchorFor(container, 'Slides: INTRODUCTION')!);
+
+    // Staff have no enrollment to write to, and their clicks are not coursework.
+    expect(enrollmentsApi.markLectureComplete).not.toHaveBeenCalled();
+    expect(activityLogger.logLectureViewed).not.toHaveBeenCalled();
+  });
+
+  it('never records progress for an ordinary lecture', () => {
+    const { container } = renderSection({
+      lectures: linkLecture({ directLink: null }),
+      trackProgress: true,
+    });
+
+    fireEvent.click(anchorFor(container, 'Slides: INTRODUCTION')!);
+
+    // That lecture's own page owns its progress; completing it from the
+    // curriculum would mark it done without the student reading a word.
+    expect(enrollmentsApi.markLectureComplete).not.toHaveBeenCalled();
   });
 });

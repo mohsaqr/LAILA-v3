@@ -1267,6 +1267,8 @@
   "make_public": "Julkinen",
   "thumbnail_help": "Lataa kuva kurssin kansikuvaksi. Hyväksytyt muodot: PNG, JPG, JPEG (enintään 1 Mt). Jätä tyhjäksi käyttääksesi oletusliukuväriä.",
   "curriculum_view_mode_help": "Määrittää, miten sisällysluettelo näkyy kurssin sivulla. Minikortit näyttää kompaktit kortit, Kuvakkeet käyttää kuvakelaatat, Lista näyttää yksinkertaisen listan ja Tiivistelynäkymä ryhmittelee kohteet tiivistettäviin osioihin.",
+  "open_link_lectures_directly": "Avaa pelkät linkkisivut suoraan",
+  "open_link_lectures_directly_help": "Kun sivu sisältää vain yhden ulkoisen linkin, kurssilistaus avaa linkin suoraan sen sijaan, että se näyttäisi ensin sivun. Käynti kirjataan opiskelijalle edelleen. Poista valinta, jos haluat säilyttää välisivun.",
   "curriculum_view_mode": "Opetussuunnitelman näkymätila",
   "link_existing_assignment": "Linkitä olemassa oleva tehtävä",
   "back_to_create": "Takaisin luomiseen",

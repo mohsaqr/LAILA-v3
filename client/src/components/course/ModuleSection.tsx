@@ -5,6 +5,8 @@ import { ChevronDown, ChevronRight, FileText, PlayCircle, Layers, FlaskConical, 
 import { useTheme } from '../../hooks/useTheme';
 import { ContentCard, ContentType, ContentCardSize } from './ContentCard';
 import { toPlainText } from '../../utils/sanitize';
+import { enrollmentsApi } from '../../api/enrollments';
+import { activityLogger } from '../../services/activityLogger';
 import type { CourseModule, Lecture, CodeLab, Assignment, Survey, ModuleSurvey, ModuleQuiz, CurriculumViewMode } from '../../types';
 import type { Forum } from '../../api/forums';
 import type { Quiz } from '../../api/quizzes';
@@ -41,6 +43,10 @@ interface ModuleSectionProps {
   /** Render as a subsection: a folded, tinted strip instead of a full card.
    *  Only ModuleSection sets this, on its own children. */
   nested?: boolean;
+  /** The viewer is an enrolled student, so opening a direct link should record
+   *  progress. False for staff previewing — they have no enrollment to write
+   *  to, and their clicks are not coursework. */
+  trackProgress?: boolean;
 }
 
 // Content item interface for unified handling
@@ -56,6 +62,13 @@ interface ContentItem {
   orderIndex: number;
   /** Unpublished item, surfaced only to course staff with a "Hidden" tag. */
   hidden?: boolean;
+  /**
+   * Set by the server when this lecture's whole content is one external link.
+   * Present means "skip the wrapper page and go straight there"; absent means
+   * ordinary navigation. The server also applies the course setting, so absent
+   * covers "the course turned this off" without the client knowing.
+   */
+  directLink?: { url: string; newTab: boolean } | null;
 }
 
 // Icon mapping for list/accordion views
@@ -115,6 +128,7 @@ export const ModuleSection = ({
   moduleHidden = false,
   subsections = [],
   nested = false,
+  trackProgress = false,
 }: ModuleSectionProps) => {
   const { t } = useTranslation(['courses']);
   const { isDark } = useTheme();
@@ -204,6 +218,7 @@ export const ModuleSection = ({
       isFree: lecture.isFree,
       orderIndex: lecture.orderIndex ?? 0,
       hidden: !lecture.isPublished,
+      directLink: (lecture as { directLink?: { url: string; newTab: boolean } | null }).directLink ?? null,
     })),
     ...publishedLabs.map(lab => ({
       id: lab.id,
@@ -338,6 +353,49 @@ export const ModuleSection = ({
   );
 
   // Render list item
+  /**
+   * Record that a student opened a link-only lecture.
+   *
+   * The click IS the visit: they never reach the lecture page, so this is the
+   * only moment progress can be captured. Both calls are fire-and-forget — the
+   * browser is already following the link, and a failed write must not surface
+   * as an error on a page the student has walked away from.
+   *
+   * `markLectureComplete` logs its own `completed` activity; logging it here
+   * too would recreate the duplicate-row bug that its comment in
+   * `api/enrollments.ts` describes.
+   */
+  const handleDirectOpen = (item: ContentItem) => {
+    if (!trackProgress) return;
+    activityLogger.logLectureViewed(item.id, item.title, courseId, module.id).catch(() => {});
+    enrollmentsApi.markLectureComplete(courseId, item.id, item.title, module.id).catch(() => {});
+  };
+
+  /**
+   * The link around a list/accordion row. A link-only lecture becomes a real
+   * `<a>` to its destination; everything else keeps its in-app `<Link>`.
+   */
+  const ItemLink = ({ item, className, children }: {
+    item: ContentItem;
+    className: string;
+    children: React.ReactNode;
+  }) => {
+    if (item.directLink) {
+      return (
+        <a
+          href={item.directLink.url}
+          target={item.directLink.newTab ? '_blank' : undefined}
+          rel="noopener noreferrer"
+          className={className}
+          onClick={() => handleDirectOpen(item)}
+        >
+          {children}
+        </a>
+      );
+    }
+    return <Link to={item.href} className={className}>{children}</Link>;
+  };
+
   const renderListItem = (item: ContentItem) => {
     const Icon = iconMap[item.type];
     const colorConfig = colorMap[item.type];
@@ -379,13 +437,13 @@ export const ModuleSection = ({
 
     if (canAccess) {
       return (
-        <Link
+        <ItemLink
           key={`${item.type}-${item.id}`}
-          to={item.href}
+          item={item}
           className="block rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800"
         >
           {content}
-        </Link>
+        </ItemLink>
       );
     }
     return <div key={`${item.type}-${item.id}`} aria-disabled="true">{content}</div>;
@@ -420,13 +478,13 @@ export const ModuleSection = ({
 
     if (canAccess) {
       return (
-        <Link
+        <ItemLink
           key={`${item.type}-${item.id}`}
-          to={item.href}
+          item={item}
           className="block rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800"
         >
           {content}
-        </Link>
+        </ItemLink>
       );
     }
     return <div key={`${item.type}-${item.id}`} aria-disabled="true">{content}</div>;
@@ -451,7 +509,10 @@ export const ModuleSection = ({
             // markup onto the page: "<p><strong>You have two files...".
             subtitle={toPlainText(item.subtitle) || undefined}
             metadata={viewMode === 'mini-cards' ? undefined : item.metadata}
-            href={canAccess ? item.href : undefined}
+            href={canAccess ? (item.directLink?.url ?? item.href) : undefined}
+            external={Boolean(item.directLink)}
+            newTab={item.directLink?.newTab ?? false}
+            onClick={item.directLink ? () => handleDirectOpen(item) : undefined}
             disabled={!canAccess}
             size={getCardSize()}
             hidden={item.hidden}
@@ -484,6 +545,7 @@ export const ModuleSection = ({
           viewMode={viewMode}
           showHidden={showHidden}
           moduleHidden={showHidden && sub.isPublished === false}
+          trackProgress={trackProgress}
         />
       ))}
     </div>

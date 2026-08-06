@@ -638,6 +638,7 @@ export const CourseDetails = () => {
                       viewMode={viewMode}
                       showHidden={showHidden}
                       moduleHidden={showHidden && (module as { isPublished?: boolean }).isPublished === false}
+                      trackProgress={!!isEnrolled}
                     />
                   </div>
                 ))}
