@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
+import { useDismissable } from '../../hooks/useDismissable';
 import { ViewAsRole } from '../../store/authStore';
 import { ThemeToggle } from '../common/ThemeToggle';
 import { NotificationBell } from '../notifications/NotificationBell';
@@ -40,6 +41,39 @@ export const Navbar = ({ onMenuClick, topOffset = 0 }: NavbarProps = {}) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isViewAsMenuOpen, setIsViewAsMenuOpen] = useState(false);
   const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
+
+  /*
+   * None of these menus could be dismissed by clicking away or pressing Escape,
+   * so the only way out was hitting the same trigger a second time — which
+   * reads as a stuck menu, because every other dropdown on the web closes when
+   * you click elsewhere. Reported for real against the account menu.
+   *
+   * Each ref wraps its trigger AND its panel: if it wrapped only the panel, a
+   * click on the trigger would count as "outside", closing the menu a moment
+   * before the toggle reopened it, and it would never open at all.
+   */
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const viewAsMenuRef = useRef<HTMLDivElement>(null);
+  const languageMenuRef = useRef<HTMLDivElement>(null);
+
+  const closeUserMenu = useCallback(() => setIsUserMenuOpen(false), []);
+  const closeViewAsMenu = useCallback(() => setIsViewAsMenuOpen(false), []);
+  const closeLanguageMenu = useCallback(() => setIsLanguageMenuOpen(false), []);
+
+  useDismissable(userMenuRef, isUserMenuOpen, closeUserMenu);
+  useDismissable(viewAsMenuRef, isViewAsMenuOpen, closeViewAsMenu);
+  useDismissable(languageMenuRef, isLanguageMenuOpen, closeLanguageMenu);
+
+  /*
+   * Opening one menu closes the others. They sit side by side in the same bar
+   * and overlap when open, so leaving a neighbour up stacks two panels over
+   * each other — which is the other half of what "stuck" looked like.
+   */
+  const openOnly = (which: 'user' | 'viewAs' | 'language' | null) => {
+    setIsUserMenuOpen(which === 'user' ? v => !v : () => false);
+    setIsViewAsMenuOpen(which === 'viewAs' ? v => !v : () => false);
+    setIsLanguageMenuOpen(which === 'language' ? v => !v : () => false);
+  };
 
   // Handler for viewAs changes that preserves the current URL
   const handleViewAsChange = (role: ViewAsRole) => {
@@ -150,9 +184,11 @@ export const Navbar = ({ onMenuClick, topOffset = 0 }: NavbarProps = {}) => {
             {isAuthenticated && <NotificationBell />}
 
             {/* Language Selector */}
-            <div className="relative">
+            <div className="relative" ref={languageMenuRef}>
               <button
-                onClick={() => setIsLanguageMenuOpen(!isLanguageMenuOpen)}
+                onClick={() => openOnly('language')}
+                aria-haspopup="menu"
+                aria-expanded={isLanguageMenuOpen}
                 className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
                 title={t('settings:language')}
               >
@@ -192,9 +228,11 @@ export const Navbar = ({ onMenuClick, topOffset = 0 }: NavbarProps = {}) => {
 
             {/* View As Button - For admins and instructors */}
             {isAuthenticated && (isActualAdmin || isActualInstructor) && (
-              <div className="relative">
+              <div className="relative" ref={viewAsMenuRef}>
                 <button
-                  onClick={() => setIsViewAsMenuOpen(!isViewAsMenuOpen)}
+                  onClick={() => openOnly('viewAs')}
+                  aria-haspopup="menu"
+                  aria-expanded={isViewAsMenuOpen}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
                   style={{
                     backgroundColor: isViewingAs ? colors.viewAsActiveBg : 'transparent',
@@ -262,9 +300,11 @@ export const Navbar = ({ onMenuClick, topOffset = 0 }: NavbarProps = {}) => {
             )}
 
             {isAuthenticated ? (
-              <div className="relative">
+              <div className="relative" ref={userMenuRef}>
                 <button
-                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  onClick={() => openOnly('user')}
+                  aria-haspopup="menu"
+                  aria-expanded={isUserMenuOpen}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
                   style={{ backgroundColor: 'transparent' }}
                 >
