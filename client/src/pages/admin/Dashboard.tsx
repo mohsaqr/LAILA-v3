@@ -93,6 +93,29 @@ const VERB_FALLBACKS: Record<string, string> = {
   expressed: 'expressed',
   enrolled: 'browsing',
   unenrolled: 'browsing',
+  // Video/lecture playback control — still consuming the content, so it reads
+  // as `learning` (these verbs only ever fire on video/lecture objects, which
+  // have no object override, so this fallback is what catches them).
+  paused: 'learning',
+  resumed: 'learning',
+  seeked: 'learning',
+  // Page scrolling on overview/catalog routes is `browsing`; scrolling THROUGH
+  // a lecture or section is content consumption and is pinned to `learning`
+  // explicitly in DEFAULT_INTERPRETATIONS below (which wins over this fallback).
+  scrolled: 'browsing',
+  // Conversational verbs. `chatbot` → help and the tutor_* objects → AI_engaged
+  // are handled by OBJECT_OVERRIDES (checked before this), so these fallbacks
+  // only catch a message with no recognised counterpart.
+  messaged: 'help',
+  received: 'help',
+  // Grading is assessment activity; the assignment/quiz/gradebook objects
+  // already force `assessment`/`regulated` via OBJECT_OVERRIDES.
+  graded: 'assessment',
+  // Clearing one's own chat/history is a self-regulation act (chatbot/tutor
+  // objects still override to help/AI_engaged first).
+  cleared: 'regulated',
+  // Switching tutor / agent / provider is an active choice.
+  switched: 'engaged',
 };
 
 // Object-type overrides: these object types force a specific interpretation
@@ -112,6 +135,9 @@ const OBJECT_OVERRIDES: Record<string, string> = {
   survey: 'expressed',
   certificate: 'regulated',
   gradebook: 'regulated',
+  // Any verb against the general chatbot (messaged / received / cleared /
+  // interacted) is help-seeking, matching the explicit `interacted:chatbot`.
+  chatbot: 'help',
 };
 
 const DEFAULT_INTERPRETATIONS: Record<string, string> = {
@@ -208,6 +234,24 @@ const DEFAULT_INTERPRETATIONS: Record<string, string> = {
   // inside the test conversation surface.
   'started:agent_conversation': 'AI_engaged',
   'interacted:agent_conversation': 'AI_engaged',
+
+  // learning – scrolling THROUGH lecture/section/video content is reading, not
+  // the overview-page browsing that the `scrolled` verb fallback assumes.
+  'scrolled:lecture': 'learning',
+  'scrolled:section': 'learning',
+  'scrolled:video': 'learning',
+  // learning – video playback control, pinned explicitly so the intent is
+  // visible next to the other video states (the verb fallback agrees).
+  'paused:video': 'learning',
+  'resumed:video': 'learning',
+  'seeked:video': 'learning',
+  'paused:lecture': 'learning',
+  'resumed:lecture': 'learning',
+
+  // help / AI – the two messaging counterparts that actually appear.
+  'messaged:chatbot': 'help',
+  'messaged:tutor_conversation': 'AI_engaged',
+  'messaged:course_tutor_conversation': 'AI_engaged',
 };
 
 /** Resolve a verb:objectType combo using: explicit map → object override → verb fallback */
