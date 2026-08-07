@@ -82,9 +82,14 @@ export const Reports = () => {
                   <h3 className="font-medium truncate" style={{ color: colors.textPrimary }}>
                     {enrollment.course!.title}
                   </h3>
+                  {/* "by X", never a bare name. A name printed alone under a
+                      course title reads as the subject of the report, so a
+                      student opening their own analytics saw what looked like
+                      someone else's — reported for real. The data was always
+                      theirs; only this line misled. */}
                   {enrollment.course!.instructor && (
                     <p className="text-sm truncate" style={{ color: colors.textSecondary }}>
-                      {enrollment.course!.instructor.fullname}
+                      {t('courses:by_instructor', { name: enrollment.course!.instructor.fullname })}
                     </p>
                   )}
                 </div>

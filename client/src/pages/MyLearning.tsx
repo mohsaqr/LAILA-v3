@@ -109,7 +109,12 @@ const EnrollmentCard = ({ enrollment, completed = false }: { enrollment: Enrollm
 
         <CardBody>
           <h3 className="font-semibold mb-2" style={{ color: colors.textPrimary }}>{enrollment.course?.title}</h3>
-          <p className="text-sm mb-4" style={{ color: colors.textSecondary }}>{enrollment.course?.instructor?.fullname}</p>
+          {/* "by X" rather than a bare name — see Reports.tsx. */}
+          {enrollment.course?.instructor?.fullname && (
+            <p className="text-sm mb-4" style={{ color: colors.textSecondary }}>
+              {t('by_instructor', { name: enrollment.course.instructor.fullname })}
+            </p>
+          )}
 
           {/* Progress */}
           <div className="mb-4">

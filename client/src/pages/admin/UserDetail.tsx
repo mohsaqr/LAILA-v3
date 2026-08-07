@@ -28,7 +28,8 @@ import { UpdateUserData, Course } from '../../types';
 import activityLogger from '../../services/activityLogger';
 
 export const UserDetail = () => {
-  const { t } = useTranslation(['admin', 'common']);
+  // 'courses' is loaded for by_instructor on the enrolment rows below.
+  const { t } = useTranslation(['admin', 'common', 'courses']);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -259,9 +260,14 @@ export const UserDetail = () => {
                       </div>
                       <div>
                         <p className="font-medium text-gray-900">{enrollment.course?.title}</p>
-                        <p className="text-sm text-gray-500">
-                          {enrollment.course?.instructor?.fullname}
-                        </p>
+                        {/* "by X": this page is already showing one person's
+                            profile, so a second bare name under a course title
+                            is the most confusable place of all. */}
+                        {enrollment.course?.instructor?.fullname && (
+                          <p className="text-sm text-gray-500">
+                            {t('courses:by_instructor', { name: enrollment.course.instructor.fullname })}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
