@@ -121,6 +121,15 @@ export interface ChatRequest {
 export interface ChatResponse {
   reply: string;
   model: string;
+  /**
+   * Which provider actually served the call.
+   *
+   * `llmService.chat` has always returned this; `chatService` used to drop it,
+   * so every caller that wanted to record attribution had to guess — and all of
+   * them guessed `'openai'`. Rows were being written claiming OpenAI served a
+   * request that a local model answered, which quietly falsifies cost reporting.
+   */
+  provider: string;
   responseTime: number;
 }
 

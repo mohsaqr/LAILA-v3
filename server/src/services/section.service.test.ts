@@ -389,6 +389,7 @@ describe('SectionService', () => {
       vi.mocked(chatService.chat).mockResolvedValue({
         reply: '# Generated Content\n\nThis is AI generated content.',
         model: 'gpt-4o-mini',
+        provider: 'openai',
         responseTime: 1500,
       });
 
@@ -406,6 +407,7 @@ describe('SectionService', () => {
       vi.mocked(chatService.chat).mockResolvedValue({
         reply: 'Content with context',
         model: 'gpt-4o-mini',
+        provider: 'openai',
         responseTime: 1000,
       });
 

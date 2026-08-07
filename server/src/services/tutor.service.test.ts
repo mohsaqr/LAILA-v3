@@ -1918,4 +1918,269 @@ describe('TutorService', () => {
       expect(result.userMessage).toBeDefined();
     });
   });
+
+  // ==========================================================================
+  // COLLABORATIVE (MULTI-AGENT) MODE
+  // ==========================================================================
+
+  /**
+   * Collaborative mode had no coverage at all, while being the only mode that
+   * makes N LLM calls per reply. The four styles are not prompt variations —
+   * they are different control flows over the same per-agent call, so each one
+   * is pinned separately, as is the agent-selection precedence and the
+   * attribution written to the saved message.
+   */
+  describe('collaborative mode', () => {
+    const agentRow = (id: number, name: string, displayName: string) => ({
+      id,
+      name,
+      displayName,
+      description: `${displayName} description`,
+      avatarUrl: `/avatars/${name}.svg`,
+      welcomeMessage: 'Hi',
+      personality: 'friendly',
+      temperature: 0.7,
+      systemPrompt: `You are ${displayName}.`,
+      isActive: true,
+      category: 'tutor',
+    });
+
+    const AGENTS = [
+      agentRow(1, 'socratic-tutor', 'Socratic Guide'),
+      agentRow(2, 'helper-tutor', 'Helpful Guide'),
+      agentRow(3, 'carmen-peer', 'Carmen'),
+      agentRow(4, 'beatrice-peer', 'Beatrice'),
+    ];
+
+    /** Wire up the happy path; per-test overrides go after this. */
+    const arrange = () => {
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue({
+        id: 1, userId: 123, mode: 'collaborative', courseId: null,
+      } as any);
+      vi.mocked(prisma.chatbot.findUnique).mockResolvedValue(AGENTS[0] as any);
+      vi.mocked(prisma.chatbot.findMany).mockResolvedValue(AGENTS as any);
+      vi.mocked(prisma.tutorConversation.findUnique).mockResolvedValue({
+        id: 10, sessionId: 1, chatbotId: 1, messageCount: 0, messages: [], createdAt: new Date(),
+      } as any);
+      vi.mocked(prisma.tutorConversation.update).mockResolvedValue({} as any);
+      vi.mocked(prisma.tutorMessage.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.tutorInteractionLog.create).mockResolvedValue({} as any);
+      let nextId = 100;
+      vi.mocked(prisma.tutorMessage.create).mockImplementation((async (args: any) => ({
+        id: nextId++,
+        conversationId: 10,
+        role: args.data.role,
+        content: args.data.content,
+        aiModel: args.data.aiModel ?? null,
+        aiProvider: args.data.aiProvider ?? null,
+        responseTimeMs: args.data.responseTimeMs ?? null,
+        synthesizedFrom: args.data.synthesizedFrom ?? null,
+        createdAt: new Date(),
+      })) as any);
+      vi.mocked(chatService.chat).mockResolvedValue({
+        reply: 'A p-value is a measure of surprise.',
+        model: 'qwen3-8b',
+        provider: 'lmstudio',
+        responseTime: 0.4,
+      } as any);
+    };
+
+    /** The assistant row handed to prisma.tutorMessage.create. */
+    const savedAssistantRow = () =>
+      vi.mocked(prisma.tutorMessage.create).mock.calls
+        .map(c => (c[0] as any).data)
+        .find(d => d.role === 'assistant');
+
+    const send = (message: string, settings: any) =>
+      tutorService.sendMessage(123, 1, message, undefined, settings);
+
+    beforeEach(arrange);
+
+    describe('styles', () => {
+      it('parallel: every selected agent contributes exactly one turn', async () => {
+        const result = await send('What is a p-value?', {
+          style: 'parallel', selectedAgentIds: [1, 2], maxResponseLength: 200,
+        });
+
+        const contribs = result.collaborativeInfo!.agentContributions;
+        expect(contribs).toHaveLength(2);
+        expect(contribs.map(c => c.agentDisplayName)).toEqual(['Socratic Guide', 'Helpful Guide']);
+        expect(chatService.chat).toHaveBeenCalledTimes(2);
+      });
+
+      it('parallel: agents do not see each other, so none is given prior context', async () => {
+        await send('What is a p-value?', { style: 'parallel', selectedAgentIds: [1, 2] });
+
+        const prompts = vi.mocked(chatService.chat).mock.calls.map(c => (c[0] as any).message);
+        prompts.forEach(p => expect(p).not.toContain('Previous'));
+      });
+
+      it('sequential: the second agent is shown what the first said', async () => {
+        vi.mocked(chatService.chat)
+          .mockResolvedValueOnce({ reply: 'FIRST_AGENT_TEXT', model: 'm', provider: 'p', responseTime: 1 } as any)
+          .mockResolvedValueOnce({ reply: 'second', model: 'm', provider: 'p', responseTime: 1 } as any);
+
+        const result = await send('What is a p-value?', {
+          style: 'sequential', selectedAgentIds: [1, 2],
+        });
+
+        const secondPrompt = (vi.mocked(chatService.chat).mock.calls[1][0] as any).message;
+        expect(secondPrompt).toContain('FIRST_AGENT_TEXT');
+        expect(result.collaborativeInfo!.agentContributions.map(c => c.round)).toEqual([1, 2]);
+      });
+
+      it('debate: two rounds, so each agent speaks twice', async () => {
+        const result = await send('Should p-values be abandoned?', {
+          style: 'debate', selectedAgentIds: [1, 2],
+        });
+
+        const contribs = result.collaborativeInfo!.agentContributions;
+        expect(contribs).toHaveLength(4);
+        expect(contribs.map(c => c.round)).toEqual([1, 1, 2, 2]);
+        expect(result.collaborativeInfo!.totalRounds).toBe(2);
+      });
+
+      it('debate: round two is given the round one viewpoints', async () => {
+        vi.mocked(chatService.chat)
+          .mockResolvedValueOnce({ reply: 'ROUND_ONE_A', model: 'm', provider: 'p', responseTime: 1 } as any)
+          .mockResolvedValueOnce({ reply: 'ROUND_ONE_B', model: 'm', provider: 'p', responseTime: 1 } as any)
+          .mockResolvedValue({ reply: 'later', model: 'm', provider: 'p', responseTime: 1 } as any);
+
+        await send('Should p-values be abandoned?', { style: 'debate', selectedAgentIds: [1, 2] });
+
+        const thirdPrompt = (vi.mocked(chatService.chat).mock.calls[2][0] as any).message;
+        expect(thirdPrompt).toContain('ROUND_ONE_A');
+        expect(thirdPrompt).toContain('ROUND_ONE_B');
+      });
+
+      it('random: draws between one and three agents from the full roster', async () => {
+        const result = await send('What is a p-value?', { style: 'random' });
+
+        const count = result.collaborativeInfo!.agentContributions.length;
+        expect(count).toBeGreaterThanOrEqual(1);
+        expect(count).toBeLessThanOrEqual(3);
+      });
+
+      it('defaults to parallel when no style is given', async () => {
+        const result = await send('What is a p-value?', { selectedAgentIds: [1, 2] } as any);
+        expect(result.collaborativeInfo!.style).toBe('parallel');
+      });
+    });
+
+    describe('agent selection precedence', () => {
+      it('an @mention wins over the picker', async () => {
+        const result = await send('@Carmen what is a p-value?', {
+          style: 'parallel', selectedAgentIds: [1, 2],
+        });
+
+        expect(result.collaborativeInfo!.agentContributions.map(c => c.agentDisplayName))
+          .toEqual(['Carmen']);
+        expect(result.collaborativeInfo!.mentionedAgents).toEqual(['Carmen']);
+      });
+
+      it('several mentions bring several agents', async () => {
+        const result = await send('@Carmen @Beatrice help', { style: 'parallel' });
+
+        expect(result.collaborativeInfo!.agentContributions.map(c => c.agentDisplayName))
+          .toEqual(['Carmen', 'Beatrice']);
+      });
+
+      it('the mention is stripped before the agent sees the question', async () => {
+        await send('@Carmen what is a p-value?', { style: 'parallel' });
+
+        const prompt = (vi.mocked(chatService.chat).mock.calls[0][0] as any).message;
+        expect(prompt).not.toContain('@Carmen');
+        expect(prompt).toContain('what is a p-value?');
+      });
+
+      it('the picker wins when there is no mention', async () => {
+        const result = await send('What is a p-value?', {
+          style: 'parallel', selectedAgentIds: [3, 4],
+        });
+
+        expect(result.collaborativeInfo!.agentContributions.map(c => c.agentId)).toEqual([3, 4]);
+      });
+
+      it('falls back to auto-selection bounded by maxAgents', async () => {
+        const result = await send('What is a p-value?', { style: 'parallel', maxAgents: 2 });
+
+        expect(result.collaborativeInfo!.agentContributions.length).toBeLessThanOrEqual(2);
+        expect(result.collaborativeInfo!.mentionedAgents).toBeUndefined();
+      });
+
+      it('refuses when the roster is empty', async () => {
+        vi.mocked(prisma.chatbot.findMany).mockResolvedValue([] as any);
+
+        await expect(send('What is a p-value?', { style: 'parallel' }))
+          .rejects.toThrow('No agents available');
+      });
+    });
+
+    describe('attribution on the saved message', () => {
+      it('records the model and provider that actually served the call', async () => {
+        // Previously hard-coded to gpt-4o-mini/openai, so a reply served by a
+        // local model was billed to OpenAI in the logs.
+        await send('What is a p-value?', { style: 'parallel', selectedAgentIds: [1, 2] });
+
+        const saved = savedAssistantRow();
+        expect(saved.aiModel).toBe('qwen3-8b');
+        expect(saved.aiProvider).toBe('lmstudio');
+      });
+
+      it('keeps both names when a reply is served by more than one backend', async () => {
+        vi.mocked(chatService.chat)
+          .mockResolvedValueOnce({ reply: 'a', model: 'qwen3-8b', provider: 'lmstudio', responseTime: 1 } as any)
+          .mockResolvedValueOnce({ reply: 'b', model: 'gemini-pro', provider: 'gemini', responseTime: 1 } as any);
+
+        await send('What is a p-value?', { style: 'parallel', selectedAgentIds: [1, 2] });
+
+        const saved = savedAssistantRow();
+        expect(saved.aiProvider).toBe('lmstudio+gemini');
+        expect(saved.aiModel).toBe('qwen3-8b+gemini-pro');
+      });
+
+      it('records nothing when every agent failed', async () => {
+        vi.mocked(chatService.chat).mockRejectedValue(new Error('provider down'));
+
+        await send('What is a p-value?', { style: 'parallel', selectedAgentIds: [1, 2] });
+
+        const saved = savedAssistantRow();
+        expect(saved.aiModel).toBeNull();
+        expect(saved.aiProvider).toBeNull();
+      });
+
+      it('ignores a failed agent when attributing, but still shows its placeholder', async () => {
+        vi.mocked(chatService.chat)
+          .mockRejectedValueOnce(new Error('provider down'))
+          .mockResolvedValueOnce({ reply: 'ok', model: 'qwen3-8b', provider: 'lmstudio', responseTime: 1 } as any);
+
+        const result = await send('What is a p-value?', { style: 'parallel', selectedAgentIds: [1, 2] });
+
+        const saved = savedAssistantRow();
+        expect(saved.aiProvider).toBe('lmstudio');
+        const contribs = result.collaborativeInfo!.agentContributions;
+        expect(contribs[0].failed).toBe(true);
+        expect(contribs[0].contribution).toContain('unable to respond');
+        expect(contribs[1].failed).toBeUndefined();
+      });
+
+      it('stores the contributions so a reply can be taken apart later', async () => {
+        await send('What is a p-value?', { style: 'debate', selectedAgentIds: [1, 2] });
+
+        const parsed = JSON.parse(savedAssistantRow().synthesizedFrom);
+        expect(parsed.style).toBe('debate');
+        expect(parsed.agentContributions).toHaveLength(4);
+        expect(parsed.agentContributions[0]).toMatchObject({ provider: 'lmstudio' });
+      });
+
+      it('labels each contribution by agent and round in the display text', async () => {
+        await send('What is a p-value?', { style: 'sequential', selectedAgentIds: [1, 2] });
+
+        const content = savedAssistantRow().content;
+        expect(content).toContain('**Socratic Guide** (Round 1)');
+        expect(content).toContain('**Helpful Guide** (Round 2)');
+      });
+    });
+  });
+
 });

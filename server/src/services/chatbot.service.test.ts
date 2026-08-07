@@ -337,6 +337,7 @@ describe('ChatbotService', () => {
       vi.mocked(chatService.chat).mockResolvedValue({
         reply: 'Hello! How can I help?',
         model: 'gpt-4o-mini',
+        provider: 'openai',
         responseTime: 1000,
       });
 

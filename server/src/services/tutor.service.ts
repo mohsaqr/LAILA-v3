@@ -676,6 +676,7 @@ RESPONSE GUIDELINES:
 
     // Get AI response
     let aiResponse: string;
+    // Overwritten from the response below; these only survive if the call fails.
     let aiModel = 'gpt-4o-mini';
     let aiProvider = 'openai';
 
@@ -695,6 +696,9 @@ RESPONSE GUIDELINES:
 
       aiResponse = response.reply;
       aiModel = response.model;
+      // Was left at the 'openai' default, so a reply served by Ollama or a
+      // local model was filed against OpenAI in the interaction logs.
+      aiProvider = response.provider;
     } catch (error: any) {
       // Log error
       await this.logInteraction({
@@ -1375,8 +1379,12 @@ RESPONSE GUIDELINES:
         avatarUrl: agent.avatarUrl,
         contribution: cleanedReply.trim(),
         responseTimeMs: Date.now() - startTime,
+        model: response.model,
+        provider: response.provider,
       };
     } catch {
+      // No model or provider: nothing served this. Recording a guess here is
+      // what made the saved message claim OpenAI for calls it never made.
       return {
         agentId: agent.id,
         agentName: agent.name,
@@ -1384,6 +1392,7 @@ RESPONSE GUIDELINES:
         avatarUrl: agent.avatarUrl,
         contribution: `[${agent.displayName} was unable to respond]`,
         responseTimeMs: Date.now() - startTime,
+        failed: true,
       };
     }
   }
@@ -1461,7 +1470,6 @@ RESPONSE GUIDELINES:
     });
 
     let agentContributions: AgentContribution[] = [];
-    let synthesis: string | undefined;
     let totalRounds = 1;
 
     // Execute based on style
@@ -1542,7 +1550,7 @@ RESPONSE GUIDELINES:
         break;
     }
 
-    // Build display content (individual responses shown, optional synthesis)
+    // Build display content: each contribution, labelled by agent and round.
     const displayParts = agentContributions.map(c =>
       `**${c.agentDisplayName}**${c.round ? ` (Round ${c.round})` : ''}:\n${c.contribution}`
     );
@@ -1550,14 +1558,34 @@ RESPONSE GUIDELINES:
 
     const responseTimeMs = Date.now() - startTime;
 
-    // Save assistant message
+    /*
+     * Attribution for a reply that took several calls.
+     *
+     * These were hard-coded to gpt-4o-mini/openai, so every collaborative reply
+     * was filed against OpenAI whatever actually served it — and this is the
+     * mode that makes N calls per reply, so it is the worst one to get wrong.
+     *
+     * Normally every contribution shares one backend and this is just that
+     * backend's name. When they differ (a model override, or a failover
+     * mid-reply) the distinct values are joined rather than picking a winner:
+     * a row reading `lmstudio+gemini` is awkward to read but true, and a
+     * reader chasing a cost anomaly needs to see that it happened.
+     *
+     * A failed agent carries no model or provider, so dropping the empties is
+     * also what excludes it — no separate filter on `failed` is needed.
+     */
+    const distinct = (values: Array<string | undefined>): string | null => {
+      const set = [...new Set(values.filter((v): v is string => !!v))];
+      return set.length ? set.join('+') : null;
+    };
+
     const assistantMsg = await prisma.tutorMessage.create({
       data: {
         conversationId: conversationData.id,
         role: 'assistant',
         content: displayContent,
-        aiModel: 'gpt-4o-mini',
-        aiProvider: 'openai',
+        aiModel: distinct(agentContributions.map(c => c.model)),
+        aiProvider: distinct(agentContributions.map(c => c.provider)),
         responseTimeMs,
         synthesizedFrom: JSON.stringify({ style, agentContributions }),
       },
@@ -1624,7 +1652,6 @@ RESPONSE GUIDELINES:
       collaborativeInfo: {
         style,
         agentContributions,
-        synthesis,
         mentionedAgents: mentionedAgents.length > 0 ? mentionedAgents.map(a => a.displayName) : undefined,
         totalRounds: style === 'debate' ? totalRounds : undefined,
       },

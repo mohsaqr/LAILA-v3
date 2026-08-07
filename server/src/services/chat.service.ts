@@ -164,6 +164,7 @@ export class ChatService {
         const reply = typeof messageContent === 'string' ? messageContent : 'No response generated';
         const responseTime = response.responseTime / 1000;
         const model = response.model;
+        const provider = response.provider;
 
         // Log outside the LLM try so a logging failure doesn't trigger a fallback retry
         try {
@@ -183,6 +184,7 @@ export class ChatService {
         return {
           reply,
           model,
+          provider,
           responseTime,
         };
       } catch (error: any) {
@@ -277,6 +279,9 @@ export class ChatService {
     return {
       reply,
       model,
+      // The legacy path talks to one SDK directly, so the config it resolved
+      // above IS the provider that served this call.
+      provider: config.provider,
       responseTime,
     };
   }

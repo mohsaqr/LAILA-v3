@@ -124,12 +124,16 @@ export interface AgentContribution {
   contribution: string;
   responseTimeMs: number;
   round?: number; // For debate/sequential modes
+  /** What served this contribution. Absent when the agent failed to answer. */
+  model?: string;
+  provider?: string;
+  /** True when the agent errored and `contribution` is the placeholder text. */
+  failed?: boolean;
 }
 
 export interface CollaborativeInfo {
   style: CollaborativeStyle;
   agentContributions: AgentContribution[];
-  synthesis?: string;
   mentionedAgents?: string[];
   totalRounds?: number;
 }
