@@ -66,18 +66,23 @@ const LAYOUT_OPTIONS: { value: LayoutAlgorithm; i18nKey: string }[] = [
 
 /** Default smart interpretations for verb+objectType → readable learning state.
  *
- *  12 states:
- *    learning     – consuming content (viewing, downloading)
+ *  Learner states (the learning process):
+ *    learning     – consuming content (viewing, downloading, video playback)
  *    progressing  – making progress through content
  *    engaged      – actively starting or interacting with activities
- *    practiced    – hands-on lab work
+ *    practiced    – hands-on lab / design work
  *    interacted   – social/forum participation
- *    regulated    – self-regulation: completing activities, checking grades, certificates
+ *    regulated    – self-regulation: completing activities, checking grades/analytics
  *    assessment   – quiz, assignment & lab submission activity
  *    help         – general chatbot interactions
  *    AI_engaged   – AI tutor interactions
  *    expressed    – emotional pulse activities & survey feedback
- *    browsing     – viewing overview pages, enrollment
+ *    browsing     – viewing overview / navigation pages, enrollment
+ *
+ *  Teacher / admin states (so authoring & config events don't pollute the
+ *  learner states, and never fall through as raw `verb_objectType` labels):
+ *    authoring    – creating/editing course content & curriculum (created/updated/deleted)
+ *    configuring  – account, settings, profile, user & enrolment management
  */
 // Verb-level fallback: if a specific verb:objectType combo isn't in the map,
 // fall back to the verb's default interpretation.
@@ -116,6 +121,23 @@ const VERB_FALLBACKS: Record<string, string> = {
   cleared: 'regulated',
   // Switching tutor / agent / provider is an active choice.
   switched: 'engaged',
+  // Withdrawing a submission is still assessment-cycle activity.
+  unsubmitted: 'assessment',
+  // Hands-on design/build work (e.g. a student's AI-agent assignment).
+  designed: 'practiced',
+  // Instructor/admin authoring — creating or editing course content. These are
+  // teaching acts, not learning, so they get their own state rather than being
+  // forced into a learner state. `updated` on a settings/profile object is
+  // pulled back to `configuring` by OBJECT_OVERRIDES (checked first).
+  created: 'authoring',
+  updated: 'authoring',
+  deleted: 'authoring',
+  // xAPI video lifecycle — all part of consuming the lesson video.
+  initialized: 'learning',
+  played: 'learning',
+  abandoned: 'learning',
+  terminated: 'learning',
+  'playback-rate-changed': 'learning',
 };
 
 // Object-type overrides: these object types force a specific interpretation
@@ -138,6 +160,26 @@ const OBJECT_OVERRIDES: Record<string, string> = {
   // Any verb against the general chatbot (messaged / received / cleared /
   // interacted) is help-seeking, matching the explicit `interacted:chatbot`.
   chatbot: 'help',
+  // Account / environment configuration (updated:settings, updated:profile,
+  // and admin user/enrolment management) — a `configuring` act, not learning.
+  settings: 'configuring',
+  profile: 'configuring',
+  user: 'configuring',
+  enrollment: 'configuring',
+  // Teacher/admin authoring surfaces beyond the content objects themselves.
+  curriculum: 'authoring',
+  prompt_block: 'authoring',
+  // Building / using the AI tools is AI engagement.
+  ai_tool: 'AI_engaged',
+  // Pure navigation / overview surfaces read as browsing.
+  dashboard: 'browsing',
+  catalog: 'browsing',
+  calendar: 'browsing',
+  page: 'browsing',
+  // Checking one's own analytics is self-monitoring; a submission object is
+  // part of the assessment cycle.
+  analytics: 'regulated',
+  submission: 'assessment',
 };
 
 const DEFAULT_INTERPRETATIONS: Record<string, string> = {
