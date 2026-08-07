@@ -70,6 +70,14 @@ export const AuthLayout = ({ children }: { children: React.ReactNode }) => {
           aria-hidden="true"
           className="absolute -bottom-24 start-1/4 w-[26rem] h-[26rem] rounded-full bg-secondary-200/25 blur-3xl"
         />
+        {/* The gradient's far end is its brightest point, and the baseline sits
+            there: measured 2.55:1 against it, and even pure white reaches only
+            3.64:1 — opacity alone cannot fix that. This scrim darkens the bottom
+            strip to bring small text over 4.5:1 without desaturating the panel. */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black/40 to-transparent"
+        />
 
         {/* The signature spells "Laila", so it is the wordmark. Setting a typed
             LAILA beside it printed the name twice. Its bounding box is nearly
@@ -79,11 +87,14 @@ export const AuthLayout = ({ children }: { children: React.ReactNode }) => {
         </div>
 
         <div className="relative max-w-xl">
-          {/* Sized for a full sentence, not a three-word slogan: at text-4xl
-              this headline runs to five lines and swamps the panel. */}
-          <h1 className="mb-5 text-3xl xl:text-4xl font-bold leading-tight text-white">
+          {/* A <p>, not an <h1>: the card already owns the page's only h1
+              ("Welcome back"), and this is promotional copy rather than document
+              structure. Marking it up as a heading gave the page two h1s on
+              desktop and none on mobile, where the panel is display:none.
+              Sized for a full sentence — at text-4xl it ran to five lines. */}
+          <p className="mb-5 text-3xl xl:text-4xl font-bold leading-tight text-white">
             {t('hero_headline')}
-          </h1>
+          </p>
           <p className="mb-10 text-base leading-relaxed text-white/90">{t('hero_sub')}</p>
 
           <ul className="space-y-5">
@@ -94,22 +105,27 @@ export const AuthLayout = ({ children }: { children: React.ReactNode }) => {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-white">{t(`feature_${key}_title`)}</p>
-                  <p className="text-sm leading-snug text-white/80">{t(`feature_${key}_desc`)}</p>
+                  {/* /90 not /80: measured 4.17:1 against the panel, under AA. */}
+                  <p className="text-sm leading-snug text-white/90">{t(`feature_${key}_desc`)}</p>
                 </div>
               </li>
             ))}
           </ul>
         </div>
 
-        <p className="relative text-xs text-white/70">{t('brand_baseline')}</p>
+        <p className="relative text-xs text-white/90">{t('brand_baseline')}</p>
       </aside>
 
       {/* Card column */}
       <div className="flex min-h-screen flex-1 flex-col">
         {/* Language sits above the card, before sign-in, because someone who
             cannot read the form cannot read a control buried inside it. */}
-        <div className="flex justify-end p-4">
-          <div className="flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-900">
+        {/* The four pills measure 291px, which overflowed a 320px screen once the
+            p-4 gutter was counted. Tighter gutter below `sm`, and wrapping so a
+            longer language list (or larger text) folds instead of pushing the
+            page sideways. */}
+        <div className="flex justify-center p-3 sm:justify-end sm:p-4">
+          <div className="flex flex-wrap justify-center gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-900">
             {Object.entries(supportedLanguages).map(([code, { nativeName }]) => {
               const active = currentLanguage === code;
               return (
@@ -118,7 +134,9 @@ export const AuthLayout = ({ children }: { children: React.ReactNode }) => {
                   type="button"
                   onClick={() => setLanguage(code as SupportedLanguage)}
                   aria-pressed={active}
-                  className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+                  // 44px is the touch-target minimum; these were 32px. Only on
+                  // touch-sized screens — a 44px pill row looks heavy on desktop.
+                  className={`min-h-[44px] rounded-md px-2.5 py-1.5 text-sm transition-colors sm:min-h-0 sm:px-3 ${
                     active
                       ? 'bg-white font-semibold text-primary-600 shadow-sm dark:bg-gray-700 dark:text-primary-300'
                       : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
