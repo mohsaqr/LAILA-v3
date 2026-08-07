@@ -91,7 +91,10 @@ export const DashboardSidebar = ({ mobileOpen = false, onMobileClose, isDesktop 
   const studentNavItems: NavItem[] = [
     { label: t('dashboard'), icon: LayoutDashboard, path: '/dashboard' },
     { label: t('courses'), icon: GraduationCap, path: '/courses' },
-    { label: t('labs'), icon: FlaskConical, path: '/labs' },
+    // No global Labs library for students — the listing exposes every lab from
+    // every course they touch. Students reach labs inside their course
+    // (/courses/:id/labs and module lab items → /labs/:id?courseId=…), which is
+    // enrolment-gated. The /labs listing route is instructor/admin-only.
     { label: t('forums'), icon: MessageSquare, path: '/forums' },
     { label: t('quizzes'), icon: FileQuestion, path: '/quizzes' },
     { label: t('certificates'), icon: Award, path: '/certificates' },

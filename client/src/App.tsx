@@ -610,11 +610,13 @@ function App() {
           }
         />
 
-        {/* Custom Labs */}
+        {/* Custom Labs — the global library listing is an authoring surface,
+            instructor/admin only. Students reach labs inside their course
+            (/labs/:id?courseId=…, which is enrolment-gated), never here. */}
         <Route
           path="/labs"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requireInstructor>
               <Labs />
             </ProtectedRoute>
           }
