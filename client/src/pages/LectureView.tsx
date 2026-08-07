@@ -605,7 +605,6 @@ export const LectureView = () => {
           <LectureAIHelper
             lectureId={parseInt(lectureId!)}
             lectureTitle={lecture.title}
-            courseId={parseInt(courseId!)}
           />
         </div>
 

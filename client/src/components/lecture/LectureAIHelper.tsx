@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Bot, Minus, Plus, BookOpen, MessageCircle, Clock, ChevronRight, ArrowLeft, Loader2, HelpCircle } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
-import { lectureAIHelperApi, LectureAIHelperMode, LectureAISession, LectureAIMessage, PDFPageRanges } from '../../api/lectureAIHelper';
+import { lectureAIHelperApi, LectureAIHelperMode, LectureAISession, LectureAIMessage, PDFPageRanges, LectureAiUnavailableReason } from '../../api/lectureAIHelper';
 import { LectureAIHelperChat } from './LectureAIHelperChat';
 import { LectureExplainView } from './LectureExplainView';
 import { PDFPageSelector } from './PDFPageSelector';
@@ -21,8 +21,22 @@ interface Message {
 interface LectureAIHelperProps {
   lectureId: number;
   lectureTitle: string;
-  courseId: number;
 }
+
+/**
+ * The sentence shown when the tools are unavailable, one per server reason.
+ *
+ * A lecture qualifies only when the server can read all of it — text pages, and
+ * at most one PDF. There is no reader for video, slides, spreadsheets or the
+ * files embedded inside a page, so on that content the model would be answering
+ * from the lecture title alone.
+ */
+const UNAVAILABLE_MESSAGE_KEYS: Record<LectureAiUnavailableReason, string> = {
+  disabled: 'ai_tools_unavailable_disabled',
+  unsupported: 'ai_tools_unavailable_unsupported',
+  too_many_pdfs: 'ai_tools_unavailable_too_many_pdfs',
+  empty: 'ai_tools_unavailable_empty',
+};
 
 // Extended mode type to include 'practice'
 type ExtendedMode = LectureAIHelperMode | 'practice';
@@ -90,6 +104,22 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
     accentLight: isDark ? 'rgba(59, 130, 246, 0.2)' : '#dbeafe',
   };
 
+  // Whether this lecture may offer the tools at all. Fetched eagerly, unlike
+  // the PDF query below: the answer decides how the collapsed strip renders, so
+  // waiting for a click would be too late.
+  const { data: availability } = useQuery({
+    queryKey: ['lectureAiAvailability', lectureId],
+    queryFn: () => lectureAIHelperApi.getAvailability(lectureId),
+  });
+
+  // Unavailable only once the server has said so. While the request is in
+  // flight the buttons stay enabled, so an eligible lecture — the common case —
+  // never flashes a disabled state on the way in.
+  const isUnavailable = availability?.available === false;
+  const unavailableMessageKey = availability?.reason
+    ? UNAVAILABLE_MESSAGE_KEYS[availability.reason]
+    : null;
+
   // Fetch PDF info for this lecture
   const { data: pdfInfoData, isLoading: pdfInfoLoading } = useQuery({
     queryKey: ['lecturePdfInfo', lectureId],
@@ -154,6 +184,11 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
 
   // Handle mode button click - different behavior for each mode
   const handleModeClick = useCallback((selectedMode: ExtendedMode) => {
+    // Belt and braces. The buttons carry `disabled`, so this is unreachable
+    // today and no test can exercise it — it is here so that dropping
+    // `disabled` for a styling reason later cannot quietly reopen the views,
+    // whose requests the server would then refuse with a 403.
+    if (isUnavailable) return;
     setMode(selectedMode);
     if (selectedMode === 'explain') {
       // Explain mode: show PDF selector if needed, otherwise show thread list
@@ -169,7 +204,7 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
       // Discuss mode: show sessions list
       setViewState('sessions');
     }
-  }, [needsPdfSelection]);
+  }, [needsPdfSelection, isUnavailable]);
 
   // Handle PDF page selection complete
   const handlePdfSelectionComplete = useCallback((ranges: PDFPageRanges) => {
@@ -293,27 +328,43 @@ export const LectureAIHelper = ({ lectureId, lectureTitle }: LectureAIHelperProp
 
       {/* Collapsed state - mode buttons */}
       {viewState === 'collapsed' && (
-        <div className="px-4 py-3 flex items-center gap-2 border-t" style={{ borderColor: colors.border }}>
-          {allModes.map((modeKey) => {
-            const config = MODE_CONFIG[modeKey];
-            const ModeIcon = config.icon;
+        <div className="px-4 py-3 border-t" style={{ borderColor: colors.border }}>
+          <div className="flex items-center gap-2 flex-wrap">
+            {allModes.map((modeKey) => {
+              const config = MODE_CONFIG[modeKey];
+              const ModeIcon = config.icon;
 
-            return (
-              <button
-                key={modeKey}
-                onClick={() => handleModeClick(modeKey)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                style={{
-                  backgroundColor: colors.bgHover,
-                  color: colors.textSecondary,
-                }}
-                title={t(config.descriptionKey)}
-              >
-                <ModeIcon className="w-4 h-4" />
-                {modeKey === 'practice' ? t('courses:practice_mode') : t(config.labelKey)}
-              </button>
-            );
-          })}
+              return (
+                <button
+                  key={modeKey}
+                  onClick={() => handleModeClick(modeKey)}
+                  disabled={isUnavailable}
+                  aria-disabled={isUnavailable}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isUnavailable ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                  style={{
+                    backgroundColor: colors.bgHover,
+                    color: colors.textSecondary,
+                  }}
+                  // The description promises something the button cannot do
+                  // once it is disabled, so the reason replaces it.
+                  title={isUnavailable && unavailableMessageKey ? t(unavailableMessageKey) : t(config.descriptionKey)}
+                >
+                  <ModeIcon className="w-4 h-4" />
+                  {modeKey === 'practice' ? t('courses:practice_mode') : t(config.labelKey)}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Said in text as well as in the tooltip: a tooltip is unreachable
+              on a touch screen, and this is the only explanation on offer. */}
+          {isUnavailable && unavailableMessageKey && (
+            <p className="mt-2 text-xs" style={{ color: colors.textSecondary }}>
+              {t(unavailableMessageKey)}
+            </p>
+          )}
         </div>
       )}
 

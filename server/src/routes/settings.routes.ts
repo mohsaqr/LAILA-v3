@@ -4,7 +4,12 @@ import { mcqGenerationService } from '../services/mcqGeneration.service.js';
 import { authenticateToken, requireAdmin } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import { registrationPolicyService } from '../services/registrationPolicy.service.js';
-import { updateApiConfigSchema, updateRegistrationPolicySchema } from '../utils/validation.js';
+import { lectureAiPolicyService } from '../services/lectureAiPolicy.service.js';
+import {
+  updateApiConfigSchema,
+  updateRegistrationPolicySchema,
+  updateLectureAiPolicySchema,
+} from '../utils/validation.js';
 import { AuthRequest } from '../types/index.js';
 import { z } from 'zod';
 
@@ -33,6 +38,22 @@ router.get('/registration', asyncHandler(async (req: AuthRequest, res: Response)
 router.put('/registration', asyncHandler(async (req: AuthRequest, res: Response) => {
   const data = updateRegistrationPolicySchema.parse(req.body);
   const policy = await registrationPolicyService.updatePolicy(data);
+  res.json({ success: true, data: policy });
+}));
+
+// ============= LECTURE AI STUDY TOOLS =============
+// Also registered before '/:key', for the same reason as '/registration'.
+
+router.get('/lecture-ai', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const policy = await lectureAiPolicyService.getPolicy();
+  res.json({ success: true, data: policy });
+}));
+
+router.put('/lecture-ai', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const data = updateLectureAiPolicySchema.parse(req.body);
+  // updatePolicy clears the 60s policy cache itself, so the change is visible
+  // on the next lecture render rather than after the TTL expires.
+  const policy = await lectureAiPolicyService.updatePolicy(data);
   res.json({ success: true, data: policy });
 }));
 

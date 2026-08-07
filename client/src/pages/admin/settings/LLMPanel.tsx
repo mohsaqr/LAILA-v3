@@ -33,6 +33,7 @@ import { Input } from '../../../components/common/Input';
 import { Loading } from '../../../components/common/Loading';
 import { Modal } from '../../../components/common/Modal';
 import { LLMBudgetSection } from './LLMBudgetSection';
+import { LectureAIToolsSection } from './LectureAIToolsSection';
 import toast from 'react-hot-toast';
 
 // ---------------------------------------------------------------------------
@@ -511,6 +512,12 @@ export const LLMPanel = () => {
           being spent long before it constrains anything. */}
       <div className="mb-6">
         <LLMBudgetSection />
+      </div>
+
+      {/* Where the AI study tools are offered. Sits with the LLM settings
+          because it decides how much of the platform talks to a model. */}
+      <div className="mb-6">
+        <LectureAIToolsSection />
       </div>
 
       {/* Test Chat Section */}

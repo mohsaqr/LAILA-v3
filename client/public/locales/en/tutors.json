@@ -46,6 +46,10 @@
 
   "ai_study_helper": "AI Study Helper",
   "get_help_understanding": "Get help understanding \"{{title}}\"",
+  "ai_tools_unavailable_disabled": "AI study tools are turned off for this site.",
+  "ai_tools_unavailable_unsupported": "AI study tools work on text pages and PDFs.",
+  "ai_tools_unavailable_too_many_pdfs": "AI study tools work on one PDF at a time.",
+  "ai_tools_unavailable_empty": "This lecture has no readable content yet.",
   "select_pdf_pages": "Select PDF Pages",
   "discuss": "Discuss",
   "get_clear_explanations": "Get clear explanations of lecture concepts",

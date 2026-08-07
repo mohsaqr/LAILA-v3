@@ -62,6 +62,9 @@ const generatePracticeSchema = z.object({
   lectureId: z.number().positive(),
   questionCount: z.number().min(1).max(10),
   difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
+  // Same shape the Explain endpoints accept: { "Chapter5.pdf": "1-5" }. Practice
+  // used to ignore the student's page selection entirely.
+  pdfPageRanges: z.record(z.string(), z.string()).optional(),
   model: z.string().optional(),
   provider: z.string().optional(),
 });
@@ -82,6 +85,7 @@ router.post('/practice/generate', authenticateToken, asyncHandler(async (req, re
     {
       questionCount: data.questionCount,
       difficulty: data.difficulty,
+      pdfPageRanges: data.pdfPageRanges,
     },
     { model: data.model, provider: data.provider || 'lmstudio' }
   );

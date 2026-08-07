@@ -895,6 +895,21 @@ export interface LLMBudgetCaps {
   maxOutputPerCall: number | null;
 }
 
+/**
+ * Which lectures may offer the AI study tools.
+ *
+ * Two axes, and both must agree for a file to be readable: `file` in
+ * `resourceKinds` says "uploaded files may be used at all", `pdf` in
+ * `fileExtensions` says which of them. The server narrows whatever arrives here
+ * to what an extractor actually exists for, so this cannot be widened past PDF
+ * from the UI — see server/src/services/lectureAiPolicy.service.ts.
+ */
+export interface LectureAiPolicy {
+  enabled: boolean;
+  resourceKinds: string[];
+  fileExtensions: string[];
+}
+
 export interface LLMUsageBySource {
   /** 'llm_service' | 'chat_legacy' | 'agent_direct' — which code path spent it. */
   source: string;
@@ -1500,6 +1515,19 @@ export const llmApi = {
   // Save caps. Send null (or '') for a field to remove that limit.
   setBudget: async (caps: Partial<LLMBudgetCaps>) => {
     const response = await apiClient.put<ApiResponse<LLMBudgetCaps>>('/llm/budget', caps);
+    return response.data.data!;
+  },
+
+  // Which lectures may offer the AI study tools. Lives on the settings router
+  // rather than /llm because the rule is about lecture content, not providers —
+  // it only shares the admin screen with them.
+  getLectureAiPolicy: async (): Promise<LectureAiPolicy> => {
+    const response = await apiClient.get<ApiResponse<LectureAiPolicy>>('/settings/lecture-ai');
+    return response.data.data!;
+  },
+
+  setLectureAiPolicy: async (patch: Partial<LectureAiPolicy>): Promise<LectureAiPolicy> => {
+    const response = await apiClient.put<ApiResponse<LectureAiPolicy>>('/settings/lecture-ai', patch);
     return response.data.data!;
   },
 

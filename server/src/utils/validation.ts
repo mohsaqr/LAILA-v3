@@ -411,6 +411,18 @@ export const updateRegistrationPolicySchema = z.object({
 
 export type UpdateRegistrationPolicyInput = z.infer<typeof updateRegistrationPolicySchema>;
 
+// Which lectures may offer the AI study tools. The enums list only the kinds
+// and file types an extractor exists for, so enabling one the server cannot
+// read is a 400 rather than a value silently dropped on the way in. The admin
+// UI greys the rest; see lectureAiPolicy.service.ts for the full catalogue.
+export const updateLectureAiPolicySchema = z.object({
+  enabled: z.boolean().optional(),
+  resourceKinds: z.array(z.enum(['page', 'file'])).max(50).optional(),
+  fileExtensions: z.array(z.enum(['pdf'])).max(50).optional(),
+});
+
+export type UpdateLectureAiPolicyInput = z.infer<typeof updateLectureAiPolicySchema>;
+
 // Invitation validation schemas
 //
 // `role` here matches updateRegistrationPolicySchema's: 'admin' is absent for

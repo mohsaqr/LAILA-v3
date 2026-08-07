@@ -4,6 +4,7 @@ import { chatService } from './chat.service.js';
 import { createLogger } from '../utils/logger.js';
 import { llmService } from './llm.service.js';
 import { pdfExtractorService, PDFInfo } from './pdfExtractor.service.js';
+import { isPdfFile } from '../utils/fileKind.js';
 
 const logger = createLogger('lectureAIHelper');
 
@@ -130,12 +131,9 @@ export class LectureAIHelperService {
     }, 'Lecture sections for PDF extraction');
 
     for (const section of lecture.sections) {
-      // Check for PDF files - be more flexible with fileType matching
       const isPdf = section.type === 'file' &&
         section.fileUrl &&
-        (section.fileType === 'application/pdf' ||
-         section.fileType?.toLowerCase().includes('pdf') ||
-         section.fileName?.toLowerCase().endsWith('.pdf'));
+        isPdfFile(section.fileType, section.fileName);
 
       if (isPdf) {
         const fileName = section.fileName || 'PDF Document';
@@ -169,11 +167,7 @@ export class LectureAIHelperService {
     }, 'Lecture attachments for PDF extraction');
 
     for (const attachment of lecture.attachments || []) {
-      // More flexible PDF detection for attachments
-      const isPdf = attachment.fileUrl &&
-        (attachment.fileType === 'application/pdf' ||
-         attachment.fileType?.toLowerCase().includes('pdf') ||
-         attachment.fileName?.toLowerCase().endsWith('.pdf'));
+      const isPdf = attachment.fileUrl && isPdfFile(attachment.fileType, attachment.fileName);
 
       if (isPdf) {
         const fileName = attachment.fileName;
@@ -229,14 +223,6 @@ export class LectureAIHelperService {
     }
 
     const pdfInfos: LecturePDFInfo[] = [];
-
-    // Helper to check if a file is a PDF
-    const isPdfFile = (fileType?: string | null, fileName?: string | null): boolean => {
-      if (fileType === 'application/pdf') return true;
-      if (fileType?.toLowerCase().includes('pdf')) return true;
-      if (fileName?.toLowerCase().endsWith('.pdf')) return true;
-      return false;
-    };
 
     // Get info from PDF sections
     for (const section of lecture.sections) {

@@ -46,6 +46,10 @@
 
   "ai_study_helper": "Asistente de estudio IA",
   "get_help_understanding": "Obtén ayuda para entender \"{{title}}\"",
+  "ai_tools_unavailable_disabled": "Las herramientas de estudio con IA están desactivadas en este sitio.",
+  "ai_tools_unavailable_unsupported": "Las herramientas de estudio con IA funcionan con páginas de texto y PDF.",
+  "ai_tools_unavailable_too_many_pdfs": "Las herramientas de estudio con IA funcionan con un PDF a la vez.",
+  "ai_tools_unavailable_empty": "Esta lección todavía no tiene contenido legible.",
   "select_pdf_pages": "Seleccionar páginas PDF",
   "discuss": "Discutir",
   "get_clear_explanations": "Obtén explicaciones claras de los conceptos de la lección",

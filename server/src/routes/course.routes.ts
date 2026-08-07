@@ -5,6 +5,7 @@ import { lectureService } from '../services/lecture.service.js';
 import { sectionService } from '../services/section.service.js';
 import { chatbotConversationService } from '../services/chatbotConversation.service.js';
 import { lectureAIHelperService } from '../services/lectureAIHelper.service.js';
+import { lectureAiPolicyService } from '../services/lectureAiPolicy.service.js';
 import { courseTutorService } from '../services/courseTutor.service.js';
 import prisma from '../utils/prisma.js';
 import { authenticateToken, requireInstructor, optionalAuth } from '../middleware/auth.middleware.js';
@@ -465,10 +466,32 @@ router.get('/chatbot-conversations/:conversationId', authenticateToken, requireI
 
 // ============= LECTURE AI HELPER =============
 
+// Whether this lecture may offer the AI study tools at all.
+//
+// Deliberately cheap — it reads columns and never opens a PDF, because the
+// client asks for it on every lecture render to decide whether to grey the
+// buttons out. Contrast with '/ai-helper/pdf-info' below, which parses every
+// PDF to count pages and is therefore only fetched behind a click.
+router.get('/lectures/:lectureId/ai-helper/availability', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const lectureId = parseInt(req.params.lectureId);
+  await lectureAIHelperService.verifyAccess(lectureId, req.user!.id, req.user!.isAdmin);
+  const availability = await lectureAiPolicyService.getAvailability(lectureId);
+  res.json({ success: true, data: availability });
+}));
+
+/*
+ * The gate is enforced on the endpoints that *spend* — chat, thread creation,
+ * follow-ups, PDF parsing and practice generation. The four pure reads below
+ * (sessions, history, thread list, single thread) stay open on purpose: they
+ * return conversations a student already had, and an admin narrowing the policy
+ * later should not erase their work from view.
+ */
+
 // Chat with AI helper for lecture (Discuss mode - chat-based)
 router.post('/lectures/:lectureId/ai-helper/chat', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const lectureId = parseInt(req.params.lectureId);
   const { mode, message, sessionId, model, provider } = lectureAIHelperChatSchema.parse(req.body);
+  await lectureAiPolicyService.assertAvailable(lectureId);
   const result = await lectureAIHelperService.chat(lectureId, mode, message, req.user!.id, sessionId, req.user!.isAdmin, { model, provider: provider || 'lmstudio' });
   res.json({ success: true, data: result });
 }));
@@ -493,6 +516,7 @@ router.get('/lectures/:lectureId/ai-helper/history/:sessionId', authenticateToke
 // Get PDF info for a lecture (page counts for page selection UI)
 router.get('/lectures/:lectureId/ai-helper/pdf-info', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const lectureId = parseInt(req.params.lectureId);
+  await lectureAiPolicyService.assertAvailable(lectureId);
   const pdfInfo = await lectureAIHelperService.getPdfInfo(lectureId, req.user!.id, req.user!.isAdmin);
   res.json({ success: true, data: { pdfs: pdfInfo } });
 }));
@@ -501,6 +525,7 @@ router.get('/lectures/:lectureId/ai-helper/pdf-info', authenticateToken, asyncHa
 router.post('/lectures/:lectureId/ai-helper/explain/threads', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
   const lectureId = parseInt(req.params.lectureId);
   const { question, pdfPageRanges, model, provider } = createExplainThreadSchema.parse(req.body);
+  await lectureAiPolicyService.assertAvailable(lectureId);
   const thread = await lectureAIHelperService.createExplainThread(lectureId, req.user!.id, question, req.user!.isAdmin, pdfPageRanges, { model, provider: provider || 'lmstudio' });
   res.status(201).json({ success: true, data: thread });
 }));
@@ -525,6 +550,7 @@ router.post('/lectures/:lectureId/ai-helper/explain/threads/:threadId/follow-up'
   const lectureId = parseInt(req.params.lectureId);
   const threadId = parseInt(req.params.threadId);
   const { question, parentPostId, pdfPageRanges } = addExplainFollowUpSchema.parse(req.body);
+  await lectureAiPolicyService.assertAvailable(lectureId);
   const thread = await lectureAIHelperService.addFollowUp(lectureId, threadId, req.user!.id, question, parentPostId, req.user!.isAdmin, pdfPageRanges);
   res.json({ success: true, data: thread });
 }));

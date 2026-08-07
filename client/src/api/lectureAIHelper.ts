@@ -64,6 +64,20 @@ export interface PDFPageRanges {
   [fileName: string]: string; // e.g., { "Chapter5.pdf": "1-5", "Notes.pdf": "all" }
 }
 
+// Why a lecture cannot offer the study tools. The server decides; the UI only
+// picks the sentence to show. Keep in step with LectureAiUnavailableReason in
+// server/src/services/lectureAiPolicy.service.ts.
+export type LectureAiUnavailableReason =
+  | 'disabled'
+  | 'unsupported'
+  | 'too_many_pdfs'
+  | 'empty';
+
+export interface LectureAiAvailability {
+  available: boolean;
+  reason: LectureAiUnavailableReason | null;
+}
+
 export const lectureAIHelperApi = {
   // ==========================================
   // DISCUSS MODE (Chat-based) - Existing
@@ -99,6 +113,15 @@ export const lectureAIHelperApi = {
   // ==========================================
 
   // Get PDF info for a lecture (page counts for page selection UI)
+  // Cheap enough to call on every lecture render — unlike getPdfInfo below,
+  // which opens and parses each PDF to count its pages.
+  getAvailability: async (lectureId: number): Promise<LectureAiAvailability> => {
+    const response = await apiClient.get<ApiResponse<LectureAiAvailability>>(
+      `/courses/lectures/${lectureId}/ai-helper/availability`
+    );
+    return response.data.data!;
+  },
+
   getPdfInfo: async (lectureId: number): Promise<PDFInfoResponse> => {
     const response = await apiClient.get<ApiResponse<PDFInfoResponse>>(
       `/courses/lectures/${lectureId}/ai-helper/pdf-info`

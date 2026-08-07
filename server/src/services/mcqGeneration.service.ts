@@ -4,6 +4,8 @@
 
 import prisma from '../utils/prisma.js';
 import { llmService } from './llm.service.js';
+import { lectureAIHelperService, PDFPageRanges } from './lectureAIHelper.service.js';
+import { lectureAiPolicyService } from './lectureAiPolicy.service.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { createLogger } from '../utils/logger.js';
 
@@ -254,10 +256,9 @@ export class MCQGenerationService {
   async generatePracticeQuestions(
     lectureId: number,
     userId: number,
-    options: { questionCount: number; difficulty?: string },
+    options: { questionCount: number; difficulty?: string; pdfPageRanges?: PDFPageRanges },
     llmOverrides?: { model?: string; provider?: string }
   ): Promise<GeneratedMCQ[]> {
-    // Fetch lecture content
     const lecture = await prisma.lecture.findUnique({
       where: { id: lectureId },
       include: {
@@ -267,11 +268,6 @@ export class MCQGenerationService {
               select: { id: true, title: true, instructorId: true },
             },
           },
-        },
-        sections: {
-          where: { type: { in: ['text', 'ai-generated'] } },
-          select: { content: true },
-          orderBy: { order: 'asc' },
         },
       },
     });
@@ -300,11 +296,17 @@ export class MCQGenerationService {
       }
     }
 
-    // Combine lecture content
-    const lectureContent = [
-      lecture.content || '',
-      ...lecture.sections.map((s: { content: string | null }) => s.content || ''),
-    ].filter(Boolean).join('\n\n');
+    await lectureAiPolicyService.assertAvailable(lectureId);
+
+    // Read the lecture the same way Explain and Discuss do.
+    //
+    // Practice used to assemble its own string from `lecture.content` plus the
+    // text sections, which meant it never saw PDFs or attachments and never
+    // stripped HTML. A lecture that was a PDF upload and a title — the common
+    // case — threw "no content" here while the other two modes answered from
+    // that same PDF quite happily. One reader for all three modes.
+    const context = await lectureAIHelperService.buildLectureContext(lectureId, options.pdfPageRanges);
+    const lectureContent = context.content;
 
     if (!lectureContent.trim()) {
       throw new AppError('Lecture has no content to generate questions from', 400);

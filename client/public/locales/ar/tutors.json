@@ -46,6 +46,10 @@
 
   "ai_study_helper": "مساعد الدراسة بالذكاء الاصطناعي",
   "get_help_understanding": "احصل على مساعدة لفهم \"{{title}}\"",
+  "ai_tools_unavailable_disabled": "أدوات الدراسة بالذكاء الاصطناعي معطّلة في هذا الموقع.",
+  "ai_tools_unavailable_unsupported": "تعمل أدوات الدراسة بالذكاء الاصطناعي مع الصفحات النصية وملفات PDF.",
+  "ai_tools_unavailable_too_many_pdfs": "تعمل أدوات الدراسة بالذكاء الاصطناعي مع ملف PDF واحد في كل مرة.",
+  "ai_tools_unavailable_empty": "لا يحتوي هذا الدرس على محتوى قابل للقراءة بعد.",
   "select_pdf_pages": "اختر صفحات PDF",
   "discuss": "ناقش",
   "get_clear_explanations": "احصل على شروحات واضحة لمفاهيم المحاضرة",

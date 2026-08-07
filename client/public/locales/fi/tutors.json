@@ -46,6 +46,10 @@
 
   "ai_study_helper": "AI-opiskeluavustaja",
   "get_help_understanding": "Saa apua ymmärtämään \"{{title}}\"",
+  "ai_tools_unavailable_disabled": "Tekoälyn opiskelutyökalut on poistettu käytöstä tässä palvelussa.",
+  "ai_tools_unavailable_unsupported": "Tekoälyn opiskelutyökalut toimivat tekstisivuilla ja PDF-tiedostoilla.",
+  "ai_tools_unavailable_too_many_pdfs": "Tekoälyn opiskelutyökalut toimivat yhden PDF-tiedoston kanssa kerrallaan.",
+  "ai_tools_unavailable_empty": "Tällä luennolla ei ole vielä luettavaa sisältöä.",
   "select_pdf_pages": "Valitse PDF-sivut",
   "discuss": "Keskustele",
   "get_clear_explanations": "Saa selkeitä selityksiä luennon käsitteistä",

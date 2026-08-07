@@ -80,6 +80,16 @@ vi.mock('../services/lectureAIHelper.service.js', () => ({
     getExplainThreads: vi.fn(),
     getExplainThread: vi.fn(),
     addFollowUp: vi.fn(),
+    verifyAccess: vi.fn(),
+  },
+}));
+
+// The eligibility gate. Default-allow is set in beforeEach so the pre-existing
+// tests below read as they always did; the refusal cases opt in explicitly.
+vi.mock('../services/lectureAiPolicy.service.js', () => ({
+  lectureAiPolicyService: {
+    getAvailability: vi.fn(),
+    assertAvailable: vi.fn(),
   },
 }));
 
@@ -129,6 +139,7 @@ import { lectureService } from '../services/lecture.service.js';
 import { sectionService } from '../services/section.service.js';
 import { chatbotConversationService } from '../services/chatbotConversation.service.js';
 import { lectureAIHelperService } from '../services/lectureAIHelper.service.js';
+import { lectureAiPolicyService } from '../services/lectureAiPolicy.service.js';
 import { courseTutorService } from '../services/courseTutor.service.js';
 import prisma from '../utils/prisma.js';
 
@@ -160,6 +171,12 @@ describe('Course Routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     currentUser = { id: 1, email: 'test@example.com', isAdmin: false, isInstructor: true };
+    // Eligible unless a test says otherwise.
+    vi.mocked(lectureAiPolicyService.assertAvailable).mockResolvedValue(undefined);
+    vi.mocked(lectureAiPolicyService.getAvailability).mockResolvedValue({
+      available: true,
+      reason: null,
+    });
   });
 
   afterEach(() => {
@@ -1368,6 +1385,110 @@ describe('Course Routes', () => {
         .expect(400);
 
       expect(response.body.success).toBe(false);
+    });
+  });
+
+  // ===========================================================================
+  // AI helper eligibility gate
+  // ===========================================================================
+
+  describe('AI helper availability', () => {
+    it('reports availability for a lecture the caller can see', async () => {
+      vi.mocked(lectureAIHelperService.verifyAccess).mockResolvedValue({
+        courseId: 5,
+        isInstructor: true,
+      });
+
+      const response = await request(app)
+        .get('/api/courses/lectures/1/ai-helper/availability')
+        .expect(200);
+
+      expect(response.body.data).toEqual({ available: true, reason: null });
+    });
+
+    it('passes the reason through so the UI can name it', async () => {
+      vi.mocked(lectureAIHelperService.verifyAccess).mockResolvedValue({
+        courseId: 5,
+        isInstructor: true,
+      });
+      vi.mocked(lectureAiPolicyService.getAvailability).mockResolvedValue({
+        available: false,
+        reason: 'too_many_pdfs',
+      });
+
+      const response = await request(app)
+        .get('/api/courses/lectures/1/ai-helper/availability')
+        .expect(200);
+
+      expect(response.body.data.reason).toBe('too_many_pdfs');
+    });
+
+    it('checks access before answering, so it cannot be used to probe lectures', async () => {
+      vi.mocked(lectureAIHelperService.verifyAccess).mockRejectedValue(
+        new AppError('You must be enrolled in this course', 403)
+      );
+
+      await request(app).get('/api/courses/lectures/1/ai-helper/availability').expect(403);
+      expect(lectureAiPolicyService.getAvailability).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('the gate holds when the UI is bypassed', () => {
+    // The greyed-out buttons are a courtesy. These are the control: a student
+    // posting straight to the endpoint must not spend tokens on a lecture the
+    // AI cannot read, or one an admin has switched off.
+    const refuse = () =>
+      vi.mocked(lectureAiPolicyService.assertAvailable).mockRejectedValue(
+        new AppError('AI study tools are not available for this lecture (unsupported)', 403)
+      );
+
+    it('refuses chat', async () => {
+      refuse();
+      await request(app)
+        .post('/api/courses/lectures/1/ai-helper/chat')
+        .send({ mode: 'discuss', message: 'Hello' })
+        .expect(403);
+
+      expect(lectureAIHelperService.chat).not.toHaveBeenCalled();
+    });
+
+    it('refuses creating an explain thread', async () => {
+      refuse();
+      await request(app)
+        .post('/api/courses/lectures/1/ai-helper/explain/threads')
+        .send({ question: 'What is a residual?' })
+        .expect(403);
+
+      expect(lectureAIHelperService.createExplainThread).not.toHaveBeenCalled();
+    });
+
+    it('refuses a follow-up', async () => {
+      refuse();
+      await request(app)
+        .post('/api/courses/lectures/1/ai-helper/explain/threads/1/follow-up')
+        .send({ question: 'And why?' })
+        .expect(403);
+
+      expect(lectureAIHelperService.addFollowUp).not.toHaveBeenCalled();
+    });
+
+    it('refuses PDF info, which would otherwise parse every PDF', async () => {
+      refuse();
+      await request(app)
+        .get('/api/courses/lectures/1/ai-helper/pdf-info')
+        .expect(403);
+
+      expect(lectureAIHelperService.getPdfInfo).not.toHaveBeenCalled();
+    });
+
+    it('still serves existing conversations, so a policy change does not erase them', async () => {
+      // Deliberate: these reads return work the student already did.
+      refuse();
+      vi.mocked(lectureAIHelperService.getSessions).mockResolvedValue([] as any);
+      vi.mocked(lectureAIHelperService.getExplainThreads).mockResolvedValue([] as any);
+
+      await request(app).get('/api/courses/lectures/1/ai-helper/sessions').expect(200);
+      await request(app).get('/api/courses/lectures/1/ai-helper/explain/threads').expect(200);
     });
   });
 });

@@ -147,11 +147,14 @@ export class SettingsService {
     // means. Imported lazily because that engine reads settings through this
     // service — a static import would make the two modules circular.
     const { REGISTRATION_DEFAULT_SETTINGS } = await import('./registrationPolicy.service.js');
+    const { LECTURE_AI_DEFAULT_SETTINGS } = await import('./lectureAiPolicy.service.js');
 
     const defaultSettings = [
       // Registration policy (supersedes the never-read allow_registration /
       // require_email_confirmation flags that used to be seeded here).
       ...REGISTRATION_DEFAULT_SETTINGS,
+      // Which lectures may offer the AI study tools.
+      ...LECTURE_AI_DEFAULT_SETTINGS,
       {
         settingKey: 'site_name',
         settingValue: 'LAILA LMS',
