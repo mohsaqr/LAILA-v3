@@ -1135,5 +1135,8 @@
   "download_rmd_desc": "Descarga este cuaderno como un archivo .Rmd que puedes abrir en RStudio",
   "editor_theme": "Tema del editor",
   "editor_theme_light": "Claro",
-  "editor_theme_dark": "Oscuro"
+  "editor_theme_dark": "Oscuro",
+  "enrollment_required_title": "Inscríbete para acceder a este curso",
+  "enrollment_required_body": "El contenido de este curso está disponible solo para estudiantes inscritos. Inscríbete para ver sus módulos, clases y laboratorios.",
+  "enter_course_code": "Introduce el código del curso"
 }

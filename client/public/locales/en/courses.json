@@ -1138,5 +1138,8 @@
   "download_rmd_desc": "Download this notebook as an .Rmd file you can open in RStudio",
   "editor_theme": "Editor theme",
   "editor_theme_light": "Light",
-  "editor_theme_dark": "Dark"
+  "editor_theme_dark": "Dark",
+  "enrollment_required_title": "Enroll to access this course",
+  "enrollment_required_body": "This course’s content is available to enrolled students only. Enroll to view its modules, lectures and labs.",
+  "enter_course_code": "Enter course code"
 }

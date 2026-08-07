@@ -13,6 +13,8 @@ import {
   FileEdit,
   Copy,
   RefreshCw,
+  Lock,
+  KeyRound,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { coursesApi } from '../api/courses';
@@ -603,7 +605,67 @@ export const CourseDetails = () => {
         <div className="flex flex-col lg:flex-row gap-4 md:gap-8">
           {/* Main Content Column */}
           <div className="flex-1 min-w-0">
-            {notStarted ? (
+            {!hasAccess ? (
+              /* Unenrolled, non-staff viewer: the server ships a metadata-only
+                 preview (no modules), so show an enrolment / code-entry gate in
+                 place of the outline instead of an empty "no content" card. */
+              <Card>
+                <CardBody className="text-center py-12 px-6">
+                  <div
+                    className="w-14 h-14 mx-auto mb-4 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: isDark ? 'rgba(8,143,143,0.18)' : '#ccfbfb' }}
+                  >
+                    <Lock className="w-7 h-7" strokeWidth={2} style={{ color: isDark ? '#22d3d3' : '#065c5c' }} />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2" style={{ color: colors.textPrimary }}>
+                    {t('enrollment_required_title', { defaultValue: 'Enroll to access this course' })}
+                  </h3>
+                  <p className="max-w-md mx-auto mb-6" style={{ color: colors.textSecondary }}>
+                    {t('enrollment_required_body', {
+                      defaultValue:
+                        'This course’s content is available to enrolled students only. Enroll to view its modules, lectures and labs.',
+                    })}
+                  </p>
+                  {isAuthenticated ? (
+                    <div className="flex items-center justify-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={handleEnrollClick}
+                        disabled={enrollMutation.isPending}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800 disabled:opacity-60 disabled:cursor-not-allowed"
+                        style={{ backgroundImage: 'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)', color: '#ffffff' }}
+                      >
+                        <GraduationCap className="w-4 h-4" strokeWidth={2.25} />
+                        {enrollMutation.isPending
+                          ? t('common:loading', { defaultValue: 'Loading…' })
+                          : t('enroll_now')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowCodeModal(true)}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800"
+                        style={{
+                          backgroundColor: isDark ? 'rgba(8,143,143,0.18)' : '#ccfbfb',
+                          color: isDark ? '#22d3d3' : '#065c5c',
+                        }}
+                      >
+                        <KeyRound className="w-4 h-4" strokeWidth={2.25} />
+                        {t('enter_course_code', { defaultValue: 'Enter course code' })}
+                      </button>
+                    </div>
+                  ) : (
+                    <Link
+                      to="/login"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800"
+                      style={{ backgroundImage: 'linear-gradient(135deg, #088F8F 0%, #14b8a6 100%)', color: '#ffffff' }}
+                    >
+                      <GraduationCap className="w-4 h-4" strokeWidth={2.25} />
+                      {t('sign_in_to_enroll')}
+                    </Link>
+                  )}
+                </CardBody>
+              </Card>
+            ) : notStarted ? (
               <CourseStartCountdown
                 startTime={course.startTime!}
                 onElapsed={() => setStartReached(true)}

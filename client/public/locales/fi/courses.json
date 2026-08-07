@@ -1135,5 +1135,8 @@
   "download_rmd_desc": "Lataa tämä muistikirja .Rmd-tiedostona, jonka voit avata RStudiossa",
   "editor_theme": "Editorin teema",
   "editor_theme_light": "Vaalea",
-  "editor_theme_dark": "Tumma"
+  "editor_theme_dark": "Tumma",
+  "enrollment_required_title": "Ilmoittaudu päästäksesi kurssille",
+  "enrollment_required_body": "Tämän kurssin sisältö on vain ilmoittautuneiden opiskelijoiden käytettävissä. Ilmoittaudu nähdäksesi sen moduulit, luennot ja harjoitukset.",
+  "enter_course_code": "Syötä kurssikoodi"
 }

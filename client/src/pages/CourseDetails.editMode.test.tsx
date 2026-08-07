@@ -179,9 +179,11 @@ describe('CourseDetails edit mode is refused to viewers who cannot manage', () =
     renderPage('/courses/3?edit=1');
 
     // A global isInstructor flag is true for instructors of unrelated courses
-    // and must never be enough on its own.
-    await screen.findByText('Week 1');
+    // and must never be enough on its own: a non-owner who is not enrolled or
+    // course staff gets the enrolment gate, not the content and not the editor.
+    await screen.findByText('Enroll to access this course');
     expect(editorShown()).toBe(false);
+    expect(screen.queryByText('Week 1')).not.toBeInTheDocument();
   });
 
   it('opens for an admin, who may manage any course', async () => {

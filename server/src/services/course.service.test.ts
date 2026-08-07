@@ -16,6 +16,7 @@ vi.mock('../utils/prisma.js', () => ({
     },
     enrollment: {
       findMany: vi.fn(),
+      findUnique: vi.fn(),
     },
     courseRole: {
       findUnique: vi.fn(),
@@ -322,6 +323,61 @@ describe('CourseService', () => {
       await expect(
         courseService.getCourseByIdWithOwnerCheck(999, 10, false, true)
       ).rejects.toThrow('Course not found');
+    });
+
+    it('returns a content-stripped preview for an unenrolled student on a published course', async () => {
+      // The leak this fixes: an unenrolled viewer used to get the full nested
+      // module body. They must now get metadata only + a preview marker.
+      vi.mocked(prisma.course.findUnique).mockResolvedValue(mockCourse as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null as any);
+      vi.mocked(prisma.course.findFirst).mockResolvedValue({
+        ...mockCourse,
+        modules: [{ id: 1, title: 'Secret module' }],
+      } as any);
+
+      const result: any = await courseService.getCourseByIdWithOwnerCheck(1, 20, false, false);
+
+      expect(result.preview).toBe(true);
+      expect(result.modules).toEqual([]);
+      // enrollment was actually consulted — the gate is not bypassable
+      expect(prisma.enrollment.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId_courseId: { userId: 20, courseId: 1 } } })
+      );
+    });
+
+    it('returns a preview (never content) for an anonymous viewer on a published course', async () => {
+      vi.mocked(prisma.course.findUnique).mockResolvedValue(mockCourse as any);
+      vi.mocked(prisma.course.findFirst).mockResolvedValue({ ...mockCourse } as any);
+
+      const result: any = await courseService.getCourseByIdWithOwnerCheck(1, undefined, false, false);
+
+      expect(result.preview).toBe(true);
+      expect(result.modules).toEqual([]);
+      // no userId means no enrollment lookup is even attempted
+      expect(prisma.enrollment.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('returns full content for an enrolled student on a published course', async () => {
+      vi.mocked(prisma.course.findUnique).mockResolvedValue(mockCourse as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue({ id: 7 } as any);
+      vi.mocked(prisma.course.findFirst).mockResolvedValue(mockCourse as any);
+
+      const result: any = await courseService.getCourseByIdWithOwnerCheck(1, 20, false, false);
+
+      expect(result.preview).toBeUndefined();
+      expect(result.id).toBe(1);
+    });
+
+    it('gives a private published course the same preview (not a 404) so the code-entry screen can render', async () => {
+      const privateCourse = { ...mockCourse, isPublic: false };
+      vi.mocked(prisma.course.findUnique).mockResolvedValue(privateCourse as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue(null as any);
+      vi.mocked(prisma.course.findFirst).mockResolvedValue(privateCourse as any);
+
+      const result: any = await courseService.getCourseByIdWithOwnerCheck(1, 20, false, false);
+
+      expect(result.preview).toBe(true);
+      expect(result.modules).toEqual([]);
     });
   });
 

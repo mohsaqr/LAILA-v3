@@ -374,15 +374,19 @@ export class CourseService {
       if (isTeam) includeUnpublished = true;
     }
 
-    // If course is unpublished and user doesn't have access, throw 404
+    // Drafts stay invisible to non-staff.
     if (course.status !== 'published' && !includeUnpublished) {
       throw new AppError('Course not found', 404);
     }
 
-    // A published-but-private (restricted) course is hidden from non-staff who
-    // are not enrolled — otherwise its details are readable by anyone who
-    // iterates course ids. Staff (includeUnpublished) always see it.
-    if (course.status === 'published' && course.isPublic === false && !includeUnpublished) {
+    // A published course viewed by a non-staff user who is NOT enrolled gets a
+    // metadata-only preview (course header + enrolment gate), never the module
+    // body. This is what turns "a student can read a course they never joined"
+    // into "a student sees a code-entry screen". Staff (includeUnpublished)
+    // always get the full content. The granular content endpoints (modules,
+    // lectures, sections) independently require enrolment, so withholding the
+    // body here closes the last path that shipped it in one payload.
+    if (course.status === 'published' && !includeUnpublished) {
       const enrolled = userId
         ? await prisma.enrollment.findUnique({
             where: { userId_courseId: { userId, courseId: id } },
@@ -390,11 +394,39 @@ export class CourseService {
           })
         : null;
       if (!enrolled) {
-        throw new AppError('Course not found', 404);
+        return this.getCoursePreview(id);
       }
     }
 
     return this.getCourseById(id, includeUnpublished);
+  }
+
+  /**
+   * Metadata-only view of a published course for a viewer who is neither staff
+   * nor enrolled: enough to render the course header and an enrolment /
+   * code-entry screen, with NO module/lecture/lab/assignment content. The body
+   * is never fetched — not fetched-then-stripped — so protected content cannot
+   * leak through this path. `preview: true` tells the client to show the
+   * enrolment gate; `modules: []` keeps the shape the course page expects.
+   */
+  async getCoursePreview(id: number) {
+    const course = await prisma.course.findFirst({
+      where: { id, status: 'published' },
+      include: {
+        instructor: {
+          select: { id: true, fullname: true, email: true, avatarUrl: true },
+        },
+        categories: { include: { category: true } },
+        _count: { select: { enrollments: true } },
+      },
+    });
+
+    if (!course) {
+      throw new AppError('Course not found', 404);
+    }
+
+    const prerequisites = await prerequisiteService.getPrerequisites(id);
+    return { ...course, prerequisites, modules: [], preview: true };
   }
 
   /**

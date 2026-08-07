@@ -1135,5 +1135,8 @@
   "download_rmd_desc": "نزّل هذا الدفتر كملف ‎.Rmd يمكنك فتحه في RStudio",
   "editor_theme": "سمة المحرر",
   "editor_theme_light": "فاتح",
-  "editor_theme_dark": "داكن"
+  "editor_theme_dark": "داكن",
+  "enrollment_required_title": "سجّل للوصول إلى هذه الدورة",
+  "enrollment_required_body": "محتوى هذه الدورة متاح للطلاب المسجّلين فقط. سجّل لعرض وحداتها ومحاضراتها ومعاملها.",
+  "enter_course_code": "أدخل رمز الدورة"
 }
