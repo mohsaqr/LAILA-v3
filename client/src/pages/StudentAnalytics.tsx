@@ -10,7 +10,7 @@ import { activityLogger } from '../services/activityLogger';
 
 export const StudentAnalytics = () => {
   const { courseId } = useParams();
-  const { t } = useTranslation(['courses']);
+  const { t } = useTranslation(['courses', 'navigation']);
   const user = useAuthStore((state) => state.user);
   const parsedCourseId = Number(courseId);
 
@@ -38,6 +38,7 @@ export const StudentAnalytics = () => {
         <Breadcrumb
           homeHref="/"
           items={[
+            { label: t('navigation:courses'), href: '/courses' },
             { label: course?.title || t('course'), href: `/courses/${courseId}` },
             { label: t('my_learning_analytics') },
           ]}

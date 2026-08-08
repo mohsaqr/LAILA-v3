@@ -30,6 +30,7 @@ export const CourseAnalytics = () => {
         <Breadcrumb
           homeHref="/"
           items={[
+            { label: t('navigation:courses'), href: '/courses' },
             ...(course
               ? [{ label: course.title, href: `/courses/${courseId}` }]
               : []),

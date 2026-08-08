@@ -139,7 +139,6 @@ export const DashboardSidebar = ({ mobileOpen = false, onMobileClose, isDesktop 
     { label: t('admin:prompts', { defaultValue: 'Prompts' }), icon: Blocks, path: '/admin/prompt-blocks' },
     { label: t('admin:llm', { defaultValue: 'LLM' }), icon: Bot, path: '/admin/settings?tab=llm' },
     { label: t('admin:mcq_generation', { defaultValue: 'MCQ Generation' }), icon: FileQuestion, path: '/admin/settings?tab=mcq' },
-    { label: t('admin:analytics', { defaultValue: 'Analytics' }), icon: Network, path: '/admin/analytics' },
     { label: t('admin:logs', { defaultValue: 'Logs' }), icon: BarChart3, path: '/admin/logs' },
     { label: t('admin:system_label', { defaultValue: 'System' }), icon: Settings, path: '/admin/settings?tab=system' },
   ];
@@ -147,16 +146,30 @@ export const DashboardSidebar = ({ mobileOpen = false, onMobileClose, isDesktop 
   // `isInstructor` is already the effective (viewAs-aware) role; an admin
   // previewing as a student must also drop to the student nav, so exclude the
   // actual-admin shortcut while previewing as a student.
-  const baseNavItems: NavItem[] =
-    (viewAsRole !== 'student' && (isInstructor || isActualAdmin)) ? instructorNavItems : studentNavItems;
+  const isStaffView = viewAsRole !== 'student' && (isInstructor || isActualAdmin);
+  const baseNavItems: NavItem[] = isStaffView ? instructorNavItems : studentNavItems;
+
+  // Analytics leads the menu and is course-aware: inside a course it points
+  // at THAT course's analytics (scoped dashboard); outside a course, admins
+  // get the global all-courses page. Instructors and students only see the
+  // entry while inside a course, since their analytics is always per-course.
+  const courseMatch = location.pathname.match(/^\/(?:teach\/)?courses\/(\d+)/);
+  const courseIdInPath = courseMatch ? courseMatch[1] : null;
+  const analyticsPath = courseIdInPath
+    ? (isStaffView ? `/teach/courses/${courseIdInPath}/analytics` : `/courses/${courseIdInPath}/analytics`)
+    : (showAdminSection ? '/admin/analytics' : null);
+  const analyticsItem: NavItem[] = analyticsPath
+    ? [{ label: t('admin:analytics', { defaultValue: 'Analytics' }), icon: Network, path: analyticsPath }]
+    : [];
 
   const navItems: NavEntry[] = showAdminSection
     ? [
+        ...analyticsItem,
         ...baseNavItems,
         { isHeader: true, label: t('admin:admin_section', { defaultValue: 'Admin' }) },
         ...adminNavItems,
       ]
-    : baseNavItems;
+    : [...analyticsItem, ...baseNavItems];
 
   const isActive = (path: string) => {
     if (path === '/dashboard') {
