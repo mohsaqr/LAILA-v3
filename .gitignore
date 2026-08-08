@@ -84,3 +84,12 @@ backups/
 
 # Playwright MCP session artifacts (screenshots, console logs)
 .playwright-mcp/
+
+# SSH / private keys — never commit these anywhere in the tree
+*.pem
+*.key
+id_rsa
+id_ed25519
+
+# Local-only ops runbook: holds production host IP, SSH user and key path
+deploy/lailalms-ops-runbook.md
