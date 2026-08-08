@@ -986,5 +986,6 @@
   "daily_activity_resources": "Päivittäinen aktiivisuus resursseittain (Top 10)",
   "daily_activity_types": "Päivittäinen aktiivisuus tyypeittäin",
   "day_label": "Päivä",
-  "detail_top_resources": "Suosituimmat resurssit"
+  "detail_top_resources": "Suosituimmat resurssit",
+  "view_user_analytics": "Näytä käyttäjän analytiikka →"
 }

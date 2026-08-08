@@ -1043,6 +1043,11 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId, embedded
               isLoading={eventsLoading}
               resolveState={(verb, obj) => resolveInterpretation(`${verb}:${obj}`, interpretations) ?? `${verb}_${obj}`}
               palette={palette}
+              onSelectUser={isStudent ? undefined : (user) => {
+                setSelectedResource(null);
+                setSelectedUser(user);
+                setActiveTab('resources');
+              }}
             />
 
             {/* Row 3.6: Daily stacked-area curves (ported from Carmdash) */}

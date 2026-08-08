@@ -986,5 +986,6 @@
   "daily_activity_resources": "Daily Activity by Resource (Top 10)",
   "daily_activity_types": "Daily Activity by Type",
   "day_label": "Day",
-  "detail_top_resources": "Top Resources"
+  "detail_top_resources": "Top Resources",
+  "view_user_analytics": "View user analytics →"
 }

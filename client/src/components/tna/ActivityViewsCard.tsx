@@ -16,6 +16,8 @@ interface ActivityViewsCardProps {
   /** Maps a verb + objectType to a learning state (Dashboard's interpretation chain) */
   resolveState: (verb: string, objectType: string) => string;
   palette: PaletteName;
+  /** Open the analytics drill-down for one user (bubble clicks) */
+  onSelectUser?: (user: { userId: number; name: string }) => void;
 }
 
 type ViewMode = 'heatmap' | 'swarm' | 'calendar';
@@ -23,6 +25,8 @@ type ViewMode = 'heatmap' | 'swarm' | 'calendar';
 interface DetailState {
   title: string;
   events: ActivityEvent[];
+  /** Set when the detail came from a bubble click on one student. */
+  student?: { userId: number; name: string };
 }
 
 const toggleClass = (active: boolean) =>
@@ -39,7 +43,7 @@ const toggleClass = (active: boolean) =>
  * (activityViews.ts / activityGridRender.ts / carm/calendar-treemap.ts);
  * this component only owns the React controls around it.
  */
-export const ActivityViewsCard = ({ events, isLoading, resolveState, palette }: ActivityViewsCardProps) => {
+export const ActivityViewsCard = ({ events, isLoading, resolveState, palette, onSelectUser }: ActivityViewsCardProps) => {
   const { t } = useTranslation(['admin']);
   const [mode, setMode] = useState<ViewMode>('swarm');
   const [timeMode, setTimeMode] = useState<TimeMode>('day_hour');
@@ -92,7 +96,10 @@ export const ActivityViewsCard = ({ events, isLoading, resolveState, palette }: 
       if (filter.row !== undefined && cell[1] !== filter.row) return false;
       return true;
     });
-    setDetail(evs.length > 0 ? { title, events: evs } : null);
+    const student = studentFill && evs.length > 0
+      ? { userId: evs[0].userId, name: studentFill }
+      : undefined;
+    setDetail(evs.length > 0 ? { title, events: evs, student } : null);
   };
 
   /* Render the active view into the container. */
@@ -228,7 +235,17 @@ export const ActivityViewsCard = ({ events, isLoading, resolveState, palette }: 
         <div className="mt-3 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
           <div className="flex items-center justify-between mb-2">
             <strong className="text-sm text-gray-800 dark:text-gray-100">{detail.title}</strong>
-            <button className={toggleClass(false)} onClick={() => setDetail(null)}>✕</button>
+            <div className="flex items-center gap-1">
+              {detail.student && onSelectUser && (
+                <button
+                  className="px-2.5 py-1 rounded-md text-xs font-medium text-primary-700 dark:text-primary-400 hover:underline"
+                  onClick={() => onSelectUser(detail.student!)}
+                >
+                  {t('admin:view_user_analytics')}
+                </button>
+              )}
+              <button className={toggleClass(false)} onClick={() => setDetail(null)}>✕</button>
+            </div>
           </div>
           <div className="flex gap-6 mb-3">
             <div>

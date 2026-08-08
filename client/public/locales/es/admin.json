@@ -986,5 +986,6 @@
   "daily_activity_resources": "Actividad diaria por recurso (Top 10)",
   "daily_activity_types": "Actividad diaria por tipo",
   "day_label": "Día",
-  "detail_top_resources": "Recursos principales"
+  "detail_top_resources": "Recursos principales",
+  "view_user_analytics": "Ver analítica del usuario →"
 }
