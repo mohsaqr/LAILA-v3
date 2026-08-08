@@ -3,16 +3,17 @@
   "carmLicense": "# Carm Research License v1.4\n\nCopyright (c) 2025–2026 Professor Mohammed Saqr, PhD. All rights reserved.\nhttps://saqr.me | saqr@saqr.me\n\nThis License applies to Carm and all associated products, libraries, tools, and components in the Carm ecosystem (collectively, the \"Software\").\n\n## DEFINITIONS\n\n\"Non-commercial use\" means use that is not intended for or directed toward commercial advantage or monetary compensation. It includes academic research, teaching and classroom use, personal learning, student coursework, and use by non-profit organizations and NGOs.\n\nResearch and teaching carried out at an academic or non-profit institution is non-commercial regardless of how it is funded. Public grants, charitable funding, institutional funding, industry-sponsored or collaboratively funded projects, and industry-sponsored doctoral work all remain within this grant, and nothing here depends on whether or when the results are published.\n\nUse is commercial, and requires a paid license, where the Software is used by or on behalf of a for-profit entity for its own business purposes, is incorporated into a product or service offered for a fee, or is used to deliver paid consulting or contract work. Where the character of a particular use is unclear, contact the copyright holder.\n\n## GRANT FOR RESEARCH AND EDUCATION\n\nPermission is hereby granted, free of charge, to use, copy, and distribute the Software for non-commercial purposes.\n\nThis grant is subject to the following conditions: (1) this License, the copyright notice, and the third-party notices required under THIRD-PARTY COMPONENTS shall be included in all copies of the Software; (2) attribution must be provided as set out in ATTRIBUTION AND CITATION below; and (3) the Software may not be sublicensed, resold, or offered as a service without written permission from the copyright holder.\n\nAll outputs produced by the Software, including notebooks, reports, tables, charts, exports, and statistical results, are the user's own and may be freely shared, published, distributed, or otherwise used without restriction. The user assumes sole responsibility for the accuracy, interpretation, use, and distribution of such outputs.\n\nThe copyright holder makes no representation regarding the correctness, completeness, reproducibility, or suitability of any analyses performed using the Software. Users are solely responsible for validating all results before publication, regulatory submission, clinical use, or other consequential decisions.\n\n## PAID LICENSE REQUIRED\n\nA separate paid license is required for any commercial use, including use in commercial products or services, consulting or contract work that generates revenue, and use by for-profit organizations for their own business purposes.\n\nFor the avoidance of doubt, research and teaching at an academic or non-profit institution does not require a paid license by reason of its funding source. Industry-sponsored, collaboratively funded, and jointly funded academic projects fall within the free grant.\n\nEmbedding, repurposing, or integrating the Software or its components into other software, platforms, or products requires explicit written approval from the copyright holder, whether or not the resulting work is distributed commercially.\n\n## INTELLECTUAL PROPERTY\n\nThe Software, including its source code, algorithms, architecture, design, and documentation, is and shall remain the sole property of Professor Mohammed Saqr, subject only to the rights of third parties in the components identified under THIRD-PARTY COMPONENTS. No rights, title, or interest are transferred except the limited license granted herein.\n\nReverse engineering, decompilation, disassembly, translation, modification, circumvention of technical protection measures, or any other attempt to derive, reconstruct, or extract the source code, algorithms, architecture, or underlying implementation of the Software is prohibited, except to the extent such restriction is prohibited by applicable law.\n\nCreating derivative works based on the Software, and extracting or reusing any portion of the Software — including individual functions, algorithms, numerical constants, coefficients, or parameter values — in any other software, library, or service, is prohibited without written permission, except to the extent such restriction is prohibited by applicable law.\n\n## MACHINE LEARNING AND AUTOMATED PROCESSING\n\nThe Software and its source code may not be used to train, fine-tune, or evaluate machine-learning models, nor incorporated into any dataset assembled for that purpose, without written permission from the copyright holder.\n\nThis restriction applies to the Software itself. It does not apply to outputs the user generates by running the Software on the user's own data, which remain governed by the GRANT FOR RESEARCH AND EDUCATION above.\n\n## THIRD-PARTY COMPONENTS\n\nThe Software incorporates third-party open-source components that remain the property of their respective authors and are licensed under their own terms. Those terms are reproduced in the distributed artifacts, and nothing in this License limits the rights granted, or the obligations imposed, by them.\n\nAs of this version, the distributed CarmNote artifacts incorporate D3.js (https://d3js.org), licensed under the ISC License, Copyright 2010–2026 Mike Bostock and Copyright 2018–2021 Observable, Inc.\n\n## ATTRIBUTION AND CITATION\n\nAny publication or report presenting results generated by the Software must acknowledge it as: \"Analysis performed using Carm (https://saqr.me)\".\n\nWhere the work makes substantive use of CarmNote, the following citation should also be included:\n\nSaqr, M., & Lopez-Pernas, S. (2026). CarmNote: A Portable, Reproducible, Single-File Computational Software Purely in JavaScript. The 26th International Symposium on Computers in Education (SIIE 2026).\n\n## TERMINATION\n\nThis License terminates automatically upon violation of its terms. Upon termination, the user must cease all use and destroy all copies.\n\nThe DEFINITIONS, INTELLECTUAL PROPERTY, MACHINE LEARNING AND AUTOMATED PROCESSING, THIRD-PARTY COMPONENTS, DISCLAIMER, SEVERABILITY, and GOVERNING LAW sections survive termination of this License.\n\n## AMENDMENTS\n\nThe copyright holder reserves the right to amend the terms of this License. Any such amendments shall apply prospectively to copies of the Software obtained or updated after the effective date of the amendment. Prior versions shall remain governed by the License terms in effect at the time of acquisition.\n\n## DISCLAIMER\n\nTHE SOFTWARE IS PROVIDED \"AS IS,\" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE COPYRIGHT HOLDER SHALL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES, OR FOR ANY LOSS OF DATA, PROFITS, OR BUSINESS INTERRUPTION, ARISING FROM OR RELATED TO THE USE OF THE SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES. THE COPYRIGHT HOLDER HAS NO OBLIGATION TO PROVIDE SUPPORT, MAINTENANCE, OR UPDATES.\n\nThe Software is under active development and continuous improvement. Features, functionality, interfaces, algorithms, and documentation may be added, modified, improved, or discontinued without notice, and some functionality may be experimental or subject to change. Users are responsible for validating the suitability and accuracy of the Software and any results produced for their intended use.\n\n## SEVERABILITY\n\nIf any provision of this License is held invalid or unenforceable in any jurisdiction, that provision shall be modified to the minimum extent necessary to make it enforceable, or severed if modification is not possible. The remaining provisions shall continue in full force and effect, and the invalidity of a provision in one jurisdiction shall not affect its validity in any other.\n\n## GOVERNING LAW\n\nThis License is governed by the laws of Finland, excluding its conflict-of-laws rules and the United Nations Convention on Contracts for the International Sale of Goods. The courts of Finland shall have exclusive jurisdiction over any dispute arising under it, without prejudice to any mandatory consumer or statutory protections available to the user under the law of their place of residence.\n\n## CONTACT\n\nFor paid licensing, institutional agreements, or inquiries:\n\nProfessor Mohammed Saqr, PhD\nhttps://saqr.me\nsaqr@saqr.me",
   "carmLicenseVersion": "Carm Research License v1.4",
   "counts": {
-    "total": 53,
-    "client": 32,
+    "total": 56,
+    "client": 35,
     "server": 21
   },
   "byLicense": {
     "MIT": 43,
     "Apache-2.0": 4,
+    "ISC": 3,
     "(MPL-2.0 OR Apache-2.0)": 1,
-    "ISC": 1,
     "MPL-2.0": 1,
+    "SEE LICENSE IN LICENSE": 1,
     "GPL-2.0 / GPL-3.0 (bundles R)": 1,
     "BSD-2-Clause": 1,
     "MIT-0": 1
@@ -95,6 +96,18 @@
       "version": "1.19.0",
       "license": "MIT",
       "homepage": "https://axios-http.com"
+    },
+    {
+      "name": "d3-polygon",
+      "version": "3.0.1",
+      "license": "ISC",
+      "homepage": "https://d3js.org/d3-polygon/"
+    },
+    {
+      "name": "d3-selection",
+      "version": "3.0.0",
+      "license": "ISC",
+      "homepage": "https://d3js.org/d3-selection/"
     },
     {
       "name": "dompurify",
@@ -197,6 +210,12 @@
       "version": "4.8.3",
       "license": "MIT",
       "homepage": "https://github.com/socketio/socket.io/tree/main/packages/socket.io-client#readme"
+    },
+    {
+      "name": "tnaj",
+      "version": "1.3.3",
+      "license": "SEE LICENSE IN LICENSE",
+      "homepage": null
     },
     {
       "name": "webr",

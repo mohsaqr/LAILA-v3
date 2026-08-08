@@ -693,7 +693,7 @@ export const activityLogApi = {
   },
 
   getTopResources: async (filters?: { courseId?: number; userId?: number; startDate?: string; endDate?: string; limit?: number }): Promise<{
-    data: Array<{ objectType: string; objectTitle: string; objectId: number | null; count: number; uniqueUsers: number }>;
+    data: Array<{ objectType: string; objectTitle: string; objectId: number | null; courseId: number | null; lectureId: number | null; count: number; uniqueUsers: number }>;
   }> => {
     const params = new URLSearchParams();
     if (filters?.courseId) params.append('courseId', filters.courseId.toString());
@@ -702,6 +702,95 @@ export const activityLogApi = {
     if (filters?.endDate) params.append('endDate', filters.endDate);
     if (filters?.limit) params.append('limit', filters.limit.toString());
     const response = await apiClient.get<any>(`/activity-log/top-resources?${params.toString()}`);
+    return response.data.data;
+  },
+
+  getResourceMetrics: async (filters?: { courseId?: number; userId?: number; startDate?: string; endDate?: string; limit?: number }): Promise<{
+    data: Array<{
+      objectType: string;
+      objectTitle: string;
+      objectId: number | null;
+      courseId: number | null;
+      lectureId: number | null;
+      count: number;
+      uniqueUsers: number;
+      uniqueSessions: number;
+      firstAccess: number;
+      lastAccess: number;
+      totalDuration: number;
+      verbCounts: Record<string, number>;
+    }>;
+  }> => {
+    const params = new URLSearchParams();
+    if (filters?.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters?.userId) params.append('userId', filters.userId.toString());
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    const response = await apiClient.get<any>(`/activity-log/resource-metrics?${params.toString()}`);
+    return response.data.data;
+  },
+
+  getResourceDetail: async (filters: {
+    objectType: string; objectId?: number | null; objectTitle?: string;
+    courseId?: number; userId?: number; startDate?: string; endDate?: string;
+  }): Promise<{
+    summary: {
+      count: number; uniqueUsers: number; uniqueSessions: number;
+      firstAccess: number | null; lastAccess: number | null; totalDuration: number;
+    };
+    verbCounts: Record<string, number>;
+    topUsers: Array<{ userId: number; name: string; count: number }>;
+    daily: { days: string[]; verbs: string[]; series: Record<string, number[]> };
+    hourly: { data: Array<{ dow: number; hour: number; count: number }> };
+  }> => {
+    const params = new URLSearchParams();
+    params.append('objectType', filters.objectType);
+    if (filters.objectId !== undefined) params.append('objectId', filters.objectId === null ? 'null' : filters.objectId.toString());
+    if (filters.objectTitle) params.append('objectTitle', filters.objectTitle);
+    if (filters.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters.userId) params.append('userId', filters.userId.toString());
+    if (filters.startDate) params.append('startDate', filters.startDate);
+    if (filters.endDate) params.append('endDate', filters.endDate);
+    params.append('timezone', Intl.DateTimeFormat().resolvedOptions().timeZone);
+    const response = await apiClient.get<any>(`/activity-log/resource-detail?${params.toString()}`);
+    return response.data.data;
+  },
+
+  getUserDetail: async (filters: {
+    userId: number; courseId?: number; startDate?: string; endDate?: string;
+  }): Promise<{
+    summary: {
+      count: number; uniqueSessions: number; courses: number;
+      firstAccess: number | null; lastAccess: number | null; totalDuration: number;
+    };
+    verbObjectCounts: Array<{ verb: string; objectType: string; count: number }>;
+    daily: { days: string[]; verbs: string[]; series: Record<string, number[]> };
+    hourly: { data: Array<{ dow: number; hour: number; count: number }> };
+    topResources: Array<{ objectType: string; objectTitle: string; objectId: number | null; courseId: number | null; lectureId: number | null; count: number; uniqueUsers: number }>;
+  }> => {
+    const params = new URLSearchParams();
+    params.append('userId', filters.userId.toString());
+    if (filters.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters.startDate) params.append('startDate', filters.startDate);
+    if (filters.endDate) params.append('endDate', filters.endDate);
+    params.append('timezone', Intl.DateTimeFormat().resolvedOptions().timeZone);
+    const response = await apiClient.get<any>(`/activity-log/user-detail?${params.toString()}`);
+    return response.data.data;
+  },
+
+  getTopUsers: async (filters?: {
+    courseId?: number; startDate?: string; endDate?: string; search?: string; limit?: number;
+  }): Promise<{
+    data: Array<{ userId: number; name: string; email: string | null; count: number; uniqueSessions: number; lastActive: number }>;
+  }> => {
+    const params = new URLSearchParams();
+    if (filters?.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    const response = await apiClient.get<any>(`/activity-log/top-users?${params.toString()}`);
     return response.data.data;
   },
 

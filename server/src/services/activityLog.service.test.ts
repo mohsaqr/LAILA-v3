@@ -24,6 +24,7 @@ vi.mock('../utils/prisma.js', () => ({
       count: vi.fn(),
       groupBy: vi.fn(),
     },
+    $queryRawUnsafe: vi.fn(),
   },
 }));
 
@@ -786,6 +787,230 @@ describe('ActivityLogService', () => {
         })
       );
     });
+  });
+});
+
+describe('getResourceMetrics', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const resourceRow = {
+    objectType: 'lecture',
+    objectTitle: 'Intro to TNA',
+    objectId: 7,
+    count: 40n,
+    uniqueUsers: 12n,
+    uniqueSessions: 20n,
+    firstAccess: new Date('2026-08-01T10:00:00Z'),
+    lastAccess: new Date('2026-08-07T09:30:00Z'),
+    totalDuration: 3600n,
+  };
+
+  it('merges per-resource aggregates with the verb breakdown', async () => {
+    vi.mocked(prisma.$queryRawUnsafe)
+      .mockResolvedValueOnce([resourceRow] as any)
+      .mockResolvedValueOnce([
+        { objectType: 'lecture', objectTitle: 'Intro to TNA', objectId: 7, verb: 'viewed', count: 30n },
+        { objectType: 'lecture', objectTitle: 'Intro to TNA', objectId: 7, verb: 'completed', count: 10n },
+      ] as any);
+
+    const result = await activityLogService.getResourceMetrics({ courseId: 3 });
+
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]).toMatchObject({
+      objectType: 'lecture',
+      objectTitle: 'Intro to TNA',
+      objectId: 7,
+      count: 40,
+      uniqueUsers: 12,
+      uniqueSessions: 20,
+      totalDuration: 3600,
+      verbCounts: { viewed: 30, completed: 10 },
+    });
+    expect(result.data[0].firstAccess).toBe(new Date('2026-08-01T10:00:00Z').getTime());
+    expect(result.data[0].lastAccess).toBe(new Date('2026-08-07T09:30:00Z').getTime());
+  });
+
+  it('normalizes SQLite epoch-ms timestamps the same as Postgres Dates', async () => {
+    vi.mocked(prisma.$queryRawUnsafe)
+      .mockResolvedValueOnce([{ ...resourceRow, firstAccess: 1754042400000, lastAccess: 1754559000000 }] as any)
+      .mockResolvedValueOnce([] as any);
+
+    const result = await activityLogService.getResourceMetrics();
+
+    expect(result.data[0].firstAccess).toBe(1754042400000);
+    expect(result.data[0].lastAccess).toBe(1754559000000);
+    expect(result.data[0].verbCounts).toEqual({});
+  });
+
+  it('excludes untitled rows via the WHERE clause and passes filters through', async () => {
+    vi.mocked(prisma.$queryRawUnsafe)
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([] as any);
+
+    await activityLogService.getResourceMetrics({ courseId: 5, userId: 9, limit: 50 });
+
+    const [sql, ...args] = vi.mocked(prisma.$queryRawUnsafe).mock.calls[0];
+    expect(sql).toContain("object_title IS NOT NULL");
+    expect(sql).toContain("object_title != ''");
+    expect(sql).toContain('COUNT(DISTINCT user_id)');
+    expect(args).toEqual([5, 9, 50]);
+
+    // Second query reuses the same filters but must not receive the limit.
+    const secondArgs = vi.mocked(prisma.$queryRawUnsafe).mock.calls[1].slice(1);
+    expect(secondArgs).toEqual([5, 9]);
+  });
+
+  it('keeps resources with the same title but different ids separate', async () => {
+    vi.mocked(prisma.$queryRawUnsafe)
+      .mockResolvedValueOnce([
+        { ...resourceRow, objectId: 1, count: 10n },
+        { ...resourceRow, objectId: 2, count: 5n },
+      ] as any)
+      .mockResolvedValueOnce([
+        { objectType: 'lecture', objectTitle: 'Intro to TNA', objectId: 1, verb: 'viewed', count: 10n },
+        { objectType: 'lecture', objectTitle: 'Intro to TNA', objectId: 2, verb: 'started', count: 5n },
+      ] as any);
+
+    const result = await activityLogService.getResourceMetrics();
+
+    expect(result.data[0].verbCounts).toEqual({ viewed: 10 });
+    expect(result.data[1].verbCounts).toEqual({ started: 5 });
+  });
+});
+
+describe('getResourceDetail', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('scopes every query to the resource identity and assembles the drill-down', async () => {
+    vi.mocked(prisma.$queryRawUnsafe)
+      // summary
+      .mockResolvedValueOnce([{
+        count: 25n, uniqueUsers: 8n, uniqueSessions: 12n,
+        firstAccess: new Date('2026-08-01T00:00:00Z'), lastAccess: new Date('2026-08-07T00:00:00Z'),
+        totalDuration: 900n,
+      }] as any)
+      // verbs
+      .mockResolvedValueOnce([
+        { verb: 'viewed', count: 20n },
+        { verb: 'completed', count: 5n },
+      ] as any)
+      // top users
+      .mockResolvedValueOnce([
+        { userId: 119n, name: 'hamada', count: 9n },
+      ] as any)
+      // daily (getDailyCounts)
+      .mockResolvedValueOnce([{ day: '2026-08-01', verb: 'viewed', count: 20n }] as any)
+      // hourly (getHourlyCounts)
+      .mockResolvedValueOnce([{ dow: 1n, hour: 10n, count: 7n }] as any);
+
+    const result = await activityLogService.getResourceDetail({
+      objectType: 'lecture', objectId: 7, objectTitle: 'Intro to TNA', courseId: 3,
+    });
+
+    expect(result.summary).toMatchObject({ count: 25, uniqueUsers: 8, uniqueSessions: 12, totalDuration: 900 });
+    expect(result.verbCounts).toEqual({ viewed: 20, completed: 5 });
+    expect(result.topUsers).toEqual([{ userId: 119, name: 'hamada', count: 9 }]);
+    expect(result.daily.days).toEqual(['2026-08-01']);
+    expect(result.hourly.data).toEqual([{ dow: 1, hour: 10, count: 7 }]);
+
+    // Every query carries the resource filter
+    for (const call of vi.mocked(prisma.$queryRawUnsafe).mock.calls) {
+      const sql = call[0] as string;
+      expect(sql).toContain('object_type =');
+      expect(sql).toContain('object_id =');
+      expect(sql).toContain('object_title =');
+      expect(call.slice(1)).toEqual([3, 'lecture', 7, 'Intro to TNA']);
+    }
+  });
+
+  it('matches rows with NULL object_id when objectId is explicitly null', async () => {
+    vi.mocked(prisma.$queryRawUnsafe).mockResolvedValue([] as any);
+
+    await activityLogService.getResourceDetail({ objectType: 'lab', objectId: null, objectTitle: 'TNA: model built' });
+
+    const sql = vi.mocked(prisma.$queryRawUnsafe).mock.calls[0][0] as string;
+    expect(sql).toContain('object_id IS NULL');
+    expect(vi.mocked(prisma.$queryRawUnsafe).mock.calls[0].slice(1)).toEqual(['lab', 'TNA: model built']);
+  });
+});
+
+describe('getUserDetail', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('assembles the per-user drill-down with the user filter on every query', async () => {
+    vi.mocked(prisma.$queryRawUnsafe)
+      // summary
+      .mockResolvedValueOnce([{
+        count: 100n, uniqueSessions: 30n, courses: 2n,
+        firstAccess: 1754042400000, lastAccess: 1754559000000, totalDuration: 0,
+      }] as any)
+      // verb×objectType
+      .mockResolvedValueOnce([
+        { verb: 'viewed', objectType: 'lecture', count: 60n },
+        { verb: 'messaged', objectType: 'chatbot', count: 40n },
+      ] as any)
+      // daily
+      .mockResolvedValueOnce([{ day: '2026-08-01', verb: 'viewed', count: 60n }] as any)
+      // hourly
+      .mockResolvedValueOnce([{ dow: 2n, hour: 14n, count: 5n }] as any)
+      // top resources
+      .mockResolvedValueOnce([{
+        objectType: 'lecture', objectTitle: 'Intro to TNA', objectId: 7,
+        courseId: 3, lectureId: null, count: 60n, uniqueUsers: 1n,
+      }] as any);
+
+    const result = await activityLogService.getUserDetail({ userId: 119, courseId: 3 });
+
+    expect(result.summary).toMatchObject({ count: 100, uniqueSessions: 30, courses: 2 });
+    expect(result.verbObjectCounts).toEqual([
+      { verb: 'viewed', objectType: 'lecture', count: 60 },
+      { verb: 'messaged', objectType: 'chatbot', count: 40 },
+    ]);
+    expect(result.topResources[0]).toMatchObject({ objectTitle: 'Intro to TNA', courseId: 3 });
+
+    for (const call of vi.mocked(prisma.$queryRawUnsafe).mock.calls) {
+      expect(call[0]).toContain('user_id =');
+      expect(call.slice(1, 3)).toEqual([3, 119]);
+    }
+  });
+});
+
+describe('getTopUsers', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('ranks users by activity and normalizes fields', async () => {
+    vi.mocked(prisma.$queryRawUnsafe).mockResolvedValueOnce([
+      { userId: 25n, name: 'Abigail Adams', email: 'a@x.edu', count: 2039n, uniqueSessions: 189n, lastActive: 1772919011795 },
+    ] as any);
+
+    const result = await activityLogService.getTopUsers({ courseId: 3 });
+
+    expect(result.data).toEqual([{
+      userId: 25, name: 'Abigail Adams', email: 'a@x.edu',
+      count: 2039, uniqueSessions: 189, lastActive: 1772919011795,
+    }]);
+    const [sql, ...args] = vi.mocked(prisma.$queryRawUnsafe).mock.calls[0];
+    expect(sql).toContain('GROUP BY user_id');
+    expect(sql).toContain('ORDER BY count DESC');
+    expect(args).toEqual([3, 10]);
+  });
+
+  it('adds a name/email search condition with both placeholders', async () => {
+    vi.mocked(prisma.$queryRawUnsafe).mockResolvedValueOnce([] as any);
+
+    await activityLogService.getTopUsers({ courseId: 3, search: 'adams', limit: 5 });
+
+    const [sql, ...args] = vi.mocked(prisma.$queryRawUnsafe).mock.calls[0];
+    expect(sql).toMatch(/user_fullname (I?LIKE) .+ OR user_email (I?LIKE)/);
+    expect(args).toEqual([3, '%adams%', '%adams%', 5]);
   });
 });
 

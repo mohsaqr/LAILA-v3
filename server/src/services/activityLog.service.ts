@@ -400,7 +400,10 @@ class ActivityLogService {
   /**
    * Get daily activity counts grouped by verb.
    */
-  private buildFilters(filters?: { courseId?: number; userId?: number; startDate?: Date; endDate?: Date }) {
+  private buildFilters(filters?: {
+    courseId?: number; userId?: number; startDate?: Date; endDate?: Date;
+    objectType?: string; objectId?: number | null; objectTitle?: string;
+  }) {
     const conditions: string[] = [];
     const params: (string | number | Date)[] = [];
     let idx = 1;
@@ -413,6 +416,22 @@ class ActivityLogService {
     if (filters?.userId) {
       conditions.push(`user_id = ${ph()}`);
       params.push(filters.userId);
+    }
+    if (filters?.objectType) {
+      conditions.push(`object_type = ${ph()}`);
+      params.push(filters.objectType);
+    }
+    if (filters?.objectId !== undefined) {
+      if (filters.objectId === null) {
+        conditions.push('object_id IS NULL');
+      } else {
+        conditions.push(`object_id = ${ph()}`);
+        params.push(filters.objectId);
+      }
+    }
+    if (filters?.objectTitle) {
+      conditions.push(`object_title = ${ph()}`);
+      params.push(filters.objectTitle);
     }
     if (filters?.startDate) {
       conditions.push(`timestamp >= ${ph()}`);
@@ -542,12 +561,16 @@ class ActivityLogService {
       objectType: string;
       objectTitle: string | null;
       objectId: number | null;
+      courseId: number | bigint | null;
+      lectureId: number | bigint | null;
       count: bigint;
       uniqueUsers: bigint;
     }>>(
       `SELECT object_type as "objectType",
               object_title as "objectTitle",
               object_id as "objectId",
+              MAX(course_id) as "courseId",
+              MAX(lecture_id) as "lectureId",
               COUNT(*) as count,
               COUNT(DISTINCT user_id) as "uniqueUsers"
        FROM learning_activity_logs
@@ -563,8 +586,312 @@ class ActivityLogService {
         objectType: r.objectType,
         objectTitle: r.objectTitle ?? 'Unknown',
         objectId: r.objectId ? Number(r.objectId) : null,
+        courseId: r.courseId != null ? Number(r.courseId) : null,
+        lectureId: r.lectureId != null ? Number(r.lectureId) : null,
         count: Number(r.count),
         uniqueUsers: Number(r.uniqueUsers),
+      })),
+    };
+  }
+
+  /**
+   * Per-resource usage metrics for the analytics Resources tab: one row per
+   * (objectType, objectId, objectTitle) with volume, reach, recency and a
+   * verb breakdown the client maps onto learning states.
+   */
+  async getResourceMetrics(filters?: { courseId?: number; userId?: number; startDate?: Date; endDate?: Date; limit?: number }) {
+    const { whereClause: baseWhere, params, ph } = this.buildFilters(filters);
+
+    // Rows without a title are navigation/system events, not content resources.
+    const extraConditions = ["object_title IS NOT NULL", "object_title != ''"];
+    const whereClause = baseWhere
+      ? `${baseWhere} AND ${extraConditions.join(' AND ')}`
+      : `WHERE ${extraConditions.join(' AND ')}`;
+
+    const lim = filters?.limit ?? 200;
+    const limPh = ph();
+
+    const rows = await prisma.$queryRawUnsafe<Array<{
+      objectType: string;
+      objectTitle: string | null;
+      objectId: number | null;
+      courseId: number | bigint | null;
+      lectureId: number | bigint | null;
+      count: bigint;
+      uniqueUsers: bigint;
+      uniqueSessions: bigint;
+      firstAccess: Date | number | string;
+      lastAccess: Date | number | string;
+      totalDuration: bigint | number | null;
+    }>>(
+      `SELECT object_type as "objectType",
+              object_title as "objectTitle",
+              object_id as "objectId",
+              MAX(course_id) as "courseId",
+              MAX(lecture_id) as "lectureId",
+              COUNT(*) as count,
+              COUNT(DISTINCT user_id) as "uniqueUsers",
+              COUNT(DISTINCT session_id) as "uniqueSessions",
+              MIN(timestamp) as "firstAccess",
+              MAX(timestamp) as "lastAccess",
+              COALESCE(SUM(duration), 0) as "totalDuration"
+       FROM learning_activity_logs
+       ${whereClause}
+       GROUP BY object_type, object_title, object_id
+       ORDER BY count DESC
+       LIMIT ${limPh}`,
+      ...params, lim,
+    );
+
+    // Second pass: verb breakdown per resource (COUNT DISTINCT above cannot be
+    // combined with a verb grouping in one query without inflating uniqueUsers).
+    const verbRows = await prisma.$queryRawUnsafe<Array<{
+      objectType: string;
+      objectTitle: string | null;
+      objectId: number | null;
+      verb: string;
+      count: bigint;
+    }>>(
+      `SELECT object_type as "objectType",
+              object_title as "objectTitle",
+              object_id as "objectId",
+              verb,
+              COUNT(*) as count
+       FROM learning_activity_logs
+       ${whereClause}
+       GROUP BY object_type, object_title, object_id, verb`,
+      ...params,
+    );
+
+    const resourceKey = (r: { objectType: string; objectTitle: string | null; objectId: number | null }) =>
+      `${r.objectType} ${r.objectTitle ?? ''} ${r.objectId ?? ''}`;
+
+    const verbCountsByKey = new Map<string, Record<string, number>>();
+    for (const vr of verbRows) {
+      const key = resourceKey(vr);
+      const counts = verbCountsByKey.get(key) ?? {};
+      counts[vr.verb] = (counts[vr.verb] ?? 0) + Number(vr.count);
+      verbCountsByKey.set(key, counts);
+    }
+
+    // Timestamps come back as Date (PostgreSQL) or epoch-ms number (SQLite).
+    const toMs = (v: Date | number | string): number =>
+      v instanceof Date ? v.getTime() : typeof v === 'string' ? new Date(v).getTime() : Number(v);
+
+    return {
+      data: rows.map(r => ({
+        objectType: r.objectType,
+        objectTitle: r.objectTitle ?? 'Unknown',
+        objectId: r.objectId !== null && r.objectId !== undefined ? Number(r.objectId) : null,
+        courseId: r.courseId != null ? Number(r.courseId) : null,
+        lectureId: r.lectureId != null ? Number(r.lectureId) : null,
+        count: Number(r.count),
+        uniqueUsers: Number(r.uniqueUsers),
+        uniqueSessions: Number(r.uniqueSessions),
+        firstAccess: toMs(r.firstAccess),
+        lastAccess: toMs(r.lastAccess),
+        totalDuration: Number(r.totalDuration ?? 0),
+        verbCounts: verbCountsByKey.get(resourceKey(r)) ?? {},
+      })),
+    };
+  }
+
+  /**
+   * Analytics drill-down for ONE resource (identified by objectType +
+   * objectId + objectTitle): summary numbers, verb breakdown, daily series,
+   * day×hour heatmap, and top users. The resource identity rides through
+   * buildFilters, so the daily/hourly shapes match the dashboard-wide ones.
+   */
+  async getResourceDetail(filters: {
+    objectType: string; objectId?: number | null; objectTitle?: string;
+    courseId?: number; userId?: number; startDate?: Date; endDate?: Date; timezone?: string;
+  }) {
+    const { whereClause, params } = this.buildFilters(filters);
+
+    const [summaryRows, verbRows, userRows, daily, hourly] = await Promise.all([
+      prisma.$queryRawUnsafe<Array<{
+        count: bigint; uniqueUsers: bigint; uniqueSessions: bigint;
+        firstAccess: Date | number | string | null; lastAccess: Date | number | string | null;
+        totalDuration: bigint | number | null;
+      }>>(
+        `SELECT COUNT(*) as count,
+                COUNT(DISTINCT user_id) as "uniqueUsers",
+                COUNT(DISTINCT session_id) as "uniqueSessions",
+                MIN(timestamp) as "firstAccess",
+                MAX(timestamp) as "lastAccess",
+                COALESCE(SUM(duration), 0) as "totalDuration"
+         FROM learning_activity_logs
+         ${whereClause}`,
+        ...params,
+      ),
+      prisma.$queryRawUnsafe<Array<{ verb: string; count: bigint }>>(
+        `SELECT verb, COUNT(*) as count
+         FROM learning_activity_logs
+         ${whereClause}
+         GROUP BY verb`,
+        ...params,
+      ),
+      prisma.$queryRawUnsafe<Array<{ userId: number | bigint; name: string | null; count: bigint }>>(
+        `SELECT user_id as "userId", MAX(user_fullname) as name, COUNT(*) as count
+         FROM learning_activity_logs
+         ${whereClause}
+         GROUP BY user_id
+         ORDER BY count DESC
+         LIMIT 10`,
+        ...params,
+      ),
+      this.getDailyCounts(filters),
+      this.getHourlyCounts(filters),
+    ]);
+
+    const toMs = (v: Date | number | string | null): number | null =>
+      v == null ? null : v instanceof Date ? v.getTime() : typeof v === 'string' ? new Date(v).getTime() : Number(v);
+
+    const s = summaryRows[0];
+    const verbCounts: Record<string, number> = {};
+    for (const vr of verbRows) verbCounts[vr.verb] = Number(vr.count);
+
+    return {
+      summary: {
+        count: Number(s?.count ?? 0),
+        uniqueUsers: Number(s?.uniqueUsers ?? 0),
+        uniqueSessions: Number(s?.uniqueSessions ?? 0),
+        firstAccess: toMs(s?.firstAccess ?? null),
+        lastAccess: toMs(s?.lastAccess ?? null),
+        totalDuration: Number(s?.totalDuration ?? 0),
+      },
+      verbCounts,
+      topUsers: userRows.map(u => ({
+        userId: Number(u.userId),
+        name: u.name ?? 'Unknown',
+        count: Number(u.count),
+      })),
+      daily,
+      hourly,
+    };
+  }
+
+  /**
+   * Analytics drill-down for ONE user: summary numbers, verb×objectType
+   * breakdown (so the client can map to learning states accurately), daily
+   * series, day×hour heatmap, and the user's top resources.
+   */
+  async getUserDetail(filters: {
+    userId: number; courseId?: number; startDate?: Date; endDate?: Date; timezone?: string;
+  }) {
+    const { whereClause, params } = this.buildFilters(filters);
+
+    const [summaryRows, verbRows, daily, hourly, topResources] = await Promise.all([
+      prisma.$queryRawUnsafe<Array<{
+        count: bigint; uniqueSessions: bigint; courses: bigint;
+        firstAccess: Date | number | string | null; lastAccess: Date | number | string | null;
+        totalDuration: bigint | number | null;
+      }>>(
+        `SELECT COUNT(*) as count,
+                COUNT(DISTINCT session_id) as "uniqueSessions",
+                COUNT(DISTINCT course_id) as courses,
+                MIN(timestamp) as "firstAccess",
+                MAX(timestamp) as "lastAccess",
+                COALESCE(SUM(duration), 0) as "totalDuration"
+         FROM learning_activity_logs
+         ${whereClause}`,
+        ...params,
+      ),
+      prisma.$queryRawUnsafe<Array<{ verb: string; objectType: string; count: bigint }>>(
+        `SELECT verb, object_type as "objectType", COUNT(*) as count
+         FROM learning_activity_logs
+         ${whereClause}
+         GROUP BY verb, object_type`,
+        ...params,
+      ),
+      this.getDailyCounts(filters),
+      this.getHourlyCounts(filters),
+      this.getTopResources({ ...filters, limit: 10 }),
+    ]);
+
+    const toMs = (v: Date | number | string | null): number | null =>
+      v == null ? null : v instanceof Date ? v.getTime() : typeof v === 'string' ? new Date(v).getTime() : Number(v);
+
+    const s = summaryRows[0];
+    return {
+      summary: {
+        count: Number(s?.count ?? 0),
+        uniqueSessions: Number(s?.uniqueSessions ?? 0),
+        courses: Number(s?.courses ?? 0),
+        firstAccess: toMs(s?.firstAccess ?? null),
+        lastAccess: toMs(s?.lastAccess ?? null),
+        totalDuration: Number(s?.totalDuration ?? 0),
+      },
+      verbObjectCounts: verbRows.map(vr => ({
+        verb: vr.verb,
+        objectType: vr.objectType,
+        count: Number(vr.count),
+      })),
+      daily,
+      hourly,
+      topResources: topResources.data,
+    };
+  }
+
+  /**
+   * Most-active users, optionally narrowed by a name/email search. One
+   * endpoint serves both the "top users" list (no search) and user search
+   * (results still ranked by activity).
+   */
+  async getTopUsers(filters?: {
+    courseId?: number; userId?: number; startDate?: Date; endDate?: Date;
+    search?: string; limit?: number;
+  }) {
+    const { whereClause: baseWhere, params, ph } = this.buildFilters(filters);
+
+    const conditions: string[] = [];
+    if (filters?.search) {
+      const like = isPostgres ? 'ILIKE' : 'LIKE';
+      const p1 = ph(), p2 = ph();
+      conditions.push(`(user_fullname ${like} ${p1} OR user_email ${like} ${p2})`);
+      const needle = `%${filters.search}%`;
+      params.push(needle, needle);
+    }
+    const whereClause = conditions.length === 0 ? baseWhere
+      : baseWhere ? `${baseWhere} AND ${conditions.join(' AND ')}`
+      : `WHERE ${conditions.join(' AND ')}`;
+
+    const lim = filters?.limit ?? 10;
+    const limPh = ph();
+
+    const rows = await prisma.$queryRawUnsafe<Array<{
+      userId: number | bigint;
+      name: string | null;
+      email: string | null;
+      count: bigint;
+      uniqueSessions: bigint;
+      lastActive: Date | number | string;
+    }>>(
+      `SELECT user_id as "userId",
+              MAX(user_fullname) as name,
+              MAX(user_email) as email,
+              COUNT(*) as count,
+              COUNT(DISTINCT session_id) as "uniqueSessions",
+              MAX(timestamp) as "lastActive"
+       FROM learning_activity_logs
+       ${whereClause}
+       GROUP BY user_id
+       ORDER BY count DESC
+       LIMIT ${limPh}`,
+      ...params, lim,
+    );
+
+    const toMs = (v: Date | number | string): number =>
+      v instanceof Date ? v.getTime() : typeof v === 'string' ? new Date(v).getTime() : Number(v);
+
+    return {
+      data: rows.map(r => ({
+        userId: Number(r.userId),
+        name: r.name ?? 'Unknown',
+        email: r.email ?? null,
+        count: Number(r.count),
+        uniqueSessions: Number(r.uniqueSessions),
+        lastActive: toMs(r.lastActive),
       })),
     };
   }

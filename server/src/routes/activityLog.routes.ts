@@ -325,6 +325,111 @@ router.get('/top-resources', authenticateToken, asyncHandler(async (req: AuthReq
 }));
 
 /**
+ * GET /api/activity-log/resource-metrics
+ * Per-resource usage metrics (volume, reach, recency, verb breakdown)
+ * for the analytics Resources tab
+ */
+router.get('/resource-metrics', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const scope = await resolveActivityLogScope(
+    req.user!,
+    req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    req.query.userId ? parseInt(req.query.userId as string) : undefined,
+  );
+
+  const filters = {
+    courseId: scope.courseId,
+    userId: scope.userId,
+    startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+    endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+    limit: req.query.limit ? parseInt(req.query.limit as string) : undefined,
+  };
+
+  const data = await activityLogService.getResourceMetrics(filters);
+  res.json({ success: true, data });
+}));
+
+/**
+ * GET /api/activity-log/resource-detail
+ * Analytics drill-down for a single resource (objectType + objectId/objectTitle)
+ */
+router.get('/resource-detail', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const objectType = req.query.objectType as string | undefined;
+  if (!objectType) {
+    res.status(400).json({ success: false, error: 'objectType is required' });
+    return;
+  }
+
+  const scope = await resolveActivityLogScope(
+    req.user!,
+    req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    req.query.userId ? parseInt(req.query.userId as string) : undefined,
+  );
+
+  const data = await activityLogService.getResourceDetail({
+    objectType,
+    // objectId=null (explicit "null") matches rows with no id; absent = don't filter on id
+    objectId: req.query.objectId === 'null' ? null
+      : req.query.objectId ? parseInt(req.query.objectId as string) : undefined,
+    objectTitle: (req.query.objectTitle as string) || undefined,
+    courseId: scope.courseId,
+    userId: scope.userId,
+    startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+    endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+    timezone: (req.query.timezone as string) || undefined,
+  });
+  res.json({ success: true, data });
+}));
+
+/**
+ * GET /api/activity-log/top-users
+ * Most-active users, optionally filtered by a name/email search
+ */
+router.get('/top-users', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const scope = await resolveActivityLogScope(
+    req.user!,
+    req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    req.query.userId ? parseInt(req.query.userId as string) : undefined,
+  );
+
+  const data = await activityLogService.getTopUsers({
+    courseId: scope.courseId,
+    userId: scope.userId,
+    startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+    endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+    search: (req.query.search as string) || undefined,
+    limit: req.query.limit ? parseInt(req.query.limit as string) : 10,
+  });
+  res.json({ success: true, data });
+}));
+
+/**
+ * GET /api/activity-log/user-detail
+ * Analytics drill-down for a single user (students only ever see themselves)
+ */
+router.get('/user-detail', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const scope = await resolveActivityLogScope(
+    req.user!,
+    req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    req.query.userId ? parseInt(req.query.userId as string) : undefined,
+  );
+
+  const userId = scope.userId;
+  if (!userId) {
+    res.status(400).json({ success: false, error: 'userId is required' });
+    return;
+  }
+
+  const data = await activityLogService.getUserDetail({
+    userId,
+    courseId: scope.courseId,
+    startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+    endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+    timezone: (req.query.timezone as string) || undefined,
+  });
+  res.json({ success: true, data });
+}));
+
+/**
  * GET /api/activity-log/daily-counts
  * Get daily activity counts grouped by verb
  */

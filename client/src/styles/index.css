@@ -425,3 +425,9 @@ html.dark {
 .prose .tableWrapper {
   overflow-x: auto;
 }
+
+/* tnaj plotTree SVG embeds its own <style> with a fixed dark text fill —
+   override it in dark mode so node labels stay readable on the dark card. */
+.dark .tna-tree-svg svg text {
+  fill: #d1d5db;
+}

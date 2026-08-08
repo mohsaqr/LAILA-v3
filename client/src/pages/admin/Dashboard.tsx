@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Users, Activity, Hash, Settings2, Network, GitBranch, Expand, Search, Pencil, X, TrendingUp, Clock, RefreshCw, Filter as FilterIcon } from 'lucide-react';
+import { Users, Activity, Hash, Settings2, Network, GitBranch, Expand, Search, Pencil, X, TrendingUp, Clock, RefreshCw, Filter as FilterIcon, Library } from 'lucide-react';
 import {
   tna, ftna, ctna, atna,
   centralities, prune, summary, layout as dynaLayout,
@@ -20,6 +20,9 @@ import { CentralityBarChart } from '../../components/tna/CentralityBarChart';
 import { NetworkModal, ModalShell, useEscapeClose } from '../../components/tna/NetworkModal';
 import { ClustersTab } from '../../components/tna/ClustersTab';
 import { PatternsTab } from '../../components/tna/PatternsTab';
+import { ResourcesTab } from '../../components/tna/ResourcesTab';
+import { ResourceDetail, type ResourceRef } from '../../components/tna/ResourceDetail';
+import { UserDetail, type UserRef } from '../../components/tna/UserDetail';
 import { ActivityTimelineChart } from '../../components/tna/ActivityTimelineChart';
 import { ActivityDonutChart } from '../../components/tna/ActivityDonutChart';
 import { ActivityHeatmap } from '../../components/tna/ActivityHeatmap';
@@ -33,7 +36,7 @@ import { Breadcrumb } from '../../components/common/Breadcrumb';
 /* ------------------------------------------------------------------ */
 
 type ModelType = 'relative' | 'frequency' | 'co-occurrence' | 'attention';
-type PageTab = 'activity' | 'analytics' | 'clusters' | 'patterns' | 'settings';
+type PageTab = 'activity' | 'analytics' | 'clusters' | 'patterns' | 'resources' | 'settings';
 type SequenceMode = 'verb' | 'objectType' | 'combined' | 'raw';
 
 const MODEL_BUILDERS: Record<ModelType, typeof tna> = {
@@ -354,10 +357,10 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId, embedded
 
   // Available tabs depend on mode
   const availableTabs: PageTab[] = isStudent
-    ? ['activity', 'analytics', 'patterns']
+    ? ['activity', 'analytics', 'patterns', 'resources']
     : isAdmin
-    ? ['activity', 'analytics', 'clusters', 'patterns', 'settings']
-    : ['activity', 'analytics', 'clusters', 'patterns', 'settings'];
+    ? ['activity', 'analytics', 'clusters', 'patterns', 'resources', 'settings']
+    : ['activity', 'analytics', 'clusters', 'patterns', 'resources', 'settings'];
 
   // Log page view
   useEffect(() => {
@@ -366,6 +369,11 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId, embedded
 
   // Top-level tab
   const [activeTab, setActiveTab] = useState<PageTab>('analytics');
+  // Drill-downs on the Resources tab (carmdash-style). A selected user wins
+  // over a selected resource, so clicking a user inside a resource detail
+  // opens the user view, and its back button returns to that resource.
+  const [selectedResource, setSelectedResource] = useState<ResourceRef | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserRef | null>(null);
   // Collapsible filter panel (toggled by the toolbar Filter button, like /admin/logs)
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -529,6 +537,19 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId, embedded
     staleTime: STALE_1H,
   });
 
+  const { data: resourceMetrics, isLoading: resourceMetricsLoading } = useQuery({
+    queryKey: ['resourceMetrics', courseId, effectiveUserId, startDate, endDate],
+    queryFn: () =>
+      activityLogApi.getResourceMetrics({
+        courseId,
+        userId: effectiveUserId,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      }),
+    enabled: activeTab === 'resources',
+    staleTime: STALE_1H,
+  });
+
   /** Invalidate all queries for the current tab and refetch */
   const refreshCurrentTab = () => {
     if (isActivityTab) {
@@ -537,6 +558,8 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId, embedded
       queryClient.invalidateQueries({ queryKey: ['dailyCounts'] });
       queryClient.invalidateQueries({ queryKey: ['activityStats'] });
       queryClient.invalidateQueries({ queryKey: ['topResources'] });
+    } else if (activeTab === 'resources') {
+      queryClient.invalidateQueries({ queryKey: ['resourceMetrics'] });
     } else {
       queryClient.invalidateQueries({ queryKey: ['tnaSequences'] });
     }
@@ -710,12 +733,13 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId, embedded
           style={{ borderBottom: `1px solid ${isDark ? '#374151' : '#e5e7eb'}` }}
         >
           {availableTabs.map(tab => {
-            const label = tab === 'activity' ? t('activity_tab') : tab === 'analytics' ? t('network') : tab === 'clusters' ? t('clusters_title') : tab === 'patterns' ? t('patterns_title') : t('analytics_settings');
+            const label = tab === 'activity' ? t('activity_tab') : tab === 'analytics' ? t('network') : tab === 'clusters' ? t('clusters_title') : tab === 'patterns' ? t('patterns_title') : tab === 'resources' ? t('resources_title') : t('analytics_settings');
             const icon =
               tab === 'activity' ? <Activity className="w-4 h-4" /> :
               tab === 'analytics' ? <Network className="w-4 h-4" /> :
               tab === 'clusters' ? <Hash className="w-4 h-4" /> :
               tab === 'patterns' ? <GitBranch className="w-4 h-4" /> :
+              tab === 'resources' ? <Library className="w-4 h-4" /> :
               <Settings2 className="w-4 h-4" />;
             const isActive = activeTab === tab;
             return (
@@ -1027,7 +1051,11 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId, embedded
                               <div className="relative">
                                 <div className="absolute inset-0 rounded"
                                   style={{ width: `${barPct}%`, backgroundColor: isDark ? 'rgba(90,180,172,0.15)' : 'rgba(90,180,172,0.1)' }} />
-                                <span className="relative text-gray-800 dark:text-gray-200 font-medium">{item.objectTitle}</span>
+                                <button
+                                  onClick={() => { setSelectedResource(item); setActiveTab('resources'); }}
+                                  className="relative text-primary-700 dark:text-primary-400 font-medium text-left hover:underline">
+                                  {item.objectTitle}
+                                </button>
                               </div>
                             </td>
                             <td className="py-2 px-3">
@@ -1069,6 +1097,52 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId, embedded
               )}
             </div>
           </div>
+        ) : activeTab === 'resources' ? (
+          /* ========== Resources tab (independent data source) ========== */
+          selectedUser ? (
+            <UserDetail
+              user={selectedUser}
+              filters={{
+                courseId,
+                startDate: startDate || undefined,
+                endDate: endDate || undefined,
+              }}
+              resolveState={(verb, obj) => resolveInterpretation(`${verb}:${obj}`, interpretations) ?? `${verb}_${obj}`}
+              palette={palette}
+              onBack={() => setSelectedUser(null)}
+              onSelectResource={(r) => { setSelectedResource(r); setSelectedUser(null); }}
+            />
+          ) : selectedResource ? (
+            <ResourceDetail
+              resource={selectedResource}
+              filters={{
+                courseId,
+                userId: effectiveUserId,
+                startDate: startDate || undefined,
+                endDate: endDate || undefined,
+              }}
+              resolveState={(verb, obj) => resolveInterpretation(`${verb}:${obj}`, interpretations) ?? `${verb}_${obj}`}
+              palette={palette}
+              isStudent={isStudent}
+              onBack={() => setSelectedResource(null)}
+              onSelectUser={setSelectedUser}
+            />
+          ) : (
+            <ResourcesTab
+              data={resourceMetrics?.data}
+              isLoading={resourceMetricsLoading}
+              resolveState={(verb, obj) => resolveInterpretation(`${verb}:${obj}`, interpretations) ?? `${verb}_${obj}`}
+              palette={palette}
+              isStudent={isStudent}
+              onSelect={setSelectedResource}
+              onSelectUser={setSelectedUser}
+              filters={{
+                courseId,
+                startDate: startDate || undefined,
+                endDate: endDate || undefined,
+              }}
+            />
+          )
         ) : !transformedData?.sequences?.length ? (
           <div className="text-center py-16 text-gray-500 dark:text-gray-400">
             {t('no_tna_data')}
