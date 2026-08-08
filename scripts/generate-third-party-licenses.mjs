@@ -33,6 +33,10 @@ const OVERRIDES = {
     license: 'GPL-2.0 / GPL-3.0 (bundles R)',
     note: 'Ships a WebAssembly build of R and its toolchain; see the package LICENCE.md for the full component list (R, libgfortran, PCRE2, XZ Utils and others).',
   },
+  tnaj: {
+    license: 'Carm Research License v1.4 (proprietary, first-party)',
+    note: 'First-party TNA library by the LAILA author, vendored from the private tna-js repository; see its bundled LICENSE file.',
+  },
 };
 
 /** Declared license, normalising the legacy {type} object and dual licenses. */
