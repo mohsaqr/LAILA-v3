@@ -862,7 +862,7 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId, embedded
                   'w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-1';
                 return (
                   <>
-                    {/* Course filter — hidden when caller pins a course */}
+                    {/* Course filter — replaced by a read-only course name when the caller pins a course */}
                     {!isStudent && fixedCourseId == null && (
                       <div>
                         <label className={fieldLabel} style={fieldLabelStyle}>{t('course')}</label>
@@ -874,6 +874,15 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId, embedded
                             ...(filterOptions?.courses ?? []).map((co: any) => ({ value: String(co.id), label: co.title || '' })),
                           ]}
                         />
+                      </div>
+                    )}
+                    {fixedCourseId != null && (
+                      <div>
+                        <label className={fieldLabel} style={fieldLabelStyle}>{t('course')}</label>
+                        <div className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-gray-100 truncate">
+                          {(filterOptions?.courses ?? []).find((co: any) => co.id === fixedCourseId)?.title
+                            ?? `#${fixedCourseId}`}
+                        </div>
                       </div>
                     )}
                     {/* Student filter — hidden when caller pins a user (e.g. instructor's
