@@ -453,6 +453,28 @@ router.get('/daily-counts', authenticateToken, asyncHandler(async (req: AuthRequ
 }));
 
 /**
+ * GET /api/activity-log/events
+ * Slim raw-event feed (timestamp, user, verb, objectType, objectTitle) for
+ * the client-side Carmdash visualizations. Capped at 50k rows.
+ */
+router.get('/events', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const scope = await resolveActivityLogScope(
+    req.user!,
+    req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    req.query.userId ? parseInt(req.query.userId as string) : undefined,
+  );
+
+  const data = await activityLogService.getEvents({
+    courseId: scope.courseId,
+    userId: scope.userId,
+    startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+    endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+    limit: req.query.limit ? parseInt(req.query.limit as string) : undefined,
+  });
+  res.json({ success: true, data });
+}));
+
+/**
  * GET /api/activity-log/export
  * Export logs as CSV or JSON
  */

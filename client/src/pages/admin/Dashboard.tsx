@@ -26,6 +26,8 @@ import { UserDetail, type UserRef } from '../../components/tna/UserDetail';
 import { ActivityTimelineChart } from '../../components/tna/ActivityTimelineChart';
 import { ActivityDonutChart } from '../../components/tna/ActivityDonutChart';
 import { ActivityHeatmap } from '../../components/tna/ActivityHeatmap';
+import { ActivityViewsCard } from '../../components/tna/ActivityViewsCard';
+import { ActivityCurvesCard } from '../../components/tna/ActivityCurvesCard';
 import { createColorMap, PALETTE_NAMES } from '../../components/tna/colorFix';
 import type { PaletteName } from '../../components/tna/colorFix';
 import activityLogger from '../../services/activityLogger';
@@ -537,6 +539,19 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId, embedded
     staleTime: STALE_1H,
   });
 
+  const { data: eventsFeed, isLoading: eventsLoading } = useQuery({
+    queryKey: ['activityEvents', courseId, effectiveUserId, startDate, endDate],
+    queryFn: () =>
+      activityLogApi.getEvents({
+        courseId,
+        userId: effectiveUserId,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      }),
+    enabled: isActivityTab,
+    staleTime: STALE_1H,
+  });
+
   const { data: resourceMetrics, isLoading: resourceMetricsLoading } = useQuery({
     queryKey: ['resourceMetrics', courseId, effectiveUserId, startDate, endDate],
     queryFn: () =>
@@ -558,6 +573,7 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId, embedded
       queryClient.invalidateQueries({ queryKey: ['dailyCounts'] });
       queryClient.invalidateQueries({ queryKey: ['activityStats'] });
       queryClient.invalidateQueries({ queryKey: ['topResources'] });
+      queryClient.invalidateQueries({ queryKey: ['activityEvents'] });
     } else if (activeTab === 'resources') {
       queryClient.invalidateQueries({ queryKey: ['resourceMetrics'] });
     } else {
@@ -1020,6 +1036,20 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId, embedded
                 </div>
               )}
             </div>
+
+            {/* Row 3.5: Student Activity — Heatmap | Bubbles | Calendar (ported from Carmdash) */}
+            <ActivityViewsCard
+              events={eventsFeed?.events}
+              isLoading={eventsLoading}
+              resolveState={(verb, obj) => resolveInterpretation(`${verb}:${obj}`, interpretations) ?? `${verb}_${obj}`}
+              palette={palette}
+            />
+
+            {/* Row 3.6: Daily stacked-area curves (ported from Carmdash) */}
+            <ActivityCurvesCard
+              events={eventsFeed?.events}
+              resolveState={(verb, obj) => resolveInterpretation(`${verb}:${obj}`, interpretations) ?? `${verb}_${obj}`}
+            />
 
             {/* Row 4: Top Resources */}
             {topResources && topResources.data.length > 0 && (

@@ -897,6 +897,51 @@ class ActivityLogService {
   }
 
   /**
+   * Slim raw-event feed for client-side visualizations (bubble grid,
+   * calendar treemap, stacked-area curves) ported from Carmdash, which
+   * compute their own aggregations per view. Capped like getTnaSequences
+   * so a site-wide admin query stays bounded.
+   */
+  async getEvents(filters?: {
+    courseId?: number; userId?: number; startDate?: Date; endDate?: Date; limit?: number;
+  }) {
+    const where: Prisma.LearningActivityLogWhereInput = {};
+    if (filters?.courseId) where.courseId = filters.courseId;
+    if (filters?.userId) where.userId = filters.userId;
+    if (filters?.startDate || filters?.endDate) {
+      where.timestamp = {};
+      if (filters?.startDate) where.timestamp.gte = filters.startDate;
+      if (filters?.endDate) where.timestamp.lte = filters.endDate;
+    }
+
+    const logs = await prisma.learningActivityLog.findMany({
+      where,
+      select: {
+        userId: true,
+        userFullname: true,
+        verb: true,
+        objectType: true,
+        objectTitle: true,
+        timestamp: true,
+      },
+      orderBy: { timestamp: 'asc' },
+      take: Math.min(filters?.limit ?? 50000, 50000),
+    });
+
+    return {
+      events: logs.map(l => ({
+        userId: l.userId,
+        userName: l.userFullname ?? `User ${l.userId}`,
+        verb: l.verb,
+        objectType: l.objectType,
+        objectTitle: l.objectTitle ?? null,
+        timestamp: l.timestamp.getTime(),
+      })),
+      truncated: logs.length === 50000,
+    };
+  }
+
+  /**
    * Parse the stringified `extensions` JSON on each row and collect the
    * union of all top-level keys found across the corpus. Used by the
    * CSV and Excel exporters to flatten extensions into first-class

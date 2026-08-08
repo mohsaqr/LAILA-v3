@@ -1014,6 +1014,49 @@ describe('getTopUsers', () => {
   });
 });
 
+describe('getEvents', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns slim events with ms timestamps and a name fallback', async () => {
+    vi.mocked(prisma.learningActivityLog.findMany).mockResolvedValueOnce([
+      { userId: 25, userFullname: 'Abigail Adams', verb: 'viewed', objectType: 'lecture', objectTitle: 'Intro', timestamp: new Date(1772919011795) },
+      { userId: 30, userFullname: null, verb: 'started', objectType: 'quiz', objectTitle: null, timestamp: new Date(1772919020000) },
+    ] as any);
+
+    const result = await activityLogService.getEvents({ courseId: 3 });
+
+    expect(result.events).toEqual([
+      { userId: 25, userName: 'Abigail Adams', verb: 'viewed', objectType: 'lecture', objectTitle: 'Intro', timestamp: 1772919011795 },
+      { userId: 30, userName: 'User 30', verb: 'started', objectType: 'quiz', objectTitle: null, timestamp: 1772919020000 },
+    ]);
+    expect(result.truncated).toBe(false);
+    expect(prisma.learningActivityLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { courseId: 3 },
+        orderBy: { timestamp: 'asc' },
+        take: 50000,
+      }),
+    );
+  });
+
+  it('applies user and date filters and clamps the limit to 50k', async () => {
+    vi.mocked(prisma.learningActivityLog.findMany).mockResolvedValueOnce([] as any);
+
+    const start = new Date('2026-01-01');
+    const end = new Date('2026-02-01');
+    await activityLogService.getEvents({ userId: 7, startDate: start, endDate: end, limit: 999999 });
+
+    expect(prisma.learningActivityLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 7, timestamp: { gte: start, lte: end } },
+        take: 50000,
+      }),
+    );
+  });
+});
+
 describe('safeTimezone', () => {
   // `timezone` arrives raw from req.query and is the one caller-controlled
   // value that cannot be bound as a parameter — Postgres does not accept a

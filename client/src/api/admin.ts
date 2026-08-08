@@ -794,6 +794,22 @@ export const activityLogApi = {
     return response.data.data;
   },
 
+  getEvents: async (filters?: {
+    courseId?: number; userId?: number; startDate?: string; endDate?: string; limit?: number;
+  }): Promise<{
+    events: Array<{ userId: number; userName: string; verb: string; objectType: string; objectTitle: string | null; timestamp: number }>;
+    truncated: boolean;
+  }> => {
+    const params = new URLSearchParams();
+    if (filters?.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters?.userId) params.append('userId', filters.userId.toString());
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    const response = await apiClient.get<any>(`/activity-log/events?${params.toString()}`);
+    return response.data.data;
+  },
+
   // Helper to build query string from filters
   _buildQueryString: (filters: ActivityLogFilters) => {
     const params = new URLSearchParams();
