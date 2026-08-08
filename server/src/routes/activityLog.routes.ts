@@ -469,7 +469,7 @@ router.get('/events', authenticateToken, asyncHandler(async (req: AuthRequest, r
     userId: scope.userId,
     startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
     endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
-    limit: req.query.limit ? parseInt(req.query.limit as string) : undefined,
+    limit: Number.isFinite(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : undefined,
   });
   res.json({ success: true, data });
 }));

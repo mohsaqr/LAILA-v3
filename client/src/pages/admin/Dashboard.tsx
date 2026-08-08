@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Users, Activity, Hash, Settings2, Network, GitBranch, Expand, Search, Pencil, X, TrendingUp, Clock, RefreshCw, Filter as FilterIcon, Library } from 'lucide-react';
@@ -429,6 +429,15 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId, embedded
   // Sequence mode: what to use as states in TNA
   const [sequenceMode, setSequenceMode] = useState<SequenceMode>('combined');
   const [interpretations, setInterpretations] = useState<Record<string, string>>({ ...DEFAULT_INTERPRETATIONS });
+
+  // Stable identity: the charts' memoized pipelines (grid/calendar/curve
+  // builders over up to 50k events) key on this function, so an inline arrow
+  // would rebuild them — and reset the calendar's drill-down state — on every
+  // Dashboard render.
+  const resolveState = useCallback(
+    (verb: string, obj: string) => resolveInterpretation(`${verb}:${obj}`, interpretations) ?? `${verb}_${obj}`,
+    [interpretations],
+  );
 
   // Verb editing: renames map original→new name (merging uses same target), excludes is a set of hidden verbs
   const [verbRenames, setVerbRenames] = useState<Record<string, string>>({});
@@ -1050,8 +1059,9 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId, embedded
             <ActivityViewsCard
               events={eventsFeed?.events}
               isLoading={eventsLoading}
-              resolveState={(verb, obj) => resolveInterpretation(`${verb}:${obj}`, interpretations) ?? `${verb}_${obj}`}
+              resolveState={resolveState}
               palette={palette}
+              truncated={eventsFeed?.truncated}
               onSelectUser={isStudent ? undefined : (user) => {
                 setSelectedResource(null);
                 setSelectedUser(user);
@@ -1062,7 +1072,8 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId, embedded
             {/* Row 3.6: Daily stacked-area curves (ported from Carmdash) */}
             <ActivityCurvesCard
               events={eventsFeed?.events}
-              resolveState={(verb, obj) => resolveInterpretation(`${verb}:${obj}`, interpretations) ?? `${verb}_${obj}`}
+              resolveState={resolveState}
+              palette={palette}
             />
 
             {/* Row 4: Top Resources */}
@@ -1151,7 +1162,7 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId, embedded
                 startDate: startDate || undefined,
                 endDate: endDate || undefined,
               }}
-              resolveState={(verb, obj) => resolveInterpretation(`${verb}:${obj}`, interpretations) ?? `${verb}_${obj}`}
+              resolveState={resolveState}
               palette={palette}
               onBack={() => setSelectedUser(null)}
               onSelectResource={(r) => { setSelectedResource(r); setSelectedUser(null); }}
@@ -1165,7 +1176,7 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId, embedded
                 startDate: startDate || undefined,
                 endDate: endDate || undefined,
               }}
-              resolveState={(verb, obj) => resolveInterpretation(`${verb}:${obj}`, interpretations) ?? `${verb}_${obj}`}
+              resolveState={resolveState}
               palette={palette}
               isStudent={isStudent}
               onBack={() => setSelectedResource(null)}
@@ -1175,7 +1186,7 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId, embedded
             <ResourcesTab
               data={resourceMetrics?.data}
               isLoading={resourceMetricsLoading}
-              resolveState={(verb, obj) => resolveInterpretation(`${verb}:${obj}`, interpretations) ?? `${verb}_${obj}`}
+              resolveState={resolveState}
               palette={palette}
               isStudent={isStudent}
               onSelect={setSelectedResource}

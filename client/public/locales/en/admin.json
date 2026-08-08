@@ -987,5 +987,6 @@
   "daily_activity_types": "Daily Activity by Type",
   "day_label": "Day",
   "detail_top_resources": "Top Resources",
-  "view_user_analytics": "View user analytics →"
+  "view_user_analytics": "View user analytics →",
+  "events_truncated": "Showing the most recent 50,000 events — older history is not included in these charts."
 }

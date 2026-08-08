@@ -1,6 +1,9 @@
 /**
  * Multi-line chart — copied from JStats/src/viz/plots/line-chart.ts.
  * Adapted for extension: imports from local theme/tooltip/annotations.
+ * LAILA adaptations: optional `seriesColors` map (label → hex) so callers can
+ * align series colors with the dashboard palette; fixed the stacked-area
+ * tooltip total (upstream double-counted every series but the first).
  */
 import type * as D3 from 'd3'
 import { EXTENSION_THEME, applyTheme, getColor } from './theme.js'
@@ -26,6 +29,8 @@ export interface LineChartConfig {
   readonly onSeriesClick?: (label: string) => void
   /** Format x-axis tick labels (e.g. format Unix ms timestamps as dates). */
   readonly xTickFormat?: (value: number) => string
+  /** Per-series colors by label; falls back to the theme palette. */
+  readonly seriesColors?: Record<string, string>
 }
 
 export interface LineChartSeries {
@@ -140,7 +145,7 @@ function renderLineChartD3(
     // Draw from bottom (last series) to top (first series) so top series renders in front
     for (let si = data.series.length - 1; si >= 0; si--) {
       const s = data.series[si]!
-      const color = getColor(si, theme)
+      const color = config.seriesColors?.[s.label] ?? getColor(si, theme)
       const layer = layers[si]!
 
       const areaGen = d3.area<{ x: number; y0: number; y1: number }>()
@@ -168,8 +173,8 @@ function renderLineChartD3(
         const layer = layers[si]![xi]!
         return formatTooltipRow(s.label, layer.y1 - layer.y0)
       }).join('')
-      const total = layers[0]![xi]!.y0 + (layers[0]![xi]!.y1 - layers[0]![xi]!.y0)
-        + data.series.slice(1).reduce((s, _, si) => s + (layers[si + 1]![xi]!.y1 - layers[si + 1]![xi]!.y0), 0)
+      // Series 0 is the topmost layer, so its y1 is already the full stack height.
+      const total = layers[0]![xi]!.y1
       g.append('rect')
         .attr('x', xScale(x) - bandW / 2).attr('y', 0).attr('width', bandW).attr('height', height)
         .attr('fill', 'transparent')
@@ -181,7 +186,7 @@ function renderLineChartD3(
   } else {
     data.series.forEach((s, si) => {
       if (s.x.length === 0 || s.y.length === 0) return
-      const color = getColor(si, theme)
+      const color = config.seriesColors?.[s.label] ?? getColor(si, theme)
       const pts = s.x.map((x, i) => [x, s.y[i] ?? 0] as [number, number])
         .sort((a, b) => a[0] - b[0])
 

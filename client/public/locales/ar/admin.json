@@ -987,5 +987,6 @@
   "daily_activity_types": "النشاط اليومي حسب النوع",
   "day_label": "اليوم",
   "detail_top_resources": "أهم الموارد",
-  "view_user_analytics": "عرض تحليلات المستخدم ←"
+  "view_user_analytics": "عرض تحليلات المستخدم ←",
+  "events_truncated": "يتم عرض أحدث 50,000 حدث — السجل الأقدم غير مشمول في هذه الرسوم البيانية."
 }

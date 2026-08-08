@@ -14,7 +14,7 @@ export interface GridRenderOptions {
   mode: 'heatmap' | 'swarm';
   timeMode: 'day_hour' | 'week_day' | 'month_day';
   colorMap: Record<string, string>;
-  onClickFilter: (filter: AxisFilter, title: string, studentFill?: string) => void;
+  onClickFilter: (filter: AxisFilter, title: string, student?: { userId: number; name: string }) => void;
   labelColor?: string;
   axisColor?: string;
   emptyCellColor?: string;
@@ -34,8 +34,9 @@ export function renderActivityGrid(
   svgC.innerHTML = '';
 
   import('d3').then(d3 => {
-    // The container may have been unmounted or re-rendered while d3 loaded.
-    if (!svgC.isConnected || svgC.innerHTML !== '') return;
+    // The caller mounts a fresh child container per render, so a stale render
+    // finds its container detached and draws nothing visible. Skip the work.
+    if (!svgC.isConnected) return;
 
     const W = Math.max(svgC.clientWidth || 800, 500);
     // Auto-scale height for matrix depth
@@ -140,7 +141,7 @@ export function renderActivityGrid(
 
             circ.on('click', (e: MouseEvent) => {
               e.stopPropagation();
-              onClickFilter({ row: dy, col: dx }, `${s.student}: ${cellTitleText}`, s.student);
+              onClickFilter({ row: dy, col: dx }, `${s.student}: ${cellTitleText}`, { userId: s.userId, name: s.student });
             });
 
             circ.append('title').text(`${s.student}\n${s.count} events\n${sDom}`);

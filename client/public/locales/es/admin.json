@@ -987,5 +987,6 @@
   "daily_activity_types": "Actividad diaria por tipo",
   "day_label": "Día",
   "detail_top_resources": "Recursos principales",
-  "view_user_analytics": "Ver analítica del usuario →"
+  "view_user_analytics": "Ver analítica del usuario →",
+  "events_truncated": "Se muestran los 50 000 eventos más recientes — el historial más antiguo no se incluye en estos gráficos."
 }

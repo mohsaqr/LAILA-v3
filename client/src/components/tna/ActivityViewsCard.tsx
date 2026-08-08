@@ -4,6 +4,7 @@ import { Loading } from '../common/Loading';
 import { ActivityDonutChart } from './ActivityDonutChart';
 import { createColorMap, type PaletteName } from './colorFix';
 import { renderCalendarTreemap } from './carm/calendar-treemap';
+import { hideTooltip } from './carm/carm-tooltip';
 import { renderActivityGrid, type AxisFilter } from './activityGridRender';
 import {
   buildCalData, buildGrid, formatWindowLabel, getWindowEnd, shiftWindow, snapToWindowStart,
@@ -18,6 +19,8 @@ interface ActivityViewsCardProps {
   palette: PaletteName;
   /** Open the analytics drill-down for one user (bubble clicks) */
   onSelectUser?: (user: { userId: number; name: string }) => void;
+  /** True when the server capped the event feed at 50k rows */
+  truncated?: boolean;
 }
 
 type ViewMode = 'heatmap' | 'swarm' | 'calendar';
@@ -43,7 +46,7 @@ const toggleClass = (active: boolean) =>
  * (activityViews.ts / activityGridRender.ts / carm/calendar-treemap.ts);
  * this component only owns the React controls around it.
  */
-export const ActivityViewsCard = ({ events, isLoading, resolveState, palette, onSelectUser }: ActivityViewsCardProps) => {
+export const ActivityViewsCard = ({ events, isLoading, resolveState, palette, onSelectUser, truncated }: ActivityViewsCardProps) => {
   const { t } = useTranslation(['admin']);
   const [mode, setMode] = useState<ViewMode>('swarm');
   const [timeMode, setTimeMode] = useState<TimeMode>('day_hour');
@@ -83,40 +86,46 @@ export const ActivityViewsCard = ({ events, isLoading, resolveState, palette, on
     return max;
   }, [events]);
 
-  /* Detail panel: same filter chain as Carmdash's clickFilter. */
-  const clickFilter = (filter: AxisFilter, title: string, studentFill?: string) => {
+  /* Detail panel: same filter chain as Carmdash's clickFilter (by userId). */
+  const clickFilter = (filter: AxisFilter, title: string, student?: { userId: number; name: string }) => {
     const wEnd = windowStart !== null ? getWindowEnd(windowStart, timeMode) : 0;
     const evs = (events ?? []).filter(l => {
       if (l.timestamp <= 0) return false;
       if (windowStart !== null && (l.timestamp < windowStart || l.timestamp >= wEnd)) return false;
-      if (studentFill && l.userName !== studentFill) return false;
+      if (student && l.userId !== student.userId) return false;
       const cell = gridData.getCell(new Date(l.timestamp), l.timestamp);
       if (!cell) return false;
       if (filter.col !== undefined && cell[0] !== filter.col) return false;
       if (filter.row !== undefined && cell[1] !== filter.row) return false;
       return true;
     });
-    const student = studentFill && evs.length > 0
-      ? { userId: evs[0].userId, name: studentFill }
-      : undefined;
     setDetail(evs.length > 0 ? { title, events: evs, student } : null);
   };
 
-  /* Render the active view into the container. */
+  /* A different course/date range invalidates any open drill-down. */
+  useEffect(() => { setDetail(null); }, [events]);
+
+  /* Render the active view into a FRESH child container each time: the carm
+     renderers draw after an async import('d3'), so a stale in-flight render
+     must land in a detached node instead of clobbering the newest view. */
   useEffect(() => {
     const el = svgRef.current;
     if (!el || !events || events.length === 0) return;
-    el.innerHTML = '';
+    const inner = document.createElement('div');
+    el.replaceChildren(inner);
     if (mode === 'calendar') {
       if (calData && calData.days.length > 0 && calData.labels.length > 0) {
-        renderCalendarTreemap(el, calData, {
+        renderCalendarTreemap(inner, calData, {
           colorMap,
           categoryLabel: t(`admin:activity_cat_${calCatMode}`),
         });
       }
     } else {
-      renderActivityGrid(el, gridData, { mode, timeMode, colorMap, onClickFilter: clickFilter });
+      renderActivityGrid(inner, gridData, { mode, timeMode, colorMap, onClickFilter: clickFilter });
     }
+    // The carm tooltip is a body-level singleton that only hides on mouseout;
+    // tearing the chart down mid-hover would otherwise leave it stuck on screen.
+    return () => hideTooltip();
     // clickFilter identity changes with its inputs; gridData/calData already cover them.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, timeMode, calCatMode, gridData, calData, colorMap, events, t]);
@@ -223,6 +232,12 @@ export const ActivityViewsCard = ({ events, isLoading, resolveState, palette, on
               {t(`admin:activity_cat_${m}`)}
             </button>
           ))}
+        </div>
+      )}
+
+      {truncated && (
+        <div className="mb-2 text-xs rounded-md px-2.5 py-1.5 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400">
+          {t('admin:events_truncated')}
         </div>
       )}
 

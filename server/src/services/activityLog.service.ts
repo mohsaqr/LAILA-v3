@@ -914,6 +914,10 @@ class ActivityLogService {
       if (filters?.endDate) where.timestamp.lte = filters.endDate;
     }
 
+    // Fetch newest-first so that when the cap truncates, it is old history
+    // that falls off — a "Today" click must always land on data. The response
+    // is re-sorted ascending for the client-side builders.
+    const take = Math.min(filters?.limit ?? 50000, 50000);
     const logs = await prisma.learningActivityLog.findMany({
       where,
       select: {
@@ -924,9 +928,10 @@ class ActivityLogService {
         objectTitle: true,
         timestamp: true,
       },
-      orderBy: { timestamp: 'asc' },
-      take: Math.min(filters?.limit ?? 50000, 50000),
+      orderBy: { timestamp: 'desc' },
+      take,
     });
+    logs.reverse();
 
     return {
       events: logs.map(l => ({
@@ -937,7 +942,7 @@ class ActivityLogService {
         objectTitle: l.objectTitle ?? null,
         timestamp: l.timestamp.getTime(),
       })),
-      truncated: logs.length === 50000,
+      truncated: logs.length === take,
     };
   }
 

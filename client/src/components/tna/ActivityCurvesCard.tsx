@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { renderLineChart } from './carm/line-chart';
+import { hideTooltip } from './carm/carm-tooltip';
 import { buildDailySeries, type ActivityEvent, type CalCategoryMode } from './activityViews';
+import { createColorMap, type PaletteName } from './colorFix';
 
 interface ActivityCurvesCardProps {
   events: ActivityEvent[] | undefined;
   resolveState: (verb: string, objectType: string) => string;
+  palette: PaletteName;
 }
 
 const toggleClass = (active: boolean) =>
@@ -22,9 +25,10 @@ const truncate = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}
  * Daily stacked-area curves ported from Carmdash's activity tab: monotone
  * stacked areas of daily activity with a State | Resource | Type toggle.
  * Chart configs are the Carmdash originals; the copied renderLineChart
- * (carm/line-chart.ts) does the drawing.
+ * (carm/line-chart.ts) does the drawing. Series colors come from the
+ * dashboard palette so states match the bubble/heatmap legend above.
  */
-export const ActivityCurvesCard = ({ events, resolveState }: ActivityCurvesCardProps) => {
+export const ActivityCurvesCard = ({ events, resolveState, palette }: ActivityCurvesCardProps) => {
   const { t } = useTranslation(['admin']);
   const [catMode, setCatMode] = useState<CalCategoryMode>('states');
   const chartRef = useRef<HTMLDivElement>(null);
@@ -39,16 +43,32 @@ export const ActivityCurvesCard = ({ events, resolveState }: ActivityCurvesCardP
     [events, catMode, getState],
   );
 
+  /* Colors keyed by the DISPLAY label (capitalized/truncated), since that is
+     what renderLineChart looks up. */
+  const displaySeries = useMemo(() => {
+    const rawColorMap = createColorMap(daily.labels, palette);
+    const seriesColors: Record<string, string> = {};
+    const series = daily.labels.map(label => {
+      const display = truncate(cap(label), 18);
+      seriesColors[display] = rawColorMap[label];
+      return { label, display };
+    });
+    return { series, seriesColors };
+  }, [daily, palette]);
+
   useEffect(() => {
     const el = chartRef.current;
     if (!el) return;
-    el.innerHTML = '';
-    if (daily.days.length < 2 || daily.labels.length === 0) return;
+    if (daily.days.length < 2 || daily.labels.length === 0) { el.replaceChildren(); return; }
+
+    // Fresh child per render so a stale async d3 render lands detached.
+    const inner = document.createElement('div');
+    el.replaceChildren(inner);
 
     const dayIndices = daily.days.map((_, i) => i);
-    renderLineChart(el, {
-      series: daily.labels.map(label => ({
-        label: truncate(cap(label), 18),
+    renderLineChart(inner, {
+      series: displaySeries.series.map(({ label, display }) => ({
+        label: display,
         x: dayIndices,
         y: daily.series[label],
       })),
@@ -56,9 +76,12 @@ export const ActivityCurvesCard = ({ events, resolveState }: ActivityCurvesCardP
       stackedArea: true, curveMethod: 'monotone', showDots: false,
       title: t(`admin:daily_activity_${catMode}`), xLabel: t('admin:day_label'), yLabel: t('admin:events_label'),
       showLegend: true, legendPosition: 'bottom', height: 340,
+      seriesColors: displaySeries.seriesColors,
       xTickFormat: (v: number) => daily.days[Math.round(v)]?.slice(5) ?? '',
     });
-  }, [daily, catMode, t]);
+
+    return () => hideTooltip();
+  }, [daily, displaySeries, catMode, t]);
 
   if (!events || events.length === 0) return null;
 

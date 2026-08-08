@@ -69,6 +69,20 @@ describe('buildGrid', () => {
     expect(g.grid[2][9]).toHaveLength(1);
   });
 
+  it('keys students by userId so same-name users stay separate', () => {
+    const ts = at(2026, 7, 3, 10);
+    const events = [
+      ev({ timestamp: ts, userId: 1, userName: 'Maria Garcia' }),
+      ev({ timestamp: ts, userId: 2, userName: 'Maria Garcia' }),
+      ev({ timestamp: ts, userId: 2, userName: 'Maria Garcia' }),
+    ];
+    const g = buildGrid(events, 'day_hour', null, stateOf);
+    const cell = g.grid[1][10];
+    expect(cell).toHaveLength(2);
+    const byId = Object.fromEntries(cell.map(s => [s.userId, s.count]));
+    expect(byId).toEqual({ 1: 1, 2: 2 });
+  });
+
   it('applies the window filter and drops null states', () => {
     const inWindow = at(2026, 7, 3, 10);
     const outWindow = at(2026, 6, 1, 10);

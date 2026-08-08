@@ -71,6 +71,7 @@ export function formatWindowLabel(start: number, timeMode: TimeMode): string {
 /* ── Grid bucketing for the Heatmap/Bubbles views (verbatim) ──── */
 
 export interface GridStudent {
+  userId: number;
   student: string;
   count: number;
   states: Record<string, number>;
@@ -127,7 +128,9 @@ export function buildGrid(
   }
 
   const grid: GridStudent[][][] = Array.from({ length: yLen }, () => Array.from({ length: xLen }, () => []));
-  const cellMap = new Map<string, Map<string, { count: number; states: Record<string, number> }>>();
+  // Keyed by userId, not display name: two students can share a name, and a
+  // name change mid-course must not split one student into two bubbles.
+  const cellMap = new Map<string, Map<number, { name: string; count: number; states: Record<string, number> }>>();
 
   for (const log of windowedLogs) {
     if (log.timestamp <= 0) continue;
@@ -142,8 +145,8 @@ export function buildGrid(
     let sMap = cellMap.get(key);
     if (!sMap) { sMap = new Map(); cellMap.set(key, sMap); }
 
-    let sData = sMap.get(log.userName);
-    if (!sData) { sData = { count: 0, states: {} }; sMap.set(log.userName, sData); }
+    let sData = sMap.get(log.userId);
+    if (!sData) { sData = { name: log.userName, count: 0, states: {} }; sMap.set(log.userId, sData); }
 
     sData.states[st] = (sData.states[st] ?? 0) + 1;
     sData.count++;
@@ -152,8 +155,8 @@ export function buildGrid(
   for (const [key, sMap] of cellMap.entries()) {
     const [yIdx, xIdx] = key.split('|').map(Number);
     if (grid[yIdx] && grid[yIdx][xIdx]) {
-      for (const [student, data] of sMap.entries()) {
-        grid[yIdx][xIdx].push({ student, count: data.count, states: data.states });
+      for (const [userId, data] of sMap.entries()) {
+        grid[yIdx][xIdx].push({ userId, student: data.name, count: data.count, states: data.states });
       }
     }
   }

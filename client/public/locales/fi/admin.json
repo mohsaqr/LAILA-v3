@@ -987,5 +987,6 @@
   "daily_activity_types": "Päivittäinen aktiivisuus tyypeittäin",
   "day_label": "Päivä",
   "detail_top_resources": "Suosituimmat resurssit",
-  "view_user_analytics": "Näytä käyttäjän analytiikka →"
+  "view_user_analytics": "Näytä käyttäjän analytiikka →",
+  "events_truncated": "Näytetään viimeisimmät 50 000 tapahtumaa — vanhempi historia ei sisälly näihin kaavioihin."
 }

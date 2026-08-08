@@ -1020,9 +1020,10 @@ describe('getEvents', () => {
   });
 
   it('returns slim events with ms timestamps and a name fallback', async () => {
+    // The DB returns newest-first (orderBy desc); the service re-sorts ascending.
     vi.mocked(prisma.learningActivityLog.findMany).mockResolvedValueOnce([
-      { userId: 25, userFullname: 'Abigail Adams', verb: 'viewed', objectType: 'lecture', objectTitle: 'Intro', timestamp: new Date(1772919011795) },
       { userId: 30, userFullname: null, verb: 'started', objectType: 'quiz', objectTitle: null, timestamp: new Date(1772919020000) },
+      { userId: 25, userFullname: 'Abigail Adams', verb: 'viewed', objectType: 'lecture', objectTitle: 'Intro', timestamp: new Date(1772919011795) },
     ] as any);
 
     const result = await activityLogService.getEvents({ courseId: 3 });
@@ -1035,10 +1036,23 @@ describe('getEvents', () => {
     expect(prisma.learningActivityLog.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { courseId: 3 },
-        orderBy: { timestamp: 'asc' },
+        // Newest-first so the cap drops OLD history; service re-sorts ascending.
+        orderBy: { timestamp: 'desc' },
         take: 50000,
       }),
     );
+  });
+
+  it('re-sorts the newest-first fetch ascending and flags truncation at the effective cap', async () => {
+    vi.mocked(prisma.learningActivityLog.findMany).mockResolvedValueOnce([
+      { userId: 1, userFullname: 'A', verb: 'viewed', objectType: 'lecture', objectTitle: null, timestamp: new Date(2000) },
+      { userId: 1, userFullname: 'A', verb: 'viewed', objectType: 'lecture', objectTitle: null, timestamp: new Date(1000) },
+    ] as any);
+
+    const result = await activityLogService.getEvents({ limit: 2 });
+
+    expect(result.events.map(e => e.timestamp)).toEqual([1000, 2000]);
+    expect(result.truncated).toBe(true);
   });
 
   it('applies user and date filters and clamps the limit to 50k', async () => {
