@@ -135,7 +135,17 @@ export const ActivityViewsCard = ({ events, isLoading, resolveState, palette, on
       if (e.objectTitle) resCounts.set(e.objectTitle, (resCounts.get(e.objectTitle) ?? 0) + 1);
     }
     const topResources = Array.from(resCounts.entries()).sort(([, a], [, b]) => b - a).slice(0, 6);
-    return { users: users.size, resources: resources.size, stateCounts, topResources };
+    const userCounts = new Map<number, { name: string; count: number }>();
+    for (const e of detail.events) {
+      const u = userCounts.get(e.userId);
+      if (u) u.count += 1;
+      else userCounts.set(e.userId, { name: e.userName, count: 1 });
+    }
+    const topUsers = Array.from(userCounts.entries())
+      .map(([userId, u]) => ({ userId, ...u }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+    return { users: users.size, resources: resources.size, stateCounts, topResources, topUsers };
   }, [detail, getState]);
 
   if (isLoading) return <div className="py-16"><Loading /></div>;
@@ -261,8 +271,30 @@ export const ActivityViewsCard = ({ events, isLoading, resolveState, palette, on
               <div className="text-xs text-gray-500 dark:text-gray-400">{t('admin:resources_title')}</div>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className={`grid grid-cols-1 gap-4 ${!detail.student && onSelectUser ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
             <ActivityDonutChart data={detailStats.stateCounts} title={t('admin:activity_distribution')} palette={palette} />
+            {!detail.student && onSelectUser && detailStats.topUsers.length > 0 && (
+              <div>
+                <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('admin:users')}</div>
+                <table className="w-full text-sm">
+                  <tbody>
+                    {detailStats.topUsers.map(u => (
+                      <tr key={u.userId} className="border-t border-gray-100 dark:border-gray-700">
+                        <td className="py-1 pr-2 truncate max-w-[220px]">
+                          <button
+                            onClick={() => onSelectUser({ userId: u.userId, name: u.name })}
+                            className="text-primary-700 dark:text-primary-400 font-medium text-left hover:underline"
+                          >
+                            {u.name}
+                          </button>
+                        </td>
+                        <td className="py-1 text-right text-gray-500 dark:text-gray-400">{u.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
             {detailStats.topResources.length > 0 && (
               <div>
                 <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('admin:detail_top_resources')}</div>
