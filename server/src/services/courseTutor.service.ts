@@ -660,13 +660,14 @@ class CourseTutorService {
    * Get tutors available for a student in a course
    */
   async getStudentTutors(courseId: number, userId: number, options?: { isAdmin?: boolean }): Promise<MergedTutorConfig[]> {
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+      select: { instructorId: true, tutorsEnabled: true, tutorRoutingMode: true, defaultTutorId: true },
+    });
+
     // Admins bypass enrollment checks
     if (!options?.isAdmin) {
       // Verify enrollment, course instructor, or team membership
-      const course = await prisma.course.findUnique({
-        where: { id: courseId },
-        select: { instructorId: true },
-      });
       const isCourseInstructor = course?.instructorId === userId;
 
       if (!isCourseInstructor) {
@@ -685,10 +686,19 @@ class CourseTutorService {
       }
     }
 
+    // The instructor switched the AI tutors feature off for this course.
+    if (course && course.tutorsEnabled === false) {
+      return [];
+    }
+
     const tutors = await prisma.courseTutor.findMany({
       where: {
         courseId,
         isActive: true,
+        // Single-tutor routing pins students to the teacher's chosen tutor.
+        ...(course?.tutorRoutingMode === 'single' && course.defaultTutorId
+          ? { id: course.defaultTutorId }
+          : {}),
       },
       include: {
         chatbot: {
@@ -801,8 +811,13 @@ class CourseTutorService {
     // Verify enrollment, course instructor, or team membership
     const course = await prisma.course.findUnique({
       where: { id: tutor.courseId },
-      select: { instructorId: true },
+      select: { instructorId: true, tutorsEnabled: true },
     });
+
+    if (course && course.tutorsEnabled === false) {
+      throw new AppError('AI tutors are disabled for this course', 403);
+    }
+
     const isTutorCourseInstructor = course?.instructorId === userId;
 
     if (!isTutorCourseInstructor) {

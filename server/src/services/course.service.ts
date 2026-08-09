@@ -1039,6 +1039,7 @@ export class CourseService {
       collaborativeModuleName?: string;
       collaborativeModuleEnabled?: boolean;
       emotionalPulseEnabled?: boolean;
+      tutorsEnabled?: boolean;
       tutorRoutingMode?: 'free' | 'all' | 'single' | 'smart' | 'collaborative' | 'random';
       defaultTutorId?: number | null;
     },
@@ -1062,6 +1063,7 @@ export class CourseService {
       collaborativeModuleName: (course as any).collaborativeModuleName,
       collaborativeModuleEnabled: (course as any).collaborativeModuleEnabled,
       emotionalPulseEnabled: (course as any).emotionalPulseEnabled,
+      tutorsEnabled: (course as any).tutorsEnabled,
       tutorRoutingMode: (course as any).tutorRoutingMode,
       defaultTutorId: (course as any).defaultTutorId,
     };
@@ -1076,6 +1078,9 @@ export class CourseService {
     }
     if (settings.emotionalPulseEnabled !== undefined) {
       updateData.emotionalPulseEnabled = settings.emotionalPulseEnabled;
+    }
+    if (settings.tutorsEnabled !== undefined) {
+      updateData.tutorsEnabled = settings.tutorsEnabled;
     }
     if (settings.tutorRoutingMode !== undefined) {
       updateData.tutorRoutingMode = settings.tutorRoutingMode;

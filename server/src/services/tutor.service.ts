@@ -39,10 +39,42 @@ export class TutorService {
   // ==========================================================================
 
   /**
+   * Resolve the session mode a course dictates. Routing is defined by the
+   * teacher (Course.tutorRoutingMode) — students never choose it. Returns
+   * null when there is no course: personal-hub sessions keep free choice.
+   */
+  private async getCourseEnforcedMode(courseId?: number): Promise<TutorMode | null> {
+    if (!courseId) return null;
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+      select: { tutorRoutingMode: true },
+    });
+    if (!course) return null;
+    return this.mapRoutingToMode(course.tutorRoutingMode);
+  }
+
+  private mapRoutingToMode(tutorRoutingMode: string): TutorMode {
+    switch (tutorRoutingMode) {
+      case 'smart':
+        return 'router';
+      case 'collaborative':
+        return 'collaborative';
+      case 'random':
+        return 'random';
+      default:
+        // 'free' | 'all' | 'single' — the student talks to one tutor at a
+        // time; 'single' additionally pins which tutor via defaultTutorId.
+        return 'manual';
+    }
+  }
+
+  /**
    * Get or create tutor session for user
    * Creates session with default settings if doesn't exist
    */
   async getOrCreateSession(userId: number, courseId?: number): Promise<TutorSessionResponse> {
+    const enforcedMode = await this.getCourseEnforcedMode(courseId);
+
     let session = await prisma.tutorSession.findFirst({
       where: { userId, courseId: courseId ?? null },
       include: {
@@ -73,7 +105,7 @@ export class TutorService {
         data: {
           userId,
           courseId: courseId ?? undefined,
-          mode: 'manual',
+          mode: enforcedMode ?? 'manual',
         },
         include: {
           conversations: {
@@ -119,6 +151,16 @@ export class TutorService {
       }).catch(err => logger.warn({ err }, 'Failed to log session start activity'));
     }
 
+    // Course sessions always run in the teacher-defined mode. Re-apply on
+    // every fetch so changing the course setting reaches existing sessions.
+    if (enforcedMode && session.mode !== enforcedMode) {
+      await prisma.tutorSession.update({
+        where: { id: session.id },
+        data: { mode: enforcedMode },
+      });
+      session.mode = enforcedMode;
+    }
+
     // Get available agents (filtered by course if session is course-specific)
     const agents = await this.getAvailableAgents(courseId);
 
@@ -159,6 +201,13 @@ export class TutorService {
    * Update session mode (manual/router/collaborative)
    */
   async updateMode(userId: number, mode: TutorMode, courseId?: number): Promise<TutorSessionData> {
+    // Course routing is teacher/admin-defined (Course.tutorRoutingMode, set in
+    // the course tutor manager) — users cannot override it per session.
+    const enforcedMode = await this.getCourseEnforcedMode(courseId);
+    if (enforcedMode && mode !== enforcedMode) {
+      throw new AppError('Tutor routing for this course is set by the instructor', 403);
+    }
+
     const existing = await prisma.tutorSession.findFirst({
       where: { userId, courseId: courseId ?? null },
     });
@@ -506,6 +555,20 @@ export class TutorService {
     emotionalPulse?: string,
     llmOverrides?: { model?: string; provider?: string }
   ): Promise<TutorMessageResponse> {
+    let enforcedMode: TutorMode | null = null;
+    if (courseId) {
+      const course = await prisma.course.findUnique({
+        where: { id: courseId },
+        select: { tutorsEnabled: true, tutorRoutingMode: true },
+      });
+      if (course && course.tutorsEnabled === false) {
+        throw new AppError('AI tutors are disabled for this course', 403);
+      }
+      if (course) {
+        enforcedMode = this.mapRoutingToMode(course.tutorRoutingMode);
+      }
+    }
+
     const session = await prisma.tutorSession.findFirst({
       where: { userId, courseId: courseId ?? null },
     });
@@ -525,7 +588,9 @@ export class TutorService {
     // Get or create conversation
     const conversationData = await this.getOrCreateConversation(userId, chatbotId, courseId);
 
-    const mode = session.mode as TutorMode;
+    // The teacher-defined course mode wins even if the stored session mode is
+    // stale (e.g. the teacher changed routing after this session was created).
+    const mode = enforcedMode ?? (session.mode as TutorMode);
 
     // Resolve the student's current emotional state:
     // prefer the pulse sent with this request, else fetch the most recent one from DB
@@ -1670,9 +1735,26 @@ RESPONSE GUIDELINES:
     let chatbots;
 
     if (courseId) {
+      const course = await prisma.course.findUnique({
+        where: { id: courseId },
+        select: { tutorsEnabled: true, tutorRoutingMode: true, defaultTutorId: true },
+      });
+
+      // The instructor switched the AI tutors feature off for this course.
+      if (course && course.tutorsEnabled === false) {
+        return [];
+      }
+
       // Get only course-specific tutors via CourseTutor join
       const courseTutors = await prisma.courseTutor.findMany({
-        where: { courseId, isActive: true },
+        where: {
+          courseId,
+          isActive: true,
+          // Single-tutor routing pins students to the teacher's chosen tutor.
+          ...(course?.tutorRoutingMode === 'single' && course.defaultTutorId
+            ? { id: course.defaultTutorId }
+            : {}),
+        },
         include: {
           chatbot: true,
         },

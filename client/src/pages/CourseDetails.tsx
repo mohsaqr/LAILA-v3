@@ -733,13 +733,16 @@ export const CourseDetails = () => {
                   assignments={courseAssignments}
                 />
 
-                {/* Collaborative Module */}
-                <CollaborativeModule
-                  courseId={parseInt(id!)}
-                  tutors={(course as any).tutors}
-                  moduleName={(course as any).collaborativeModuleName}
-                  isInstructor={canManage}
-                />
+                {/* Collaborative Module — hidden when the instructor switched
+                    AI tutors off for this course. */}
+                {(course as any).tutorsEnabled !== false && (
+                  <CollaborativeModule
+                    courseId={parseInt(id!)}
+                    tutors={(course as any).tutors}
+                    moduleName={(course as any).collaborativeModuleName}
+                    isInstructor={canManage}
+                  />
+                )}
               </div>
             </div>
           )}

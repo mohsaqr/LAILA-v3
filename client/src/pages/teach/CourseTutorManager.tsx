@@ -88,6 +88,7 @@ export const CourseTutorManager = ({
   const [routingMode, setRoutingMode] = useState<'free' | 'all' | 'single' | 'smart' | 'collaborative' | 'random'>('free');
   const [defaultTutorId, setDefaultTutorId] = useState<number | null>(null);
   const [emotionalPulseEnabled, setEmotionalPulseEnabled] = useState(true);
+  const [tutorsEnabled, setTutorsEnabled] = useState(true);
   const [settingsExpanded, setSettingsExpanded] = useState(true);
 
   // Theme colors
@@ -186,6 +187,7 @@ export const CourseTutorManager = ({
       collaborativeModuleName?: string;
       collaborativeModuleEnabled?: boolean;
       emotionalPulseEnabled?: boolean;
+      tutorsEnabled?: boolean;
       tutorRoutingMode?: 'free' | 'all' | 'single' | 'smart' | 'collaborative' | 'random';
       defaultTutorId?: number | null;
     }) => coursesApi.updateCourseAISettings(parseInt(courseId!), settings),
@@ -205,6 +207,7 @@ export const CourseTutorManager = ({
       setRoutingMode((course as any).tutorRoutingMode || 'free');
       setDefaultTutorId((course as any).defaultTutorId || null);
       setEmotionalPulseEnabled((course as any).emotionalPulseEnabled !== false);
+      setTutorsEnabled((course as any).tutorsEnabled !== false);
       // Wait until the next render so the controlled inputs settle before
       // we let the auto-save effect see them as "user changes".
       requestAnimationFrame(() => { courseLoadedRef.current = true; });
@@ -215,6 +218,7 @@ export const CourseTutorManager = ({
     updateSettingsMutation.mutate({
       collaborativeModuleName: moduleName || undefined,
       emotionalPulseEnabled,
+      tutorsEnabled,
       tutorRoutingMode: routingMode,
       defaultTutorId: routingMode === 'single' ? defaultTutorId : null,
     });
@@ -232,7 +236,7 @@ export const CourseTutorManager = ({
     }, 600);
     return () => clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [embedded, moduleName, routingMode, defaultTutorId, emotionalPulseEnabled]);
+  }, [embedded, moduleName, routingMode, defaultTutorId, emotionalPulseEnabled, tutorsEnabled]);
 
   const { draggedId, handleDragStart, handleDragOver, handleDragEnd } = useDragAndDrop(
     tutors || [],
@@ -709,6 +713,31 @@ export const CourseTutorManager = ({
                   </div>
                 </label>
               </div>
+            </div>
+
+            {/* AI Tutors master Toggle */}
+            <div
+              className="flex items-center gap-3 p-3 rounded-lg"
+              style={{ backgroundColor: colors.bgHover }}
+            >
+              <Bot className="w-5 h-5" style={{ color: '#7c3aed' }} />
+              <div className="flex-1">
+                <p className={embedded ? 'text-sm font-medium' : 'font-medium'} style={{ color: colors.textPrimary }}>
+                  {t('tutors_enabled')}
+                </p>
+                <p className={embedded ? 'text-xs' : 'text-sm'} style={{ color: colors.textSecondary }}>
+                  {t('tutors_enabled_desc')}
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={tutorsEnabled}
+                  onChange={(e) => setTutorsEnabled(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+              </label>
             </div>
 
             {/* Emotional Pulse Toggle */}

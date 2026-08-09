@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User } from '../types';
+import { queryClient } from '../lib/queryClient';
 
 export type ViewAsRole = 'admin' | 'instructor' | 'student' | null;
 
@@ -29,6 +30,13 @@ export const useAuthStore = create<AuthState>()(
       viewAsRole: null,
 
       setAuth: (user: User, token: string) => {
+        // React Query's cache is keyed by query, not by user. If a different
+        // account signs in on this browser, cached data (tutor conversations,
+        // enrollments, ...) from the previous account would render instantly —
+        // and a 403 on refetch keeps the stale data on screen. Wipe it.
+        if (get().user && get().user!.id !== user.id) {
+          queryClient.clear();
+        }
         set({
           user,
           token,
@@ -43,6 +51,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
+        queryClient.clear();
         set({
           user: null,
           token: null,

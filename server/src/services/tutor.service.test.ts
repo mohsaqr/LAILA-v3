@@ -35,6 +35,12 @@ vi.mock('../utils/prisma.js', () => ({
       findUnique: vi.fn(),
       findMany: vi.fn(),
     },
+    course: {
+      findUnique: vi.fn(),
+    },
+    courseTutor: {
+      findMany: vi.fn(),
+    },
     emotionalPulse: {
       findFirst: vi.fn(),
     },
@@ -211,6 +217,122 @@ describe('TutorService', () => {
       const result = await tutorService.updateMode(123, 'collaborative');
 
       expect(result.mode).toBe('collaborative');
+    });
+
+    it('should reject a mode different from the course-defined routing', async () => {
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({
+        tutorRoutingMode: 'smart',
+      } as any);
+
+      await expect(tutorService.updateMode(123, 'manual', 100)).rejects.toThrow(
+        'Tutor routing for this course is set by the instructor'
+      );
+      expect(prisma.tutorSession.update).not.toHaveBeenCalled();
+    });
+
+    it('should allow re-asserting the course-defined mode', async () => {
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({
+        tutorRoutingMode: 'smart',
+      } as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue({
+        id: 1, userId: 123, mode: 'manual',
+      } as any);
+      vi.mocked(prisma.tutorSession.update).mockResolvedValue({
+        id: 1, userId: 123, mode: 'router', courseId: 100,
+      } as any);
+
+      const result = await tutorService.updateMode(123, 'router', 100);
+
+      expect(result.mode).toBe('router');
+    });
+  });
+
+  describe('course-enforced routing (getOrCreateSession)', () => {
+    it('should force an existing course session into the teacher-defined mode', async () => {
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({
+        tutorRoutingMode: 'collaborative',
+        tutorsEnabled: true,
+        defaultTutorId: null,
+      } as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue({
+        id: 7,
+        userId: 123,
+        courseId: 100,
+        mode: 'manual',
+        activeAgentId: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        conversations: [],
+      } as any);
+      vi.mocked(prisma.tutorSession.update).mockResolvedValue({} as any);
+      vi.mocked(prisma.courseTutor.findMany).mockResolvedValue([] as any);
+
+      const result = await tutorService.getOrCreateSession(123, 100);
+
+      expect(result.session.mode).toBe('collaborative');
+      expect(prisma.tutorSession.update).toHaveBeenCalledWith({
+        where: { id: 7 },
+        data: { mode: 'collaborative' },
+      });
+    });
+
+    it('should create course sessions in the teacher-defined mode', async () => {
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({
+        tutorRoutingMode: 'random',
+        tutorsEnabled: true,
+        defaultTutorId: null,
+      } as any);
+      vi.mocked(prisma.tutorSession.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.tutorSession.create).mockResolvedValue({
+        id: 8,
+        userId: 123,
+        courseId: 100,
+        mode: 'random',
+        activeAgentId: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        conversations: [],
+      } as any);
+      vi.mocked(prisma.courseTutor.findMany).mockResolvedValue([] as any);
+
+      const result = await tutorService.getOrCreateSession(123, 100);
+
+      expect(result.session.mode).toBe('random');
+      expect(prisma.tutorSession.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ mode: 'random' }) })
+      );
+    });
+  });
+
+  describe('getAvailableAgents — course feature gates', () => {
+    it('should return no agents when AI tutors are disabled for the course', async () => {
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({
+        tutorsEnabled: false,
+        tutorRoutingMode: 'all',
+        defaultTutorId: null,
+      } as any);
+
+      const result = await tutorService.getAvailableAgents(100);
+
+      expect(result).toEqual([]);
+      expect(prisma.courseTutor.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should pin agents to the default tutor in single mode', async () => {
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({
+        tutorsEnabled: true,
+        tutorRoutingMode: 'single',
+        defaultTutorId: 42,
+      } as any);
+      vi.mocked(prisma.courseTutor.findMany).mockResolvedValue([] as any);
+
+      await tutorService.getAvailableAgents(100);
+
+      expect(prisma.courseTutor.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ courseId: 100, isActive: true, id: 42 }),
+        })
+      );
     });
   });
 

@@ -1514,5 +1514,7 @@
   "used_in_n_courses": "Usado en {{count}} cursos",
   "add_lab": "Adjuntar un laboratorio",
   "desc_lab": "Reutiliza un laboratorio de tu biblioteca",
-  "go_to_labs": "Gestionar laboratorios"
+  "go_to_labs": "Gestionar laboratorios",
+  "tutors_enabled": "Activar tutores de IA",
+  "tutors_enabled_desc": "Interruptor principal: al desactivarlo, los estudiantes no pueden ver ni chatear con los tutores de IA del curso"
 }

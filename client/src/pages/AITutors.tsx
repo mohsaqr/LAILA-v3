@@ -21,22 +21,6 @@ import type {
 } from '../types/tutor';
 import type { EmotionType } from '../types';
 
-// Mapping of course routing modes to session modes
-type CourseRoutingMode = 'free' | 'all' | 'single' | 'smart' | 'collaborative' | 'random';
-
-const mapCourseRoutingToSessionMode = (routingMode: CourseRoutingMode | undefined): TutorMode | null => {
-  switch (routingMode) {
-    case 'collaborative':
-      return 'collaborative';
-    case 'smart':
-      return 'router';
-    case 'random':
-      return 'random';
-    default:
-      return null; // Use existing session mode
-  }
-};
-
 interface MessageWithMeta extends TutorMessage {
   routingInfo?: RoutingInfo;
   collaborativeInfo?: CollaborativeInfo;
@@ -95,9 +79,6 @@ export const AITutors = () => {
     staleTime: 60000, // 1 minute
   });
 
-  // Track if we've applied course settings (to avoid re-applying on every session change)
-  const [courseSettingsApplied, setCourseSettingsApplied] = useState(false);
-
   // Mode change mutation - defined early so it can be used in initialization effect
   const modeMutation = useMutation({
     mutationFn: (mode: TutorMode) => tutorsApi.setMode(mode, parsedCourseId),
@@ -106,23 +87,12 @@ export const AITutors = () => {
     },
   });
 
-  // Initialize state from session data
+  // Initialize state from session data. In a course context the server
+  // already returns the session in the teacher-defined routing mode
+  // (Course.tutorRoutingMode) — no client-side override needed.
   useEffect(() => {
     if (sessionData) {
-      let effectiveMode = sessionData.session.mode;
-
-      // If we have course settings and haven't applied them yet, check if we need to override mode
-      if (courseData && !courseSettingsApplied) {
-        const courseRoutingMode = (courseData as any).tutorRoutingMode as CourseRoutingMode | undefined;
-        const mappedMode = mapCourseRoutingToSessionMode(courseRoutingMode);
-
-        if (mappedMode && mappedMode !== effectiveMode) {
-          effectiveMode = mappedMode;
-          // Update the session mode on the server to match course setting
-          modeMutation.mutate(mappedMode);
-        }
-        setCourseSettingsApplied(true);
-      }
+      const effectiveMode = sessionData.session.mode;
 
       setMode(effectiveMode);
 
@@ -155,7 +125,7 @@ export const AITutors = () => {
         }
       }
     }
-  }, [sessionData, agentIdFromUrl, courseData, courseSettingsApplied]);
+  }, [sessionData, agentIdFromUrl]);
 
   // Fetch conversation when agent is selected
   const { data: conversationData, isLoading: conversationLoading } = useQuery({
@@ -448,6 +418,7 @@ export const AITutors = () => {
           isLoading={sendMessageMutation.isPending}
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
+          allowModeSwitch={!parsedCourseId}
         />
       </div>
 
@@ -464,6 +435,7 @@ export const AITutors = () => {
         conversationId={conversationData?.id}
         onEmotionalPulse={handleEmotionalPulse}
         courseId={parsedCourseId}
+        allowModeSwitch={!parsedCourseId}
       />
 
       {/* Emotional Pulse History (right) - Desktop */}

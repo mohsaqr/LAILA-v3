@@ -475,6 +475,7 @@ model Course {
   collaborativeModuleName    String?               @map("collaborative_module_name")
   collaborativeModuleEnabled Boolean               @default(true) @map("collaborative_module_enabled")
   emotionalPulseEnabled      Boolean               @default(true) @map("emotional_pulse_enabled")
+  tutorsEnabled              Boolean               @default(true) @map("tutors_enabled")
   tutorRoutingMode           String                @default("all") @map("tutor_routing_mode")
   defaultTutorId             Int?                  @map("default_tutor_id")
   curriculumViewMode         String                @default("mini-cards") @map("curriculum_view_mode")

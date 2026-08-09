@@ -336,6 +336,7 @@ export const coursesApi = {
       collaborativeModuleName?: string;
       collaborativeModuleEnabled?: boolean;
       emotionalPulseEnabled?: boolean;
+      tutorsEnabled?: boolean;
       tutorRoutingMode?: 'free' | 'all' | 'single' | 'smart' | 'collaborative' | 'random';
       defaultTutorId?: number | null;
     }

@@ -1589,5 +1589,7 @@
   "used_in_n_courses": "Used in {{count}} courses",
   "add_lab": "Attach a lab",
   "desc_lab": "Reuse a lab from your library",
-  "go_to_labs": "Manage labs"
+  "go_to_labs": "Manage labs",
+  "tutors_enabled": "Enable AI Tutors",
+  "tutors_enabled_desc": "Master switch — when off, students cannot see or chat with the course AI tutors"
 }

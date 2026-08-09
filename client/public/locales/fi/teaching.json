@@ -1519,5 +1519,7 @@
   "used_in_n_courses": "Käytössä {{count}} kurssilla",
   "add_lab": "Liitä laboratorio",
   "desc_lab": "Käytä laboratoriota kirjastostasi",
-  "go_to_labs": "Hallitse harjoituksia"
+  "go_to_labs": "Hallitse harjoituksia",
+  "tutors_enabled": "Ota AI-tuutorit käyttöön",
+  "tutors_enabled_desc": "Pääkytkin — pois päältä ollessaan opiskelijat eivät näe kurssin AI-tuutoreita eivätkä voi keskustella niiden kanssa"
 }

@@ -150,6 +150,38 @@ describe('CourseTutorService', () => {
     // ---------------------------------------------------------------
     // Admin bypasses enrollment check via isAdmin option
     // ---------------------------------------------------------------
+    it('should return no tutors when AI tutors are disabled for the course', async () => {
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({
+        instructorId: 999,
+        tutorsEnabled: false,
+      } as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue({ id: 1 } as any);
+
+      const result = await courseTutorService.getStudentTutors(100, 5);
+
+      expect(result).toEqual([]);
+      expect(prisma.courseTutor.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should pin the tutor list to the default tutor in single routing mode', async () => {
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({
+        instructorId: 999,
+        tutorsEnabled: true,
+        tutorRoutingMode: 'single',
+        defaultTutorId: 1,
+      } as any);
+      vi.mocked(prisma.enrollment.findUnique).mockResolvedValue({ id: 1 } as any);
+      vi.mocked(prisma.courseTutor.findMany).mockResolvedValue(mockCourseTutors as any);
+
+      await courseTutorService.getStudentTutors(100, 5);
+
+      expect(prisma.courseTutor.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ courseId: 100, isActive: true, id: 1 }),
+        })
+      );
+    });
+
     it('should return tutors for admin without enrollment check', async () => {
       vi.mocked(prisma.courseTutor.findMany).mockResolvedValue(mockCourseTutors as any);
 
@@ -157,8 +189,8 @@ describe('CourseTutorService', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].displayName).toBe('Tutor One');
-      // Admin should skip ALL enrollment checks
-      expect(prisma.course.findUnique).not.toHaveBeenCalled();
+      // Admin should skip ALL enrollment checks. (The course row itself is
+      // still read — the tutorsEnabled gate applies to admins too.)
       expect(prisma.enrollment.findUnique).not.toHaveBeenCalled();
       expect(courseRoleService.isTeamMember).not.toHaveBeenCalled();
     });
@@ -239,6 +271,26 @@ describe('CourseTutorService', () => {
       const result = await courseTutorService.getStudentTutors(100, 1, { isAdmin: true });
 
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('createConversation', () => {
+    it('should refuse when AI tutors are disabled for the course', async () => {
+      vi.mocked(prisma.courseTutor.findUnique).mockResolvedValue({
+        id: 1,
+        courseId: 100,
+        isActive: true,
+        course: { id: 100, title: 'Course' },
+        chatbot: { displayName: 'Tutor One' },
+      } as any);
+      vi.mocked(prisma.course.findUnique).mockResolvedValue({
+        instructorId: 999,
+        tutorsEnabled: false,
+      } as any);
+
+      await expect(courseTutorService.createConversation(1, 5)).rejects.toThrow(
+        'AI tutors are disabled for this course'
+      );
     });
   });
 });
