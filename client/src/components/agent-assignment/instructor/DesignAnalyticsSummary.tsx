@@ -16,8 +16,8 @@ import {
   LayoutList,
   LogIn,
 } from 'lucide-react';
-import { tna } from 'dynajs';
-import type { TNA } from 'dynajs';
+import { tna } from 'ladyna';
+import type { TNA } from 'ladyna';
 import { TnaIndexPlot } from '../../tna/TnaIndexPlot';
 import { TnaNetworkGraph } from '../../tna/TnaNetworkGraph';
 import { ActivityDonutChart } from '../../tna/ActivityDonutChart';

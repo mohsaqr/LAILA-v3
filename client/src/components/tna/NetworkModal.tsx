@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
-import { tna, ftna, ctna, atna, prune, centralities, layout as dynaLayout } from 'dynajs';
-import type { TNA, LayoutAlgorithm } from 'dynajs';
+import { tna, ftna, ctna, atna, prune, centralities, layout as dynaLayout } from 'ladyna';
+import type { TNA, LayoutAlgorithm } from 'ladyna';
 import { TnaNetworkGraph } from './TnaNetworkGraph';
 import { createColorMap } from './colorFix';
 

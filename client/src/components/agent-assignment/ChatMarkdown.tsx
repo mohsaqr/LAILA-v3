@@ -1,8 +1,8 @@
 import ReactMarkdown from 'react-markdown';
 import { Download, Copy, Check, Network, GitBranch } from 'lucide-react';
 import { useState, useMemo } from 'react';
-import { buildModel, layout as dynaLayout } from 'dynajs';
-import type { TNA, LayoutAlgorithm } from 'dynajs';
+import { buildModel, layout as dynaLayout } from 'ladyna';
+import type { TNA, LayoutAlgorithm } from 'ladyna';
 import { TnaNetworkGraph } from '../tna/TnaNetworkGraph';
 import { edgesToMatrix, type Edge } from '../sna-exercise/sampleNetworks';
 import { computeAllCentralities } from '../sna-exercise/utils';

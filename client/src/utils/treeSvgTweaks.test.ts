@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { contextTree, plotTree } from 'tnaj';
+import { contextTree, plotTree } from 'ladyna';
 import { tweakTreeSvg } from './treeSvgTweaks';
 
 const STATES = ['learning', 'assessment', 'help', 'browsing'];

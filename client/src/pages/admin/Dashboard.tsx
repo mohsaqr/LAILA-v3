@@ -5,8 +5,8 @@ import { Users, Activity, Hash, Settings2, Network, GitBranch, Expand, Search, P
 import {
   tna, ftna, ctna, atna,
   centralities, prune, summary, layout as dynaLayout,
-} from 'dynajs';
-import type { TNA, LayoutAlgorithm } from 'dynajs';
+} from 'ladyna';
+import type { TNA, LayoutAlgorithm } from 'ladyna';
 import { activityLogApi } from '../../api/admin';
 import { useTheme } from '../../hooks/useTheme';
 import { AdminLayout, StatCard } from '../../components/admin';

@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Expand } from 'lucide-react';
-import { clusterData, tna, prune, centralities, stateFrequencies } from 'dynajs';
+import { clusterData, tna, prune, centralities, stateCounts } from 'ladyna';
 import { Loading } from '../common/Loading';
-import type { TNA } from 'dynajs';
+import type { TNA } from 'ladyna';
 import { TnaNetworkGraph } from './TnaNetworkGraph';
 import { TnaDistributionPlot } from './TnaDistributionPlot';
 import { ClusterNetworkModal } from './NetworkModal';
@@ -81,7 +81,7 @@ export const ClustersTab = ({
             .filter((i: number) => i >= 0);
 
           const clusterSeqs = indices.map((i: number) => seqsForClustering[i]);
-          const freqs = stateFrequencies(clusterSeqs);
+          const freqs = stateCounts(clusterSeqs);
           const sortedFreqs = Object.entries(freqs).sort((a, b) => b[1] - a[1]) as [string, number][];
 
           const avgLen =

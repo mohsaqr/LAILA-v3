@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { TNA } from 'dynajs';
+import type { TNA } from 'ladyna';
 
 interface TransitionHeatmapProps {
   model: TNA;

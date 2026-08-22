@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { discoverPatterns } from 'dynajs';
-import { contextTree, plotTree, commonPathways, buildHypa } from 'tnaj';
+import { discoverPatterns } from 'ladyna';
+import { contextTree, plotTree, commonPathways, buildHypa } from 'ladyna';
 import { Loading } from '../common/Loading';
 import { PatternTable } from './PatternTable';
 import { drawSimplicialOverlay } from './simplicialOverlay.js';

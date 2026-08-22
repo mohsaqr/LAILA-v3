@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useCallback } from 'react';
-import type { TNA } from 'dynajs';
+import type { TNA } from 'ladyna';
 import { createColorMap } from './colorFix';
 
 interface CentralityData {

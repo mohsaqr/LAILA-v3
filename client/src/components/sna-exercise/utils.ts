@@ -1,4 +1,4 @@
-import type { CentralityResult } from 'dynajs';
+import type { CentralityResult } from 'ladyna';
 
 /** Convert dynajs CentralityResult (Float64Array) to plain number[]. */
 export function toCentralityData(raw: CentralityResult): { labels: string[]; measures: Record<string, number[]> } {
