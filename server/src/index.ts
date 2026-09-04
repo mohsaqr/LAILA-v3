@@ -38,6 +38,7 @@ import userRoutes from './routes/user.routes.js';
 import chatRoutes from './routes/chat.routes.js';
 import chatbotRoutes from './routes/chatbot.routes.js';
 import courseRoutes from './routes/course.routes.js';
+import courseTransferRoutes from './routes/courseTransfer.routes.js';
 import enrollmentRoutes from './routes/enrollment.routes.js';
 import assignmentRoutes from './routes/assignment.routes.js';
 import adminRoutes from './routes/admin.routes.js';
@@ -191,6 +192,8 @@ app.use('/api/uploads', uploadLimiter, uploadRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/chat', llmLimiter, chatRoutes); // AI rate limiting
 app.use('/api/chatbots', chatbotRoutes);
+// Export/import/duplicate go first so '/import' is not read as a course id.
+app.use('/api/courses', courseTransferRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/enrollments', enrollmentRoutes);
 app.use('/api/assignments', assignmentRoutes);

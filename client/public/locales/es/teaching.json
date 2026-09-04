@@ -1516,5 +1516,20 @@
   "desc_lab": "Reutiliza un laboratorio de tu biblioteca",
   "go_to_labs": "Gestionar laboratorios",
   "tutors_enabled": "Activar tutores de IA",
-  "tutors_enabled_desc": "Interruptor principal: al desactivarlo, los estudiantes no pueden ver ni chatear con los tutores de IA del curso"
+  "tutors_enabled_desc": "Interruptor principal: al desactivarlo, los estudiantes no pueden ver ni chatear con los tutores de IA del curso",
+  "import_course": "Importar curso",
+  "export_course": "Exportar curso",
+  "duplicate_course": "Duplicar curso",
+  "import_course_hint": "Elige un paquete .laila.zip exportado desde LAILA",
+  "importing_course": "Importando curso…",
+  "exporting_course": "Preparando la descarga…",
+  "duplicating_course": "Duplicando curso…",
+  "course_exported": "Paquete del curso descargado",
+  "course_exported_missing_files": "Paquete descargado, pero faltaban {{count}} archivo(s) en el servidor",
+  "course_imported": "\"{{title}}\" importado como nuevo curso en borrador",
+  "course_duplicated": "\"{{title}}\" creado como nuevo curso en borrador",
+  "import_report_warnings": "{{count}} aviso(s): revisa el curso antes de publicarlo",
+  "failed_to_export_course": "No se pudo exportar el curso",
+  "failed_to_import_course": "No se pudo importar el curso",
+  "failed_to_duplicate_course": "No se pudo duplicar el curso"
 }

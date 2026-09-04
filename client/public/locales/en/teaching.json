@@ -1591,5 +1591,20 @@
   "desc_lab": "Reuse a lab from your library",
   "go_to_labs": "Manage labs",
   "tutors_enabled": "Enable AI Tutors",
-  "tutors_enabled_desc": "Master switch — when off, students cannot see or chat with the course AI tutors"
+  "tutors_enabled_desc": "Master switch — when off, students cannot see or chat with the course AI tutors",
+  "import_course": "Import course",
+  "export_course": "Export course",
+  "duplicate_course": "Duplicate course",
+  "import_course_hint": "Choose a .laila.zip package exported from LAILA",
+  "importing_course": "Importing course…",
+  "exporting_course": "Preparing download…",
+  "duplicating_course": "Duplicating course…",
+  "course_exported": "Course package downloaded",
+  "course_exported_missing_files": "Course package downloaded, but {{count}} file(s) were missing on the server",
+  "course_imported": "Imported \"{{title}}\" as a new draft course",
+  "course_duplicated": "Created \"{{title}}\" as a new draft course",
+  "import_report_warnings": "{{count}} warning(s) — check the course before publishing",
+  "failed_to_export_course": "Failed to export course",
+  "failed_to_import_course": "Failed to import course",
+  "failed_to_duplicate_course": "Failed to duplicate course"
 }

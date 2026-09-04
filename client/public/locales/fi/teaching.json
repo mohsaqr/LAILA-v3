@@ -1521,5 +1521,20 @@
   "desc_lab": "Käytä laboratoriota kirjastostasi",
   "go_to_labs": "Hallitse harjoituksia",
   "tutors_enabled": "Ota AI-tuutorit käyttöön",
-  "tutors_enabled_desc": "Pääkytkin — pois päältä ollessaan opiskelijat eivät näe kurssin AI-tuutoreita eivätkä voi keskustella niiden kanssa"
+  "tutors_enabled_desc": "Pääkytkin — pois päältä ollessaan opiskelijat eivät näe kurssin AI-tuutoreita eivätkä voi keskustella niiden kanssa",
+  "import_course": "Tuo kurssi",
+  "export_course": "Vie kurssi",
+  "duplicate_course": "Monista kurssi",
+  "import_course_hint": "Valitse LAILAsta viety .laila.zip-paketti",
+  "importing_course": "Tuodaan kurssia…",
+  "exporting_course": "Valmistellaan latausta…",
+  "duplicating_course": "Monistetaan kurssia…",
+  "course_exported": "Kurssipaketti ladattu",
+  "course_exported_missing_files": "Kurssipaketti ladattu, mutta {{count}} tiedosto(a) puuttui palvelimelta",
+  "course_imported": "Kurssi \"{{title}}\" tuotiin uutena luonnoksena",
+  "course_duplicated": "Kurssi \"{{title}}\" luotiin uutena luonnoksena",
+  "import_report_warnings": "{{count}} varoitus(ta) — tarkista kurssi ennen julkaisua",
+  "failed_to_export_course": "Kurssin vienti epäonnistui",
+  "failed_to_import_course": "Kurssin tuonti epäonnistui",
+  "failed_to_duplicate_course": "Kurssin monistaminen epäonnistui"
 }

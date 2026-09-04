@@ -1516,5 +1516,20 @@
   "desc_lab": "أعد استخدام مختبر من مكتبتك",
   "go_to_labs": "إدارة المختبرات",
   "tutors_enabled": "تفعيل المرشدين الذكيين",
-  "tutors_enabled_desc": "مفتاح رئيسي — عند إيقافه لا يمكن للطلاب رؤية المرشدين الذكيين في المقرر أو التحدث معهم"
+  "tutors_enabled_desc": "مفتاح رئيسي — عند إيقافه لا يمكن للطلاب رؤية المرشدين الذكيين في المقرر أو التحدث معهم",
+  "import_course": "استيراد مقرر",
+  "export_course": "تصدير المقرر",
+  "duplicate_course": "نسخ المقرر",
+  "import_course_hint": "اختر حزمة .laila.zip مُصدَّرة من LAILA",
+  "importing_course": "جارٍ استيراد المقرر…",
+  "exporting_course": "جارٍ تجهيز التنزيل…",
+  "duplicating_course": "جارٍ نسخ المقرر…",
+  "course_exported": "تم تنزيل حزمة المقرر",
+  "course_exported_missing_files": "تم تنزيل الحزمة، لكن {{count}} ملف(ات) مفقودة على الخادم",
+  "course_imported": "تم استيراد \"{{title}}\" كمقرر مسودة جديد",
+  "course_duplicated": "تم إنشاء \"{{title}}\" كمقرر مسودة جديد",
+  "import_report_warnings": "{{count}} تحذير(ات) — راجع المقرر قبل النشر",
+  "failed_to_export_course": "فشل تصدير المقرر",
+  "failed_to_import_course": "فشل استيراد المقرر",
+  "failed_to_duplicate_course": "فشل نسخ المقرر"
 }

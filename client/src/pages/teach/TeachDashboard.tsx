@@ -16,13 +16,17 @@ import {
   ClipboardList,
   ClipboardCheck,
   Bot,
+  Download,
+  Upload,
+  Copy,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
 import { usersApi } from '../../api/users';
 import { coursesApi } from '../../api/courses';
+import { courseTransferApi, CourseImportReport } from '../../api/courseTransfer';
 import { Card, CardBody } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Loading } from '../../components/common/Loading';
@@ -105,6 +109,55 @@ export const TeachDashboard = () => {
     onError: () => toast.error(t('common:error')),
   });
 
+  // Export / import / duplicate. A package is the course design only — never
+  // students or their work — so all three are safe to offer from the list.
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [exportingId, setExportingId] = useState<number | null>(null);
+
+  const afterTransfer = (report: CourseImportReport, successKey: string) => {
+    queryClient.invalidateQueries({ queryKey: ['teachingCourses'] });
+    queryClient.invalidateQueries({ queryKey: ['instructorStats'] });
+    toast.success(t(successKey, { title: report.title }));
+    if (report.warnings.length > 0) {
+      toast(t('import_report_warnings', { count: report.warnings.length }), { icon: '⚠️' });
+    }
+  };
+
+  const importMutation = useMutation({
+    mutationFn: (file: File) => courseTransferApi.importCourse(file),
+    onSuccess: (report) => afterTransfer(report, 'course_imported'),
+    onError: (error: any) => toast.error(error?.response?.data?.error || t('failed_to_import_course')),
+  });
+
+  const duplicateMutation = useMutation({
+    mutationFn: (courseId: number) => courseTransferApi.duplicateCourse(courseId),
+    onSuccess: (report) => afterTransfer(report, 'course_duplicated'),
+    onError: (error: any) => toast.error(error?.response?.data?.error || t('failed_to_duplicate_course')),
+  });
+
+  const handleExport = async (course: Course) => {
+    setActiveMenu(null);
+    setExportingId(course.id);
+    const toastId = toast.loading(t('exporting_course'));
+    try {
+      const { missingFiles } = await courseTransferApi.exportCourse(course.id);
+      toast.success(
+        missingFiles > 0 ? t('course_exported_missing_files', { count: missingFiles }) : t('course_exported'),
+        { id: toastId },
+      );
+    } catch {
+      toast.error(t('failed_to_export_course'), { id: toastId });
+    } finally {
+      setExportingId(null);
+    }
+  };
+
+  const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (file) importMutation.mutate(file);
+  };
+
   const handleTogglePublish = (course: Course) => {
     setActiveMenu(null);
     if (course.status === 'published') {
@@ -126,7 +179,24 @@ export const TeachDashboard = () => {
       </div>
 
       {/* Header actions */}
-      <div className="flex justify-end mb-6 md:mb-8">
+      <div className="flex justify-end gap-2 mb-6 md:mb-8">
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".zip,application/zip"
+          className="hidden"
+          onChange={handleImportFile}
+          data-testid="import-course-input"
+        />
+        <Button
+          variant="secondary"
+          onClick={() => importInputRef.current?.click()}
+          icon={<Upload className="w-4 h-4" />}
+          loading={importMutation.isPending}
+          title={t('import_course_hint')}
+        >
+          {importMutation.isPending ? t('importing_course') : t('import_course')}
+        </Button>
         <Button onClick={() => navigate('/teach/create')} icon={<Plus className="w-4 h-4" />}>
           {t('create_course')}
         </Button>
@@ -288,6 +358,27 @@ export const TeachDashboard = () => {
                               <Edit className="w-4 h-4" />
                               {t('edit')}
                             </Link>
+                            <button
+                              onClick={() => handleExport(course)}
+                              disabled={exportingId === course.id}
+                              className="w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors"
+                              style={{ color: colors.textSecondary }}
+                            >
+                              <Download className="w-4 h-4" />
+                              {t('export_course')}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setActiveMenu(null);
+                                duplicateMutation.mutate(course.id);
+                              }}
+                              disabled={duplicateMutation.isPending}
+                              className="w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors"
+                              style={{ color: colors.textSecondary }}
+                            >
+                              <Copy className="w-4 h-4" />
+                              {duplicateMutation.isPending ? t('duplicating_course') : t('duplicate_course')}
+                            </button>
                             <button
                               onClick={() => handleTogglePublish(course)}
                               className="w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors"
