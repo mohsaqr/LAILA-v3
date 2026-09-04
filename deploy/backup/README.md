@@ -82,9 +82,20 @@ Nothing here is called a success because a command exited 0.
    and read through `tar`. That proves the stored bytes open with the stored key.
 4. The entry count out must equal the count in.
 5. A SHA256 is recorded and re-checked hourly, and again before every upload.
-6. The off-site copy is hashed **on the remote host** and compared — not by
-   size, which passes happily on a truncated file.
-7. **Weekly, the newest bundle is restored into a throwaway database and every
+6. The off-site copy of **both tiers** is hashed **on the remote host** and
+   compared — not by size, which passes happily on a truncated file. A bundle
+   packed less than `OFFSITE_GRACE_HOURS` ago is reported as not-yet-shipped
+   rather than missing, because the daily shipping run may not have finished.
+   Every upload lands under a `.part` name and is renamed only after that
+   remote hash matches, so a real bundle name never holds anything but a
+   verified copy; a damaged copy found under a real name is removed and
+   re-sent.
+7. The off-site host is asked for its **free space** before every upload and
+   at every audit. A full destination is the failure scp cannot report
+   honestly — it leaves a right-sized file of zeros — so the shipper refuses
+   to send into one and the audit says, in MB, that the far disk is the
+   problem (`OFFSITE_MIN_FREE_MB` is the headroom it insists on).
+8. **Weekly, the newest bundle is restored into a throwaway database and every
    table's row count is compared against the manifest.** A backup that has never
    been restored is a belief, not a plan.
 
@@ -92,6 +103,24 @@ The hourly audit (`laila-backup-audit.sh`) re-derives all of this from what is
 actually on disk and off-site, and mails `ALERT_EMAIL` when anything fails. It
 also fails if the restore test has not passed in 8 days — so the system
 complains about its *own* verification going stale.
+
+### Why an old uploads bundle can still be healthy
+
+Uploads are only re-packed when the tree changes, so on a quiet host the newest
+uploads bundle sails past `STALE_UPLOADS_HOURS` while nothing is wrong. Age
+alone cannot answer "what would we get back?" for that tier, so the audit
+forgives an old uploads bundle **only** when it can establish both of:
+
+- the live `server/uploads` tree still hashes to the fingerprint recorded when
+  that bundle was written — so the bundle is a complete copy of today's
+  uploads, whatever its date; and
+- the daily uploads job has run within `UPLOADS_JOB_MAX_AGE_HOURS` (30) — so a
+  dead cron is still caught while the tree happens to be static.
+
+Both are computed by the audit itself; neither is taken from a status file's
+headline. When it does fail, the message says which condition broke — "the live
+uploads tree NO LONGER matches it" and "the cron looks dead" are the same age
+reading but very different jobs.
 
 ## Daily use
 
@@ -186,6 +215,39 @@ sudo laila-backup.sh all && sudo laila-backup-offsite.sh \
   && sudo laila-restore.sh verify && sudo laila-backup-audit.sh
 ```
 
+## Updating the scripts on a host that already has them
+
+Do **not** re-run `install.sh` just to ship a script change. It rewrites
+`/etc/cron.d/laila-backup` from `BACKUP_HOUR`, which defaults to `2` — on a host
+that backs up at another hour, that silently reschedules everything. (lacarm
+runs at 06:xx precisely because its own whole-server backups own 00:00–05:00.)
+
+Use `push-scripts.sh`, which replaces only the files in `/usr/local/sbin` and
+leaves the cron file, config, passphrase and off-site key alone:
+
+```bash
+cd deploy/backup
+./push-scripts.sh <ssh-target> <ssh-key>              # verify only — changes nothing
+./push-scripts.sh <ssh-target> <ssh-key> --install    # verify, then install
+```
+
+It refuses to install unless it has first, **on that host**:
+
+1. run the regression suites (`test-audit.sh`, `test-offsite.sh`) in a
+   sandbox, and
+2. run the new audit against the host's real config with `ALERT_EMAIL` blanked,
+   so you see exactly what the hourly cron will report — without paging anyone.
+
+Then it installs at `0750` keeping each previous copy as
+`/usr/local/sbin/.<name>.bak-<date>`, and runs the audit the way cron does.
+Roll back by copying a `.bak-<date>` file back over the original.
+
+Host addresses, SSH keys and each host's `BACKUP_HOUR` live in
+`deploy/lailalms-ops-runbook.md`, which is git-ignored. **Run it against every
+host** — the two production hosts have opposite uploads profiles (one a few MB
+that almost never change, one ~580 MB re-packed daily), and that difference has
+already hidden a bug once.
+
 ## Design limits
 
 - **Point-in-time recovery is not available.** These are daily logical dumps;
@@ -193,6 +255,10 @@ sudo laila-backup.sh all && sudo laila-backup-offsite.sh \
   (WAL shipping) is the next step if a 24 h RPO is ever too coarse.
 - **A single off-site provider is a correlated failure.** Enable the rclone
   route above.
+- **The off-site host is shared, and its disk is not ours.** Other systems
+  ship there too. When the audit reports the off-site disk full, the fix is on
+  that host, and it is usually somebody else's files (2026-09-04: a 23 GB VM
+  image and 49 GB of another server's bundles on a 77 GB disk, LAILA at 2.4 GB).
 - **Retention assumes the audit is being read.** Nothing here can tell you that
   the alert mail is going to an address someone still checks; verify the channel
   with `laila-backup-alert.mjs --check`.

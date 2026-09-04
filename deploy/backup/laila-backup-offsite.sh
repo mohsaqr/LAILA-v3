@@ -23,6 +23,13 @@
 # compared against the local hash. Comparing sizes — which is what most backup
 # scripts do — passes happily on a file that was truncated to the same length or
 # corrupted in transit.
+#
+# The upload lands under a temporary .part name and is renamed only after that
+# remote hash matches, so nothing under a real bundle name is ever anything but
+# a verified copy. Before sending, the remote filesystem is asked for its free
+# space: a full destination (2026-09-04, both hosts) leaves a right-sized file
+# of zeros behind, and "disk full on the off-site host" is a far more useful
+# thing to be told than "hash mismatch".
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
@@ -52,10 +59,31 @@ fail(){
 }
 
 HOST="$(hostname -s)"
+# Headroom the off-site filesystem must keep AFTER a bundle lands there. A
+# destination that is merely large enough for one more file is one bad night
+# from being full, and a full destination is the one failure scp cannot report
+# honestly (see ship_scp).
+OFFSITE_MIN_FREE_MB="${OFFSITE_MIN_FREE_MB:-512}"
 say "===== off-site START ====="
 
 SHIPPED=()
 FAILURES=0
+
+# OFFSITE_SSH / OFFSITE_SCP exist so a config can point at a wrapper and so
+# test-offsite.sh can stand in a sandbox for the remote host. PATH is pinned
+# above for cron safety, so this cannot be done by shadowing the binaries.
+offsite_ssh(){
+  "${OFFSITE_SSH:-ssh}" -i "$OFFSITE_KEY" -o BatchMode=yes -o ConnectTimeout=20 \
+      -o StrictHostKeyChecking=accept-new "$OFFSITE_USER@$OFFSITE_HOST" "$@"
+}
+offsite_scp(){ # offsite_scp <local file> <remote path>
+  "${OFFSITE_SCP:-scp}" -l "$SCP_LIMIT_KBIT" -i "$OFFSITE_KEY" -o BatchMode=yes \
+      -o StrictHostKeyChecking=accept-new "$1" "$OFFSITE_USER@$OFFSITE_HOST:$2"
+}
+# Free KB on the filesystem holding OFFSITE_DIR, or empty when it cannot be read.
+offsite_free_kb(){
+  offsite_ssh "df -Pk '$OFFSITE_DIR' 2>/dev/null | awk 'NR==2{print \$4}'" 2>/dev/null
+}
 
 # ── route 1: scp to a separate host ──────────────────────────────────────────
 ship_scp(){
@@ -79,31 +107,66 @@ ship_scp(){
     FAILURES=$((FAILURES+1)); return 1
   fi
 
-  local ssh_opts=(-i "$OFFSITE_KEY" -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new)
-
-  ssh "${ssh_opts[@]}" "$OFFSITE_USER@$OFFSITE_HOST" "mkdir -p '$OFFSITE_DIR' && chmod 700 '$OFFSITE_DIR'" \
+  offsite_ssh "mkdir -p '$OFFSITE_DIR' && chmod 700 '$OFFSITE_DIR'" \
     || { say "ERROR: cannot reach $OFFSITE_USER@$OFFSITE_HOST (key not authorised, or port 22 blocked)"; FAILURES=$((FAILURES+1)); return 1; }
 
   # Already there and intact? Then this tier simply had nothing new today —
   # normal for uploads, which only re-pack when they change.
+  local remote_path="$OFFSITE_DIR/$name" part="$OFFSITE_DIR/$name.part"
   local remote_hash
-  remote_hash="$(ssh "${ssh_opts[@]}" "$OFFSITE_USER@$OFFSITE_HOST" \
-                 "sha256sum '$OFFSITE_DIR/$name' 2>/dev/null | cut -d' ' -f1" || true)"
+  remote_hash="$(offsite_ssh "sha256sum '$remote_path' 2>/dev/null | cut -d' ' -f1" || true)"
   if [ "$remote_hash" = "$local_hash" ]; then
     say "$name is already off-site and verified — nothing to send"
     SHIPPED+=("$name (already present)")
     return 0
   fi
 
-  say "uploading $name ($(du -h "$local_file" | cut -f1)) → $OFFSITE_USER@$OFFSITE_HOST:$OFFSITE_DIR/"
-  scp -l "$SCP_LIMIT_KBIT" -i "$OFFSITE_KEY" -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-      "$local_file" "$OFFSITE_USER@$OFFSITE_HOST:$OFFSITE_DIR/" \
-    || { say "ERROR: scp of $name failed"; FAILURES=$((FAILURES+1)); return 1; }
+  # A file under the real name that does not hash to the bundle is not a
+  # backup of anything, whatever its size says. Bundle names carry their
+  # timestamp, so a same-named file can only be a damaged copy of this one —
+  # take it out before anyone recovering in a hurry mistakes it for the newest
+  # bundle. A .part is what a previous run left when it died mid-transfer.
+  if [ -n "$remote_hash" ]; then
+    say "$name is on $OFFSITE_HOST but does NOT match its hash — removing that copy before re-sending"
+  fi
+  offsite_ssh "rm -f '$remote_path' '$part'" \
+    || say "WARNING: could not remove the old copy of $name on $OFFSITE_HOST"
 
-  remote_hash="$(ssh "${ssh_opts[@]}" "$OFFSITE_USER@$OFFSITE_HOST" \
-                 "sha256sum '$OFFSITE_DIR/$name' 2>/dev/null | cut -d' ' -f1" || true)"
+  # Room for it? A full destination is the one failure scp cannot report
+  # honestly: in SFTP mode the remote file is extended to full length first,
+  # then the writes start failing, and what is left is a file of the right
+  # NAME and the right SIZE holding zeros — which the 2026-09-04 incident
+  # looked like from this side. Ask before sending, and say the number.
+  local size_kb free_kb need_kb
+  size_kb=$(( $(stat -c %s "$local_file") / 1024 + 1 ))
+  free_kb="$(offsite_free_kb)"
+  need_kb=$(( size_kb + OFFSITE_MIN_FREE_MB * 1024 ))
+  if [ -z "$free_kb" ]; then
+    say "WARNING: could not read free space on $OFFSITE_HOST — sending anyway"
+  elif [ "$free_kb" -lt "$need_kb" ]; then
+    say "ERROR: $OFFSITE_HOST has only $((free_kb/1024))MB free where $OFFSITE_DIR lives; $name needs $((size_kb/1024))MB plus ${OFFSITE_MIN_FREE_MB}MB headroom — the OFF-SITE disk is full, nothing will ship until space is freed there"
+    FAILURES=$((FAILURES+1)); return 1
+  fi
+
+  # Upload under a temporary name and rename only after the remote hash
+  # matches, so the real name is never anything but a verified copy. Whatever
+  # a failed transfer leaves behind is removed, not left to look like a backup.
+  say "uploading $name ($(du -h "$local_file" | cut -f1)) → $OFFSITE_USER@$OFFSITE_HOST:$OFFSITE_DIR/"
+  if ! offsite_scp "$local_file" "$part"; then
+    say "ERROR: scp of $name failed — removing the partial remote file"
+    offsite_ssh "rm -f '$part'" || say "WARNING: could not remove $part on $OFFSITE_HOST"
+    FAILURES=$((FAILURES+1)); return 1
+  fi
+
+  remote_hash="$(offsite_ssh "sha256sum '$part' 2>/dev/null | cut -d' ' -f1" || true)"
   if [ "$remote_hash" != "$local_hash" ]; then
-    say "ERROR: remote SHA256 mismatch for $name (local $local_hash, remote ${remote_hash:-none})"
+    say "ERROR: remote SHA256 mismatch for $name (local $local_hash, remote ${remote_hash:-none}) — removing the remote copy"
+    offsite_ssh "rm -f '$part'" || say "WARNING: could not remove $part on $OFFSITE_HOST"
+    FAILURES=$((FAILURES+1)); return 1
+  fi
+  if ! offsite_ssh "mv -f '$part' '$remote_path'"; then
+    say "ERROR: could not rename $part into place on $OFFSITE_HOST"
+    offsite_ssh "rm -f '$part'" || true
     FAILURES=$((FAILURES+1)); return 1
   fi
   say "verified off-site copy of $name by SHA256"
@@ -113,7 +176,9 @@ ship_scp(){
   # Glob on ${prefix}_${HOST}_ and never on ${prefix}_ alone: if a second LAILA
   # host ever ships into the same directory, a host-blind glob would count its
   # bundles towards this host's keep-limit and delete them.
-  ssh "${ssh_opts[@]}" "$OFFSITE_USER@$OFFSITE_HOST" \
+  # The glob ends in .tar.gz.gpg, so an in-flight .part is never counted or
+  # rotated away.
+  offsite_ssh \
     "cd '$OFFSITE_DIR' 2>/dev/null && ls -1t ${prefix}_${HOST}_*.tar.gz.gpg 2>/dev/null | tail -n +$((keep+1)) | xargs -r rm -f" \
     || say "WARNING: remote rotation for $prefix did not complete"
 }

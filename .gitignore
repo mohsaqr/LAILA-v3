@@ -93,3 +93,7 @@ id_ed25519
 
 # Local-only ops runbook: holds production host IP, SSH user and key path
 deploy/lailalms-ops-runbook.md
+
+# Local key vault for prod SSH. *.pem above already covers the usual case; this
+# ignores the whole directory so a key saved without a .pem suffix cannot leak.
+deploy/.secrets/

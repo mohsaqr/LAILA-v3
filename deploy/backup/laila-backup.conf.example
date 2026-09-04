@@ -91,3 +91,24 @@ ALERT_EMAIL=""
 # How old a bundle may get before the audit calls it stale (hours).
 STALE_DATA_HOURS=30
 STALE_UPLOADS_HOURS=200
+
+# Uploads only re-pack when the tree changes, so on a quiet host the newest
+# uploads bundle passes STALE_UPLOADS_HOURS while everything is working. The
+# audit forgives that only while it can re-hash the live tree to the bundle's
+# recorded fingerprint AND the daily uploads job is no older than this — which
+# is what still catches a genuinely dead cron. One daily run plus slack.
+UPLOADS_JOB_MAX_AGE_HOURS=30
+
+# The audit hash-verifies the newest bundle of BOTH tiers on the off-site host.
+# Bundles are packed shortly before the daily shipping run, and a large uploads
+# bundle can still be in flight when the hourly audit looks, so a bundle younger
+# than this is reported as not-yet-shipped rather than missing. Past it, absence
+# from the off-site host is a real alarm.
+OFFSITE_GRACE_HOURS=3
+
+# Headroom the off-site filesystem must keep after a bundle lands there (MB).
+# The shipper asks the off-site host for its free space before every upload
+# and refuses, naming the number, when bundle + headroom would not fit; the
+# audit fails when a shipment of both tiers + headroom would not fit. This is
+# what turns "SHA256 does not match" into "the off-site disk is full".
+OFFSITE_MIN_FREE_MB=512
