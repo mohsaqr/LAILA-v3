@@ -1,7 +1,7 @@
 {
   "name": "laila-client",
   "private": true,
-  "version": "3.14.0",
+  "version": "3.14.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -36,7 +36,7 @@
     "i18next-browser-languagedetector": "^8.2.0",
     "i18next-http-backend": "^3.0.2",
     "jspdf": "^4.2.0",
-    "ladyna": "file:../../tna-js",
+    "ladyna": "file:vendor/ladyna-1.8.25.tgz",
     "lucide-react": "^0.314.0",
     "marked": "^17.0.3",
     "pyodide": "^0.29.3",
