@@ -1,4 +1,4 @@
-# LAILA — Learning with Artificial Intelligence and Learning Analytics
+# LAILA — A Learning Management System for AI
 
 A multi-agent tutoring platform built around pedagogically distinct AI personas. LAILA provides a set of pre-built tutor agents, a student agent builder for learning-through-design, and deploys agents across several interaction surfaces within a full learning management system.
 
