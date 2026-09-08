@@ -32,6 +32,7 @@ import { ModuleSection } from '../components/course/ModuleSection';
 import { CourseStartCountdown } from '../components/course/CourseStartCountdown';
 import { MoodleCourseEditor } from '../components/teach/moodle/MoodleCourseEditor';
 import { Modal } from '../components/common/Modal';
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { Input } from '../components/common/Input';
 import { Avatar } from '../components/dashboard/Avatar';
 import { resolveFileUrl } from '../api/client';
@@ -53,6 +54,12 @@ export const CourseDetails = () => {
   // Activation code modal state
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [activationCode, setActivationCode] = useState('');
+
+  // Unpublishing takes a live course away from everyone enrolled in it, and
+  // the student side of that is a bare 404 ("Course not found"), so it is
+  // indistinguishable from a deleted course. It gets a confirmation; going the
+  // other way (publishing) is harmless and stays one click.
+  const [showUnpublishConfirm, setShowUnpublishConfirm] = useState(false);
 
   // Inline Edit Mode — toggles the read-only module list into the same
   // curriculum editor used by the setup/manage content step, without leaving
@@ -154,11 +161,13 @@ export const CourseDetails = () => {
   const unpublishMutation = useMutation({
     mutationFn: () => coursesApi.unpublishCourse(parseInt(id!)),
     onSuccess: () => {
+      setShowUnpublishConfirm(false);
       toast.success(t('course_unpublished', { defaultValue: 'Course moved to draft' }));
       queryClient.invalidateQueries({ queryKey: ['course', id] });
       queryClient.invalidateQueries({ queryKey: ['courses'] });
     },
     onError: (error: any) => {
+      setShowUnpublishConfirm(false);
       toast.error(error?.response?.data?.error ?? error?.message ?? t('common:error'));
     },
   });
@@ -546,28 +555,54 @@ export const CourseDetails = () => {
                         {t('manage', { defaultValue: 'Manage' })}
                       </Link>
                       {editMode && (() => {
+                        // Two controls, deliberately not one. This used to be a
+                        // single button labelled with the course's STATE
+                        // ("Published") whose click performed the OPPOSITE
+                        // ACTION (unpublish) — styled like the status chips
+                        // beside it, disclosed only by a hover tooltip. It read
+                        // as a badge, so it got clicked as one, and it took a
+                        // live course with enrolled students dark.
+                        //
+                        // Now the badge is inert and only reports state, and the
+                        // button next to it names the action it performs.
                         const isPublished = course.status === 'published';
                         const busy = publishMutation.isPending || unpublishMutation.isPending;
                         return (
-                          <button
-                            type="button"
-                            onClick={() => (isPublished ? unpublishMutation : publishMutation).mutate()}
-                            disabled={busy}
-                            title={isPublished
-                              ? t('course_unpublished', { defaultValue: 'Move to draft' })
-                              : t('course_published', { defaultValue: 'Publish course' })}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800 disabled:opacity-60 disabled:cursor-not-allowed"
-                            style={isPublished
-                              ? { backgroundColor: isDark ? 'rgba(16,185,129,0.18)' : '#d1fae5', color: isDark ? '#6ee7b7' : '#065f46' }
-                              : { backgroundColor: isDark ? 'rgba(245,158,11,0.18)' : '#fef3c7', color: isDark ? '#fcd34d' : '#92400e' }}
-                          >
-                            {isPublished
-                              ? <Globe className="w-4 h-4" strokeWidth={2.25} />
-                              : <FileEdit className="w-4 h-4" strokeWidth={2.25} />}
-                            {isPublished
-                              ? t('common:published', { defaultValue: 'Published' })
-                              : t('common:draft', { defaultValue: 'Draft' })}
-                          </button>
+                          <>
+                            <span
+                              data-testid="course-status-badge"
+                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold"
+                              style={isPublished
+                                ? { backgroundColor: isDark ? 'rgba(16,185,129,0.18)' : '#d1fae5', color: isDark ? '#6ee7b7' : '#065f46' }
+                                : { backgroundColor: isDark ? 'rgba(245,158,11,0.18)' : '#fef3c7', color: isDark ? '#fcd34d' : '#92400e' }}
+                            >
+                              {isPublished
+                                ? <Globe className="w-4 h-4" strokeWidth={2.25} />
+                                : <FileEdit className="w-4 h-4" strokeWidth={2.25} />}
+                              {isPublished
+                                ? t('common:published', { defaultValue: 'Published' })
+                                : t('common:draft', { defaultValue: 'Draft' })}
+                            </span>
+                            <button
+                              type="button"
+                              data-testid="course-publish-action"
+                              onClick={() => (isPublished
+                                ? setShowUnpublishConfirm(true)
+                                : publishMutation.mutate())}
+                              disabled={busy}
+                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800 disabled:opacity-60 disabled:cursor-not-allowed"
+                              style={isPublished
+                                ? { backgroundColor: isDark ? 'rgba(239,68,68,0.18)' : '#fee2e2', color: isDark ? '#fca5a5' : '#991b1b' }
+                                : { backgroundColor: isDark ? 'rgba(16,185,129,0.18)' : '#d1fae5', color: isDark ? '#6ee7b7' : '#065f46' }}
+                            >
+                              {isPublished
+                                ? <FileEdit className="w-4 h-4" strokeWidth={2.25} />
+                                : <Globe className="w-4 h-4" strokeWidth={2.25} />}
+                              {isPublished
+                                ? t('unpublish_course', { defaultValue: 'Unpublish' })
+                                : t('publish_course', { defaultValue: 'Publish' })}
+                            </button>
+                          </>
                         );
                       })()}
                     </>
@@ -772,6 +807,24 @@ export const CourseDetails = () => {
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={showUnpublishConfirm}
+        onClose={() => setShowUnpublishConfirm(false)}
+        onConfirm={() => unpublishMutation.mutate()}
+        loading={unpublishMutation.isPending}
+        variant="danger"
+        title={t('unpublish_course_title', { defaultValue: 'Unpublish this course?' })}
+        // The enrolment count is the point of the message: unpublishing is
+        // silent on the student side (a 404, not an "unavailable" notice), so
+        // the dialog is the only place the cost is ever stated.
+        message={t('unpublish_course_warning', {
+          count: course._count?.enrollments ?? 0,
+          defaultValue:
+            'Students will immediately lose access and the course page will show "not found" for them. {{count}} enrolled student(s) are affected. You can publish it again at any time.',
+        })}
+        confirmText={t('unpublish_course', { defaultValue: 'Unpublish' })}
+      />
     </div>
   );
 };
