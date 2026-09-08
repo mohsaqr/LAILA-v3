@@ -988,5 +988,13 @@
   "day_label": "Päivä",
   "detail_top_resources": "Suosituimmat resurssit",
   "view_user_analytics": "Näytä käyttäjän analytiikka →",
-  "events_truncated": "Näytetään viimeisimmät 50 000 tapahtumaa — vanhempi historia ei sisälly näihin kaavioihin."
+  "events_truncated": "Näytetään viimeisimmät 50 000 tapahtumaa — vanhempi historia ei sisälly näihin kaavioihin.",
+  "last_seen": "Viimeksi nähty",
+  "events": "Tapahtumat",
+  "last_action": "Viimeisin toiminto",
+  "never": "Ei koskaan",
+  "recent": "Äskettäin",
+  "idle": "Ei aktiivinen",
+  "dormant": "Lepotilassa",
+  "days_ago": "{{count}} pv sitten"
 }

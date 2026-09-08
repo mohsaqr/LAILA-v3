@@ -613,6 +613,36 @@ export interface TnaSequenceResponse {
 }
 
 // Unified Activity Log API
+/** A row of the "who was last seen when" roster. Timestamps are epoch ms. */
+export interface UserRosterRow {
+  userId: number;
+  name: string;
+  email: string;
+  role: 'admin' | 'instructor' | 'student';
+  isActive: boolean;
+  status: string | null;
+  joinedAt: number | null;
+  lastLogin: number | null;
+  lastSeen: number | null;
+  /** Which table the `lastSeen` value came from, so an odd date is traceable. */
+  lastSeenSource: 'activity' | 'interaction' | 'auth' | 'enrollment' | null;
+  sources: {
+    activity: number | null;
+    interaction: number | null;
+    auth: number | null;
+    enrollment: number | null;
+  };
+  events: number;
+  interactions: number;
+  lastAction: {
+    verb: string;
+    objectType: string;
+    objectTitle: string | null;
+    courseTitle: string | null;
+    at: number | null;
+  } | null;
+}
+
 export const activityLogApi = {
   getLogs: async (filters: ActivityLogFilters = {}) => {
     const params = new URLSearchParams();
@@ -777,6 +807,29 @@ export const activityLogApi = {
     params.append('timezone', Intl.DateTimeFormat().resolvedOptions().timeZone);
     const response = await apiClient.get<any>(`/activity-log/user-detail?${params.toString()}`);
     return response.data.data;
+  },
+
+  /**
+   * One row per person: last login, last seen across every signal the server
+   * keeps, and what they last did. `lastLogin` and `lastSeen` are separate on
+   * purpose — the former only moves on the password path, so it under-reports
+   * badly for accounts created through email verification.
+   */
+  getUserRoster: async (filters?: {
+    courseId?: number; userId?: number; search?: string; limit?: number; offset?: number;
+  }): Promise<{ data: UserRosterRow[]; total: number; truncated: boolean }> => {
+    const params = new URLSearchParams();
+    if (filters?.courseId) params.append('courseId', filters.courseId.toString());
+    if (filters?.userId) params.append('userId', filters.userId.toString());
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.offset) params.append('offset', filters.offset.toString());
+    const response = await apiClient.get<any>(`/activity-log/user-roster?${params.toString()}`);
+    return {
+      data: response.data.data ?? [],
+      total: response.data.total ?? 0,
+      truncated: response.data.truncated ?? false,
+    };
   },
 
   getTopUsers: async (filters?: {

@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Activity, KeyRound, Pencil, Ticket, Trash2, UserCheck, UserPlus, UserX, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usersApi } from '../../../api/users';
-import { adminApi } from '../../../api/admin';
+import { adminApi, activityLogApi } from '../../../api/admin';
 import {
   userManagementApi,
   type BulkUserAction,
@@ -91,6 +91,19 @@ export const UsersPanel = () => {
   });
 
   const users: AdminUser[] = data?.users ?? [];
+
+  // Last-seen comes from the activity roster rather than `users.lastLogin`,
+  // which only moves on the password login path and is therefore blank for
+  // accounts created through email verification even while they are active
+  // daily. Loaded as a separate query so the table still renders if it fails.
+  const { data: roster } = useQuery({
+    queryKey: ['userRoster', null],
+    queryFn: () => activityLogApi.getUserRoster({ limit: 1000 }),
+  });
+  const lastSeenById = useMemo(
+    () => new Map((roster?.data ?? []).map(r => [r.userId, r.lastSeen])),
+    [roster],
+  );
 
   const { data: coursesData } = useQuery({
     queryKey: ['admin', 'courses', 'enroll-picker'],
@@ -386,6 +399,22 @@ export const UsersPanel = () => {
         return (
           <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${style[state]}`}>
             {label[state]}
+          </span>
+        );
+      },
+    },
+    {
+      id: 'lastSeen',
+      header: t('last_seen', { defaultValue: 'Last seen' }),
+      sortAccessor: u => lastSeenById.get(u.id) ?? 0,
+      width: '8rem',
+      hideOnMobile: true,
+      align: 'right',
+      cell: u => {
+        const seen = lastSeenById.get(u.id) ?? null;
+        return (
+          <span className="text-xs text-gray-600 dark:text-gray-300 tabular-nums">
+            {seen ? new Date(seen).toLocaleDateString() : '\u2014'}
           </span>
         );
       },

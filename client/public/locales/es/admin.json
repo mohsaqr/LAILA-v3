@@ -988,5 +988,13 @@
   "day_label": "Día",
   "detail_top_resources": "Recursos principales",
   "view_user_analytics": "Ver analítica del usuario →",
-  "events_truncated": "Se muestran los 50 000 eventos más recientes — el historial más antiguo no se incluye en estos gráficos."
+  "events_truncated": "Se muestran los 50 000 eventos más recientes — el historial más antiguo no se incluye en estos gráficos.",
+  "last_seen": "Última actividad",
+  "events": "Eventos",
+  "last_action": "Última acción",
+  "never": "Nunca",
+  "recent": "Reciente",
+  "idle": "Inactivo",
+  "dormant": "Ausente",
+  "days_ago": "hace {{count}} d"
 }

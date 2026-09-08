@@ -403,6 +403,28 @@ router.get('/top-users', authenticateToken, asyncHandler(async (req: AuthRequest
 }));
 
 /**
+ * GET /api/activity-log/user-roster
+ * One row per person with last login, last seen (across every signal we keep)
+ * and what they last did. Course-scoped for instructors, site-wide for admins.
+ */
+router.get('/user-roster', authenticateToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const scope = await resolveActivityLogScope(
+    req.user!,
+    req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
+    req.query.userId ? parseInt(req.query.userId as string) : undefined,
+  );
+
+  const data = await activityLogService.getUserRoster({
+    courseId: scope.courseId,
+    userId: scope.userId,
+    search: (req.query.search as string) || undefined,
+    limit: req.query.limit ? parseInt(req.query.limit as string) : undefined,
+    offset: req.query.offset ? parseInt(req.query.offset as string) : undefined,
+  });
+  res.json({ success: true, ...data });
+}));
+
+/**
  * GET /api/activity-log/user-detail
  * Analytics drill-down for a single user (students only ever see themselves)
  */

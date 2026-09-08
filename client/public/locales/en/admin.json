@@ -988,5 +988,13 @@
   "day_label": "Day",
   "detail_top_resources": "Top Resources",
   "view_user_analytics": "View user analytics →",
-  "events_truncated": "Showing the most recent 50,000 events — older history is not included in these charts."
+  "events_truncated": "Showing the most recent 50,000 events — older history is not included in these charts.",
+  "last_seen": "Last seen",
+  "events": "Events",
+  "last_action": "Last action",
+  "never": "Never",
+  "recent": "Recent",
+  "idle": "Idle",
+  "dormant": "Dormant",
+  "days_ago": "{{count}}d ago"
 }

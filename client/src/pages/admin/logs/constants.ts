@@ -144,7 +144,7 @@ export const eventTypeColors: Record<string, string> = {
   downloaded_file: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300',
 };
 
-export type TabType = 'activity' | 'interactions' | 'messages' | 'chatbots' | 'forums';
+export type TabType = 'activity' | 'interactions' | 'messages' | 'chatbots' | 'forums' | 'users';
 
 // Chatbot type colors (for Chatbot Registry)
 export const chatbotTypeColors: Record<string, string> = {

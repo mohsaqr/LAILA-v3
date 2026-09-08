@@ -80,6 +80,9 @@ export interface LogQueryFilters {
   sortOrder?: 'asc' | 'desc';
 }
 
+/** Which table a roster row's `lastSeen` came from. */
+export type LastSeenSource = 'activity' | 'interaction' | 'auth' | 'enrollment';
+
 class ActivityLogService {
   /**
    * Log an activity with automatic context enrichment
@@ -894,6 +897,213 @@ class ActivityLogService {
         lastActive: toMs(r.lastActive),
       })),
     };
+  }
+
+  /**
+   * One row per person: when they last logged in, when they were last seen
+   * doing anything, and what that last thing was.
+   *
+   * "Last seen" deliberately spans every signal we keep, not just the
+   * learning activity log, because the three disagree by up to two weeks in
+   * practice:
+   *   - learning_activity_logs  the canonical xAPI-ish feed
+   *   - user_interaction_logs   raw UI interactions (clicks, page views)
+   *   - auth_event_logs         login/logout (site-wide only — auth is not
+   *                             course-scoped, so it is skipped for a course
+   *                             roster or every student would look "seen" on
+   *                             a login that never touched this course)
+   *   - enrollments.lastAccessAt
+   *
+   * `lastLogin` is reported alongside rather than folded in: it only moves on
+   * the password path (auth.service login), so accounts created through email
+   * verification carry NULL forever while being active daily. Showing it next
+   * to `lastSeen` is what makes that discrepancy legible instead of hiding it
+   * inside a MAX().
+   *
+   * The roster is driven by the *people*, not by the logs — enrolments for a
+   * course, the users table site-wide — so someone who has never generated a
+   * single event still appears, with `lastSeen: null`. Those are exactly the
+   * rows a "who has gone quiet" report exists to surface.
+   *
+   * Everything here goes through Prisma groupBy rather than raw SQL: this runs
+   * on Postgres in production and SQLite in local dev, and the two disagree on
+   * date storage (see `isPostgres` above), so aggregation in the query would
+   * need two dialects.
+   */
+  async getUserRoster(filters?: {
+    courseId?: number;
+    userId?: number;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const courseId = filters?.courseId;
+    const limit = Math.min(filters?.limit ?? 100, 500);
+    const offset = filters?.offset ?? 0;
+    // The roster is sorted by a value no index can provide (a MAX across four
+    // tables), so every row has to be built before any can be dropped. That is
+    // fine at institution scale and not at arbitrary scale, so the population
+    // is bounded explicitly and the truncation is reported rather than left as
+    // a silent performance cliff.
+    const POPULATION_CAP = 2000;
+
+    // 1. The population. A course roster is its enrolments; site-wide it is
+    //    the users table. Either way the list exists before any log is read.
+    let userIds: number[];
+    let truncated = false;
+    if (courseId !== undefined) {
+      const enrolled = await prisma.enrollment.findMany({
+        where: { courseId, ...(filters?.userId ? { userId: filters.userId } : {}) },
+        select: { userId: true },
+      });
+      userIds = enrolled.map(e => e.userId).slice(0, POPULATION_CAP);
+      truncated = enrolled.length > POPULATION_CAP;
+    } else {
+      // Search is applied in JS further down, not here: `mode: 'insensitive'`
+      // is Postgres-only and local dev generates the client from the SQLite
+      // schema, so a DB-side case-insensitive contains does not compile.
+      const where: Prisma.UserWhereInput = {
+        ...(filters?.userId ? { id: filters.userId } : {}),
+      };
+      const all = await prisma.user.findMany({ where, select: { id: true } });
+      userIds = all.map(u => u.id).slice(0, POPULATION_CAP);
+      truncated = all.length > POPULATION_CAP;
+    }
+
+    if (userIds.length === 0) {
+      return { data: [], total: 0, truncated: false };
+    }
+
+    const inUsers = { in: userIds };
+    const courseWhere = courseId !== undefined ? { courseId } : {};
+
+    // 2. Every signal, one grouped query each.
+    const [users, activity, interaction, auth, enrolments] = await Promise.all([
+      prisma.user.findMany({
+        where: { id: inUsers },
+        select: {
+          id: true, fullname: true, email: true,
+          isAdmin: true, isInstructor: true, isActive: true,
+          status: true, createdAt: true, lastLogin: true,
+        },
+      }),
+      prisma.learningActivityLog.groupBy({
+        by: ['userId'],
+        where: { userId: inUsers, ...courseWhere },
+        _max: { timestamp: true },
+        _count: { _all: true },
+      }),
+      prisma.userInteractionLog.groupBy({
+        by: ['userId'],
+        where: { userId: inUsers, ...courseWhere },
+        _max: { timestamp: true },
+        _count: { _all: true },
+      }),
+      // Site-wide only — see the note above.
+      courseId === undefined
+        ? prisma.authEventLog.groupBy({
+            by: ['userId'],
+            where: { userId: inUsers },
+            _max: { timestamp: true },
+          })
+        : Promise.resolve([] as Array<{ userId: number | null; _max: { timestamp: Date | null } }>),
+      prisma.enrollment.groupBy({
+        by: ['userId'],
+        where: { userId: inUsers, ...courseWhere },
+        _max: { lastAccessAt: true },
+      }),
+    ]);
+
+    // 3. The most recent activity row per user, for "what did they last do".
+    //    Addressed by the (userId, timestamp) pairs step 2 already found, so
+    //    this is one query rather than one per user.
+    const activityPeaks = activity.filter(a => a._max.timestamp != null);
+    const lastRows = activityPeaks.length === 0 ? [] : await prisma.learningActivityLog.findMany({
+      where: {
+        OR: activityPeaks.map(a => ({ userId: a.userId, timestamp: a._max.timestamp as Date })),
+      },
+      select: {
+        userId: true, timestamp: true, verb: true,
+        objectType: true, objectTitle: true, courseTitle: true,
+      },
+    });
+
+    const ms = (d: Date | null | undefined): number | null => (d ? d.getTime() : null);
+    const byUser = <T extends { userId: number | null }>(rows: T[]) =>
+      new Map(rows.filter(r => r.userId != null).map(r => [r.userId as number, r]));
+
+    const activityBy = byUser(activity);
+    const interactionBy = byUser(interaction);
+    const authBy = byUser(auth);
+    const enrolBy = byUser(enrolments);
+    // A tie on the peak timestamp would otherwise pick an arbitrary row.
+    const lastActionBy = lastRows.reduce((acc, r) => {
+      const held = acc.get(r.userId);
+      if (!held || r.timestamp > held.timestamp) acc.set(r.userId, r);
+      return acc;
+    }, new Map<number, (typeof lastRows)[number]>());
+
+    const rows = users.map(u => {
+      const sources = {
+        activity: ms(activityBy.get(u.id)?._max.timestamp),
+        interaction: ms(interactionBy.get(u.id)?._max.timestamp),
+        auth: ms(authBy.get(u.id)?._max.timestamp),
+        enrollment: ms(enrolBy.get(u.id)?._max.lastAccessAt),
+      };
+      // Report which signal won, so a surprising date can be traced to the
+      // table it came from without a second query.
+      const winner = (Object.entries(sources) as Array<[LastSeenSource, number | null]>)
+        .reduce<{ at: number | null; source: LastSeenSource | null }>(
+          (best, [name, value]) =>
+            value != null && (best.at == null || value > best.at)
+              ? { at: value, source: name }
+              : best,
+          { at: null, source: null },
+        );
+      const lastSeen = winner.at;
+      const lastSeenSource = winner.source;
+
+      const last = lastActionBy.get(u.id);
+      return {
+        userId: u.id,
+        name: u.fullname,
+        email: u.email,
+        role: u.isAdmin ? 'admin' : u.isInstructor ? 'instructor' : 'student',
+        isActive: u.isActive !== false,
+        status: u.status ?? null,
+        joinedAt: ms(u.createdAt),
+        lastLogin: ms(u.lastLogin),
+        lastSeen,
+        lastSeenSource,
+        sources,
+        events: activityBy.get(u.id)?._count._all ?? 0,
+        interactions: interactionBy.get(u.id)?._count._all ?? 0,
+        lastAction: last
+          ? {
+              verb: last.verb,
+              objectType: last.objectType,
+              objectTitle: last.objectTitle,
+              courseTitle: last.courseTitle,
+              at: ms(last.timestamp),
+            }
+          : null,
+      };
+    });
+
+    // Quietest first is the useful default: the point of the view is to find
+    // people who have stopped showing up. Never-seen sorts to the very top.
+    // userId is an explicit secondary key: two people last seen in the same
+    // millisecond must not swap places between requests.
+    rows.sort((a, b) => (a.lastSeen ?? -1) - (b.lastSeen ?? -1) || a.userId - b.userId);
+
+    const filtered = filters?.search
+      ? rows.filter(r => {
+          const needle = filters.search!.toLowerCase();
+          return r.name.toLowerCase().includes(needle) || r.email.toLowerCase().includes(needle);
+        })
+      : rows;
+
+    return { data: filtered.slice(offset, offset + limit), total: filtered.length, truncated };
   }
 
   /**

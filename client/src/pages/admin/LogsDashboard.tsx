@@ -14,6 +14,7 @@ import {
   MessageSquare,
   X,
   User,
+  Users,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../../components/admin';
@@ -24,6 +25,7 @@ import { InteractionsTab } from './logs/InteractionsTab';
 import { MessagesTab } from './logs/MessagesTab';
 import { ChatbotRegistryTab } from './logs/ChatbotRegistryTab';
 import { ForumLogsTab } from './logs/ForumLogsTab';
+import { UsersTab } from './logs/UsersTab';
 import activityLogger from '../../services/activityLogger';
 import { useTracker } from '../../services/tracker';
 
@@ -71,6 +73,7 @@ export const LogsDashboard = () => {
     { id: 'interactions', label: t('user_interactions'), icon: <MousePointer className="w-4 h-4" /> },
     { id: 'chatbots', label: t('chatbot_registry'), icon: <Bot className="w-4 h-4" /> },
     { id: 'forums', label: t('forum_logs'), icon: <MessageSquare className="w-4 h-4" /> },
+    { id: 'users', label: t('users'), icon: <Users className="w-4 h-4" /> },
   ];
 
   return (
@@ -156,6 +159,10 @@ export const LogsDashboard = () => {
           setExportStatus={setExportStatus}
         />
       )}
+
+      {/* One row per person rather than per event — the other tabs cannot
+          answer "who has gone quiet" without the reader scanning dates. */}
+      {activeTab === 'users' && <UsersTab />}
     </AdminLayout>
   );
 };

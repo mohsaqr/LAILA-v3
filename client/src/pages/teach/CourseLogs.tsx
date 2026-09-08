@@ -2,16 +2,17 @@ import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Activity, Bot } from 'lucide-react';
+import { Activity, Bot, Users } from 'lucide-react';
 import { coursesApi } from '../../api/courses';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { useTheme } from '../../hooks/useTheme';
 import { ActivityLogsTab } from '../admin/logs/ActivityLogsTab';
+import { UsersTab } from '../admin/logs/UsersTab';
 import { ChatbotLogs } from './ChatbotLogs';
 import activityLogger from '../../services/activityLogger';
 
-type TabId = 'activity' | 'chatbot';
+type TabId = 'activity' | 'chatbot' | 'users';
 
 export const CourseLogs = () => {
   const { id } = useParams();
@@ -48,6 +49,7 @@ export const CourseLogs = () => {
   const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
     { id: 'activity', label: t('admin:activity_log'), icon: <Activity className="w-4 h-4" /> },
     { id: 'chatbot', label: t('navigation:chatbot_logs'), icon: <Bot className="w-4 h-4" /> },
+    { id: 'users', label: t('admin:users'), icon: <Users className="w-4 h-4" /> },
   ];
 
   const breadcrumbItems = buildTeachingBreadcrumb(courseId, course?.title, t('navigation:logs'));
@@ -94,6 +96,11 @@ export const CourseLogs = () => {
       {activeTab === 'chatbot' && (
         <ChatbotLogs embedded />
       )}
+
+      {/* Scoped to this course: the roster is its enrolments, and "last seen"
+          counts only activity that touched this course — a site-wide login
+          must not make an absent student look present here. */}
+      {activeTab === 'users' && <UsersTab courseId={courseId} />}
     </div>
   );
 };
