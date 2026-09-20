@@ -62,6 +62,27 @@ export const GOOGLE_FONTS_FILES = 'https://fonts.gstatic.com';
  * Directive names are camelCase because that is what helmet expects; the nginx
  * generator converts them to the kebab-case the header actually uses.
  */
+/**
+ * Extra origins allowed in `frame-src`, from `EXTRA_FRAME_SRC`.
+ *
+ * Validated rather than interpolated: a stray token here is a hole in the
+ * policy for every page, so anything that is not a plain https origin is
+ * dropped and the rest are kept.
+ */
+export function extraFrameSrc(raw = process.env.EXTRA_FRAME_SRC): string[] {
+  if (!raw) return [];
+  return raw
+    .split(/[\s,]+/)
+    .map((o) => o.trim())
+    .filter(Boolean)
+    .filter((o) => {
+      // No wildcards, no paths, no schemes other than https — and no
+      // "'unsafe-inline'"-style tokens smuggled in through configuration.
+      if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?$/.test(o)) return false;
+      return true;
+    });
+}
+
 export const CSP_DIRECTIVES = {
   defaultSrc: ["'self'"],
 
@@ -138,6 +159,15 @@ export const CSP_DIRECTIVES = {
     'https://www.youtube.com',
     'https://www.youtube-nocookie.com',
     'https://player.vimeo.com',
+    // Origins this instance additionally frames: LTI tools, and anything the
+    // Embed block points at. Space-separated in EXTRA_FRAME_SRC.
+    //
+    // It has to be configuration rather than a literal, because which tools an
+    // instance registers is an instance's business — but it cannot be dynamic
+    // per request either: nginx serves the SPA's index.html from disk without
+    // ever reaching Express, so the header is baked at generation time.
+    // Changing it means re-running `npm run csp:generate` and reloading nginx.
+    ...extraFrameSrc(),
   ],
 
   objectSrc: ["'none'"],

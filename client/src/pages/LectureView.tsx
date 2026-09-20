@@ -25,6 +25,8 @@ import { safeEmbedSrc } from '../components/teach/lesson-editor/EmbedNodeView';
 import { marked } from 'marked';
 import { PluginSlot } from '../plugins/PluginSlot';
 import { parsePluginKey } from '../plugins/keys';
+import { LtiLaunch } from '../components/lti/LtiLaunch';
+import { parseLtiSection } from '../components/lti/section';
 import { sanitizeHtml, isHtmlContent } from '../utils/sanitize';
 import { TrackedContent } from '../components/common/TrackedContent';
 import activityLogger from '../services/activityLogger';
@@ -416,6 +418,24 @@ export const LectureView = () => {
             />
           </div>
         );
+
+      case 'lti': {
+        // The tool reference lives in `content` as JSON. A malformed value is
+        // an authoring accident, not a reason to break the lesson.
+        const cfg = parseLtiSection(section.content);
+        if (!cfg) return null;
+        return (
+          <div key={section.id} className="mb-6">
+            <LtiLaunch
+              toolId={cfg.toolId}
+              toolName={cfg.toolName ?? section.title ?? 'External tool'}
+              courseId={courseId ? Number(courseId) : null}
+              sectionId={section.id}
+              height={cfg.height}
+            />
+          </div>
+        );
+      }
 
       default:
         // A type this build does not know is either a plugin's block or a row

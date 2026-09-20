@@ -150,6 +150,7 @@ import {
 } from './pages/admin';
 import { PromptBlocksManagement } from './pages/admin/PromptBlocksManagement';
 import { PluginsAdmin } from './pages/admin/PluginsAdmin';
+import { LtiAdmin } from './pages/admin/LtiAdmin';
 import { PluginToolPage } from './pages/PluginToolPage';
 
 // User pages
@@ -1038,6 +1039,14 @@ function App() {
 
         {/* Admin routes — /admin frontpage now lives at /dashboard for admins */}
         <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
+        <Route
+          path="/admin/lti"
+          element={
+            <ProtectedRoute requireAdmin>
+              <LtiAdmin />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/admin/plugins"
           element={

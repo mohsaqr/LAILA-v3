@@ -1145,5 +1145,9 @@
   "enter_course_code": "Syötä kurssikoodi",
   "labs": "Laboratoriot",
   "plugin_tool_missing": "Tämä työkalu ei ole käytettävissä. Sen tarjoava lisäosa on voitu poistaa käytöstä tai poistaa kokonaan.",
-  "plugin_lab_missing": "Tämä laboratorio vaatii lisäosan, joka ei ole tällä hetkellä käytettävissä. Tallennettuun työhön ei ole koskettu — pyydä ylläpitäjää ottamaan lisäosa käyttöön."
+  "plugin_lab_missing": "Tämä laboratorio vaatii lisäosan, joka ei ole tällä hetkellä käytettävissä. Tallennettuun työhön ei ole koskettu — pyydä ylläpitäjää ottamaan lisäosa käyttöön.",
+  "lti_launch_notice": "Tämä avaa ulkoisen työkalun. Nimesi ja kurssisi voidaan jakaa sen kanssa.",
+  "lti_open_tool": "Avaa {{name}}",
+  "lti_launch_failed": "Tätä työkalua ei voitu avata.",
+  "lti_frame_blocked": "Työkalu ei ilmestynyt. Ylläpitäjän voi olla tarpeen sallia sen osoitteen upottaminen (EXTRA_FRAME_SRC)."
 }

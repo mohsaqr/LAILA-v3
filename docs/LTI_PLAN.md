@@ -1,9 +1,29 @@
 # LTI 1.3 — a plan
 
-> **Status: proposal, nothing implemented.** Written 2026-09-21. LAILA supports
-> no LTI, SCORM, xAPI-LRS or Common Cartridge today. (`xAPI` appears in the
-> codebase only as borrowed *vocabulary* for activity-log verbs — there is no
-> LRS endpoint.)
+> **Status: Phases 1–3 implemented (2026-09-21).** Registration, resource-link
+> launch and Deep Linking all work; **AGS and NRPS are not built**, per this
+> plan's own advice to build them only on demand. SCORM, xAPI-LRS and Common
+> Cartridge remain unsupported. (`xAPI` appears in the codebase only as
+> borrowed *vocabulary* for activity-log verbs — there is no LRS endpoint.)
+>
+> **The roles question was resolved as proposed**: `signIdToken` is untouched
+> and asserts no roles; `lti.service.ts` signs its own tokens with roles taken
+> from `CourseRole` for that course only. `isAdmin`/`isInstructor` are never
+> read — a test asserts the queries do not even select them.
+>
+> | Built | Where |
+> |---|---|
+> | Tool registration + admin UI | `routes/lti.routes.ts`, `pages/admin/LtiAdmin.tsx` (`/admin/lti`) |
+> | Resource-link launch | `services/lti.service.ts`, `components/lti/LtiLaunch.tsx` |
+> | Deep Linking (incl. verifying tool JWTs via JWKS) | `verifyToolToken`, `POST /api/lti/deep-link` |
+> | `lti` lecture section type | `components/lti/section.ts`, wired in `LectureView` |
+> | Configurable `frame-src` | `EXTRA_FRAME_SRC`, `config/csp.ts` |
+>
+> 53 tests (42 service, 11 route). Two things the tests changed in the design:
+> protocol validation now runs **before** the session check, so a tool being
+> integrated gets "your response_mode is wrong" rather than "log in"; and
+> `/authorize` uses `optionalAuth`, because `authenticateToken` answered with
+> LAILA's own error shape, which a tool cannot interpret.
 
 ## The short version
 

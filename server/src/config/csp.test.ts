@@ -13,6 +13,7 @@ import {
   WEBR_PACKAGE_REPO,
   buildCspHeader,
   renderSecurityHeaderBlocks,
+  extraFrameSrc,
 } from './csp.js';
 
 /**
@@ -264,5 +265,44 @@ describe('CSP - external stylesheets', () => {
     const scriptOrigins = CSP_DIRECTIVES.scriptSrc.filter(s => s.startsWith('https://'));
     expect(scriptOrigins).toContain(PYODIDE_CDN);
     expect(CSP_DIRECTIVES.styleSrc).toContain(PYODIDE_CDN);
+  });
+});
+
+describe('extraFrameSrc', () => {
+  it('is empty when unset', () => {
+    expect(extraFrameSrc(undefined)).toEqual([]);
+    expect(extraFrameSrc('')).toEqual([]);
+  });
+
+  it('accepts https origins, space- or comma-separated', () => {
+    expect(extraFrameSrc('https://tool.example https://b.example:8443')).toEqual([
+      'https://tool.example',
+      'https://b.example:8443',
+    ]);
+    expect(extraFrameSrc('https://a.example, https://b.example')).toEqual([
+      'https://a.example',
+      'https://b.example',
+    ]);
+  });
+
+  // A stray token here is a hole in the policy for every page on the instance,
+  // so configuration is validated rather than interpolated.
+  it.each([
+    '*',
+    'https://*.example',
+    'http://tool.example',
+    'https://tool.example/path',
+    "'unsafe-inline'",
+    'data:',
+    'javascript:alert(1)',
+    "https://ok.example 'unsafe-eval'",
+  ])('drops the unsafe value %s', (value) => {
+    expect(extraFrameSrc(value)).not.toContain(value);
+  });
+
+  it('keeps the good origins when one entry is bad', () => {
+    expect(extraFrameSrc('https://good.example * http://bad.example')).toEqual([
+      'https://good.example',
+    ]);
   });
 });

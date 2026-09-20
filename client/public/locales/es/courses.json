@@ -1145,5 +1145,9 @@
   "enter_course_code": "Introduce el código del curso",
   "labs": "Laboratorios",
   "plugin_tool_missing": "Esta herramienta no está disponible. Es posible que el complemento que la proporciona se haya desactivado o eliminado.",
-  "plugin_lab_missing": "Este laboratorio necesita un complemento que no está disponible actualmente. El trabajo guardado permanece intacto: pide a una persona administradora que active el complemento."
+  "plugin_lab_missing": "Este laboratorio necesita un complemento que no está disponible actualmente. El trabajo guardado permanece intacto: pide a una persona administradora que active el complemento.",
+  "lti_launch_notice": "Esto abre una herramienta externa. Es posible que se compartan con ella tu nombre y tu curso.",
+  "lti_open_tool": "Abrir {{name}}",
+  "lti_launch_failed": "No se pudo abrir esta herramienta.",
+  "lti_frame_blocked": "La herramienta no ha aparecido. Puede que una persona administradora deba permitir que su dirección se muestre en un marco (EXTRA_FRAME_SRC)."
 }

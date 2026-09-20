@@ -1148,5 +1148,9 @@
   "enter_course_code": "Enter course code",
   "labs": "Labs",
   "plugin_tool_missing": "This tool is not available. The plugin providing it may have been disabled or removed.",
-  "plugin_lab_missing": "This lab needs a plugin that is not currently available. Its saved work is untouched — ask an administrator to enable the plugin."
+  "plugin_lab_missing": "This lab needs a plugin that is not currently available. Its saved work is untouched — ask an administrator to enable the plugin.",
+  "lti_launch_notice": "This opens an external tool. Your name and course may be shared with it.",
+  "lti_open_tool": "Open {{name}}",
+  "lti_launch_failed": "This tool could not be opened.",
+  "lti_frame_blocked": "The tool has not appeared. An administrator may need to allow its address to be framed (EXTRA_FRAME_SRC)."
 }

@@ -74,6 +74,7 @@ import meRoutes from './routes/me.routes.js';
 import presentationRoutes from './routes/presentation.routes.js';
 import oidcRoutes, { discoveryRouter as oidcDiscoveryRouter } from './routes/oidc.routes.js';
 import pluginRoutes from './routes/plugin.routes.js';
+import ltiRoutes from './routes/lti.routes.js';
 import { loadAllPlugins } from './plugins/loader.js';
 
 // Import configuration
@@ -236,6 +237,7 @@ app.use('/api/presentations', presentationLimiter, presentationRoutes);
 // Mounted before the SPA catch-all so /.well-known is not swallowed by it.
 app.use('/', oidcDiscoveryRouter);
 app.use('/api/oidc', oidcRoutes);
+app.use('/api/lti', ltiRoutes);
 // Plugins own everything under /api/plugins, including the sub-routers their
 // own server halves register. Mounted last among the API routers so a plugin
 // can never shadow a built-in route by choosing a clever id.

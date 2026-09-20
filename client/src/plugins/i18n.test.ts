@@ -32,8 +32,15 @@ const load = (lang: string, ns: string): Record<string, string> => {
   return entry[1].default;
 };
 
+/**
+ * The keys this guard covers: everything the plugin and LTI work added.
+ *
+ * Still scoped rather than whole-file, for the reason in the header — the
+ * locale files carry pre-existing drift elsewhere, and a blanket check would
+ * be red from day one and guard nothing.
+ */
 const pluginKeysOf = (dict: Record<string, string>): string[] =>
-  Object.keys(dict).filter((k) => k.startsWith('plugin'));
+  Object.keys(dict).filter((k) => k.startsWith('plugin') || k.startsWith('lti_'));
 
 describe('plugin locale coverage', () => {
   it.each(NAMESPACES)('every plugin key in %s exists in all four languages', (ns) => {
@@ -48,11 +55,22 @@ describe('plugin locale coverage', () => {
     }
   });
 
+  /**
+   * Keys whose value is legitimately identical across languages.
+   *
+   * Only proper nouns from a specification belong here — "Deep Linking" is the
+   * name of an LTI message type that appears in English in every tool's own
+   * documentation, so translating it would make a setting harder to match up,
+   * not easier. The list is explicit and short on purpose: the check below is
+   * worth more than any single exemption.
+   */
+  const SAME_BY_DESIGN = new Set(['lti_deep_linking']);
+
   // An English string copied into fi/es/ar is a missing translation wearing a
   // disguise: it satisfies a presence check while showing English to the user.
   it.each(NAMESPACES)('plugin keys in %s are actually translated', (ns) => {
     const en = load('en', ns);
-    const keys = pluginKeysOf(en);
+    const keys = pluginKeysOf(en).filter((k) => !SAME_BY_DESIGN.has(k));
     for (const lang of LANGS.filter((l) => l !== 'en')) {
       const dict = load(lang, ns);
       const untranslated = keys.filter((k) => dict[k] === en[k]);
